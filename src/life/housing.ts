@@ -104,7 +104,8 @@ function tavernProject() {
 }
 function staffMarkets() {
   town.markets.forEach(mk => {
-    if (!mk.stalls.length || mk.stalls.some(st => st.owner)) return;
+    if (!mk.stalls.length || mk.stalls.some(st => st.owner) || mk.stalls.every(st => st.gone)) return;   // (stalls cleared away: the sellers are in the Market Hall)
+    if (typeof hallStalls === 'function' && hallStalls().some(st => st.owner)) return;
     const adults = npcs.filter(n => n.age >= 16 && n.age < 60 && n.role === 'Worker' && !n.shop && !n.player);
     if (adults.length < 3) return;
     const c = adults.sort((a, b) => marketDist2(a, mk) - marketDist2(b, mk))[0]; if (!c) return;

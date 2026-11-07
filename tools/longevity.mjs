@@ -10,14 +10,18 @@
 import fs from 'node:fs';
 import { launch, openGame, simulate } from '../tests/lib.mjs';
 
-export async function playDays({ days = 30, talksPerDay = 6, turns = 10, seed = 'longevity', rng = 7, file = null } = {}) {
+export async function playDays({ days = 30, talksPerDay = 6, turns = 10, seed = 'longevity', rng = 7, file = null, collect = false } = {}) {
   const browser = await launch();
   const { page, errors } = await openGame(browser, file || new URL('../dist/index.html', import.meta.url).pathname, { rng, town: seed });
-  await page.evaluate(() => {
+  await page.evaluate((collect) => {
     if (!game.player) startPlaying(canControl(byId(game.steer)) ? byId(game.steer) : npcs.find(canControl));
     // trace which topics are told (without changing the game)
+    // optionally collect everything else villagers say: the overheard list and speech bubbles (for tools/lintalk.mjs)
+    window.__heard = []; window.__shouts = []; window.__collect = collect;
+    if (window.__collect) { const a0 = addChatter; addChatter = function (ev) { window.__heard.push({ day: Math.floor(game.time / 1440), topic: ev.topic || '', lines: ev.lines.map(l => ({ who: l.who.first, id: l.who.id, age: l.who.age, text: l.text })), to: [ev.a && ev.a.id, ev.b && ev.b.id] }); return a0.apply(this, arguments); };
+      const s0 = lfShout; lfShout = function (n, t) { window.__shouts.push({ day: Math.floor(game.time / 1440), who: n.first, id: n.id, age: n.age, text: t }); return s0.apply(this, arguments); }; }
     window.__trace = []; const t0 = cvTell; cvTell = function (c, t, layer) { const u = t0.apply(this, arguments); if (u) window.__trace.push({ kind: t.kind, key: t.key, layer, day: Math.floor(game.time / 1440) }); return u; };
-  });
+  }, collect);
   const rows = [];
   for (let d = 0; d < days; d++) {
     for (const hour of [10, 18]) {
@@ -32,7 +36,7 @@ export async function playDays({ days = 30, talksPerDay = 6, turns = 10, seed = 
           for (let k = 0; k < turns; k++) {
             const t = document.getElementById('talk'); if (!t || t.hidden) break;
             const say = t.querySelector('.ta').innerText, opts = [...t.querySelectorAll('[data-k]')].map(b => b.innerText.replace(/^\d+\s*/, '').trim());
-            const row = { day: Math.floor(game.time / 1440), npc: o.id, arch: cvVoice(o).arch, turn: k, say, opts }; out.push(row);
+            const row = { day: Math.floor(game.time / 1440), npc: o.id, me: P.id, arch: cvVoice(o).arch, turn: k, say, opts }; out.push(row);
             if (!opts.length) break; const pick = Math.floor(Math.random() * opts.length); row.picked = opts[pick]; [...t.querySelectorAll('[data-k]')][pick].click();
           }
           if (talkUI.o) closeTalk();
@@ -45,8 +49,9 @@ export async function playDays({ days = 30, talksPerDay = 6, turns = 10, seed = 
     const now = await page.evaluate(() => game.time); const next = (Math.floor(now / 1440) + 1) * 1440 + 6 * 60; await simulate(page, next - now);
   }
   const trace = await page.evaluate(() => window.__trace), names = await page.evaluate(() => npcs.map(n => n.first).concat(npcs.map(n => n.surname || '')).filter(Boolean));
+  const world = collect ? await page.evaluate(() => ({ heard: window.__heard, shouts: window.__shouts, people: npcs.map(n => ({ id: n.id, first: n.first, surname: n.surname || '', age: n.age, infant: !!n.infant, female: !!n.female })), player: game.player ? game.player.id : (byId(game.steer) || {}).id })) : null;
   await browser.close();
-  return { rows, trace, names, errors };
+  return { rows, trace, names, errors, world };
 }
 
 /* ---------------- measuring ---------------- */
