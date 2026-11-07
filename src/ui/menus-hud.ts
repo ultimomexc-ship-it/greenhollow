@@ -45,8 +45,8 @@ function renderTalk() {
   box.hidden = false;
   box.innerHTML = '<div class="tk"><div class="th"><div class="nm"><b>' + esc(nameOf(o)) + '</b><small>' + esc(closenessWord(o, n)) + '</small></div>' +
     '<small class="kh">W S choose · D pick</small><button type="button" class="lv" data-leave="1" title="Leave (A)">Leave <i>A</i></button></div>' +
-    (talkUI.q ? '<div class="tq">' + esc(talkUI.q) + '</div>' : '') + '<div class="ta">' + esc(talkUI.say) + '</div>' +
-    '<div class="topts">' + talkUI.opts.map((op, i) => '<button type="button" data-k="' + esc(op[0]) + '""><span>' + (i + 1) + '</span>' + esc(op[1]) + '</button>').join('') + '</div></div>';
+    (talkUI.q ? '<div class="tq">' + esc(talkUI.q) + '</div>' : '') + '<div class="ta">' + esc(cvSpeak(talkUI.say)) + '</div>' +
+    '<div class="topts">' + talkUI.opts.map((op, i) => '<button type="button" data-k="' + esc(op[0]) + '""><span>' + (i + 1) + '</span>' + esc(cvSpeak(op[1])) + '</button>').join('') + '</div></div>';
   { const tk: any = box.querySelector('.tk'); talkUI.dy = tk ? (tk.offsetHeight / 2 + 10) / (TS * cam.z) : 0; }
   box.querySelectorAll('[data-k]').forEach((b: any) => b.addEventListener('click', () => talkPick(b.dataset.k, b.textContent.replace(/^\d+/, ''))));
   const lv: any = box.querySelector('[data-leave]'); if (lv) lv.addEventListener('click', () => closeTalk());

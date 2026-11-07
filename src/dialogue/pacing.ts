@@ -48,6 +48,7 @@ function sceneFor(n, p, mode?) {
 }
 function talkBegin(n, p) {
   if (typeof eventsBusy === 'function' && eventsBusy()) return null;
+  if (typeof cvNew === 'function' && !(typeof lf2Wanted === 'function' && n.job === 'Guard' && lf2Wanted()[p.id])) { const c0 = cvNew(n, p); if (c0.activity === 'privy' || cvBusyWhy(c0)) return null; }   // busy people brush you off (cv-talk); no scene
   const b = sceneFor(n, p);
   if (!b) return null;
   n.seenSc = n.seenSc || {}; n.seenSc[b.c._key || (b.sc.id + ':' + p.id)] = game.time; (n.lastSceneWith = n.lastSceneWith || {})[p.id] = game.time;

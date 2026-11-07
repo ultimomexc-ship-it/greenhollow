@@ -328,7 +328,7 @@ function lf2HungryPlan(n, tod) {
     const s = lf2Stock(r), g = Object.keys(LF2_SELL[r.kind]).find(g => FOODS.includes(g) && (s[g] || 0) > 0); if (!g) return;
     let got = LF2.on('economy') ? lf2Buy(nn, r, g, 2) : 0;
     if (!got) { s[g]--; nn.inv[g] = (nn.inv[g] || 0) + 1; got = 1; const k = lf2Server(r) || npcs.find(o => LF2_JOBS[o.job] && LF2_JOBS[o.job].room === r.kind && !o.dead);
-      if (k && k !== nn) lfEmit('charity', { actor: k, target: nn, sev: 1, tags: ['kindness', 'generous'], chron: false, text: `${k.first} gave ${nn.first} free ${GOODS[g].name}, seeing how hungry they were` }); }
+      if (k && k !== nn) lfEmit('charity', { actor: k, target: nn, sev: 1, tags: ['kindness', 'generous'], chron: false, text: `${k.first} gave ${nn.first} free ${GOODS[g].name}, seeing how hungry ${cvPron(nn).he} was` }); }
     eatSat(nn, nn.inv);
   } })];
 }

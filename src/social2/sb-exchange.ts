@@ -37,49 +37,36 @@ function sbLoanBetween(a, b) { return (town.sbLoans || []).find(l => l.state !==
 /** witnesses: in the live game, whoever is near (undefined lets lfEmit look); in the pre-simulation, whoever was in the same place */
 const sbW = () => SB.presim ? ((SB.ctx && SB.ctx.witnesses) || []) : undefined;
 
-/* lines for when the player is close enough to overhear */
-const SB_SAY: any = {
-  vent: [['I cannot stand {q}. {why}', 'Hm. I had heard.'], ['Do not get me started on {q}. {why}', 'You are not the only one, believe me.'], ['{q} again. {why}', 'Shh. Not so loud.']],
-  praise: [['Say what you like, {q} is a good sort.', 'I have always thought so.'], ['{q} did right by me. I will not forget it.', 'That is nice to hear.']],
-  console: [['Come here. It will pass.', '…Thank you. I needed that.'], ['You look done in. Sit down a moment.', 'Is it that obvious?']],
-  argue: [['That is not how it was, and you know it!', 'Do not raise your voice at me!'], ['You always do this.', 'And you never listen!']],
-  row: [['We cannot keep living like this!', 'Then do something about it!'], ['Where has the money gone?', 'Do not start. Not now.']],
-  court: [['You look well today.', '…Do I? Thank you.'], ['Walk with me later?', 'I might. I just might.']],
-  borrow: [['I hate to ask… could you spare a few coins? Just until the end of the week.', 'Here. Do not make me regret it.']],
-  refuse: [['Could you spare a few coins? Just a few.', 'I am sorry. I have nothing to spare.']],
-  repay: [['Here. Every coin, like I said.', 'You are as good as your word.']],
-  confide: [['Can I tell you something? You must not repeat it.', 'Of course. I am listening.']],
-};
-function sbSayIfNear(a, b, ty, f) { if (!sbNear(a, b)) return; const L = SB_SAY[ty]; if (!L) return; const [x, y] = anyOf(L), fill = s => s.replace('{q}', f.q || '').replace('{why}', f.why ? cvCap(f.why) + '.' : ''); say(a, b, [[a, fill(x)], [b, fill(y)]]); }
-
+/* the words for each exchange, when the player is close enough to hear them, are in sb-voice.ts (sbSayIfNear, sbSmallIfNear) */
 /* ---------------- the kinds of exchange ---------------- */
 const SBX: any = {
-  small: { u: () => 1, run(a, b) { sbTogether(a, b, 'time together'); bumpKnow(a, b, 1); if (sbCompat(a, b) < -0.35 && Math.random() < 0.18) return SBX.argue.run(a, b); return 'small'; } },
+  small: { u: () => 1, run(a, b) { sbTogether(a, b, 'time together'); bumpKnow(a, b, 1); if (sbCompat(a, b) < -0.35 && Math.random() < 0.18) return SBX.argue.run(a, b); sbSmallIfNear(a, b); return 'small'; } },
   news: { u(a, b) { const pk = lf2PickTale(a, b); if (!pk) return 0; a._pk = pk; return 2 * (1 + 0.6 * sbHas(a, 'gossipy')); }, run(a, b) { lf2Tell(a, b, a._pk.ev, a._pk.reveal, !sbNear(a, b)); return 'news'; } },
   vent: { u(a, b) { const q = sbGrievance(a, b); if (!q) return 0; a._q = q; return 1.3 * (1 + 0.4 * (sbHas(a, 'grumpy') + sbHas(a, 'proud'))) * ((b.aff[q.id] || 0) > 50 ? 0.3 : 1); },
     run(a, b) { const q = a._q, top = sbTopWhy(a, q, -1), why = top ? sbWhyText(a, q, top) : null, tb = Math.max(0, 0.5 + sbTrustOf(b, a) / 200);
       sbRelSet(b, a, q, Math.max(-1, (a.aff[q.id] || 0) / 60), 0.9, top ? top.why : null);
       if ((b.aff[q.id] || 0) > 40) { lfAff(b, a, -2, 'badmouthed a friend'); } else { lfAff(b, q, -2.5 * tb, top ? top.why : 'heard from ' + a.first); lfAff(a, b, 1, 'took my side'); }
       if (top && top.why.startsWith('ev:')) { const ev = lf2EvById(+top.why.slice(3)); if (ev && a.kn && a.kn[ev.id] && !(b.kn && b.kn[ev.id])) lf2Tell(a, b, ev, false, true); }
-      if (!a.player) lfMod(a, 'vent' + q.id, `got ${q.first} off my chest to ${b.first}`, 2, 180); sbNote(a, b, 'vent', q); sbNote(b, a, 'vent', q); sbSayIfNear(a, b, 'vent', { q: q.first, why }); return 'vent'; } },
-  praise: { u(a, b) { const q = sbAdmired(a, b); if (!q) return 0; a._q = q; return 0.5; }, run(a, b) { const q = a._q; sbRelSet(b, a, q, Math.min(1, (a.aff[q.id] || 0) / 60), 0.9, (sbTopWhy(a, q, 1) || {}).why); lfAff(b, q, 1.5 * Math.max(0, 0.5 + sbTrustOf(b, a) / 200), 'heard good of'); sbNote(a, b, 'praise', q); sbNote(b, a, 'praise', q); sbSayIfNear(a, b, 'praise', { q: q.first }); return 'praise'; } },
+      if (!a.player) lfMod(a, 'vent' + q.id, `got ${q.first} off my chest to ${b.first}`, 2, 180); sbNote(a, b, 'vent', q); sbNote(b, a, 'vent', q); sbSayIfNear(a, b, 'vent', sbPr(q, { why, defend: (b.aff[q.id] || 0) > 40 })); return 'vent'; } },
+  praise: { u(a, b) { const q = sbAdmired(a, b); if (!q) return 0; a._q = q; return 0.5; }, run(a, b) { const q = a._q; sbRelSet(b, a, q, Math.min(1, (a.aff[q.id] || 0) / 60), 0.9, (sbTopWhy(a, q, 1) || {}).why); lfAff(b, q, 1.5 * Math.max(0, 0.5 + sbTrustOf(b, a) / 200), 'heard good of'); sbNote(a, b, 'praise', q); sbNote(b, a, 'praise', q); sbSayIfNear(a, b, 'praise', sbPr(q)); return 'praise'; } },
   console: { u(a, b) { const low = b.mood < 35 || (b.grief || 0) > 0 || (b.ill && b.ill.until > game.time) || sbStress(b) >= 2; return low && (a.aff[b.id] || 0) > -5 ? 1.6 * (1 + 0.4 * (sbHas(a, 'generous') + sbHas(a, 'cheerful'))) : 0; },
     run(a, b) { if (!b.player) lfMod(b, 'comfort' + a.id, `comforted by ${a.first}`, 6, 360); lfAff(b, a, 4, 'comforted me'); sbTrust(b, a, 3); sbNote(a, b, 'console', null); sbNote(b, a, 'console', null);
-      lfEmit('comfort', { actor: a, target: b, sev: 1, tags: ['kindness'], witnessIds: sbW(), chron: false, text: `${a.first} sat with ${b.first} when ${cvPron(b).he} was low` }); sbSayIfNear(a, b, 'console', {}); return 'console'; } },
+      lfEmit('comfort', { actor: a, target: b, sev: 1, tags: ['kindness'], witnessIds: sbW(), chron: false, text: `${a.first} sat with ${b.first} when ${cvPron(b).he} was low` }); sbSayIfNear(a, b, 'console', (() => { const lost = b.mourning != null && typeof personById === 'function' ? personById(b.mourning) : null; return { trouble: b.ill && b.ill.until > game.time ? 'ill' : lost ? 'grief' : b.coin < 3 ? 'poor' : b.hunger > 65 ? 'hungry' : 'low', lost: lost ? lost.first : '' }; })()); return 'console'; } },
   shop: { u(a, b) { return a.job && b.job && (LF2_JOBS[a.job] || LF2_JOBS[b.job] || a.job === b.job) ? 0.8 : 0; }, run(a, b) { const same = (a.job || a.cur) === (b.job || b.cur), proud = sbHas(a, 'proud') + sbHas(a, 'greedy') + sbHas(b, 'proud') + sbHas(b, 'greedy');
-      if (same && Math.random() < 0.05 + 0.12 * proud) { const [x, y] = Math.random() < 0.5 ? [a, b] : [b, a]; lfAff(x, y, -3, 'competition'); sbResp(y, x, 1); sbNote(a, b, 'rivalry', null); sbNote(b, a, 'rivalry', null); return 'rivalry'; }
-      sbTogether(a, b, 'work'); sbResp(a, b, 1); sbResp(b, a, 1); sbNote(a, b, 'shop', null); sbNote(b, a, 'shop', null); return 'shop'; } },
+      if (same && Math.random() < 0.05 + 0.12 * proud) { const [x, y] = Math.random() < 0.5 ? [a, b] : [b, a]; lfAff(x, y, -3, 'competition'); sbResp(y, x, 1); sbNote(a, b, 'rivalry', null); sbNote(b, a, 'rivalry', null); sbSayIfNear(x, y, 'rivalry', {}); return 'rivalry'; }
+      sbTogether(a, b, 'work'); sbResp(a, b, 1); sbResp(b, a, 1); sbNote(a, b, 'shop', null); sbNote(b, a, 'shop', null); sbSmallIfNear(a, b, 'shop'); return 'shop'; } },
   family: { u(a, b) { return isKin(a, b) || (a.fam && a.fam.spouse === b.id) ? 1.4 : 0; },
     run(a, b) { const st = sbStress(a) + sbStress(b), row = Math.random() < 0.035 + 0.07 * st - 0.025 * (sbHas(a, 'cheerful') + sbHas(b, 'cheerful'));
-      if (row) { lfEmit('quarrel', { actor: a, target: b, sev: 1, loud: st >= 3, tags: ['embarrass'], witnessIds: sbW(), chron: false, text: `${a.first} and ${b.first} had a row${a.fam && a.fam.spouse === b.id ? ' at home' : ''} ${a.coin + b.coin < 8 ? 'about money' : a.hunger > 60 || b.hunger > 60 ? 'over an empty pot' : npcs.some(k => k.ill && k.ill.until > game.time && (isKin(a, k) || isKin(b, k))) ? 'about who would sit up with the sick' : anyOf(['about the chores', 'about nothing at all, and then about everything', 'over the children', 'about her mother', 'about his mother', 'about a broken pot'])}` });
-        lfAff(a, b, -4, 'row at home'); lfAff(b, a, -4, 'row at home'); sbNote(a, b, 'row', null); sbNote(b, a, 'row', null); sbSayIfNear(a, b, 'row', {}); return 'row'; }
-      sbTogether(a, b, 'family'); lfAff(a, b, 0.6, 'family'); lfAff(b, a, 0.6, 'family'); sbNote(a, b, 'family', null); sbNote(b, a, 'family', null); return 'family'; } },
+      if (row) { const [about, why] = a.coin + b.coin < 8 ? ['money', 'about money'] : a.hunger > 60 || b.hunger > 60 ? ['pot', 'over an empty pot'] : npcs.some(k => k.ill && k.ill.until > game.time && (isKin(a, k) || isKin(b, k))) ? ['sick', 'about who would sit up with the sick'] : anyOf([['chores', 'about the chores'], ['nothing', 'about nothing at all, and then about everything'], ['children', 'over the children'], ['mother', 'about her mother'], ['mother', 'about his mother'], ['brokenpot', 'about a broken pot']]);
+        lfEmit('quarrel', { actor: a, target: b, sev: 1, loud: st >= 3, tags: ['embarrass'], witnessIds: sbW(), chron: false, text: `${a.first} and ${b.first} had a row${a.fam && a.fam.spouse === b.id ? ' at home' : ''} ${why}` });
+        lfAff(a, b, -4, 'row at home'); lfAff(b, a, -4, 'row at home'); sbNote(a, b, 'row', null); sbNote(b, a, 'row', null); sbSayIfNear(a, b, 'row', { about }); return 'row'; }
+      sbTogether(a, b, 'family'); lfAff(a, b, 0.6, 'family'); lfAff(b, a, 0.6, 'family'); sbNote(a, b, 'family', null); sbNote(b, a, 'family', null); sbSmallIfNear(a, b, 'family'); return 'family'; } },
   argue: { u(a, b) { const q = sbDisagree(a, b); a._q = q; const hostile = (a.aff[b.id] || 0) < -25 || (sbTopWhy(a, b, -1) && (a.aff[b.id] || 0) < -10); return (q || hostile) ? 0.55 * (1 + 0.5 * (sbHas(a, 'grumpy') + sbHas(a, 'brave'))) * (1 - 0.6 * sbHas(a, 'shy')) : 0; },
-    run(a, b) { const q = a._q; lfEmit('quarrel', { actor: a, target: b, sev: 1, loud: true, tags: ['embarrass'], witnessIds: sbW(), chron: false, text: q ? `${a.first} and ${b.first} argued about ${q.first}` : `${a.first} and ${b.first} had words in the street` });
-      lfAff(a, b, -5, 'argument'); lfAff(b, a, -5, 'argument'); sbNote(a, b, 'argue', q); sbNote(b, a, 'argue', q); sbSayIfNear(a, b, 'argue', {}); return 'argue'; } },
+    run(a, b) { const q = a._q; lfEmit('quarrel', { actor: a, target: b, sev: 1, loud: true, tags: ['embarrass'], witnessIds: sbW(), chron: false, text: q ? `${a.first} and ${b.first} ${anyOf(['argued about', 'had a row about', 'fell out over'])} ${q.first}` : `${a.first} and ${b.first} ${anyOf(['had words', 'had a shouting match', 'had a proper row', 'nearly came to blows', 'had it out'])} ${(() => { const pl = SB.presim ? '' : placeOf(a); return !pl || pl === 'the lanes' ? anyOf(['in the street', 'in the lane', 'by the well']) : pl === 'the plaza' ? 'on the square' : 'at ' + cvPlace(pl); })()}` });
+      lfAff(a, b, -5, 'argument'); lfAff(b, a, -5, 'argument'); sbNote(a, b, 'argue', q); sbNote(b, a, 'argue', q); sbSayIfNear(a, b, 'argue', q ? sbPr(q) : {}); return 'argue'; } },
   court: { u(a, b) { const single = lf2Single(a) && lf2Single(b) && a.female !== b.female && a.age >= 17 && b.age >= 17; return (a.crush === b.id || (single && (a.aff[b.id] || 0) > 35)) ? 1.1 : 0; },
     run(a, b) { lfAff(a, b, 3, 'courting'); const into = (b.aff[a.id] || 0) > 25 || Math.random() < 0.3; lfAff(b, a, into ? 2.5 : -1, into ? 'courting' : 'pestering me');
-      a.court = a.court || {}; a.court[b.id] = (a.court[b.id] || 0) + 1; sbNote(a, b, 'court', null); sbNote(b, a, 'court', null); sbSayIfNear(a, b, 'court', {});
+      a.court = a.court || {}; a.court[b.id] = (a.court[b.id] || 0) + 1; sbNote(a, b, 'court', null); sbNote(b, a, 'court', null); sbSayIfNear(a, b, 'court', { into });
       if (into && a.court[b.id] >= 3 && (b.aff[a.id] || 0) > 40 && !a.sbCourted) { a.sbCourted = b.id; lfEmit('courting', { actor: a, target: b, sev: 1, tags: ['romance'], witnessIds: sbW(), chron: false, text: `${a.first} and ${b.first} were seen walking out together` }); }
       return 'court'; } },
   borrow: { u(a, b) { return (a.coin < 5 || (a.coin < 9 && sbStress(a) >= 2)) && b.coin >= 12 && !sbLoanBetween(a, b) && a.age >= 16 && b.age >= 16 ? 1.5 : 0; },
@@ -87,16 +74,16 @@ const SBX: any = {
       if (!yes) { lfAff(a, b, -3, 'refused a loan'); sbNote(a, b, 'refused', null); sbNote(b, a, 'asked', null); sbSayIfNear(a, b, 'refuse', {}); return 'refused'; }
       const amt = Math.max(3, Math.min(12, Math.floor(b.coin * 0.3))); b.coin -= amt; a.coin += amt; const L = town.sbLoans || (town.sbLoans = []);
       const loan = { id: L.length + 1, from: b.id, to: a.id, amt, t: game.time, due: game.time + (3 + Math.floor(Math.random() * 4)) * 1440, state: 'open' }; L.push(loan);
-      lfEmit('loan', { actor: b, target: a, sev: 1, tags: ['generous'], witnessIds: [], chron: false, text: `${b.first} lent ${a.first} ${amt} denarii` }); lfAff(a, b, 4, 'lent me money'); sbNote(a, b, 'borrow', null); sbNote(b, a, 'lend', null); sbSayIfNear(a, b, 'borrow', {}); return 'loan'; } },
+      lfEmit('loan', { actor: b, target: a, sev: 1, tags: ['generous'], witnessIds: [], chron: false, text: `${b.first} lent ${a.first} ${amt} denarii` }); lfAff(a, b, 4, 'lent me money'); sbNote(a, b, 'borrow', null); sbNote(b, a, 'lend', null); sbSayIfNear(a, b, 'borrow', { amt }); return 'loan'; } },
   repay: { u(a, b) { const l = sbLoanBetween(a, b); return l && l.to === a.id && a.coin >= l.amt + (lf2Has(a, 'greedy') ? 6 : 0) ? 4 : 0; },
     run(a, b) { const l = sbLoanBetween(a, b); a.coin -= l.amt; b.coin += l.amt; const late = l.state === 'late'; l.state = 'paid';
       sbTrust(b, a, late ? 6 : 12, 'paid me back'); lfAff(b, a, late ? 3 : 5, 'paid me back'); lfEmit('repaid', { actor: a, target: b, sev: 1, tags: ['honest'], witnessIds: [], chron: false, text: `${a.first} paid back the ${l.amt} denarii ${cvPron(a).he} owed ${b.first}` });
-      sbNote(a, b, 'repay', null); sbNote(b, a, 'repaid', null); sbSayIfNear(a, b, 'repay', {}); return 'repay'; } },
+      sbNote(a, b, 'repay', null); sbNote(b, a, 'repaid', null); sbSayIfNear(a, b, 'repay', { amt: l.amt, late }); return 'repay'; } },
   confide: { u(a, b) { const L = cvLife(a); return L.secret && !L.secretKnownBy.includes(b.id) && (a.aff[b.id] || 0) > 50 && sbTrustOf(a, b) > 15 ? 0.7 : 0; },
     run(a, b) { cvLife(a).secretKnownBy.push(b.id); sbTrust(a, b, 3); lfAff(b, a, 3, 'confided'); lfAff(a, b, 2, 'confided'); sbNote(a, b, 'confide', a); sbNote(b, a, 'confided', a); sbSayIfNear(a, b, 'confide', {}); return 'confide'; } },
   leak: { u(a, b) { if (!lf2Has(a, 'gossipy') && (a.drunk || 0) < 40) return 0; const s = npcs.find(q => q !== a && q !== b && !q.dead && q.cvLife && q.cvLife.secret && q.cvLife.secretKnownBy.includes(a.id) && !q.cvLife.secretOut && (a.aff[q.id] || 0) < 30); a._s = s; return s ? 0.6 : 0; },
     run(a, b) { const q = a._s, L = q.cvLife; const ev = lfEmit('secret', { actor: q, sev: 1, tags: ['scandal'], witnessIds: [], chron: false, text: `${q.first} ${cvThird(L.secret.text, q)}` }); L.secretOut = ev.id; delete (q.kn || {})[ev.id];
-      (a.kn || (a.kn = {}))[ev.id] = { t: game.time, from: null, cert: 0.9, a: true, imp: 0.6 }; lf2Tell(a, b, ev, false, true); sbTrust(q, a, -20); sbNote(a, b, 'leak', q); sbNote(b, a, 'heard secret', q); return 'leak'; } },
+      (a.kn || (a.kn = {}))[ev.id] = { t: game.time, from: null, cert: 0.9, a: true, imp: 0.6 }; lf2Tell(a, b, ev, false, true); sbTrust(q, a, -20); sbNote(a, b, 'leak', q); sbNote(b, a, 'heard secret', q); sbSayIfNear(a, b, 'leak', sbPr(q, { secret: cvThird(L.secret.text, q) })); return 'leak'; } },
 };
 /** one exchange between a and b; returns what kind it was */
 function sbExchange(a, b, ctx?) {

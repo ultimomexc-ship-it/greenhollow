@@ -68,15 +68,15 @@ function cvTellRel(c, t, layer): CvUtt | null {
 
 /* ---------------- conversations they have had today ---------------- */
 const CV_CONVSAY: any = {
-  vent: (w, q) => [`${w.first} was going on to me about ${q.first} this morning. On and on.`, `I have had an earful from ${w.first} about ${q.first} already today.`],
-  praise: (w, q) => [`${w.first} was singing ${q.first}'s praises to me earlier. Funny, I had never heard that before.`],
-  console: (w) => [`I sat with ${w.first} for a while earlier. ${cvCap(cvPron(w).he)} is not doing well.`],
-  row: (w) => [`${w.first} and I had words at home this morning. I do not want to talk about it. …Well. Maybe a little.`],
-  argue: (w) => [`${w.first} and I had a proper argument earlier. I am still turning it over.`],
-  borrow: (w) => [`I had to ask ${w.first} for a loan. Do not look at me like that.`], lend: (w) => [`${w.first} came to me for money this morning. I said yes. I hope I do not regret it.`],
-  refused: (w) => [`I asked ${w.first} for a few coins and ${cvPron(w).he} said no. After everything.`], asked: (w) => [`${w.first} asked me for money. I said no. I feel bad about it, but I have little enough.`],
-  repaid: (w) => [`${w.first} paid me back today. Every coin. I had half given up.`], court: (w) => [`I walked with ${w.first} for a while this morning. …That is all. Why are you smiling?`],
-  'heard secret': (w, q) => [`${w.first} told me something about ${q ? q.first : 'somebody'} that I was not supposed to hear.`], rivalry: (w) => [`${w.first} is at it again at work. Always has to be first, always has to be best.`],
+  vent: (w, q) => [`${w.first} was going on to me about ${q.first} this morning. On and on.`, `I've had an earful from ${w.first} about ${q.first} already today.`, `${w.first} cornered me about ${q.first}. I couldn't get a word in.`],
+  praise: (w, q) => [`${w.first} was singing ${q.first}'s praises to me earlier. Funny, I'd never heard that before.`, `${w.first} told me ${q.first} is a good sort. I was surprised. Pleasantly.`],
+  console: (w) => [`I sat with ${w.first} for a while earlier. ${cvCap(cvPron(w).he)}'s not doing well.`, `${w.first} needed somebody to sit with. So I sat.`],
+  row: (w) => [`${w.first} and I had words at home this morning. I don't want to talk about it. …Well. Maybe a little.`, `We had a row, ${w.first} and me. The neighbours will have heard. The neighbours always hear.`],
+  argue: (w) => [`${w.first} and I had a proper argument earlier. I'm still turning it over.`, `I had words with ${w.first}. I said things. ${cvCap(cvPron(w).he)} said worse things.`],
+  borrow: (w) => [`I had to ask ${w.first} for a loan. Don't look at me like that.`, `${w.first} lent me a few coins. I'll pay it back. I will.`], lend: (w) => [`${w.first} came to me for money this morning. I said yes. I hope I don't regret it.`, `I lent ${w.first} a few coins. Don't tell anyone; they'll all be round.`],
+  refused: (w) => [`I asked ${w.first} for a few coins and ${cvPron(w).he} said no. After everything.`, `${w.first} turned me down. For a loan. I won't ask again.`], asked: (w) => [`${w.first} asked me for money. I said no. I feel bad about it, but I've little enough.`],
+  repaid: (w) => [`${w.first} paid me back today. Every coin. I'd half given up.`, `${w.first} came round with the money. All of it. People surprise you.`], court: (w) => [`I walked with ${w.first} for a while this morning. …That's all. Why are you smiling?`, `${w.first} and I went the long way round the square. Twice. It was a long square.`],
+  'heard secret': (w, q) => [`${w.first} told me something about ${q ? q.first : 'somebody'} that I wasn't supposed to hear.`, `I know something about ${q ? q.first : 'somebody'} now. ${w.first} told me. I wish ${cvPron(w).he} hadn't.`], rivalry: (w) => [`${w.first} is at it again at work. Always has to be first, always has to be best.`, `${w.first} told me how well ${cvPron(w).he}'s doing. Twice. In case I missed it.`],
 };
 function cvConvTopics(c): CvTopic[] {
   const o = c.o, p = c.p, out: CvTopic[] = [];

@@ -141,13 +141,13 @@ LF2.tickers.push(() => {
     if ((n.drunk || 0) >= 65 && !n.player && Math.random() < 0.04 && (n.lf2DrunkT || 0) < game.time) {
       n.lf2DrunkT = game.time + 90; const loud = h >= 22 || h < 5;
       const k = Math.random();
-      if (k < 0.45) { lfShout(n, anyOf(['♪ Oh the shepherd had a goat, and the goat had a... hic ♪', '♪ Drink to the emperor! Drink to his horse! ♪', '♪ Laaa la la LAAA ♪'])); lfEmit('sing', { actor: n, sev: 1, loud, tags: loud ? ['drunk', 'nuisance'] : ['drunk', 'funny'], chron: false, text: `${n.first} sang at the top of their voice, very drunk` }); }
+      if (k < 0.45) { lfShout(n, anyOf(['♪ Oh the shepherd had a goat, and the goat had a... hic ♪', '♪ Drink to the emperor! Drink to his horse! ♪', '♪ Laaa la la LAAA ♪'])); lfEmit('sing', { actor: n, sev: 1, loud, tags: loud ? ['drunk', 'nuisance'] : ['drunk', 'funny'], chron: false, text: `${n.first} sang at the top of ${cvPron(n).his} voice, very drunk` }); }
       else if (k < 0.75) { lfShout(n, anyOf(['Whoops! Who moved the floor?', '*hic* I am FINE.', 'I love you all. Every one of you.'])); lfEmit('stumble', { actor: n, sev: 1, tags: ['drunk', 'embarrass'], chron: false, text: `${n.first} fell flat on their face, drunk` }); }
       else { const foe = inT.find(o => o !== n && ((n.aff[o.id] || 0) <= -5 || ((o.drunk || 0) > 70 && Math.random() < 0.25)) && !o.player); if (foe) lf2Brawl(n, foe); }
     }
   }
   // dice between two patrons
-  if (inT.length >= 2 && Math.random() < 0.25) { const a = anyOf(inT.filter(o => !o.player)), b = anyOf(inT.filter(o => o !== a && !o.player)); if (a && b && a.coin >= 3 && b.coin >= 3 && (lf2Has(a, 'jovial') || lf2Has(a, 'greedy') || a.drunk > 30)) { const res = lf2Dice(a, b, 2 + Math.floor(Math.random() * 4), lf2Has(a, 'greedy') && Math.random() < 0.4); if (res && Math.random() < 0.4) say(res.win, res.lose, [[res.win, anyOf(['Sixes! Pay up.', 'The gods love me tonight!'])], [res.lose, res.caught ? 'Those dice are loaded!' : anyOf(['Again. Double or nothing.', 'Bah.'])]]); } }
+  if (inT.length >= 2 && Math.random() < 0.25) { const a = anyOf(inT.filter(o => !o.player)), b = anyOf(inT.filter(o => o !== a && !o.player)); if (a && b && a.coin >= 3 && b.coin >= 3 && (lf2Has(a, 'jovial') || lf2Has(a, 'greedy') || a.drunk > 30)) { const res = lf2Dice(a, b, 2 + Math.floor(Math.random() * 4), lf2Has(a, 'greedy') && Math.random() < 0.4); if (res && Math.random() < 0.4) say(res.win, res.lose, [[res.win, sbPick(['Sixes! Pay up.', 'The gods love me tonight!', 'Mine! Hand it over.', 'Read them and weep.', 'Ha! Three times running!', 'Lucky hands. Always have had.'])], [res.lose, res.caught ? 'Those dice are loaded!' : sbPick(['Again. Double or nothing.', 'Bah.', 'You\'re cheating. I can\'t prove it, but you are.', 'That\'s my supper you\'ve just won.', 'One more. Just one.', 'I\'m going home. After one more.'])]]); } }
 });
 
 /* ---------------- doors barred at night ---------------- */

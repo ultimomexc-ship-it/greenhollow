@@ -53,6 +53,16 @@ a flirt, gossip, a lie) is part of the sentence, and the person answers the atti
 - `node tools/longevity.mjs [days] [talks/day] [turns] [seed] [--file=other.html]` measures freshness (new templates, new facts per day) and readability over many days; `node tools/sift.mjs [days]` counts story-shaped patterns the village produces on its own. Findings are in NOTES.md.
 - Speak events through `cvMe(o, sbText(o, ev))`, not `ev.text`: it gives the speaker's own version and turns their name into I/me and the player's into you.
 - `cv-rules.ts`: lines chosen by the facts of the moment (most specific rule wins) with fill-ins; every line is chosen by what the *listener* heard least recently.
+- `cv-speech.ts`: `cvSpeak(text)` contracts speech on the way out ("do not" -> "don't", "is it not" -> "isn't it"; not at a clause end, not "I have a ...").
+  Every speech surface calls it (talk box and options in `renderTalk`, bubbles and Overheard in `drainEvents`, `playerSay`). Banks may be written either way.
+- `cv-answers.ts`: every follow-up option has its own `then` answer (what somebody is like, how they are taking it, how you know, how it started ...);
+  an option without one only deepens its subject. Ask-about (`cvAskAbout`): people, news, old stories and places the player knows; "never heard of it"
+  gives a `tellit` hook so you can tell them. New follow-ups need an answer function, not a fall-through.
+- Never name the speaker or the player in the third person in speech: run event/chronicle text through `cvSpeechOf(o, text, listener)` (first names,
+  no clock times, the speaker as I, the listener as you).
+- `node tools/lintalk.mjs [days] [talks] [turns] [seed]` flags what reads wrong (self/player in the third person, repeats, clunky pivots, infants as topics,
+  full names, clock times, child lines from adults, uncontracted speech, broken grammar, news told about the listener, repeated overheard pairs) and prints
+  question -> answer pairs to read. A test runs it.
 
 ## The social simulation (src/social2/sb-*.ts; design in docs/social-simulation.md)
 The village lives without the player: the simulation owns the truth (events), each villager owns what they believe, conversation expresses it.
@@ -61,7 +71,10 @@ The village lives without the player: the simulation owns the truth (events), ea
   they dislike, lose the name), second-order beliefs (`o.sbRel['a:b']` = what they think a feels about b, and why), the reason ledger (`o.why[id]`, written by `lfAff(a, b, v, why)`),
   trust and respect (`o.trust`, `o.resp`), `sbWhyText` (a reason in the speaker's words).
 - `sb-exchange.ts`: background exchanges between people who are near each other and free (`SBX`: small talk, news, vent, praise, console, shop/rivalry, family/row,
-  argue, court, borrow, repay, confide, leak). Each has consequences; text only appears if the player is near (`sbSayIfNear`). `sbCompat` is a pair's chemistry. Loans live in `town.sbLoans`.
+  argue, court, borrow, repay, confide, leak). Each has consequences; text only appears if the player is near. `sbCompat` is a pair's chemistry. Loans live in `town.sbLoans`.
+- `sb-voice.ts`: the words. `sbSayIfNear(a, b, kind, facts)` voices an exchange with its facts (who, why, how much, what the row is about); `sbNewsLines` is gossip
+  in the teller's version; `sbSmallTalk(a, b)` is what people say when they bump into each other (also `makeConvo`), drawn from their lives (family by name,
+  where somebody is, shared news, work, prices, the tide). `sbPick` chooses what the player has heard least recently.
 - `sb-life.ts`: life events once a day (illness and sick visits, lost and found coins, pilfering with a suspect, windfalls, catches, a business week, deliveries),
   ill people in bed, parents fetching food for a hungry child.
 - `sb-presim.ts`: 60 days of abstract village life before arrival (meals, work, the street, the tavern), seeded by the town seed, money-neutral, ~25 ms.
@@ -75,7 +88,7 @@ The village lives without the player: the simulation owns the truth (events), ea
 - Current suite: load and run a day, render without errors, nobody starves in 12 days (three towns),
   the controls (Shift toggles crouching and nothing else has a key; crouching pushes people and swaps against a wall, standing talks; barrels are pushed standing and searched crouching; sleepers), conversations (specific openers, long random talks without dead ends or repeats, insults and sympathy, unlocking layers, memory, witnesses, the arrest), sim speed under 3 s per game-day (about 0.7 s now),
   the social simulation (the pre-simulation is deterministic, fast and leaves nobody a blank slate; news spreads gradually and changes; talk uses beliefs and you can contradict a version),
-  readability and a week of freshness (26 tests, about 2 minutes).
+  readability and a week of freshness, the dialogue lint, every follow-up answered and ask-about, overheard small talk from real lives (32 tests, about 3 minutes).
 - The random stream is shared, so any change shifts every later random draw: a test that suddenly fails in one town is often exposing a real
   weakness that luck was hiding (that is how children starving with dole grain in their pockets was found). Find the cause before changing the test.
 - When behaviour changes on purpose, tests may need new expectations; when it changes by accident, they catch it.

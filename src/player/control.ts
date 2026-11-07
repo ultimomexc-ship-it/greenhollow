@@ -14,7 +14,7 @@ function releasePlayer() {
   game.player = null; n.player = null; n.pose = 'stand'; n.tool = null; n.hold = null;
   if (!n.dead) { n.plan = null; n.si = 0; n.stepStarted = false; n.path = []; n.moving = false; n.x = n.tx; n.y = n.ty; }
 }
-function playerSay(n, text) { n.player.msg = text; n.player.msgAt = clk(); }
+function playerSay(n, text) { n.player.msg = cvSpeak(text); n.player.msgAt = clk(); }
 const nodeAt = (x, y) => { const k = y * W + x; return town.nodes.find(nd => nd.x === x && nd.y === y && nd.amt >= 1); };
 const cropAt = (x, y) => town.crops.find(c => c.x === x && c.y === y);
 function siteAtTile(x, y) {
