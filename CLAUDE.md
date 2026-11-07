@@ -7,7 +7,7 @@ crime and a town watch, drawn on a canvas. The owner is hands-off with GitHub: d
 ## Commands
 - `npm run build`: joins `src/` into `dist/index.html`, the single self-contained file that is played and published.
 - `npm run typecheck`: TypeScript check (`tsc --noEmit`). Must stay at zero errors.
-- `npm test`: build, typecheck, then the headless-browser tests in `tests/run.mjs` (about 45 s).
+- `npm test`: build, typecheck, then the headless-browser tests in `tests/run.mjs` (about 2 minutes).
   `node tests/run.mjs food` runs only tests whose name contains "food".
 - After changing `src/`, run `npm run build` and commit `dist/index.html` with the change (CI checks it is up to date).
 
@@ -50,13 +50,33 @@ a flirt, gossip, a lie) is part of the sentence, and the person answers the atti
   Avoid generic filler ("That is interesting", "It is complicated", "Anything else?"): `CV_BANNED` and the tests reject it.
 - `node tools/talk.mjs [seed] [people] [turns] [random|first]` prints real conversations; read them after every content change.
 - `node tools/longevity.mjs [days] [talks/day] [turns] [seed] [--file=other.html]` measures freshness (new templates, new facts per day) and readability over many days; `node tools/sift.mjs [days]` counts story-shaped patterns the village produces on its own. Findings are in NOTES.md.
+- Speak events through `cvMe(o, sbText(o, ev))`, not `ev.text`: it gives the speaker's own version and turns their name into I/me and the player's into you.
 - `cv-rules.ts`: lines chosen by the facts of the moment (most specific rule wins) with fill-ins; every line is chosen by what the *listener* heard least recently.
+
+## The social simulation (src/social2/sb-*.ts; design in docs/social-simulation.md)
+The village lives without the player: the simulation owns the truth (events), each villager owns what they believe, conversation expresses it.
+- `sb-core.ts`: each person's **version** of an event (`o.kn[id]`: `who` they blame, `ext` extra detail, `sev2`, `m` times changed, `hop`, `sus` = only a suspicion),
+  `sbKind` (own / fact / hearsay / rumour), importance and forgetting (`sbImp`, `sbTrim`), distortion when retold (`sbPassOn`: exaggerate, soften for a friend, pin it on someone
+  they dislike, lose the name), second-order beliefs (`o.sbRel['a:b']` = what they think a feels about b, and why), the reason ledger (`o.why[id]`, written by `lfAff(a, b, v, why)`),
+  trust and respect (`o.trust`, `o.resp`), `sbWhyText` (a reason in the speaker's words).
+- `sb-exchange.ts`: background exchanges between people who are near each other and free (`SBX`: small talk, news, vent, praise, console, shop/rivalry, family/row,
+  argue, court, borrow, repay, confide, leak). Each has consequences; text only appears if the player is near (`sbSayIfNear`). `sbCompat` is a pair's chemistry. Loans live in `town.sbLoans`.
+- `sb-life.ts`: life events once a day (illness and sick visits, lost and found coins, pilfering with a suspect, windfalls, catches, a business week, deliveries),
+  ill people in bed, parents fetching food for a hungry child.
+- `sb-presim.ts`: 60 days of abstract village life before arrival (meals, work, the street, the tavern), seeded by the town seed, money-neutral, ~25 ms.
+- Conversation side: `dialogue/cv-social.ts` (hedges, `cvMe`/`cvYou` first-person rewriting, "who cannot stand whom" and "today I talked to…" topics,
+  contradicting a version with "I heard it was X").
+- Measure with `node tools/network.mjs [days] [seed]` (the village at arrival, how news travels, versions, wrong blame) and `node tools/sift.mjs [days]`.
 
 ## Tests
 - `tests/lib.mjs` loads `dist/index.html` deterministically: seeded `Math.random`, a fake clock, frame loop
   held, the harness steps the sim (`simulate(page, minutes)`) the way the frame loop does. Same seed, same result.
 - Current suite: load and run a day, render without errors, nobody starves in 12 days (three towns),
-  the hold-a-key controls (push people and crates, swap, pull, Shift, R, sleepers), conversations (specific openers, long random talks without dead ends or repeats, insults and sympathy, unlocking layers, memory, witnesses, the arrest), sim speed under 3 s per game-day (about 0.6 s now).
+  the hold-a-key controls (push people and crates, swap, pull, Shift, R, sleepers), conversations (specific openers, long random talks without dead ends or repeats, insults and sympathy, unlocking layers, memory, witnesses, the arrest), sim speed under 3 s per game-day (about 0.7 s now),
+  the social simulation (the pre-simulation is deterministic, fast and leaves nobody a blank slate; news spreads gradually and changes; talk uses beliefs and you can contradict a version),
+  readability and a week of freshness (26 tests, about 2 minutes).
+- The random stream is shared, so any change shifts every later random draw: a test that suddenly fails in one town is often exposing a real
+  weakness that luck was hiding (that is how children starving with dole grain in their pockets was found). Find the cause before changing the test.
 - When behaviour changes on purpose, tests may need new expectations; when it changes by accident, they catch it.
 
 ## Performance tools

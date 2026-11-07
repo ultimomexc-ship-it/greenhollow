@@ -73,7 +73,8 @@ turn friends against each other; loan coins with interest and send a collector.
    the crime scenarios (purse snatch seen/unseen, arrest choices, cell lock) into tests, and the
    frame-rate check; gradually replace `any` with real types.
 2. Rebalance food so the dole is rarely needed.
-3. Villager goals (better job, marriage, revenge) so the town is eventful without the player.
+3. ~~Villager goals so the town is eventful without the player.~~ Partly done: the social simulation (Nov 2026, below).
+   Still to do: ambitions that drive plans (a better job, a house, a marriage), opinions of businesses and traditions.
 4. Roman art: guards, temple, baths, shops.
 5. Real check on a phone.
 
@@ -112,3 +113,12 @@ Conclusion: longevity has to come from new situations (the simulation) and new i
 Next: villagers with motives (borrow/lend and debts, quarrels, favours, courtship, family friction, work rivalry),
 story threads found by sifting, rumours that change as they spread; measure with sift (stories a week, share of villagers
 in stories) and longevity (new facts a day). Cut stand-alone filler reactions ("Hm.", "Ha!").
+
+## Autonomous social simulation (Nov 2026)
+Design and measurements: docs/social-simulation.md; how it works: CLAUDE.md. Villagers talk to each other with consequences, stories change as they
+travel (and get pinned on the wrong person), feelings have reasons, people know who dislikes whom, loans are made, repaid and defaulted on,
+people fall ill and are visited, and 60 days of this run before the player arrives. Story patterns a week: 1.9 -> 43; villagers in stories 11/27 -> 24/30; new facts in conversation, days 10-19: ~25% -> ~37%.
+Found on the way: children could not eat dole grain handed to them (it went into their pockets), so a famine killed children first; fixed,
+with parents now fetching or foraging food for a hungry child. Starvation over 9 towns x 12 days: 3 -> 0.
+Next: opinions about businesses and traditions; villagers who investigate a theft and change their minds; invented rumours from villagers;
+a journal of what the player has heard, with the versions side by side; a "rumour outran the truth" pattern that actually happens.

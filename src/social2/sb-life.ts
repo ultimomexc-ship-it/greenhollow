@@ -44,7 +44,7 @@ function sbLifeDaily() {
     if (keeper) lfEmit('delivery', { actor: keeper, sev: 1, tags: ['news'], chron: false, text: `${keeper.first} took delivery of ${anyOf(SB_DELIVERY)}`, x: shop.x + 1, y: shop.y + 1 }); }
 }
 LF2.hourly.push(h => { if (h === 8) sbLifeDaily(); });
-const SB_PILFER = ['a purse', 'the coins from under the mattress', 'a good knife', 'a ham from the rafters', 'a jar of honey', 'a pair of boots left out to dry', 'the eggs, every morning this week'];
+const SB_PILFER = ['a purse', 'the coins under the mattress', 'a good knife', 'a smoked ham', 'a jar of honey', 'a pair of new boots', 'a basket of eggs'];
 function sbPilfer(n, adults) {
   const cands = adults.filter(x => x !== n && x.age >= 14 && !isKin(x, n) && (lf2Has(x, 'greedy') || x.coin < 3 || lf2Has(x, 'lazy')));
   const thief = anyOf(cands); if (!thief) return null; const what = anyOf(SB_PILFER), q = Math.min(n.coin, 1 + Math.floor(Math.random() * 4)); n.coin -= q; thief.coin += q;

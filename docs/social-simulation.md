@@ -79,3 +79,33 @@ than the existing village already is. The pre-simulation is abstract (no walking
 - `tools/longevity.mjs`: new facts per day for the player (before: about 25% from day 10 on).
 - Tests: the pre-simulation is deterministic and fast; news does not reach everyone at once; versions differ; relationships form
   from interactions; nobody starts as a blank slate.
+
+## 4. What was built, and what it measured (Nov 2026)
+
+All five layers exist (see CLAUDE.md, "The social simulation"). Measured with `tools/network.mjs` and `tools/sift.mjs`:
+
+| | before | after |
+|---|---|---|
+| Story-shaped patterns a week, village left alone (`sift`, 28 days) | 1.9 | 43 |
+| Villagers who appear in a story | 11 of 27 | 24 of 30 |
+| Kinds of pattern seen | 1 (romance) | 13 of 14 (no "rumour outran the truth" yet) |
+| Things each villager knows at arrival | 0 (blank slates) | ~24, plus ~7 beliefs about how others feel and ~26 reasons for their own feelings |
+| Stories known by 3+ people at arrival, with more than one version / somebody wrongly blamed | – | 63, 21 / 4 (town `network`) |
+| News spread after 1, 3, 7 days (median knowers of a first-day event, of 19) | instant to witnesses, then patchy | 2, 5, 6 (the biggest reach 17) |
+| Relationships at arrival | flat | 13 mutual friendships, 1–2 mutual rivalries, 6–10 one-sided dislikes per town |
+| Conversation, days 10–19 (`longevity 20 6 10`): new facts / new wording | ~25% / 10–13% | ~37% / ~18% |
+| Pre-simulation cost | – | 60 days in ~25 ms |
+| Starvation in 12 days, 9 towns | 3 | 0 (children could not eat the dole grain they were handed; fixed) |
+
+What the player hears now: an event in the speaker's version ("They are saying Marcus took a ham from Sabina's house"), with how they know it
+("I saw it myself" / "Galla told me, though I would not swear to it" / "Nobody saw who. I would bet my last coin it was Nero"); who cannot
+stand whom and why ("Severa would cross the square to avoid Marcus. Ever since Severa and Marcus had words in the street"), and whether
+the speaker agrees; reasons for their own feelings ("Why? The money Quintus still owes me. That is why."); what happened to them today
+("I had to ask Gaius for a loan. Do not look at me like that."); and an argument when you say you heard it was somebody else.
+
+Not done yet:
+- Opinions about businesses, traditions and changes to the village (only opinions about people are modelled).
+- "Rumour outran the truth": invented stories (`fake`) are only made by the player and by smears in conversation; villagers do not yet invent outright.
+- Suspicion is formed once, by the victim's household; nobody investigates or changes their mind except when the player contradicts them.
+- One-sided feelings are still fewer than in a real village; unrequited courting is the main source.
+- The economy is still fragile: whole towns can run out of food for sale, and the dole is the safety net.
