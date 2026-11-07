@@ -185,7 +185,7 @@ LF2.dec.push(n => LF2.on('law') && n.lf2Report ? lf2ReportPlan(n) : null);
 LF2.pre.push({ player(n, p, fx, fy) {
   if (!n.jail) return null; const r = lf2Room('jail'); if (!r) return null;
   if (fx > r.x && fx < r.x + r.w - 1 && fy > r.y && fy < r.y + r.h - 1) return null;
-  return { msg: 'The cell door is locked. (E for more)' };
+  return { msg: 'The cell door is locked. (Hold Shift to pick the lock, E to call the guard, Z to sleep it off.)' };
 } });
 LF2.verbs.push((n, x, y, o, add) => {
   if (!n.jail) return null; const r = lf2Room('jail'); if (!r) return null;

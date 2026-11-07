@@ -1,7 +1,6 @@
-/* ================= life2 / actions: walk into things for the obvious thing, E for everything else =================
-   Walk into it   -> the obvious action (talk, search a crate, buy at a counter, fell a tree...)
-   Space + walk   -> force: push a crate (or swap places when it is against a wall), shove a person
-   E (or More)    -> a short list of everything else you could do to what is in front of you            */
+/* ================= life2 / actions: what you can do to the thing in front of you =================
+   The verbs live here and in the town / law / daily-life hooks; controls.ts decides which held key picks which verb:
+   walk into it = the obvious thing, Space = push, Shift = sneak, E = help, R = rough, C = follow, Z = rest.           */
 const LF2_COIN = 'd';
 const lf2Front = n => { const f = n.face || { dx: 0, dy: 1 }, dx = Math.sign(f.dx || 0), dy = dx ? 0 : Math.sign(f.dy || 0) || 1; return { x: n.tx + dx, y: n.ty + dy }; };
 const lf2Occ = (x, y, n) => { const o = tileOwner.get(tkey(x, y)); return o && o !== n && !o.dead && !o.infant ? o : null; };
@@ -83,13 +82,12 @@ function lifeAct(n, p, fx, fy, dx, dy) {
     if (pr.loot === null && (pr.lootDay || 0) >= Math.floor(game.time / 1440) - 1) return game.time - (pr.searchedT || -99) < 4 ? null : { msg: 'You have already been through this ' + label + '. (Hold Space to push it.)' };
     return { key: 'search' + pr.id, min: 5, text: 'Searching the ' + label, tool: 'pick', run(nn) { lf2Search(nn, pr); } };
   }
-  if (grid[fy] && grid[fy][fx] === T.BARREL) { const r = rooms[roomAt[fy][fx]]; if (r && r.kind === 'house' && r !== n.homeRoom) return { msg: `The ${lf2Family(r)} family's food barrel. (E for more)` }; }
+  if (grid[fy] && grid[fy][fx] === T.BARREL) { const r = rooms[roomAt[fy][fx]]; if (r && r.kind === 'house' && r !== n.homeRoom) return { msg: `The ${lf2Family(r)} family's food barrel. (Hold Shift to take some food.)` }; }
   return null;
 }
-/* walking into a person; Space shoves them */
+/* walking into a person (Space pushes them aside instead: see lf2PushPerson in controls.ts) */
 function lf2PersonAct(n, p, o, tg) {
   for (const f of LF2.pre) { const r = f.person && f.person(n, p, o, tg); if (r) return r; }
-  if (p.push && o.pose !== 'sleep') return { key: 'shove' + o.id, min: 1, text: 'Shoving ' + o.first, tool: null, run(nn) { lf2Shove(nn, o); } };
   return null;
 }
 function lf2Shove(n, o) {
@@ -102,7 +100,7 @@ function lf2Shove(n, o) {
   if (!o.player) { const brave = lf2Has(o, 'brave') || lf2Has(o, 'grumpy') || lf2Has(o, 'proud'); lfShout(o, brave ? anyOf(['Oi! Watch it!', 'Do that again and see what happens.', 'Who do you think you are?']) : anyOf(['Hey!', 'Ow! What was that for?', 'Please, stop it.'])); }
 }
 
-/* ---------------- everything else: the E list ---------------- */
+/* ---------------- everything else: the verbs (each one belongs to a held key, see controls.ts) ---------------- */
 function lf2Pickpocket(n, o) {
   if (!lf2Adj(n, o)) { lf2Say(n, o.first + ' moved away.'); return; }
   const asleep = o.pose === 'sleep', f = o.face || { dx: 0, dy: 1 }, away = f.dx * (n.tx - o.tx) + f.dy * (n.ty - o.ty) < 0;
@@ -168,9 +166,9 @@ function lf2StealBarrel(n, r) {
   lf2Say(n, 'Took ' + c + ' food.');
   lfEmit('theft', { actor: n, target: lf2RoomHead(r), sev: 1, aware: false, tags: ['theft', 'crime', 'trespass'], chron: false, value: c * 2, text: `${n.first} stole food from the ${lf2Family(r)} family's barrel` });
 }
-/* the list for the thing in front of you */
-function lf2Verbs(n) {
-  const { x, y } = lf2Front(n), out = [], o = lf2Occ(x, y, n), add = (label, f, min?, text?, tool?) => out.push({ label, run: () => min ? lf2Do(n, { key: 'v' + label, min, text: text || label, tool: tool || null, run: f }) : f(n) });
+/* the verbs for the tile in front of you (or for tile tx, ty) */
+function lf2Verbs(n, tx?, ty?) {
+  const front = tx === undefined ? lf2Front(n) : { x: tx, y: ty }, x = front.x, y = front.y, out: any[] = [], o = lf2Occ(x, y, n), add = (label, f, min?, text?, tool?) => out.push({ label, mod: lf2VerbMod(label), f, min: min || 0, text: text || label, tool: tool || null });
   let title = '';
   if (o) {
     title = o.first + (o.job ? ' · ' + lf2JobName(o) : '');
@@ -178,7 +176,7 @@ function lf2Verbs(n) {
     else {
       add('Talk', () => { if (typeof openTalk === 'function') openTalk(o); });
       add('Pick their pocket', nn => lf2Pickpocket(nn, o), 2, 'Reaching into ' + o.first + '\'s pocket');
-      add('Shove', nn => lf2Shove(nn, o));
+      add('Rough them up', nn => lf2Shove(nn, o), 1, 'Shoving ' + o.first);
       if (n.coin >= 5) add('Give 5 denarii', nn => lf2Give(nn, o, 5));
       if (FOODS.concat(['bread', 'stew']).some(g => (n.inv[g] || 0) > 0)) add('Give some food', nn => lf2GiveFood(nn, o));
       const st = o.plan && o.plan[o.si]; if (st && st.act === 'work') { add('Lend a hand', nn => lf2Help(nn, o), 15, 'Helping ' + o.first, st.tool); add('Distract them', nn => lf2Distract(nn, o)); }
@@ -207,66 +205,3 @@ function lf2Follow(n, p) {
   if (!o.player && (o.lf2Tail = (o.lf2Tail || 0) + (lf2Notice(o, n.tx, n.ty) > 0.5 ? 1 : 0)) > 12) { o.lf2Tail = 0; lfShout(o, anyOf(['Why are you following me?', 'Can I help you? You have been behind me all day.', 'Stop following me!'])); lfAff(o, n, -2); }
   return true;
 }
-
-/* ---------------- the hint line and the E list (DOM) ---------------- */
-const lf2UI = { menu: null, items: [], prev: null, open: false };
-function lf2HintText(n) {
-  const p = n.player; if (!p || p.sleeping) return '';
-  if (p.act && p.act.auto) return '';
-  if (p.follow) { const o = byId(p.follow); return o ? 'Following ' + o.first + ' · move to stop' : ''; }
-  const { x, y } = lf2Front(n), o = lf2Occ(x, y, n);
-  if (o) return o.pose === 'sleep' ? `${o.first} is asleep · E for more` : `Walk: talk to ${o.first} · Space: shove · E: more`;
-  const pr = lfPropAt(x, y); if (pr) return `Walk: search the ${LF_NOUN[pr.kind]} · Space: push · E: more`;
-  const v = lf2Verbs(n); if (v.list.length) return (v.title ? v.title + ' · ' : '') + 'E: ' + v.list.map(i => lf2Low(i.label)).slice(0, 3).join(', ') + (v.list.length > 3 ? '…' : '');
-  return '';
-}
-function lf2Pause(on) {
-  if (on) { const cur: any = document.querySelector('[data-speed][aria-pressed="true"]'); lf2UI.prev = cur ? cur.dataset.speed : '2'; const ps: any = document.querySelector('[data-speed="0"]'); if (ps) ps.click(); }
-  else { const b: any = document.querySelector('[data-speed="' + (lf2UI.prev || '2') + '"]'); if (b) b.click(); }
-}
-function lf2OpenMenu() {
-  const n = game.player; if (!n || !n.player || n.player.sleeping || (talkUI && talkUI.o)) return;
-  const v = lf2Verbs(n); const m = document.getElementById('lf2menu'); if (!m) return;
-  if (!v.list.length) { playerSay(n, 'Nothing else to do here.'); return; }
-  lf2UI.items = v.list; lf2UI.open = true;
-  m.innerHTML = '<div class="t">' + esc(v.title || 'What now?') + '</div>' + v.list.map((it, i) => `<button type="button" data-v="${i}"><b>${i + 1}</b> ${esc(it.label)}</button>`).join('') + '<button type="button" data-v="x" class="x"><b>Esc</b> Never mind</button>';
-  m.hidden = false; lf2Pause(true);
-  const b = m.querySelector('button'); if (b) b.focus({ preventScroll: true });
-}
-function lf2CloseMenu(run?) {
-  const m = document.getElementById('lf2menu'); if (!m || !lf2UI.open) return;
-  m.hidden = true; lf2UI.open = false; lf2Pause(false); canvas.focus({ preventScroll: true });
-  if (run) { try { run.run(); } catch (e) { console.warn('verb', e); } }
-}
-(function () {
-  const stage = canvas.parentNode; if (!stage) return;
-  const css = document.createElement('style');
-  css.textContent = '.lf2hint{position:absolute;left:50%;bottom:92px;transform:translateX(-50%);background:rgba(21,25,27,.78);color:#e8e4da;font-size:12px;padding:4px 12px;border-radius:999px;pointer-events:none;white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis;z-index:4}' +
-    '.lf2menu{position:absolute;left:50%;bottom:122px;transform:translateX(-50%);background:rgba(21,25,27,.94);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:6px;display:flex;flex-direction:column;gap:2px;min-width:200px;z-index:6;color:#e8e4da}' +
-    '.lf2menu .t{font-size:12px;opacity:.75;padding:2px 8px 4px}.lf2menu button{all:unset;cursor:pointer;padding:6px 10px;border-radius:6px;font-size:14px}.lf2menu button b{display:inline-block;min-width:26px;opacity:.6;font-weight:600}' +
-    '.lf2menu button:hover,.lf2menu button:focus{background:#d9a441;color:#1b1b1b}.lf2menu button.x{opacity:.7}' +
-    '#lf2more{display:none;position:absolute;right:154px;bottom:122px;width:56px;height:42px;background:rgba(21,25,27,.8);border:1px solid rgba(255,255,255,.18);color:#e8e4da;border-radius:8px;font-size:13px;touch-action:none}@media (pointer:coarse){#lf2more:not([hidden]){display:block}.lf2hint{bottom:auto;top:52px}}';
-  document.head.appendChild(css);
-  const h = document.createElement('div'); h.id = 'lf2hint'; h.className = 'lf2hint'; h.hidden = true; stage.appendChild(h);
-  const m = document.createElement('div'); m.id = 'lf2menu'; m.className = 'lf2menu'; m.hidden = true; m.setAttribute('role', 'menu'); stage.appendChild(m);
-  const b = document.createElement('button'); b.type = 'button'; b.id = 'lf2more'; b.textContent = 'More'; b.hidden = true; stage.appendChild(b);
-  b.addEventListener('pointerdown', e => { e.preventDefault(); if (lf2UI.open) lf2CloseMenu(); else lf2OpenMenu(); });
-  m.addEventListener('click', e => { const t = (e.target as any).closest('[data-v]'); if (!t) return; lf2CloseMenu(t.dataset.v === 'x' ? null : lf2UI.items[+t.dataset.v]); });
-  window.addEventListener('keydown', e => {
-    if (typing(e) || e.ctrlKey || e.metaKey || e.altKey) return;
-    const k = (e.key || '').toLowerCase();
-    if (lf2UI.open) {
-      if (k === 'escape' || k === 'e') { lf2CloseMenu(); e.preventDefault(); e.stopImmediatePropagation(); return; }
-      if (/^[1-9]$/.test(k) && lf2UI.items[+k - 1]) { lf2CloseMenu(lf2UI.items[+k - 1]); e.preventDefault(); e.stopImmediatePropagation(); return; }
-      menuNav(e, [...m.querySelectorAll('[data-v]')], () => lf2CloseMenu()); return;
-    }
-    if (k === 'e' && game.player && game.player.player) { lf2OpenMenu(); e.preventDefault(); e.stopImmediatePropagation(); return; }
-    if (game.player && game.player.player && KEYDIR && (KEYDIR[e.key] || KEYDIR[k])) game.player.player.follow = null;
-  }, true);
-  setInterval(() => {
-    const n = game.player, t = n && !lf2UI.open && !(talkUI && talkUI.o) ? lf2HintText(n) : '';
-    if (h.textContent !== t) h.textContent = t; h.hidden = !t;
-    b.hidden = !(n && n.player);
-  }, 200);
-})();
-

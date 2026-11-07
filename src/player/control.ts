@@ -193,7 +193,8 @@ function tickPlayer0(n, dt) {
     if (!d && lf2Follow(n, p)) continue;
     if (!d) { p.idle = (p.idle || 0) + step;  if (p.act) { p.act = null; } p.grace = null; p.lock = false; p.skip = null; n.pose = 'stand'; n.tool = null; n.hold = null; n.status = 'Under your control'; continue; }
     p.idle = 0;
-    const [dx, dy] = DIRV[d]; n.face = { dx, dy };
+    const [dx, dy] = DIRV[d]; const pf = n.face || { dx: 0, dy: 1 }; n.face = { dx, dy };
+    if (p.push && !p.lock && !p.act && lf2TryPull(n, pf, dx, dy)) continue;      // Space + stepping back pulls the crate you were pushing
     const fx = n.tx + dx, fy = n.ty + dy; p.fx = fx; p.fy = fy;
     if (p.grace) {
       const g = p.grace;
@@ -202,13 +203,16 @@ function tickPlayer0(n, dt) {
     }
     if (p.lock) continue;
     let tg = lifeAct(n, p, fx, fy, dx, dy) || targetAt(n, fx, fy);
-    const occ = tileOwner.get(tkey(fx, fy));
+    let occ = tileOwner.get(tkey(fx, fy));
+    // Space: people are pushed like furniture (they move one tile, or you swap places); it is harmless, not a crime
+    if (p.push && occ && occ !== n && !occ.infant && occ.pose !== 'sleep') { const r = lf2PushPerson(n, occ, dx, dy); if (r === true) { occ = null; tg = null; } else tg = { msg: r }; }
     if (occ && occ !== n && !occ.infant) {
       if (occ.pose === 'sleep') tg = { msg: occ.first + ' is asleep.' };
       else if (occ.shop && occ.shop.serving && Math.abs(occ.shop.front.x - n.tx) + Math.abs(occ.shop.front.y - n.ty) <= 1.5) tg = { key: 'stall' + occ.id, min: 0.8, text: 'Stepping up to the larder', tool: null, run(n) { if (typeof openShop === 'function') openShop(occ.shop); } };
       else tg = { key: 'talk' + occ.id, min: 2, text: 'Talking to ' + occ.first, tool: null, run(n) { if (typeof openTalk === 'function' && occ.age >= 3) openTalk(occ); else if (!bumpTalk(n, occ, true)) playerSay(n, occ.first + ' nods and carries on.'); } };
     }
     if (occ && occ !== n && !occ.infant) tg = lf2PersonAct(n, p, occ, tg) || tg;
+    { const mv = lf2ModAct(n, p, fx, fy, occ); if (mv) tg = mv; }      // a held Shift / E / R: do that to whatever you walk into
     if (p.skip && (p.skip.x !== fx || p.skip.y !== fy)) p.skip = null;
     if (p.skip && tg && tg.key && !occ) tg = null;
     if (tg && tg.key) {

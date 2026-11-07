@@ -9,11 +9,12 @@ a jail, all built on a shared event and gossip core. Every new system has an on/
 Stories tab. Tested only by driving keyboard controls from scripts in a headless browser, not
 played by hand on a real screen or phone.
 
-### Controls
+### Controls (changed after v148: the E menu is gone)
 - Walking into something does the obvious thing: talk, search a crate, buy at a counter.
-- Space + walk forces it: push a crate or shove a person. Pushing a crate into a wall swaps you with it.
-- E (or the More button on touch) lists other actions on whatever is in front of you: pick a pocket,
-  steal, wreck an oven, pick a lock, follow, give money, distract, lend a hand, inspect.
+- Hold Space and walk: push crates and people (harmless, no events); step back to pull a crate.
+- Hold Shift: sneak (pick a pocket, steal, pick a lock, wreck). Hold or tap E: help/use (lend a hand, give, wake, knock, look).
+  Hold R: the hostile shove. Tap C: follow. Tap Z: sleep in the cells. A Mode button does this on touch.
+- Dropped in the change: the "Distract them" verb is no longer reachable from a key.
 - Every conversation has "Something else...": ask for news, pass on news, spread a rumour, flatter,
   insult, ask for a secret, blackmail, flirt, introduce people, play dice.
 - A hint line shows what you are facing.

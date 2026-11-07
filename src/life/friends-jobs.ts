@@ -296,20 +296,6 @@ function lifeHowAre(n, out) {
   if (n.mood < 30) out.push(anyOf(['Rotten, honestly.', 'Low. Everything feels like too much today.']) + (m ? ' I keep thinking about how I ' + m.text + '.' : ''));
   else if (n.mood > 80) out.push(anyOf(['Wonderful, actually!', 'Better than I have been in ages.']) + (m && m.v > 0 ? ' I ' + m.text + '.' : ''));
 }
-/* hold Space and walk into something to push it */
-window.addEventListener('keydown', e => { if (e.code !== 'Space' || typing(e) || e.ctrlKey || e.metaKey || e.altKey) return; const p = game.player && game.player.player; if (!p) return; if (!p.push) p.lock = false; p.push = true; e.preventDefault(); }, true);
-window.addEventListener('keyup', e => { if (e.code !== 'Space') return; const p = game.player && game.player.player; if (p) p.push = false; });
-window.addEventListener('blur', () => { const p = game.player && game.player.player; if (p) p.push = false; });
-(function () {
-  const d = document.getElementById('dpad'); if (!d || !d.parentNode) return;
-  const b = document.createElement('button'); b.type = 'button'; b.id = 'pushBtn'; b.textContent = 'Push'; b.hidden = true; b.setAttribute('aria-pressed', 'false'); d.parentNode.appendChild(b);
-  const css = document.createElement('style');
-  css.textContent = '#pushBtn{display:none;position:absolute;right:154px;bottom:74px;width:56px;height:42px;background:rgba(21,25,27,.8);border:1px solid var(--line);color:var(--fg);border-radius:8px;font-size:13px;touch-action:none}#pushBtn[aria-pressed="true"]{background:var(--amber);color:#1b1b1b}@media (pointer:coarse){#pushBtn:not([hidden]){display:block}}';
-  document.head.appendChild(css);
-  b.addEventListener('pointerdown', e => { const p = game.player && game.player.player; if (p) { p.push = !p.push; if (p.push) p.lock = false; b.setAttribute('aria-pressed', p.push ? 'true' : 'false'); } e.preventDefault(); });
-})();
-function lfBtnSync() {
-  const b = document.getElementById('pushBtn'); if (!b) return;
-  const p = game.player && game.player.player; b.hidden = !p; b.setAttribute('aria-pressed', p && p.push ? 'true' : 'false');
-}
+/* the hold-a-key controls (Space, Shift, E, R, C, Z) are in life2/controls.ts */
+function lfBtnSync() { if (typeof lf2SyncModeBtn === 'function') lf2SyncModeBtn(); }
 

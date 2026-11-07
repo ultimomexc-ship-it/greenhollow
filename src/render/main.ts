@@ -145,7 +145,7 @@ function render(now, dtSec, hourOfDay) {
   // people, the forest sprites, the statue... and any tall tile standing in front of them: all in order of who is
   // nearer the bottom of the screen, so whoever is behind a tree, a tent or a statue goes behind it
   { const items = [], near = new Set<number>(), mark = (x, y) => { const x0 = Math.floor(x), y0 = Math.floor(y); for (let yy = y0; yy <= y0 + 2; yy++) for (let xx = x0 - 1; xx <= x0 + 2; xx++) if (yy >= 0 && xx >= 0 && yy < H && xx < W) near.add(yy * W + xx); };
-    for (const n of npcs) { if (n.inShip) continue; const sl = n.pose === 'sleep' && !n.moving; items.push({ k: n.y - (sl ? 0.45 : 0), f: () => { const px = n.x * TS, py = n.y * TS; if (sl) drawSleeper(c, n, px, py, now); else drawPerson(c, n, now, px, py); } }); mark(n.x, n.y); }
+    for (const n of npcs) { if (n.inShip) continue; const sl = n.pose === 'sleep' && !n.moving; items.push({ k: n.y - (sl ? 0.45 : 0), f: () => { const sxy = gaSlide(n, now), px = sxy[0] * TS, py = sxy[1] * TS; if (sl) drawSleeper(c, n, px, py, now); else drawPerson(c, n, now, px, py); } }); mark(n.x, n.y); }
     for (const prov of YSORT) { const L = prov(c, now) || []; for (const it of L) { items.push(it); if (it.mob) mark(it.x, it.k); } }
     if (cam.z >= 0.6) { const busy = new Set(); for (const w of workTargets()) if (w.kind === 'tree') busy.add(w.y * W + w.x);
       for (const key of near) { const x = key % W, y = (key / W) | 0, t = grid[y][x]; if (!TALL.has(t) || busy.has(key)) continue; items.push({ k: y - 0.02, f: () => drawTallTile(c, x, y, t) }); } }

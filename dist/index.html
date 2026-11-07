@@ -14579,7 +14579,9 @@ function tickPlayer0(n, dt) {
     }
     p.idle = 0;
     const [dx, dy] = DIRV[d];
+    const pf = n.face || { dx: 0, dy: 1 };
     n.face = { dx, dy };
+    if (p.push && !p.lock && !p.act && lf2TryPull(n, pf, dx, dy)) continue;
     const fx = n.tx + dx, fy = n.ty + dy;
     p.fx = fx;
     p.fy = fy;
@@ -14602,7 +14604,14 @@ function tickPlayer0(n, dt) {
     }
     if (p.lock) continue;
     let tg = lifeAct(n, p, fx, fy, dx, dy) || targetAt(n, fx, fy);
-    const occ = tileOwner.get(tkey(fx, fy));
+    let occ = tileOwner.get(tkey(fx, fy));
+    if (p.push && occ && occ !== n && !occ.infant && occ.pose !== "sleep") {
+      const r = lf2PushPerson(n, occ, dx, dy);
+      if (r === true) {
+        occ = null;
+        tg = null;
+      } else tg = { msg: r };
+    }
     if (occ && occ !== n && !occ.infant) {
       if (occ.pose === "sleep") tg = { msg: occ.first + " is asleep." };
       else if (occ.shop && occ.shop.serving && Math.abs(occ.shop.front.x - n.tx) + Math.abs(occ.shop.front.y - n.ty) <= 1.5) tg = { key: "stall" + occ.id, min: 0.8, text: "Stepping up to the larder", tool: null, run(n2) {
@@ -14614,6 +14623,10 @@ function tickPlayer0(n, dt) {
       } };
     }
     if (occ && occ !== n && !occ.infant) tg = lf2PersonAct(n, p, occ, tg) || tg;
+    {
+      const mv = lf2ModAct(n, p, fx, fy, occ);
+      if (mv) tg = mv;
+    }
     if (p.skip && (p.skip.x !== fx || p.skip.y !== fy)) p.skip = null;
     if (p.skip && tg && tg.key && !occ) tg = null;
     if (tg && tg.key) {
@@ -17271,52 +17284,8 @@ function lifeHowAre(n, out) {
   if (n.mood < 30) out.push(anyOf(["Rotten, honestly.", "Low. Everything feels like too much today."]) + (m ? " I keep thinking about how I " + m.text + "." : ""));
   else if (n.mood > 80) out.push(anyOf(["Wonderful, actually!", "Better than I have been in ages."]) + (m && m.v > 0 ? " I " + m.text + "." : ""));
 }
-window.addEventListener("keydown", (e) => {
-  if (e.code !== "Space" || typing(e) || e.ctrlKey || e.metaKey || e.altKey) return;
-  const p = game.player && game.player.player;
-  if (!p) return;
-  if (!p.push) p.lock = false;
-  p.push = true;
-  e.preventDefault();
-}, true);
-window.addEventListener("keyup", (e) => {
-  if (e.code !== "Space") return;
-  const p = game.player && game.player.player;
-  if (p) p.push = false;
-});
-window.addEventListener("blur", () => {
-  const p = game.player && game.player.player;
-  if (p) p.push = false;
-});
-(function() {
-  const d = document.getElementById("dpad");
-  if (!d || !d.parentNode) return;
-  const b = document.createElement("button");
-  b.type = "button";
-  b.id = "pushBtn";
-  b.textContent = "Push";
-  b.hidden = true;
-  b.setAttribute("aria-pressed", "false");
-  d.parentNode.appendChild(b);
-  const css = document.createElement("style");
-  css.textContent = '#pushBtn{display:none;position:absolute;right:154px;bottom:74px;width:56px;height:42px;background:rgba(21,25,27,.8);border:1px solid var(--line);color:var(--fg);border-radius:8px;font-size:13px;touch-action:none}#pushBtn[aria-pressed="true"]{background:var(--amber);color:#1b1b1b}@media (pointer:coarse){#pushBtn:not([hidden]){display:block}}';
-  document.head.appendChild(css);
-  b.addEventListener("pointerdown", (e) => {
-    const p = game.player && game.player.player;
-    if (p) {
-      p.push = !p.push;
-      if (p.push) p.lock = false;
-      b.setAttribute("aria-pressed", p.push ? "true" : "false");
-    }
-    e.preventDefault();
-  });
-})();
 function lfBtnSync() {
-  const b = document.getElementById("pushBtn");
-  if (!b) return;
-  const p = game.player && game.player.player;
-  b.hidden = !p;
-  b.setAttribute("aria-pressed", p && p.push ? "true" : "false");
+  if (typeof lf2SyncModeBtn === "function") lf2SyncModeBtn();
 }
 const LF2 = {
   shadows: false,
@@ -17844,7 +17813,7 @@ function lifeAct(n, p, fx, fy, dx, dy) {
   }
   if (grid[fy] && grid[fy][fx] === T.BARREL) {
     const r = rooms[roomAt[fy][fx]];
-    if (r && r.kind === "house" && r !== n.homeRoom) return { msg: `The ${lf2Family(r)} family's food barrel. (E for more)` };
+    if (r && r.kind === "house" && r !== n.homeRoom) return { msg: `The ${lf2Family(r)} family's food barrel. (Hold Shift to take some food.)` };
   }
   return null;
 }
@@ -17853,9 +17822,6 @@ function lf2PersonAct(n, p, o, tg) {
     const r = f.person && f.person(n, p, o, tg);
     if (r) return r;
   }
-  if (p.push && o.pose !== "sleep") return { key: "shove" + o.id, min: 1, text: "Shoving " + o.first, tool: null, run(nn) {
-    lf2Shove(nn, o);
-  } };
   return null;
 }
 function lf2Shove(n, o) {
@@ -18006,8 +17972,8 @@ function lf2StealBarrel(n, r) {
   lf2Say(n, "Took " + c + " food.");
   lfEmit("theft", { actor: n, target: lf2RoomHead(r), sev: 1, aware: false, tags: ["theft", "crime", "trespass"], chron: false, value: c * 2, text: `${n.first} stole food from the ${lf2Family(r)} family's barrel` });
 }
-function lf2Verbs(n) {
-  const { x, y } = lf2Front(n), out = [], o = lf2Occ(x, y, n), add = (label, f, min, text, tool) => out.push({ label, run: () => min ? lf2Do(n, { key: "v" + label, min, text: text || label, tool: tool || null, run: f }) : f(n) });
+function lf2Verbs(n, tx, ty) {
+  const front = tx === void 0 ? lf2Front(n) : { x: tx, y: ty }, x = front.x, y = front.y, out = [], o = lf2Occ(x, y, n), add = (label, f, min, text, tool) => out.push({ label, mod: lf2VerbMod(label), f, min: min || 0, text: text || label, tool: tool || null });
   let title = "";
   if (o) {
     title = o.first + (o.job ? " \xB7 " + lf2JobName(o) : "");
@@ -18019,7 +17985,7 @@ function lf2Verbs(n) {
         if (typeof openTalk === "function") openTalk(o);
       });
       add("Pick their pocket", (nn) => lf2Pickpocket(nn, o), 2, "Reaching into " + o.first + "'s pocket");
-      add("Shove", (nn) => lf2Shove(nn, o));
+      add("Rough them up", (nn) => lf2Shove(nn, o), 1, "Shoving " + o.first);
       if (n.coin >= 5) add("Give 5 denarii", (nn) => lf2Give(nn, o, 5));
       if (FOODS.concat(["bread", "stew"]).some((g) => (n.inv[g] || 0) > 0)) add("Give some food", (nn) => lf2GiveFood(nn, o));
       const st = o.plan && o.plan[o.si];
@@ -18089,7 +18055,118 @@ function lf2Follow(n, p) {
   }
   return true;
 }
-const lf2UI = { menu: null, items: [], prev: null, open: false };
+const LF2_MODS = [
+  { id: "push", key: "Space", name: "Push", hold: true, match: (e) => e.code === "Space" },
+  { id: "take", key: "Shift", name: "Sneak", hold: true, match: (e) => e.key === "Shift" },
+  { id: "help", key: "E", name: "Help", hold: true, tap: true, match: (e) => e.code === "KeyE" },
+  { id: "rough", key: "R", name: "Rough", hold: true, match: (e) => e.code === "KeyR" },
+  { id: "follow", key: "C", name: "Follow", tap: true, match: (e) => e.code === "KeyC" },
+  { id: "rest", key: "Z", name: "Rest", tap: true, match: (e) => e.code === "KeyZ" }
+];
+const lf2ModOf = (e) => LF2_MODS.find((m) => m.match(e));
+function lf2VerbMod(label) {
+  if (/^(Pick their pocket|Pick the lock|Pick the cell lock|Steal|Wreck)/.test(label)) return "take";
+  if (/^Rough/.test(label)) return "rough";
+  if (/^Follow/.test(label)) return "follow";
+  if (/^Sleep until/.test(label)) return "rest";
+  if (/^(Push it|Pull it)/.test(label)) return "push";
+  if (/^(Talk|Search it|Buy something)/.test(label)) return "walk";
+  return "help";
+}
+const lf2VerbSpec = (v, x, y) => ({ key: "v:" + v.label + ":" + x + "," + y, min: v.min, text: v.text, tool: v.tool, run: v.f });
+function lf2PickVerb(n, list, mod, o) {
+  const c = list.filter((v) => v.mod === mod);
+  if (!c.length) return null;
+  if (mod === "help" && o) {
+    const by = (l) => c.find((v) => v.label === l);
+    if (o.pose === "sleep") return by("Wake them up") || c[0];
+    const st = o.plan && o.plan[o.si];
+    if (st && st.act === "work" && by("Lend a hand")) return by("Lend a hand");
+    if (o.hunger >= 55 && by("Give some food")) return by("Give some food");
+    if ((o.coin || 0) < 5 && by("Give 5 denarii")) return by("Give 5 denarii");
+    return by("Inspect") || c[0];
+  }
+  return c[0];
+}
+const lf2Held = (p) => p.held || (p.held = []);
+function lf2SetMod(p, id, on) {
+  const h = lf2Held(p), i = h.indexOf(id);
+  if (on && i < 0) h.push(id);
+  if (!on && i >= 0) h.splice(i, 1);
+  p.push = h.includes("push");
+}
+const lf2ActiveMod = (p) => {
+  const h = p.held;
+  return h && h.length ? h[h.length - 1] : null;
+};
+function lf2ModAct(n, p, fx, fy, occ) {
+  const m = lf2ActiveMod(p);
+  if (!m || m === "push") return null;
+  const v = lf2PickVerb(n, lf2Verbs(n, fx, fy).list, m, occ || lf2Occ(fx, fy, n));
+  return v ? lf2VerbSpec(v, fx, fy) : null;
+}
+function lf2Tap(n, id) {
+  const p = n.player;
+  if (!p || p.sleeping || p.act || n.moving || typeof talkUI !== "undefined" && talkUI.o || playerDir(p)) return false;
+  const { x, y } = lf2Front(n), o = lf2Occ(x, y, n), v = lf2PickVerb(n, lf2Verbs(n, x, y).list, id, o);
+  if (!v) {
+    if (id === "help") lf2Say(n, "Nothing to help with here.");
+    return id === "help";
+  }
+  lf2Do(n, lf2VerbSpec(v, x, y));
+  return true;
+}
+function lf2TryPull(n, pf, dx, dy) {
+  if (dx !== -pf.dx || dy !== -pf.dy) return false;
+  const pr = lfPropAt(n.tx + pf.dx, n.ty + pf.dy);
+  if (!pr) return false;
+  lf2Pull(n, pr);
+  return true;
+}
+const lf2PersonOK = (x, y) => {
+  const g = grid[y] && grid[y][x];
+  return walkable(x, y) && !(typeof noStep === "function" && noStep(x, y)) && g !== T.SEAT && g !== T.BED && g !== T.PEW && g !== T.TENT && !lfPropAt(x, y);
+};
+const PUSH_WORDS = ["Oh! Excuse me.", "Hm? Oh, right.", "Mind how you go.", "Oh, I will shift.", "Right, right."];
+function lf2Relocate(o, x, y) {
+  const fx = o.x, fy = o.y;
+  if (tileOwner.get(tkey(o.tx, o.ty)) === o) tileOwner.delete(tkey(o.tx, o.ty));
+  if (o.path && o.path[0] && tileOwner.get(tkey(o.path[0].x, o.path[0].y)) === o) tileOwner.delete(tkey(o.path[0].x, o.path[0].y));
+  abortPlan(o);
+  o.tx = x;
+  o.ty = y;
+  o.x = x;
+  o.y = y;
+  o.pose = "stand";
+  o.chatTarget = null;
+  tileOwner.set(tkey(x, y), o);
+  o.plan = [waitS(1.2, "stand", "Stepping aside", { nopie: true })];
+  o.si = 0;
+  o.stepStarted = false;
+  o.slide = { fx, fy, st: performance.now() };
+}
+function lf2PushPerson(n, o, dx, dy) {
+  if (!lf2Adj(n, o)) return "Too far to push.";
+  if (o.pose === "sleep") return o.first + " is asleep.";
+  if (o.pose === "sit" || o.pose === "kneel") return o.first + " is settled in.";
+  const bx = o.tx + dx, by = o.ty + dy, ox = o.tx, oy = o.ty;
+  if (lf2PersonOK(bx, by) && !tileOwner.get(tkey(bx, by))) lf2Relocate(o, bx, by);
+  else if (lf2PersonOK(n.tx, n.ty)) lf2Relocate(o, n.tx, n.ty);
+  else return "There is no room to push " + o.first + ".";
+  if (!o.player && Math.random() < 0.3) lfShout(o, anyOf(PUSH_WORDS));
+  return true;
+}
+function gaSlide(n, now) {
+  const s = n.slide;
+  if (!s) return [n.x, n.y];
+  const t = (now - s.st) / 170;
+  if (!(t < 1)) {
+    n.slide = null;
+    return [n.x, n.y];
+  }
+  const e = 1 - (1 - t) * (1 - t);
+  return [s.fx + (n.x - s.fx) * e, s.fy + (n.y - s.fy) * e];
+}
 function lf2HintText(n) {
   const p = n.player;
   if (!p || p.sleeping) return "";
@@ -18098,123 +18175,92 @@ function lf2HintText(n) {
     const o2 = byId(p.follow);
     return o2 ? "Following " + o2.first + " \xB7 move to stop" : "";
   }
-  const { x, y } = lf2Front(n), o = lf2Occ(x, y, n);
-  if (o) return o.pose === "sleep" ? `${o.first} is asleep \xB7 E for more` : `Walk: talk to ${o.first} \xB7 Space: shove \xB7 E: more`;
-  const pr = lfPropAt(x, y);
-  if (pr) return `Walk: search the ${LF_NOUN[pr.kind]} \xB7 Space: push \xB7 E: more`;
-  const v = lf2Verbs(n);
-  if (v.list.length) return (v.title ? v.title + " \xB7 " : "") + "E: " + v.list.map((i) => lf2Low(i.label)).slice(0, 3).join(", ") + (v.list.length > 3 ? "\u2026" : "");
-  return "";
-}
-function lf2Pause(on) {
-  if (on) {
-    const cur = document.querySelector('[data-speed][aria-pressed="true"]');
-    lf2UI.prev = cur ? cur.dataset.speed : "2";
-    const ps = document.querySelector('[data-speed="0"]');
-    if (ps) ps.click();
-  } else {
-    const b = document.querySelector('[data-speed="' + (lf2UI.prev || "2") + '"]');
-    if (b) b.click();
+  const { x, y } = lf2Front(n), o = lf2Occ(x, y, n), pr = lfPropAt(x, y), v = lf2Verbs(n, x, y), parts = [];
+  if (o && o.pose !== "sleep") parts.push("Walk: talk to " + o.first);
+  else if (pr) parts.push("Walk: search the " + LF_NOUN[pr.kind]);
+  if (o ? o.pose !== "sleep" : !!pr) parts.push("Space: push");
+  for (const m of LF2_MODS) {
+    if (m.id === "push") continue;
+    const it = lf2PickVerb(n, v.list, m.id, o);
+    if (it) parts.push(m.key + ": " + lf2Low(it.label).toLowerCase());
   }
+  if (!parts.length) return "";
+  return (v.title && !o ? v.title + " \xB7 " : "") + parts.join(" \xB7 ");
 }
-function lf2OpenMenu() {
-  const n = game.player;
-  if (!n || !n.player || n.player.sleeping || talkUI && talkUI.o) return;
-  const v = lf2Verbs(n);
-  const m = document.getElementById("lf2menu");
+window.addEventListener("keydown", (e) => {
+  if (typing(e) || e.ctrlKey || e.metaKey || e.altKey) return;
+  const m = lf2ModOf(e);
   if (!m) return;
-  if (!v.list.length) {
-    playerSay(n, "Nothing else to do here.");
-    return;
+  const n = game.player, p = n && n.player;
+  if (!p) return;
+  if (m.id === "push") e.preventDefault();
+  if (m.hold && !lf2Held(p).includes(m.id)) {
+    lf2SetMod(p, m.id, true);
+    if (m.id === "push") p.lock = false;
   }
-  lf2UI.items = v.list;
-  lf2UI.open = true;
-  m.innerHTML = '<div class="t">' + esc(v.title || "What now?") + "</div>" + v.list.map((it, i) => `<button type="button" data-v="${i}"><b>${i + 1}</b> ${esc(it.label)}</button>`).join("") + '<button type="button" data-v="x" class="x"><b>Esc</b> Never mind</button>';
-  m.hidden = false;
-  lf2Pause(true);
-  const b = m.querySelector("button");
-  if (b) b.focus({ preventScroll: true });
-}
-function lf2CloseMenu(run) {
-  const m = document.getElementById("lf2menu");
-  if (!m || !lf2UI.open) return;
-  m.hidden = true;
-  lf2UI.open = false;
-  lf2Pause(false);
-  canvas.focus({ preventScroll: true });
-  if (run) {
-    try {
-      run.run();
-    } catch (e) {
-      console.warn("verb", e);
-    }
+  if (m.tap && !e.repeat && lf2Tap(n, m.id)) e.preventDefault();
+}, true);
+window.addEventListener("keyup", (e) => {
+  const m = lf2ModOf(e);
+  if (!m || !m.hold) return;
+  const p = game.player && game.player.player;
+  if (p) lf2SetMod(p, m.id, false);
+});
+window.addEventListener("blur", () => {
+  const p = game.player && game.player.player;
+  if (p) {
+    p.held = [];
+    p.push = false;
   }
+});
+window.addEventListener("keydown", (e) => {
+  const n = game.player;
+  if (n && n.player && KEYDIR && (KEYDIR[e.key] || KEYDIR[(e.key || "").toLowerCase()])) n.player.follow = null;
+}, true);
+const LF2_TOUCH_CYCLE = [null, "push", "take", "help", "rough"];
+function lf2SyncModeBtn() {
+  const b = document.getElementById("lf2mode");
+  if (!b) return;
+  const p = game.player && game.player.player;
+  b.hidden = !p;
+  const m = p ? lf2ActiveMod(p) : null, def = LF2_MODS.find((x) => x.id === m);
+  b.textContent = def ? def.name : "Walk";
+  b.setAttribute("aria-pressed", m ? "true" : "false");
 }
 (function() {
   const stage = canvas.parentNode;
   if (!stage) return;
   const css = document.createElement("style");
-  css.textContent = ".lf2hint{position:absolute;left:50%;bottom:92px;transform:translateX(-50%);background:rgba(21,25,27,.78);color:#e8e4da;font-size:12px;padding:4px 12px;border-radius:999px;pointer-events:none;white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis;z-index:4}.lf2menu{position:absolute;left:50%;bottom:122px;transform:translateX(-50%);background:rgba(21,25,27,.94);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:6px;display:flex;flex-direction:column;gap:2px;min-width:200px;z-index:6;color:#e8e4da}.lf2menu .t{font-size:12px;opacity:.75;padding:2px 8px 4px}.lf2menu button{all:unset;cursor:pointer;padding:6px 10px;border-radius:6px;font-size:14px}.lf2menu button b{display:inline-block;min-width:26px;opacity:.6;font-weight:600}.lf2menu button:hover,.lf2menu button:focus{background:#d9a441;color:#1b1b1b}.lf2menu button.x{opacity:.7}#lf2more{display:none;position:absolute;right:154px;bottom:122px;width:56px;height:42px;background:rgba(21,25,27,.8);border:1px solid rgba(255,255,255,.18);color:#e8e4da;border-radius:8px;font-size:13px;touch-action:none}@media (pointer:coarse){#lf2more:not([hidden]){display:block}.lf2hint{bottom:auto;top:52px}}";
+  css.textContent = '.lf2hint{position:absolute;left:50%;bottom:92px;transform:translateX(-50%);background:rgba(21,25,27,.78);color:#e8e4da;font-size:12px;padding:4px 12px;border-radius:999px;pointer-events:none;white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis;z-index:4}#lf2mode{display:none;position:absolute;right:154px;bottom:74px;min-width:64px;height:42px;padding:0 10px;background:rgba(21,25,27,.8);border:1px solid var(--line);color:var(--fg);border-radius:8px;font-size:13px;touch-action:none}#lf2mode[aria-pressed="true"]{background:var(--amber);color:#1b1b1b}@media (pointer:coarse){#lf2mode:not([hidden]){display:block}.lf2hint{bottom:176px}}';
   document.head.appendChild(css);
   const h = document.createElement("div");
   h.id = "lf2hint";
   h.className = "lf2hint";
   h.hidden = true;
   stage.appendChild(h);
-  const m = document.createElement("div");
-  m.id = "lf2menu";
-  m.className = "lf2menu";
-  m.hidden = true;
-  m.setAttribute("role", "menu");
-  stage.appendChild(m);
   const b = document.createElement("button");
   b.type = "button";
-  b.id = "lf2more";
-  b.textContent = "More";
+  b.id = "lf2mode";
+  b.textContent = "Walk";
   b.hidden = true;
+  b.setAttribute("aria-label", "Interaction mode: walk, push, sneak, help, rough");
+  b.setAttribute("aria-pressed", "false");
   stage.appendChild(b);
   b.addEventListener("pointerdown", (e) => {
     e.preventDefault();
-    if (lf2UI.open) lf2CloseMenu();
-    else lf2OpenMenu();
+    const p = game.player && game.player.player;
+    if (!p) return;
+    const cur = lf2ActiveMod(p), nx = LF2_TOUCH_CYCLE[(LF2_TOUCH_CYCLE.indexOf(cur) + 1) % LF2_TOUCH_CYCLE.length];
+    p.held = nx ? [nx] : [];
+    p.push = nx === "push";
+    if (nx === "push") p.lock = false;
+    lf2SyncModeBtn();
   });
-  m.addEventListener("click", (e) => {
-    const t = e.target.closest("[data-v]");
-    if (!t) return;
-    lf2CloseMenu(t.dataset.v === "x" ? null : lf2UI.items[+t.dataset.v]);
-  });
-  window.addEventListener("keydown", (e) => {
-    if (typing(e) || e.ctrlKey || e.metaKey || e.altKey) return;
-    const k = (e.key || "").toLowerCase();
-    if (lf2UI.open) {
-      if (k === "escape" || k === "e") {
-        lf2CloseMenu();
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        return;
-      }
-      if (/^[1-9]$/.test(k) && lf2UI.items[+k - 1]) {
-        lf2CloseMenu(lf2UI.items[+k - 1]);
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        return;
-      }
-      menuNav(e, [...m.querySelectorAll("[data-v]")], () => lf2CloseMenu());
-      return;
-    }
-    if (k === "e" && game.player && game.player.player) {
-      lf2OpenMenu();
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      return;
-    }
-    if (game.player && game.player.player && KEYDIR && (KEYDIR[e.key] || KEYDIR[k])) game.player.player.follow = null;
-  }, true);
   setInterval(() => {
-    const n = game.player, t = n && !lf2UI.open && !(talkUI && talkUI.o) ? lf2HintText(n) : "";
+    const n = game.player, t = n && !(typeof talkUI !== "undefined" && talkUI && talkUI.o) ? lf2HintText(n) : "";
     if (h.textContent !== t) h.textContent = t;
     h.hidden = !t;
-    b.hidden = !(n && n.player);
+    lf2SyncModeBtn();
   }, 200);
 })();
 Object.assign(GOODS, {
@@ -19259,7 +19305,7 @@ LF2.pre.push({ player(n, p, fx, fy) {
   const r = lf2Room("jail");
   if (!r) return null;
   if (fx > r.x && fx < r.x + r.w - 1 && fy > r.y && fy < r.y + r.h - 1) return null;
-  return { msg: "The cell door is locked. (E for more)" };
+  return { msg: "The cell door is locked. (Hold Shift to pick the lock, E to call the guard, Z to sleep it off.)" };
 } });
 LF2.verbs.push((n, x, y, o, add) => {
   if (!n.jail) return null;
@@ -19645,7 +19691,7 @@ LF2.pre.push({ player(n, p, fx, fy) {
   if (!LF2.on("nightlocks") || !lf2Night() || grid[fy][fx] !== T.DOOR) return null;
   const r = lf2DoorRoom(fx, fy);
   if (!r || r.kind !== "house" || r === n.homeRoom || r.unbarred === dayN() + ":" + n.id || lf2InRoom(n, r)) return null;
-  return { msg: `${r.name} is barred for the night. (E for more)` };
+  return { msg: `${r.name} is barred for the night. (Hold Shift to pick the lock, E to knock.)` };
 } });
 LF2.verbs.push((n, x, y, o, add) => {
   if (o || grid[y] === void 0 || grid[y][x] !== T.DOOR) return null;
@@ -20512,7 +20558,7 @@ function render(now, dtSec, hourOfDay) {
       if (n.inShip) continue;
       const sl = n.pose === "sleep" && !n.moving;
       items.push({ k: n.y - (sl ? 0.45 : 0), f: () => {
-        const px = n.x * TS, py = n.y * TS;
+        const sxy = gaSlide(n, now), px = sxy[0] * TS, py = sxy[1] * TS;
         if (sl) drawSleeper(c, n, px, py, now);
         else drawPerson(c, n, now, px, py);
       } });
