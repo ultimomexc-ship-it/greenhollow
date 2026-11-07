@@ -37,6 +37,7 @@
   "life2/glue.ts",
   "dialogue/cv-world.ts",
   "dialogue/cv-voice.ts",
+  "dialogue/cv-rules.ts",
   "dialogue/cv-topics.ts",
   "dialogue/cv-tell.ts",
   "dialogue/cv-talk.ts",

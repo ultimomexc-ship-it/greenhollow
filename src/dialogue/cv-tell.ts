@@ -32,6 +32,7 @@ function cvTellEvent(c, t, layer): CvUtt | null {
   if (actor && actor !== o) hooks.push(cvPersonHook(actor)); if (target && target !== o && target !== actor) hooks.push(cvPersonHook(target));
   if (layer === 0) {
     lf2Tell(o, p, ev, false, true);
+    { const line = cvRule('ev.tell', cvEvFacts(c, ev, k), p); if (line) return { text: line, hooks }; }
     const src = k.from ? ` ${byId(k.from) ? byId(k.from).first : 'Someone'} told me.` : k.mine ? '' : ' I saw it myself.';
     return { text: `${cvLeadLine(o, p)} ${cvCap(lf2Low(txt))}.${src}${Math.random() < 0.7 ? ' ' + cvStanceLine(o, stance) : ''}`, hooks };
   }
@@ -40,8 +41,7 @@ function cvTellEvent(c, t, layer): CvUtt | null {
       return { text: `Me? I would look at ${S.first}. ${cvEvWhy(o, S)} I am not saying it was ${ph.him}. I am saying I would look.`, hooks }; }
     const rel = cvBackOf(actor).find(b => b.a === (target && target.id) || b.b === (target && target.id)), ph = cvPron(actor);
     if (rel) { hooks.push({ k: 'back', key: 'bk' + rel.id, label: cvLabel({ kind: 'back', back: rel }), back: rel }); return { text: `Why would ${actor.first} do it? You would have to know about ${actor.first} and ${target.first}. They have never got on. ${cvBackText(rel, o, 0) || ''}`, hooks }; }
-    if (j.v > 0.25) return { text: `Why did ${actor.first} do it? ${cvGoodWhy(actor)} ${target && target !== o ? `${target.first} will not forget it.` : ''}`.trim(), hooks };
-    return { text: `Why would ${actor.first} do it? ${cvEvWhy(o, actor)} ${target && target !== o ? `And ${target.first} was always going to be the one to feel it.` : ''}`.trim(), hooks };
+    { const good = j.v > 0.25, f = { ...cvEvFacts(c, ev, k), good, why: good ? cvGoodWhy(actor) : cvEvWhy(o, actor) }; const a1 = cvRule('ev.why', f, p), a2 = target && target !== o && Math.random() < 0.6 ? cvRule('ev.feel', f, p) : ''; return { text: [a1, a2].filter(Boolean).join(' '), hooks }; }
   }
   if (layer === 2) { const from = k.from && byId(k.from); return { text: `${cvAdvise[c.v.arch]}${from ? ` Mind you, I only have it from ${from.first}, and I would not swear to ${cvPron(from).his} memory.` : ''}`, hooks }; }
   const names = (ev.witnesses || []).map(id => byId(id)).filter(q => q && q !== o && q !== p).slice(0, 3);
@@ -56,7 +56,8 @@ function cvTellPerson(c, t, layer): CvUtt | null {
     const band = a > 55 ? [`is the best of us. I would walk into the sea for ${ph.him}.`, `is one of the good ones. Do not tell ${ph.him} I said so; I would never hear the end of it.`] : a > 20 ? [`is decent. Reliable. That is rarer than people think.`, `is good company, on the whole.`] : a > -20 ? [`keeps to ${ph.his} own business. I respect that. Mostly.`, `I hardly know ${ph.him}, to be honest. ${cvCap(ph.he)} seems fine.`] : a > -45 ? [`and I do not get on.`, `is somebody I can only take in small quantities.`] : [`is somebody I would cross the square to avoid.`, `— I do not say ${ph.his} name in my house.`];
     const rel = cvBackOf(o).find(b => b.a === q.id || b.b === q.id); if (rel) hooks.push({ k: 'back', key: 'bk' + rel.id, label: cvLabel({ kind: 'back', back: rel }), back: rel });
     const job = q.age >= 16 && q.job && LF2_JOBS[q.job] ? lf2JobName(q) : q.age >= 16 && q.job ? (JOB_NOUN[q.job] || '').replace(/^an? /, '') : '';
-    return { text: `${q.first}${kw && kw !== 'friend' && kw !== 'rival' ? `, my ${kw},` : ''} ${anyOf(band)}${job && a > -45 && Math.random() < 0.4 ? ` ${cvCap(ph.he)} is the ${cvLow(job)}, you know.` : ''}`, hooks };
+    const b0 = cvFreshest(p, band), lead = /^(I |—)/.test(b0) ? `${q.first}? ` : `${q.first}${kw && kw !== 'friend' && kw !== 'rival' ? `, my ${kw},` : ''} `; cvMarkHeard(p, b0);
+    return { text: `${lead}${b0}${job && a > -45 && Math.random() < 0.4 ? ` ${cvCap(ph.he)} is the ${cvLow(job)}, you know.` : ''}`, hooks };
   }
   if (layer === 1) {
     const rel = cvBackOf(o).find(b => b.a === q.id || b.b === q.id);
@@ -112,7 +113,7 @@ function cvTellWorld(c, t, layer): CvUtt | null {
     case 'rest': return { text: 'Rest day. I intend to do nothing, loudly.', hooks };
     case 'eve': return { text: 'Tomorrow is rest day, so everybody is pretending to work today. It is rather touching.', hooks };
     case 'feast': return { text: 'There is a bonfire on the square. Everyone is pretending they are not going.', hooks };
-    case 'out': { const r = rooms[t.id], g = t.extra; return { text: `${LF2_BLD[r.kind] || 'The shop'} is out of ${GOODS[g] ? GOODS[g].name : g} again. I could cry. I might.`, hooks }; }
+    case 'out': { const r = rooms.find(x => x.id === t.id) || rooms[t.id], g = t.extra; if (!r) return null; return { text: `${LF2_BLD[r.kind] || 'The shop'} is out of ${GOODS[g] ? GOODS[g].name : g} again. I could cry. I might.`, hooks }; }
     case 'biz': return { text: anyOf(['Business is thin. People walk past and look at the floor. I charge fair. I do not know what else they want from me.', 'The takings would not feed a sparrow. I do not say it to the customers; they feel bad enough.']), hooks };
   }
   return null;

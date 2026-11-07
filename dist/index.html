@@ -20406,8 +20406,9 @@ const VX = {
 };
 function cvLine(o, bank, p, key) {
   const used = o.cvUsed || (o.cvUsed = {}), k = key || bank[0], fresh = bank.filter((s2) => !used[k + "|" + s2] || game.time - used[k + "|" + s2] > 240);
-  const s = (fresh.length ? fresh : bank)[Math.floor(Math.random() * (fresh.length ? fresh.length : bank.length))];
+  const P = p || game.player, pool = fresh.length ? fresh : bank, s = P && typeof cvFreshest === "function" ? cvFreshest(P, pool) : pool[Math.floor(Math.random() * pool.length)];
   used[k + "|" + s] = game.time;
+  if (P && typeof cvMarkHeard === "function") cvMarkHeard(P, s);
   return p ? s.replace(/\{p\}/g, p.first) : s;
 }
 const cvArchOf = (o) => cvVoice(o).arch;
@@ -20417,6 +20418,149 @@ const cvDeflectLine = (o, p) => cvLine(o, VX.deflect[cvArchOf(o)], p, "deflect")
 const cvLeadLine = (o, p) => cvLine(o, VX.lead[cvArchOf(o)], p, "lead");
 const cvStanceLine = (o, stance) => cvLine(o, VX.stance[cvArchOf(o)][stance] || VX.stance[cvArchOf(o)].shrug, null, "stance" + stance);
 const cvPivotLine = (o) => cvLine(o, VX.pivot[cvArchOf(o)], null, "pivot");
+const cvHeard = (p) => p.cvHeard || (p.cvHeard = {});
+function cvFreshest(p, lines) {
+  if (!p || lines.length < 2) return lines[0];
+  const H2 = cvHeard(p);
+  let best = null, bt = Infinity;
+  for (const s of lines.slice().sort(() => Math.random() - 0.5)) {
+    const t = H2[s] === void 0 ? -Infinity : H2[s];
+    if (t < bt) {
+      bt = t;
+      best = s;
+    }
+  }
+  return best;
+}
+const cvMarkHeard = (p, s) => {
+  if (p) cvHeard(p)[s] = game.time;
+};
+const CVG = {
+  heard: ["Did you hear", "Have you heard", "You will have heard by now", "Word is going round", "Everyone is saying", "I had it this morning"],
+  shock: ["I nearly dropped my bread.", "I had to sit down.", "I have not stopped thinking about it.", "I could hardly believe it.", "My mouth fell open, I am not ashamed to say."],
+  laugh: ["I have not laughed so hard since the goose.", "I laughed until I had to hold the wall.", "It has made my whole week.", "I am still laughing, and it was yesterday."],
+  soft: ["It made my whole day, and it was not even me.", "There is hope for us yet.", "It does the heart good.", "That is the village I want to live in."],
+  wary: ["Lock your door tonight.", "I am keeping my purse in my shoe from now on.", "Nobody is safe, it seems.", "I counted my spoons this morning."],
+  shrugs: ["These are the days we live in.", "Make of it what you will.", "I only pass it on.", "Do with that what you like."]
+};
+function cvFill(p, s, f, depth = 0) {
+  s = s.replace(/#(\w+)#/g, (_, k) => {
+    const opts = CVG[k];
+    if (!opts || depth > 3) return "";
+    const pick2 = cvFreshest(p, opts);
+    cvMarkHeard(p, pick2);
+    return cvFill(p, pick2, f, depth + 1);
+  });
+  return s.replace(/\{(\w+)(\.cap)?\}/g, (_, k, cap2) => {
+    const v = f[k] === void 0 || f[k] === null ? "" : String(f[k]);
+    return cap2 ? cvCap(v) : v;
+  }).replace(/\s+([.,!?])/g, "$1").replace(/ {2,}/g, " ").trim();
+}
+function cvRule(cat, f, p) {
+  const rules = CV_RULES[cat] || [];
+  let best = [], top = -1;
+  for (const r of rules) {
+    let ok = true, n = 0;
+    for (const k in r.when) {
+      const want = r.when[k], have = f[k];
+      if (Array.isArray(want) ? !want.includes(have) : typeof want === "function" ? !want(have, f) : want !== have) {
+        ok = false;
+        break;
+      }
+      n++;
+    }
+    if (!ok) continue;
+    if (n > top) {
+      top = n;
+      best = [r];
+    } else if (n === top) best.push(r);
+  }
+  if (!best.length) return null;
+  const lines = best.flatMap((r) => r.say), pick2 = cvFreshest(p, lines);
+  cvMarkHeard(p, pick2);
+  return cvFill(p, pick2, f);
+}
+function cvTagGroup(ev) {
+  const k = ev.kind, t = ev.tags || [];
+  if (k === "theft" || k === "pickpocket" || k === "robbed" || t.includes("theft")) return "theft";
+  if (["courting", "tryst", "crush", "flirt", "jealous"].includes(k) || t.includes("romance") || t.includes("affair")) return "romance";
+  if (k === "smelly" || t.includes("smelly")) return "smell";
+  if (k === "dice" || t.includes("gamble")) return "gamble";
+  if (t.includes("violence") || k === "brawl" || k === "shove") return "violence";
+  if (t.includes("embarrass") || k === "stumble" || k === "sing") return "embarrass";
+  if (["gift", "charity", "help", "newclothes", "repair"].includes(k) || t.includes("kindness") || t.includes("help") || t.includes("generous")) return "kind";
+  if (["arrest", "fined", "escape"].includes(k)) return "law";
+  return "other";
+}
+function cvEvFacts(c, ev, k) {
+  const o = c.o, a = k && k.a && ev.actor ? lf2By(ev.actor) : null, g = lf2By(ev.target), rel = (q) => !q ? "none" : q === o ? "me" : isKin(o, q) ? "kin" : (o.aff[q.id] || 0) > 30 ? "friend" : (o.aff[q.id] || 0) < -20 ? "foe" : "none";
+  const d = Math.floor(game.time / 1440) - Math.floor(ev.t / 1440), j = lf2Judge(o, ev, !!(k && k.a)), txt = (k && k.a ? ev.text : ev.anonText || ev.text) || "";
+  const tail = a && txt.startsWith(a.first + " ") ? txt.slice(a.first.length + 1) : null;
+  return {
+    tag: cvTagGroup(ev),
+    arch: c.v.arch,
+    stance: cvStanceOf(ev, j),
+    relActor: rel(a),
+    relTarget: rel(g),
+    known: !!a,
+    me: g === o,
+    src: k && k.from ? "told" : k && !k.mine ? "saw" : "mine",
+    actor: a ? a.first : "somebody",
+    target: g ? g.first : "",
+    text: lf2Low(txt),
+    tail: tail ? tail : lf2Low(txt),
+    when: d <= 0 ? "today" : d === 1 ? "yesterday" : "the other day",
+    place: ev.place || "the square",
+    his: a ? cvPron(a).his : "their",
+    from: k && k.from && byId(k.from) ? byId(k.from).first : "",
+    p: c.p.first
+  };
+}
+const CV_RULES = {
+  "ev.tell": [
+    { when: {}, say: ["#heard#? {text.cap}. #shrugs#", "{text.cap}, {when}. #shrugs#", "#heard#? {text.cap}."] },
+    { when: { tag: "theft" }, say: ["#heard#? {text.cap}. #wary#", "{text.cap}, {when}. #wary#", "Somebody has light fingers. {text.cap}. #wary#"] },
+    { when: { tag: "theft", known: false }, say: ["Somebody has been helping themselves, {when}. Nobody saw who. #wary#", "Things are going missing. {text.cap}. And not a soul saw a thing."] },
+    { when: { tag: "theft", me: true }, say: ["I have been robbed, {p}. {when.cap}. In my own village.", "Somebody went through my things {when}. I have checked twice. It is gone."] },
+    { when: { tag: "theft", relActor: "foe" }, say: ["{actor} has been at it again. {text.cap}. I am only surprised it took this long.", "Of course it was {actor}. {text.cap}. I could have told you a year ago."] },
+    { when: { tag: "theft", relActor: "friend" }, say: ["They are saying {actor} {tail}. I do not believe it. I do not want to believe it.", "People say {actor} {tail}. I have known {actor} for years. It does not sound right."] },
+    { when: { tag: "romance" }, say: ["{text.cap}. I am saying nothing. I am saying nothing very loudly.", "#heard#? {text.cap}. {when.cap}! Out in the open!", "Love is in the air, or something is. {text.cap}."] },
+    { when: { tag: "romance", arch: "nosy" }, say: ["Now, I am not one to talk. But {text}. {when.cap}! In broad daylight!", "I have been dying to tell somebody. {text.cap}. Who else knows? Do not tell me. Tell me."] },
+    { when: { tag: "romance", arch: "cynic" }, say: ["{text.cap}. Give it a month.", "Romance. {text.cap}. I give it until the harvest."] },
+    { when: { tag: "romance", arch: "sunny" }, say: ["Oh, it is too lovely. {text.cap}!", "{text.cap}. I could burst."] },
+    { when: { tag: "embarrass" }, say: ["#heard#? {text.cap}. #laugh#", "{text.cap}. Poor soul. #laugh#", "Oh, you missed it. {text.cap}. #laugh#"] },
+    { when: { tag: "embarrass", relTarget: "friend" }, say: ["{text.cap}. I laughed, and then I felt terrible, and then I laughed again."] },
+    { when: { tag: "smell" }, say: ["Somebody needs to take {actor} to the baths. By force, if it comes to it.", "You can smell {actor} before you see {his} face. {when.cap} was the worst yet.", "{text.cap}. Stand upwind, is my advice."] },
+    { when: { tag: "gamble" }, say: ["{actor} has been at the dice again. {text.cap}. One day it will be the shirt off {his} back.", "{text.cap}. The dice give and the dice take, mostly take.", "Dice again. {text.cap}. Somebody always thinks tonight is their night."] },
+    { when: { tag: "gamble", arch: "cynic" }, say: ["{text.cap}. The only one who wins at dice is the tavern."] },
+    { when: { tag: "kind" }, say: ["{text.cap}. #soft#", "#heard#? {text.cap}. #soft#", "A nice thing, for once: {text}. #soft#"] },
+    { when: { tag: "kind", arch: "cynic" }, say: ["{text.cap}. I am sure there is an angle. There is always an angle.", "{text.cap}. Kindness. Suspicious, but there it is."] },
+    { when: { tag: "violence" }, say: ["There was a fight. {text.cap}. Blood on the stones, they say.", "{text.cap}, {when}. Over nothing, as usual. #shock#"] },
+    { when: { tag: "law" }, say: ["The watch has been busy. {text.cap}.", "{text.cap}. So the watch does work, after all."] },
+    { when: { src: "told" }, say: ["{from} told me {text}. #shrugs#", "I had it from {from}: {text}. Make of that what you will.", "{from} says {text}. And {from} is rarely wrong. Rarely."] },
+    { when: { src: "told", tag: "romance" }, say: ["{from} swears {text}. {from} would know, apparently."] }
+  ],
+  "ev.why": [
+    { when: {}, say: ["Why would {actor} do it? {why}", "What gets into a person? {why}", "{actor}? {why}", "If you want my guess: {why}", "You ask why. {why}"] },
+    { when: { good: true }, say: ["Why did {actor} do it? {why}", "That is {actor} all over. {why}", "Some people are just made that way. {why}", "Why? {why} I wish there were more like that."] },
+    { when: { arch: "cynic" }, say: ["Why does anyone do anything? {why}", "Motive? {why} Mine would be boredom."] },
+    { when: { arch: "nosy" }, say: ["Oh, I have theories. {why} And that is only the first one."] }
+  ],
+  "ev.feel": [
+    { when: {}, say: ["{target} was always going to be the one to feel it.", "And {target} is the one left picking up the pieces.", "Poor {target} will be a while getting over it.", "{target} has not said a word about it, which says plenty."] },
+    { when: { good: true }, say: ["{target} will not forget it.", "{target} has told everyone. Twice.", "You should have seen {target}'s face."] }
+  ],
+  "gossip.react": [
+    { when: {}, say: ["Is that so? {actor}, of all people.", "Well. I did not know that.", "You are full of news today."] },
+    { when: { stance: "outraged" }, say: ["That is dreadful. {actor}, of all people.", "No! Really? I will never look at {actor} the same.", "That is shameful. Does everyone know?"] },
+    { when: { stance: "outraged", relActor: "friend" }, say: ["No. Not {actor}. There must be a mistake.", "{actor}? I do not believe it. Who told you?"] },
+    { when: { stance: "outraged", relActor: "foe" }, say: ["Ha. I knew it. I have always said so about {actor}.", "That sounds exactly like {actor}. Thank you for telling me."] },
+    { when: { stance: "amused" }, say: ["Ha! Oh, that is wonderful. Poor {target}.", "Stop. Stop it. I will tell everyone.", "Ha! I wish I had seen it."] },
+    { when: { stance: "pity" }, say: ["Oh, poor {target}. Somebody should look in on them.", "That is hard. I will take round some bread."] },
+    { when: { stance: "warm" }, say: ["How lovely. Good for {actor}.", "That is the nicest thing I have heard all week.", "You see? People are better than they seem."] },
+    { when: { tag: "romance" }, say: ["No! {actor}? Does anyone else know? Do not answer, I will find out.", "Well, well. I wondered about those two."] }
+  ]
+};
 const CV_MAXLAYER = { act: 1, state: 1, ambition: 2, regret: 2, pride: 1, fear: 1, secret: 2, person: 3, event: 3, back: 2, legend: 2, player: 2, world: 1, chron: 1 };
 function cvOpenness(c) {
   const o = c.o, m = c.mem;
@@ -20669,6 +20813,10 @@ function cvTellEvent(c, t, layer) {
   if (target && target !== o && target !== actor) hooks.push(cvPersonHook(target));
   if (layer === 0) {
     lf2Tell(o, p, ev, false, true);
+    {
+      const line = cvRule("ev.tell", cvEvFacts(c, ev, k), p);
+      if (line) return { text: line, hooks };
+    }
     const src = k.from ? ` ${byId(k.from) ? byId(k.from).first : "Someone"} told me.` : k.mine ? "" : " I saw it myself.";
     return { text: `${cvLeadLine(o, p)} ${cvCap(lf2Low(txt))}.${src}${Math.random() < 0.7 ? " " + cvStanceLine(o, stance) : ""}`, hooks };
   }
@@ -20685,8 +20833,11 @@ function cvTellEvent(c, t, layer) {
       hooks.push({ k: "back", key: "bk" + rel.id, label: cvLabel({ kind: "back", back: rel }), back: rel });
       return { text: `Why would ${actor.first} do it? You would have to know about ${actor.first} and ${target.first}. They have never got on. ${cvBackText(rel, o, 0) || ""}`, hooks };
     }
-    if (j.v > 0.25) return { text: `Why did ${actor.first} do it? ${cvGoodWhy(actor)} ${target && target !== o ? `${target.first} will not forget it.` : ""}`.trim(), hooks };
-    return { text: `Why would ${actor.first} do it? ${cvEvWhy(o, actor)} ${target && target !== o ? `And ${target.first} was always going to be the one to feel it.` : ""}`.trim(), hooks };
+    {
+      const good = j.v > 0.25, f = { ...cvEvFacts(c, ev, k), good, why: good ? cvGoodWhy(actor) : cvEvWhy(o, actor) };
+      const a1 = cvRule("ev.why", f, p), a2 = target && target !== o && Math.random() < 0.6 ? cvRule("ev.feel", f, p) : "";
+      return { text: [a1, a2].filter(Boolean).join(" "), hooks };
+    }
   }
   if (layer === 2) {
     const from = k.from && byId(k.from);
@@ -20704,7 +20855,9 @@ function cvTellPerson(c, t, layer) {
     const rel = cvBackOf(o).find((b) => b.a === q.id || b.b === q.id);
     if (rel) hooks.push({ k: "back", key: "bk" + rel.id, label: cvLabel({ kind: "back", back: rel }), back: rel });
     const job = q.age >= 16 && q.job && LF2_JOBS[q.job] ? lf2JobName(q) : q.age >= 16 && q.job ? (JOB_NOUN[q.job] || "").replace(/^an? /, "") : "";
-    return { text: `${q.first}${kw && kw !== "friend" && kw !== "rival" ? `, my ${kw},` : ""} ${anyOf(band)}${job && a > -45 && Math.random() < 0.4 ? ` ${cvCap(ph.he)} is the ${cvLow(job)}, you know.` : ""}`, hooks };
+    const b0 = cvFreshest(p, band), lead = /^(I |—)/.test(b0) ? `${q.first}? ` : `${q.first}${kw && kw !== "friend" && kw !== "rival" ? `, my ${kw},` : ""} `;
+    cvMarkHeard(p, b0);
+    return { text: `${lead}${b0}${job && a > -45 && Math.random() < 0.4 ? ` ${cvCap(ph.he)} is the ${cvLow(job)}, you know.` : ""}`, hooks };
   }
   if (layer === 1) {
     const rel = cvBackOf(o).find((b) => b.a === q.id || b.b === q.id);
@@ -20805,7 +20958,8 @@ function cvTellWorld(c, t, layer) {
     case "feast":
       return { text: "There is a bonfire on the square. Everyone is pretending they are not going.", hooks };
     case "out": {
-      const r = rooms[t.id], g = t.extra;
+      const r = rooms.find((x) => x.id === t.id) || rooms[t.id], g = t.extra;
+      if (!r) return null;
       return { text: `${LF2_BLD[r.kind] || "The shop"} is out of ${GOODS[g] ? GOODS[g].name : g} again. I could cry. I might.`, hooks };
     }
     case "biz":
@@ -21476,7 +21630,9 @@ function cvDeepen(c, h, layer) {
     }
     if (["smooth", "wary", "prickly"].includes(c.v.arch) && (h.k === "secret" || h.k === "back") && Math.random() < 0.45) {
       c.mem.lied[h.key] = 1;
-      return { text: pk(["There is nothing to tell. You have been listening to gossip.", "I do not know what you have heard. It is not true."]), hooks: [{ k: "avoid", key: "avoid:" + h.key, label: h.label, extra: h }] };
+      const ln = cvFreshest(p, ["There is nothing to tell. You have been listening to gossip.", "I do not know what you have heard. It is not true.", "Whoever told you that wants something from you.", "That is an old story, and a wrong one.", "You have the wrong person, I am afraid."]);
+      cvMarkHeard(p, ln);
+      return { text: ln, hooks: [{ k: "avoid", key: "avoid:" + h.key, label: h.label, extra: h }] };
     }
     return { text: cvDeflectLine(o, p), hooks: [{ k: "avoid", key: "avoid:" + h.key, label: h.label, extra: h }] };
   }
@@ -21613,7 +21769,8 @@ function cvGossipTell(c, ev) {
   const a = known && ev.actor ? lf2By(ev.actor) : null, hooks = [{ k: "event", key: "ev" + ev.id, label: cvLabel({ kind: "event", ev }), ev }];
   if (a && a !== o) hooks.push(cvPersonHook(a));
   c.told["ev" + ev.id] = 1;
-  return { text: `${cvStanceLine(o, stance)} ${a ? `${a.first}, of all people.` : ""}`.trim(), hooks };
+  const f = cvEvFacts(c, ev, { a: known, from: null, mine: false });
+  return { text: cvRule("gossip.react", f, p) || cvStanceLine(o, stance), hooks };
 }
 function cvBackGossip(c, b) {
   const o = c.o, hooks = [{ k: "back", key: "bk" + b.id, label: cvLabel({ kind: "back", back: b }), back: b }];

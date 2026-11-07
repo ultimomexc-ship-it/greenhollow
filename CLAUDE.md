@@ -49,6 +49,8 @@ a flirt, gossip, a lie) is part of the sentence, and the person answers the atti
 - To add content: a bit of activity talk in `CV_ACTV`, a thing on their mind in `CV_STATES`, a legend in `CV_LEGENDS`, a secret/regret/fear in `cv-world.ts`, new option lines in `cvFollowUps`.
   Avoid generic filler ("That is interesting", "It is complicated", "Anything else?"): `CV_BANNED` and the tests reject it.
 - `node tools/talk.mjs [seed] [people] [turns] [random|first]` prints real conversations; read them after every content change.
+- `node tools/longevity.mjs [days] [talks/day] [turns] [seed] [--file=other.html]` measures freshness (new templates, new facts per day) and readability over many days; `node tools/sift.mjs [days]` counts story-shaped patterns the village produces on its own. Findings are in NOTES.md.
+- `cv-rules.ts`: lines chosen by the facts of the moment (most specific rule wins) with fill-ins; every line is chosen by what the *listener* heard least recently.
 
 ## Tests
 - `tests/lib.mjs` loads `dist/index.html` deterministically: seeded `Math.random`, a fake clock, frame loop

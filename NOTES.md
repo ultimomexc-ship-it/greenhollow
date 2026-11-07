@@ -93,3 +93,22 @@ legends), memory of what you said, witnesses who mention a shove, events and the
 Ideas next: more events from the simulation (what people talk about is limited by what happens), a journal tab for what you have learned,
 NPCs contradicting each other when you compare notes, weather, more voices per situation, free-text input through a language model (needs a server),
 more tangents, jokes and stories per personality, children's talk, family disputes that develop over days.
+
+## Conversation research, phase 0 (Nov 2026)
+Tools: `node tools/longevity.mjs <days> <talks/day> <turns>` (freshness and readability over many days; `--file=` to compare builds),
+`node tools/sift.mjs <days>` (story-shaped patterns in the event log). Tests guard readability and a week of freshness.
+
+Findings (30 game days, 6 talks a day, 10 turns each, about 170 sentences heard per day):
+- Wording wears out in about a week: new sentence templates fall from ~76% on day 0 to ~10-13% from day 10 on.
+- New information keeps coming: ~25% of what people tell you on days 10-29 is new to you (6-15 new facts a day).
+- Left alone, the village makes little story material: 3.2 events a day (mostly dice and smells), 1.9 story-shaped
+  patterns a week (nearly all romance), no revenge, betrayal, feuds, rumours or spectacles. All systems are switched on;
+  grudges need a victim who knows the culprit, and unseen thefts never give one.
+- Experiment A (Valve-style rules + grammar + choosing lines by what the listener heard least recently) removed the top
+  repeats ("NAME, of all people." 117x) but did not move the long-run curve (12.7% -> 10.1% new templates, days 10-29).
+  Keeping 30% new would need ~50 new templates a day; that cannot be hand-written. Rules are hygiene, not the strategy.
+- Readability is fine (Flesch ~95, ~6 words a sentence, ~15 words a turn), perhaps choppy. No broken text.
+Conclusion: longevity has to come from new situations (the simulation) and new information, with expression kept tidy.
+Next: villagers with motives (borrow/lend and debts, quarrels, favours, courtship, family friction, work rivalry),
+story threads found by sifting, rumours that change as they spread; measure with sift (stories a week, share of villagers
+in stories) and longevity (new facts a day). Cut stand-alone filler reactions ("Hm.", "Ha!").

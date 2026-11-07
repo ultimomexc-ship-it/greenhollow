@@ -269,7 +269,7 @@ function cvDeepen(c, h: CvHook, layer: number): CvUtt | null {
   const w = cvWilling(c, t.sens + 0.08 * layer, h.key), o = c.o, p = c.p;
   if (w === 'no') {
     if (cvSlips(c)) { const u = cvTell(c, t, layer); if (u) return { text: `${u.text} …I should not have said that.`, hooks: u.hooks }; }
-    if (['smooth', 'wary', 'prickly'].includes(c.v.arch) && (h.k === 'secret' || h.k === 'back') && Math.random() < 0.45) { c.mem.lied[h.key] = 1; return { text: pk(['There is nothing to tell. You have been listening to gossip.', 'I do not know what you have heard. It is not true.']), hooks: [{ k: 'avoid', key: 'avoid:' + h.key, label: h.label, extra: h }] }; }
+    if (['smooth', 'wary', 'prickly'].includes(c.v.arch) && (h.k === 'secret' || h.k === 'back') && Math.random() < 0.45) { c.mem.lied[h.key] = 1; const ln = cvFreshest(p, ['There is nothing to tell. You have been listening to gossip.', 'I do not know what you have heard. It is not true.', 'Whoever told you that wants something from you.', 'That is an old story, and a wrong one.', 'You have the wrong person, I am afraid.']); cvMarkHeard(p, ln); return { text: ln, hooks: [{ k: 'avoid', key: 'avoid:' + h.key, label: h.label, extra: h }] }; }
     return { text: cvDeflectLine(o, p), hooks: [{ k: 'avoid', key: 'avoid:' + h.key, label: h.label, extra: h }] };
   }
   const u = cvTell(c, t, layer); if (!u) return cvPivotUtt(c, h);
@@ -321,7 +321,7 @@ function cvGossipTell(c, ev): CvUtt {
   if (o.kn && o.kn[ev.id] && (o.kn[ev.id].a || !known)) return { text: pk(['Old news, I am afraid. It reached me yesterday.', 'You are the third to tell me that. It has been a busy day for it.', 'I know. Everyone knows. It is only you who thinks it is a secret.']), hooks: [{ k: 'event', key: 'ev' + ev.id, label: cvLabel({ kind: 'event', ev }), ev }] };
   lf2Tell(p, o, ev, false, true); bumpAff(p, o, 1, 6);
   const a = known && ev.actor ? lf2By(ev.actor) : null, hooks: CvHook[] = [{ k: 'event', key: 'ev' + ev.id, label: cvLabel({ kind: 'event', ev }), ev }]; if (a && a !== o) hooks.push(cvPersonHook(a));
-  c.told['ev' + ev.id] = 1; return { text: `${cvStanceLine(o, stance)} ${a ? `${a.first}, of all people.` : ''}`.trim(), hooks };
+  c.told['ev' + ev.id] = 1; const f = cvEvFacts(c, ev, { a: known, from: null, mine: false }); return { text: cvRule('gossip.react', f, p) || cvStanceLine(o, stance), hooks };
 }
 function cvBackGossip(c, b): CvUtt {
   const o = c.o, hooks: CvHook[] = [{ k: 'back', key: 'bk' + b.id, label: cvLabel({ kind: 'back', back: b }), back: b }]; const A = byId(b.a), B = byId(b.b); hooks.push(cvPersonHook(A), cvPersonHook(B));

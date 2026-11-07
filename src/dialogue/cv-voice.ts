@@ -83,7 +83,7 @@ const VX: any = {
 /** pick a line from a bank that has not just been used by this person, with {p} filled in */
 function cvLine(o, bank: string[], p?, key?: string) {
   const used = o.cvUsed || (o.cvUsed = {}), k = key || bank[0], fresh = bank.filter(s => !used[k + '|' + s] || game.time - used[k + '|' + s] > 240);
-  const s = (fresh.length ? fresh : bank)[Math.floor(Math.random() * (fresh.length ? fresh.length : bank.length))]; used[k + '|' + s] = game.time;
+  const P = p || game.player, pool = fresh.length ? fresh : bank, s = P && typeof cvFreshest === 'function' ? cvFreshest(P, pool) : pool[Math.floor(Math.random() * pool.length)]; used[k + '|' + s] = game.time; if (P && typeof cvMarkHeard === 'function') cvMarkHeard(P, s);
   return p ? s.replace(/\{p\}/g, p.first) : s;
 }
 const cvArchOf = o => cvVoice(o).arch;
