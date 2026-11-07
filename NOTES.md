@@ -138,3 +138,8 @@ and it is about four times faster. Still to decide: NPC perception on `tsLine` (
 Second revision (Nov 2026): walls are full-thickness solids again (the line-down-the-middle version cast shadows from the wrong places): outer corners
 cast from the outside point of the corner tile, door beams from the inside corners of the door frame. A viewer at 45 degrees to a door sees only a sliver
 (a one-tile doorway through a one-tile wall); in front of the door the beam is full width. Thinner wall art would make side views of doors more generous.
+
+## One-key controls (Nov 2026)
+Replaced the five held keys with a single Shift toggle (crouch). Standing: talk, buy, push barrels and crates, fell, fish, gather. Crouching: push past people, search barrels.
+Removed: pickpocketing, pulling crates, Space/E/R/C/Z. Registered but unreachable until they get a standing/crouching case: steal, pick a lock, wreck, rough shove, give,
+wake, follow, distract, lend a hand, knock, inspect. Open: what crouching should do for noise and for who notices you (nothing yet), and which of those verbs come back.

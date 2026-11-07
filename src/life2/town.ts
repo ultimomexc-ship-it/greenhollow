@@ -263,7 +263,7 @@ LF2.pre.push({ player(n, p, fx, fy) {
   return null;
 } });
 LF2.pre.push({ person(n, p, o) {
-  if (p.push) return null; const J = LF2_JOBS[o.job]; if (!J || !J.room) return null; const r = lf2Room(J.room);
+  if (lf2Crouching(p)) return null; /* crouching pushes past a seller; standing buys */ const J = LF2_JOBS[o.job]; if (!J || !J.room) return null; const r = lf2Room(J.room);
   if (r && LF2_SELL[r.kind] && lf2Server(r) === o) return { key: 'trade' + o.id, min: 0.6, text: 'Stepping up to ' + o.first, run(nn) { lf2TradeDialog(nn, r); } };
   return null;
 } });

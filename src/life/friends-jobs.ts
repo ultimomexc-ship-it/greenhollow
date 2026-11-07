@@ -257,13 +257,6 @@ function lfDrawThoughts(c, now) {
 }
 
 /* ---------------- you: pushing, the privy, the card and the bar ---------------- */
-function lifePlayerPush(n, p, fx, fy, dx, dy) {
-  const pr = lfPropAt(fx, fy); if (!pr) return null;
-  const label = LF_NOUN[pr.kind];
-  if (!p.push) return { msg: 'A ' + label + '. Hold Space and walk into it to push it.' };
-  if (lfPush(pr, dx, dy, n)) return null;
-  return { msg: 'The ' + label + ' will not budge.' };
-}
 function lifePrivyAct(n, x, y) {
   if (n.bladder < 12) return { msg: 'You do not need to go right now.' };
   return { key: 'privy', min: 4, text: 'Using the privy', tool: null, run(nn) { nn.bladder = 0; lfMod(nn, 'relief', 'relieved', 5, 150); playerSay(nn, anyOf(['Ahh. Much better.', 'That was close.', 'Why is this so satisfying?'])); } };

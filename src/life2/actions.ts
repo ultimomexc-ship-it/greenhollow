@@ -57,12 +57,6 @@ function lf2Swap(n, pr) {
   n.path = [{ x: ox, y: oy }]; n.moving = true; n.t = 0; n.pose = 'walk'; n.status = 'Squeezing past the ' + LF_NOUN[pr.kind];
   return true;
 }
-function lf2Pull(n, pr) {
-  const bx = 2 * n.tx - pr.x, by = 2 * n.ty - pr.y;
-  if (!walkable(bx, by) || lf2Occ(bx, by, n) || (typeof noStep === 'function' && noStep(bx, by)) || !lf2PropFits(pr, n.tx, n.ty)) { lf2Say(n, 'No room behind me to pull it.'); return; }
-  const fx = n.tx, fy = n.ty; lf2MoveProp(pr, fx, fy, n); n.path = [{ x: bx, y: by }]; n.moving = true; n.t = 0; n.pose = 'walk'; n.face = { dx: Math.sign(pr.x - bx) || 0, dy: Math.sign(pr.y - by) || 0 };
-  lf2AfterPush(n, pr);
-}
 /* a crate left against somebody's door is a prank (and may shut them in) */
 function lf2AfterPush(n, pr) {
   if (!lfNearDoor(pr.x, pr.y)) return;
@@ -78,14 +72,14 @@ function lifeAct(n, p, fx, fy, dx, dy) {
   const pr = lfPropAt(fx, fy);
   if (pr) {
     const label = LF_NOUN[pr.kind];
-    if (p.push) { if (lfPush(pr, dx, dy, n)) { lf2AfterPush(n, pr); return null; } if (lf2Swap(n, pr)) return { msg: '' }; return { msg: 'The ' + label + ' will not budge.' }; }
-    if (pr.loot === null && (pr.lootDay || 0) >= Math.floor(game.time / 1440) - 1) return game.time - (pr.searchedT || -99) < 4 ? null : { msg: 'You have already been through this ' + label + '. (Hold Space to push it.)' };
+    if (!lf2Crouching(p)) { if (lfPush(pr, dx, dy, n)) { lf2AfterPush(n, pr); return null; } if (lf2Swap(n, pr)) return { msg: '' }; return { msg: 'The ' + label + ' will not budge.' }; }   // standing: push it
+    if (pr.loot === null && (pr.lootDay || 0) >= Math.floor(game.time / 1440) - 1) return game.time - (pr.searchedT || -99) < 4 ? null : { msg: 'You have already been through this ' + label + '. (Stand up with Shift to push it.)' };   // crouching: search it
     return { key: 'search' + pr.id, min: 5, text: 'Searching the ' + label, tool: 'pick', run(nn) { lf2Search(nn, pr); } };
   }
-  if (grid[fy] && grid[fy][fx] === T.BARREL) { const r = rooms[roomAt[fy][fx]]; if (r && r.kind === 'house' && r !== n.homeRoom) return { msg: `The ${lf2Family(r)} family's food barrel. (Hold Shift to take some food.)` }; }
+  if (grid[fy] && grid[fy][fx] === T.BARREL) { const r = rooms[roomAt[fy][fx]]; if (r && r.kind === 'house' && r !== n.homeRoom) return { msg: `The ${lf2Family(r)} family's food barrel. ` }; }
   return null;
 }
-/* walking into a person (Space pushes them aside instead: see lf2PushPerson in controls.ts) */
+/* walking into a person (crouching pushes them aside instead: see lf2PushPerson in controls.ts) */
 function lf2PersonAct(n, p, o, tg) {
   for (const f of LF2.pre) { const r = f.person && f.person(n, p, o, tg); if (r) return r; }
   return null;
@@ -101,28 +95,6 @@ function lf2Shove(n, o) {
 }
 
 /* ---------------- everything else: the verbs (each one belongs to a held key, see controls.ts) ---------------- */
-function lf2Pickpocket(n, o) {
-  if (!lf2Adj(n, o)) { lf2Say(n, o.first + ' moved away.'); return; }
-  const asleep = o.pose === 'sleep', f = o.face || { dx: 0, dy: 1 }, away = f.dx * (n.tx - o.tx) + f.dy * (n.ty - o.ty) < 0;
-  const st = o.plan && o.plan[o.si];
-  let pk = asleep ? 0.88 : 0.5 + (away ? 0.22 : 0) + (st && st.act === 'work' ? 0.1 : 0) + ((o.drunk || 0) > 50 ? 0.25 : 0) - (lf2Has(o, 'curious') ? 0.12 : 0) - (lf2Has(o, 'anxious') ? 0.12 : 0) - (o.job === 'Guard' ? 0.25 : 0);
-  const goods = Object.keys(o.inv || {}).filter(g => (o.inv[g] || 0) > 0 && g !== 'wood' && g !== 'stone');
-  if (Math.random() < pk) {
-    let what;
-    if ((o.coin || 0) >= 1 && (Math.random() < 0.75 || !goods.length)) { const q = Math.max(1, Math.floor(o.coin * (0.25 + Math.random() * 0.35))); o.coin -= q; n.coin += q; what = q + (q > 1 ? ' denarii' : ' denarius'); }
-    else if (goods.length) { const g = anyOf(goods); o.inv[g]--; n.inv[g] = (n.inv[g] || 0) + 1; what = '1 ' + (GOODS[g] ? GOODS[g].name : g); }
-    lf2Say(n, what ? 'Got away with ' + what + '.' : 'Their pockets were empty.');
-    if (!what) return;
-    const ev = lfEmit('pickpocket', { actor: n, target: o, sev: 1, aware: false, tags: ['theft', 'crime'], chron: false, value: parseInt(what) || 1, text: `${n.first} picked ${o.first}'s pocket` });
-    // they notice later; whoever saw it may be able to say who it was
-    (town.lf2Later = town.lf2Later || []).push({ at: game.time + 30 + Math.random() * 120, f: 'noticeTheft', ev: ev.id, who: o.id, what });
-  } else {
-    if (asleep) { o.pose = 'stand'; abortPlan(o); }
-    lfEmit('pickpocket', { actor: n, target: o, sev: 2, loud: true, tags: ['theft', 'crime'], text: `${o.first} caught ${n.first} with a hand in their pocket` });
-    if (!o.player) { lfShout(o, anyOf(['Thief! THIEF!', 'Get your hands off me!', 'Help! A pickpocket!'])); faceTo(o, n); }
-    lf2Say(n, 'Caught!');
-  }
-}
 function lf2Give(n, o, q) {
   if (n.coin < q) { lf2Say(n, 'You do not have ' + q + ' denarii.'); return; }
   n.coin -= q; o.coin = (o.coin || 0) + q; const poor = (o.coin - q) < 5;
@@ -168,14 +140,13 @@ function lf2StealBarrel(n, r) {
 }
 /* the verbs for the tile in front of you (or for tile tx, ty) */
 function lf2Verbs(n, tx?, ty?) {
-  const front = tx === undefined ? lf2Front(n) : { x: tx, y: ty }, x = front.x, y = front.y, out: any[] = [], o = lf2Occ(x, y, n), add = (label, f, min?, text?, tool?) => out.push({ label, mod: lf2VerbMod(label), f, min: min || 0, text: text || label, tool: tool || null });
+  const front = tx === undefined ? lf2Front(n) : { x: tx, y: ty }, x = front.x, y = front.y, out: any[] = [], o = lf2Occ(x, y, n), add = (label, f, min?, text?, tool?) => out.push({ label, mod: null, f, min: min || 0, text: text || label, tool: tool || null });
   let title = '';
   if (o) {
     title = o.first + (o.job ? ' · ' + lf2JobName(o) : '');
-    if (o.pose === 'sleep') { add('Pick their pocket', nn => lf2Pickpocket(nn, o), 2, 'Reaching into ' + o.first + '\'s pocket'); add('Wake them up', nn => lf2Wake(nn, o)); }
+    if (o.pose === 'sleep') { add('Wake them up', nn => lf2Wake(nn, o)); }
     else {
       add('Talk', () => { if (typeof openTalk === 'function') openTalk(o); });
-      add('Pick their pocket', nn => lf2Pickpocket(nn, o), 2, 'Reaching into ' + o.first + '\'s pocket');
       add('Rough them up', nn => lf2Shove(nn, o), 1, 'Shoving ' + o.first);
       if (n.coin >= 5) add('Give 5 denarii', nn => lf2Give(nn, o, 5));
       if (FOODS.concat(['bread', 'stew']).some(g => (n.inv[g] || 0) > 0)) add('Give some food', nn => lf2GiveFood(nn, o));
@@ -185,7 +156,7 @@ function lf2Verbs(n, tx?, ty?) {
     add('Inspect', nn => lf2Inspect(nn, o));
   } else {
     const pr = lfPropAt(x, y);
-    if (pr) { title = lf2Cap(LF_NOUN[pr.kind]); add('Search it', nn => lf2Search(nn, pr), 5, 'Searching the ' + LF_NOUN[pr.kind], 'pick'); add('Push it', nn => { if (!lfPush(pr, x - nn.tx, y - nn.ty, nn) && !lf2Swap(nn, pr)) lf2Say(nn, 'It will not budge.'); else lf2AfterPush(nn, pr); }); add('Pull it', nn => lf2Pull(nn, pr)); }
+    if (pr) { title = lf2Cap(LF_NOUN[pr.kind]); add('Search it', nn => lf2Search(nn, pr), 5, 'Searching the ' + LF_NOUN[pr.kind], 'pick'); add('Push it', nn => { if (!lfPush(pr, x - nn.tx, y - nn.ty, nn) && !lf2Swap(nn, pr)) lf2Say(nn, 'It will not budge.'); else lf2AfterPush(nn, pr); }); }
     if (grid[y] && grid[y][x] === T.BARREL) { const r = rooms[roomAt[y][x]]; if (r && r.kind === 'house' && r !== n.homeRoom) { title = `The ${lf2Family(r)} family's barrel`; add('Steal some food', nn => lf2StealBarrel(nn, r), 3, 'Quietly filling your pockets', 'pick'); add('Look inside', nn => lf2Say(nn, `About ${foodCount(r.pantry || {})} meals' worth of food.`)); } }
   }
   for (const f of LF2.verbs) { try { const t = f(n, x, y, o, add); if (t && !title) title = t; } catch (e) { console.warn('verbs', e.message); } }

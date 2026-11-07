@@ -34,6 +34,7 @@ function drawWaterline(c, n, px, py, now) {
 }
 function drawPerson(c, n, now, px, py) {
   const sp = gaSpec(n, now); c.save();
+  if (n.player && n.player.sneak) { const fx = px + 12, fy = py + 21.5; c.translate(fx, fy); c.scale(1, 0.8); c.rotate(n.pose === 'walk' ? 0.1 * (n.face && n.face.dx < 0 ? -1 : 1) : 0); c.translate(-fx, -fy); }   // crouching: low, and leaning into the walk
   try { ART.drawDollLOD(c, sp, px, py, now / 1000, cam.z * cam.dpr); } catch (e) { if (!GA.warned) { GA.warned = 1; console.error('doll', e && e.message); } }
   c.restore();
   if (n.status === 'Playing the fiddle' && !n.moving) drawFiddle(c, n, now, px, py);

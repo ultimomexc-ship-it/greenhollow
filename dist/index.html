@@ -14612,7 +14612,6 @@ function tickPlayer0(n, dt) {
     const [dx, dy] = DIRV[d];
     const pf = n.face || { dx: 0, dy: 1 };
     n.face = { dx, dy };
-    if (p.push && !p.lock && !p.act && lf2TryPull(n, pf, dx, dy)) continue;
     const fx = n.tx + dx, fy = n.ty + dy;
     p.fx = fx;
     p.fy = fy;
@@ -14635,8 +14634,9 @@ function tickPlayer0(n, dt) {
     }
     if (p.lock) continue;
     let tg = lifeAct(n, p, fx, fy, dx, dy) || targetAt(n, fx, fy);
+    if (lf2Crouching(p) && tg && tg.key && /^(tree|rock|fish)/.test(tg.key)) tg = { msg: "Stand up (Shift) to " + (/^fish/.test(tg.key) ? "fish." : /^tree/.test(tg.key) ? "fell it." : "break it.") };
     let occ = tileOwner.get(tkey(fx, fy));
-    if (p.push && occ && occ !== n && !occ.infant && occ.pose !== "sleep") {
+    if (lf2Crouching(p) && occ && occ !== n && !occ.infant && occ.pose !== "sleep") {
       const r = lf2PushPerson(n, occ, dx, dy);
       if (r === true) {
         occ = null;
@@ -14654,10 +14654,6 @@ function tickPlayer0(n, dt) {
       } };
     }
     if (occ && occ !== n && !occ.infant) tg = lf2PersonAct(n, p, occ, tg) || tg;
-    {
-      const mv = lf2ModAct(n, p, fx, fy, occ);
-      if (mv) tg = mv;
-    }
     if (p.skip && (p.skip.x !== fx || p.skip.y !== fy)) p.skip = null;
     if (p.skip && tg && tg.key && !occ) tg = null;
     if (tg && tg.key) {
@@ -17634,14 +17630,6 @@ function lfDrawThoughts(c, now) {
     c.restore();
   }
 }
-function lifePlayerPush(n, p, fx, fy, dx, dy) {
-  const pr = lfPropAt(fx, fy);
-  if (!pr) return null;
-  const label = LF_NOUN[pr.kind];
-  if (!p.push) return { msg: "A " + label + ". Hold Space and walk into it to push it." };
-  if (lfPush(pr, dx, dy, n)) return null;
-  return { msg: "The " + label + " will not budge." };
-}
 function lifePrivyAct(n, x, y) {
   if (n.bladder < 12) return { msg: "You do not need to go right now." };
   return { key: "privy", min: 4, text: "Using the privy", tool: null, run(nn) {
@@ -18174,21 +18162,6 @@ function lf2Swap(n, pr) {
   n.status = "Squeezing past the " + LF_NOUN[pr.kind];
   return true;
 }
-function lf2Pull(n, pr) {
-  const bx = 2 * n.tx - pr.x, by = 2 * n.ty - pr.y;
-  if (!walkable(bx, by) || lf2Occ(bx, by, n) || typeof noStep === "function" && noStep(bx, by) || !lf2PropFits(pr, n.tx, n.ty)) {
-    lf2Say(n, "No room behind me to pull it.");
-    return;
-  }
-  const fx = n.tx, fy = n.ty;
-  lf2MoveProp(pr, fx, fy, n);
-  n.path = [{ x: bx, y: by }];
-  n.moving = true;
-  n.t = 0;
-  n.pose = "walk";
-  n.face = { dx: Math.sign(pr.x - bx) || 0, dy: Math.sign(pr.y - by) || 0 };
-  lf2AfterPush(n, pr);
-}
 function lf2AfterPush(n, pr) {
   if (!lfNearDoor(pr.x, pr.y)) return;
   const r = rooms.find((r2) => !r2.dead && r2.doorX != null && Math.abs(pr.x - r2.doorX) <= 1 && pr.y === (r2.side === "b" ? r2.doorY + 1 : r2.doorY - 1));
@@ -18205,7 +18178,7 @@ function lifeAct(n, p, fx, fy, dx, dy) {
   const pr = lfPropAt(fx, fy);
   if (pr) {
     const label = LF_NOUN[pr.kind];
-    if (p.push) {
+    if (!lf2Crouching(p)) {
       if (lfPush(pr, dx, dy, n)) {
         lf2AfterPush(n, pr);
         return null;
@@ -18213,14 +18186,14 @@ function lifeAct(n, p, fx, fy, dx, dy) {
       if (lf2Swap(n, pr)) return { msg: "" };
       return { msg: "The " + label + " will not budge." };
     }
-    if (pr.loot === null && (pr.lootDay || 0) >= Math.floor(game.time / 1440) - 1) return game.time - (pr.searchedT || -99) < 4 ? null : { msg: "You have already been through this " + label + ". (Hold Space to push it.)" };
+    if (pr.loot === null && (pr.lootDay || 0) >= Math.floor(game.time / 1440) - 1) return game.time - (pr.searchedT || -99) < 4 ? null : { msg: "You have already been through this " + label + ". (Stand up with Shift to push it.)" };
     return { key: "search" + pr.id, min: 5, text: "Searching the " + label, tool: "pick", run(nn) {
       lf2Search(nn, pr);
     } };
   }
   if (grid[fy] && grid[fy][fx] === T.BARREL) {
     const r = rooms[roomAt[fy][fx]];
-    if (r && r.kind === "house" && r !== n.homeRoom) return { msg: `The ${lf2Family(r)} family's food barrel. (Hold Shift to take some food.)` };
+    if (r && r.kind === "house" && r !== n.homeRoom) return { msg: `The ${lf2Family(r)} family's food barrel. ` };
   }
   return null;
 }
@@ -18256,45 +18229,6 @@ function lf2Shove(n, o) {
   if (!o.player) {
     const brave = lf2Has(o, "brave") || lf2Has(o, "grumpy") || lf2Has(o, "proud");
     lfShout(o, brave ? anyOf(["Oi! Watch it!", "Do that again and see what happens.", "Who do you think you are?"]) : anyOf(["Hey!", "Ow! What was that for?", "Please, stop it."]));
-  }
-}
-function lf2Pickpocket(n, o) {
-  if (!lf2Adj(n, o)) {
-    lf2Say(n, o.first + " moved away.");
-    return;
-  }
-  const asleep = o.pose === "sleep", f = o.face || { dx: 0, dy: 1 }, away = f.dx * (n.tx - o.tx) + f.dy * (n.ty - o.ty) < 0;
-  const st = o.plan && o.plan[o.si];
-  let pk2 = asleep ? 0.88 : 0.5 + (away ? 0.22 : 0) + (st && st.act === "work" ? 0.1 : 0) + ((o.drunk || 0) > 50 ? 0.25 : 0) - (lf2Has(o, "curious") ? 0.12 : 0) - (lf2Has(o, "anxious") ? 0.12 : 0) - (o.job === "Guard" ? 0.25 : 0);
-  const goods = Object.keys(o.inv || {}).filter((g) => (o.inv[g] || 0) > 0 && g !== "wood" && g !== "stone");
-  if (Math.random() < pk2) {
-    let what;
-    if ((o.coin || 0) >= 1 && (Math.random() < 0.75 || !goods.length)) {
-      const q = Math.max(1, Math.floor(o.coin * (0.25 + Math.random() * 0.35)));
-      o.coin -= q;
-      n.coin += q;
-      what = q + (q > 1 ? " denarii" : " denarius");
-    } else if (goods.length) {
-      const g = anyOf(goods);
-      o.inv[g]--;
-      n.inv[g] = (n.inv[g] || 0) + 1;
-      what = "1 " + (GOODS[g] ? GOODS[g].name : g);
-    }
-    lf2Say(n, what ? "Got away with " + what + "." : "Their pockets were empty.");
-    if (!what) return;
-    const ev = lfEmit("pickpocket", { actor: n, target: o, sev: 1, aware: false, tags: ["theft", "crime"], chron: false, value: parseInt(what) || 1, text: `${n.first} picked ${o.first}'s pocket` });
-    (town.lf2Later = town.lf2Later || []).push({ at: game.time + 30 + Math.random() * 120, f: "noticeTheft", ev: ev.id, who: o.id, what });
-  } else {
-    if (asleep) {
-      o.pose = "stand";
-      abortPlan(o);
-    }
-    lfEmit("pickpocket", { actor: n, target: o, sev: 2, loud: true, tags: ["theft", "crime"], text: `${o.first} caught ${n.first} with a hand in their pocket` });
-    if (!o.player) {
-      lfShout(o, anyOf(["Thief! THIEF!", "Get your hands off me!", "Help! A pickpocket!"]));
-      faceTo(o, n);
-    }
-    lf2Say(n, "Caught!");
   }
 }
 function lf2Give(n, o, q) {
@@ -18380,18 +18314,16 @@ function lf2StealBarrel(n, r) {
   lfEmit("theft", { actor: n, target: lf2RoomHead(r), sev: 1, aware: false, tags: ["theft", "crime", "trespass"], chron: false, value: c * 2, text: `${n.first} stole food from the ${lf2Family(r)} family's barrel` });
 }
 function lf2Verbs(n, tx, ty) {
-  const front = tx === void 0 ? lf2Front(n) : { x: tx, y: ty }, x = front.x, y = front.y, out = [], o = lf2Occ(x, y, n), add = (label, f, min, text, tool) => out.push({ label, mod: lf2VerbMod(label), f, min: min || 0, text: text || label, tool: tool || null });
+  const front = tx === void 0 ? lf2Front(n) : { x: tx, y: ty }, x = front.x, y = front.y, out = [], o = lf2Occ(x, y, n), add = (label, f, min, text, tool) => out.push({ label, mod: null, f, min: min || 0, text: text || label, tool: tool || null });
   let title = "";
   if (o) {
     title = o.first + (o.job ? " \xB7 " + lf2JobName(o) : "");
     if (o.pose === "sleep") {
-      add("Pick their pocket", (nn) => lf2Pickpocket(nn, o), 2, "Reaching into " + o.first + "'s pocket");
       add("Wake them up", (nn) => lf2Wake(nn, o));
     } else {
       add("Talk", () => {
         if (typeof openTalk === "function") openTalk(o);
       });
-      add("Pick their pocket", (nn) => lf2Pickpocket(nn, o), 2, "Reaching into " + o.first + "'s pocket");
       add("Rough them up", (nn) => lf2Shove(nn, o), 1, "Shoving " + o.first);
       if (n.coin >= 5) add("Give 5 denarii", (nn) => lf2Give(nn, o, 5));
       if (FOODS.concat(["bread", "stew"]).some((g) => (n.inv[g] || 0) > 0)) add("Give some food", (nn) => lf2GiveFood(nn, o));
@@ -18415,7 +18347,6 @@ function lf2Verbs(n, tx, ty) {
         if (!lfPush(pr, x - nn.tx, y - nn.ty, nn) && !lf2Swap(nn, pr)) lf2Say(nn, "It will not budge.");
         else lf2AfterPush(nn, pr);
       });
-      add("Pull it", (nn) => lf2Pull(nn, pr));
     }
     if (grid[y] && grid[y][x] === T.BARREL) {
       const r = rooms[roomAt[y][x]];
@@ -18462,73 +18393,13 @@ function lf2Follow(n, p) {
   }
   return true;
 }
-const LF2_MODS = [
-  { id: "push", key: "Space", name: "Push", hold: true, match: (e) => e.code === "Space" },
-  { id: "take", key: "Shift", name: "Sneak", hold: true, match: (e) => e.key === "Shift" },
-  { id: "help", key: "E", name: "Help", hold: true, tap: true, match: (e) => e.code === "KeyE" },
-  { id: "rough", key: "R", name: "Rough", hold: true, match: (e) => e.code === "KeyR" },
-  { id: "follow", key: "C", name: "Follow", tap: true, match: (e) => e.code === "KeyC" },
-  { id: "rest", key: "Z", name: "Rest", tap: true, match: (e) => e.code === "KeyZ" }
-];
-const lf2ModOf = (e) => LF2_MODS.find((m) => m.match(e));
-function lf2VerbMod(label) {
-  if (/^(Pick their pocket|Pick the lock|Pick the cell lock|Steal|Wreck)/.test(label)) return "take";
-  if (/^Rough/.test(label)) return "rough";
-  if (/^Follow/.test(label)) return "follow";
-  if (/^Sleep until/.test(label)) return "rest";
-  if (/^(Push it|Pull it)/.test(label)) return "push";
-  if (/^(Talk|Search it|Buy something)/.test(label)) return "walk";
-  return "help";
-}
-const lf2VerbSpec = (v, x, y) => ({ key: "v:" + v.label + ":" + x + "," + y, min: v.min, text: v.text, tool: v.tool, run: v.f });
-function lf2PickVerb(n, list, mod, o) {
-  const c = list.filter((v) => v.mod === mod);
-  if (!c.length) return null;
-  if (mod === "help" && o) {
-    const by = (l) => c.find((v) => v.label === l);
-    if (o.pose === "sleep") return by("Wake them up") || c[0];
-    const st = o.plan && o.plan[o.si];
-    if (st && st.act === "work" && by("Lend a hand")) return by("Lend a hand");
-    if (o.hunger >= 55 && by("Give some food")) return by("Give some food");
-    if ((o.coin || 0) < 5 && by("Give 5 denarii")) return by("Give 5 denarii");
-    return by("Inspect") || c[0];
-  }
-  return c[0];
-}
-const lf2Held = (p) => p.held || (p.held = []);
-function lf2SetMod(p, id, on) {
-  const h = lf2Held(p), i = h.indexOf(id);
-  if (on && i < 0) h.push(id);
-  if (!on && i >= 0) h.splice(i, 1);
-  p.push = h.includes("push");
-}
-const lf2ActiveMod = (p) => {
-  const h = p.held;
-  return h && h.length ? h[h.length - 1] : null;
-};
-function lf2ModAct(n, p, fx, fy, occ) {
-  const m = lf2ActiveMod(p);
-  if (!m || m === "push") return null;
-  const v = lf2PickVerb(n, lf2Verbs(n, fx, fy).list, m, occ || lf2Occ(fx, fy, n));
-  return v ? lf2VerbSpec(v, fx, fy) : null;
-}
-function lf2Tap(n, id) {
-  const p = n.player;
-  if (!p || p.sleeping || p.act || n.moving || typeof talkUI !== "undefined" && talkUI.o || playerDir(p)) return false;
-  const { x, y } = lf2Front(n), o = lf2Occ(x, y, n), v = lf2PickVerb(n, lf2Verbs(n, x, y).list, id, o);
-  if (!v) {
-    if (id === "help") lf2Say(n, "Nothing to help with here.");
-    return id === "help";
-  }
-  lf2Do(n, lf2VerbSpec(v, x, y));
-  return true;
-}
-function lf2TryPull(n, pf, dx, dy) {
-  if (dx !== -pf.dx || dy !== -pf.dy) return false;
-  const pr = lfPropAt(n.tx + pf.dx, n.ty + pf.dy);
-  if (!pr) return false;
-  lf2Pull(n, pr);
-  return true;
+const lf2Crouching = (p) => !!(p && p.sneak);
+function lf2ToggleCrouch(p) {
+  p.sneak = !p.sneak;
+  p.lock = false;
+  p.skip = null;
+  p.grace = null;
+  p.act = null;
 }
 const lf2PersonOK = (x, y) => {
   const g = grid[y] && grid[y][x];
@@ -18579,61 +18450,29 @@ function lf2HintText(n) {
   const p = n.player;
   if (!p || p.sleeping) return "";
   if (p.act && p.act.auto) return "";
-  if (p.follow) {
-    const o2 = byId(p.follow);
-    return o2 ? "Following " + o2.first + " \xB7 move to stop" : "";
-  }
-  const { x, y } = lf2Front(n), o = lf2Occ(x, y, n), pr = lfPropAt(x, y), v = lf2Verbs(n, x, y), parts = [];
-  if (o && o.pose !== "sleep") parts.push("Walk: talk to " + o.first);
-  else if (pr) parts.push("Walk: search the " + LF_NOUN[pr.kind]);
-  if (o ? o.pose !== "sleep" : !!pr) parts.push("Space: push");
-  for (const m of LF2_MODS) {
-    if (m.id === "push") continue;
-    const it = lf2PickVerb(n, v.list, m.id, o);
-    if (it) parts.push(m.key + ": " + lf2Low(it.label).toLowerCase());
-  }
-  if (!parts.length) return "";
-  return (v.title && !o ? v.title + " \xB7 " : "") + parts.join(" \xB7 ");
+  const c = lf2Crouching(p), tag = c ? "Crouching \xB7 " : "", { x, y } = lf2Front(n), o = lf2Occ(x, y, n), pr = lfPropAt(x, y);
+  if (o && o.pose !== "sleep") return tag + (c ? "walk into " + o.first + " to push past" : "walk into " + o.first + " to talk \xB7 Shift: crouch to push past");
+  if (pr) return tag + (c ? "walk into the " + LF_NOUN[pr.kind] + " to search it \xB7 Shift: stand to push it" : "walk into the " + LF_NOUN[pr.kind] + " to push it \xB7 Shift: crouch to search it");
+  return c ? "Crouching \xB7 Shift to stand up" : "";
 }
 window.addEventListener("keydown", (e) => {
   if (typing(e) || e.ctrlKey || e.metaKey || e.altKey) return;
-  const m = lf2ModOf(e);
-  if (!m) return;
-  const n = game.player, p = n && n.player;
-  if (!p) return;
-  if (m.id === "push") e.preventDefault();
-  if (m.hold && !lf2Held(p).includes(m.id)) {
-    lf2SetMod(p, m.id, true);
-    if (m.id === "push") p.lock = false;
+  if (e.code === "Space") {
+    e.preventDefault();
+    return;
   }
-  if (m.tap && !e.repeat && lf2Tap(n, m.id)) e.preventDefault();
-}, true);
-window.addEventListener("keyup", (e) => {
-  const m = lf2ModOf(e);
-  if (!m || !m.hold) return;
+  if (e.key !== "Shift" || e.repeat) return;
   const p = game.player && game.player.player;
-  if (p) lf2SetMod(p, m.id, false);
-});
-window.addEventListener("blur", () => {
-  const p = game.player && game.player.player;
-  if (p) {
-    p.held = [];
-    p.push = false;
-  }
-});
-window.addEventListener("keydown", (e) => {
-  const n = game.player;
-  if (n && n.player && KEYDIR && (KEYDIR[e.key] || KEYDIR[(e.key || "").toLowerCase()])) n.player.follow = null;
+  if (p) lf2ToggleCrouch(p);
 }, true);
-const LF2_TOUCH_CYCLE = [null, "push", "take", "help", "rough"];
 function lf2SyncModeBtn() {
   const b = document.getElementById("lf2mode");
   if (!b) return;
   const p = game.player && game.player.player;
   b.hidden = !p;
-  const m = p ? lf2ActiveMod(p) : null, def = LF2_MODS.find((x) => x.id === m);
-  b.textContent = def ? def.name : "Walk";
-  b.setAttribute("aria-pressed", m ? "true" : "false");
+  const c = lf2Crouching(p);
+  b.textContent = c ? "Stand" : "Crouch";
+  b.setAttribute("aria-pressed", c ? "true" : "false");
 }
 (function() {
   const stage = canvas.parentNode;
@@ -18649,20 +18488,18 @@ function lf2SyncModeBtn() {
   const b = document.createElement("button");
   b.type = "button";
   b.id = "lf2mode";
-  b.textContent = "Walk";
+  b.textContent = "Crouch";
   b.hidden = true;
-  b.setAttribute("aria-label", "Interaction mode: walk, push, sneak, help, rough");
+  b.setAttribute("aria-label", "Crouch: push past people and search barrels");
   b.setAttribute("aria-pressed", "false");
   stage.appendChild(b);
   b.addEventListener("pointerdown", (e) => {
     e.preventDefault();
     const p = game.player && game.player.player;
-    if (!p) return;
-    const cur = lf2ActiveMod(p), nx = LF2_TOUCH_CYCLE[(LF2_TOUCH_CYCLE.indexOf(cur) + 1) % LF2_TOUCH_CYCLE.length];
-    p.held = nx ? [nx] : [];
-    p.push = nx === "push";
-    if (nx === "push") p.lock = false;
-    lf2SyncModeBtn();
+    if (p) {
+      lf2ToggleCrouch(p);
+      lf2SyncModeBtn();
+    }
   });
   setInterval(() => {
     const n = game.player, t = n && !(typeof talkUI !== "undefined" && talkUI && talkUI.o) ? lf2HintText(n) : "";
@@ -19185,7 +19022,7 @@ LF2.pre.push({ player(n, p, fx, fy) {
   return null;
 } });
 LF2.pre.push({ person(n, p, o) {
-  if (p.push) return null;
+  if (lf2Crouching(p)) return null;
   const J = LF2_JOBS[o.job];
   if (!J || !J.room) return null;
   const r = lf2Room(J.room);
@@ -19724,7 +19561,7 @@ LF2.pre.push({ player(n, p, fx, fy) {
   const r = lf2Room("jail");
   if (!r) return null;
   if (fx > r.x && fx < r.x + r.w - 1 && fy > r.y && fy < r.y + r.h - 1) return null;
-  return { msg: "The cell door is locked. (Hold Shift to pick the lock, E to call the guard, Z to sleep it off.)" };
+  return { msg: "The cell door is locked. (Walk into the bed to sleep it off.)" };
 } });
 LF2.verbs.push((n, x, y, o, add) => {
   if (!n.jail) return null;
@@ -20115,7 +19952,7 @@ LF2.pre.push({ player(n, p, fx, fy) {
   if (!LF2.on("nightlocks") || !lf2Night() || grid[fy][fx] !== T.DOOR) return null;
   const r = lf2DoorRoom(fx, fy);
   if (!r || r.kind !== "house" || r === n.homeRoom || r.unbarred === dayN() + ":" + n.id || lf2InRoom(n, r)) return null;
-  return { msg: `${r.name} is barred for the night. (Hold Shift to pick the lock, E to knock.)` };
+  return { msg: `${r.name} is barred for the night.` };
 } });
 LF2.verbs.push((n, x, y, o, add) => {
   if (o || grid[y] === void 0 || grid[y][x] !== T.DOOR) return null;
@@ -23617,6 +23454,13 @@ function drawWaterline(c, n, px, py, now) {
 function drawPerson(c, n, now, px, py) {
   const sp = gaSpec(n, now);
   c.save();
+  if (n.player && n.player.sneak) {
+    const fx = px + 12, fy = py + 21.5;
+    c.translate(fx, fy);
+    c.scale(1, 0.8);
+    c.rotate(n.pose === "walk" ? 0.1 * (n.face && n.face.dx < 0 ? -1 : 1) : 0);
+    c.translate(-fx, -fy);
+  }
   try {
     ART.drawDollLOD(c, sp, px, py, now / 1e3, cam.z * cam.dpr);
   } catch (e) {
@@ -25629,7 +25473,7 @@ function updateHud(force) {
   }
   const p = n.player, full = Math.round(100 - n.hunger), tone = full < 25 ? "bad" : full < 45 ? "warn" : "";
   const inv = Object.entries(n.inv).filter(([g, q]) => q > 0).map(([g, q]) => '<span class="chip">' + q + " " + (GICON[g] || g) + "</span>").join("");
-  const hint = p.sleeping ? "Sleeping. Press a movement key to get up." : p.act ? p.act.text + "\u2026" : n.hunger >= 60 && !foodSat(n.inv) ? "Hungry: pick berries or fish, you eat automatically" : n.bladder >= 70 ? "Bursting! Find a privy: walk into the seat inside one" : "WASD to move \xB7 walk into things to use them \xB7 Space + walk to push or shove \xB7 E for more";
+  const hint = p.sleeping ? "Sleeping. Press a movement key to get up." : p.act ? p.act.text + "\u2026" : n.hunger >= 60 && !foodSat(n.inv) ? "Hungry: pick berries or fish, you eat automatically" : n.bladder >= 70 ? "Bursting! Find a privy: walk into the seat inside one" : "WASD to move \xB7 walk into things to use them \xB7 Shift: crouch (push past people, search barrels)";
   const sig = [full, JSON.stringify(n.inv), hint, n.status, Math.round((n.bladder || 0) / 4), Math.round((n.mood || 0) / 6)].join("|");
   if (!force && sig === hudSig) return;
   hudSig = sig;

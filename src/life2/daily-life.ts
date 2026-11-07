@@ -156,7 +156,7 @@ function lf2DoorRoom(x, y) { for (const r of rooms) if (!r.dead && r.doorX === x
 LF2.pre.push({ player(n, p, fx, fy) {
   if (!LF2.on('nightlocks') || !lf2Night() || grid[fy][fx] !== T.DOOR) return null;
   const r = lf2DoorRoom(fx, fy); if (!r || r.kind !== 'house' || r === n.homeRoom || r.unbarred === dayN() + ':' + n.id || lf2InRoom(n, r)) return null;
-  return { msg: `${r.name} is barred for the night. (Hold Shift to pick the lock, E to knock.)` };
+  return { msg: `${r.name} is barred for the night.` };
 } });
 LF2.verbs.push((n, x, y, o, add) => {
   if (o || grid[y] === undefined || grid[y][x] !== T.DOOR) return null; const r = lf2DoorRoom(x, y); if (!r || r.kind !== 'house' || r === n.homeRoom) return null;

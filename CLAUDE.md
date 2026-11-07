@@ -27,11 +27,12 @@ crime and a town watch, drawn on a canvas. The owner is hands-off with GitHub: d
   adding real interfaces (Person, Town, Game) over more `any`.
 
 ## Controls (src/life2/controls.ts)
-Walking into something does the obvious thing. Holding a key changes it; there is no menu.
-- **Space**: push. Crates, barrels and people move one tile like furniture (against a wall you swap places). Harmless: no events, no gossip. Step back while holding it to pull a crate. Sleepers and seated people are not pushed.
-- **Shift**: sneak (pick a pocket, steal, pick a lock, wreck). **E**: help/use (lend a hand, give, wake, knock, look; also works as a tap). **R**: rough, the hostile shove with its consequences. **C**: follow (tap). **Z**: sleep in the cells (tap).
-- Each verb is added with `add(label, fn, ...)` in the hooks (`LF2.verbs`); `lf2VerbMod(label)` decides which key owns it. A new verb needs no key code: add it, and map its label there if it is not a "help" verb.
-- Touch: a Mode button cycles Walk, Push, Sneak, Help, Rough.
+One key. Walk into something and the obvious thing happens; **Shift toggles crouching** (tap on, tap off, like Caps Lock) and crouching changes what the obvious thing is.
+- **Standing:** villager -> talk; seller at their counter -> buy; barrel, crate, stool -> push it along; tree, rock -> fell it; water -> fish; berries, herbs, crops -> gather.
+- **Crouching:** villager -> push past them (they move one tile, or you swap places; harmless: no crime, no gossip); barrel, crate -> search it; trees, rocks and water are left alone ("Stand up (Shift) to ...").
+- Nothing else has a key: no Space, E, R, C or Z. Pickpocketing is gone, and so is pulling crates. The other verbs in `lf2Verbs` (steal, pick a lock, wreck, shove, give, wake, follow, distract ...) are still
+  registered in the hooks but nothing reaches them; they wait for their own standing / crouching actions. A new action means a new standing and/or crouching case in `lifeAct` (props, world) or the movement code in `player/control.ts` (people).
+- `p.sneak` is the state (`lf2Crouching(p)`); the crouched player is drawn low and leaning (`drawPerson`); the hint line says what walking into the thing in front of you does right now. Touch: a Crouch / Stand button.
 
 ## Conversation (src/dialogue/cv-*.ts)
 Talking is generated from the village, not from a menu. You say whole sentences; the attitude (a joke, sympathy, an insult, a probe,
@@ -72,7 +73,7 @@ The village lives without the player: the simulation owns the truth (events), ea
 - `tests/lib.mjs` loads `dist/index.html` deterministically: seeded `Math.random`, a fake clock, frame loop
   held, the harness steps the sim (`simulate(page, minutes)`) the way the frame loop does. Same seed, same result.
 - Current suite: load and run a day, render without errors, nobody starves in 12 days (three towns),
-  the hold-a-key controls (push people and crates, swap, pull, Shift, R, sleepers), conversations (specific openers, long random talks without dead ends or repeats, insults and sympathy, unlocking layers, memory, witnesses, the arrest), sim speed under 3 s per game-day (about 0.7 s now),
+  the controls (Shift toggles crouching and nothing else has a key; crouching pushes people and swaps against a wall, standing talks; barrels are pushed standing and searched crouching; sleepers), conversations (specific openers, long random talks without dead ends or repeats, insults and sympathy, unlocking layers, memory, witnesses, the arrest), sim speed under 3 s per game-day (about 0.7 s now),
   the social simulation (the pre-simulation is deterministic, fast and leaves nobody a blank slate; news spreads gradually and changes; talk uses beliefs and you can contradict a version),
   readability and a week of freshness (26 tests, about 2 minutes).
 - The random stream is shared, so any change shifts every later random draw: a test that suddenly fails in one town is often exposing a real
