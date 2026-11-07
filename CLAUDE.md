@@ -85,7 +85,8 @@ every wall tile is a solid square and the segments are the straight edges of the
 from the outermost point of its corner tile, a doorway is a real opening between two jambs (the beam through it starts at the inside corners of the door
 frame), and a window is a gap in the middle of its tile with a solid piece either side.
 From the player's eye a ray goes to every segment end (and a hair either side), stopping at the first segment; the hit points in angle order are the
-visibility polygon. Everything outside it is covered in near-black, cut along those straight lines. Wall tiles you look at are shown whole.
+visibility polygon. Everything outside it is covered in near-black, cut along those straight lines. Only what a sight line reaches is shown: the wall
+behind each visible stretch of face (`tsFaces`: a strip one tile deep), so a glancing view shows a sliver; no tile is ever lit as a whole (doors included).
 - ONLY buildings block sight: walls, closed doors, the solid bits beside a window. Trees, rocks, furniture, crates and people never do.
 - `tsGeo()` builds (and caches, keyed by `town.gridV` and door states) the segments in a cell grid; `tsRay` finds the nearest hit; `tsPolygon`, `tsWalls`.
   `tsSees(x, y)` = can the player see a person standing there (`canSee` uses it; hidden people are not drawn, picked or named).

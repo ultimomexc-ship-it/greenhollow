@@ -15748,11 +15748,6 @@ function tsBuild() {
       walls.push({ x, y, pts: [[x + 0.5, y + 0.5], [x + 0.125, y], [x + 0.875, y], [x + 0.125, y + 1], [x + 0.875, y + 1]] });
     }
   }
-  for (const r of rooms) {
-    if (r.dead) continue;
-    for (let i = r.x; i < r.x + r.w; i++) for (const y of [r.y, r.y + r.h - 1]) if (!hard(i, y) && !full(i, y)) walls.push({ x: i, y, pts: [[i + 0.5, y + 0.5]] });
-    for (let j = r.y + 1; j < r.y + r.h - 1; j++) for (const x of [r.x, r.x + r.w - 1]) if (!hard(x, j) && !full(x, j)) walls.push({ x, y: j, pts: [[x + 0.5, j + 0.5]] });
-  }
   const seg = [], merge = (m, horiz) => {
     for (const [k, list] of m) {
       list.sort((a, b) => a[0] - b[0]);
@@ -15843,11 +15838,37 @@ function tsPolygon(ex, ey, R, G = tsGeo()) {
     const base = Math.atan2(vy - ey, vx - ex);
     for (const a of [base - E, base + E]) {
       const dx = Math.cos(a), dy = Math.sin(a), h = tsRay(G, ex, ey, dx, dy, exitT(dx, dy));
-      out.push([a, ex + dx * h.t, ey + dy * h.t]);
+      out.push([a, ex + dx * h.t, ey + dy * h.t, h.s]);
     }
   }
   out.sort((p, q) => p[0] - q[0]);
-  return out.map((p) => [p[1], p[2]]);
+  const pts = out.map((p) => [p[1], p[2]]);
+  pts.segs = out.map((p) => p[3]);
+  return pts;
+}
+function tsFaces(ex, ey, pts, G = tsGeo(), depth = 1) {
+  const quads = [], n = pts.length, seg = G.seg;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n, s = pts.segs[i];
+    if (s < 0 || s !== pts.segs[j]) continue;
+    const a = pts[i], b = pts[j];
+    if (Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) < 1e-5) continue;
+    let nx = -(seg[s + 3] - seg[s + 1]), ny = seg[s + 2] - seg[s], l = Math.hypot(nx, ny) || 1;
+    nx /= l;
+    ny /= l;
+    if ((ex - a[0]) * nx + (ey - a[1]) * ny > 0) {
+      nx = -nx;
+      ny = -ny;
+    }
+    let tx = b[0] - a[0], ty = b[1] - a[1];
+    const tl = Math.hypot(tx, ty) || 1;
+    tx = tx / tl * 0.03;
+    ty = ty / tl * 0.03;
+    const o = 0.03;
+    const a0 = a[0] - tx - nx * o, a1 = a[1] - ty - ny * o, b0 = b[0] + tx - nx * o, b1 = b[1] + ty - ny * o;
+    quads.push([a0, a1, b0, b1, b0 + nx * (depth + o), b1 + ny * (depth + o), a0 + nx * (depth + o), a1 + ny * (depth + o)]);
+  }
+  return quads;
 }
 function tsClear(G, ex, ey, px, py, slack = 0) {
   const dx = px - ex, dy = py - ey, d = Math.hypot(dx, dy);
@@ -15895,6 +15916,7 @@ function tsUpdate(now) {
   if (key === TSIGHT.key && TSIGHT.poly) return;
   const t0 = performance.now();
   TSIGHT.poly = tsPolygon(eye[0], eye[1], R, G);
+  TSIGHT.faces = tsFaces(eye[0], eye[1], TSIGHT.poly, G);
   TSIGHT.hits = tsWalls(eye[0], eye[1], R, G);
   TSIGHT.rect = R;
   TSIGHT.eye = eye;
@@ -15935,9 +15957,11 @@ function drawTrueSight(c, now) {
   TSIGHT.poly.forEach((p, i) => i ? g.lineTo(p[0] * TS, p[1] * TS) : g.moveTo(p[0] * TS, p[1] * TS));
   g.closePath();
   g.fill();
-  for (const k of TSIGHT.hits) {
-    const [x, y] = k.split(",").map(Number);
-    g.fillRect(x * TS - 0.3, y * TS - 0.3, TS + 0.6, TS + 0.6);
+  for (const q of TSIGHT.faces) {
+    g.beginPath();
+    for (let i = 0; i < 8; i += 2) i ? g.lineTo(q[i] * TS, q[i + 1] * TS) : g.moveTo(q[i] * TS, q[i + 1] * TS);
+    g.closePath();
+    g.fill();
   }
   g.globalCompositeOperation = "source-over";
   c.save();

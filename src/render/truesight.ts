@@ -7,7 +7,7 @@
    cut along those straight lines (not along tiles).
    Only buildings block sight: walls, closed doors, and the solid bits either side of a window. Trees, boulders, furniture, crates and people
    never do; you see around and past them.
-   Wall tiles you are looking at are shown whole, so buildings read as buildings.
+   What you see of a wall is a strip of it behind each stretch of face a sight line reaches, so a glancing view shows a sliver, never a whole tile.
    NPC perception is separate: tsLine(a, b) answers "is there a clear line?" on the same segments, for any system that wants it, with its
    own range and rules.                                                                                                                 */
 const TSIGHT: any = { on: true, poly: null, hits: null, key: '', rect: null, eye: null, ms: 0, cv: null, geo: null, geoKey: '' };
@@ -48,10 +48,6 @@ function tsBuild() {
       walls.push({ x, y, pts: [[x + 0.5, y + 0.5], [x + 0.125, y], [x + 0.875, y], [x + 0.125, y + 1], [x + 0.875, y + 1]] });
     }
   }
-  // open doors and archways in the outline of a room: shown when seen, like the wall beside them
-  for (const r of rooms) { if (r.dead) continue;
-    for (let i = r.x; i < r.x + r.w; i++) for (const y of [r.y, r.y + r.h - 1]) if (!hard(i, y) && !full(i, y)) walls.push({ x: i, y, pts: [[i + 0.5, y + 0.5]] });
-    for (let j = r.y + 1; j < r.y + r.h - 1; j++) for (const x of [r.x, r.x + r.w - 1]) if (!hard(x, j) && !full(x, j)) walls.push({ x, y: j, pts: [[x + 0.5, j + 0.5]] }); }
   // merge the straight edges along each line into single segments
   const seg: number[] = [], merge = (m: Map<number, number[][]>, horiz: boolean) => { for (const [k, list] of m) { list.sort((a, b) => a[0] - b[0]); let cur = list[0].slice();
     for (let n = 1; n < list.length; n++) { const e = list[n]; if (e[0] <= cur[1] + 1e-6) cur[1] = Math.max(cur[1], e[1]); else { horiz ? seg.push(cur[0], k, cur[1], k) : seg.push(k, cur[0], k, cur[1]); cur = e.slice(); } }
@@ -91,10 +87,27 @@ function tsPolygon(ex, ey, R, G = tsGeo()) {
   const exitT = (dx, dy) => { let t = Infinity; if (dx > 1e-12) t = Math.min(t, (R.x1 - ex) / dx); if (dx < -1e-12) t = Math.min(t, (R.x0 - ex) / dx); if (dy > 1e-12) t = Math.min(t, (R.y1 - ey) / dy); if (dy < -1e-12) t = Math.min(t, (R.y0 - ey) / dy); return Math.max(0, t); };
   for (const [vx, vy] of ends) {
     const base = Math.atan2(vy - ey, vx - ex);
-    for (const a of [base - E, base + E]) { const dx = Math.cos(a), dy = Math.sin(a), h = tsRay(G, ex, ey, dx, dy, exitT(dx, dy)); out.push([a, ex + dx * h.t, ey + dy * h.t]); }
+    for (const a of [base - E, base + E]) { const dx = Math.cos(a), dy = Math.sin(a), h = tsRay(G, ex, ey, dx, dy, exitT(dx, dy)); out.push([a, ex + dx * h.t, ey + dy * h.t, h.s]); }
   }
   out.sort((p, q) => p[0] - q[0]);
-  return out.map(p => [p[1], p[2]]);
+  const pts: any = out.map(p => [p[1], p[2]]); pts.segs = out.map(p => p[3]);   // segs: the wall segment each point lies on (-1: the edge of the view)
+  return pts;
+}
+/** the wall you can see, and only the part you can see: along every stretch of the polygon that lies on a wall face, a strip of wall (one tile deep) behind it.
+    A glancing view of a wall gives a sliver; nothing is switched on as a whole tile. Returns quads in tile coordinates. */
+function tsFaces(ex, ey, pts, G = tsGeo(), depth = 1) {
+  const quads: number[][] = [], n = pts.length, seg = G.seg;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n, s = pts.segs[i]; if (s < 0 || s !== pts.segs[j]) continue;
+    const a = pts[i], b = pts[j]; if (Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) < 1e-5) continue;
+    let nx = -(seg[s + 3] - seg[s + 1]), ny = seg[s + 2] - seg[s], l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
+    if ((ex - a[0]) * nx + (ey - a[1]) * ny > 0) { nx = -nx; ny = -ny; }   // pointing away from you, into the wall
+    // a hair of overlap (along the face and back into the lit floor) so neighbouring strips and the polygon never show a seam
+    let tx = b[0] - a[0], ty = b[1] - a[1]; const tl = Math.hypot(tx, ty) || 1; tx = tx / tl * 0.03; ty = ty / tl * 0.03; const o = 0.03;
+    const a0 = a[0] - tx - nx * o, a1 = a[1] - ty - ny * o, b0 = b[0] + tx - nx * o, b1 = b[1] + ty - ny * o;
+    quads.push([a0, a1, b0, b1, b0 + nx * (depth + o), b1 + ny * (depth + o), a0 + nx * (depth + o), a1 + ny * (depth + o)]);
+  }
+  return quads;
 }
 /** is the point (tile coords) in a clear line from the eye? (nothing of any building between them) */
 function tsClear(G, ex, ey, px, py, slack = 0) {
@@ -131,7 +144,7 @@ function tsUpdate(now) {
   const eye = tsEye(now), M = 2, R = { x0: Math.max(0, cam.x / TS - M), y0: Math.max(0, cam.y / TS - M), x1: Math.min(W, (cam.x + cam.cw / cam.z) / TS + M), y1: Math.min(H, (cam.y + cam.ch / cam.z) / TS + M) };
   const G = tsGeo(), key = eye[0].toFixed(3) + ',' + eye[1].toFixed(3) + '|' + [R.x0, R.y0, R.x1, R.y1].map(v => v.toFixed(2)).join(',') + '|' + TSIGHT.geoKey;
   if (key === TSIGHT.key && TSIGHT.poly) return; const t0 = performance.now();
-  TSIGHT.poly = tsPolygon(eye[0], eye[1], R, G); TSIGHT.hits = tsWalls(eye[0], eye[1], R, G); TSIGHT.rect = R; TSIGHT.eye = eye; TSIGHT.key = key; TSIGHT.ms = performance.now() - t0;
+  TSIGHT.poly = tsPolygon(eye[0], eye[1], R, G); TSIGHT.faces = tsFaces(eye[0], eye[1], TSIGHT.poly, G); TSIGHT.hits = tsWalls(eye[0], eye[1], R, G); TSIGHT.rect = R; TSIGHT.eye = eye; TSIGHT.key = key; TSIGHT.ms = performance.now() - t0;
 }
 /** public buildings keep their doors open during the day, so you can look in from the street */
 const TS_PUBLIC = new Set(['tavern', 'bakery', 'smithy', 'shop', 'thermopolium', 'baths', 'macellum', 'church']);
@@ -143,7 +156,7 @@ function drawTrueSight(c, now) {
   const g = sc.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, sc.width, sc.height); g.fillStyle = 'rgba(4,6,10,0.97)'; g.fillRect(0, 0, sc.width, sc.height);
   g.setTransform(c.getTransform()); g.globalCompositeOperation = 'destination-out'; g.fillStyle = '#000';
   g.beginPath(); TSIGHT.poly.forEach((p, i) => i ? g.lineTo(p[0] * TS, p[1] * TS) : g.moveTo(p[0] * TS, p[1] * TS)); g.closePath(); g.fill();
-  for (const k of TSIGHT.hits) { const [x, y] = k.split(',').map(Number); g.fillRect(x * TS - 0.3, y * TS - 0.3, TS + 0.6, TS + 0.6); }   // wall tiles you are looking at, whole
+  for (const q of TSIGHT.faces) { g.beginPath(); for (let i = 0; i < 8; i += 2) i ? g.lineTo(q[i] * TS, q[i + 1] * TS) : g.moveTo(q[i] * TS, q[i + 1] * TS); g.closePath(); g.fill(); }   // the wall behind each visible stretch of face
   g.globalCompositeOperation = 'source-over';
   c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(sc, 0, 0); c.restore();
 }
