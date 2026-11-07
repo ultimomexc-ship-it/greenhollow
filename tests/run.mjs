@@ -260,7 +260,7 @@ test('talk: the sentence carries the attitude (an insult stings and is noticed; 
     const out = { before, after: Math.round(o.aff[game.player.id]), trust: c.mem.trust - tr0, em: __em.slice(), reply: r && r.text, end: !!(r && r.end) }; if (talkUI.o) closeTalk(); return out; }, [text, intent, setup]);
   const rude = await run('Well, you look terrible today.', 'insult'); check(!rude.missing, 'the rude observation was not offered: ' + JSON.stringify(rude));
   check(rude.after < rude.before, `an insult should lower their opinion (${rude.before} -> ${rude.after})`); check(rude.em.includes('insult'), 'an insult should be an event others can notice, got ' + JSON.stringify(rude.em));
-  const kind = await run('You look a little tired. Everything alright?', 'sympathize'); check(!kind.missing, 'the sympathetic observation was not offered');
+  const kind = await run('You look a little tired. Everything all right?', 'sympathize'); check(!kind.missing, 'the sympathetic observation was not offered');
   check(kind.after > kind.before, `sympathy should raise their opinion (${kind.before} -> ${kind.after})`); check(kind.trust > 0, 'sympathy should build trust'); check(!kind.em.includes('insult'), 'sympathy must not be an insult');
   return `insult ${rude.before} -> ${rude.after} ("${rude.reply.slice(0, 50)}…"); sympathy ${kind.before} -> ${kind.after} ("${kind.reply.slice(0, 50)}…")`;
 }));
@@ -402,6 +402,59 @@ test('longevity: a week of talking keeps bringing new things to hear, and no lin
   check(!worst || worst.share <= 0.04, `one line is ${(worst.share * 100).toFixed(1)}% of everything said: "${worst.t}"`);
   return `days 6-8: ${(novel * 100).toFixed(0)}% new templates, ${(info * 100).toFixed(0)}% new facts; most repeated line ${(worst.share * 100).toFixed(1)}% ("${worst.t.slice(0, 40)}")`;
 });
+
+/* ---------------------------------------------------------------------------------------------- */
+// The dialogue lint (tools/lintalk.mjs): plays days of talk and listens to the village, then flags what reads wrong.
+import { lint } from '../tools/lintalk.mjs';
+test('dialogue lint: days of talk and overheard chatter, and nothing reads wrong', async () => {
+  const r = await playDays({ days: 3, talksPerDay: 6, turns: 8, seed: 'ci-lint', collect: true }), L = lint(r), n = k => (L.hits[k] || []).length;
+  const zero = ['self-third', 'player-third', 'repeat', 'pivot', 'infant', 'full-name', 'clock', 'child-line', 'grammar', 'self-news'], bad = zero.filter(k => n(k) > 0);
+  check(!bad.length, 'reads wrong:\n          ' + bad.map(k => `${k}: ${L.hits[k].slice(0, 2).join(' | ')}`).join('\n          '));
+  const unc = n('uncontracted') / Math.max(1, L.sentences); check(unc < 0.01, `${(unc * 100).toFixed(1)} uncontracted per 100 sentences, e.g. ${(L.hits.uncontracted || []).slice(0, 2).join(' | ')}`);
+  const reps = (L.hits['overheard-rep'] || []).map(x => parseInt(x)), worst = Math.max(0, ...reps); check(worst <= 4, `an overheard exchange came round ${worst} times: ${(L.hits['overheard-rep'] || [])[0]}`);
+  check(L.overheard >= 30, `only ${L.overheard} overheard exchanges in three days`);
+  return `${L.conversations} conversations, ${L.sentences} sentences, ${L.overheard} overheard exchanges: nothing flagged; ${(unc * 100).toFixed(1)} uncontracted per 100 sentences; no overheard pair more than ${worst}x`;
+});
+
+test('talk: every follow-up has its own answer, and you can ask about people, news, old stories and places', await talkScene(41, async page => {
+  const r = await page.evaluate(() => {
+    const p = game.player, o = __friend(__talkable().find(x => x.age >= 20 && !x.shop), 50, 50), c = cvNew(o, p); c.pool = cvPool(c);
+    const others = npcs.filter(q => q !== o && q !== p && !q.dead && q.age >= 16).slice(0, 6), missing = [], empty = [], hints = [];
+    for (const q of others) for (const opt of cvFollowUps(c, cvPersonHook(q))) { if (!opt.then) { missing.push('person: ' + opt.text); continue; } const u = opt.then(c); if (!u || !u.text) empty.push(opt.text); else if (/I (will|'ll) (say this much|only say)/.test(u.text)) hints.push(u.text); }
+    const evs = lf2Ev().filter(ev => o.kn && o.kn[ev.id]).slice(-4);
+    for (const ev of evs) for (const opt of cvFollowUps(c, { k: 'event', key: 'ev' + ev.id, label: 'that', ev })) { if (!opt.then) { missing.push('event: ' + opt.text); continue; } const u = opt.then(c); if (!u || !u.text) empty.push(opt.text); }
+    // asking about what you know
+    for (const q of others) p.know[q.id] = 40;
+    const ev = lf2Ev().slice().reverse().find(e => !(o.kn && o.kn[e.id]) && e.actor !== o.id && e.target !== o.id && e.actor !== p.id && e.target !== p.id && !e.fake);
+    if (ev) { (p.kn || (p.kn = {}))[ev.id] = { t: game.time, from: null, cert: 1, a: true, mine: false }; }
+    const c2 = cvNew(o, p), asks = cvAskAbout(c2), answers = asks.map(a => { const u = a.then(c2); return { q: a.text, a: u && u.text }; });
+    let taught = null; if (ev) { const u = cvAskEventAns(c2, ev), h = u.hooks[0], tell = h && h.k === 'tellit' ? cvFollowUps(c2, h).find(x => x.intent === 'gossip') : null; if (tell) tell.then(c2); taught = { tellit: !!(h && h.k === 'tellit'), offered: !!tell, learned: !!(o.kn && o.kn[ev.id]) }; }
+    return { missing, empty, hints, asks: answers, taught, n: others.length + evs.length };
+  });
+  check(!r.missing.length, 'options without an answer of their own: ' + r.missing.slice(0, 4).join(' | '));
+  check(!r.empty.length && !r.hints.length, 'answers that say nothing: ' + r.empty.concat(r.hints).slice(0, 4).join(' | '));
+  check(r.asks.length >= 2 && r.asks.every(a => a.a && a.a.length > 8), 'asking about what you know should be offered and answered: ' + JSON.stringify(r.asks));
+  check(!r.taught || (r.taught.tellit && r.taught.offered && r.taught.learned), 'asking about news they have not heard should let you tell them: ' + JSON.stringify(r.taught));
+  return `${r.n} subjects, every option answered; asked: ${r.asks.map(a => '"' + a.q + '" -> "' + a.a.slice(0, 40) + '…"').slice(0, 2).join('; ')}`;
+}));
+
+test('overheard: villagers talk from their own lives, in contractions, and children sound like children', await talkScene(41, async page => {
+  const r = await page.evaluate(() => {
+    const ad = npcs.filter(n => !n.dead && n.age >= 18), lines = [];
+    for (let i = 0; i < 300; i++) { const a = ad[i % ad.length], b = ad[(i * 7 + 3) % ad.length]; if (a === b) continue; for (const l of sbSmallTalk(a, b, { place: placeOf(a), band: todBand(game.time) })) lines.push({ who: l.who, text: cvSpeak(l.text) }); }
+    const childy = lines.filter(l => l.who.age >= 16 && /Can I touch the well bucket|Can I stay out|Is it nearly supper|Can I have the big bit|I found an enormous beetle/.test(l.text)).map(l => l.who.first + ': ' + l.text);
+    const self = lines.filter(l => new RegExp('\\b' + l.who.first + '\\b').test(l.text)).map(l => l.who.first + ': ' + l.text);
+    const named = lines.filter(l => npcs.some(q => q.first.length > 2 && q !== l.who && new RegExp('\\b' + q.first + '\\b').test(l.text))).length;
+    const speak = [['I do not know.', "I don't know."], ['Yes, I am.', 'Yes, I am.'], ['Is it not lovely?', "Isn't it lovely?"], ['I know what it is.', 'I know what it is.'], ['I have been robbed.', "I've been robbed."], ['I have a cat.', 'I have a cat.'], ['Do NOT touch that.', 'Do NOT touch that.'], ['That is, if you want it.', 'That is, if you want it.'], ['We are fine, are we not?', "We're fine, aren't we?"]].filter(([a, b]) => cvSpeak(a) !== b).map(([a, b]) => `${a} -> ${cvSpeak(a)} (want ${b})`);
+    return { n: lines.length, distinct: new Set(lines.map(l => l.text)).size, childy, self, named, speak };
+  });
+  check(!r.speak.length, 'contractions: ' + r.speak.join(' | '));
+  check(!r.childy.length, 'adults saying children\'s lines: ' + r.childy.slice(0, 3).join(' | '));
+  check(!r.self.length, 'people naming themselves: ' + r.self.slice(0, 3).join(' | '));
+  check(r.distinct / r.n > 0.3, `small talk repeats too much: ${r.distinct} distinct of ${r.n}`);
+  check(r.named > r.n * 0.08, `small talk should be about real people: ${r.named} of ${r.n} lines name somebody`);
+  return `${r.n} lines of small talk, ${r.distinct} distinct, ${r.named} naming a villager; contractions right`;
+}));
 
 const browser = await launch();
 let failed = 0;

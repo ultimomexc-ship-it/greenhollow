@@ -19,13 +19,14 @@ import { playDays } from './longevity.mjs';
 
 const arg = (k, d) => { const a = process.argv.find(x => x.startsWith(`--${k}=`)); return a ? a.slice(k.length + 3) : d; };
 const sentences = s => s.replace(/\*[^*]+\*/g, ' ').split(/(?<=[.!?…])\s+(?=[A-Z"“'(*—])/).map(x => x.trim()).filter(x => x.length > 1);
-export const PIVOTS = [/…Also\./, /Which — look, it connects —/, /Can I tell you something else\? —/, /Oh, that makes me think of —/, /Now that you mention it —/, /Speaking of which —/, /And another thing —/, /And now I think of it —/, /Oh, and —/];
+export const PIVOTS = [/I (will|'ll) (say this much|only say):/, /…Also\./, /Which — look, it connects —/, /Can I tell you something else\? —/, /Oh, that makes me think of —/, /Now that you mention it —/, /Speaking of which —/, /And another thing —/, /And now I think of it —/, /Oh, and —/];
 export const CHILD_LINES = [/Can I touch the well bucket/, /Can I stay out a little longer/, /Is it nearly supper/, /Can I have the big bit/, /I am not small\. I am compact/, /I can skip a stone/, /I found a frog/];
-const UNCONTRACTED = /\b(do not|does not|did not|is not|are not|was not|were not|will not|would not|cannot|could not|should not|have not|has not|had not|I am|it is|that is|there is|what is|you are|we are|they are|I will|I would|you will|let us|he is|she is|who is|where is|I have been|you have been)\b(?![.!?,]?\s*$)(?!\s*[.!?])/i;
+const UNCONTRACTED = /\b(do not|does not|did not|is not|are not|was not|were not|will not|would not|cannot|could not|should not|have not|has not|had not|I am|it is|that is|there is|what is|you are|we are|they are|I will|I would|you will|let us|he is|she is|who is|where is|I have been|you have been)\b(?![.!?,]?\s*$)(?!\s*[.!?,;:—"”])/i;
+const uncontracted = s => { const m = s.match(UNCONTRACTED); return !!m && !/[A-Z]{2}/.test(m[0]); };
 const GRAMMAR = [[/\babout [A-Z][a-z]+ (took|lent|gave|had|was|found|stole|kept|paid)\b/, 'about + clause'], [/\b[A-Z][a-z]+ and me (had|argued|were|did)\b/, '"X and me" as subject'], [/^Somebody and [A-Z]/, '"Somebody and X"'], [/\bI is\b|\bI has\b|\bI owes\b/, 'I + third-person verb'], [/\b(a) [aeiou]\w+/i, null]];
 
 export function lint({ rows, world }) {
-  const P = world.people, byId = new Map(P.map(p => [p.id, p])), surnames = new Set(P.map(p => p.surname).filter(Boolean)), infants = P.filter(p => p.infant || p.age < 3).map(p => p.first);
+  const P = world.people, byId = new Map(P.map(p => [p.id, p])), surnames = new Set(P.flatMap(p => [p.surname, p.full && p.full.split(' ').slice(1).join(' ')]).filter(Boolean)), infants = P.filter(p => p.infant || p.age < 3).map(p => p.first);
   const hits = {}, add = (rule, text, ctx = '') => { (hits[rule] = hits[rule] || []).push(ctx ? ctx + ' | ' + text : text); };
   const word = n => new RegExp('\\b' + n + '\\b');
   let sentCount = 0;
@@ -39,13 +40,13 @@ export function lint({ rows, world }) {
       for (const s of ss) { if (seen.has(s) && s.length > 12) add('repeat', s, npc && npc.first); seen.add(s); }
       if (npc && word(npc.first).test(r.say)) { for (const s of ss) if (word(npc.first).test(s) && !new RegExp('^' + npc.first + '[!?,.]').test(s)) { add('self-third', s, npc.first); break; } }
       if (me) for (const s of ss) { const m = s.match(word(me.first)); if (!m) continue; const i = m.index, before = s.slice(0, i), after = s.slice(i + me.first.length);
-        const vocative = /^[!?.,—]/.test(after) && (/^\s*$/.test(before) || /(,|Oh|Ah|Hello|Hm\.?)\s*$/.test(before)); if (!vocative) { add('player-third', s, npc && npc.first); break; } }
+        const vocative = /^[!?.,—:]/.test(after) && (/^\s*$/.test(before) || /(,|Oh|Ah|Hello|Hm\.?)\s*$/.test(before)); if (!vocative) { add('player-third', s, npc && npc.first); break; } }
       for (const re of PIVOTS) if (re.test(r.say)) { add('pivot', r.say.slice(0, 160), npc && npc.first); break; }
       for (const t of [r.say, ...(r.opts || [])]) { for (const b of infants) if (word(b).test(t) && /(spend more time with|really like|What is|know|getting on|watch .* around money)/.test(t)) { add('infant', t, b); break; } }
       for (const t of [r.say, ...(r.opts || [])]) { const m = t.match(/\b([A-Z][a-z]+) ([A-Z][a-z]+)\b/g); if (m) for (const x of m) if (surnames.has(x.split(' ')[1])) { add('full-name', t.slice(0, 140)); break; } }
       for (const t of [r.say, ...(r.opts || [])]) if (/\b\d{1,2}:\d\d\b/.test(t)) add('clock', t.slice(0, 140));
       if (npc && npc.age >= 16) for (const re of CHILD_LINES) if (re.test(r.say)) add('child-line', r.say.slice(0, 120), npc.first);
-      for (const s of ss) if (UNCONTRACTED.test(s)) { add('uncontracted', s); }
+      for (const s of ss) if (uncontracted(s)) { add('uncontracted', s); }
       for (const t of [r.say, ...(r.opts || [])]) for (const [re, what] of GRAMMAR) if (what && re.test(t)) add('grammar', what + ': ' + t.slice(0, 140));
       if (r.picked && /\?$/.test(r.picked) && qa.length < 400) { const nx = c[c.indexOf(r) + 1]; if (nx) qa.push(`${npc ? npc.first : '?'} (${r.arch}): you "${r.picked}" -> "${nx.say.slice(0, 200)}"`); }
       for (const o of r.opts || []) { const m = o.match(/^Did you hear\? (.*)/); if (m && npc && word(npc.first).test(m[1])) add('self-news', 'told ' + npc.first + ' about themself: ' + o.slice(0, 120)); }
@@ -58,16 +59,16 @@ export function lint({ rows, world }) {
     for (const l of h.lines) { heardLines++; const sp = byId.get(l.id);
       if (sp && word(sp.first).test(l.text)) add('self-third', l.text, sp.first + ' (overheard)');
       for (const re of PIVOTS) if (re.test(l.text)) add('pivot', l.text, 'overheard');
-      if (sp && sp.age >= 16) for (const re of CHILD_LINES) if (re.test(l.text)) add('child-line', l.text, sp.first + ' (overheard)');
+      if ((l.age != null ? l.age : sp && sp.age) >= 16) for (const re of CHILD_LINES) if (re.test(l.text)) add('child-line', l.text, l.who + ' (overheard)');
       if (/\b\d{1,2}:\d\d\b/.test(l.text)) add('clock', l.text);
       { const m = l.text.match(/\b([A-Z][a-z]+) ([A-Z][a-z]+)\b/g); if (m) for (const x of m) if (surnames.has(x.split(' ')[1])) { add('full-name', l.text.slice(0, 140), 'overheard'); break; } }
-      for (const s of sentences(l.text)) if (UNCONTRACTED.test(s)) add('uncontracted', s, 'overheard');
+      for (const s of sentences(l.text)) if (uncontracted(s)) add('uncontracted', s, 'overheard');
       for (const [re, what] of GRAMMAR) if (what && re.test(l.text)) add('grammar', what + ': ' + l.text.slice(0, 140));
       const m = l.text.match(/^(?:Have you heard|Did you hear)\? (.*)/); if (m) { for (const id of h.to) { const q = byId.get(id); if (q && word(q.first).test(m[1])) { add('self-news', l.text.slice(0, 120), 'overheard, ' + (q.id === l.id ? 'about the speaker' : 'about the listener')); break; } } }
     }
   }
   for (const [k, n] of pairCount) if (n >= 3) add('overheard-rep', `${n}x  ${k.slice(0, 140)}`);
-  for (const s of world.shouts || []) { heardLines++; const sp = byId.get(s.id); if (sp && sp.age >= 16) for (const re of CHILD_LINES) if (re.test(s.text)) add('child-line', s.text, sp.first + ' (bubble)'); }
+  for (const s of world.shouts || []) { heardLines++; const sp = byId.get(s.id); if ((s.age != null ? s.age : sp && sp.age) >= 16) for (const re of CHILD_LINES) if (re.test(s.text)) add('child-line', s.text, sp.first + ' (bubble)'); }
   const counts = Object.fromEntries(Object.entries(hits).map(([k, v]) => [k, v.length]));
   return { counts, hits, qa, sentences: sentCount, conversations: convs.length, overheard: (world.heard || []).length, overheardLines: heardLines };
 }

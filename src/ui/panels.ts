@@ -261,6 +261,7 @@ function splitSpeech(text, max?) {
 function drainEvents(now) {
   while (game.events.length) {
     const ev = game.events.shift();
+    for (const l of ev.lines) l.text = cvSpeak(l.text);   // speech is contracted on the way out (dialogue/cv-speech.ts)
     // you only speak when you chose to (walking into someone) or when someone speaks to you first
     if (!ev.focus && !ev.self && ev.lines.length && ev.lines[0].who && ev.lines[0].who.player) continue;
     if (ev.a.player || ev.b.player) { const f = ev.lines.find(l => !l.who.player); if (f && f.text.indexOf(f.who.first + ':') !== 0) f.text = f.who.first + ': ' + f.text; }

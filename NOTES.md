@@ -143,3 +143,30 @@ cast from the outside point of the corner tile, door beams from the inside corne
 Replaced the five held keys with a single Shift toggle (crouch). Standing: talk, buy, push barrels and crates, fell, fish, gather. Crouching: push past people, search barrels.
 Removed: pickpocketing, pulling crates, Space/E/R/C/Z. Registered but unreachable until they get a standing/crouching case: steal, pick a lock, wreck, rough shove, give,
 wake, follow, distract, lend a hand, knock, inspect. Open: what crouching should do for noise and for who notices you (nothing yet), and which of those verbs come back.
+
+## Talk pass 2: natural speech, answers that answer, overheard talk from the simulation (Nov 2026)
+Asked for: a review and pass over chat and text so it sounds natural and lasts hundreds of hours. Decided with the owner: contractions everywhere;
+keep the whimsy (the Noodle, the Privy Council, the goose); rebuild what villagers say to each other from the simulation; let the player ask about
+people, places and events they know.
+Review findings (lint over 6 days, seed `lint`, before -> after): uncontracted speech 50 -> 0 per 100 sentences; replies that ignored the question
+(most follow-ups fell through to "the next layer" of whatever was being discussed) -> every follow-up has its own answer; clunky pivots
+("…Also.", "Which — look, it connects —") 4 -> 0; full names and clock times read out from the chronicle 14 -> 0; people naming themselves or the
+player in the third person 12 -> 0; adults saying children's lines 6 -> 0; people telling news about themselves as gossip 4 -> 0; canned overheard
+pairs repeated up to 6x -> at most 3x; "about Nonna took …" grammar -> 0.
+What changed:
+- `dialogue/cv-speech.ts`: `cvSpeak` contracts every line on the way out (talk box, options, bubbles, Overheard), careful at clause ends.
+- `dialogue/cv-answers.ts`: an answer per question (what somebody is like, from traits/work/feeling; how somebody is taking it, from their mood;
+  how they know, from where the story came from; how an old story started; the details of a regret/pride/fear), plus ask-about (people, news,
+  old stories, places) with "never heard of it" leading to you telling them.
+- Lives have follow-ups (`CV_REGRET` etc. are objects: how, what they would do differently, can it be put right, who saw, since when); 16 legends;
+  18 secrets; new states from the sim (grief, debts and loans owed, a new job, courting, children by name, a sick child, drunk, lonely, living in a tent).
+- `social2/sb-voice.ts`: the words of every social exchange (vent, praise, console, row with its real cause, argue, court, borrow with the amount,
+  repay, confide, leak), gossip in the teller's own version (`sbNewsLines`), and small talk from their lives (`sbSmallTalk`, which replaced the
+  canned `makeConvo`): children and spouses by name, where somebody they both know is right now, news they share, crops and fish and prices,
+  the tide, village changes. Lines are picked by what the player has heard least recently.
+- Market Hall side effect fixed: villagers no longer get recruited as street traders every few hours once sellers are indoors.
+Measured (30 days, 6 talks a day, seed `longevity`, main -> this pass): distinct sentence templates 37% -> 46%; new templates on days 20-29 ~28% -> ~35%.
+The most repeated lines are now goodbyes; the per-voice goodbye banks are wider.
+Tools: `node tools/lintalk.mjs [days] [talks] [turns] [seed] [--show=rule]`; a test runs it for 3 days and wants nothing flagged.
+Next: the authored scenes (`opinions-scenes.ts`) still offer some short labels rather than sentences; more legends and lives keep the
+long tail fresh; a journal of what the player has learned would make ask-about easier to steer.

@@ -46,7 +46,7 @@ function lf2ReportPlan(n) {
     waitS(3, 'stand', 'Telling the watch what happened', { nopie: true, social: true, onEnd(nn) {
       if (lfDist(nn, g) > 4) return;
       const k = nn.kn && nn.kn[ev.id]; if (!k) return;
-      say(nn, g, [[nn, k.a && a ? anyOf([`Watchman! ${lf2Cap(lf2Low(ev.text))}. I saw it with my own eyes.`, `You need to know: ${lf2Low(ev.text)}.`]) : `Somebody ${lf2Low(ev.text).replace(/^\w+ /, '')}. I do not know who.`], [g, k.a ? anyOf(['Leave it with me.', 'Right. I will find them.', 'Is that so? Thank you.']) : 'I will ask around.']]);
+      say(nn, g, [[nn, k.a && a ? anyOf([`Watchman! ${lf2Cap(lf2Low(cvSpeechOf(nn, ev.text, g)))}.${k.mine || !k.from ? ' I saw it with my own eyes.' : ''}`, `You need to know: ${lf2Low(cvSpeechOf(nn, ev.text, g))}.`]) : `Somebody ${lf2Low(ev.text).replace(/^\w+ /, '')}. I do not know who.`], [g, k.a ? anyOf(['Leave it with me.', 'Right. I will find them.', 'Is that so? Thank you.']) : 'I will ask around.']]);
       lf2Learn(g, ev, nn, k.cert * (k.from ? 0.7 : 1), k.a);
       if (!k.a) g.lf2Inv = ev.id;
       lfEmit('report', { actor: nn, target: a && k.a ? a : null, sev: 1, tags: ['justice'], chron: false, text: `${nn.first} reported ${a && k.a ? a.first : 'a crime'} to the watch` });

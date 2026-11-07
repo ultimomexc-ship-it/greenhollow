@@ -18,7 +18,7 @@ const CVG: any = {
   laugh: ['I have not laughed so hard since the goose.', 'I laughed until I had to hold the wall.', 'It has made my whole week.', 'I am still laughing, and it was yesterday.'],
   soft: ['It made my whole day, and it was not even me.', 'There is hope for us yet.', 'It does the heart good.', 'That is the village I want to live in.'],
   wary: ['Lock your door tonight.', 'I am keeping my purse in my shoe from now on.', 'Nobody is safe, it seems.', 'I counted my spoons this morning.'],
-  shrugs: ['These are the days we live in.', 'Make of it what you will.', 'I only pass it on.', 'Do with that what you like.'],
+  shrugs: ['These are the days we live in.', 'Make of it what you will.', 'I only pass it on.', 'Do with that what you like.', 'That\'s the news.', 'There you are.', 'It\'s all anyone\'s talking about.'],
 };
 function cvFill(p, s: string, f: any, depth = 0): string {
   s = s.replace(/#(\w+)#/g, (_, k) => { const opts = CVG[k]; if (!opts || depth > 3) return ''; const pick = cvFreshest(p, opts); cvMarkHeard(p, pick); return cvFill(p, pick, f, depth + 1); });
@@ -30,7 +30,7 @@ function cvRule(cat: string, f: any, p): string | null {
   for (const r of rules) { let ok = true, n = 0; for (const k in r.when) { const want = r.when[k], have = f[k]; if (Array.isArray(want) ? !want.includes(have) : typeof want === 'function' ? !want(have, f) : want !== have) { ok = false; break; } n++; }
     if (!ok) continue; if (n > top) { top = n; best = [r]; } else if (n === top) best.push(r); }
   if (!best.length) return null;
-  const all = best.flatMap(r => r.say), fit = all.filter(l => !(l.includes('{actor}') && (!f.actor || f.actor === 'somebody')) && !(l.includes('{target}') && 'target' in f && !f.target)), lines = fit.length ? fit : all, pick = cvFreshest(p, lines); cvMarkHeard(p, pick); return cvFill(p, pick, f);
+  const all = best.flatMap(r => r.say), fit = all.filter(l => !(l.includes('{actor}') && (!f.actor || f.actor === 'somebody')) && !(l.includes('{target}') && 'target' in f && !f.target) && !(l.includes('{from}') && !f.from)); if (!fit.length) return null; const lines = fit, pick = cvFreshest(p, lines); cvMarkHeard(p, pick); return cvFill(p, pick, f);
 }
 
 /* ---------------- the facts of an event, as one person sees it ---------------- */
@@ -39,6 +39,9 @@ function cvTagGroup(ev): string {
   if (k === 'theft' || k === 'pickpocket' || k === 'robbed' || t.includes('theft')) return 'theft';
   if (['courting', 'tryst', 'crush', 'flirt', 'jealous'].includes(k) || t.includes('romance') || t.includes('affair')) return 'romance';
   if (k === 'smelly' || t.includes('smelly')) return 'smell'; if (k === 'dice' || t.includes('gamble')) return 'gamble';
+  if (k === 'quarrel' || k === 'confront') return 'quarrel';
+  if (['windfall', 'bigcatch', 'keptcoins'].includes(k)) return 'luck'; if (k === 'lostcoins') return 'loss'; if (k === 'illness' || k === 'recovered') return 'health';
+  if (['loan', 'repaid', 'default'].includes(k)) return 'money'; if (k === 'businessweek' || k === 'delivery') return 'work'; if (k === 'secret') return 'secret';
   if (t.includes('violence') || k === 'brawl' || k === 'shove') return 'violence'; if (t.includes('embarrass') || k === 'stumble' || k === 'sing') return 'embarrass';
   if (['gift', 'charity', 'help', 'newclothes', 'repair'].includes(k) || t.includes('kindness') || t.includes('help') || t.includes('generous')) return 'kind';
   if (['arrest', 'fined', 'escape'].includes(k)) return 'law'; return 'other';
@@ -48,7 +51,7 @@ function cvEvFacts(c, ev, k) {
   const d = Math.floor(game.time / 1440) - Math.floor(ev.t / 1440), j = lf2Judge(o, ev, !!(k && k.a)), txt = cvMe(o, sbText(o, ev)) || '';
   const tail = a && txt.startsWith(a.first + ' ') ? txt.slice(a.first.length + 1) : null;
   return { tag: cvTagGroup(ev), arch: c.v.arch, stance: cvStanceOf(ev, j), relActor: rel(a), relTarget: rel(g), known: !!a, me: g === o, src: k && k.from ? 'told' : k && !k.mine ? 'saw' : 'mine',
-    actor: a ? a.first : 'somebody', target: g ? g.first : '', text: lf2Low(txt), tail: tail ? tail : lf2Low(txt), when: d <= 0 ? 'today' : d === 1 ? 'yesterday' : 'the other day', place: ev.place || 'the square',
+    actor: a && a === c.p ? '' : a ? a.first : 'somebody', target: g && g !== c.p ? g.first : '', text: lf2Low(txt), tail: tail ? tail : lf2Low(txt), when: d <= 0 ? 'today' : d === 1 ? 'yesterday' : 'the other day', place: ev.place || 'the square',
     his: a ? cvPron(a).his : 'their', from: k && k.from && byId(k.from) ? byId(k.from).first : '', p: c.p.first };
 }
 
@@ -72,13 +75,22 @@ const CV_RULES: any = {
     { when: { tag: 'gamble', arch: 'cynic' }, say: ['{text.cap}. The only one who wins at dice is the tavern.'] },
     { when: { tag: 'kind' }, say: ['{text.cap}. #soft#', '#heard#? {text.cap}. #soft#', 'A nice thing, for once: {text}. #soft#'] },
     { when: { tag: 'kind', arch: 'cynic' }, say: ['{text.cap}. I am sure there is an angle. There is always an angle.', '{text.cap}. Kindness. Suspicious, but there it is.'] },
+    { when: { tag: 'quarrel' }, say: ['#heard#? {text.cap}. You could hear it three houses away.', '{text.cap}, {when}. Half the lane was at the window.', '{text.cap}. I kept my head down and walked faster.', 'There was shouting, {when}. {text.cap}.'] },
+    { when: { tag: 'quarrel', relTarget: 'friend' }, say: ['{text.cap}. I hope they make it up. They usually do.'] },
+    { when: { tag: 'luck' }, say: ['{text.cap}. Some people are born under the right star.', '#heard#? {text.cap}. I could do with a bit of that luck.', '{text.cap}, {when}. Good for them. I\'m only a little bit jealous.', 'Well! {text.cap}. The gods do have favourites.'] },
+    { when: { tag: 'loss' }, say: ['{text.cap}. If anyone finds it, they\'ll be very quiet about it.', '#heard#? {text.cap}. Purses have holes, and the lanes have sharp eyes.', '{text.cap}, {when}. Check your own purse, is my advice.'] },
+    { when: { tag: 'health' }, say: ['{text.cap}. Somebody should take round some broth.', '#heard#? {text.cap}. Half the lane\'s been in to see.', '{text.cap}, {when}. These things go round. Wash your hands.', '{text.cap}. I hope it\'s nothing. It\'s usually nothing. Usually.'] },
+    { when: { tag: 'money' }, say: ['{text.cap}. Money between neighbours. It never ends well, or it never ends.', '#heard#? {text.cap}. Somebody\'s careful with coins, and somebody isn\'t.', '{text.cap}. I only know because the whole lane does.'] },
+    { when: { tag: 'work' }, say: ['{text.cap}. Somebody\'s doing well, at least.', '#heard#? {text.cap}. Good for business, they say.', '{text.cap}. Nice to hear something going right.'] },
+    { when: { tag: 'secret' }, say: ['You\'ll never guess what\'s come out. {text.cap}.', '{text.cap}. And here we all were thinking we knew them.', 'It\'s all round the village: {text}. #shock#'] },
+    { when: { tag: 'secret', arch: 'nosy' }, say: ['Oh, I\'ve been DYING to tell somebody. {text.cap}. Who else knows? Don\'t tell me. Tell me.'] },
     { when: { tag: 'violence' }, say: ['There was a fight. {text.cap}. Blood on the stones, they say.', '{text.cap}, {when}. Over nothing, as usual. #shock#'] },
     { when: { tag: 'law' }, say: ['The watch has been busy. {text.cap}.', '{text.cap}. So the watch does work, after all.'] },
     { when: { src: 'told' }, say: ['{from} told me {text}. #shrugs#', 'I had it from {from}: {text}. Make of that what you will.', '{from} says {text}. And {from} is rarely wrong. Rarely.'] },
     { when: { src: 'told', tag: 'romance' }, say: ['{from} swears {text}. {from} would know, apparently.'] },
   ],
   'ev.why': [
-    { when: {}, say: ['Why would {actor} do it? {why}', 'What gets into a person? {why}', '{actor}? {why}', 'If you want my guess: {why}', 'You ask why. {why}'] },
+    { when: {}, say: ['Why would {actor} do it? {why}', 'What gets into a person? {why}', '{actor}? {why}', 'If you want my guess: {why}', 'You ask why. {why}', 'Why does {actor} do anything? {why}', 'I\'ve wondered. {why}'] },
     { when: { good: true }, say: ['Why did {actor} do it? {why}', 'That is {actor} all over. {why}', 'Some people are just made that way. {why}', 'Why? {why} I wish there were more like that.'] },
     { when: { arch: 'cynic' }, say: ['Why does anyone do anything? {why}', 'Motive? {why} Mine would be boredom.'] },
     { when: { arch: 'nosy' }, say: ['Oh, I have theories. {why} And that is only the first one.'] },

@@ -127,7 +127,7 @@ function lf2Feel(o, ev, from, cert, knowsA, reveal) {
     const label = j.v < 0 ? (j.victim ? `furious with ${who}` : `shocked by what ${a ? a.first : 'somebody'} did`) : j.v > 0 ? (j.victim ? `grateful to ${who}` : `touched by what ${a ? a.first : 'somebody'} did`) : 'upset about it';
     if (!o.player) lfMod(o, 'e' + ev.id, label + how, j.v * (j.victim ? 9 : 4) * c, j.victim ? 900 : 500);
     if (ev.effects.length < 10) ev.effects.push({ who: o.id, t: game.time, text: `${o.first} was ${label}${how}` });
-    if (Math.abs(j.v) >= 0.8 && a) addMem(o, ev.kind, (from ? 'hearing that ' : '') + (ev.mem || lf2Low(ev.text)), null, a.id);
+    if (Math.abs(j.v) >= 0.8 && a) { const mt = lf2Low(typeof cvMe === 'function' ? cvMe(o, ev.mem || ev.text) : (ev.mem || ev.text)).replace(/\.$/, ''); addMem(o, ev.kind, (from ? 'hearing that ' : /^\S+( and \S+)? (has|have|is|are|hasn't|haven't|isn't|aren't)\b/.test(mt) ? 'how ' : 'the day ') + mt, null, a.id); }
   } else if (!reveal && j.pity > 0.5 && t && t !== o && !o.player) lfMod(o, 'e' + ev.id, `sorry for ${t.first}`, -j.pity * 2 * c, 300);
   for (const f of LF2.react) { if (f.emit) continue; try { f(o, ev, j, c, !from, reveal); } catch (e) { console.warn('react', e.message); } }
 }
@@ -152,13 +152,7 @@ function lf2PickTale(a, b) {
 function lf2Tell(a, b, ev, reveal, quiet?) {
   const ak = a.kn[ev.id], ver = sbPassOn(a, b, ev), act = lf2By(ver.who != null ? ver.who : ev.actor), knowsA = ver.a, txt = sbText(a, ev);
   const j = lf2Judge(b, ev, knowsA), fan = act && knowsA && (b.aff[act.id] || 0) >= 55 && j.v < 0;
-  const firstHand = !ak.from, src = firstHand ? (ak.mine ? '' : ' I saw it myself.') : '';
-  let line;
-  if (reveal) line = anyOf([`You know what happened to you? It was ${act.first}. I saw it.`, `I know who it was. ${act.first}.`, `It was ${act.first}, you know. I am sure of it.`]);
-  else line = (j.v < -0.3 ? anyOf(['Did you hear? ', 'I should not say, but ', 'You will not believe it: ']) : j.v > 0.3 ? anyOf(['Nice news: ', 'Did you hear? ']) : anyOf(['Have you heard? ', 'Word is that '])) + lf2Low(txt) + '.' + src;
-  const reply = reveal ? (j.v < -0.3 ? anyOf([`${act.first}? I will not forget this.`, `I knew it!`, `Wait until I see ${act.first}.`]) : 'Huh.')
-    : fan ? anyOf([`I do not believe it. Not ${act.first}.`, `That cannot be true.`]) : j.v < -0.5 ? anyOf([`That is dreadful.`, act && knowsA && (b.aff[act.id] || 0) < 10 ? `I always thought ${act.first} was trouble.` : `No! Really?`, `Somebody ought to do something.`])
-    : j.v > 0.5 ? anyOf([`Well, good for ${act ? act.first : 'them'}.`, `That is lovely to hear.`]) : anyOf([`Ha! Poor thing.`, `Well, well.`, `Is that so?`]);
+  const firstHand = !ak.from, [line, reply] = sbNewsLines(a, b, ev, ver, reveal, j, fan, act, knowsA, firstHand);
   if (!quiet) say(a, b, [[a, line], [b, reply]]);
   bumpAff(a, b, 1, 6);
   return lf2Learn(b, ev, a, fan ? ak.cert * 0.25 : ak.cert * (firstHand ? 0.85 : 0.75), knowsA, ver);

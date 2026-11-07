@@ -49,7 +49,7 @@ export async function playDays({ days = 30, talksPerDay = 6, turns = 10, seed = 
     const now = await page.evaluate(() => game.time); const next = (Math.floor(now / 1440) + 1) * 1440 + 6 * 60; await simulate(page, next - now);
   }
   const trace = await page.evaluate(() => window.__trace), names = await page.evaluate(() => npcs.map(n => n.first).concat(npcs.map(n => n.surname || '')).filter(Boolean));
-  const world = collect ? await page.evaluate(() => ({ heard: window.__heard, shouts: window.__shouts, people: npcs.map(n => ({ id: n.id, first: n.first, surname: n.surname || '', age: n.age, infant: !!n.infant, female: !!n.female })), player: game.player ? game.player.id : (byId(game.steer) || {}).id })) : null;
+  const world = collect ? await page.evaluate(() => ({ heard: window.__heard, shouts: window.__shouts, people: npcs.map(n => ({ id: n.id, first: n.first, surname: n.surname || '', full: nameOf(n), age: n.age, infant: !!n.infant, female: !!n.female })), player: game.player ? game.player.id : (byId(game.steer) || {}).id })) : null;
   await browser.close();
   return { rows, trace, names, errors, world };
 }

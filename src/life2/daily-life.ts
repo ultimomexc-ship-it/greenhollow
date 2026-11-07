@@ -141,7 +141,7 @@ LF2.tickers.push(() => {
     if ((n.drunk || 0) >= 65 && !n.player && Math.random() < 0.04 && (n.lf2DrunkT || 0) < game.time) {
       n.lf2DrunkT = game.time + 90; const loud = h >= 22 || h < 5;
       const k = Math.random();
-      if (k < 0.45) { lfShout(n, anyOf(['♪ Oh the shepherd had a goat, and the goat had a... hic ♪', '♪ Drink to the emperor! Drink to his horse! ♪', '♪ Laaa la la LAAA ♪'])); lfEmit('sing', { actor: n, sev: 1, loud, tags: loud ? ['drunk', 'nuisance'] : ['drunk', 'funny'], chron: false, text: `${n.first} sang at the top of their voice, very drunk` }); }
+      if (k < 0.45) { lfShout(n, anyOf(['♪ Oh the shepherd had a goat, and the goat had a... hic ♪', '♪ Drink to the emperor! Drink to his horse! ♪', '♪ Laaa la la LAAA ♪'])); lfEmit('sing', { actor: n, sev: 1, loud, tags: loud ? ['drunk', 'nuisance'] : ['drunk', 'funny'], chron: false, text: `${n.first} sang at the top of ${cvPron(n).his} voice, very drunk` }); }
       else if (k < 0.75) { lfShout(n, anyOf(['Whoops! Who moved the floor?', '*hic* I am FINE.', 'I love you all. Every one of you.'])); lfEmit('stumble', { actor: n, sev: 1, tags: ['drunk', 'embarrass'], chron: false, text: `${n.first} fell flat on their face, drunk` }); }
       else { const foe = inT.find(o => o !== n && ((n.aff[o.id] || 0) <= -5 || ((o.drunk || 0) > 70 && Math.random() < 0.25)) && !o.player); if (foe) lf2Brawl(n, foe); }
     }

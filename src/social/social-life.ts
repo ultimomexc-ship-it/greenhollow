@@ -120,8 +120,8 @@ function outingPlan(n, tod) {
     : kind === 'singing' ? [[n, 'This one my mother sang to me.'], [c, 'Again! Sing it again!']]
     : kind === 'whittling' ? [[n, 'What shall it be? A bird or a fox?'], [c, 'A fox! With a big tail!']]
     : [[n, `Come on, ${c.first}. Let us get out for a bit.`], [c, 'Can we stay out till dark?']])
-    : couple ? [[n, 'Just us. I needed this.'], [c, 'Me too. Do not tell the others where we went.']]
-    : kind === 'fishing' ? [[n, 'Last one to catch something buys the drinks.'], [c, 'You are on.']]
+    : couple ? sbPick([[[n, 'Just us. I needed this.'], [c, 'Me too. Don\'t tell the others where we went.']], [[n, 'No children, no chores. Just the water.'], [c, 'Don\'t say chores. You\'ll summon them.']], [[n, 'I packed bread. And the good cheese.'], [c, 'The good cheese! What\'s the occasion?'], [n, 'You.']]])
+    : kind === 'fishing' ? sbPick([[[n, 'Last one to catch something buys the drinks.'], [c, 'You\'re on.']], [[n, 'Quiet now. They can hear you think.'], [c, 'Then I\'d better stop thinking.']], [[n, 'My spot. Don\'t tell anyone about my spot.'], [c, 'Everyone knows about your spot.']], [[n, 'Bet you a cup I land the first one.'], [c, 'Done. Prepare to lose a cup.']]])
     : [[n, pick(Math.random, ['Good to get away from the axe for a while.', 'Nice out today, is it not?', 'I am glad you came.'])], [c, pick(Math.random, ['Glad you asked.', 'We should do this more often.', 'It is.'])]];
   const end = game.time + dur + 60;
   const finish = n2 => {
@@ -139,7 +139,8 @@ function outingPlan(n, tod) {
     } else {
       addMem(n, 'outing', `the day ${c.first} and I ${what}`, `when we ${what} together`, c.id);
       addMem(c, 'outing', `the day ${n.first} and I ${what}`, `when we ${what} together`, n.id);
-      if (kind === 'fishing' && caught) say(n, c, [[n, caught > 1 ? 'Two! Drinks are on you.' : 'Got one. Drinks are on you.'], [c, 'Beginner\'s luck.']]);
+      if (kind === 'fishing' && caught) say(n, c, [[n, sbPick(caught > 1 ? ['Two! Drinks are on you.', 'Two! Look at that. Two!'] : ['Got one. Drinks are on you.', 'There! Look at him. A beauty.', 'One! Not a big one. It counts.'])], [c, sbPick(['Beginner\'s luck.', 'That\'s a sardine. That\'s a sardine with ambition.', 'Fine. I\'m buying. Don\'t gloat.'])]]);
+      else if (kind === 'fishing') say(n, c, [[n, sbPick(['Nothing. Not a nibble.', 'The fish have the day off.'])], [c, sbPick(['Same time tomorrow?', 'The company was good, at least.'])]]);
     }
     n.outUntil = 0; c.outUntil = 0;
   };
