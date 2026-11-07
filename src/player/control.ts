@@ -231,7 +231,7 @@ function applyPlayerAct(n, a) { n.pose = a.tool ? 'work' : 'stand'; n.tool = a.t
 
 /* rest day afternoons are for resting: Tipping downs tools like everyone else */
 const REST_NO = ['It is the rest day. The wood can wait until tomorrow.', 'Rest day! Not lifting a finger till morning.', 'No work on the rest day. Even the priest says so.', 'Tomorrow. Today I rest.'];
-function targetAt(n, x, y) {
+function targetAt(n, x, y): any {
   const t = targetAt0(n, x, y);
   if (t && t.key && /^(tree|rock|crop|wall|throw)/.test(t.key) && isRestDay() && game.time % 1440 >= 720) return { msg: REST_NO[Math.floor(game.time / 30) % REST_NO.length] };
   return t;

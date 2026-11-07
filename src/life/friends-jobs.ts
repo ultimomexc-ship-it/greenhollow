@@ -1,5 +1,5 @@
 /* ---------------- friends make plans ---------------- */
-const LF_GATH = {
+const LF_GATH: any = {
   picnic:  { label: 'a picnic', noun: 'picnic', hours: [11, 16], dur: 75, text: 'Having a picnic with friends', act: 'leisure', where: 'meadow' },
   songs:   { label: 'an evening of songs', noun: 'evening of songs', hours: [16, 20], dur: 60, text: 'Singing songs with friends', act: 'leisure', where: 'plaza' },
   dance:   { label: 'a dance on the square', noun: 'dance', hours: [16, 20], dur: 60, text: 'Dancing on the square', act: 'leisure', where: 'plaza', min: 3 },
@@ -134,7 +134,7 @@ function lfComfortPlan(n, tod) {
     } })];
 }
 function lfSulkPlan(n, tod) {
-  const h = tod / 60, o = {};
+  const h = tod / 60, o: any = {};
   if (n.homeRoom) o.home = 3; if (shoreTiles.length) o.shore = 2; if (town.tavern && h >= 16 && h < 23) o.tavern = 3; o.quarrel = 1.5 + (n.traits.includes('grumpy') ? 2 : 0) + (n.traits.includes('proud') ? 1 : 0);
   const k = wpick(n.rand || Math.random, o);
   if (k === 'home') return [goS(homeSpot, 'Heading home in a mood'), waitS(50 + lfR(n) * 40, 'stand', 'Sulking at home', { nopie: true })];

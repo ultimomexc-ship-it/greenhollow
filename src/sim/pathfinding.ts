@@ -1,14 +1,14 @@
 /* ================= Simulation: pathfinding, schedules, movement ================= */
 class Heap {
-  constructor() { this.k = []; this.v = []; }
-  get size() { return this.k.length; }
+  constructor() { (this as any).k = []; (this as any).v = []; }
+  get size() { return (this as any).k.length; }
   push(v, p) {
-    const k = this.k, vs = this.v; let i = k.length; k.push(p); vs.push(v);
+    const k = (this as any).k, vs = (this as any).v; let i = k.length; k.push(p); vs.push(v);
     while (i > 0) { const q = (i - 1) >> 1; if (k[q] <= p) break; k[i] = k[q]; vs[i] = vs[q]; i = q; }
     k[i] = p; vs[i] = v;
   }
   pop() {
-    const k = this.k, vs = this.v, top = vs[0], lp = k.pop(), lv = vs.pop(), n = k.length;
+    const k = (this as any).k, vs = (this as any).v, top = vs[0], lp = k.pop(), lv = vs.pop(), n = k.length;
     if (n) {
       let i = 0;
       for (;;) {
@@ -22,7 +22,7 @@ class Heap {
     return top;
   }
 }
-function findPath(sx, sy, gx, gy, avoid) {
+function findPath(sx, sy, gx, gy, avoid?) {
   if (!walkable(gx, gy) || !walkable(sx, sy)) return null;
   if (sx === gx && sy === gy) return [];
   const N = W * H, g = new Float32Array(N).fill(1e9), par = new Int32Array(N).fill(-1), closed = new Uint8Array(N);

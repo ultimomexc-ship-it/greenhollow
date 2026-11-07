@@ -84,7 +84,7 @@ function howAreYou(n, p) {
 function jobTalk(n, p) {
   if (n.age < 3) return '...';
   if (n.age < 16) {
-    const lj = Object.entries(n.learn || {}).sort((a, b) => b[1] - a[1])[0];
+    const lj = Object.entries<number>(n.learn || {}).sort((a, b) => b[1] - a[1])[0];
     const par = [n.fam.mother, n.fam.father].map(byId).filter(x => x && !x.dead)[0];
     return `I am a child! I play, mostly. ` + (lj && par ? `And sometimes I help ${par.female ? 'Mum' : 'Dad'} ${JOB_VERB[lj[0]]}. When I am big I want to be ${JOB_NOUN[lj[0]]}.` : anyOf([`When I am sixteen I will work like the grown-ups.`, `I am going to build my own house one day.`]));
   }

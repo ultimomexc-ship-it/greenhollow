@@ -1,6 +1,6 @@
 /* ================= Plans: small step lists that villagers build themselves ================= */
 const goS = (spot, text) => ({ k: 'go', spot, text });
-const waitS = (min, act, text, o) => Object.assign({ k: 'wait', min: Math.max(1, Math.round(min)), act, text }, o || {});
+const waitS = (min, act, text, o?) => Object.assign({ k: 'wait', min: Math.max(1, Math.round(min)), act, text }, o || {});
 function release(n) { if (n.tent) { if (n.tent.owner === n) n.tent.owner = null; n.tent = null; } n.chatTarget = null; if (n.claim) { if (n.claim.owner === n) n.claim.owner = null; n.claim = null; } n.claims.forEach(c => { if (c.claim === n) c.claim = null; }); n.claims.length = 0; }
 function pickFrom(arr, n) {
   let t, i = 0;

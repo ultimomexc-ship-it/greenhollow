@@ -83,7 +83,7 @@ function marketProject() {
   const s = startProject('market', 9, 7, { near }, 'market', 'A second green for the outlying families');
   if (s) chron(`The families out past the old green want a larder nearer home. A second green will be laid out.`, 'build');
 }
-function churchProject(force) {
+function churchProject(force?) {
   if (town.church || town.sites.some(s => s.kind === 'church')) return;
   if (!force && houseRooms().length < 2) return;
   let s = null;

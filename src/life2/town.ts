@@ -99,7 +99,7 @@ function lf2SetJob(n, k, quiet) {
 }
 
 /* ---------------- prices: scarce things cost more ---------------- */
-function lf2Price(r, g, buyer) {
+function lf2Price(r, g, buyer?) {
   const tgt = (LF2_SELL[r.kind] || {})[g] || 6, s = lf2Stock(r)[g] || 0;
   let p = GOODS[g].base * (1.75 - 0.95 * Math.min(1, s / tgt));
   if (buyer && LF2.on('gossip')) { const k = lf2Server(r); if (k && (k.aff[buyer.id] || 0) < -30) p *= 1.5; }
@@ -121,7 +121,7 @@ function lf2Buy(n, r, g, qty) {
 function lf2Paid(n, tot) { if (LF2.on('economy') && n) n.coin += tot * 0.5; }
 
 /* ---------------- the working day ---------------- */
-function lf2GoWork(r, key, text, min, act, o) { const s = lf2Spot(r, key); if (!s) return null; return [goS(s, text), waitS(min, act || 'stand', text, o)]; }
+function lf2GoWork(r, key, text, min, act, o?) { const s = lf2Spot(r, key); if (!s) return null; return [goS(s, text), waitS(min, act || 'stand', text, o)]; }
 const lf2Reserve = g => Math.ceil(npcs.filter(o => !o.dead).length * (g === 'grain' ? 1.2 : 0.6));
 const lf2FoodStock = () => { let t = 0; for (const r of rooms) if (!r.dead && r.stock) for (const g of FOODS) t += (r.stock[g] || 0) * GOODS[g].sat; return t; };
 function lf2FetchPlan(n, r, need) {
@@ -195,7 +195,7 @@ function lf2BuilderPlan(n, tod) {
 function lf2ShopPlan(n, tod) {
   if (!LF2.on('economy') || n.age < 16 || n.player || n.jail || (n.lf2Shop || 0) > game.time || lf2Busy(n, tod)) return null;
   n.lf2Shop = game.time + 45; const h = tod / 60;
-  const go = (r, g, q, text, after) => { const f = lf2Spot(r, 'front'); if (!f) return null; return [goS(f, text), waitS(2, 'stand', 'Buying ' + GOODS[g].name, { nopie: true, onEnd(nn) {
+  const go = (r, g, q, text, after?) => { const f = lf2Spot(r, 'front'); if (!f) return null; return [goS(f, text), waitS(2, 'stand', 'Buying ' + GOODS[g].name, { nopie: true, onEnd(nn) {
     if (!lf2Server(r) && r.kind !== 'shop') { lfShout(nn, anyOf(['Nobody serving? Typical.', 'Closed again!'])); return; }
     if (!(lf2Stock(r)[g] > 0)) { lfShout(nn, anyOf([`No ${GOODS[g].name} left?!`, `Sold out of ${GOODS[g].name}. Again.`])); lfMod(nn, 'soldout', `cross that the ${GOODS[g].name} ran out`, -4, 300); (town.lf2Short = town.lf2Short || {})[g] = game.time; return; }
     const got = lf2Buy(nn, r, g, q); if (got && after) after(nn, got); } })].concat(after && after.eat ? [] : []); };

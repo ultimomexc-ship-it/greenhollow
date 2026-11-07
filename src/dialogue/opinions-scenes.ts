@@ -158,7 +158,7 @@ const SCENES = [
       [`I will take ${c.k.first} out for a bigger one`, () => { like(n, p, 6); tagAlong(c.k, p, 240, `Following ${p.first} to the water`); addMem(c.k, 'outing', `the day ${p.first} took me fishing`, 'when you took me fishing', p.id); return `Would you? ${HeShe(c.k)} will follow you anywhere now. Go on, ${c.k.first}! Off you go!`; }],
       ['That is disgusting', () => 'You have clearly never been a parent.']] },
   { id: 'kid_learn', pri: 58, cool: 1440,
-    when: (n, p) => { if (n.age < 8 || n.age >= 16) return null; const j = Object.entries(n.learn || {}).sort((a, b) => b[1] - a[1])[0]; const pj = p.cur; return pj && JOB_VERB[pj] ? { j: pj, mine: j && j[0] === pj } : null; },
+    when: (n, p) => { if (n.age < 8 || n.age >= 16) return null; const j = Object.entries<number>(n.learn || {}).sort((a, b) => b[1] - a[1])[0]; const pj = p.cur; return pj && JOB_VERB[pj] ? { j: pj, mine: j && j[0] === pj } : null; },
     lines: (n, p, c) => c.mine ? `You ${JOB_VERB[c.j]} like my ${anyOf(['mum', 'dad'])} does! Can I watch you? I will be quiet. Mostly quiet.` : `How do you ${JOB_VERB[c.j]}? Is it hard? Can you show me? Please?`,
     opts: (n, p, c) => [['Come on then', () => { tagAlong(n, p, 180, `Watching ${p.first} ${JOB_VERB[c.j]}`); n.learn = n.learn || {}; n.learn[c.j] = (n.learn[c.j] || 0) + 2; like(n, p, 6); addMem(n, 'teach', `the day ${p.first} showed me how to ${JOB_VERB[c.j]}`, `when you showed me how to ${JOB_VERB[c.j]}`, p.id); return 'YES! I am coming! Wait for me!'; }], ['Another day', () => 'Promise? You have to promise.']] },
   { id: 'kid_bored', pri: 40, cool: 900,

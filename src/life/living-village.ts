@@ -129,7 +129,7 @@ function lfNightTrip(n, sl) {
 function lfInitProps() { town.props = []; town.propAt = new Map(); town.pblock = new Uint8Array(W * H); town.puddles = []; town.gath = []; }
 /* everything that can be walked to from the village stand, remembered until something is pushed */
 function lfFlood() {
-  const st = town.yard.stand, seen = new Uint8Array(W * H), q = [st.y * W + st.x]; seen[q[0]] = 1;
+  const st = town.yard.stand, seen: any = new Uint8Array(W * H), q = [st.y * W + st.x]; seen[q[0]] = 1;
   for (let i = 0; i < q.length; i++) {
     const k = q[i], x = k % W, y = (k / W) | 0;
     for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy; if (nx < 1 || ny < 1 || nx >= W - 1 || ny >= H - 1) continue; const nk = ny * W + nx; if (!seen[nk] && walkable(nx, ny)) { seen[nk] = 1; q.push(nk); } }
@@ -139,8 +139,8 @@ function lfFlood() {
 function lfReachSet() { if (!town.lfReach || town.lfReachV !== town.lfPV || game.time - (town.lfReachT || -1e9) > 30) { town.lfReach = lfFlood(); town.lfReachV = town.lfPV; town.lfReachT = game.time; } return town.lfReach; }
 /* would shoving this leave part of the village cut off? (villagers never do that to each other; players may) */
 function lfPushKeepsOpen(pr, dx, dy) {
-  const c0 = lfFlood().count, a = pr.y * W + pr.x, b = (pr.y + dy) * W + pr.x + dx;
-  town.pblock[a] = 0; town.pblock[b] = 1; const c1 = lfFlood().count; town.pblock[a] = 1; town.pblock[b] = 0;
+  const c0 = (lfFlood() as any).count, a = pr.y * W + pr.x, b = (pr.y + dy) * W + pr.x + dx;
+  town.pblock[a] = 0; town.pblock[b] = 1; const c1 = (lfFlood() as any).count; town.pblock[a] = 1; town.pblock[b] = 0;
   return c1 >= c0;
 }
 const lfPropAt = (x, y) => (town.propAt && town.propAt.get(y * W + x)) || null;

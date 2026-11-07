@@ -21,7 +21,7 @@ function handOffMats(n) {
     for (const o of ws) { if (!q) break; const t = Math.min(q, handsMax(o) - handsUsed(o)); o.inv[k] = (o.inv[k] || 0) + t; q -= t; }
     n.inv[k] = 0; }
 }
-function setRole(n, role, mk) {
+function setRole(n, role, mk?) {
   if (n.player && !['Worker', 'Elder', 'Child'].includes(role)) releasePlayer();
   if (role !== 'Worker' && ((n.inv.wood || 0) + (n.inv.stone || 0)) > 0) handOffMats(n);
   const was = n.role; n.role = role; styleFor(rng(town.seed + n.id * 53 + Math.floor(game.time)), n); routine(rng(town.seed ^ n.id), n);
@@ -31,7 +31,7 @@ function setRole(n, role, mk) {
 }
 function becomeAdult(n) {
   n.adult = true; setRole(n, chooseJob()); n.coin = Math.max(n.coin, 6);
-  const lj = Object.entries(n.learn || {}).sort((a, b) => b[1] - a[1])[0]; if (lj && lj[1] >= 2) n.pref = lj[0];
+  const lj = Object.entries<number>(n.learn || {}).sort((a, b) => b[1] - a[1])[0]; if (lj && lj[1] >= 2) n.pref = lj[0];
   chron(`${nameOf(n)} turned sixteen and joined the workers${n.pref ? ', hoping to be ' + JOB_NOUN[n.pref] + ' like ' + (npcs.find(p => isParentOf(p, n) && !p.dead) || { first: 'family' }).first : ''}.`, 'life'); calAdd('birthday', `${nameOf(n)} became an adult`);
 }
 function annualMortality(a) { return a < 1 ? 0.03 : a < 12 ? 0.004 : a < 45 ? 0.006 : a < 60 ? 0.018 : a < 70 ? 0.05 : a < 80 ? 0.12 : 0.25; }

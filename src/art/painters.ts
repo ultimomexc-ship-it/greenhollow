@@ -73,7 +73,7 @@ function inkUnion(g, shapes, smooth, w, col = INK) { g.fillStyle = col; g.beginP
 /* outline by stroking: a thin line all round plus a copy pushed away from the sun, so the shadow side is heavier (works on any outline, concave or not) */
 function inkStroke(g, shapes, smooth, ow, os, col = INK) { g.save(); g.fillStyle = g.strokeStyle = col; g.lineJoin = 'round'; g.lineWidth = ow * 2;
   for (const k of [0, 1]) { g.save(); if (k) g.translate(-LT[0] * os, -LT[1] * os); g.beginPath(); for (const s of shapes) trace(g, s, smooth); g.fill(); g.stroke(); g.restore(); } g.restore(); }
-function cel(g, shapes, P, o = {}) { const smooth = o.smooth !== false, lx = o.lx ?? -5, ly = o.ly ?? -7, rim = o.rim ?? 1.7;
+function cel(g, shapes, P, o: any = {}) { const smooth = o.smooth !== false, lx = o.lx ?? -5, ly = o.ly ?? -7, rim = o.rim ?? 1.7;
   if (o.ink !== false) { if (o.ow !== undefined) inkStroke(g, shapes, smooth, o.ow, o.os ?? 0, o.inkCol || INK); else inkUnion(g, shapes, smooth, o.inkW || inkW(), o.inkCol || INK); }
   for (const s of shapes) { g.save(); g.beginPath(); trace(g, s, smooth); g.clip();
     g.fillStyle = P.rim; g.fillRect(-500, -500, 1200, 1200);
@@ -292,7 +292,7 @@ function clump(g, x, y, r, B, K, H, lit, seed, flat = 0.78) {
   if (lit > -0.4) { g.fillStyle = rgba(mixc(body, H, 0.22 + 0.55 * t)); g.beginPath(); trace(g, shift(scl(sc, 0.7, 0.5), -r * 0.18, -r * 0.36)); g.fill(); } }
 
 /* a whole mass of foliage. blobs: ellipse-ish outlines (they sway with the caller); per = clumps per unit area */
-function foliage(g, blobs, P, o = {}) {
+function foliage(g, blobs, P, o: any = {}) {
   const B = hx(P.base), K = kage(B, 1.05), H = hx(P.hi || P.rim), seed = o.seed || 1, R = mul(seed * 17 + 3), per = o.per ?? 0.42, rr = o.r || [1.15, 2.1];
   const sil = blobs.map((b, i) => { const bb = bbox(b); return scallop(bb.cx, bb.cy, bb.rx, bb.ry, seed * 7 + i, o.amp ?? 0.085, o.size ?? 2.7); });
   cel(g, sil, P, Object.assign({ lx: -1.1, ly: -1.5, rim: 0.42, iw: 0.17, inkW: iwf(seed) }, o.cel || {}, { seed, hs: o.hs ?? 0.5, inkCol: inkOf(P.base, 0.6) }));
@@ -318,7 +318,7 @@ function tufts(g, x0, x1, y, seed, n = 8, h = 2.2) { const R = mul(seed), dk = [
       g.fillStyle = lt[(R() * 3) | 0]; g.beginPath(); g.moveTo(bx - w, y + 0.2); g.quadraticCurveTo(bx - w * 0.5 + Math.sin(a) * len * 0.35 - 0.1, y - len * 0.55, tx - 0.05, ty + 0.1); g.quadraticCurveTo(bx - w * 0.1 + Math.sin(a) * len * 0.3, y - len * 0.4, bx, y); g.fill(); } } }
 
 /* a rock made of planes: outline points + a high interior apex; each triangle takes its tone from how it faces the sun */
-function rock(g, outline, apex, P, o = {}) {
+function rock(g, outline, apex, P, o: any = {}) {
   const B = hx(P.base), K = kage(B, 1.1), H = hx(P.hi || P.rim), Rm = hx(P.rim), seed = o.seed || 1, R = mul(seed * 5 + 1), n = outline.length, smooth = !!o.smooth;
   cel(g, [outline], P, { smooth, seed, ow: o.ow ?? 0.2, os: o.os ?? 0.34, rim: o.rimw ?? 0.45, lx: -0.6, ly: -0.9, hs: 0.01, inkCol: inkOf(P.base, 0.6), inner: false, iw: 0.15 });
   g.save(); g.beginPath(); trace(g, outline, smooth); g.clip();
@@ -400,7 +400,7 @@ function texCanvas() {
     const val = 128 + ((blot - 0.5) * 70 + (vn3(wv, wu, 0, 3, 1, seed + 11, 40) - 0.5) * 58 + (st - 0.5) * 26 + (tooth - 0.5) * 34), i = (y * N + x) * 4;
     d[i] = d[i + 1] = d[i + 2] = clamp(val, 0, 255); d[i + 3] = 255; }
   g.putImageData(im, 0, 0); return TEXC = c; }
-function texturize(c, k = 1, o = {}) {
+function texturize(c, k = 1, o: any = {}) {
   const W = c.width, H = c.height, t = texCanvas(), m = mk(W, H), mg = m.getContext('2d');
   const sc = o.scale ?? 1, ox = ((o.ox ?? 0) % 1) * 768, oy = ((o.oy ?? 0) % 1) * 768;
   for (let y = -oy; y < H; y += 768 * sc) for (let x = -ox; x < W; x += 768 * sc) mg.drawImage(t, x, y, 768 * sc, 768 * sc);
@@ -413,7 +413,7 @@ function texturize(c, k = 1, o = {}) {
    wood: boards with grain, knots, seams and nails, shaded away from the sun; logs as tubes with end grain
    stone: courses of blocks, each bevelled and lit on its own, with chips and mortar in shadow                   */
 const WDP = { oak: pal('#8a5a34', '#e6b27a', '#b07a48'), dark: pal('#5d4252', '#b08a7c', '#8a6141'), pale: pal('#b4845a', '#f0cf9c', '#d2a874'), grey: pal('#7a6a5a', '#cdb8a0', '#9a8670') };
-function wood(g, x, y, w, h, o = {}) {
+function wood(g, x, y, w, h, o: any = {}) {
   const P = o.P || WDP.oak, vert = o.dir ? o.dir === 'v' : h >= w, seed = o.seed || 1, R = mul(seed * 31 + Math.round(x * 7 + y * 13)), B = hx(P.base), K = kage(B, 1.1);
   const shape = o.shape || rect(x, y, w, h);
   if (o.plain) { g.fillStyle = P.base; g.beginPath(); trace(g, shape, false); g.fill(); } else c24(g, [shape], P, { smooth: false, seed, hs: 0.01, lx: -0.3, ly: -0.4, rim: o.rim ?? 0.38, iw: 0.14 });
@@ -450,7 +450,7 @@ function logPiece(g, x, y, len, r, P = WDP.oak, seed = 1) {
   dab(g, ex, y, 0.14, 0.2, 0, rgba(K, 0.8)); }
 
 /* courses of stone blocks inside a shape */
-function stoneBlocks(g, shape, o = {}) {
+function stoneBlocks(g, shape, o: any = {}) {
   const bb = bbox(shape), P = o.P || pal('#8d939a', '#e2e4dc', '#b4b8ba'), seed = o.seed || 1, R = mul(seed * 19 + 3), B = hx(P.base), K = kage(B, 1.1), Hh = hx(P.hi || P.rim), ch = o.course || 3.6, bw = o.bw || 5;
   c24(g, [shape], P, { smooth: false, seed, hs: 0.01, lx: -0.3, ly: -0.5, rim: o.rim ?? 0.4, iw: 0.15 });
   g.save(); g.beginPath(); trace(g, shape, false); g.clip();
@@ -478,7 +478,7 @@ function endGrain(g, x, y, r, seed = 1) {
 const Q = 4, TP = 24 * Q;                  // sprites are painted at 8x (192 px a tile); the ground stays at S = 96
 function g24(g, fn) { g.save(); g.scale(Q, Q); fn(g); g.restore(); }
 const iwf = (seed = 1, b = 0.3, h = 0.5) => inkW(b, h, seed);
-const c24 = (g, shapes, P, o = {}) => cel(g, shapes, P, Object.assign({ lx: -1.1, ly: -1.5, rim: 0.42, iw: 0.17, inkW: iwf(o.seed || 1), inkCol: inkOf(P.base, 0.55) }, o));
+const c24 = (g, shapes, P, o: any = {}) => cel(g, shapes, P, Object.assign({ lx: -1.1, ly: -1.5, rim: 0.42, iw: 0.17, inkW: iwf(o.seed || 1), inkCol: inkOf(P.base, 0.55) }, o));
 const poly24 = (g, pts, fill, w = 0.42) => { inkPoly(g, pts, w); fillPoly(g, pts, fill); };
 const ln = (g, x1, y1, x2, y2, col, w = 0.5, cap = 'round') => { g.strokeStyle = col; g.lineWidth = w; g.lineCap = cap; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); g.lineCap = 'butt'; };
 const tw = (t, k = 1, ph = 0) => Math.sin(TAU * (t * k) - ph);
@@ -827,7 +827,7 @@ function decal24(g, kind, v) { const R = mul(900 + v * 37 + kind.length * 101); 
     for (let i = 0; i < 9; i++) { const c = cols[(i * 7 + v) % 4], x = 4.5 + R() * 15, y = 10 + R() * 8; leafAt(g, x, y, R() * TAU, 2.2 + R() * 1.0, 1.0 + R() * 0.35, c[0], inkOf(c[1], 0.8), 'rgba(90,40,10,.5)'); } return; }
   if (kind === 'fern') { shadowE(g, 12.4, 19.6, 7.6, 1.7); const N = 6, base = [12, 19.4];
     for (let i = 0; i < N; i++) { const a = -1.25 + i / (N - 1) * 2.5 + (R() - 0.5) * 0.2, L = 6.2 + R() * 3.2 - Math.abs(a) * 1.0, cx = base[0] + Math.sin(a) * L * 0.6, cy = base[1] - L * 0.85, ex = base[0] + Math.sin(a) * L * 1.12, ey = base[1] - L * 0.55 + Math.abs(a) * 0.4;
-      const pt = t => { const u = 1 - t; return [u * u * base[0] + 2 * u * t * cx + t * t * ex, u * u * base[1] + 2 * u * t * cy + t * t * ey]; };
+      const pt = (t): [number, number] => { const u = 1 - t; return [u * u * base[0] + 2 * u * t * cx + t * t * ex, u * u * base[1] + 2 * u * t * cy + t * t * ey]; };
       for (let k = 0; k < 14; k++) ln(g, ...pt(k / 14), ...pt((k + 1) / 14), '#356f38', 0.6 - k * 0.025);
       for (let k = 1; k < 10; k++) { const t = k / 10, p = pt(t), q = pt(Math.min(1, t + 0.04)), dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l, s = 1.7 * (1 - t * 0.78) * (0.8 + 0.3 * R());
         for (const sd of [-1, 1]) leafAt(g, p[0] + nx * sd * s * 0.5, p[1] + ny * sd * s * 0.5, Math.atan2(ny * sd + dy / l * 0.5, nx * sd + dx / l * 0.5), s, s * 0.4, sd > 0 ? '#86c460' : '#62a64a', '#3c8040', null); }
@@ -918,7 +918,7 @@ function doorS24(g, open) { /* a woven red doormat set in the south wall, which 
 
 /* furniture */
 function shadeC(hex, k) { const c = hx(hex); return rgba(mixc(c, [255, 255, 255], k)); }
-function fabric(g, shape, col, o = {}) { const C = hx(col); c24(g, [shape], pal(col, rgba(mixc(C, [255, 250, 236], 0.5)), rgba(mixc(C, [255, 255, 255], 0.26))), Object.assign({ smooth: o.smooth ?? false, seed: o.seed || 8, hs: 0.01, lx: -0.4, ly: -0.6, rim: 0.4, iw: 0.15 }, o.cel || {})); }
+function fabric(g, shape, col, o: any = {}) { const C = hx(col); c24(g, [shape], pal(col, rgba(mixc(C, [255, 250, 236], 0.5)), rgba(mixc(C, [255, 255, 255], 0.26))), Object.assign({ smooth: o.smooth ?? false, seed: o.seed || 8, hs: 0.01, lx: -0.4, ly: -0.6, rim: 0.4, iw: 0.15 }, o.cel || {})); }
 function bed24(g, col, top) { shadowE(g, 12.8, 22.6, 10.6, 2.2); const C = hx(col);
   // frame and headboard
   wood(g, 2.4, 1.2, 19.2, 21.6, { dir: 'v', planks: 1, seed: 6, P: WOODL, nails: false, knots: 0.5 });
@@ -960,7 +960,7 @@ function barrel24(g) { shadowE(g, 12.6, 21.8, 9.2, 2.4);
   for (const y of [8.4, 16.4]) { g.fillStyle = '#3a3d44'; g.fillRect(3.8, y, 16.4, 1.5); g.fillStyle = 'rgba(190,200,220,.5)'; g.fillRect(3.8, y, 16.4, 0.35); g.fillStyle = 'rgba(30,30,90,.4)'; g.fillRect(3.8, y + 1.15, 16.4, 0.35); for (const x of [6, 12, 18]) dab(g, x, y + 0.75, 0.2, 0.2, 0, '#9aa0b0'); } g.restore();
   g.fillStyle = INK; g.beginPath(); g.ellipse(12, 6, 7.4, 2.8, 0, 0, TAU); g.fill(); g.fillStyle = '#b9824a'; g.beginPath(); g.ellipse(12, 5.9, 6.8, 2.3, 0, 0, TAU); g.fill();
   g.strokeStyle = 'rgba(90,55,25,.5)'; g.lineWidth = 0.15; for (const x of [8.4, 12, 15.6]) { g.beginPath(); g.moveTo(x, 3.8); g.lineTo(x, 8); g.stroke(); } dab(g, 9.6, 5.1, 2, 0.5, -0.1, 'rgba(255,236,190,.5)');
-  for (const [x, y, r, c] of [[10.4, 5.9, 1.3, '#d2423a'], [13.9, 6.1, 1.2, '#e0a93f']]) { dab(g, x + 0.1, y + 0.2, r + 0.12, r * 0.9, 0, INK); dab(g, x, y, r, r * 0.85, 0, c); dab(g, x - 0.35, y - 0.35, 0.3, 0.22, 0, '#fff'); } }
+  for (const [x, y, r, c] of [[10.4, 5.9, 1.3, '#d2423a'], [13.9, 6.1, 1.2, '#e0a93f']] as [number, number, number, string][]) { dab(g, x + 0.1, y + 0.2, r + 0.12, r * 0.9, 0, INK); dab(g, x, y, r, r * 0.85, 0, c); dab(g, x - 0.35, y - 0.35, 0.3, 0.22, 0, '#fff'); } }
 function shelf24(g, v) { shadowE(g, 12.5, 22.4, 10.6, 1.9);
   wood(g, 2, 1.8, 20, 20.4, { dir: 'v', planks: 1, seed: 14, P: WOODL, nails: false, knots: 0.4 });
   for (const y of [3.4, 12.6]) { g.fillStyle = '#3a2218'; g.fillRect(3.4, y, 17.2, 7.6); g.fillStyle = 'rgba(14,8,34,.55)'; g.fillRect(3.4, y, 17.2, 1.7); g.fillStyle = 'rgba(40,22,60,.35)'; g.fillRect(3.4, y + 1.7, 17.2, 0.8); }
@@ -974,7 +974,7 @@ function rug24(g, v = 0) { const PL = [['#a33a3a', '#d8706a', '#e8b878', '#2c4a6
   g.save(); g.beginPath(); trace(g, body, true); g.clip(); g.strokeStyle = 'rgba(30,16,40,.18)'; g.lineWidth = 0.14; for (let x = 1.5; x < 23; x += 0.8) { g.beginPath(); g.moveTo(x, 1); g.lineTo(x, 23); g.stroke(); } g.strokeStyle = 'rgba(255,230,200,.14)'; for (let y = 1.5; y < 23; y += 0.8) { g.beginPath(); g.moveTo(1, y); g.lineTo(23, y); g.stroke(); }
   g.strokeStyle = PL[2]; g.lineWidth = 0.5; g.strokeRect(3.2, 3.2, 17.6, 17.6); g.strokeStyle = 'rgba(255,240,210,.5)'; g.lineWidth = 0.2; g.strokeRect(5.2, 5.2, 13.6, 13.6);
   if (v === 0) { for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; g.fillStyle = i % 2 ? PL[2] : PL[3]; g.beginPath(); g.moveTo(12 + Math.cos(a) * 1.6, 12 + Math.sin(a) * 1.6); g.lineTo(12 + Math.cos(a + 0.35) * 5.4, 12 + Math.sin(a + 0.35) * 5.4); g.lineTo(12 + Math.cos(a - 0.35) * 5.4, 12 + Math.sin(a - 0.35) * 5.4); g.fill(); } }
-  else if (v === 1) { for (const [r, c] of [[6.4, PL[2]], [4.6, PL[3]], [2.8, PL[2]], [1.2, PL[3]]]) { g.fillStyle = c; g.beginPath(); g.moveTo(12, 12 - r); g.lineTo(12 + r, 12); g.lineTo(12, 12 + r); g.lineTo(12 - r, 12); g.closePath(); g.fill(); }
+  else if (v === 1) { for (const [r, c] of [[6.4, PL[2]], [4.6, PL[3]], [2.8, PL[2]], [1.2, PL[3]]] as [number, string][]) { g.fillStyle = c; g.beginPath(); g.moveTo(12, 12 - r); g.lineTo(12 + r, 12); g.lineTo(12, 12 + r); g.lineTo(12 - r, 12); g.closePath(); g.fill(); }
     for (const [x, y] of [[6.4, 6.4], [17.6, 6.4], [6.4, 17.6], [17.6, 17.6]]) { g.fillStyle = PL[2]; g.beginPath(); g.moveTo(x, y - 1.3); g.lineTo(x + 1.3, y); g.lineTo(x, y + 1.3); g.lineTo(x - 1.3, y); g.closePath(); g.fill(); } }
   else { for (let i = 0; i < 4; i++) { g.fillStyle = i % 2 ? PL[2] : PL[3]; g.fillRect(6.4, 6.6 + i * 2.8, 11.2, 1.6); } for (let i = 0; i < 5; i++) { g.fillStyle = PL[2]; g.beginPath(); g.arc(7.6 + i * 2.2, 5.2, 0.5, 0, TAU); g.fill(); g.beginPath(); g.arc(7.6 + i * 2.2, 18.8, 0.5, 0, TAU); g.fill(); } }
   g.restore(); if (v === 0) { dab(g, 12, 12, 1.6, 1.6, 0, INK); dab(g, 12, 12, 1.3, 1.3, 0, PL[2]); dab(g, 11.6, 11.6, 0.4, 0.4, 0, '#fff4d0'); }
@@ -1001,7 +1001,7 @@ function forge24(g, t) { const tq = twos(t), fl = 0.8 + 0.2 * vn(tq, 0.5, 6, 560
   c24(g, [rect(3, 3, 18, 18)], pal('#1e1816', '#3a302c', null), { smooth: false, seed: 20, hs: 0.01, iw: 0.15 }); const gg = g.createRadialGradient(12, 17, 1, 12, 14, 10); gg.addColorStop(0, 'rgba(255,160,60,.75)'); gg.addColorStop(1, 'rgba(255,90,30,0)'); g.fillStyle = gg; g.fillRect(3, 3, 18, 18);
   // coals
   for (let k = 0; k < 14; k++) { const x = 4.4 + (k * 1.27) % 15.2, y = 18.4 + (k % 3) * 0.7, c = vn(tq, k * 0.13, 6, 565 + k) > 0.5; dab(g, x, y, 1.3, 0.8, 0, c ? '#ff7a2a' : '#7a2a1a'); dab(g, x - 0.2, y - 0.2, 0.6, 0.35, 0, c ? '#ffd060' : '#c8481e'); }
-  for (let k = 0; k < 7; k++) { const x = 5 + k * 2.3, h = 4 + 6 * vn(tq, k * 0.17, 8, 561 + k), sw = (vn(tq, k * 0.17 + 0.2, 8, 580 + k) - 0.5) * 1.6; for (const [sc, col] of [[1, '#e8481f'], [0.7, '#fb8a2a'], [0.4, '#ffd060']]) { g.fillStyle = col; g.beginPath(); g.moveTo(x - 1.6 * sc, 19); g.bezierCurveTo(x - 1.5 * sc, 19 - h * 0.5 * sc, x + sw * 0.3, 19 - h * 0.8 * sc, x + sw, 19 - h * sc); g.bezierCurveTo(x + 0.6 + sw * 0.3, 19 - h * 0.7 * sc, x + 1.6 * sc, 19 - h * 0.4 * sc, x + 1.6 * sc, 19); g.fill(); } }
+  for (let k = 0; k < 7; k++) { const x = 5 + k * 2.3, h = 4 + 6 * vn(tq, k * 0.17, 8, 561 + k), sw = (vn(tq, k * 0.17 + 0.2, 8, 580 + k) - 0.5) * 1.6; for (const [sc, col] of [[1, '#e8481f'], [0.7, '#fb8a2a'], [0.4, '#ffd060']] as [number, string][]) { g.fillStyle = col; g.beginPath(); g.moveTo(x - 1.6 * sc, 19); g.bezierCurveTo(x - 1.5 * sc, 19 - h * 0.5 * sc, x + sw * 0.3, 19 - h * 0.8 * sc, x + sw, 19 - h * sc); g.bezierCurveTo(x + 0.6 + sw * 0.3, 19 - h * 0.7 * sc, x + 1.6 * sc, 19 - h * 0.4 * sc, x + 1.6 * sc, 19); g.fill(); } }
   for (let k = 0; k < 5; k++) { const ph = (tq * 2 + k / 5) % 1; dab(g, 7 + k * 2.4 + Math.sin(ph * 7 + k) * 0.8, 17 - ph * 12, 0.26, 0.28, 0, `rgba(255,${214 - ph * 60 | 0},120,${1 - ph})`); }
   g.fillStyle = 'rgba(0,0,0,.42)'; g.fillRect(3, 3, 18, 2); glow24(g, 12, 12, 12, '255,120,40', 0.32 * fl); g.strokeStyle = 'rgba(255,255,255,.28)'; g.lineWidth = 0.22; g.beginPath(); g.moveTo(2, 1.6); g.lineTo(22, 1.6); g.stroke(); }
 function anvil24(g) { shadowE(g, 12.5, 21.8, 8.8, 2);
@@ -1020,7 +1020,7 @@ function oven24(g, t) { const tq = twos(t), fl = 0.8 + 0.2 * vn(tq, 0.5, 6, 570)
   g.strokeStyle = '#a4806a'; g.lineWidth = 1; g.beginPath(); g.moveTo(4.6, 22.2); g.lineTo(4.6, 15.2); g.quadraticCurveTo(12, 6.6, 19.4, 15.2); g.lineTo(19.4, 22.2); g.stroke();
   g.fillStyle = '#2a1c16'; g.beginPath(); g.moveTo(5.4, 22); g.lineTo(5.4, 15.4); g.quadraticCurveTo(12, 8.2, 18.6, 15.4); g.lineTo(18.6, 22); g.fill();
   const og = g.createRadialGradient(12, 19, 1, 12, 17, 8); og.addColorStop(0, 'rgba(255,150,60,.8)'); og.addColorStop(1, 'rgba(255,100,30,0)'); g.fillStyle = og; g.fillRect(5, 9, 14, 13);
-  for (let k = 0; k < 5; k++) { const x = 7.4 + k * 2.3, h = 3 + 3.4 * vn(tq, k * 0.2, 8, 571 + k); for (const [sc, col] of [[1, '#e8481f'], [0.6, '#ffc040']]) { g.fillStyle = col; g.beginPath(); g.moveTo(x - 1.3 * sc, 21.6); g.quadraticCurveTo(x - 1 * sc, 21.6 - h * 0.6 * sc, x, 21.6 - h * sc); g.quadraticCurveTo(x + 1 * sc, 21.6 - h * 0.6 * sc, x + 1.3 * sc, 21.6); g.fill(); } }
+  for (let k = 0; k < 5; k++) { const x = 7.4 + k * 2.3, h = 3 + 3.4 * vn(tq, k * 0.2, 8, 571 + k); for (const [sc, col] of [[1, '#e8481f'], [0.6, '#ffc040']] as [number, string][]) { g.fillStyle = col; g.beginPath(); g.moveTo(x - 1.3 * sc, 21.6); g.quadraticCurveTo(x - 1 * sc, 21.6 - h * 0.6 * sc, x, 21.6 - h * sc); g.quadraticCurveTo(x + 1 * sc, 21.6 - h * 0.6 * sc, x + 1.3 * sc, 21.6); g.fill(); } }
   glow24(g, 12, 18, 9, '255,130,50', 0.45 * fl); }
 function well24(g, t) { /* 2 x 2 tiles: 48 x 48 */ shadowE(g, 25.6, 44, 20.4, 4);
   stoneBlocks(g, blob(24, 31, 18.8, 12.9, 31, 36, 0.02, 3), { P: pal('#9aa0a6', '#eceee4', '#c4c8c8'), seed: 28, course: 4, bw: 6.2 });
@@ -1125,7 +1125,7 @@ function lighthouse24(g, t, lit) { /* 1 x 3 tiles: 24 x 72, ground at 70 */ shad
   c24(g, [[[3.4, 8], [12, 0.8], [20.6, 8]]], pal('#4a4252', '#9a90ac', '#7a7086'), { smooth: false, seed: 99, hs: 0.01, iw: 0.12 }); g.fillStyle = 'rgba(54,56,140,.3)'; g.beginPath(); g.moveTo(12, 0.8); g.lineTo(20.6, 8); g.lineTo(12, 8); g.fill(); dab(g, 12, 0.4, 0.9, 0.9, 0, INK); dab(g, 12, 0.3, 0.6, 0.6, 0, '#c9a44c');
   moss(g, 7.6, 69.4, 2.6, 0.9, 100); tufts(g, 2, 22, 70.6, 101, 6, 2); }
 const lerpPts = (pts, x) => { for (let i = 0; i < pts.length - 1; i++) if (x >= pts[i][0] && x <= pts[i + 1][0]) { const u = (x - pts[i][0]) / (pts[i + 1][0] - pts[i][0]); return pts[i][1] + (pts[i + 1][1] - pts[i][1]) * u; } return pts[x < pts[0][0] ? 0 : pts.length - 1][1]; };
-function sail(g, quad, t, ph, o = {}) { /* a cloth sail: billows with the wind, gradient across, seams and reef bands */
+function sail(g, quad, t, ph, o: any = {}) { /* a cloth sail: billows with the wind, gradient across, seams and reef bands */
   const [a, b, c, d] = quad, mid = (p, q, k) => [(p[0] + q[0]) / 2 + k, (p[1] + q[1]) / 2], bl = Math.sin(TAU * t + ph) * 0.8 + (o.bill ?? 1.6), shp = [a, mid(a, b, bl * 0.3), b, mid(b, c, bl), c, mid(c, d, bl * 0.2), d, mid(d, a, -bl * 0.3)];
   c24(g, [shp], pal('#eee6d4', '#ffffff', null), { smooth: true, seed: 101, hs: 0.01, iw: 0.15, lx: -0.5, ly: -0.5, rim: 0.4 });
   g.save(); g.beginPath(); trace(g, shp, true); g.clip(); const x0 = Math.min(a[0], d[0]), x1 = Math.max(b[0], c[0]), gr = g.createLinearGradient(x0, 0, x1, 0); gr.addColorStop(0, 'rgba(255,255,248,.55)'); gr.addColorStop(0.4, 'rgba(255,255,248,0)'); gr.addColorStop(0.72, 'rgba(70,74,150,.18)'); gr.addColorStop(1, 'rgba(60,64,150,.42)'); g.fillStyle = gr; g.fillRect(x0 - 2, Math.min(a[1], b[1]) - 2, x1 - x0 + 4, 60);
@@ -1230,7 +1230,7 @@ function spl(pts, closed = true, seg = 5) { const n = pts.length, out = [], m = 
 /* the right half of a shape (first and last point on the axis) mirrored about x = cx */
 function sym(h, cx = DCX) { const out = h.slice(); for (let i = h.length - 2; i >= 1; i--) out.push([2 * cx - h[i][0], h[i][1]]); return out; }
 /* a tapered limb: centreline points and a width at each, round at both ends */
-function tube(pts, ws, o = {}) { const seg = o.seg || 5, n = pts.length; let P = pts, W = ws;
+function tube(pts, ws, o: any = {}) { const seg = o.seg || 5, n = pts.length; let P = pts, W = ws;
   if (n > 2) { P = []; W = []; for (let i = 0; i < n - 1; i++) { const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(n - 1, i + 2)];
     for (let s = 0; s < seg; s++) { const t = s / seg; P.push([crom(p0[0], p1[0], p2[0], p3[0], t), crom(p0[1], p1[1], p2[1], p3[1], t)]); W.push(ws[i] + (ws[i + 1] - ws[i]) * t); } } P.push(pts[n - 1]); W.push(ws[n - 1]); }
   const m = P.length, Lp = [], Rp = [], nr = [];
@@ -1274,7 +1274,7 @@ function legRig(kit, dir, pose, f) { const g = geo(kit), K = g.K, { hip, bh } = 
   return out; }
 
 /* ---- legs (pants tint) ---- */
-function legsL(kit, dir, pose, f, robe) { const [c, g] = frame(); if (robe) return c; const K = KD[kit], rig = legRig(kit, dir, pose, f), side = dir === 'side';
+function legsL(kit, dir, pose, f, robe) { const [c, g]: any = frame(); if (robe) return c; const K = KD[kit], rig = legRig(kit, dir, pose, f), side = dir === 'side';
   for (const l of rig.legs) { if (l.hidden) continue; const P = l.far ? GPd : GP, w0 = K.thw * (side ? 0.92 : 1), pts = [l.hip, l.knee, l.ank];
     if (pose === 'kneel' && side) { D(g, [tube([l.hip, l.knee], [w0, K.knw])], P, { smooth: false }); D(g, [tube([l.knee, l.ank], [K.knw, K.ank])], P, { smooth: false }); continue; }
     D(g, [tube(pts, [w0 * 0.94, K.knw * 0.9, K.ank * 0.9], { seg: 6 })], P, { smooth: true }); if (!l.far) { g.strokeStyle = 'rgba(70,62,140,.2)'; g.lineWidth = 0.12; g.lineCap = 'round'; g.beginPath(); g.moveTo(l.knee[0] - 0.5, l.knee[1] - 0.1); g.quadraticCurveTo(l.knee[0], l.knee[1] + 0.35, l.knee[0] + 0.5, l.knee[1] - 0.1); g.stroke(); } }
@@ -1289,7 +1289,7 @@ function bootPts(kit, dir, l, rig) { const g = geo(kit), K = g.K, s = Math.max(0
     return { shaft: sh, cuff: [[ax - w - 0.1, ay - tp - 0.08], [ax + w + 0.1, ay - tp - 0.08], [ax + w + 0.1, ay - tp + 0.42 * s], [ax - w - 0.1, ay - tp + 0.42 * s]], sole: [ax + (-tw * 0.78) * Math.cos(sp), ay + bt * 0.78, tw * 1.56 * Math.cos(sp), bt * 0.3], toeY: ay + bt * 0.62, sp }; }
   const L = (x, y) => [x * s, y * s], pts = [L(-1.2, -1.55), L(1.0, -1.55), L(1.18, -0.25), L(2.3, 0.35), L(3.1, 0.75), L(3.3, 1.15), L(3.05, 1.45), L(-1.2, 1.45), L(-1.38, 0.75)], mid = pts.map(p => p.slice());
   return { shaft: xf(pts, ax, ay, a), cuff: xf([L(-1.3, -1.65), L(1.1, -1.65), L(1.1, -1.05), L(-1.3, -1.05)], ax, ay, a), soleLn: xf([L(-1.3, 1.2), L(3.2, 1.2)], ax, ay, a), toe: xf([L(2.2, 0.35), L(3.1, 0.75), L(3.3, 1.15), L(3.0, 1.45), L(1.9, 1.45)], ax, ay, a) }; }
-function shoesL(kit, dir, pose, f, robe) { const [c, g] = frame(), rig = legRig(kit, dir, pose, f); if (pose === 'kneel' && dir !== 'side') return c;
+function shoesL(kit, dir, pose, f, robe) { const [c, g]: any = frame(), rig = legRig(kit, dir, pose, f); if (pose === 'kneel' && dir !== 'side') return c;
   for (const l of rig.legs) { if (l.hidden) continue; const b = bootPts(kit, dir, l, rig), P = l.far ? BOOTd : BOOT;
     if (dir === 'side') { const o = { smooth: true, lx: -0.3, ly: -0.4, rim: 0.22, ow: 0.28, os: 0.22, iw: 0.09, hs: 0.4 }; D(g, [b.shaft], P, o);
       g.save(); g.beginPath(); trace(g, b.shaft, true); g.clip(); g.strokeStyle = SOLE; g.lineWidth = 0.55; g.lineCap = 'butt'; g.beginPath(); g.moveTo(b.soleLn[0][0], b.soleLn[0][1]); g.lineTo(b.soleLn[1][0], b.soleLn[1][1]); g.stroke(); g.restore();
@@ -1300,7 +1300,7 @@ function shoesL(kit, dir, pose, f, robe) { const [c, g] = frame(), rig = legRig(
   return c; }
 
 /* ---- the tunic / robe outline, neckline, collar ---- */
-function bodyPts(kit, dir, o = {}) { const { K, sy, hem } = geo(kit), sh = K.sh, tl = K.tl, hemY = o.hemY ?? hem, yb = (hemY - sy) / tl, rb = !!o.robe, X = DCX, sd = o.sway || 0;
+function bodyPts(kit, dir, o: any = {}) { const { K, sy, hem } = geo(kit), sh = K.sh, tl = K.tl, hemY = o.hemY ?? hem, yb = (hemY - sy) / tl, rb = !!o.robe, X = DCX, sd = o.sway || 0;
   if (dir === 'side') { const f = (xf_, yf) => [X + xf_ * sh, sy + yf * tl]; const fl = rb ? 0.78 : 0.62;
     return spl([f(-0.28, -0.02), f(0.3, -0.04), f(0.52, 0.12), f(0.6, 0.3), f(0.58, 0.5), f(rb ? 0.55 : 0.5, 0.7), f(fl + 0.03, yb - 0.1), f(fl + sd * 0.1, yb), f(0.1, yb + 0.01), f(-fl, yb), f(-fl + 0.02, yb - 0.12), f(rb ? -0.58 : -0.5, 0.72), f(-0.62, 0.5), f(-0.66, 0.3), f(-0.55, 0.13)], true, 4); }
   const f = (xf_, yf) => [X + xf_ * sh, sy + yf * tl], fl = rb ? 1.14 : K.hp / sh, wa = rb ? 0.66 : K.wa / sh;
@@ -1333,7 +1333,7 @@ function handPts(kit, A, kind) { const hs = KD[kit].hnd, a = A.hand.ang, W = A.W
   const thumb = kind === 'fist' ? spl([[0.2, 0.55 * sd], [0.75, 0.88 * sd], [1.3, 0.72 * sd], [1.15, 0.38 * sd]], true, 4) : spl([[0.3, 0.45 * sd], [0.75, 0.9 * sd], [1.25, 0.88 * sd], [1.12, 0.46 * sd]], true, 4);
   const shapes = [palm, thumb]; if (kind === 'open') for (const q of [-0.5, -0.17, 0.17, 0.5]) shapes.push(ellipsePts(1.82 + Math.abs(q) * -0.2, q * 0.95, 0.46, 0.2, 10, q * 0.6));
   return shapes.map(s => xf(s, W[0], W[1], a, hs)); }
-function armL(kit, dir, A, part) { const [c, g] = frame(), K = KD[kit], P = A.far ? GPd : GP, { S, E, W } = A;
+function armL(kit, dir, A, part) { const [c, g]: any = frame(), K = KD[kit], P = A.far ? GPd : GP, { S, E, W } = A;
   if (part === 'sleeve') { const w1 = K.aw * 1.08, w2 = K.aw * 0.92, w3 = K.aw * 0.84, o = { smooth: false, ow: 0.28, os: 0.22 };
     D(g, [tube([S, E, W], [w1, w2, w3], { seg: 6 })], P, o);
     /* the shoulder: where the sleeve lies over the body its cap is rubbed out into the shirt, so the arm grows out of the shoulder instead of being laid on it */
@@ -1352,7 +1352,7 @@ function armL(kit, dir, A, part) { const [c, g] = frame(), K = KD[kit], P = A.fa
 const armKey = (kit, dir, A, part) => `${kit}_${dir}_arm_${part}_${A.far ? 'f' : 'n'}_` + [...A.S, ...A.E, ...A.W, A.hand.ang, A.hand.kind || 'rest', A.hand.thumb ?? 1].map(v => typeof v === 'number' ? Math.round(v * 8) : v).join(',');
 
 /* ---- torso (shirt tint): the body only, arms are separate layers ---- */
-function torsoL(kit, dir, pose, f, robe, o = {}) { const [c, g] = frame(), { K, sy, hem, u } = geo(kit), side = dir === 'side', phi = pose === 'walk' ? walkPh(f || 0) : 0;
+function torsoL(kit, dir, pose, f, robe, o: any = {}) { const [c, g]: any = frame(), { K, sy, hem, u } = geo(kit), side = dir === 'side', phi = pose === 'walk' ? walkPh(f || 0) : 0;
   const hemR = DBY - 1.15 * Math.max(0.7, u * 0.4 + 0.6), hemY = robe ? (o.sit ? DBY - 1.1 - geo(kit).sit * 0.95 : hemR) : hem, sway = robe && pose === 'walk' ? Math.sin(phi) * 1.4 : 0;
   const body = bodyPts(kit, dir, { robe, hemY, sway }), nl = neckLine(kit, dir);
   D(g, [body], GP, { smooth: false, ow: 0.27, os: 0.13, lx: -0.34, ly: -0.3, rim: 0.3 });
@@ -1376,7 +1376,7 @@ function torsoL(kit, dir, pose, f, robe, o = {}) { const [c, g] = frame(), { K, 
   else { g.strokeStyle = INK; g.lineWidth = 0.5; g.lineCap = 'round'; g.beginPath(); nl.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke(); g.strokeStyle = '#ffffff'; g.lineWidth = 0.3; g.stroke(); }
   return c; }
 /* accent patterns (stripe, vest, belt, sash, collar): tinted with the accent colour, clipped to the same outline */
-function accentL(kit, dir, pose, f, pat) { const [c, g] = frame(), { K, sy, hem, u } = geo(kit), tl = K.tl, X = DCX, body = bodyPts(kit, dir, {}), side = dir === 'side', x0 = X - K.sh * (side ? 0.7 : 1.05), w = K.sh * (side ? 1.4 : 2.1);
+function accentL(kit, dir, pose, f, pat) { const [c, g]: any = frame(), { K, sy, hem, u } = geo(kit), tl = K.tl, X = DCX, body = bodyPts(kit, dir, {}), side = dir === 'side', x0 = X - K.sh * (side ? 0.7 : 1.05), w = K.sh * (side ? 1.4 : 2.1);
   const bar = (x, y, ww, hh) => { g.fillStyle = '#eeeef6'; g.fillRect(x, y, ww, hh); g.fillStyle = 'rgba(70,70,150,.22)'; g.fillRect(x, y + hh * 0.68, ww, hh * 0.32); g.fillStyle = 'rgba(42,35,50,.4)'; g.fillRect(x, y, ww, 0.12); g.fillRect(x, y + hh - 0.1, ww, 0.1); };
   g.save(); g.beginPath(); trace(g, body, false); g.clip();
   if (pat === 'stripe') { bar(x0, sy + tl * 0.3, w, 0.95 * u); bar(x0, sy + tl * 0.56, w, 0.95 * u); bar(x0, sy + tl * 0.82, w, 0.95 * u); }
@@ -1388,7 +1388,7 @@ function accentL(kit, dir, pose, f, pat) { const [c, g] = frame(), { K, sy, hem,
   else if (pat === 'collar') { if (dir === 'back') bar(X - 1.3, sy - 0.1, 2.6, 0.6); else for (const s of [-1, 1]) { const p = [[X + s * 0.4, sy + 0.1], [X + s * 1.5, sy - 0.1], [X + s * 1.9, sy + 1.2], [X + s * 0.5, sy + 1.3]]; g.fillStyle = '#eeeef6'; g.beginPath(); trace(g, p, false); g.fill(); g.strokeStyle = 'rgba(42,35,50,.5)'; g.lineWidth = 0.13; g.stroke(); } }
   g.restore(); return c; }
 /* fixed-colour clothing: apron, priest's stole, mourning sash */
-function clothL(kit, dir, pose, f, what) { const [c, g] = frame(), { K, sy, hem, u } = geo(kit), tl = K.tl, X = DCX, side = dir === 'side';
+function clothL(kit, dir, pose, f, what) { const [c, g]: any = frame(), { K, sy, hem, u } = geo(kit), tl = K.tl, X = DCX, side = dir === 'side';
   if (what === 'apron' && dir === 'back') { const yw = sy + tl * 0.66, hw = K.sh * 0.8;   /* seen from behind an apron is a strap round the neck and a bow at the waist */
     g.strokeStyle = INK; g.lineCap = 'round'; g.lineWidth = 0.5; g.beginPath(); g.moveTo(X - 1.0 * u, sy - 0.05); g.quadraticCurveTo(X, sy + 0.9, X + 1.0 * u, sy - 0.05); g.stroke(); g.strokeStyle = '#efe6d0'; g.lineWidth = 0.3; g.stroke();
     g.fillStyle = '#efe6d0'; g.strokeStyle = INK; g.lineWidth = 0.14; g.fillRect(X - hw, yw, 2 * hw, 0.9 * u); g.strokeRect(X - hw, yw, 2 * hw, 0.9 * u);
@@ -1416,7 +1416,7 @@ function neckPts(kit, dir) { const { K, sy, chin } = geo(kit), X = dir === 'side
   return [[X - w, top], [X + w, top], [X + w + 0.3, sy - 0.05], [X - w + 0.1, sy - 0.05]]; }
 
 /* ---- skin: head, ears, neck (hands belong to the arm layers) ---- */
-function skinL(kit, dir, pose, f, o = {}) { const [c, g] = frame(), h = hd(kit, dir), { K, X, hw, hh } = h, { chin, sy } = h.g;
+function skinL(kit, dir, pose, f, o = {}) { const [c, g]: any = frame(), h = hd(kit, dir), { K, X, hw, hh } = h, { chin, sy } = h.g;
   const SK = (shapes, o2 = {}) => D(g, shapes, SKINP, Object.assign({ smooth: false, ow: 0.26, os: 0.22, iw: 0.09, hs: 0.5, lx: -0.3, ly: -0.42, rim: 0.2 }, o2));
   const nk = neckPts(kit, dir); SK([nk], { ow: 0.22 });
   g.save(); g.beginPath(); trace(g, nk, false); g.clip(); g.fillStyle = 'rgba(78,64,150,.34)'; g.beginPath(); g.ellipse(dir === 'side' ? X + 0.3 : X, chin + 0.15, hw * 0.78, K.nk * 0.9 + 0.55, 0, 0, TAU); g.fill(); g.restore();
@@ -1435,7 +1435,7 @@ const EYESHAPE = { round: { h: 0.8, tilt: 0.0, lid: 0.06, w: 0.96 }, almond: { h
 const MOUTHS = ['smile', 'grin', 'neutral', 'smirk', 'small', 'frown', 'open'], BROWS = ['soft', 'arched', 'flat', 'thick', 'worried', 'stern', 'light'], NOSES = ['button', 'long', 'broad', 'sharp'];
 const LOOK0 = { eyes: 'almond', iris: 'brown', brow: 'soft', nose: 'button', mouth: 'smile', freckles: false, lines: 0, glasses: false, blush: 0.5, bw: 1, ht: 1, hw: 1, post: 0 };
 function lookOf(sp) { if (sp.look) return Object.assign({}, LOOK0, sp.look); const age = sp.age || 30, kid = age < 16, old = age >= 60, R = mul(1000 + (sp.id || 0) * 131 + Math.floor(age) * 7), pk = a => a[Math.floor(R() * a.length)], role = sp.role || 'Worker', fem = !!sp.female;
-  const L = Object.assign({}, LOOK0, { eyes: pk(kid ? ['round', 'kind', 'almond', 'almond'] : ['almond', 'almond', 'round', 'sleepy', 'narrow', 'kind']), iris: pk(['brown', 'brown', 'brown', 'hazel', 'green', 'blue', 'grey', 'dark']), brow: pk(fem ? ['soft', 'soft', 'arched', 'light'] : ['soft', 'flat', 'thick', 'stern', 'arched']),
+  const L: any = Object.assign({}, LOOK0, { eyes: pk(kid ? ['round', 'kind', 'almond', 'almond'] : ['almond', 'almond', 'round', 'sleepy', 'narrow', 'kind']), iris: pk(['brown', 'brown', 'brown', 'hazel', 'green', 'blue', 'grey', 'dark']), brow: pk(fem ? ['soft', 'soft', 'arched', 'light'] : ['soft', 'flat', 'thick', 'stern', 'arched']),
     nose: pk(kid ? ['button', 'button', 'sharp'] : NOSES), mouth: pk(kid ? ['grin', 'smile', 'small', 'smirk', 'smile'] : ['smile', 'neutral', 'smirk', 'small', 'smile', 'neutral']), freckles: R() < (kid ? 0.4 : 0.18), blush: kid ? 0.7 : 0.3 + R() * 0.3,
     bw: (fem ? 0.96 : 1.02) + (R() - 0.5) * 0.16, ht: (fem ? 0.97 : 1.02) + (R() - 0.5) * 0.1, hw: 0.95 + R() * 0.1, post: (R() - 0.5) * 2, lines: old ? 0.8 + R() * 0.2 : age >= 45 ? 0.35 + R() * 0.3 : age >= 33 ? 0.1 + R() * 0.15 : 0 });
   if (kid) { L.ht = age < 3 ? 1 : 0.97 + (R() - 0.5) * 0.06; L.bw = 1 + (R() - 0.5) * 0.1; L.lines = 0; }
@@ -1443,7 +1443,7 @@ function lookOf(sp) { if (sp.look) return Object.assign({}, LOOK0, sp.look); con
   if (OV) Object.assign(L, OV); if (old && R() < 0.3) L.glasses = true; if (sp.age >= 70) L.post = Math.min(L.post, -0.4);
   L.browCol = old ? '#9a9aa2' : sp.hair || '#4a3020'; return L; }
 const lookSig = L => [L.eyes, L.iris, L.brow, L.nose, L.mouth, L.freckles ? 1 : 0, Math.round(L.lines * 4), L.glasses ? 1 : 0, Math.round(L.blush * 4), L.browCol || ''].join('.');
-function faceL(kit, dir, pose, f, o = {}) { const [c, g] = frame(); if (dir === 'back') return c; const L = Object.assign({}, LOOK0, o.look || {}), parts = o.parts || ['shade', 'eyes', 'brows', 'nose', 'mouth', 'cheeks', 'extras'], has = p => parts.includes(p);
+function faceL(kit, dir, pose, f, o: any = {}) { const [c, g]: any = frame(); if (dir === 'back') return c; const L = Object.assign({}, LOOK0, o.look || {}), parts = o.parts || ['shade', 'eyes', 'brows', 'nose', 'mouth', 'cheeks', 'extras'], has = p => parts.includes(p);
   const h = hd(kit, dir), { K, X, hw, hh } = h, es = K.eye, side = dir === 'side', ink = '#2a1c18', kid = kit !== 'adult' && kit !== 'adultF', R = mul(77 + Math.round(L.lines * 9) + (L.nose || '').length * 13);
   const eyeY = h.y(0.55 + (es > 1.1 ? 0.02 : 0)), mouthY = h.y(0.845 - (es > 1.1 ? 0.012 : 0)), noseY = h.y(0.705), es_ = EYESHAPE[L.eyes] || EYESHAPE.almond, u = es * (kid ? 1.06 : 1);
   if (has('shade')) { g.save(); g.beginPath(); trace(g, headOutline(h), false); g.clip(); g.fillStyle = 'rgba(88,70,160,.2)'; g.beginPath(); g.ellipse(X + (side ? 0.2 : 0), h.y(0.0), hw * 1.1, hh * 0.36, 0, 0, TAU); g.fill(); g.restore(); }
@@ -1507,7 +1507,7 @@ function faceL(kit, dir, pose, f, o = {}) { const [c, g] = frame(); if (dir === 
       else { const ex = X + hw * 0.62, rr = 0.92 * es; g.beginPath(); g.ellipse(ex, eyeY + 0.04, rr * 0.8, rr * 0.86, 0, 0, TAU); g.fill(); g.stroke(); g.beginPath(); g.moveTo(ex - rr * 0.8, eyeY - 0.04); g.lineTo(X - hw * 0.1, eyeY - 0.06); g.stroke(); g.beginPath(); g.moveTo(ex + rr * 0.8, eyeY); g.lineTo(ex + rr * 0.95, eyeY + 0.12); g.stroke(); } } }
   return c; }
 /* closed eyes for sleepers and the like (fixed colour) */
-function faceSleepL(kit, dir) { const [c, g] = frame(), h = hd(kit, dir), { K, X, hw } = h, es = K.eye, eyeY = h.y(0.575); g.strokeStyle = '#2a1c18'; g.lineWidth = 0.2; g.lineCap = 'round';
+function faceSleepL(kit, dir) { const [c, g]: any = frame(), h = hd(kit, dir), { K, X, hw } = h, es = K.eye, eyeY = h.y(0.575); g.strokeStyle = '#2a1c18'; g.lineWidth = 0.2; g.lineCap = 'round';
   for (const s of [-1, 1]) { g.beginPath(); g.moveTo(X + s * hw * 0.44 - 0.6 * es, eyeY - 0.05); g.quadraticCurveTo(X + s * hw * 0.44, eyeY + 0.5 * es, X + s * hw * 0.44 + 0.6 * es, eyeY - 0.05); g.stroke(); } return c; }
 
 /* ---- hair (tint) ---- */
@@ -1575,7 +1575,7 @@ function hairStyle(kit, dir, style) { const h = hd(kit, dir), { K, hw, hh, X } =
   if (st === 'braids') for (const q of [-1, 1]) for (let i = 0; i < 5; i++) { const t = i / 4; out.extra.push(blobAt(X + q * hw * (1.04 + 0.1 * Math.sin(t * 2)), y(0.62 + t * 1.2), hw * 0.21, hw * 0.26, 8)); }
   if (st === 'ponytail') { out.back.push(lockPts(P(0.8, 0.04), P(1.45, 1.7), hw * 0.95, hw * 0.5)); out.strands.push({ tie: [P(0.82, 0.05)[0], P(0.82, 0.05)[1], hw * 0.3] }); }
   return out; }
-function hairL(kit, dir, style, part) { const [c, g] = frame(), K = KD[kit]; if (kit === 'infant' && style !== 'bald') style = 'crop'; const H = hairStyle(kit, dir, style), h = hd(kit, dir);
+function hairL(kit, dir, style, part) { const [c, g]: any = frame(), K = KD[kit]; if (kit === 'infant' && style !== 'bald') style = 'crop'; const H = hairStyle(kit, dir, style), h = hd(kit, dir);
   const D1 = (shapes, o = {}) => D(g, shapes, HAIRP, Object.assign({ smooth: false, ow: 0.28, os: 0.26, iw: 0.1, hs: 0.5, lx: -0.4, ly: -0.55, rim: 0.28 }, o));
   if (part === 'back') { if (dir === 'back') return c; for (const l of H.back) D1([l.poly], { hs: 0.4 }); return c; }
   /* from behind everything counts as "front" (the hair falls over the back) */
@@ -1599,13 +1599,13 @@ function hairL(kit, dir, style, part) { const [c, g] = frame(), K = KD[kit]; if 
   if (dir === 'back' && (style === 'long' || style === 'bob')) { g.strokeStyle = 'rgba(70,62,140,.26)'; g.lineWidth = 0.11; g.lineCap = 'round'; const L = style === 'long' ? 2.0 : 1.1; for (const q of [-0.84, -0.46, 0.46, 0.84]) { g.beginPath(); const A = h.P(q, 0.92), B = h.P(q * 1.1, L - 0.08 * Math.abs(q)); g.moveTo(A[0], A[1]); g.quadraticCurveTo(A[0] + q * 0.5, (A[1] + B[1]) / 2, B[0], B[1]); g.stroke(); } }
   return c; }
 function greyL(kit, dir) { /* streaks of grey that arrive at 45 (fixed colour) */
-  const [c, g] = frame(), h = hd(kit, dir); if (dir === 'back') return c;
+  const [c, g]: any = frame(), h = hd(kit, dir); if (dir === 'back') return c;
   g.fillStyle = 'rgba(232,230,238,.92)'; for (const [a, b] of dir === 'side' ? [[[0.25, -0.12], [0.6, 0.2]], [[-0.2, -0.16], [0.1, 0.05]]] : [[[-0.2, -0.16], [-0.34, 0.2]], [[0.28, -0.14], [0.46, 0.14]], [[-0.7, 0.02], [-0.8, 0.22]]]) { const l = lockPts(h.P(a[0], a[1]), h.P(b[0], b[1]), h.hw * 0.2, 0); g.beginPath(); trace(g, l.poly, false); g.fill(); }
   return c; }
 
 /* ---- beards (tint with the hair colour) ---- */
-function beardL(kit, dir, style) { const [c, g] = frame(), h = hd(kit, dir), { hw, hh, X } = h, P = h.P; if (dir === 'back') return c; const side = dir === 'side';
-  const B = (shapes, o) => D(g, shapes, HAIRP, Object.assign({ smooth: false, ow: 0.24, os: 0.2, iw: 0.09, hs: 0.5, lx: -0.3, ly: -0.4, rim: 0.22 }, o || {}));
+function beardL(kit, dir, style) { const [c, g]: any = frame(), h = hd(kit, dir), { hw, hh, X } = h, P = h.P; if (dir === 'back') return c; const side = dir === 'side';
+  const B = (shapes, o?) => D(g, shapes, HAIRP, Object.assign({ smooth: false, ow: 0.24, os: 0.2, iw: 0.09, hs: 0.5, lx: -0.3, ly: -0.4, rim: 0.22 }, o || {}));
   const must = side ? spl([P(0.34, 0.78), P(0.78, 0.76), P(0.93, 0.8), P(0.84, 0.85), P(0.4, 0.84)], true, 4) : spl(sym([[0, 0.775], [0.3, 0.74], [0.62, 0.78], [0.66, 0.84], [0.3, 0.83], [0, 0.82]].map(p => P(p[0], p[1])), X), true, 4);
   if (style === 'full') { const jaw = side ? spl([P(-0.4, 0.56), P(0.1, 0.72), P(0.7, 0.8), P(0.96, 0.9), P(0.82, 1.06), P(0.55, 1.16), P(0.3, 1.1), P(0.1, 1.17), P(-0.2, 1.04), P(-0.45, 0.94)], true, 4) : spl([P(-0.98, 0.46), P(-0.88, 0.66), P(-0.6, 0.8), P(-0.34, 0.9), P(-0.16, 0.88), P(0, 0.9), P(0.16, 0.88), P(0.34, 0.9), P(0.6, 0.8), P(0.88, 0.66), P(0.98, 0.46), P(1.0, 0.8), P(0.8, 1.04), P(0.52, 1.14), P(0.36, 1.1), P(0.16, 1.2), P(0, 1.14), P(-0.16, 1.2), P(-0.36, 1.1), P(-0.52, 1.14), P(-0.8, 1.04), P(-1.0, 0.8)], true, 3);
     B([jaw]); g.save(); g.beginPath(); trace(g, jaw, true); g.clip(); g.strokeStyle = 'rgba(40,30,44,.32)'; g.lineWidth = 0.1; g.lineCap = 'round';
@@ -1619,9 +1619,9 @@ function beardL(kit, dir, style) { const [c, g] = frame(), h = hd(kit, dir), { h
 
 /* ---- hats: tint (hat colour), hair (the bun), fixed (own colour) ---- */
 const HATFIX = new Set(['toque', 'colander']);
-function hatL(kit, dir, hat, part) { const [c, g] = frame(), h = hd(kit, dir), { hw, hh, X, side } = h, P = h.P, y = h.y, back = dir === 'back', W = (v) => v * hw;
-  const T = (shapes, o) => D(g, shapes, GP, Object.assign({ smooth: false, ow: 0.3, os: 0.26, iw: 0.1, hs: 0.4, lx: -0.45, ly: -0.6, rim: 0.3 }, o || {}));
-  const Fx = (shapes, col, hi, o) => D(g, shapes, pal(col, hi, null), Object.assign({ smooth: false, ow: 0.28, os: 0.24, iw: 0.1, hs: 0.3 }, o || {}));
+function hatL(kit, dir, hat, part) { const [c, g]: any = frame(), h = hd(kit, dir), { hw, hh, X, side } = h, P = h.P, y = h.y, back = dir === 'back', W = (v) => v * hw;
+  const T = (shapes, o?) => D(g, shapes, GP, Object.assign({ smooth: false, ow: 0.3, os: 0.26, iw: 0.1, hs: 0.4, lx: -0.45, ly: -0.6, rim: 0.3 }, o || {}));
+  const Fx = (shapes, col, hi, o?) => D(g, shapes, pal(col, hi, null), Object.assign({ smooth: false, ow: 0.28, os: 0.24, iw: 0.1, hs: 0.3 }, o || {}));
   const dome = (vTop, vBot, wv, back_ = 0.0) => side ? spl([[0.96 * wv, vBot], [0.9 * wv, vTop + 0.22], [0.5, vTop + 0.02], [-0.2, vTop - 0.02], [-0.8, vTop + 0.12], [-1.14 * wv, vTop + 0.4], [-1.2 * wv, vBot - 0.05], [-0.4, vBot + 0.02], [0.4, vBot + 0.01]].map(p => P(p[0], p[1])), true, 4) : spl(sym([[0, vTop - 0.02], [0.5, vTop + 0.0], [0.92, vTop + 0.1], [1.14 * wv, vTop + 0.34], [1.18 * wv, vBot], [0.6, vBot + 0.03], [0, vBot + 0.04]].map(p => P(p[0], p[1])), X), true, 4);
   const brim = (rx, v, ry = 0.38) => side ? ellipsePts(P(0.15, v)[0], P(0.15, v)[1], rx * hw, ry * hw, 22) : ellipsePts(X, y(v), rx * hw, ry * hw, 22);
   const band = (v, hgt = 0.1) => { g.save(); g.beginPath(); trace(g, g.__dome, false); g.clip(); g.fillStyle = 'rgba(52,42,100,.3)'; g.fillRect(P(-1.4, v)[0], y(v), hw * 2.8, hh * hgt); g.restore(); };
@@ -1648,11 +1648,11 @@ function hatL(kit, dir, hat, part) { const [c, g] = frame(), h = hd(kit, dir), {
     case 'feather': { const A = side ? P(-0.5, -0.2) : P(0.7, -0.16), B = side ? P(-1.2, -1.0) : P(1.25, -1.1); const l = lockPts(A, B, hw * 0.55, hw * 0.4); Fx([l.poly], '#d8c24a', '#fbf0a0', { smooth: false }); g.strokeStyle = 'rgba(120,100,30,.6)'; g.lineWidth = 0.1; g.beginPath(); l.pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke(); break; } }
   return c; }
 /* wedding finery and flowers, in colour */
-function dressL(kit, dir, what) { const [c, g] = frame(), h = hd(kit, dir), { K, hw, hh, X, P } = h, { sy } = h.g, tl = K.tl;   /* (tl lives on the kit, not on the geometry: the buttonhole used to come out blank) */
+function dressL(kit, dir, what) { const [c, g]: any = frame(), h = hd(kit, dir), { K, hw, hh, X, P } = h, { sy } = h.g, tl = K.tl;   /* (tl lives on the kit, not on the geometry: the buttonhole used to come out blank) */
   if (what === 'bride') { const back = dir === 'back', veil = dir === 'side' ? spl([P(-1.15, -0.1), P(0.6, -0.34), P(1.0, -0.18), P(0.4, 0.2), P(-1.4, 2.4), P(-1.7, 1.2)], true, 4) : dir === 'front' ? spl(sym([[0, -0.36], [0.7, -0.3], [1.2, 0.1], [1.4, 1.2], [1.5, 2.1], [0.62, 2.2], [0.5, 1.55], [0.58, 1.1], [0.92, 0.82], [0.97, 0.47], [0.74, 0.14], [0, 0.05]].map(p => P(p[0], p[1])), X), true, 4)   /* the veil frames the face: a hood open at the front */
       : spl(sym([[0, -0.34], [0.7, -0.28], [1.16, 0.12], [1.18, 0.55], [1.02, 0.95], [0.94, 1.5], [0.96, 2.05], [0.98, 2.3], [0.62, 2.38], [0.3, 2.3], [0, 2.4]].map(p => P(p[0], p[1])), X), true, 4);
     if (back) { /* from behind the veil is one sheet: sheer over the hair on the crown, then thickening as it falls down the back, narrower than the shoulders so the arms stay outside it */
-      const [c2, g2] = frame(); D(g2, [veil], pal('#fbf8f2', '#ffffff', null, 0.5), { smooth: false, ow: 0.14, os: 0.12, iw: 0.08, hs: 0.3 });
+      const [c2, g2]: any = frame(); D(g2, [veil], pal('#fbf8f2', '#ffffff', null, 0.5), { smooth: false, ow: 0.14, os: 0.12, iw: 0.08, hs: 0.3 });
       const y0 = P(0, 0.62)[1], y1 = P(0, 1.3)[1], gr = g2.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, 'rgba(0,0,0,.46)'); gr.addColorStop(1, 'rgba(0,0,0,.93)');
       g2.globalCompositeOperation = 'destination-in'; g2.fillStyle = gr; g2.fillRect(0, 0, 40, 40);
       g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(c2, 0, 0); g.restore();
@@ -1722,7 +1722,7 @@ function sleepL(part, top, fi = 0) { const c = mk(TP, TP), g = c.getContext('2d'
 /* ================= tint + cache ================= */
 const TINT = {};
 /* skin, shirt, accent, pants and hat are multiplied by their colour; hair is laid on with 'overlay' (mid-grey = the colour itself), so its shine can go lighter than the colour */
-function tint(canvas, color, key, mode = 'multiply') { const k = key + '|' + color + '|' + mode; if (TINT[k]) return TINT[k]; const c = mk(canvas.width, canvas.height), g = c.getContext('2d'); g.drawImage(canvas, 0, 0); g.globalCompositeOperation = mode; g.fillStyle = color; g.fillRect(0, 0, c.width, c.height); g.globalCompositeOperation = 'destination-in'; g.drawImage(canvas, 0, 0); return TINT[k] = c; }
+function tint(canvas, color, key, mode: GlobalCompositeOperation = 'multiply') { const k = key + '|' + color + '|' + mode; if (TINT[k]) return TINT[k]; const c = mk(canvas.width, canvas.height), g = c.getContext('2d'); g.drawImage(canvas, 0, 0); g.globalCompositeOperation = mode; g.fillStyle = color; g.fillRect(0, 0, c.width, c.height); g.globalCompositeOperation = 'destination-in'; g.drawImage(canvas, 0, 0); return TINT[k] = c; }
 const LC = {};
 function L(key, fn) { if (LC[key]) return LC[key]; const c = fn(); if (c && c.getContext && c.width > 64) { texturize(c, 0.5, { ox: h32(key.length, key.charCodeAt(2) || 1, 3, 3), oy: h32(key.length, key.charCodeAt(4) || 1, 4, 4) }); if (!/_face_|_grey$|^sl|_(hb|hf|bd|hat_bun_h)_/.test(key)) inkLift(c, (h32(key.length, key.charCodeAt(1), key.charCodeAt(key.length - 1), 9) * 97) | 0); } return LC[key] = c; }
 
@@ -1732,9 +1732,9 @@ function L(key, fn) { if (LC[key]) return LC[key]; const c = fn(); if (c && c.ge
 function handAt(dir, S, q, near, f, l, h) { if (dir === 'side') return [S[0] + f * q, S[1] - h * q];
   const dy = (dir === 'back' ? -0.42 : 0.42) * f * q; return [DCX + (near ? 1 : -1) * (l * q), S[1] - h * q + dy]; }
 function workPose(kit, dir, sp, T, id) { const G = geo(kit), K = G.K, q = K.ua / 3.1, side = dir === 'side', tool = sp.tool, u = (Math.floor(T * 30) % 20) / 20, sw = Math.sin(TAU * u), cw = Math.cos(TAU * u);
-  const Sn = side ? shoulderAt(kit, dir, 'near') : shoulderAt(kit, dir, 'R'), Sf = side ? shoulderAt(kit, dir, 'far') : shoulderAt(kit, dir, 'L'), arms = [], res = { arms, lean: 0 };
+  const Sn = side ? shoulderAt(kit, dir, 'near') : shoulderAt(kit, dir, 'R'), Sf = side ? shoulderAt(kit, dir, 'far') : shoulderAt(kit, dir, 'L'), arms = [], res: any = { arms, lean: 0 };
   const H = (near, f, l, h) => handAt(dir, near ? Sn : Sf, q, near, f, l, h);
-  const A = (near, T2, o = {}) => { const S = near ? Sn : Sf, r = ik(S, T2, K.ua, K.fa, o.bend ?? (side ? 1 : (near ? -1 : 1))), da = o.da || 0; const ang = o.ang ?? (Math.atan2(r.W[1] - r.E[1], r.W[0] - r.E[0]) + da); arms.push(Object.assign(r, { far: side && !near, hand: { ang, kind: o.kind || 'rest', thumb: o.thumb ?? (side ? -1 : (near ? 1 : -1)) } })); return r; };
+  const A = (near, T2, o: any = {}) => { const S = near ? Sn : Sf, r = ik(S, T2, K.ua, K.fa, o.bend ?? (side ? 1 : (near ? -1 : 1))), da = o.da || 0; const ang = o.ang ?? (Math.atan2(r.W[1] - r.E[1], r.W[0] - r.E[0]) + da); arms.push(Object.assign(r, { far: side && !near, hand: { ang, kind: o.kind || 'rest', thumb: o.thumb ?? (side ? -1 : (near ? 1 : -1)) } })); return r; };
   const idle = near => { const S = near ? Sn : Sf; const r = fk(S, side ? 0.05 : (near ? 0.1 : -0.1), side ? 0.25 : (near ? 0.1 : -0.1), K.ua, K.fa); arms.push(Object.assign(r, { far: side && !near, hand: { ang: Math.PI / 2 - (side ? 0.25 : (near ? 0.12 : -0.12)), kind: 'rest', thumb: side ? -1 : (near ? 1 : -1) } })); };
   const swingTool = two => { const tt = (u + (id % 7) * 0.13) % 1, a = tt < 0.22 ? tt / 0.22 : 1 - (tt - 0.22) / 0.78, e = 1 - a * a;
     const hn = H(true, 0.8 + 4.2 * a, 1.0 + (side ? 0 : 0.5 * a), 3.4 * e - 2.6 * a), ang = side ? lerpA(-1.55, 0.5, a) : lerpA(-1.4, (dir === 'back' ? -0.9 : 1.2), a);
@@ -1764,7 +1764,7 @@ function drawDoll(g, sp, x, y, k, T = 0) {
   const hairC = sp.age >= 60 ? GREYH : sp.hair, dress = sp.dress, robe = !!sp.robe || dress === 'bride', shirt = dress === 'bride' ? '#f6f1e8' : dress === 'groom' ? '#2f2c38' : dress === 'mourn' ? '#2a2a30' : sp.shirt;
   const pat = dress ? (dress === 'groom' ? 'collar' : 'plain') : sp.pat, acc = dress === 'groom' ? '#f4efe6' : sp.acc, hatOn = (sp.robe || sp.hatOn || sp.hat === 'toque' || sp.hat === 'helmet') && !dress;
   const sit = pose0 === 'sit' || pose0 === 'kneel';
-  const wp = sp.wave ? workPose(kit, dir, Object.assign({}, sp, { tool: 'wave' }), T, sp.id || 0) : pose0 === 'work' && sp.tool ? workPose(kit, dir, sp, T, sp.id || 0) : sp.hold && !sit && pose0 !== 'walk' ? workPose(kit, dir, Object.assign({}, sp, { tool: 'hold' }), T, sp.id || 0) : null;
+  const wp: any = sp.wave ? workPose(kit, dir, Object.assign({}, sp, { tool: 'wave' }), T, sp.id || 0) : pose0 === 'work' && sp.tool ? workPose(kit, dir, sp, T, sp.id || 0) : sp.hold && !sit && pose0 !== 'walk' ? workPose(kit, dir, Object.assign({}, sp, { tool: 'hold' }), T, sp.id || 0) : null;
   const legPose = pose0 === 'walk' ? 'walk' : sit ? pose0 : 'stand', fr = pose0 === 'walk' ? wf : 0, rig = legRig(kit, dir, legPose, fr);
   const LK = lookOf(sp), tt = T + (sp.id || 0) * 1.9, calm = pose0 !== 'walk' && !wp, breath = pose0 === 'walk' ? 0 : Math.sin(tt * 1.7) * 0.09;
   const upDy = (pose0 === 'sit' ? G.sit : pose0 === 'kneel' ? G.kneel : rig.dip) + breath, lean = wp ? wp.lean : 0;
@@ -1773,7 +1773,7 @@ function drawDoll(g, sp, x, y, k, T = 0) {
   /* the head is its own thing: it sways a little on the neck, drops if the person slouches, and is as wide as that person's head is */
   const putH = (cv, dy = 0, dx = 0) => { const a = (calm ? Math.sin(tt * 0.55) * 0.028 + Math.sin(tt * 1.1 + 1) * 0.01 : 0) + LK.post * 0.012, dyh = Math.max(0, -LK.post) * 0.14, px = X0 + DCX * k, py = Y0 + (G.chin + upDy) * k;
     g.save(); g.translate(px, py); g.rotate(dir === 'side' ? a * 0.7 : a); g.scale(LK.hw / LK.bw, 1); g.translate(-px, -py + dyh * k); g.drawImage(cv, X0 + dx * k, Y0 + dy * k, W, W); g.restore(); };
-  const lay = (name, color, fn, mode) => { const kk = `${key}_${name}`; const base = L(kk, fn); return color ? tint(base, color, kk, mode) : base; };
+  const lay = (name, color, fn, mode?) => { const kk = `${key}_${name}`; const base = L(kk, fn); return color ? tint(base, color, kk, mode) : base; };
   const gp = pose0 === 'walk' ? 'w' + fr : sit ? pose0 : 's';
   const inFrame = fn => { g.save(); g.translate(X0, Y0 + upDy * k); g.scale(k, k); fn(); g.restore(); };
   const withLean = fn => { if (!lean) return fn(); g.save(); const px = X0 + DCX * k, py = Y0 + (G.hip + upDy) * k; g.translate(px, py); if (dir === 'side') g.rotate(lean); else g.scale(1, 1 - lean * 0.22); g.translate(-px, -py + (dir === 'side' ? 0 : lean * 2.0 * k)); fn(); g.restore(); };
@@ -1865,7 +1865,7 @@ function objFrame(it, fi) { const f = it.frames > 1 ? fi % it.frames : 0, k = it
   if (sc) { const c = mk(it.w, it.h), g = c.getContext('2d'), HR = it.rh || it.h; g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(raw, it.w / 2 * (1 - sc) + (it._dx || 0), it.h - HR * sc, it.w * sc, HR * sc); out = c; }
   if (FEATHER.test(it.id)) out = feather(out, Q * 1.6, /^heartgem/.test(it.id)); return objCache[k] = out; }
 function frameOf(it, fi) { if (it.canvasAt) return it.canvasAt(fi % it.frames); if (it.canvas) return it.canvas(); return objFrame(it, fi); }
-const GROUND = [['grass', 4, 'Grass'], ['sand', 4, 'Sand'], ['path', 4, 'Path'], ['soil', 2, 'Tilled soil'], ['flats', 2, 'Tidal flats'], ['wood', 2, 'Plank floor'], ['stone', 2, 'Stone floor']];
+const GROUND = [['grass', 4, 'Grass'], ['sand', 4, 'Sand'], ['path', 4, 'Path'], ['soil', 2, 'Tilled soil'], ['flats', 2, 'Tidal flats'], ['wood', 2, 'Plank floor'], ['stone', 2, 'Stone floor']] as [string, number, string][];
 for (const [n, cnt, label] of GROUND) for (let v = 0; v < cnt; v++) add({ id: n + '_' + v, group: n === 'wood' || n === 'stone' ? 'floor' : 'ground', label: label + (cnt > 1 ? ' ' + (v + 1) : ''), w: S, h: S, kind: 'tile', canvas: () => terr(n, v) });
 add({ id: 'water_deep', group: 'water', label: 'Deep sea', w: S, h: S, frames: FR, kind: 'tile', canvasAt: fi => water('deep', fi) });
 add({ id: 'water_shallow', group: 'water', label: 'Shallows', w: S, h: S, frames: FR, kind: 'tile', canvasAt: fi => water('shallow', fi) });
@@ -1873,7 +1873,7 @@ for (const layer of ['sand', 'shallow', 'grass', 'path']) for (let m = 1; m < 15
 
 /* A(id, group, label, w, h, frames, painter, opts): w and h in GAME pixels (24 per tile); the painter draws in game pixels.
    bot: the painter works in the bottom tile's coordinates (the piece grows upward). under: what the sheet draws beneath. */
-function A(id, group, label, w, h, frames, fn, o = {}) { return add(Object.assign({ id, group, label, w: w * Q, h: h * Q, rh: (o.rawH || h) * Q, gw: w, gh: h, frames, kind: 'object', paint: (g, t, fi) => { g.save(); g.scale(Q, Q); if (o.bot) g.translate(0, (o.rawH || h) - 24); fn(g, t, fi); g.restore(); } }, o)); }
+function A(id, group, label, w, h, frames, fn, o: any = {}) { return add(Object.assign({ id, group, label, w: w * Q, h: h * Q, rh: (o.rawH || h) * Q, gw: w, gh: h, frames, kind: 'object', paint: (g, t, fi) => { g.save(); g.scale(Q, Q); if (o.bot) g.translate(0, (o.rawH || h) - 24); fn(g, t, fi); g.restore(); } }, o)); }
 const R3 = n => Array.from({ length: n }, (_, i) => i);
 /* nature */
 for (const kind of ['round', 'dark', 'flower']) for (const v of R3(3)) A(`tree_${kind}_${v}`, 'trees', `${kind[0].toUpperCase() + kind.slice(1)} tree ${v + 1}`, 24, 24, FR, (g, t) => tree24(g, t, kind, v), { bot: true, rawH: 30 });
@@ -1924,7 +1924,7 @@ A('owl_wild', 'wild', 'Owl', 24, 24, FR, (g, t) => animal24(g, t, 'owl', false))
 for (const v of R3(3)) A(`forest_sprite_${v}`, 'wild', `Forest sprite ${v + 1}`, 24, 24, FR, (g, t) => sprite24(g, t, v));
 /* the cutaway rooms */
 const WALLX = ['N', 'W', 'E', 'S', 'WS', 'ES', 'WN', 'EN'];
-function T24(id, group, label, fn, o = {}) { return A(id, group, label, 24, 24, o.frames || 1, fn, Object.assign({ kind: 'furniture', under: 'wood' }, o)); }
+function T24(id, group, label, fn, o: any = {}) { return A(id, group, label, 24, 24, o.frames || 1, fn, Object.assign({ kind: 'furniture', under: 'wood' }, o)); }
 T24('wall_face', 'walls', 'Back wall', g => wallFace24(g, false), { kind: 'tile', under: null }); T24('wall_window', 'walls', 'Back wall, window', g => wallFace24(g, true), { kind: 'tile', under: null });
 for (const s of ['W', 'E', 'S', 'WS', 'ES', 'WN', 'EN']) T24('cap_' + s, 'walls', 'Wall top ' + s, g => cap24(g, s), { kind: 'tile', under: null }); T24('cap_plain', 'walls', 'Wall top, inner', g => cap24(g, ''), { kind: 'tile', under: null });
 T24('door_back_closed', 'walls', 'Arched door, closed', g => doorN24(g, false), { kind: 'tile', under: null }); T24('door_back_open', 'walls', 'Arched door, open', g => doorN24(g, true), { kind: 'tile', under: null });
@@ -1940,7 +1940,7 @@ T24('forge', 'furniture', 'Forge', (g, t) => forge24(g, t), { under: 'stone', fr
 /* ================= paper-doll layers ================= */
 const KITS = ['adult', 'adultF', 'child', 'infant'], HSTYLES = ['short', 'crop', 'shaggy', 'bald', 'curly', 'long', 'bob', 'bun', 'braids', 'ponytail'], BEARDS = ['full', 'mustache', 'goatee', 'stubble'];
 const HATS = ['cap', 'straw', 'helmet', 'beanie', 'bonnet', 'bun', 'scarf', 'toque', 'floppy', 'colander', 'feather'], PATS = ['stripe', 'vest', 'belt', 'sash', 'collar'];
-function DL(id, kit, dir, group, label, frames, fn, o = {}) { return add(Object.assign({ id, group: group, label, w: DF * Q, h: DF * Q, gw: DF, gh: DF, frames, kind: 'layer', kit, dir, canvasAt: fi => L(`${id}#${fi}`, () => fn(fi)), tinted: o.tint || null }, o)); }
+function DL(id, kit, dir, group, label, frames, fn, o: any = {}) { return add(Object.assign({ id, group: group, label, w: DF * Q, h: DF * Q, gw: DF, gh: DF, frames, kind: 'layer', kit, dir, canvasAt: fi => L(`${id}#${fi}`, () => fn(fi)), tinted: o.tint || null }, o)); }
 for (const kit of KITS) for (const dir of DIRS) {
   const P = `doll/${kit}/${dir}/`, G = `doll_${kit}`;
   DL(P + 'legs_stand', kit, dir, G, `${dir} · legs`, 1, () => legsL(kit, dir, 'stand', 0, false), { tint: 'pants' });
@@ -2013,7 +2013,7 @@ T24('barrel_o', 'furniture', 'Barrel, outdoors', g => barrel24(g), { under: null
 const BLK = BLANKET;
 function roomDress(g, r, ri, doorXs, seed) { const R = mul(900 + ri * 31 + seed), x0 = r.x * 24, y0 = r.y * 24, x1 = (r.x + r.w) * 24, y1 = (r.y + r.h) * 24, doors = doorXs;
   for (let x = r.x; x < r.x + r.w; x++) { if (doors.includes(x)) continue; if (R() < 0.72) { tufts(g, x * 24 + 1, x * 24 + 23, y1 + 1.6, (R() * 1000) | 0, 4 + ((R() * 4) | 0), 3.4); if (R() < 0.55) { const bx = x * 24 + 4 + R() * 16, by = y1 + 0.6 + R() * 1.4; bloom24(g, bx, by, 1.15, ['#fbf6ec', '#f7d84c', '#b79af0'][(R() * 3) | 0], '#f2c94c', R() * TAU, '#8a7a66'); } } }
-  const sides = [['W', x0, 0, y0 + 30, y1 - 30, -1, 0], ['E', x1, 0, y0 + 30, y1 - 30, 1, 0], ['N', 0, y0, x0 + 30, x1 - 30, 0, -1], ['S', 0, y1, x0 + 30, x1 - 30, 0, 1]];
+  const sides = [['W', x0, 0, y0 + 30, y1 - 30, -1, 0], ['E', x1, 0, y0 + 30, y1 - 30, 1, 0], ['N', 0, y0, x0 + 30, x1 - 30, 0, -1], ['S', 0, y1, x0 + 30, x1 - 30, 0, 1]] as [string, number, number, number, number, number, number][];
   for (const [nm, ax, ay, a0, a1, nx, ny] of sides) { const n = nm === 'S' ? 4 : 4 + ((R() * 3) | 0);
     for (let i = 0; i < n; i++) { const t = a0 + (a1 - a0) * R(); if (nm === 'S' && doors.some(dx => Math.abs(t - (dx + 0.5) * 24) < 22)) continue; const px = nx ? ax : t, py = ny ? ay : t, cnt = 11 + ((R() * 6) | 0);
       for (let j = 0; j < cnt; j++) { const out = (R() - 0.5) * 7.2, tan = (R() - 0.5) * 11; let x = px + nx * out + (nx ? 0 : tan), y = py + ny * out + (ny ? 0 : tan); const gcol = ['#4f9a45', '#63ad4c', '#3f8a40', '#78b957'][(R() * 4) | 0];

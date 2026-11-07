@@ -42,10 +42,10 @@ function ensureSite(kind) {
   return false;
 }
 function startProject(kind, w, h, o, key, text) {
-  key = key || kind; const cost = costOf(kind, w, h), d = demand();
+  key = key || kind; const cost: any = costOf(kind, w, h), d = demand();
   const wait = (extra) => { const old = town.wants[key]; town.wants[key] = Object.assign({ kind, cost, text: text || kind, since: old ? old.since : game.time }, extra || {}); return null; };
   if (((cost.wood || 0) + (cost.any || 0) > 0 && d.wood > 24) || ((cost.stone || 0) > 0 && d.stone > 30)) return wait({ queued: true });
-  const s = createSite(kind, w, h, o);
+  const s: any = createSite(kind, w, h, o);
   if (s) { s.cost = cost; s.got = { wood: 0, stone: 0 }; delete town.wants[key]; return s; }
   return wait({ noRoom: true });
 }
@@ -61,7 +61,7 @@ function layRoad(s, q) {
   while (s.laid < s.route.length && n < q) { const t = s.route[s.laid++]; n++; if (grid[t.y][t.x] === T.GRASS || grid[t.y][t.x] === T.SAND) { setT(t.x, t.y, T.PATH); markDirty(t.x, t.y, 1, 1); } }
 }
 /* the one way anything gets built: blocks of timber or stone are thrown onto the site */
-function throwOnSite(n, s, k, max) {
+function throwOnSite(n, s, k, max?) {
   if (!town.sites.includes(s)) return 0;
   const q = Math.min(n.inv[k] || 0, siteRem(s, k), max || 99); if (q < 1) return 0;
   s.got[k] += q; n.inv[k] -= q;

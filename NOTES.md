@@ -67,8 +67,19 @@ someone out of the baths; rumour that the well is cursed; fake illness to dodge 
 turn friends against each other; loan coins with interest and send a collector.
 
 ## Next steps (in order)
-1. Repo with modules and tests before adding more.
+1. ~~Repo with modules and tests before adding more.~~ Done (Nov 2026): 43 TypeScript files under src/,
+   a build to dist/index.html, zero type errors, automated tests (see CLAUDE.md). Still to do here: turn
+   the crime scenarios (purse snatch seen/unseen, arrest choices, cell lock) into tests, and the
+   frame-rate check; gradually replace `any` with real types.
 2. Rebalance food so the dole is rarely needed.
 3. Villager goals (better job, marriage, revenge) so the town is eventful without the player.
 4. Roman art: guards, temple, baths, shops.
 5. Real check on a phone.
+
+## Findings from the move to the repo (Nov 2026)
+- Unattended 12-day runs (seeds survival-a/b/c): no starvation; the dole fires 5, 13 and 8 times. Food is still propped up.
+- Simulation speed: about 0.6 s per game-day.
+- The "Play as" button on the villager card is switched off in code (`'' && canControl(n)` in ui/panels.ts).
+- Eight functions were defined twice (funerals, weddings, priest, grave visits); only the later versions in
+  ceremonies/ceremonies.ts ever ran. The dead copies were removed.
+- Tree sprites check for a 'pine' kind that treeKind() never returns (render/village.ts); harmless.

@@ -1,7 +1,7 @@
 /* ================= the village, painted =================
    The ground is painted in chunks of 8 x 8 tiles at whatever resolution the camera needs (and kept while it is useful); everything that stands on it
    is a painted sprite from the Greenhollow set; villagers are paper dolls. The game's own tiles, rooms and people decide what goes where. */
-const GA = { CT: 8, LODS: [12, 24, 48, 96], chunks: new Map(), px: 0, maxPx: 56e6, frame: 0, ov: null, ovc: null, shal: null, seed: 7, boost: 0, hour: 12, stats: { bake: 0, baked: 0, ms: 0 } };
+const GA: any = { CT: 8, LODS: [12, 24, 48, 96], chunks: new Map(), px: 0, maxPx: 56e6, frame: 0, ov: null, ovc: null, shal: null, seed: 7, boost: 0, hour: 12, stats: { bake: 0, baked: 0, ms: 0 } };
 const OVP = 4;                                       // pixels a tile in the overview
 const gaFrame = (it, now, ph) => it.frames <= 1 ? 0 : Math.floor(now / 1000 * (it.fps || it.frames / 2) + (ph || 0)) % it.frames;
 function gaDraw(c, id, x, y, now, ph) { const it = ART.BYID[id]; if (!it) return; c.drawImage(ART.frameOf(it, gaFrame(it, now, ph)), x, y + TS - it.gh, it.gw, it.gh); }
@@ -85,7 +85,7 @@ function gaBuildingShade(g, r, k) {                  // (switched off: buildings
 /* ---- the things that stand on a tile ---- */
 function gaSpriteId(x, y, t) {
   switch (t) {
-    case T.TREE: { const kind = treeKind(x, y); return 'tree_' + kind + '_' + Math.floor(hash(x, y, 102) * (kind === 'oldpine' || kind === 'pine' ? 2 : 3)); }
+    case T.TREE: { const kind = treeKind(x, y); return 'tree_' + kind + '_' + Math.floor(hash(x, y, 102) * (kind === 'oldpine' || (kind as string) === 'pine' ? 2 : 3)); }
     case T.ROCK: return 'boulder_' + Math.floor(hash(x, y, 64) * 4);
     case T.MOUNTAIN: return 'crag_' + Math.floor(hash(x, y, 6) * 4);
     case T.TENT: return 'tent_' + Math.floor(hash(x, y, 91) * 4);
@@ -95,7 +95,7 @@ function gaSpriteId(x, y, t) {
   return null;
 }
 function gaStand(g, x, y, t) { const id = gaSpriteId(x, y, t), it = id && ART.BYID[id]; if (it) g.drawImage(ART.frameOf(it, 0), x * TS, y * TS + TS - it.gh, it.gw, it.gh); }
-function gaWell(g) { const w = town.well; if (w) g.drawImage(ART.frameOf(ART.BYID.well, 0), w.x * TS, w.y * TS, 2 * TS, 2 * TS); }
+function gaWell(g) { const w = town.well; if (w) g.drawImage(ART.frameOf((ART.BYID as any).well, 0), w.x * TS, w.y * TS, 2 * TS, 2 * TS); }
 
 /* ---- a chunk of ground ---- */
 function gaPaintRect(g, x0, y0, w, h, k, wt) {
@@ -228,7 +228,7 @@ function drawWild(c, now) {
 }
 function drawSea(c, now) {
   for (const a of SEA.list) { const it = ART.BYID[a.kind === 'crab' ? 'crab' : 'seal']; if (!it) continue; c.save(); c.translate(a.x * TS + TS / 2, 0); c.scale((a.face || 1) < 0 ? -1 : 1, 1); c.drawImage(ART.frameOf(it, gaFrame(it, now, a.born)), -it.gw / 2, a.y * TS + TS - it.gh, it.gw, it.gh); c.restore(); }
-  if (SEA.whale) { const k = Math.max(0, Math.min(1, (now - SEA.whale.t0) / 6000)), up = Math.sin(k * Math.PI), it = ART.BYID.whale; if (it && up > 0.02) { c.globalAlpha = Math.min(1, up * 2); c.drawImage(ART.frameOf(it, gaFrame(it, now, 0)), SEA.whale.x * TS - 12, SEA.whale.y * TS + TS - it.gh + (1 - up) * 8, it.gw, it.gh); c.globalAlpha = 1; } }
+  if (SEA.whale) { const k = Math.max(0, Math.min(1, (now - SEA.whale.t0) / 6000)), up = Math.sin(k * Math.PI), it = (ART.BYID as any).whale; if (it && up > 0.02) { c.globalAlpha = Math.min(1, up * 2); c.drawImage(ART.frameOf(it, gaFrame(it, now, 0)), SEA.whale.x * TS - 12, SEA.whale.y * TS + TS - it.gh + (1 - up) * 8, it.gw, it.gh); c.globalAlpha = 1; } }
 }
 function drawSites(c, now) {
   for (const s of town.sites) {

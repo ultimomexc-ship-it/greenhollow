@@ -6,10 +6,11 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit -p .",
-    "test": "node scripts/build.mjs && node tests/run.mjs"
+    "test": "node scripts/build.mjs && tsc --noEmit -p . && node tests/run.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",
+    "playwright": "1.63.0",
     "typescript": "^7.0.2"
   }
 }

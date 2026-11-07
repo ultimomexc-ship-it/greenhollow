@@ -86,7 +86,7 @@ function createSite(kind, w, h, o) {
       for (let k = 0; k < h && !near; k++) if ((dist[(y + k) * W + x - 1] >= 0 && dist[(y + k) * W + x - 1] <= 3) || (dist[(y + k) * W + x + w] >= 0 && dist[(y + k) * W + x + w] <= 3)) near = true;
       if (!near) continue;
     }
-    const site = { id: town.nextSite++, kind, x, y, w, h, side, route, done: 0, wood: 0, crew: [], created: game.time, owners: (o.owners || []).map(p => p.id), beds: o.beds || 0, surname: o.surname || '', note: o.note || '' };
+    const site: any = { id: town.nextSite++, kind, x, y, w, h, side, route, done: 0, wood: 0, crew: [], created: game.time, owners: (o.owners || []).map(p => p.id), beds: o.beds || 0, surname: o.surname || '', note: o.note || '' };
     site.labor = 0; site.woodNeed = 0;
     if (BUILDING[kind]) site.door = { x: x + (w >> 1), y: side === 'b' ? y + h - 1 : y }; else if (kind !== 'field') site.name = o.name || '';
     const m = BUILDING[kind] ? 1 : 0;
@@ -117,7 +117,7 @@ function completeSite(site, instant) {
       : site.kind === 'privy' ? { kind: 'privy', id: 'privy' + site.id, name: lfPrivyName(), beds: 0 }
       : LF2_BLD[site.kind] ? { kind: site.kind, id: site.kind + site.id, name: LF2_BLD[site.kind], beds: 0 }
       : { kind: 'house', id: 'house' + site.id, name: (site.surname || 'New') + ' House', beds: site.beds };
-    const room = buildRoom(spec, x, y, w, h, site.side, null);
+    const room: any = buildRoom(spec, x, y, w, h, site.side, null);
     room.pantry = {}; room.built = game.time; room.vacantSince = null; room.owners = site.owners.slice();
     if (site.kind !== 'house') room.beds = [];
     queueRoad(site.route);
@@ -174,5 +174,5 @@ function completeSite(site, instant) {
 }
 const kidsAt = p => npcs.filter(k => k.age < 16 && k.homeRoom === p.homeRoom && (k.fam.mother === p.id || k.fam.father === p.id));
 let dirtyList = []; let GRAVE_LIFE = 75 * YEAR;
-function markDirty(x, y, w, h, extra) { dirtyList.push({ x, y, w, h }); (extra || []).forEach(t => dirtyList.push({ x: t.x, y: t.y, w: 1, h: 1 })); }
+function markDirty(x, y, w, h, extra?) { dirtyList.push({ x, y, w, h }); (extra || []).forEach(t => dirtyList.push({ x: t.x, y: t.y, w: 1, h: 1 })); }
 

@@ -21427,7 +21427,9 @@ function buildCard() {
     return;
   }
   const bio = bioOf(n);
-  card.innerHTML = "<h2>Villager</h2><h3>" + esc(nameOf(n)) + '</h3><p class="sub">' + esc(bio[0]) + "</p>" + ("" ? '<button type="button" class="btn primary" id="takeBtn" style="margin:4px 0 8px">Play as ' + esc(n.first) + "</button>" : "") + '<p class="bio">' + esc(bio.slice(2).join(" ")) + '</p><p class="sub">Home: ' + esc(n.homeRoom ? n.homeRoom.name : "none yet, sleeping rough") + "</p>" + (n.age >= 6 ? '<p class="sub">Loves ' + esc(HOBBY_TXT[hobbyOf(n)]) + (n.pref ? " \xB7 wants to be " + esc(JOB_NOUN[n.pref]) : "") + "</p>" : "") + '<div id="cardLive"></div>';
+  card.innerHTML = "<h2>Villager</h2><h3>" + esc(nameOf(n)) + '</h3><p class="sub">' + esc(bio[0]) + "</p>" + // the "Play as" button is switched off: the '' && makes the condition always false
+  // @ts-expect-error -- deliberately always false (see above)
+  ("" ? '<button type="button" class="btn primary" id="takeBtn" style="margin:4px 0 8px">Play as ' + esc(n.first) + "</button>" : "") + '<p class="bio">' + esc(bio.slice(2).join(" ")) + '</p><p class="sub">Home: ' + esc(n.homeRoom ? n.homeRoom.name : "none yet, sleeping rough") + "</p>" + (n.age >= 6 ? '<p class="sub">Loves ' + esc(HOBBY_TXT[hobbyOf(n)]) + (n.pref ? " \xB7 wants to be " + esc(JOB_NOUN[n.pref]) : "") + "</p>" : "") + '<div id="cardLive"></div>';
   card.querySelectorAll("a[data-id]").forEach((a) => a.addEventListener("click", (ev) => {
     ev.preventDefault();
     const o = byId(+a.dataset.id);

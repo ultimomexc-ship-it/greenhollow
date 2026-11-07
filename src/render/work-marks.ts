@@ -123,5 +123,5 @@ function drawWorkFx(c, now) {
   }
 }
 
-function think(n, text, dn) { game.events.push({ time: game.time, a: n, b: n, place: '', topic: 'life', quiet: true, self: true, lines: [{ who: n, text: '(' + text + ')' }] }); }
+function think(n, text, dn?) { game.events.push({ time: game.time, a: n, b: n, place: '', topic: 'life', quiet: true, self: true, lines: [{ who: n, text: '(' + text + ')' }] }); }
 function glow(c, x, y, r, col) { const g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, col); g.addColorStop(1, col.replace(/[\d.]+\)$/, '0)')); c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2); }

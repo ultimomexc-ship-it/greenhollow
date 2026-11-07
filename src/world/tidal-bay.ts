@@ -10,7 +10,7 @@ function tideDepth(x, y) { const h = town.hgt[y * W + x]; return h < 0 ? 99 : ti
 const onFlats = (x, y) => !!(town.hgt && town.hgt[y * W + x] >= 0);
 
 /* ---------- drawing the sea over the flats ---------- */
-const TIDE = { cv: null, bcv: null, t: 0, key: '' };
+const TIDE: any = { cv: null, bcv: null, t: 0, key: '' };
 function drawTide(c, now) {
   if (!town.hgt || !town.coast) return;
   const x0 = Math.max(0, Math.floor(cam.x / TS) - 2), y0 = Math.max(0, Math.floor(cam.y / TS) - 2);
@@ -47,7 +47,7 @@ function drawTide(c, now) {
 }
 const landOut = (x, y) => !!(town.islet && town.islet[y * W + x]);   // dry, but out on an islet
 /* ---------- crabs, seals and a whale ---------- */
-const SEA = { list: [], t: 0, whale: null };
+const SEA: any = { list: [], t: 0, whale: null };
 function stepSea(now) {
   const n = game.player; if (!n || !town.coast || !inCoast(n.tx, n.ty)) { SEA.list.length = 0; SEA.whale = null; return; }
   const dt = Math.min(0.1, (now - (SEA.last || now)) / 1000); SEA.last = now;

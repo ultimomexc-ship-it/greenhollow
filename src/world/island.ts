@@ -62,7 +62,7 @@ function carveIsland(R, ns, ns2) {
     for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) { const k = y * W + x; if (fmask[k] || cmask[k] || (grid[y][x] !== T.GRASS && grid[y][x] !== T.TREE)) continue; let w = false; for (let j = -1; j <= 1 && !w; j++) for (let i = -1; i <= 1; i++) if (wet[(y + j) * W + x + i]) { w = true; break; } if (w) grid[y][x] = T.SAND; } }
   // tier 1: three islets out on the tidal flats, walkable at low tide
   const isl = [];
-  const islet0 = (cxk, cyk, rad, rocky, bare) => { for (let y = Math.floor(cyk - rad - 2); y <= cyk + rad + 2; y++) for (let x = Math.floor(cxk - rad * 1.4 - 2); x <= cxk + rad * 1.4 + 2; x++) { if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) continue; const k = y * W + x; if (!cmask[k] || (hgt[k] < 0 && grid[y][x] === T.SAND && !islet[k])) continue;
+  const islet0 = (cxk, cyk, rad, rocky, bare?) => { for (let y = Math.floor(cyk - rad - 2); y <= cyk + rad + 2; y++) for (let x = Math.floor(cxk - rad * 1.4 - 2); x <= cxk + rad * 1.4 + 2; x++) { if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) continue; const k = y * W + x; if (!cmask[k] || (hgt[k] < 0 && grid[y][x] === T.SAND && !islet[k])) continue;
       const e = ((x - cxk) / (rad * 1.35)) ** 2 + ((y - cyk) / rad) ** 2 + (vnoise(x * 0.3, y * 0.3, ns2 + 45 + cxk) - 0.5) * 0.5; if (e > 1) continue;
       islet[k] = 1; cmask[k] = 1; hgt[k] = -1; grid[y][x] = e > 0.62 ? T.SAND : (R() < (rocky ? 0.22 : 0.08) ? T.ROCK : !bare && R() < 0.12 ? T.TREE : T.GRASS); } const o = { x: cxk, y: cyk, r: rad }; isl.push(o); return o; };
   const tier1 = [];

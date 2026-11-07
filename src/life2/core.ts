@@ -5,7 +5,7 @@
    the tags, their own character and their ties to the people involved, and may pass it on as a RUMOUR (less certain, and it
    can lose the "who did it" along the way). Opinions move liking, mood, reputation and memory; reaction handlers (guards,
    revenge, comfort...) hook in through LF2.react. A new mechanic only has to emit events with tags to join all of this.      */
-const LF2 = { shadows: false, react: [], tickers: [], hourly: [], pre: [], preD: [], dec: [], work: [], frame: [], verbs: [], social: [],
+const LF2: any = { shadows: false, react: [], tickers: [], hourly: [], pre: [], preD: [], dec: [], work: [], frame: [], verbs: [], social: [],
   feat: { gossip: true, law: true, npccrime: true, economy: true, cooking: true, couples: true, baths: true, tavern: true, romance: true, nightlocks: true, revenge: true } };
 const LF2_FEATN = { gossip: 'Gossip and rumours', law: 'Guards, fines and jail', npccrime: 'Villagers commit crimes too', economy: 'Coins, trades and shops', cooking: 'Home cooking', couples: 'Couples go to bed together',
   baths: 'Hygiene and the public baths', tavern: 'Drinking, dice and brawls', romance: 'Crushes, affairs and jealousy', nightlocks: 'Doors barred at night', revenge: 'Grudges and getting even' };
@@ -37,7 +37,7 @@ const lf2Cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 const lf2Low = s => s && /^(Somebody|Someone|The|A|An|Nobody|Food|Word)\b/.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s;
 
 /* how likely someone is to notice something at (x, y): distance, light, walls, where they are looking, how busy they are */
-function lf2Notice(o, x, y, loud) {
+function lf2Notice(o, x, y, loud?) {
   if (!o || o.dead || o.infant || o.inShip || o.age < 4 || o.jailHide) return 0;
   const d = Math.hypot(o.tx - x, o.ty - y);
   if (o.pose === 'sleep') return loud && d < 6 ? (lf2Has(o, 'anxious') ? 0.5 : 0.22) : 0;
@@ -65,7 +65,7 @@ function lf2Watchers(x, y, skip) { let s = 0; for (const o of npcs) { if (skip &
 /* ---- the heart of it ---- */
 function lfEmit(kind, o) {
   const a = o.actor || null, t = o.target || null;
-  const ev = { id: (town.evId = (town.evId || 0) + 1), kind, t: game.time, actor: a ? a.id : null, target: t ? t.id : null,
+  const ev: any = { id: (town.evId = (town.evId || 0) + 1), kind, t: game.time, actor: a ? a.id : null, target: t ? t.id : null,
     x: o.x != null ? o.x : (a ? a.tx : t ? t.tx : 0), y: o.y != null ? o.y : (a ? a.ty : t ? t.ty : 0), sev: o.sev == null ? 1 : o.sev, tags: o.tags || [],
     text: o.text || kind, anonText: o.anonText || null, mem: o.mem || null, cause: o.cause || null, fake: !!o.fake, anon: !!o.anon, know: [], chain: [], effects: [], witnesses: [], place: o.place || (a ? placeOf(a) : '') };
   const evs = lf2Ev(); evs.push(ev); if (evs.length > 500) evs.splice(0, evs.length - 500);
@@ -144,7 +144,7 @@ function lf2PickTale(a, b) {
   }
   return best ? { ev: best, reveal: rv } : null;
 }
-function lf2Tell(a, b, ev, reveal, quiet) {
+function lf2Tell(a, b, ev, reveal, quiet?) {
   const ak = a.kn[ev.id], act = lf2By(ev.actor), knowsA = ak.a, txt = knowsA || !act ? ev.text : (ev.anonText || ev.text);
   const j = lf2Judge(b, ev, knowsA), fan = act && knowsA && (b.aff[act.id] || 0) >= 55 && j.v < 0;
   const firstHand = !ak.from, src = firstHand ? (ak.mine ? '' : ' I saw it myself.') : '';
@@ -191,5 +191,5 @@ function lf2Known(a) {
 /* standing: how the village feels about someone on the whole, -100..100 */
 function lf2Standing(a) { let s = 0, c = 0; for (const o of npcs) { if (o === a || o.dead || o.infant || o.age < 12) continue; s += o.aff[a.id] || 0; c++; } return c ? s / c : 0; }
 /* how bad someone's known record is (only what people actually know about) */
-function lf2Notoriety(a) { const t = lf2Known(a).tot; return (t.theft || 0) + (t.violence || 0) * 1.5 + (t.harm || 0) + (t.sabotage || 0) + (t.trespass || 0) * 0.4 + (t.nuisance || 0) * 0.3 + (t.bribe || 0) + (t.arrest || 0) * 0.5; }
+function lf2Notoriety(a) { const t: any = lf2Known(a).tot; return (t.theft || 0) + (t.violence || 0) * 1.5 + (t.harm || 0) + (t.sabotage || 0) + (t.trespass || 0) * 0.4 + (t.nuisance || 0) * 0.3 + (t.bribe || 0) + (t.arrest || 0) * 0.5; }
 

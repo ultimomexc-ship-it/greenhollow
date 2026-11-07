@@ -5,7 +5,7 @@ const SIZES = { S: [148, 136], M: [196, 180], L: [244, 224] };
 const NORTH = {}, SOUTH = {};   // (the world used to be stacked in bands; now it is one island)
 let sizeKey = 'L';
 function setSize(k) { const z = SIZES[k] || SIZES.M; sizeKey = SIZES[k] ? k : 'M'; W = z[0]; H = z[1] + (NORTH[sizeKey] || 0) + (SOUTH[sizeKey] || 0); reach = new Uint8Array(W * H); }
-const T = { GRASS: 0, PATH: 1, FLOOR: 2, WALL: 3, DOOR: 4, TREE: 5, WATER: 6, CROP: 7, TABLE: 8, BED: 9, SEAT: 10,
+const T: any = { GRASS: 0, PATH: 1, FLOOR: 2, WALL: 3, DOOR: 4, TREE: 5, WATER: 6, CROP: 7, TABLE: 8, BED: 9, SEAT: 10,
   COUNTER: 11, FORGE: 12, ANVIL: 13, LOOM: 14, WELL: 15, ALTAR: 16, PEW: 17, LAMP: 18, SHELF: 19, RUG: 20, OVEN: 21, STALL: 22, GRAVE: 23, PLOT: 24, SAND: 25, ROCK: 26, PILE: 27, TENT: 28, BARREL: 29, MOUNTAIN: 30 };
 const BLOCKED = new Set([T.WALL, T.TREE, T.WATER, T.TABLE, T.COUNTER, T.FORGE, T.ANVIL, T.LOOM, T.WELL, T.ALTAR, T.LAMP, T.SHELF, T.OVEN, T.STALL, T.GRAVE, T.ROCK, T.PILE, T.BARREL, T.MOUNTAIN]);
 const COST = { [T.GRASS]: 1.5, [T.CROP]: 1.8, [T.PLOT]: 1.3, [T.SAND]: 1.25 };
@@ -16,7 +16,7 @@ const YEAR = 3 * 1440;
 let grid = [], roomAt = [], rooms = [], doors = [], lamps = [], reach = new Uint8Array(W * H);
 let town = null, npcs = [], NEXT_ID = 1;
 let plazaTiles = [], shoreTiles = [];
-const game = { time: 5 * 60 + 30, failures: 0, events: [] };
+const game: any = { time: 5 * 60 + 30, failures: 0, events: [] };
 
 /* ---------- random helpers ---------- */
 function rng(seed) {
@@ -31,7 +31,7 @@ const ri = (R, a, b) => a + Math.floor(R() * (b - a + 1));
 const pick = (R, a) => a[Math.floor(R() * a.length)];
 const chance = (R, p) => R() < p;
 function wpick(R, o) {
-  const e = Object.entries(o); let r = R() * e.reduce((s, x) => s + x[1], 0);
+  const e = Object.entries<number>(o); let r = R() * e.reduce((s, x) => s + x[1], 0);
   for (const [k, w] of e) { r -= w; if (r < 0) return k; }
   return e[e.length - 1][0];
 }
@@ -66,7 +66,7 @@ function buildRoom(spec, x, y, w, h, side, roadY) {
   setT(dx, dy, T.DOOR); doors.push({ x: dx, y: dy, room: idx, o: 0 });
   if (roadY != null) { if (side === 'b') for (let yy = dy + 1; yy <= roadY; yy++) setT(dx, yy, T.PATH);
   else for (let yy = dy - 1; yy >= roadY + 1; yy--) setT(dx, yy, T.PATH); }
-  const room = { id: spec.id, name: spec.name, kind, x, y, w, h, side, doorX: dx, doorY: dy, lit: 0, beds: [], seats: [], pews: [], spots: {},
+  const room: any = { id: spec.id, name: spec.name, kind, x, y, w, h, side, doorX: dx, doorY: dy, lit: 0, beds: [], seats: [], pews: [], spots: {},
     floor: (kind === 'church' || kind === 'smithy' || kind === 'barracks') ? 'stone' : 'wood' };
   rooms.push(room);
   const sgn = side === 'b' ? 1 : -1;
@@ -195,7 +195,7 @@ function linkKin(mother, father, child) {
   child.fam.mother = mother ? mother.id : null; child.fam.father = father ? father.id : null;
   [mother, father].forEach(p => { if (p) { p.fam.kids.push(child.id); fam2(p, child, 'parent', 'child'); } });
 }
-function fam2(a, b, x, y) { a.rel[b.id] = x; b.rel[a.id] = y || x; a.aff[b.id] = Math.max(a.aff[b.id] || 0, 55); b.aff[a.id] = Math.max(b.aff[a.id] || 0, 55); a.know[b.id] = 100; b.know[a.id] = 100; }
+function fam2(a, b, x, y?) { a.rel[b.id] = x; b.rel[a.id] = y || x; a.aff[b.id] = Math.max(a.aff[b.id] || 0, 55); b.aff[a.id] = Math.max(b.aff[a.id] || 0, 55); a.know[b.id] = 100; b.know[a.id] = 100; }
 function setSpouse(a, b) { a.fam.spouse = b.id; b.fam.spouse = a.id; a.fam.partner = b.id; b.fam.partner = a.id; a.rel[b.id] = b.rel[a.id] = 'spouse'; a.aff[b.id] = Math.max(a.aff[b.id] || 0, 80); b.aff[a.id] = Math.max(b.aff[a.id] || 0, 80); a.know[b.id] = b.know[a.id] = 100; }
 
 /* ---------- daily rhythm: only wake and bed times are fixed ---------- */

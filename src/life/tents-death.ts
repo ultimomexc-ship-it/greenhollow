@@ -79,7 +79,7 @@ function hourlyLife() {
 function giveBirth(m) {
   const f = byId(m.preg.father) || null; m.preg = null; m.lastBirth = game.time;
   const R = rng(town.seed + game.time * 7 + m.id);
-  const kid = newPerson(R, 'Child', 0, town.used, { mother: m, father: f, surname: f ? f.surname : m.surname });
+  const kid: any = newPerson(R, 'Child', 0, town.used, { mother: m, father: f, surname: f ? f.surname : m.surname });
   kid.born = game.time; kid.age = 0; updateLook(kid);
   linkKin(m, f, kid); kid.rand = rng(town.seed + kid.id * 977); routine(R, kid); kid.jit = 0;
   town.byId.set(kid.id, kid); initNpcSim(kid); kid.x = kid.tx = m.tx; kid.y = kid.ty = m.ty;
@@ -133,7 +133,7 @@ function settlerArrives() {
   const grp = [a];
   if (chance(R, .25)) { const b = newPerson(R, 'Child', ri(R, 18, 30), town.used, { female: !female, surname: sn }); setSpouse(a, b); grp.push(b); }
   const p = town.markets[0].plaza[0] || { x: town.cx, y: town.cy };
-  grp.forEach(n => {
+  grp.forEach((n: any) => {
     n.adult = true; n.infant = false; n.age = ageNow(n); updateLook(n); n.rand = rng(town.seed + n.id * 977); n.jit = 0; n.bornHere = false;
     n.homeRoom = null; n.bed = { owner: null }; routine(R, n); town.byId.set(n.id, n); initNpcSim(n);
     setRole(n, chooseJob()); n.coin = 20; n.x = n.tx = p.x; n.y = n.ty = p.y; n.seat = null; npcs.push(n);

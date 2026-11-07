@@ -54,7 +54,7 @@ function marketOf(n) {
   let best = town.markets[0], bd = 1e9; for (const m of town.markets) { const d = Math.hypot(x - m.x, (y - m.y) * 1.2); if (d < bd) { bd = d; best = m; } } return best;
 }
 const plazaNear = n => marketOf(n).plaza;
-function nearTiles(list, n, slack, ok) {
+function nearTiles(list, n, slack, ok?) {
   const ox = n.homeRoom && !n.homeRoom.dead ? n.homeRoom.x + n.homeRoom.w / 2 : n.tx, oy = n.homeRoom && !n.homeRoom.dead ? n.homeRoom.y + n.homeRoom.h / 2 : n.ty;
   let dm = 1e9; const c = [];
   for (const t of list) { if (ok && !ok(t)) continue; const d = Math.hypot(t.x - ox, t.y - oy); c.push([d, t]); if (d < dm) dm = d; }

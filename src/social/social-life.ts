@@ -1,6 +1,6 @@
 /* ================= Social life: rest day, outings, hobbies, memories, sharing, feasts, small touches ================= */
 const REST_DAY = 2; // the third day of every year
-const isRestDay = t => Math.floor((t === undefined ? game.time : t) / 1440) % 3 === REST_DAY;
+const isRestDay = (t?) => Math.floor((t === undefined ? game.time : t) / 1440) % 3 === REST_DAY;
 const HOBBIES = ['fishing', 'foraging', 'walking', 'whittling', 'singing', 'stargazing'];
 const HOBBY_TXT = { fishing: 'fishing', foraging: 'berry picking', walking: 'long walks', whittling: 'whittling', singing: 'singing', stargazing: 'stargazing' };
 const JOB_VERB = { Woodcutter: 'chop wood', Stonecutter: 'cut stone', Fisher: 'fish', Farmer: 'work the field', Gatherer: 'pick berries' };
@@ -19,7 +19,7 @@ const MEM_REPLY = {
 const parentWord = (kid, p) => p.female ? 'Mum' : 'Dad';
 const isParentOf = (p, k) => k.fam.mother === p.id || k.fam.father === p.id;
 const eventsBusy = () => { const w = town.wedding, f = town.funeral, fe = town.feast, t = game.time; return (w && t >= w.at - 60 && t < w.end) || (f && t >= f.at - 60 && t < f.end) || (fe && t >= fe.at - 30 && t < fe.end) || (typeof activeParty === 'function' && !!activeParty()); };
-const say = (a, b, lines, quiet) => { game.events.push({ time: game.time, a, b: b || a, place: placeOf(a), topic: 'life', quiet: !!quiet, lines: lines.filter(l => l && l[1]).map(([who, text]) => ({ who, text })) }); if (game.events.length > 300) game.events.splice(0, game.events.length - 300); };
+const say = (a, b, lines, quiet?) => { game.events.push({ time: game.time, a, b: b || a, place: placeOf(a), topic: 'life', quiet: !!quiet, lines: lines.filter(l => l && l[1]).map(([who, text]) => ({ who, text })) }); if (game.events.length > 300) game.events.splice(0, game.events.length - 300); };
 
 /* ---------- memories ---------- */
 function addMem(n, kind, me, we, withId) {
@@ -34,7 +34,7 @@ const memWith = (a, b) => (a.mem || []).filter(m => m.w === b.id && m.we);
 /* ---------- hobbies and favourite places ---------- */
 function hobbyOf(n) {
   if (n.hobby) return n.hobby;
-  const R = rng(town.seed + n.id * 131), has = t => n.traits.includes(t), o = {};
+  const R = rng(town.seed + n.id * 131), has = t => n.traits.includes(t), o: any = {};
   HOBBIES.forEach(h => { o[h] = 1; });
   o.fishing = shoreTiles.length ? 2 : 0;
   if (has('curious') || has('brave')) o.walking += 2;
@@ -59,7 +59,7 @@ function favSpot(n) {
   return (n.fav = { x: t.x, y: t.y, face: t.face || null });
 }
 function placeWord(sp) { const t = sp && grid[sp.y] && grid[sp.y][sp.x]; return shoreTiles.some(s => s.x === sp.x && s.y === sp.y) ? 'the water' : plazaTiles.some(s => s.x === sp.x && s.y === sp.y) ? 'the square' : 'the meadow'; }
-function besideTile(x, y, avoid) {
+function besideTile(x, y, avoid?) {
   let out = null;
   for (const [dx, dy] of DIRS) { const sx = x + dx, sy = y + dy; if (sx < 1 || sy < 1 || sx >= W - 1 || sy >= H - 1 || !walkable(sx, sy) || roomAt[sy][sx] >= 0 || !reach[sy * W + sx]) continue; if (avoid && avoid.x === sx && avoid.y === sy) continue; out = { x: sx, y: sy }; if (dy === 0) break; }
   return out;

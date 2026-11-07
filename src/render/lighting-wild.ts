@@ -1,6 +1,6 @@
 /* ================= lighting: lights that walls and trees block, what Tipping can see, and the sun's shadows ================= */
 STYLE.light = true;
-const LGT = { t: 0, key: '', cv: null, wcv: null };
+const LGT: any = { t: 0, key: '', cv: null, wcv: null };
 // what stops light and sight: walls, mountains and boulders stop it dead; trees let a little through
 function lightCost(x, y) {
   const t = grid[y][x];

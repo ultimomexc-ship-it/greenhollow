@@ -170,7 +170,7 @@ function lf2StealBarrel(n, r) {
 }
 /* the list for the thing in front of you */
 function lf2Verbs(n) {
-  const { x, y } = lf2Front(n), out = [], o = lf2Occ(x, y, n), add = (label, f, min, text, tool) => out.push({ label, run: () => min ? lf2Do(n, { key: 'v' + label, min, text: text || label, tool: tool || null, run: f }) : f(n) });
+  const { x, y } = lf2Front(n), out = [], o = lf2Occ(x, y, n), add = (label, f, min?, text?, tool?) => out.push({ label, run: () => min ? lf2Do(n, { key: 'v' + label, min, text: text || label, tool: tool || null, run: f }) : f(n) });
   let title = '';
   if (o) {
     title = o.first + (o.job ? ' · ' + lf2JobName(o) : '');
@@ -221,8 +221,8 @@ function lf2HintText(n) {
   return '';
 }
 function lf2Pause(on) {
-  if (on) { const cur = document.querySelector('[data-speed][aria-pressed="true"]'); lf2UI.prev = cur ? cur.dataset.speed : '2'; const ps = document.querySelector('[data-speed="0"]'); if (ps) ps.click(); }
-  else { const b = document.querySelector('[data-speed="' + (lf2UI.prev || '2') + '"]'); if (b) b.click(); }
+  if (on) { const cur: any = document.querySelector('[data-speed][aria-pressed="true"]'); lf2UI.prev = cur ? cur.dataset.speed : '2'; const ps: any = document.querySelector('[data-speed="0"]'); if (ps) ps.click(); }
+  else { const b: any = document.querySelector('[data-speed="' + (lf2UI.prev || '2') + '"]'); if (b) b.click(); }
 }
 function lf2OpenMenu() {
   const n = game.player; if (!n || !n.player || n.player.sleeping || (talkUI && talkUI.o)) return;
@@ -233,7 +233,7 @@ function lf2OpenMenu() {
   m.hidden = false; lf2Pause(true);
   const b = m.querySelector('button'); if (b) b.focus({ preventScroll: true });
 }
-function lf2CloseMenu(run) {
+function lf2CloseMenu(run?) {
   const m = document.getElementById('lf2menu'); if (!m || !lf2UI.open) return;
   m.hidden = true; lf2UI.open = false; lf2Pause(false); canvas.focus({ preventScroll: true });
   if (run) { try { run.run(); } catch (e) { console.warn('verb', e); } }
@@ -251,7 +251,7 @@ function lf2CloseMenu(run) {
   const m = document.createElement('div'); m.id = 'lf2menu'; m.className = 'lf2menu'; m.hidden = true; m.setAttribute('role', 'menu'); stage.appendChild(m);
   const b = document.createElement('button'); b.type = 'button'; b.id = 'lf2more'; b.textContent = 'More'; b.hidden = true; stage.appendChild(b);
   b.addEventListener('pointerdown', e => { e.preventDefault(); if (lf2UI.open) lf2CloseMenu(); else lf2OpenMenu(); });
-  m.addEventListener('click', e => { const t = e.target.closest('[data-v]'); if (!t) return; lf2CloseMenu(t.dataset.v === 'x' ? null : lf2UI.items[+t.dataset.v]); });
+  m.addEventListener('click', e => { const t = (e.target as any).closest('[data-v]'); if (!t) return; lf2CloseMenu(t.dataset.v === 'x' ? null : lf2UI.items[+t.dataset.v]); });
   window.addEventListener('keydown', e => {
     if (typing(e) || e.ctrlKey || e.metaKey || e.altKey) return;
     const k = (e.key || '').toLowerCase();

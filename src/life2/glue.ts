@@ -2,7 +2,7 @@
 /* a small conversation of our own, in the talk box: opts are [label, fn] and fn returns {say, opts} or null to close */
 function lf2Dialog(o, say, opts) {
   const n = game.player; if (!n || !o) return;
-  if (!talkUI.o) { const cur = document.querySelector('[data-speed][aria-pressed="true"]'); talkUI.prev = cur ? cur.dataset.speed : '2'; const ps = document.querySelector('[data-speed="0"]'); if (ps) ps.click(); }
+  if (!talkUI.o) { const cur: any = document.querySelector('[data-speed][aria-pressed="true"]'); talkUI.prev = cur ? cur.dataset.speed : '2'; const ps: any = document.querySelector('[data-speed="0"]'); if (ps) ps.click(); }
   talkS = { n: o, p: n, custom: true, fns: opts.map(x => x[1]) };
   talkUI.o = o; talkUI.q = ''; o.talkUntil = game.time + 1e6; faceTo(o, n); faceTo(n, o); if (o.moving) o.pose = 'stand'; if (n.player) n.player.keys = {};
   talkUI.say = say; talkUI.opts = opts.map((x, i) => ['c' + i, x[0]]); renderTalk();
@@ -27,7 +27,7 @@ function lf2SocialMenu() {
   const people = () => npcs.filter(q => q !== o && q !== p && !q.dead && !q.infant && q.age >= 12 && ((o.know[q.id] || 0) >= 10 || isKin(o, q))).sort((a, b) => (o.know[b.id] || 0) - (o.know[a.id] || 0)).slice(0, 6);
   const back = () => ({ say: anyOf(['Hm?', 'What else?', 'Go on.']), opts: menu() });
   const trust = () => Math.max(0.2, Math.min(1, 0.55 + (o.aff[p.id] || 0) / 120));
-  const fakeEv = (who, kind, tags, sev, text) => { const ev = lfEmit(kind, { actor: who, sev, tags, fake: true, witnessIds: [], chron: false, text }); ev.liar = p.id; ev.know = [p.id]; delete (who.kn || {})[ev.id]; (p.kn || (p.kn = {}))[ev.id] = { t: game.time, from: null, cert: 1, a: true, mine: true, liar: true }; return ev; };
+  const fakeEv = (who, kind, tags, sev, text) => { const ev: any = lfEmit(kind, { actor: who, sev, tags, fake: true, witnessIds: [], chron: false, text }); ev.liar = p.id; ev.know = [p.id]; delete (who.kn || {})[ev.id]; (p.kn || (p.kn = {}))[ev.id] = { t: game.time, from: null, cert: 1, a: true, mine: true, liar: true }; return ev; };
   const menu = () => {
     const m = [];
     m.push(['Heard any news?', () => { const pk = lf2PickTale(o, p); if (!pk) return { say: anyOf(['Nothing worth repeating.', 'Quiet lately. Suspiciously quiet.']), opts: menu() }; lf2Tell(o, p, pk.ev, pk.reveal, true); const k = o.kn[pk.ev.id]; const txt = k.a ? pk.ev.text : (pk.ev.anonText || pk.ev.text); return { say: (pk.reveal ? `You know about that? It was ${lf2By(pk.ev.actor).first}.` : anyOf(['Well, ', 'Between us, ', 'Word is ']) + lf2Low(txt) + '.') + (k.from ? ` ${byId(k.from) ? byId(k.from).first : 'Someone'} told me.` : k.mine ? '' : ' I saw it myself.'), opts: menu() }; }]);
@@ -81,7 +81,9 @@ LF2.dec.unshift(lf2CookPlan);
 LF2.tickers.push(() => { for (const n of npcs) { if (n.job !== 'Guard') continue; if (n.lf2Base == null) n.lf2Base = n.speed; const st = n.plan && n.plan[n.si]; n.speed = n.lf2Base * (st && /Chasing/.test(st.text || n.status || '') || /Chasing/.test(n.status || '') ? 1.2 : 1); } });
 
 /* ---------------- what you see: purse in the HUD, cleanliness in the panel ---------------- */
+// @ts-expect-error -- deliberate patch: life2 wraps lifeHud
 { const _hud = lifeHud; lifeHud = function (n) { let s = _hud(n); if (!n) return s; s += '<span>' + Math.floor(n.coin || 0) + ' denarii</span>'; if (n.jail) s += '<span style="color:var(--amber)">In the cells</span>'; else if (LF2.on('law') && lf2Wanted()[n.id]) s += '<span style="color:var(--amber)">Wanted by the watch</span>'; return s; }; }
+// @ts-expect-error -- deliberate patch: life2 wraps lifeBars
 { const _bars = lifeBars; lifeBars = function (n) { let s = _bars(n); if (n && n.clean != null && n.bladder !== undefined) s += needBar('Clean', n.clean, true, Math.round(n.clean) + '%'); if (n && LF2_JOBS[n.job]) s += `<p class="sub" style="margin:4px 0 0">Works as the ${esc(LF2_JOBS[n.job].name.toLowerCase())}.</p>`; const k = n ? lf2Known(n).top : []; if (k.length) s += `<p class="sub" style="margin:4px 0 0">Known as ${esc(k.map(x => LF2_REPWORD[x[0]]).join(', '))}.</p>`; if (n && n.jail) s += `<p class="sub" style="margin:4px 0 0;color:var(--amber)">In the cells.</p>`; return s; }; }
 { const _sig = lifeSig; lifeSig = n => _sig(n) + ',' + Math.round((n.clean || 0) / 5) + ',' + !!n.jail + ',' + n.job; }
 
@@ -89,7 +91,7 @@ LF2.tickers.push(() => { for (const n of npcs) { if (n.job !== 'Guard') continue
 const lf2T = t => { const d = Math.floor(t / 1440) + 1, m = t % 1440; return `Day ${d}, ${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`; };
 const lf2Nm = id => { const o = byId(id); return o ? o.first : '?'; };
 function lf2Stories(force) {
-  const box = document.getElementById('storiesPanel'); if (!box || (!force && (box.closest('.tabpane') || {}).hidden)) return;
+  const box = document.getElementById('storiesPanel'); if (!box || (!force && ((box.closest('.tabpane') || {}) as any).hidden)) return;
   const W2 = lf2Wanted(), wanted = Object.keys(W2).map(id => byId(+id)).filter(Boolean), jailed = npcs.filter(n => n.jail && !n.dead);
   let h = '<h2>Stories</h2><p class="sub">Everything that really happened, newest first. Each villager only knows what they saw or were told, so the same event can be common knowledge, a rumour, or a secret.</p>';
   h += '<h2 class="gap">The watch</h2><ul class="lf2log">';
@@ -116,7 +118,7 @@ function lf2Stories(force) {
   const tabs = document.querySelector('[data-tab="town"]'); if (tabs) { const b = document.createElement('button'); b.type = 'button'; b.dataset.tab = 'stories'; b.setAttribute('aria-pressed', 'false'); b.textContent = 'Stories'; tabs.after(b); b.addEventListener('click', () => setTab('stories')); }
   const tp = document.getElementById('tab-town'); if (tp) { const d = document.createElement('div'); d.id = 'tab-stories'; d.className = 'tabpane'; d.hidden = true; d.innerHTML = '<div class="panel" id="storiesPanel"></div>'; tp.after(d); }
   const css = document.createElement('style'); css.textContent = '.lf2sw{display:flex;flex-direction:column;gap:4px;font-size:13px}.lf2sw label{display:flex;gap:6px;align-items:center}.lf2log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:13px;line-height:1.4}.lf2log li{display:block;border-bottom:1px solid var(--line);padding-bottom:6px}.lf2log .sub{font-size:12px}'; document.head.appendChild(css);
-  document.addEventListener('change', e => { const t = e.target; if (!t || !t.dataset || !t.dataset.feat) return; LF2.feat[t.dataset.feat] = t.checked; lf2Save(); });
+  document.addEventListener('change', e => { const t: any = e.target; if (!t || !t.dataset || !t.dataset.feat) return; LF2.feat[t.dataset.feat] = t.checked; lf2Save(); });
   setInterval(() => { try { if (state && state.tab === 'stories') lf2Stories(false); } catch (e) {} }, 2500);
 })();
 

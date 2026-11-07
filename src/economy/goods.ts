@@ -38,7 +38,7 @@ function initNpcSim(n) {
   if (n.bed && n.bed.x != null && n.x === undefined) { n.x = n.tx = n.bed.x; n.y = n.ty = n.bed.y; }
   n.dead = false; lifeInit(n);
 }
-function makeMerchant(n, mk) {
+function makeMerchant(n, mk?) {
   let stall;
   if (mk) stall = mk.stalls.find(s => !s.owner);
   if (!stall) { const opts = town.markets.filter(m => m.stalls.some(s => !s.owner)).map(m => ({ m, sc: m.stalls.filter(s => s.owner).length * 40 + marketDist2(n, m) })).sort((a, c) => a.sc - c.sc); stall = opts.length ? opts[0].m.stalls.find(s => !s.owner) : null; }

@@ -2,10 +2,10 @@
 const talkUI = { o: null, say: '', q: '', prev: '2', opts: [], dy: 0 };
 function openTalk(o) {
   const n = game.player; if (!n || !o || o.dead) return;
-  if (!talkUI.o) { const cur = document.querySelector('[data-speed][aria-pressed="true"]'); talkUI.prev = cur ? cur.dataset.speed : '2'; const ps = document.querySelector('[data-speed="0"]'); if (ps) ps.click(); }
+  if (!talkUI.o) { const cur: any = document.querySelector('[data-speed][aria-pressed="true"]'); talkUI.prev = cur ? cur.dataset.speed : '2'; const ps: any = document.querySelector('[data-speed="0"]'); if (ps) ps.click(); }
   const r = talkBegin(o, n) || lf2TalkFallback(o, n);
-  if (!r && typeof bubbleChat === 'function') { if (!talkUI.o) { const b = document.querySelector('[data-speed="' + talkUI.prev + '"]'); if (b) b.click(); } let ls = bubbleChat(o, n); if (!ls) { if (bumpTalk(n, o, true)) { game.focus = { a: o.id, b: n.id, until: game.time + 4 * 2.7 * gmPerSec() }; return; } ls = [[o, brushOff(o, n)]]; } startFocus(o, n, ls); return; }
-  if (!r) { if (typeof refreshMarks === 'function') refreshMarks(); if (!talkUI.o) { const b = document.querySelector('[data-speed="' + talkUI.prev + '"]'); if (b) b.click(); } faceTo(o, n); o.talkUntil = game.time + 3 * gmPerSec(); game.events.push({ time: game.time, a: o, b: n, place: '', topic: 'greet', quiet: true, lines: [{ who: o, text: brushOff(o, n) }] }); return; }
+  if (!r && typeof bubbleChat === 'function') { if (!talkUI.o) { const b: any = document.querySelector('[data-speed="' + talkUI.prev + '"]'); if (b) b.click(); } let ls = bubbleChat(o, n); if (!ls) { if (bumpTalk(n, o, true)) { game.focus = { a: o.id, b: n.id, until: game.time + 4 * 2.7 * gmPerSec() }; return; } ls = [[o, brushOff(o, n)]]; } startFocus(o, n, ls); return; }
+  if (!r) { if (typeof refreshMarks === 'function') refreshMarks(); if (!talkUI.o) { const b: any = document.querySelector('[data-speed="' + talkUI.prev + '"]'); if (b) b.click(); } faceTo(o, n); o.talkUntil = game.time + 3 * gmPerSec(); game.events.push({ time: game.time, a: o, b: n, place: '', topic: 'greet', quiet: true, lines: [{ who: o, text: brushOff(o, n) }] }); return; }
   talkUI.o = o; talkUI.q = '';
   o.talkUntil = game.time + 1e6; faceTo(o, n); faceTo(n, o); if (o.moving) o.pose = 'stand';
   if (n.player) n.player.keys = {};
@@ -15,13 +15,13 @@ function closeTalk() {
   const o = talkUI.o; if (!o) return; talkUI.o = null; el('talk').hidden = true; talkS = null; if (typeof refreshMarks === 'function') refreshMarks();
   o.talkUntil = game.time + 3; const n = game.player; if (n) { o.social = Math.min(100, o.social + 12); n.social = Math.min(100, n.social + 12); }
   pairCool.set(Math.min(n ? n.id : 0, o.id) * 1000 + Math.max(n ? n.id : 0, o.id), game.time + 60);
-  const b = document.querySelector('[data-speed="' + talkUI.prev + '"]'); if (b) b.click();
+  const b: any = document.querySelector('[data-speed="' + talkUI.prev + '"]'); if (b) b.click();
   hudSig = ''; canvas.focus({ preventScroll: true });
 }
 function talkPick(key, label) {
   if (!talkUI.o || !talkS) return;
   if (key === 'bye') { closeTalk(); return; }
-  const r = talkStep(key); if (!r || r.close) { closeTalk(); return; }
+  const r: any = talkStep(key); if (!r || r.close) { closeTalk(); return; }
   if (r.say) { talkUI.say = voiced(talkUI.o, r.say); talkUI.q = label || ''; }
   talkUI.opts = r.opts; renderTalk();
 }
@@ -48,8 +48,8 @@ function renderTalk() {
     '<small class="kh">W S choose · D pick · A leave</small></div>' +
     (talkUI.q ? '<div class="tq">' + esc(talkUI.q) + '</div>' : '') + '<div class="ta">' + esc(talkUI.say) + '</div>' +
     '<div class="topts">' + talkUI.opts.map((op, i) => '<button type="button" data-k="' + esc(op[0]) + '""><span>' + (i + 1) + '</span>' + esc(op[1]) + '</button>').join('') + '</div></div>';
-  { const tk = box.querySelector('.tk'); talkUI.dy = tk ? (tk.offsetHeight / 2 + 10) / (TS * cam.z) : 0; }
-  box.querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => talkPick(b.dataset.k, b.textContent.replace(/^\d+/, ''))));
+  { const tk: any = box.querySelector('.tk'); talkUI.dy = tk ? (tk.offsetHeight / 2 + 10) / (TS * cam.z) : 0; }
+  box.querySelectorAll('[data-k]').forEach((b: any) => b.addEventListener('click', () => talkPick(b.dataset.k, b.textContent.replace(/^\d+/, ''))));
   menuFirst(box, '[data-k]');
 }
 window.addEventListener('keydown', e => {
@@ -71,8 +71,8 @@ function mealNudge() {
 /* ---------- succession: pick who you become ---------- */
 function showSuccession() {
   const s = town.succession; if (!s) return;
-  const cur = document.querySelector('[data-speed][aria-pressed="true"]'); s.prevSpeed = cur ? cur.dataset.speed : '2';
-  const pz = document.querySelector('[data-speed="0"]'); if (pz) pz.click();
+  const cur: any = document.querySelector('[data-speed][aria-pressed="true"]'); s.prevSpeed = cur ? cur.dataset.speed : '2';
+  const pz: any = document.querySelector('[data-speed="0"]'); if (pz) pz.click();
   let box = el('heirBox'); if (!box) { box = document.createElement('div'); box.id = 'heirBox'; document.body.appendChild(box); }
   box.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(6,8,10,.82);display:flex;align-items:center;justify-content:center;padding:16px';
   const cards = s.cands.map(c => { const o = byId(c.id); if (!o) return '';
@@ -94,7 +94,7 @@ function showSuccession() {
     <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">${cards}</div>${s.swap ? '<button data-heir="stay" class="btn" style="margin-top:16px">Shake it off and wake up as yourself</button>' : ''}</div>`;
   box.hidden = false;
   setTimeout(() => menuFirst(box, '[data-heir]'), 0);
-  box.querySelectorAll('[data-heir]').forEach(b => b.addEventListener('click', () => { const sp = s.prevSpeed; box.style.display = 'none'; box.innerHTML = ''; chooseHeir(b.dataset.heir === 'stay' ? 'stay' : +b.dataset.heir); const bb = document.querySelector('[data-speed="' + (sp && sp !== '0' ? sp : '2') + '"]'); if (bb) bb.click(); }));
+  box.querySelectorAll('[data-heir]').forEach((b: any) => b.addEventListener('click', () => { const sp = s.prevSpeed; box.style.display = 'none'; box.innerHTML = ''; chooseHeir(b.dataset.heir === 'stay' ? 'stay' : +b.dataset.heir); const bb: any = document.querySelector('[data-speed="' + (sp && sp !== '0' ? sp : '2') + '"]'); if (bb) bb.click(); }));
 }
 function chooseTipping() {
   const c = npcs.filter(n => canControl(n) && n.age >= 20 && n.age <= 36);
@@ -114,7 +114,7 @@ function relWhen(t) {
   return 'in ' + (day1 - day0) + ' days';
 }
 function drawClock(now) {
-  if (!el('clock') || now - (drawClock.t || 0) < 400) return; drawClock.t = now;
+  if (!el('clock') || now - ((drawClock as any).t || 0) < 400) return; (drawClock as any).t = now;
   const t = game.time, tod = t % 1440, h = tod / 60, part = h < 5 ? 'night' : h < 12 ? 'morning' : h < 17 ? 'afternoon' : h < 21 ? 'evening' : 'night';
   const head = fmtTime(t) + '<small>Year ' + yearOf(t) + ' · Day ' + dayOfYear(t) + ' · ' + part + (isRestDay() ? ' · rest day' : '') + '</small>';
   const ups = (typeof calUpcoming === 'function' ? calUpcoming() : []).filter((e, i, arr) => e.kind !== 'rest' || arr.findIndex(x => x.kind === 'rest') === i).slice(0, 3);

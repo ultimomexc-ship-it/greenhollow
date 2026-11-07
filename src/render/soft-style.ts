@@ -1,9 +1,9 @@
 /* ================= Rendering ================= */
-const canvas = document.getElementById('c');
+const canvas: any = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 const bgCanvas = document.createElement('canvas'), bctx = bgCanvas.getContext('2d');
 const darkCanvas = document.createElement('canvas'), dctx = darkCanvas.getContext('2d');
-const cam = { x: 0, y: 0, z: 1, fit: 1, dpr: 1, cw: 800, ch: 520, follow: false };
+const cam: any = { x: 0, y: 0, z: 1, fit: 1, dpr: 1, cw: 800, ch: 520, follow: false };
 let BK = 2; const DK = 0.5;
 const view = { selected: null, hover: null, showRoutes: false };
 
@@ -15,7 +15,7 @@ function hash(x, y, k) {
 const fillR = (c, x, y, w, h, col) => { c.fillStyle = col; c.fillRect(x, y, w, h); };
 const circ = (c, x, y, r, col) => { c.fillStyle = col; c.beginPath(); c.arc(x, y, r, 0, 6.2832); c.fill(); };
 /* ---------- soft style (trial): round gradients and gentle light across the land. G toggles it ---------- */
-const STYLE = { soft: true };
+const STYLE: any = { soft: true };
 /* ================= painted sprites (soft style): built once, then stamped ================= */
 const SPR_SCALE = 3, SPR = {};
 function sprite(key, w, h, draw) {

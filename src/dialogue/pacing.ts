@@ -3,43 +3,43 @@ const siteStage = s => { const tot = s.slots ? s.slots.length : 1, left = logsLe
 // milestones and topics for the scenes that used to repeat
 (function tune() {
   const S = id => SCENES.find(x => x.id === id);
-  const hw = S('house_wait'); if (hw) { hw.cool = 0; hw.key = (n, p, c) => c.s.id + ':' + siteStage(c.s); hw.topic = (n, p, c) => 'site' + c.s.id + ':' + siteStage(c.s); }
-  const yh = S('your_house'); if (yh) { yh.cool = 0; yh.key = (n, p, c) => c.s.id + ':' + siteStage(c.s); yh.topic = (n, p, c) => 'site' + c.s.id + ':' + siteStage(c.s); }
-  const nt = S('need_timber'); if (nt) { nt.cool = 0; nt.key = (n, p, c) => c.s.id; nt.topic = (n, p, c) => 'site' + c.s.id + ':' + siteStage(c.s); }
+  const hw: any = S('house_wait'); if (hw) { hw.cool = 0; hw.key = (n, p, c) => c.s.id + ':' + siteStage(c.s); hw.topic = (n, p, c) => 'site' + c.s.id + ':' + siteStage(c.s); }
+  const yh: any = S('your_house'); if (yh) { yh.cool = 0; yh.key = (n, p, c) => c.s.id + ':' + siteStage(c.s); yh.topic = (n, p, c) => 'site' + c.s.id + ':' + siteStage(c.s); }
+  const nt: any = S('need_timber'); if (nt) { nt.cool = 0; nt.key = (n, p, c) => c.s.id; nt.topic = (n, p, c) => 'site' + c.s.id + ':' + siteStage(c.s); }
   const te = S('tent'); if (te) te.cool = 0;
-  const fs = S('food_short'); if (fs) { fs.cool = 0; fs.key = () => Math.floor(game.time / (3 * 1440)); fs.topic = () => 'food' + Math.floor(game.time / (3 * 1440)); }
-  const bs = S('bonfire_soon'); if (bs) bs.topic = (n, p, c) => 'feast' + c.f.at;
-  const ab = S('after_bonfire'); if (ab) ab.topic = () => 'feastafter' + (town.lastFeast || 0);
-  const nc = S('new_chapel'); if (nc) nc.topic = () => 'chapel';
+  const fs: any = S('food_short'); if (fs) { fs.cool = 0; fs.key = () => Math.floor(game.time / (3 * 1440)); fs.topic = () => 'food' + Math.floor(game.time / (3 * 1440)); }
+  const bs: any = S('bonfire_soon'); if (bs) bs.topic = (n, p, c) => 'feast' + c.f.at;
+  const ab: any = S('after_bonfire'); if (ab) ab.topic = () => 'feastafter' + (town.lastFeast || 0);
+  const nc: any = S('new_chapel'); if (nc) nc.topic = () => 'chapel';
   const hu = S('hungry'); if (hu) hu.cool = 1440;
-  const ex = S('expecting'); if (ex) { ex.cool = 0; ex.key = (n, p, c) => (n.preg ? n.preg.due : 0) + ':' + (c.soon ? 1 : 0); }
+  const ex: any = S('expecting'); if (ex) { ex.cool = 0; ex.key = (n, p, c) => (n.preg ? n.preg.due : 0) + ':' + (c.soon ? 1 : 0); }
   const co = S('courting'); if (co) co.cool = 2 * 1440;
   const yf = S('your_family'); if (yf) yf.cool = 1440;
   const ld = S('lazy_caught'); if (ld) ld.cool = 3 * 1440;
   const kb = S('kid_bored'); if (kb) kb.cool = 2 * 1440;
   const kl = S('kid_learn'); if (kl) kl.cool = 3 * 1440;
-  const hd = S('heard'); if (hd) hd.topic = (n, p, c) => 'deed' + c.d.t;
-  const dr = S('dream'); if (dr) dr.topic = () => 'hope';
-  const fo = S('founder'); if (fo) fo.topic = () => 'founder';
-  const lg = S('legend'); if (lg) lg.topic = (n) => 'legend' + (believes(n) ? 1 : 0);
-  const rd = S('rest_day'); if (rd) { rd.cool = 0; rd.key = () => Math.floor(game.time / 1440); }
+  const hd: any = S('heard'); if (hd) hd.topic = (n, p, c) => 'deed' + c.d.t;
+  const dr: any = S('dream'); if (dr) dr.topic = () => 'hope';
+  const fo: any = S('founder'); if (fo) fo.topic = () => 'founder';
+  const lg: any = S('legend'); if (lg) lg.topic = (n) => 'legend' + (believes(n) ? 1 : 0);
+  const rd: any = S('rest_day'); if (rd) { rd.cool = 0; rd.key = () => Math.floor(game.time / 1440); }
 })();
 const dayN = () => Math.floor(game.time / 1440);
 const BIG = 85; // scenes this important ignore the daily limit
 function panelsToday(n, p) { const r = (n.panels || {})[p.id]; return r && r.d === dayN() ? r.c : 0; }
 /* only the heart-to-hearts open the dialogue panel; everything else is said in passing, in bubbles */
 const PANEL_SCENES = new Set(['crush', 'hungry', 'cried_parent', 'cleared', 'gift_thanks', 'liar_sulk']);
-function sceneFor(n, p, mode) {
+function sceneFor(n, p, mode?) {
   mode = mode || 'panel';
   n.seenSc = n.seenSc || {}; const now = game.time, heard = p.heardTopics || {}; let best = null, bs = 0;
   if (n.age < 5 || (mode === 'bubble' && recently(n.lastSceneWith && n.lastSceneWith[p.id], 0.12))) return null;
-  for (const sc of SCENES) {
+  for (const sc of SCENES as any[]) {
     if ((mode === 'panel') !== PANEL_SCENES.has(sc.id)) continue;
     let c; try { c = sc.when(n, p); } catch (e) { c = null; }
     if (!c) continue;
-    const key = sc.id + (sc.key ? ':' + sc.key(n, p, c) : '') + ':' + p.id, last = n.seenSc[key];
+    const key = sc.id + ((sc as any).key ? ':' + (sc as any).key(n, p, c) : '') + ':' + p.id, last = n.seenSc[key];
     if (last !== undefined && (sc.cool === 0 || now - last < sc.cool)) continue;
-    if (sc.topic) { const tp = sc.topic(n, p, c); if (heard[tp] !== undefined && heard[tp] !== n.id) continue; c._topic = tp; }
+    if ((sc as any).topic) { const tp = (sc as any).topic(n, p, c); if (heard[tp] !== undefined && heard[tp] !== n.id) continue; c._topic = tp; }
     c._key = key;
     const pr = sc.pri + Math.random() * 6;
     if (pr > bs) { bs = pr; best = { sc, c }; }

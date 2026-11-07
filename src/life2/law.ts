@@ -100,7 +100,7 @@ function lf2InvestigatePlan(g, ev) {
 
 /* ---------------- an arrest ---------------- */
 function lf2Fine(a) { const w = lf2Wanted()[a.id] || { sev: 1, evs: [] }; return Math.round(4 + w.sev * 6 + (a.lf2Priors || 0) * 4); }
-function lf2Sentence(a, extra) { const w = lf2Wanted()[a.id] || { sev: 1 }; return Math.min(720, Math.round(90 + w.sev * 70 + (a.lf2Priors || 0) * 60 + (extra || 0))); }
+function lf2Sentence(a, extra?) { const w = lf2Wanted()[a.id] || { sev: 1 }; return Math.min(720, Math.round(90 + w.sev * 70 + (a.lf2Priors || 0) * 60 + (extra || 0))); }
 function lf2Clear(a) { const w = lf2Wanted()[a.id]; if (w) { const d = town.lf2Done || (town.lf2Done = {}); w.evs.forEach(id => { d[id] = 1; }); } delete lf2Wanted()[a.id]; }
 function lf2Collar(g, a) {
   if (a.dead || a.jail || !lf2Wanted()[a.id]) return;
@@ -128,7 +128,7 @@ function lf2Jail(a, mins, g) {
   if (a.player) { const s = lf2Spot(r, 'cell'); const p = a.player; p.act = null; p.follow = null; p.keys = {}; a.path = []; a.moving = false; a.tx = s.x; a.ty = s.y; a.x = s.x; a.y = s.y; playerSay(a, `Locked up for about ${Math.round(mins / 60)} hours. (E on the bed to sleep it off, or E on the door to try the lock.)`); }
   else { abortPlan(a); }
 }
-function lf2Release(a, how) {
+function lf2Release(a, how?) {
   if (!a.jail) return; a.jail = null; lfMod(a, 'free', 'glad to be out of the cells', 6, 400);
   if (how !== 'escape') chron(`${a.first} was let out of the cells.`, 'note');
   if (a.player) { const r = lf2Room('jail'); if (r && lf2InRoom(a, r)) { const o = r.side === 'b' ? { x: r.doorX, y: r.doorY + 1 } : { x: r.doorX, y: r.doorY - 1 }; a.tx = o.x; a.ty = o.y; a.x = o.x; a.y = o.y; } playerSay(a, how === 'escape' ? 'Free! Now keep out of sight...' : 'Free to go. Behave yourself.'); }

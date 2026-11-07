@@ -26,7 +26,7 @@ function lf2GrudgePlan(n, tod) {
     const f = npcs.filter(o => o !== n && o !== a && !o.dead && !o.player && o.pose !== 'sleep' && (n.aff[o.id] || 0) >= 20).sort((x, y) => lfDist(x, n) - lfDist(y, n))[0]; if (!f) return null;
     return [goS(() => { const b = besideTile(f.tx, f.ty, null); return b ? { x: b.x, y: b.y, face: { dx: Math.sign(f.tx - b.x), dy: Math.sign(f.ty - b.y) } } : null; }, `Off to tell ${f.first} a thing or two about ${a.first}`), waitS(4, 'stand', `Telling tales about ${a.first}`, { social: true, nopie: true, onEnd(nn) {
       if (lfDist(nn, f) > 3) return; const kinds = [['theft', `${a.first} is light-fingered, everyone knows it`], ['deceit', `${a.first} cannot be trusted with anything`], ['drunk', `${a.first} is drunk half the time`]];
-      const k = anyOf(kinds); const fe = lfEmit('rumour', { actor: a, sev: 1, tags: [k[0]], fake: true, witnessIds: [], chron: false, text: k[1] }); fe.liar = nn.id; fe.know = [nn.id]; delete (a.kn || {})[fe.id]; (nn.kn || (nn.kn = {}))[fe.id] = { t: game.time, from: null, cert: 1, a: true, mine: true, liar: true };
+      const k = anyOf(kinds); const fe: any = lfEmit('rumour', { actor: a, sev: 1, tags: [k[0]], fake: true, witnessIds: [], chron: false, text: k[1] }); fe.liar = nn.id; fe.know = [nn.id]; delete (a.kn || {})[fe.id]; (nn.kn || (nn.kn = {}))[fe.id] = { t: game.time, from: null, cert: 1, a: true, mine: true, liar: true };
       say(nn, f, [[nn, k[1] + '. Just so you know.'], [f, anyOf(['Really?', 'I had heard something like that.', 'Hm. Thanks for telling me.'])]]); lf2Learn(f, fe, nn, 0.7, true);
     } })];
   }

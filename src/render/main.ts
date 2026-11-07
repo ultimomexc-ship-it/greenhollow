@@ -71,7 +71,7 @@ function zoomAt(f, sx, sy) { // sx, sy are css px inside the canvas
   cam.z = Math.max(camMin(), Math.min(camMax(), cam.z * f));
   cam.x = wx - sx / cam.z; cam.y = wy - sy / cam.z; clampCam();
 }
-function centerOn(wx, wy, smooth) {
+function centerOn(wx, wy, smooth?) {
   const tx = wx * TS + TS / 2 - cam.cw / cam.z / 2, ty = wy * TS + TS / 2 - cam.ch / cam.z / 2;
   if (smooth) { cam.x += (tx - cam.x) * smooth; cam.y += (ty - cam.y) * smooth; } else { cam.x = tx; cam.y = ty; }
   clampCam();
@@ -133,7 +133,7 @@ function render(now, dtSec, hourOfDay) {
 
   // people, the forest sprites, the statue... and any tall tile standing in front of them: all in order of who is
   // nearer the bottom of the screen, so whoever is behind a tree, a tent or a statue goes behind it
-  { const items = [], near = new Set(), mark = (x, y) => { const x0 = Math.floor(x), y0 = Math.floor(y); for (let yy = y0; yy <= y0 + 2; yy++) for (let xx = x0 - 1; xx <= x0 + 2; xx++) if (yy >= 0 && xx >= 0 && yy < H && xx < W) near.add(yy * W + xx); };
+  { const items = [], near = new Set<number>(), mark = (x, y) => { const x0 = Math.floor(x), y0 = Math.floor(y); for (let yy = y0; yy <= y0 + 2; yy++) for (let xx = x0 - 1; xx <= x0 + 2; xx++) if (yy >= 0 && xx >= 0 && yy < H && xx < W) near.add(yy * W + xx); };
     for (const n of npcs) { if (n.inShip) continue; const sl = n.pose === 'sleep' && !n.moving; items.push({ k: n.y - (sl ? 0.45 : 0), f: () => { const px = n.x * TS, py = n.y * TS; if (sl) drawSleeper(c, n, px, py, now); else drawPerson(c, n, now, px, py); } }); mark(n.x, n.y); }
     for (const prov of YSORT) { const L = prov(c, now) || []; for (const it of L) { items.push(it); if (it.mob) mark(it.x, it.k); } }
     if (cam.z >= 0.6) { const busy = new Set(); for (const w of workTargets()) if (w.kind === 'tree') busy.add(w.y * W + w.x);

@@ -1,6 +1,6 @@
 /* ================= UI and main loop ================= */
 const el = id => document.getElementById(id);
-const state = { speed: 2, rate: 2, tab: 'people', size: 'L' };
+const state: any = { speed: 2, rate: 2, tab: 'people', size: 'L' };
 const rows = new Map();
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const cap1 = s => s.charAt(0).toUpperCase() + s.slice(1);
@@ -19,12 +19,12 @@ function buildRoster() {
     const li = document.createElement('li'), b = document.createElement('button');
     b.type = 'button'; b.className = 'row'; b.setAttribute('aria-pressed', n === view.selected ? 'true' : 'false');
     b.innerHTML = '<span class="sw"></span><span class="nm"></span><span class="st"></span>';
-    b.querySelector('.sw').style.background = n.shirt;
+    (b.querySelector('.sw') as any).style.background = n.shirt;
     b.querySelector('.nm').innerHTML = esc(nameOf(n)) + '<small>' + esc(n.age < 16 ? lifeStage(n).toLowerCase() : roleLabel(n)) + ' · ' + n.age + '</small>';
     b.addEventListener('click', () => { select(n); centerOn(n.x, n.y); });
     li.appendChild(b); list.appendChild(li); rows.set(n, b);
   });
-  el('popCount').textContent = npcs.length;
+  el('popCount').textContent = npcs.length as any;
 }
 function select(n) {
   view.selected = n;
@@ -57,8 +57,10 @@ function buildCard() {
   if (n.dead) { card.innerHTML = '<h2>Villager</h2><h3>' + esc(nameOf(n)) + '</h3><p class="sub">Died aged ' + n.age + ' in ' + stamp(n.deathTime) + '. Buried in the churchyard.</p>'; return; }
   const bio = bioOf(n);
   card.innerHTML = '<h2>Villager</h2><h3>' + esc(nameOf(n)) + '</h3><p class="sub">' + esc(bio[0]) + '</p>' +
+    // the "Play as" button is switched off: the '' && makes the condition always false
+    // @ts-expect-error -- deliberately always false (see above)
     ('' && canControl(n) ? '<button type="button" class="btn primary" id="takeBtn" style="margin:4px 0 8px">Play as ' + esc(n.first) + '</button>' : '') + '<p class="bio">' + esc(bio.slice(2).join(' ')) + '</p><p class="sub">Home: ' + esc(n.homeRoom ? n.homeRoom.name : 'none yet, sleeping rough') + '</p>' + (n.age >= 6 ? '<p class="sub">Loves ' + esc(HOBBY_TXT[hobbyOf(n)]) + (n.pref ? ' · wants to be ' + esc(JOB_NOUN[n.pref]) : '') + '</p>' : '') + '<div id="cardLive"></div>';
-  card.querySelectorAll('a[data-id]').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); const o = byId(+a.dataset.id); if (o) { select(o); centerOn(o.x, o.y); } }));
+  card.querySelectorAll('a[data-id]').forEach((a: any) => a.addEventListener('click', ev => { ev.preventDefault(); const o = byId(+a.dataset.id); if (o) { select(o); centerOn(o.x, o.y); } }));
   const tb = el('takeBtn'); if (tb) tb.addEventListener('click', () => { if (n.player) stopPlaying(); else startPlaying(n); });
   updateCard(true);
 }
@@ -66,7 +68,7 @@ let cardSig = '';
 function updateCard(force) {
   const n = view.selected; if (!n || n.dead) return;
   const live = el('cardLive'); if (!live) return;
-  const inv = Object.entries(n.inv).filter(([g, q]) => q > 0).map(([g, q]) => '<span class="chip">' + q + ' ' + (GICON[g] || g) + '</span>').join('');
+  const inv = Object.entries<number>(n.inv).filter(([g, q]) => q > 0).map(([g, q]) => '<span class="chip">' + q + ' ' + (GICON[g] || g) + '</span>').join('');
   const pan = n.homeRoom ? pantryOf(n) : null, hh = hhOf(n).length;
   const pantry = pan ? FOODS.filter(g => pan[g] > 0).map(g => '<span class="chip dim">' + Math.round(pan[g]) + ' ' + GICON[g] + '</span>').join('') : '';
   const log = n.log.slice(-8).reverse().map(l => '<li><span>' + fmtTime(l.t) + '</span>' + esc(l.text) + '</li>').join('');
@@ -80,7 +82,7 @@ function updateCard(force) {
     '<h2 class="gap">Family</h2>' + famLinks() + '<h2 class="gap">Knows best</h2>' + friendList() +
     ((n.mem || []).length ? '<h2 class="gap">Remembers</h2><ul class="log">' + n.mem.slice(-5).reverse().map(m => '<li><span>' + stamp(m.t) + '</span>' + esc(m.me.charAt(0).toUpperCase() + m.me.slice(1)) + '</li>').join('') + '</ul>' : '') +
     '<h2 class="gap">What they have been doing</h2><ul class="log">' + (log || '<li><span></span>Just woke up</li>') + '</ul>';
-  live.querySelectorAll('a[data-id]').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); const o = byId(+a.dataset.id); if (o) { select(o); centerOn(o.x, o.y); } }));
+  live.querySelectorAll('a[data-id]').forEach((a: any) => a.addEventListener('click', ev => { ev.preventDefault(); const o = byId(+a.dataset.id); if (o) { select(o); centerOn(o.x, o.y); } }));
 }
 
 /* ---------- chronicle and town ---------- */
@@ -156,7 +158,7 @@ function buildCal(force) {
   const up = calUpcoming(), past = (town.cal || []).slice(-40).reverse();
   const sig = up.length + '|' + past.length + '|' + Math.floor(game.time / 60);
   if (!force && sig === calSig) return; calSig = sig;
-  const row = (c, soon, tm) => '<li><span>' + (soon ? 'soon' : stamp(c.time) + (tm && c.kind !== 'rest' ? ' ' + fmtTime(c.time).slice(-5) : '')) + '</span>' + (CALICON[c.kind] || '') + ' ' + esc(c.text) + '</li>';
+  const row = (c, soon?, tm?) => '<li><span>' + (soon ? 'soon' : stamp(c.time) + (tm && c.kind !== 'rest' ? ' ' + fmtTime(c.time).slice(-5) : '')) + '</span>' + (CALICON[c.kind] || '') + ' ' + esc(c.text) + '</li>';
   el('calPanel').innerHTML = '<h2>Calendar</h2><p class="sub">Year ' + yearOf(game.time) + ' · day ' + dayOfYear(game.time) + ' of 3. Weddings, funerals, births and coming-of-age days.</p>' +
     (town.line && town.line.history.length ? '<h3>Your story</h3><ul class="log chron">' + town.line.history.map((h, i) => '<li><span>Gen ' + (i + 1) + '</span>' + esc(h.name) + ', ' + h.age + ' years</li>').join('') + (game.player ? '<li><span>Gen ' + town.line.gen + '</span><b>' + esc(nameOf(game.player)) + '</b>, now</li>' : '') + '</ul>' : '') +
     '<h3>Coming up</h3><ul class="log chron">' + (up.map(c => row(c, c.soon, 1)).join('') || '<li><span></span>Nothing planned yet.</li>') + '</ul>' +
@@ -209,7 +211,7 @@ function spark(vals, col) {
   const pts = vals.map((v, i) => (i / (n - 1) * 68 + 1).toFixed(1) + ',' + (18 - (v - mn) / r * 16).toFixed(1)).join(' ');
   return '<svg class="spark" viewBox="0 0 70 20" aria-hidden="true"><polyline fill="none" stroke="' + col + '" stroke-width="1.6" points="' + pts + '"/></svg>';
 }
-let mktSig = '';
+let mktSig: any = '';
 function updateMarket(force) {
   if (state.tab !== 'market' || !town.eco) return;
   const sig = Math.floor(game.time / 20);
@@ -229,7 +231,7 @@ function updateMarket(force) {
     '<h2 class="gap">Town purse</h2><dl class="kv"><dt>Coins held by villagers</dt><dd>' + circ + '</dd><dt>Council treasury</dt><dd>' + Math.round(town.treasury) + '</dd><dt>Sold to the caravan</dt><dd>' + Math.round(town.eco.exported) + 'c</dd></dl>' +
     '<h2 class="gap">The land</h2><dl class="kv">' + (pi && pi.cap ? '<dt>Fish in the shallows</dt><dd>' + Math.round(pi.stock) + ' / ' + pi.cap + '</dd>' : '') + '<dt>Fields</dt><dd>' + (crops.length ? cs[1] + ' sown · ' + (cs[2] + cs[3]) + ' growing · ' + cs[4] + ' ripe' : 'none yet') + '</dd><dt>Wild plants</dt><dd>' + town.nodes.length + '</dd><dt>Cleared radius</dt><dd>' + town.clearR.toFixed(1) + ' tiles</dd></dl>' +
     '<h2 class="gap">Stall</h2>' + (shops || '<p class="sub">No trader at the moment.</p>');
-  el('mkt').querySelectorAll('.shopcard').forEach(d => d.addEventListener('click', () => { const m = merchants.find(x => String(x.n.id) === d.dataset.id); if (m) { select(m.n); centerOn(m.n.x, m.n.y); } }));
+  el('mkt').querySelectorAll('.shopcard').forEach((d: any) => d.addEventListener('click', () => { const m = merchants.find(x => String(x.n.id) === d.dataset.id); if (m) { select(m.n); centerOn(m.n.x, m.n.y); } }));
 }
 
 function addChatter(ev) {
@@ -244,7 +246,7 @@ function addChatter(ev) {
 let chronSeen = 0;
 let tradeSeen = 0;
 // a long line becomes a few bubbles in a row, broken at the ends of sentences, so nothing gets cut off
-function splitSpeech(text, max) {
+function splitSpeech(text, max?) {
   max = max || 95; text = String(text || '');
   if (text.length <= max) return [text];
   const sent = text.match(/[^.!?]+[.!?]+["')\]]*\s*|[^.!?]+$/g) || [text], out = []; let cur = '';

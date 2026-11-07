@@ -131,7 +131,7 @@ function foodDaysNow() {
 function pickAgenda(n) {
   if (n.cur && game.time < n.curUntil) return n.cur;
   const cnt = {}; npcs.forEach(p => { if (p !== n && p.role === 'Worker' && p.cur) cnt[p.cur] = (cnt[p.cur] || 0) + 1; });
-  const fd = foodDaysNow(), need = Math.max(0, 3.5 - fd), sh0 = shortfall(), sc = {};
+  const fd = foodDaysNow(), need = Math.max(0, 3.5 - fd), sh0 = shortfall(), sc: any = {};
   const sh = { wood: sh0.wood - npcs.reduce((a, p) => a + (p.inv.wood || 0), 0), stone: sh0.stone - npcs.reduce((a, p) => a + (p.inv.stone || 0), 0) };
   if (shoreTiles.length && fishAvail()) sc.Fisher = 5 + need * 20;
   if (farmWork()) sc.Farmer = 5 + need * 18;
@@ -181,7 +181,7 @@ function workPlan(n, tod) {
 }
 
 /* ---------- the social goal: walk up to someone and bump into them ---------- */
-function chatPlan(n, only) {
+function chatPlan(n, only?) {
   if (n.age < 5) return null;
   let best = null, bs = -1e9; const now = game.time;
   for (const o of only ? [only] : npcs) {
@@ -206,7 +206,7 @@ function meetSpot(n, p) {
   const t = sh.length && (k & 1) ? sh[Math.abs(k >> 1) % sh.length] : pl[idx]; return { x: t.x, y: t.y, face: t.face || null };
 }
 function leisurePlan(n, tod) {
-  const h = tod / 60, has = t => n.traits.includes(t), opts = {};
+  const h = tod / 60, has = t => n.traits.includes(t), opts: any = {};
   if (n.age < 16) { opts.plaza = 3; if (shoreTiles.length) opts.pond = 2; opts.home = 1; }
   else {
     opts.plaza = 1.5 + (100 - n.social) / 22 + (has('sociable') ? 1.5 : 0) + (h >= 16.5 && h < 19 ? 2 : 0); opts.home = 2 + (has('homebody') ? 3 : 0) - (n.social < 30 ? 1.5 : 0);

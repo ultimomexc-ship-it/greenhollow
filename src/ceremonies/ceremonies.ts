@@ -348,7 +348,7 @@ function priestWisdom(n, p) {
   const heard = p.wisdom = p.wisdom || [];
   if (heard.length >= WISDOM.length) heard.length = 0;
   const left = WISDOM.map((w, i) => i).filter(i => !heard.includes(i)), i = left[Math.floor(Math.random() * left.length)]; heard.push(i);
-  const [line, reps] = WISDOM[i]; bumpKnow(n, p, 2); bumpAff(n, p, 1, 6);
+  const [line, reps]: any = WISDOM[i]; bumpKnow(n, p, 2); bumpAff(n, p, 1, 6);
   return [[n, line.replace(/Tipping/g, p.first)], [p, anyOf(reps)]];
 }
 

@@ -20,7 +20,8 @@ export async function openGame(browser, file, opts = {}) {
   const page = await browser.newPage({ viewport });
   const errors = [];
   page.on('pageerror', e => errors.push(String(e && e.stack || e)));
-  page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  // (requests to the web are blocked on purpose, so their "Failed to load resource" messages are not errors)
+  page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
   await page.route(/^https?:/, r => r.abort());
   if (!live) await page.addInitScript(seed => {
     let a = seed >>> 0;
@@ -37,11 +38,20 @@ export async function openGame(browser, file, opts = {}) {
   return { page, errors };
 }
 
-/** Advance the simulation by `minutes` game minutes in 2-minute steps, as the frame loop does. */
+/**
+ * Advance the simulation by `minutes` game minutes. Each 2-minute step is one "frame" that does what
+ * the real frame loop does besides drawing: step the sim, show queued conversations, the supper
+ * nudge, and handing an idle player's character back to the AI. The fake clock moves as it would at
+ * the game's current speed (2x by default: 4 game minutes per real second).
+ */
 export async function simulate(page, minutes) {
   return page.evaluate(total => {
     const t0 = game.time; let left = total;
-    while (left > 0) { const s = Math.min(left, 2); updateSim(s); left -= s; window.__advance(33); }
+    while (left > 0) {
+      const s = Math.min(left, 2); updateSim(s); left -= s;
+      window.__advance(s / (state.rate * Math.max(1, state.speed)) * 1000);
+      const now = performance.now(); drainEvents(now); mealNudge(); idleRelease(now);
+    }
     return game.time - t0;
   }, minutes);
 }

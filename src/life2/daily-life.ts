@@ -96,6 +96,7 @@ LF2.dec.push(lf2WashPlan);
 if (typeof LF_GATH !== 'undefined') {
   LF_GATH.baths = { label: 'a trip to the baths', noun: 'bath', hours: [13, 18], dur: 60, text: 'Soaking at the baths with friends', act: 'leisure', where: 'baths' };
   LF_GATH.dice = { label: 'dice at the tavern', noun: 'game of dice', hours: [18, 22], dur: 60, text: 'Rolling dice at the tavern', act: 'leisure', where: 'tavern' };
+  // @ts-expect-error -- deliberate patch: life2 replaces lfGArea and calls the old one
   const _ga = lfGArea; lfGArea = function (kind, host) { if (LF_GATH[kind] && LF_GATH[kind].where === 'baths') { if (!LF2.on('baths')) return []; return lf2BathSeats(); } return _ga(kind, host); };
 }
 
