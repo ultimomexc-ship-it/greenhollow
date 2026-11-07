@@ -65,9 +65,12 @@ function canSee(x, y) {
 function drawLighting(c, hour, now) {
   const key = Math.floor(cam.x / TS) + ',' + Math.floor(cam.y / TS) + ',' + (game.player ? game.player.tx + ',' + game.player.ty : '') + ',' + cam.z.toFixed(2);
   if (!LGT.map || now - LGT.t > 150 || key !== LGT.key) { LGT.map = buildLightMaps(hour); LGT.t = now; LGT.key = key; LGT.dirty = true; }
-  const m = LGT.map, day = daylight(hour), night = 1 - day, warmth = 0;                // no orange: dusk and dawn are just darker and lighter
+  const day = daylight(hour), night = 1 - day, warmth = 0;                // no orange: dusk and dawn are just darker and lighter
   if (!LGT.cv) { LGT.cv = document.createElement('canvas'); LGT.wcv = document.createElement('canvas'); }
   const cv = LGT.cv, wcv = LGT.wcv;
+  /* the lit texture is rebuilt (and blurred) when the lit region changes, and otherwise at 20 Hz: the light eases over about a tenth of a second, so more often is invisible */
+  if (LGT.tm !== LGT.map || !(now - LGT.texT < 50)) {
+  const m = LGT.map;
   if (cv.width !== m.rw || cv.height !== m.rh) { cv.width = wcv.width = m.rw; cv.height = wcv.height = m.rh; }
   const img = cv.getContext('2d').createImageData(m.rw, m.rh), d = img.data, wimg = wcv.getContext('2d').createImageData(m.rw, m.rh), wd = wimg.data;
   const nr = Math.round(10 + warmth * 150), ng = Math.round(14 + warmth * 50), nb = Math.round(42 - warmth * 15);
@@ -92,13 +95,15 @@ function drawLighting(c, hour, now) {
     wd[o] = 255; wd[o + 1] = 218; wd[o + 2] = 170; wd[o + 3] = Math.round(LGT.Wm[wi] * 0.2 * 255);   // lamp light is a soft warm white, not orange
   }
   cv.getContext('2d').putImageData(img, 0, 0); wcv.getContext('2d').putImageData(wimg, 0, 0);
-  const sm = c.imageSmoothingEnabled; c.imageSmoothingEnabled = true;
-  // stretch the tile grid over the world: one pixel per tile, smoothed, so light falls off softly
-  const X = (m.x0 - 0.5) * TS + TS / 2 - TS / 2, Y = (m.y0) * TS;
   // soften the tile edges: blow the map up 4x with a blur so shadows have soft, round edges
   if (!LGT.bcv) LGT.bcv = document.createElement('canvas');
   const bcv = LGT.bcv, S4 = 4; if (bcv.width !== m.rw * S4 || bcv.height !== m.rh * S4) { bcv.width = m.rw * S4; bcv.height = m.rh * S4; }
   { const bx = bcv.getContext('2d'); bx.clearRect(0, 0, bcv.width, bcv.height); bx.imageSmoothingEnabled = true; bx.filter = 'blur(2.2px)'; bx.drawImage(cv, 0, 0, bcv.width, bcv.height); bx.filter = 'none'; }
+  LGT.tm = m; LGT.texT = now;
+  }
+  const m = LGT.tm, bcv = LGT.bcv;
+  const sm = c.imageSmoothingEnabled; c.imageSmoothingEnabled = true;
+  // stretch the tile grid over the world: one pixel per tile, smoothed, so light falls off softly
   c.drawImage(bcv, m.x0 * TS, m.y0 * TS, m.rw * TS, m.rh * TS);
   if (night > 0.05) { c.globalCompositeOperation = 'lighter'; c.drawImage(wcv, m.x0 * TS, m.y0 * TS, m.rw * TS, m.rh * TS); c.globalCompositeOperation = 'source-over'; }
   c.imageSmoothingEnabled = sm;

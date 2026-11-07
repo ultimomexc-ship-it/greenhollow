@@ -7234,7 +7234,49 @@ const ART = (function() {
       }
     }
   }
-  return { Q, S, FR, DF, DO, TP, BLK, terr, water, overlay, frameOf, BYID, ITEMS, h32, mul, drawDoll, drawSleeper: drawSleeper2, roomDress, kitOf };
+  let dollT = -1, dollMade = 0;
+  const DOLL_PAD = 6, DOLL_CACHE = /* @__PURE__ */ new Map(), DOLL_MAX = 1500;
+  const dollIsLive = (sp) => !!(sp.wave || sp.pose === "work" && sp.tool || sp.hold && sp.pose !== "walk" && sp.pose !== "sit" && sp.pose !== "kneel");
+  function dollKey(sp, kc, wf) {
+    const f = sp.face || { dx: 0, dy: 1 }, inv = sp.inv;
+    return sp.id + "|" + kc + "|" + sp.age + (sp.female ? "f" : "m") + "|" + sp.skin + "|" + sp.hair + "|" + sp.hs + "|" + sp.beard + "|" + sp.shirt + "|" + sp.pat + "|" + sp.acc + "|" + sp.pants + "|" + sp.hat + "|" + sp.hatCol + (sp.hatOn ? "h" : "") + (sp.robe ? "r" : "") + (sp.apron ? "a" : "") + "|" + f.dx + "," + f.dy + "|" + sp.pose + (sp.moving ? "m" : "") + "|" + sp.dress + (sp.mourning ? "n" : "") + "|" + (inv ? (inv.wood ? "w" : "") + (inv.stone ? "s" : "") : "") + "|" + (sp.pose === "walk" ? wf : 0) + "|" + (sp.tool || "") + "|" + (sp.hold ? JSON.stringify(sp.hold) : "");
+  }
+  function drawDollLOD(g, sp, x, y, T2, Z) {
+    if (Z > 2 || dollIsLive(sp)) {
+      drawDoll(g, sp, x, y, 1, T2);
+      return;
+    }
+    const kc = Z <= 0.5 ? 0.5 : Z <= 1 ? 1 : 2, walk = sp.pose === "walk", wf = walk ? Math.floor(T2 * 9) % 6 : 0, key = dollKey(sp, kc, wf);
+    let e = DOLL_CACHE.get(key);
+    if (!e) {
+      if (T2 !== dollT) {
+        dollT = T2;
+        dollMade = 0;
+      }
+      if (dollMade >= 3) {
+        drawDoll(g, sp, x, y, 1, T2);
+        return;
+      }
+      dollMade++;
+      const size = Math.ceil((DF + 2 * DOLL_PAD) * kc), cv = document.createElement("canvas");
+      cv.width = cv.height = size;
+      drawDoll(cv.getContext("2d"), sp, (DO + DOLL_PAD) * kc, (DO + DOLL_PAD) * kc, kc, walk ? (wf + 0.5) / 9 : 0);
+      e = { cv, size: size / kc };
+      if (DOLL_CACHE.size >= DOLL_MAX) {
+        let n = 0;
+        for (const k of DOLL_CACHE.keys()) {
+          DOLL_CACHE.delete(k);
+          if (++n >= DOLL_MAX / 4) break;
+        }
+      }
+      DOLL_CACHE.set(key, e);
+    } else {
+      DOLL_CACHE.delete(key);
+      DOLL_CACHE.set(key, e);
+    }
+    g.drawImage(e.cv, x - DO - DOLL_PAD, y - DO - DOLL_PAD, e.size, e.size);
+  }
+  return { Q, S, FR, DF, DO, TP, BLK, terr, water, overlay, frameOf, BYID, ITEMS, h32, mul, drawDoll, drawDollLOD, drawSleeper: drawSleeper2, roomDress, kitOf };
 })();
 let W = 128, H = 84;
 const TS = 24;
@@ -15330,75 +15372,80 @@ function drawLighting(c, hour, now) {
     LGT.key = key;
     LGT.dirty = true;
   }
-  const m = LGT.map, day = daylight(hour), night = 1 - day, warmth = 0;
+  const day = daylight(hour), night = 1 - day, warmth = 0;
   if (!LGT.cv) {
     LGT.cv = document.createElement("canvas");
     LGT.wcv = document.createElement("canvas");
   }
   const cv = LGT.cv, wcv = LGT.wcv;
-  if (cv.width !== m.rw || cv.height !== m.rh) {
-    cv.width = wcv.width = m.rw;
-    cv.height = wcv.height = m.rh;
-  }
-  const img = cv.getContext("2d").createImageData(m.rw, m.rh), d = img.data, wimg = wcv.getContext("2d").createImageData(m.rw, m.rh), wd = wimg.data;
-  const nr = Math.round(10 + warmth * 150), ng = Math.round(14 + warmth * 50), nb = Math.round(42 - warmth * 15);
-  const moon = 0.035;
-  if (!LGT.A || LGT.A.length !== W * H || LGT.seed !== town.seed) {
-    LGT.seed = town.seed;
-    LGT.A = new Float32Array(W * H).fill(-1);
-    LGT.B = new Float32Array(W * H);
-    LGT.Wm = new Float32Array(W * H);
-  }
-  const dt = Math.min(0.25, Math.max(0, (now - (LGT.last || now)) / 1e3));
-  LGT.last = now;
-  const k = 1 - Math.exp(-dt / 0.13);
-  for (let yy = 0; yy < m.rh; yy++) for (let xx = 0; xx < m.rw; xx++) {
-    const i = yy * m.rw + xx, wi = (m.y0 + yy) * W + m.x0 + xx;
-    const L = m.light[i], v = m.vis[i];
-    const sc = m.sight[i] * m.sight[i] * (3 - 2 * m.sight[i]);
-    const inF = inForest(m.x0 + xx, m.y0 + yy), dayT = day;
-    const canopy2 = inF ? 0.5 : 1;
-    let bright = v ? Math.max((dayT * canopy2 + (1 - dayT) * moon) * sc, L) : 0;
-    if (v === 1) bright *= dayT > 0.5 ? 0.8 : 0.6;
-    const ta = Math.min(1, 1 - bright), tb = v === 0 || bright < 0.12 ? 1 : 0, tw = Math.min(1, L) * (1 - dayT) * (v ? 1 : 0);
-    if (LGT.A[wi] < 0) {
-      LGT.A[wi] = ta;
-      LGT.B[wi] = tb;
-      LGT.Wm[wi] = tw;
-    } else {
-      LGT.A[wi] += (ta - LGT.A[wi]) * k;
-      LGT.B[wi] += (tb - LGT.B[wi]) * k;
-      LGT.Wm[wi] += (tw - LGT.Wm[wi]) * k;
+  if (LGT.tm !== LGT.map || !(now - LGT.texT < 50)) {
+    const m2 = LGT.map;
+    if (cv.width !== m2.rw || cv.height !== m2.rh) {
+      cv.width = wcv.width = m2.rw;
+      cv.height = wcv.height = m2.rh;
     }
-    const a = LGT.A[wi], b = LGT.B[wi], o = i * 4;
-    d[o] = Math.round(nr + (4 - nr) * b);
-    d[o + 1] = Math.round(ng + (5 - ng) * b);
-    d[o + 2] = Math.round(nb + (9 - nb) * b);
-    d[o + 3] = Math.round(a * 255);
-    wd[o] = 255;
-    wd[o + 1] = 218;
-    wd[o + 2] = 170;
-    wd[o + 3] = Math.round(LGT.Wm[wi] * 0.2 * 255);
+    const img = cv.getContext("2d").createImageData(m2.rw, m2.rh), d = img.data, wimg = wcv.getContext("2d").createImageData(m2.rw, m2.rh), wd = wimg.data;
+    const nr = Math.round(10 + warmth * 150), ng = Math.round(14 + warmth * 50), nb = Math.round(42 - warmth * 15);
+    const moon = 0.035;
+    if (!LGT.A || LGT.A.length !== W * H || LGT.seed !== town.seed) {
+      LGT.seed = town.seed;
+      LGT.A = new Float32Array(W * H).fill(-1);
+      LGT.B = new Float32Array(W * H);
+      LGT.Wm = new Float32Array(W * H);
+    }
+    const dt = Math.min(0.25, Math.max(0, (now - (LGT.last || now)) / 1e3));
+    LGT.last = now;
+    const k = 1 - Math.exp(-dt / 0.13);
+    for (let yy = 0; yy < m2.rh; yy++) for (let xx = 0; xx < m2.rw; xx++) {
+      const i = yy * m2.rw + xx, wi = (m2.y0 + yy) * W + m2.x0 + xx;
+      const L = m2.light[i], v = m2.vis[i];
+      const sc = m2.sight[i] * m2.sight[i] * (3 - 2 * m2.sight[i]);
+      const inF = inForest(m2.x0 + xx, m2.y0 + yy), dayT = day;
+      const canopy2 = inF ? 0.5 : 1;
+      let bright = v ? Math.max((dayT * canopy2 + (1 - dayT) * moon) * sc, L) : 0;
+      if (v === 1) bright *= dayT > 0.5 ? 0.8 : 0.6;
+      const ta = Math.min(1, 1 - bright), tb = v === 0 || bright < 0.12 ? 1 : 0, tw = Math.min(1, L) * (1 - dayT) * (v ? 1 : 0);
+      if (LGT.A[wi] < 0) {
+        LGT.A[wi] = ta;
+        LGT.B[wi] = tb;
+        LGT.Wm[wi] = tw;
+      } else {
+        LGT.A[wi] += (ta - LGT.A[wi]) * k;
+        LGT.B[wi] += (tb - LGT.B[wi]) * k;
+        LGT.Wm[wi] += (tw - LGT.Wm[wi]) * k;
+      }
+      const a = LGT.A[wi], b = LGT.B[wi], o = i * 4;
+      d[o] = Math.round(nr + (4 - nr) * b);
+      d[o + 1] = Math.round(ng + (5 - ng) * b);
+      d[o + 2] = Math.round(nb + (9 - nb) * b);
+      d[o + 3] = Math.round(a * 255);
+      wd[o] = 255;
+      wd[o + 1] = 218;
+      wd[o + 2] = 170;
+      wd[o + 3] = Math.round(LGT.Wm[wi] * 0.2 * 255);
+    }
+    cv.getContext("2d").putImageData(img, 0, 0);
+    wcv.getContext("2d").putImageData(wimg, 0, 0);
+    if (!LGT.bcv) LGT.bcv = document.createElement("canvas");
+    const bcv2 = LGT.bcv, S4 = 4;
+    if (bcv2.width !== m2.rw * S4 || bcv2.height !== m2.rh * S4) {
+      bcv2.width = m2.rw * S4;
+      bcv2.height = m2.rh * S4;
+    }
+    {
+      const bx = bcv2.getContext("2d");
+      bx.clearRect(0, 0, bcv2.width, bcv2.height);
+      bx.imageSmoothingEnabled = true;
+      bx.filter = "blur(2.2px)";
+      bx.drawImage(cv, 0, 0, bcv2.width, bcv2.height);
+      bx.filter = "none";
+    }
+    LGT.tm = m2;
+    LGT.texT = now;
   }
-  cv.getContext("2d").putImageData(img, 0, 0);
-  wcv.getContext("2d").putImageData(wimg, 0, 0);
+  const m = LGT.tm, bcv = LGT.bcv;
   const sm = c.imageSmoothingEnabled;
   c.imageSmoothingEnabled = true;
-  const X = (m.x0 - 0.5) * TS + TS / 2 - TS / 2, Y = m.y0 * TS;
-  if (!LGT.bcv) LGT.bcv = document.createElement("canvas");
-  const bcv = LGT.bcv, S4 = 4;
-  if (bcv.width !== m.rw * S4 || bcv.height !== m.rh * S4) {
-    bcv.width = m.rw * S4;
-    bcv.height = m.rh * S4;
-  }
-  {
-    const bx = bcv.getContext("2d");
-    bx.clearRect(0, 0, bcv.width, bcv.height);
-    bx.imageSmoothingEnabled = true;
-    bx.filter = "blur(2.2px)";
-    bx.drawImage(cv, 0, 0, bcv.width, bcv.height);
-    bx.filter = "none";
-  }
   c.drawImage(bcv, m.x0 * TS, m.y0 * TS, m.rw * TS, m.rh * TS);
   if (night > 0.05) {
     c.globalCompositeOperation = "lighter";
@@ -20235,7 +20282,7 @@ function drawPerson(c, n, now, px, py) {
   const sp = gaSpec(n, now);
   c.save();
   try {
-    ART.drawDoll(c, sp, px, py, 1, now / 1e3);
+    ART.drawDollLOD(c, sp, px, py, now / 1e3, cam.z * cam.dpr);
   } catch (e) {
     if (!GA.warned) {
       GA.warned = 1;
@@ -20280,22 +20327,32 @@ function gaTide(c, now, L) {
   const nf = GA.nearFlat;
   if (!nf) return;
   const v = gaView(), fi = gaFi(now), hg = town.hgt;
-  const dep = (i, j) => {
-    if (i < 0 || j < 0 || i >= W || j >= H) return 99;
-    const h = hg[j * W + i];
-    return h >= 0 ? L - h : gaK(i, j) === "water" ? 99 : -99;
-  };
-  for (let y = v.y0; y < v.y1; y++) for (let x = v.x0; x < v.x1; x++) {
-    if (!nf[y * W + x] || roomAt[y][x] >= 0) continue;
-    const d = [dep(x - 1, y - 1), dep(x, y - 1), dep(x + 1, y - 1), dep(x - 1, y), dep(x, y), dep(x + 1, y), dep(x - 1, y + 1), dep(x, y + 1), dep(x + 1, y + 1)], w = d.map((q) => q > 0);
-    const m = (w[0] && w[1] && w[3] && w[4] ? 1 : 0) | (w[1] && w[2] && w[4] && w[5] ? 2 : 0) | (w[4] && w[5] && w[7] && w[8] ? 4 : 0) | (w[3] && w[4] && w[6] && w[7] ? 8 : 0);
-    if (!m) continue;
-    const X = x * TS, Y = y * TS, own = hg[y * W + x] >= 0, dd = d[4];
-    if (!own && m !== 15 && gaK(x, y) !== "water") continue;
-    c.globalAlpha = own ? Math.min(0.96, 0.5 + dd / 9) : 1;
-    c.drawImage(m === 15 ? ART.water(own || !GA.shal[y * W + x] ? "shallow" : "shallow", fi) : ART.overlay("shallow", m, fi), X, Y, TS, TS);
-    c.globalAlpha = 1;
+  const key = v.x0 + "," + v.y0 + "," + v.x1 + "," + v.y1 + "," + (town.seed || "");
+  let tc = GA.tideCache;
+  if (!tc || tc.key !== key || !(now - tc.t < 200)) {
+    const dep = (i, j) => {
+      if (i < 0 || j < 0 || i >= W || j >= H) return 99;
+      const h = hg[j * W + i];
+      return h >= 0 ? L - h : gaK(i, j) === "water" ? 99 : -99;
+    };
+    const list2 = [];
+    for (let y = v.y0; y < v.y1; y++) for (let x = v.x0; x < v.x1; x++) {
+      if (!nf[y * W + x] || roomAt[y][x] >= 0) continue;
+      const d = [dep(x - 1, y - 1), dep(x, y - 1), dep(x + 1, y - 1), dep(x - 1, y), dep(x, y), dep(x + 1, y), dep(x - 1, y + 1), dep(x, y + 1), dep(x + 1, y + 1)], w = d.map((q) => q > 0);
+      const m = (w[0] && w[1] && w[3] && w[4] ? 1 : 0) | (w[1] && w[2] && w[4] && w[5] ? 2 : 0) | (w[4] && w[5] && w[7] && w[8] ? 4 : 0) | (w[3] && w[4] && w[6] && w[7] ? 8 : 0);
+      if (!m) continue;
+      const own = hg[y * W + x] >= 0, dd = d[4];
+      if (!own && m !== 15 && gaK(x, y) !== "water") continue;
+      list2.push(x * TS, y * TS, m, own ? Math.min(0.96, 0.5 + dd / 9) : 1);
+    }
+    tc = GA.tideCache = { key, t: now, list: list2 };
   }
+  const list = tc.list;
+  for (let i = 0; i < list.length; i += 4) {
+    c.globalAlpha = list[i + 3];
+    c.drawImage(list[i + 2] === 15 ? ART.water("shallow", fi) : ART.overlay("shallow", list[i + 2], fi), list[i], list[i + 1], TS, TS);
+  }
+  c.globalAlpha = 1;
 }
 let waterList = [];
 let waterDirty = false;

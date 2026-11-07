@@ -2018,7 +2018,36 @@ function roomDress(g, r, ri, doorXs, seed) { const R = mul(900 + ri * 31 + seed)
     for (let i = 0; i < n; i++) { const t = a0 + (a1 - a0) * R(); if (nm === 'S' && doors.some(dx => Math.abs(t - (dx + 0.5) * 24) < 22)) continue; const px = nx ? ax : t, py = ny ? ay : t, cnt = 11 + ((R() * 6) | 0);
       for (let j = 0; j < cnt; j++) { const out = (R() - 0.5) * 7.2, tan = (R() - 0.5) * 11; let x = px + nx * out + (nx ? 0 : tan), y = py + ny * out + (ny ? 0 : tan); const gcol = ['#4f9a45', '#63ad4c', '#3f8a40', '#78b957'][(R() * 4) | 0];
         leafAt(g, x, y, R() * TAU, 2.5 + R() * 1.2, 1.1 + R() * 0.4, gcol, '#2f6a35', 'rgba(20,60,30,.4)'); } } } }
-return { Q, S, FR, DF, DO, TP, BLK, terr, water, overlay, frameOf, BYID, ITEMS, h32, mul, drawDoll, drawSleeper, roomDress, kitOf };
+/* ---- villagers as one sprite: when the map is not zoomed right in, each look + pose + facing + walk frame is composed once
+   (the same drawDoll, just into its own small canvas) and then stamped, instead of 10 to 20 draw calls per person per frame.
+   Anything animated beyond the walk cycle (working, waving, holding something) and every close-up still draws live. ---- */
+let dollT = -1, dollMade = 0;
+const DOLL_PAD = 6, DOLL_CACHE = new Map<string, any>(), DOLL_MAX = 1500;
+const dollIsLive = sp => !!(sp.wave || (sp.pose === 'work' && sp.tool) || (sp.hold && sp.pose !== 'walk' && sp.pose !== 'sit' && sp.pose !== 'kneel'));
+function dollKey(sp, kc, wf) {
+  const f = sp.face || { dx: 0, dy: 1 }, inv = sp.inv;
+  return sp.id + '|' + kc + '|' + sp.age + (sp.female ? 'f' : 'm') + '|' + sp.skin + '|' + sp.hair + '|' + sp.hs + '|' + sp.beard + '|' + sp.shirt + '|' + sp.pat + '|' + sp.acc + '|' + sp.pants + '|' + sp.hat + '|' + sp.hatCol + (sp.hatOn ? 'h' : '') + (sp.robe ? 'r' : '') + (sp.apron ? 'a' : '')
+    + '|' + f.dx + ',' + f.dy + '|' + sp.pose + (sp.moving ? 'm' : '') + '|' + sp.dress + (sp.mourning ? 'n' : '') + '|' + (inv ? (inv.wood ? 'w' : '') + (inv.stone ? 's' : '') : '') + '|' + (sp.pose === 'walk' ? wf : 0) + '|' + (sp.tool || '') + '|' + (sp.hold ? JSON.stringify(sp.hold) : '');
+}
+/** Draw a villager at tile-pixel position (x, y) with the screen scale Z (device pixels per game pixel). Same picture as drawDoll(g, sp, x, y, 1, T). */
+function drawDollLOD(g, sp, x, y, T, Z) {
+  if (Z > 2 || dollIsLive(sp)) { drawDoll(g, sp, x, y, 1, T); return; }
+  const kc = Z <= 0.5 ? 0.5 : Z <= 1 ? 1 : 2, walk = sp.pose === 'walk', wf = walk ? Math.floor(T * 9) % 6 : 0, key = dollKey(sp, kc, wf);
+  let e = DOLL_CACHE.get(key);
+  if (!e) {
+    // at most 3 new sprites are composed per frame (every villager shares the frame's T); the rest draw live this frame and are cached on a later one
+    if (T !== dollT) { dollT = T; dollMade = 0; }
+    if (dollMade >= 3) { drawDoll(g, sp, x, y, 1, T); return; }
+    dollMade++;
+    const size = Math.ceil((DF + 2 * DOLL_PAD) * kc), cv = document.createElement('canvas'); cv.width = cv.height = size;
+    drawDoll(cv.getContext('2d'), sp, (DO + DOLL_PAD) * kc, (DO + DOLL_PAD) * kc, kc, walk ? (wf + 0.5) / 9 : 0);
+    e = { cv, size: size / kc };
+    if (DOLL_CACHE.size >= DOLL_MAX) { let n = 0; for (const k of DOLL_CACHE.keys()) { DOLL_CACHE.delete(k); if (++n >= DOLL_MAX / 4) break; } }   // oldest quarter out
+    DOLL_CACHE.set(key, e);
+  } else { DOLL_CACHE.delete(key); DOLL_CACHE.set(key, e); }   // most recently used goes to the back
+  g.drawImage(e.cv, x - DO - DOLL_PAD, y - DO - DOLL_PAD, e.size, e.size);
+}
+return { Q, S, FR, DF, DO, TP, BLK, terr, water, overlay, frameOf, BYID, ITEMS, h32, mul, drawDoll, drawDollLOD, drawSleeper, roomDress, kitOf };
 
 })();
 

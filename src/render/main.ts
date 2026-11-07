@@ -9,7 +9,7 @@ function gaSpec(n, now) {
 }
 function drawPerson(c, n, now, px, py) {
   const sp = gaSpec(n, now); c.save();
-  try { ART.drawDoll(c, sp, px, py, 1, now / 1000); } catch (e) { if (!GA.warned) { GA.warned = 1; console.error('doll', e && e.message); } }
+  try { ART.drawDollLOD(c, sp, px, py, now / 1000, cam.z * cam.dpr); } catch (e) { if (!GA.warned) { GA.warned = 1; console.error('doll', e && e.message); } }
   c.restore();
   if (n.status === 'Playing the fiddle' && !n.moving) drawFiddle(c, n, now, px, py);
 }
@@ -31,18 +31,29 @@ function gaNearFlats() {
 function gaTide(c, now, L) {
   const nf = GA.nearFlat; if (!nf) return;
   const v = gaView(), fi = gaFi(now), hg = town.hgt;
-  const dep = (i, j) => { if (i < 0 || j < 0 || i >= W || j >= H) return 99; const h = hg[j * W + i]; return h >= 0 ? L - h : (gaK(i, j) === 'water' ? 99 : -99); };
-  for (let y = v.y0; y < v.y1; y++) for (let x = v.x0; x < v.x1; x++) {
-    if (!nf[y * W + x] || roomAt[y][x] >= 0) continue;
-    const d = [dep(x - 1, y - 1), dep(x, y - 1), dep(x + 1, y - 1), dep(x - 1, y), dep(x, y), dep(x + 1, y), dep(x - 1, y + 1), dep(x, y + 1), dep(x + 1, y + 1)], w = d.map(q => q > 0);
-    const m = (w[0] && w[1] && w[3] && w[4] ? 1 : 0) | (w[1] && w[2] && w[4] && w[5] ? 2 : 0) | (w[4] && w[5] && w[7] && w[8] ? 4 : 0) | (w[3] && w[4] && w[6] && w[7] ? 8 : 0);
-    if (!m) continue;
-    const X = x * TS, Y = y * TS, own = hg[y * W + x] >= 0, dd = d[4];
-    if (!own && m !== 15 && gaK(x, y) !== 'water') continue;
-    c.globalAlpha = own ? Math.min(0.96, 0.5 + dd / 9) : 1;
-    c.drawImage(m === 15 ? ART.water(own || !GA.shal[y * W + x] ? 'shallow' : 'shallow', fi) : ART.overlay('shallow', m, fi), X, Y, TS, TS);
-    c.globalAlpha = 1;
+  /* which tiles the tide covers (and how) is worked out when the view changes and then every 200 ms: the water level moves far slower than that */
+  const key = v.x0 + ',' + v.y0 + ',' + v.x1 + ',' + v.y1 + ',' + (town.seed || '');
+  let tc = GA.tideCache;
+  if (!tc || tc.key !== key || !(now - tc.t < 200)) {
+    const dep = (i, j) => { if (i < 0 || j < 0 || i >= W || j >= H) return 99; const h = hg[j * W + i]; return h >= 0 ? L - h : (gaK(i, j) === 'water' ? 99 : -99); };
+    const list: number[] = [];   // x, y, mask, alpha, ...
+    for (let y = v.y0; y < v.y1; y++) for (let x = v.x0; x < v.x1; x++) {
+      if (!nf[y * W + x] || roomAt[y][x] >= 0) continue;
+      const d = [dep(x - 1, y - 1), dep(x, y - 1), dep(x + 1, y - 1), dep(x - 1, y), dep(x, y), dep(x + 1, y), dep(x - 1, y + 1), dep(x, y + 1), dep(x + 1, y + 1)], w = d.map(q => q > 0);
+      const m = (w[0] && w[1] && w[3] && w[4] ? 1 : 0) | (w[1] && w[2] && w[4] && w[5] ? 2 : 0) | (w[4] && w[5] && w[7] && w[8] ? 4 : 0) | (w[3] && w[4] && w[6] && w[7] ? 8 : 0);
+      if (!m) continue;
+      const own = hg[y * W + x] >= 0, dd = d[4];
+      if (!own && m !== 15 && gaK(x, y) !== 'water') continue;
+      list.push(x * TS, y * TS, m, own ? Math.min(0.96, 0.5 + dd / 9) : 1);
+    }
+    tc = GA.tideCache = { key, t: now, list };
   }
+  const list = tc.list;
+  for (let i = 0; i < list.length; i += 4) {
+    c.globalAlpha = list[i + 3];
+    c.drawImage(list[i + 2] === 15 ? ART.water('shallow', fi) : ART.overlay('shallow', list[i + 2], fi), list[i], list[i + 1], TS, TS);
+  }
+  c.globalAlpha = 1;
 }
 
 /* ---------- sizing and camera ---------- */
