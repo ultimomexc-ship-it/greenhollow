@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Greenhollow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Pixelify+Sans:wght@500;600&display=swap">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>
+/*@@CSS@@*/
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="top">
+    <div class="brand"><h1 id="townName">Greenhollow</h1><p id="townSub">Founding a town</p></div>
+    <div class="clockbox"><span id="clock">05:30</span><span id="dayline">Day 1 · Monday</span></div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Simulation speed">
+        <button type="button" data-speed="0" aria-pressed="false">Pause</button>
+        <button type="button" data-speed="1" aria-pressed="false">1×</button>
+        <button type="button" data-speed="2" aria-pressed="true">2×</button>
+        <button type="button" data-speed="3" aria-pressed="false">3×</button>
+        <button type="button" data-speed="10" aria-pressed="false">10×</button>
+        <button type="button" data-speed="30" aria-pressed="false">30×</button>
+        <button type="button" data-speed="100" aria-pressed="false">100×</button>
+        <button type="button" data-speed="300" aria-pressed="false">300×</button>
+      </div>
+      <div class="seg" role="group" aria-label="Skip ahead"><button type="button" class="skip" data-y="1">+1 yr</button><button type="button" class="skip" data-y="5">+5 yr</button><button type="button" class="skip" data-y="20">+20 yr</button></div>
+    </div>
+  </header>
+  <div class="resbar" id="resbar" aria-live="off"></div>
+  <div class="genbar">
+    <button type="button" class="btn primary" id="newTown">Generate new town</button>
+    <form id="seedForm" class="seedform"><label for="seed">Seed</label><input id="seed" type="text" autocomplete="off" spellcheck="false" value=""><button type="submit" class="btn">Load seed</button></form>
+    <div class="sizes"><span id="sizeLbl">Map size</span><div class="seg" role="group" aria-labelledby="sizeLbl"><button type="button" data-size="S" aria-pressed="false">Small</button><button type="button" data-size="M" aria-pressed="false">Medium</button><button type="button" data-size="L" aria-pressed="true">Large</button></div></div>
+    <label class="opt" for="routes"><input type="checkbox" id="routes"> Show every route</label>
+  </div>
+  <div class="stripwrap">
+    <div class="strip" id="strip" role="slider" aria-label="Time of day, click to skip ahead to that time" tabindex="0"><div class="mark" id="mark"></div></div>
+    <div class="ticks"><span style="left:0">00:00</span><span style="left:25%">06:00</span><span style="left:50%">12:00</span><span style="left:75%">18:00</span><span style="left:100%">24:00</span></div>
+  </div>
+  <main class="main">
+    <section class="stage"><canvas id="c" tabindex="0" aria-label="Village map. Drag to pan, scroll or pinch to zoom, arrow keys to move, plus and minus to zoom."></canvas>
+      <div class="legend" id="legend" aria-hidden="true"></div>
+      <div class="clock" id="clock" aria-live="polite"><div class="ct" id="clockT"></div><ul id="clockE"></ul></div>
+      <div class="zoombar"><div class="seg" role="group" aria-label="Zoom"><button type="button" id="zin" aria-label="Zoom in">+</button><button type="button" id="zout" aria-label="Zoom out">&minus;</button><button type="button" id="zfit" aria-label="Fit whole map">Fit</button></div><button type="button" class="btn fol" id="zfs" title="Full screen (F)" aria-label="Full screen">&#x26F6;</button><button type="button" class="btn fol" id="zfol" aria-pressed="false" title="Keep the selected villager centred">Follow</button></div>
+      <div class="talk" id="talk" hidden></div>
+      <div class="notice" id="notice" hidden><span id="noticeText"></span><button type="button" class="btn primary" id="noticeGo">Go there</button><button type="button" class="btn" id="noticeX" aria-label="Dismiss">✕</button></div>
+      <div class="tip" id="tip" hidden></div>
+      <div class="hud" id="hud" hidden></div>
+      <div class="dpad" id="dpad" hidden><button type="button" data-d="up" aria-label="Up">▲</button><button type="button" data-d="left" aria-label="Left">◀</button><button type="button" data-d="down" aria-label="Down">▼</button><button type="button" data-d="right" aria-label="Right">▶</button></div>
+      <div class="maphint" id="maphint">Drag to pan &middot; scroll to zoom &middot; click a villager</div></section>
+    <aside class="side">
+      <div class="seg tabs" role="group" aria-label="Side panel">
+        <button type="button" data-tab="people" aria-pressed="true">Folk</button>
+        <button type="button" data-tab="chron" aria-pressed="false">Chronicle</button>
+        <button type="button" data-tab="cal" aria-pressed="false">Calendar</button>
+        <button type="button" data-tab="chat" aria-pressed="false">Chatter</button>
+        <button type="button" data-tab="town" aria-pressed="false">Town</button>
+      </div>
+      <div id="tab-people" class="tabpane">
+        <div class="panel" id="card"></div>
+        <div class="panel"><h2>Everyone (<span id="popCount">0</span>)</h2><ul id="list"></ul></div>
+      </div>
+      <div id="tab-chron" class="tabpane" hidden><div class="panel"><h2>Chronicle</h2><div class="seg" style="margin-bottom:8px;width:max-content"><button type="button" id="goYard">Go to churchyard</button><button type="button" id="goSquare">Go to square</button></div><ul id="chronList" class="log chron"></ul></div></div>
+      <div id="tab-cal" class="tabpane" hidden><div class="panel" id="calPanel"></div></div>
+      <div id="tab-market" class="tabpane" hidden><div class="panel" id="mkt"></div></div>
+      <div id="tab-chat" class="tabpane" hidden>
+        <div class="panel"><h2>Overheard</h2><p class="sub" id="chatEmpty">Nothing yet. Villagers talk when they meet: at tables, on the plaza, over the fields.</p><ul id="chat" class="chat"></ul></div>
+      </div>
+      <div id="tab-town" class="tabpane" hidden><div class="panel" id="townPanel"></div></div>
+    </aside>
+  </main>
+</div>
+
+<script>
+/*@@JS@@*/
+</script>
+</body>
+</html>
