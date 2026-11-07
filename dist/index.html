@@ -3126,156 +3126,157 @@ const ART = (function() {
       g.fillRect(0, 0, 24, 1.3);
     }
   }
+  const DOORWOOD = pal("#9a6238", "#e0aa70", "#b4784a"), DOORDARK = pal("#7a4a2c", "#c08858", "#8e5c38");
   function doorN24(g, open) {
-    wallFace24(g, false);
-    const arch = (x0, x1, yb, yt, ytop) => {
-      g.beginPath();
-      g.moveTo(x0, yb);
-      g.lineTo(x0, yt);
-      g.quadraticCurveTo(12, ytop, x1, yt);
-      g.lineTo(x1, yb);
-      g.closePath();
-    };
     g.fillStyle = INK;
-    arch(4.2, 19.8, 24, 13, 4.2);
-    g.fill();
+    g.fillRect(0, 0, 24, 24);
     g.fillStyle = "#9aa8b8";
-    arch(4.8, 19.2, 24, 13.1, 5.2);
-    g.fill();
-    g.strokeStyle = "rgba(40,46,76,.55)";
-    g.lineWidth = 0.17;
-    for (let k = 0; k <= 10; k++) {
-      const u = k / 10, x = 4.8 + 14.4 * u, y = 13.1 - 2 * Math.sin(Math.PI * u) * 3.2 - 0;
-      if (k > 0 && k < 10) {
-        g.beginPath();
-        g.moveTo(x, y - 0.1);
-        g.lineTo(x + (u - 0.5) * 0.1, y + 1.4);
-        g.stroke();
-      }
-    }
-    g.fillStyle = "rgba(255,255,255,.3)";
-    g.fillRect(4.8, 13.2, 0.5, 10.8);
-    g.fillStyle = "rgba(56,62,130,.28)";
-    g.fillRect(18.6, 13.2, 0.6, 10.8);
-    g.fillStyle = INK;
-    arch(5.8, 18.2, 24, 13.3, 6.4);
-    g.fill();
+    g.fillRect(0, 0.6, 1.4, 23.4);
+    g.fillRect(22.6, 0.6, 1.4, 23.4);
+    g.fillStyle = "rgba(255,255,255,.28)";
+    g.fillRect(0.2, 1, 0.5, 23);
+    g.fillStyle = "rgba(56,62,130,.3)";
+    g.fillRect(22.9, 1, 0.8, 23);
     if (open) {
-      const dg = g.createLinearGradient(0, 8, 0, 24);
-      dg.addColorStop(0, "#1e1622");
+      const dg = g.createLinearGradient(0, 2, 0, 24);
+      dg.addColorStop(0, "#120d18");
       dg.addColorStop(1, "#3a2a34");
       g.fillStyle = dg;
-      arch(6.4, 17.6, 24, 13.4, 7.6);
-      g.fill();
-      g.fillStyle = "rgba(255,214,140,.32)";
+      g.fillRect(1.4, 2.4, 21.2, 21.6);
+      g.fillStyle = "rgba(255,214,140,.34)";
       g.beginPath();
-      g.moveTo(8, 24);
-      g.lineTo(16, 24);
-      g.lineTo(14, 15);
-      g.lineTo(10, 15);
+      g.moveTo(4, 24);
+      g.lineTo(20, 24);
+      g.lineTo(17, 14);
+      g.lineTo(7, 14);
+      g.closePath();
       g.fill();
-      for (const [sx, a] of [[5.8, 1], [18.2, -1]]) {
+      for (const [x0, a] of [[1.4, 1], [22.6, -1]]) {
         g.save();
         g.beginPath();
-        g.moveTo(sx, 24);
-        g.lineTo(sx, 13.6);
-        g.lineTo(sx + a * 2, 12.6);
-        g.lineTo(sx + a * 2, 24);
+        g.moveTo(x0, 2.4);
+        g.lineTo(x0 + a * 3.4, 3.6);
+        g.lineTo(x0 + a * 3.4, 24);
+        g.lineTo(x0, 24);
         g.closePath();
         g.clip();
-        wood(g, Math.min(sx, sx + a * 2), 12, 2, 12, { dir: "v", planks: 1, seed: 6, nails: false, knots: 0.3, plain: true, P: pal("#9a6238", "#e0aa70", null) });
+        wood(g, Math.min(x0, x0 + a * 3.4), 2, 3.4, 22, { dir: "v", planks: 1, seed: 6, nails: false, knots: 0.3, plain: true, P: DOORWOOD });
         g.restore();
         g.strokeStyle = INK;
-        g.lineWidth = 0.2;
+        g.lineWidth = 0.22;
         g.beginPath();
-        g.moveTo(sx, 24);
-        g.lineTo(sx, 13.6);
-        g.lineTo(sx + a * 2, 12.6);
-        g.lineTo(sx + a * 2, 24);
+        g.moveTo(x0, 2.4);
+        g.lineTo(x0 + a * 3.4, 3.6);
+        g.lineTo(x0 + a * 3.4, 24);
         g.stroke();
+        for (const y of [8, 17]) {
+          g.fillStyle = "#4b5058";
+          g.fillRect(Math.min(x0, x0 + a * 3.4), y, 3.4, 1.1);
+        }
       }
     } else {
       g.save();
-      arch(6.2, 17.8, 24, 13.6, 7);
+      g.beginPath();
+      g.rect(1.4, 2.4, 21.2, 21.6);
       g.clip();
-      wood(g, 6.2, 7, 11.6, 17, { dir: "v", planks: 4, seed: 7, nails: false, knots: 0.4, plain: true, P: pal("#9a6238", "#e0aa70", "#b4784a") });
-      g.fillStyle = "rgba(46,32,70,.26)";
-      g.fillRect(12.4, 8, 5.6, 16);
-      for (const y of [15, 21]) {
-        c24(g, [rect(6.2, y - 0.8, 11.6, 1.6)], IRON, { smooth: false, seed: 8, hs: 0.01, iw: 0.1, rim: 0.2 });
-        for (const x of [7.4, 12, 16.6]) dab(g, x, y, 0.25, 0.25, 0, "#c8ccd6");
+      wood(g, 1.4, 2.4, 21.2, 21.6, { dir: "v", planks: 6, seed: 7, nails: false, knots: 0.5, plain: true, P: DOORWOOD });
+      g.fillStyle = "rgba(46,32,70,.22)";
+      g.fillRect(12, 2.4, 10.6, 21.6);
+      g.strokeStyle = "rgba(40,24,30,.55)";
+      g.lineWidth = 0.22;
+      for (let k = 1; k < 6; k++) {
+        g.beginPath();
+        g.moveTo(1.4 + k * 3.53, 2.4);
+        g.lineTo(1.4 + k * 3.53, 24);
+        g.stroke();
+      }
+      for (const y of [7.5, 17.5]) {
+        c24(g, [rect(1.4, y - 1, 21.2, 2)], IRON, { smooth: false, seed: 8, hs: 0.01, iw: 0.12, rim: 0.2 });
+        for (const x of [3.4, 8, 12, 16, 20.6]) dab(g, x, y, 0.32, 0.32, 0, "#c8ccd6");
       }
       g.restore();
-      g.strokeStyle = INK;
-      g.lineWidth = 0.2;
-      arch(6.2, 17.8, 24, 13.6, 7);
-      g.stroke();
-      ln(g, 15.4, 18.4, 15.4, 19.6, INK, 1.3);
-      dab(g, 15.4, 18.2, 0.95, 0.95, 0, INK);
-      dab(g, 15.4, 18.2, 0.7, 0.7, 0, "#e6c460");
-      dab(g, 15.2, 18, 0.28, 0.28, 0, "#fff4c0");
-      g.strokeStyle = "#c9a44c";
-      g.lineWidth = 0.22;
+      g.strokeStyle = "#2a2332";
+      g.lineWidth = 0.9;
       g.beginPath();
-      g.arc(15.4, 19.4, 0.7, 0, Math.PI);
+      g.arc(18.4, 13.6, 1.5, 0, 6.3);
       g.stroke();
+      g.strokeStyle = "#b8bec8";
+      g.lineWidth = 0.45;
+      g.beginPath();
+      g.arc(18.4, 13.6, 1.5, 0, 6.3);
+      g.stroke();
+      dab(g, 18.4, 12, 0.7, 0.7, 0, "#6b7380");
     }
-    c24(g, [rect(3.4, 22.4, 17.2, 1.6)], pal("#d9cba7", "#fff6dc", null), { smooth: false, seed: 9, hs: 0.01, iw: 0.1, rim: 0.2 });
+    g.fillStyle = "#6a4830";
+    g.fillRect(0, 0, 24, 2.4);
+    g.fillStyle = "rgba(255,230,190,.35)";
+    g.fillRect(0, 0.2, 24, 0.5);
+    g.fillStyle = INK;
+    g.fillRect(0, 2.2, 24, 0.35);
   }
   function doorS24(g, open) {
-    g.fillStyle = "rgba(40,24,50,.24)";
-    g.fillRect(2.4, 3.8, 19.4, 17.4);
-    c24(g, [rect(3, 4, 18, 16)], pal("#b24a46", "#e88a7a", null), { smooth: false, seed: 5, rim: 0.4, hs: 0.01, iw: 0.15 });
-    g.save();
-    g.beginPath();
-    g.rect(3, 4, 18, 16);
-    g.clip();
-    g.strokeStyle = "rgba(80,24,28,.22)";
-    g.lineWidth = 0.14;
-    for (let x = 3.5; x < 21; x += 0.9) {
-      g.beginPath();
-      g.moveTo(x, 4);
-      g.lineTo(x, 20);
-      g.stroke();
-    }
-    g.strokeStyle = "rgba(255,200,180,.18)";
-    for (let y = 4.4; y < 20; y += 0.9) {
-      g.beginPath();
-      g.moveTo(3, y);
-      g.lineTo(21, y);
-      g.stroke();
-    }
-    g.strokeStyle = "rgba(255,224,200,.7)";
-    g.lineWidth = 0.34;
-    g.strokeRect(5.2, 6.2, 13.6, 11.6);
-    g.strokeStyle = "rgba(64,20,30,.5)";
-    g.lineWidth = 0.2;
-    g.strokeRect(6.4, 7.4, 11.2, 9.2);
-    g.fillStyle = "rgba(255,224,190,.55)";
-    g.beginPath();
-    g.moveTo(12, 8.4);
-    g.lineTo(15.6, 12);
-    g.lineTo(12, 15.6);
-    g.lineTo(8.4, 12);
-    g.closePath();
-    g.fill();
-    g.fillStyle = "#b24a46";
-    g.beginPath();
-    g.moveTo(12, 9.8);
-    g.lineTo(14.2, 12);
-    g.lineTo(12, 14.2);
-    g.lineTo(9.8, 12);
-    g.closePath();
-    g.fill();
-    g.restore();
-    g.fillStyle = "#8a3636";
-    for (let i = 0; i < 6; i++) {
-      g.fillRect(3.4 + i * 3, 20, 1, 2.6);
-      g.fillStyle = i % 2 ? "#9a3b3b" : "#7a2e30";
-    }
+    g.fillStyle = INK;
+    g.fillRect(0, 0, 24, 24);
+    g.fillStyle = "#9aa8b8";
+    g.fillRect(0, 0, 24, 1.8);
+    g.fillRect(0, 22.2, 24, 1.8);
+    g.fillStyle = "rgba(255,255,255,.3)";
+    g.fillRect(0, 0.2, 24, 0.5);
+    g.fillStyle = "rgba(56,62,130,.3)";
+    g.fillRect(0, 21.3, 24, 0.7);
     if (open) {
-      g.fillStyle = "rgba(255,214,140,.3)";
-      g.fillRect(3, 4, 18, 16);
+      const dg = g.createLinearGradient(0, 0, 24, 0);
+      dg.addColorStop(0, "#2c2030");
+      dg.addColorStop(1, "#4a3a42");
+      g.fillStyle = dg;
+      g.fillRect(0, 1.8, 24, 20.4);
+      g.fillStyle = "rgba(255,214,140,.32)";
+      g.fillRect(0, 1.8, 24, 20.4);
+      g.save();
+      g.beginPath();
+      g.rect(0, 2, 24, 20);
+      g.clip();
+      wood(g, 0.6, 2.4, 3.6, 19.2, { dir: "v", planks: 1, seed: 6, nails: false, knots: 0.3, plain: true, P: DOORWOOD });
+      g.restore();
+      g.strokeStyle = INK;
+      g.lineWidth = 0.22;
+      g.strokeRect(0.6, 2.4, 3.6, 19.2);
+      for (const y of [4.4, 18.6]) {
+        g.fillStyle = "#4b5058";
+        g.fillRect(0.6, y, 3.6, 1.1);
+      }
+    } else {
+      g.save();
+      g.beginPath();
+      g.rect(0, 1.8, 24, 20.4);
+      g.clip();
+      wood(g, 0, 1.8, 24, 20.4, { dir: "h", planks: 4, seed: 9, nails: false, knots: 0.5, plain: true, P: DOORWOOD });
+      g.fillStyle = "rgba(46,32,70,.2)";
+      g.fillRect(0, 12.5, 24, 9.7);
+      g.strokeStyle = "rgba(40,24,30,.55)";
+      g.lineWidth = 0.22;
+      for (let k = 1; k < 4; k++) {
+        g.beginPath();
+        g.moveTo(0, 1.8 + k * 5.1);
+        g.lineTo(24, 1.8 + k * 5.1);
+        g.stroke();
+      }
+      for (const x of [4.5, 19.5]) {
+        c24(g, [rect(x - 1, 1.8, 2, 20.4)], IRON, { smooth: false, seed: 8, hs: 0.01, iw: 0.12, rim: 0.2 });
+        for (const y of [4.4, 9.4, 14.4, 19.4]) dab(g, x, y, 0.32, 0.32, 0, "#c8ccd6");
+      }
+      g.restore();
+      g.strokeStyle = "#2a2332";
+      g.lineWidth = 0.9;
+      g.beginPath();
+      g.arc(12, 12, 1.7, 0, 6.3);
+      g.stroke();
+      g.strokeStyle = "#b8bec8";
+      g.lineWidth = 0.45;
+      g.beginPath();
+      g.arc(12, 12, 1.7, 0, 6.3);
+      g.stroke();
+      dab(g, 12, 10.2, 0.7, 0.7, 0, "#6b7380");
     }
   }
   function shadeC(hex, k) {
@@ -7035,10 +7036,10 @@ const ART = (function() {
   T24("wall_window", "walls", "Back wall, window", (g) => wallFace24(g, true), { kind: "tile", under: null });
   for (const s of ["W", "E", "S", "WS", "ES", "WN", "EN"]) T24("cap_" + s, "walls", "Wall top " + s, (g) => cap24(g, s), { kind: "tile", under: null });
   T24("cap_plain", "walls", "Wall top, inner", (g) => cap24(g, ""), { kind: "tile", under: null });
-  T24("door_back_closed", "walls", "Arched door, closed", (g) => doorN24(g, false), { kind: "tile", under: null });
-  T24("door_back_open", "walls", "Arched door, open", (g) => doorN24(g, true), { kind: "tile", under: null });
-  T24("door_mat_closed", "walls", "Doormat door", (g) => doorS24(g, false), { kind: "furniture" });
-  T24("door_mat_open", "walls", "Doormat door, open", (g) => doorS24(g, true), { kind: "furniture" });
+  T24("door_back_closed", "walls", "Wooden door, shut (north wall)", (g) => doorN24(g, false), { kind: "tile", under: null });
+  T24("door_back_open", "walls", "Wooden door, open (north wall)", (g) => doorN24(g, true), { kind: "tile", under: null });
+  T24("door_mat_closed", "walls", "Wooden door, shut (south wall, from above)", (g) => doorS24(g, false), { kind: "furniture" });
+  T24("door_mat_open", "walls", "Wooden door, open (south wall, from above)", (g) => doorS24(g, true), { kind: "furniture" });
   for (const [i, c] of BLANKET.entries()) {
     T24(`bed_head_up_${i}`, "furniture", `Bed, head up, ${["blue", "red", "green", "violet", "gold"][i]}`, (g) => bed24(g, c, true));
     T24(`bed_head_down_${i}`, "furniture", `Bed, head down, ${["blue", "red", "green", "violet", "gold"][i]}`, (g) => bed24(g, c, false));
