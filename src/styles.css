@@ -183,3 +183,11 @@ body.fs #c { height: 100vh !important; height: 100dvh !important; }
 [hidden] { display: none !important; }
 
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* the tone row under a conversation: how you say it */
+.talk .tones { display: flex; align-items: center; gap: 6px; padding: 0 12px 10px; background: #13181a; }
+.talk .tones small { color: var(--muted); font-size: 12px; margin-right: 2px; }
+.talk .tones button { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: #1e2528; color: var(--fg); font: 500 12.5px var(--font-body); cursor: pointer; }
+.talk .tones button i { font: 500 10.5px var(--font-mono); opacity: .6; font-style: normal; }
+.talk .tones button.on { background: var(--amber); color: #1b1b1b; border-color: var(--amber); }
+.talk .tones button.on i { opacity: .8; }

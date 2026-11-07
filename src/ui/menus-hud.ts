@@ -12,7 +12,7 @@ function openTalk(o) {
   talkUI.say = r.say; talkUI.opts = r.opts; renderTalk();
 }
 function closeTalk() {
-  const o = talkUI.o; if (!o) return; talkUI.o = null; el('talk').hidden = true; talkS = null; if (typeof refreshMarks === 'function') refreshMarks();
+  const o = talkUI.o; if (!o) return; talkUI.o = null; (talkUI as any).tone = null; el('talk').hidden = true; talkS = null; if (typeof refreshMarks === 'function') refreshMarks();
   o.talkUntil = game.time + 3; const n = game.player; if (n) { o.social = Math.min(100, o.social + 12); n.social = Math.min(100, n.social + 12); }
   pairCool.set(Math.min(n ? n.id : 0, o.id) * 1000 + Math.max(n ? n.id : 0, o.id), game.time + 60);
   const b: any = document.querySelector('[data-speed="' + talkUI.prev + '"]'); if (b) b.click();
@@ -50,6 +50,7 @@ function renderTalk() {
     '<div class="topts">' + talkUI.opts.map((op, i) => '<button type="button" data-k="' + esc(op[0]) + '""><span>' + (i + 1) + '</span>' + esc(op[1]) + '</button>').join('') + '</div></div>';
   { const tk: any = box.querySelector('.tk'); talkUI.dy = tk ? (tk.offsetHeight / 2 + 10) / (TS * cam.z) : 0; }
   box.querySelectorAll('[data-k]').forEach((b: any) => b.addEventListener('click', () => talkPick(b.dataset.k, b.textContent.replace(/^\d+/, ''))));
+  if (typeof convDecorate === 'function') convDecorate(box);
   menuFirst(box, '[data-k]');
 }
 window.addEventListener('keydown', e => {

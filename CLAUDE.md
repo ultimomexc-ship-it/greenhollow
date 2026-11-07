@@ -33,11 +33,23 @@ Walking into something does the obvious thing. Holding a key changes it; there i
 - Each verb is added with `add(label, fn, ...)` in the hooks (`LF2.verbs`); `lf2VerbMod(label)` decides which key owns it. A new verb needs no key code: add it, and map its label there if it is not a "help" verb.
 - Touch: a Mode button cycles Walk, Push, Sneak, Help, Rough.
 
+## Conversation (src/dialogue/conversation.ts)
+- Talking is generated from the villager's real state, not a menu. `convOpen` says what they are doing (`CV_ACT`, picked by
+  `convActivity` from their status text) and often one thing on their mind (`CV_LIFE`: tools, hunger, love, news, other people ...).
+  You get at most two replies and Goodbye; some people (the privy) offer only Goodbye.
+- Tone is how you answer: hold E (kind), Shift (sly), R (harsh), or tap the tone buttons; honest is the default. A reply can write its
+  own tone lines (`tones`), otherwise `CV_GEN` supplies them. `convToneFx` is what a tone does to how they feel (kind +opinion,
+  sly = a lie that may be believed, harsh = an insult event that ends the talk). A reply with `own` handles tones itself
+  (blackmail, flirting, dice, secrets, news, the arrest). A reply with `about: person` aims the tone at that third person (rumours).
+- Authored scenes (`dialogue/opinions-scenes.ts`) still fire first when they apply; "Anything else?" then continues in the new style.
+- To add content: add a bit to `CV_ACT` (an activity) or a thread to `CV_LIFE` (something on their mind), with `ok(c)` saying when it
+  applies. Tests in `tests/run.mjs` ("talk: ...") check the shape (no bare greetings, at most two replies, tones differ).
+
 ## Tests
 - `tests/lib.mjs` loads `dist/index.html` deterministically: seeded `Math.random`, a fake clock, frame loop
   held, the harness steps the sim (`simulate(page, minutes)`) the way the frame loop does. Same seed, same result.
 - Current suite: load and run a day, render without errors, nobody starves in 12 days (three towns),
-  the hold-a-key controls (push people and crates, swap, pull, Shift, R, sleepers), sim speed under 3 s per game-day (about 0.6 s now).
+  the hold-a-key controls (push people and crates, swap, pull, Shift, R, sleepers), conversations (openers, tones, rumours, the arrest), sim speed under 3 s per game-day (about 0.6 s now).
 - When behaviour changes on purpose, tests may need new expectations; when it changes by accident, they catch it.
 
 ## Performance tools

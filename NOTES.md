@@ -84,3 +84,12 @@ turn friends against each other; loan coins with interest and send a collector.
 - Eight functions were defined twice (funerals, weddings, priest, grave visits); only the later versions in
   ceremonies/ceremonies.ts ever ran. The dead copies were removed.
 - Tree sprites check for a 'pine' kind that treeKind() never returns (render/village.ts); harmless.
+
+## Conversation prototype (Nov 2026)
+Talking now comes from what people are doing and what is on their mind (see CLAUDE.md). Replies are at most two plus Goodbye;
+tone (E kind, Shift sly, R harsh) replaces the compliment / insult / rumour / flirt / blackmail menu items.
+- Ported into conversation: news (both ways), secrets, flirting, dice (and cheating = sly), blackmail (harsh), the arrest (guards
+  bring it up), rumours about a third person (sly on a topic about someone).
+- Dropped for now: "Introduce them to someone".
+- Ideas not built yet: memory of past conversations ("back again?"), walk-and-talk bubbles, more activity bits and voices,
+  a Claude-written line option.

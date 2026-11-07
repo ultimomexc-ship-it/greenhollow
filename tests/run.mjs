@@ -176,6 +176,90 @@ test('controls: Space pushes a crate and stepping back pulls it', await controlS
   return `crate ${s.x + 1} -> ${pushed.pr} (pushed) -> ${pulled.pr} (pulled)`;
 }));
 
+/* ---------------------------------------------------------------------------------------------- */
+// Conversation (src/dialogue/conversation.ts): people talk about what they are doing, you get at most two replies,
+// and tone (hold E kind, Shift sly, R harsh) is how you say it.
+
+async function talkScene(rng, fn) {
+  return async browser => {
+    const { page, errors } = await openGame(browser, GAME, { rng, town: 'talk' });
+    await simulate(page, 3 * 1440 + 10 * 60);
+    await page.evaluate(() => {
+      if (!game.player) startPlaying(byId(game.steer) || npcs.find(canControl)); document.getElementById('c').focus();
+      window.__em = []; const e0 = lfEmit; lfEmit = function (k, o) { window.__em.push(k + (o && o.fake ? '(fake)' : '')); return e0.apply(this, arguments); };
+      window.__box = () => { const t = document.getElementById('talk'); if (!t || t.hidden) return null; return { name: t.querySelector('.nm b').innerText, say: t.querySelector('.ta').innerText, q: (t.querySelector('.tq') || {}).innerText || '', opts: [...t.querySelectorAll('[data-k]')].map(b => b.innerText.replace(/^\d+\s*/, '').trim()) }; };
+      window.__friend = (o, aff = 40) => { o.aff[game.player.id] = aff; o.know[game.player.id] = Math.max(o.know[game.player.id] || 0, 40); return o; };
+    });
+    const r = await fn(page);
+    check(errors.length === 0, 'page errors:\n    ' + errors.slice(0, 5).join('\n    '));
+    await page.close();
+    return r;
+  };
+}
+const GENERIC = /^(Hello\.|Yes\?|What is it\?|Mm\?|Oh, hello [A-Za-z]+\.|Hm\? I am working\.|Busy, but go on\.|Make it quick\.)$/;
+
+test('talk: people open with what they are doing, with at most two replies', await talkScene(41, async page => {
+  const rows = await page.evaluate(() => { const out = []; for (const o of npcs.filter(q => q !== game.player && !q.dead && q.age >= 8 && q.pose !== 'sleep')) { openTalk(o); const b = __box(); if (b) out.push({ who: o.first, status: o.status, say: b.say, opts: b.opts }); if (talkUI.o) closeTalk(); } return out; });
+  check(rows.length >= 8, 'expected to talk to at least 8 villagers, got ' + rows.length);
+  const generic = rows.filter(r => GENERIC.test(r.say)); check(generic.length === 0, 'bare greetings: ' + generic.map(r => `${r.who}: "${r.say}"`).join('; '));
+  const many = rows.filter(r => r.opts.length > 3); check(many.length === 0, 'more than two replies: ' + many.map(r => r.who + ' ' + r.opts.join('|')).join('; '));
+  const more = rows.filter(r => r.opts.some(o => /Something else/.test(o))); check(more.length === 0, 'the old "Something else…" is back');
+  const distinct = new Set(rows.map(r => r.say)).size; check(distinct >= rows.length * 0.6, `lines are too samey: ${distinct} different out of ${rows.length}`);
+  return `${rows.length} villagers, ${distinct} different openings; e.g. ${rows[0].who} (${rows[0].status}): "${rows[0].say}"`;
+}));
+
+test('talk: someone in the privy has nothing to say but goodbye', await talkScene(41, async page => {
+  const b = await page.evaluate(() => { const o = npcs.find(q => q !== game.player && !q.dead && q.age >= 18 && q.pose !== 'sleep'); o.status = 'Using the privy'; openTalk(o); const b = __box(); closeTalk(); return b; });
+  check(b && b.opts.length === 1 && /Goodbye/.test(b.opts[0]), 'expected only Goodbye, got ' + JSON.stringify(b));
+  return `"${b.say}" then Goodbye`;
+}));
+
+test('talk: holding E, Shift or R changes what you would say', await talkScene(41, async page => {
+  await page.evaluate(() => { const o = __friend(npcs.find(q => q.job === 'Farmer' && q !== game.player && q.age > 20)); o.status = 'Ploughing the field'; openTalk(o); });
+  const seen = {}; seen.honest = (await page.evaluate(() => __box())).opts[0];
+  for (const [tone, key] of [['kind', 'e'], ['sly', 'Shift'], ['harsh', 'r']]) { await page.keyboard.down(key); seen[tone] = (await page.evaluate(() => __box())).opts[0]; await page.keyboard.up(key); }
+  const back = (await page.evaluate(() => __box())).opts[0];
+  check(new Set(Object.values(seen)).size === 4, 'the four tones should each read differently: ' + JSON.stringify(seen));
+  check(back === seen.honest, 'releasing the key should restore the honest line');
+  await page.evaluate(() => closeTalk());
+  return Object.entries(seen).map(([k, v]) => `${k}: "${v}"`).join(' · ');
+}));
+
+test('talk: kind raises their opinion of you; harsh insults them and ends the talk', await talkScene(41, async page => {
+  const pickTone = async (key, aff) => {
+    await page.evaluate(aff => { const o = __friend(npcs.find(q => q.job === 'Farmer' && q !== game.player && q.age > 20), aff); window.__o = o; o.status = 'Ploughing the field'; __em.length = 0; openTalk(o); }, aff);
+    const before = await page.evaluate(() => Math.round(__o.aff[game.player.id]));
+    await page.keyboard.down(key); await page.keyboard.press('1'); await page.keyboard.up(key);
+    const r = await page.evaluate(() => ({ aff: Math.round(__o.aff[game.player.id]), em: __em.slice(), box: __box() })); await page.evaluate(() => { if (talkUI.o) closeTalk(); }); return { before, ...r };
+  };
+  const kind = await pickTone('e', 40); check(kind.aff > kind.before, `kind should raise their opinion (${kind.before} -> ${kind.aff})`);
+  const harsh = await pickTone('r', 40); check(harsh.aff < harsh.before, `harsh should lower it (${harsh.before} -> ${harsh.aff})`);
+  check(harsh.em.includes('insult'), 'harsh should be an insult event, got ' + JSON.stringify(harsh.em)); check(harsh.box && harsh.box.opts.length === 1, 'after an insult only Goodbye is left');
+  return `kind ${kind.before} -> ${kind.aff}; harsh ${harsh.before} -> ${harsh.aff}, events ${harsh.em.join(',')}`;
+}));
+
+test('talk: a sly word about somebody plants a rumour, but only if they believe you', await talkScene(41, async page => {
+  const run = async aff => {
+    await page.evaluate(aff => { window.convOpen = c => { const L = CV_LIFE.find(x => x.id === 'folk'); c.q = convPerson(c); return { say: pk(L.say, c), replies: L.r(c) }; };
+      const o = __friend(npcs.find(q => q.job === 'Farmer' && q !== game.player && q.age > 20), aff); for (const q of npcs) if (q !== o) o.know[q.id] = Math.max(o.know[q.id] || 0, 30); __em.length = 0; openTalk(o); }, aff);
+    await page.keyboard.down('Shift'); await page.keyboard.press('1'); await page.keyboard.up('Shift');
+    const em = await page.evaluate(() => __em.slice()); await page.evaluate(() => { if (talkUI.o) closeTalk(); }); return em;
+  };
+  let planted = 0; for (let i = 0; i < 12; i++) if ((await run(95)).includes('rumour(fake)')) planted++;
+  check(planted >= 6, `a friend who trusts you should usually believe it (planted ${planted} of 12)`);
+  let planted2 = 0; for (let i = 0; i < 12; i++) if ((await run(-30)).includes('rumour(fake)')) planted2++;
+  check(planted2 < planted, `someone who does not trust you should believe it less (${planted2} vs ${planted})`);
+  return `trusting friend: ${planted}/12 rumours; distrustful: ${planted2}/12`;
+}));
+
+test('talk: when the watch is after you, the guard brings it up and the arrest follows', await talkScene(41, async page => {
+  const r = await page.evaluate(() => { const g = npcs.find(q => q.job === 'Guard' && q !== game.player); const ev = lfEmit('theft', { actor: game.player, target: g, sev: 1, tags: ['theft', 'crime'], chron: false, text: 'somebody helped themself to a purse' }); lf2Want(game.player, ev, 1); g.status = 'Heading for the square'; openTalk(g); return __box(); });
+  check(r && /About that business/.test(r.opts[0]), 'the guard should bring it up, got ' + JSON.stringify(r));
+  await page.keyboard.press('1'); await page.waitForTimeout(100);
+  const b = await page.evaluate(() => __box()); check(b && b.opts.length >= 2, 'expected the arrest choices, got ' + JSON.stringify(b));
+  return `"${r.say}" -> ${b.opts.join(' | ')}`;
+}));
+
 
 const browser = await launch();
 let failed = 0;

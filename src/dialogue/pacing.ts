@@ -55,13 +55,13 @@ function talkBegin(n, p) {
   { n.panels = n.panels || {}; const r = n.panels[p.id]; n.panels[p.id] = r && r.d === dayN() ? { d: r.d, c: r.c + 1 } : { d: dayN(), c: 1 }; }
   bumpKnow(n, p, 3);
   talkS = { n, p, sc: b.sc, c: b.c, stage: 0 };
-  const opts = b.sc.opts(n, p, b.c).slice(0, 3);
+  const opts = b.sc.opts(n, p, b.c).slice(0, 2);
   talkS.fns = opts.map(o => o[1]);
   // never the same words twice in a row
   n.lastSay = n.lastSay || {}; let say = b.sc.lines(n, p, b.c);
   for (let i = 0; i < 4 && n.lastSay[b.sc.id] === say; i++) say = b.sc.lines(n, p, b.c);
   n.lastSay[b.sc.id] = say;
-  return { say, opts: opts.map((o, i) => ['o' + i, o[0]]).concat([['lf2more', 'Something else…']]) };
+  return { say, opts: opts.map((o, i) => ['o' + i, o[0]]).concat((n.know[p.id] || 0) >= 10 && Math.random() < 0.5 ? [['lf2more', 'Anything else?']] : []) };
 }
 
 /* one-line bubbles for things already said */

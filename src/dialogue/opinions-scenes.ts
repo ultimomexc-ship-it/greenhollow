@@ -290,7 +290,7 @@ function brushOff(n, p) {
 /* ---------- choosing and playing a scene ---------- */
 function talkStep(key) {
   const S = talkS; if (!S) return null;
-  if (key === 'lf2more') return lf2SocialMenu();
+  if (key === 'lf2more') return convMore();
   if (S.custom) return lf2TalkStep(key);
   if (key === 'bye') return null;
   const i = +key.slice(1), fn = S.fns && S.fns[i]; if (!fn) return { say: '', opts: [['bye', 'Leave']] };
