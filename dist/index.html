@@ -18924,6 +18924,41 @@ function lf2HungryPlan(n, tod) {
   } })];
 }
 LF2.dec.unshift(lf2HungryPlan);
+const COOK_DISHES = [
+  { need: { fish: 1, grain: 1 }, name: "a fish stew" },
+  { need: { fish: 1 }, name: "grilled fish" },
+  { need: { grain: 1, berries: 1 }, name: "a berry porridge" },
+  { need: { grain: 1 }, name: "flatbread" },
+  { need: { berries: 1 }, name: "stewed berries" }
+];
+function cookSupper() {
+  const done = /* @__PURE__ */ new Set();
+  for (const n of npcs) {
+    if (n.dead || n.infant || n.age < 16 || !n.homeRoom || done.has(n.homeRoom) || n.player) continue;
+    const hh = npcs.filter((q2) => !q2.dead && !q2.infant && q2.homeRoom === n.homeRoom);
+    if (hh.length < 2) continue;
+    done.add(n.homeRoom);
+    const cooks = hh.filter((q2) => q2.age >= 16 && !q2.player && !(q2.ill && q2.ill.until > game.time));
+    if (!cooks.length) continue;
+    const cook = cooks.sort((a, b) => (b.cookSkill || 0) + (b.traits.includes("generous") ? 10 : 0) - (a.cookSkill || 0) - (a.traits.includes("generous") ? 10 : 0))[0];
+    const P = pantryOf(cook), dish = COOK_DISHES.find((d) => Object.entries(d.need).every(([g, q2]) => (P[g] || 0) >= q2));
+    if (!dish) continue;
+    const skill = cook.cookSkill = Math.min(100, (cook.cookSkill || 10 + Math.random() * 30) + 1.5), roll = skill + (Math.random() - 0.5) * 50 - (cook.traits.includes("dreamy") ? 15 : 0);
+    const q = roll > 75 ? "good" : roll < 20 ? "burnt" : "plain";
+    for (const m of hh) if (!m.player) lfMod(m, "supper", q === "good" ? `${cook.first}'s ${dish.name.replace(/^an? /, "")}` : q === "burnt" ? "a burnt supper" : "supper", q === "good" ? 5 : q === "burnt" ? -4 : 1, 240);
+    lfEmit("cooked", {
+      actor: cook,
+      sev: 1,
+      tags: q === "good" ? ["food"] : q === "burnt" ? ["food", "burnt"] : ["food"],
+      witnessIds: hh.filter((m) => m !== cook).map((m) => m.id),
+      chron: false,
+      text: q === "good" ? `${cook.first} cooked ${dish.name} for supper, and it was the best anyone could remember` : q === "burnt" ? `${cook.first} burnt ${dish.name} so badly the house had to eat dry bread` : `${cook.first} made ${dish.name} for supper`
+    });
+  }
+}
+LF2.hourly.push((h) => {
+  if (h === 18) cookSupper();
+});
 const lf2OnDuty = (g) => !!g && g.job === "Guard" && !g.player && !g.dead && !g.jail && g.pose !== "sleep" && isAwake(g, game.time % 1440);
 const lf2Wanted = () => town.wanted || (town.wanted = {});
 const lf2InRoom = (n, r) => !!r && n.tx > r.x && n.tx < r.x + r.w - 1 && n.ty > r.y && n.ty < r.y + r.h - 1;
