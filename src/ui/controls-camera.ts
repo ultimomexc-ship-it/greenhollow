@@ -52,6 +52,7 @@ function newTown(seedText?) {
   view.hover = null; view.selected = null; cam.follow = false; el('zfol').setAttribute('aria-pressed', 'false');
   buildStatic(); sizeCanvas(); fitCam(); cam.z = Math.max(cam.fit, 1.15); centerOn(town.cx, town.cy); clampCam();
   buildRoster(); buildTown(true); select(npcs.find(n => n.adult) || npcs[0]); updateUI(true); updateMarket(true);
+  if (typeof sbPresim === 'function') { SB.count = {}; SB.pair = new Map(); sbPresim(); }      // the village's life before the player arrives
   { const pn = chooseTipping(); if (pn) { lifeStepOutside(pn); startPlaying(pn); } }
   el('legend').textContent = W + '×' + H + ' · ' + { S: 'small', M: 'medium', L: 'large' }[state.size];
 }

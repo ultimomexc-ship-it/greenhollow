@@ -22,6 +22,7 @@ const LF2_TAGS = {
   arrest: { v: -0.6, spice: 1.6, pity: 0.2 }, justice: { v: 0.4, spice: 0.8, pity: 0 }, smelly: { v: -0.15, spice: 0.45, pity: 0 }, rich: { v: 0.1, spice: 0.6, pity: 0 }, gamble: { v: -0.1, spice: 0.8, pity: 0 },
   affair: { v: -0.6, spice: 2.2, pity: 0.9 }, jealous: { v: -0.3, spice: 1.4, pity: 0.3 }, sabotage: { v: -1, spice: 1.4, pity: 0.6 }, bribe: { v: -0.7, spice: 1.5, pity: 0 }
 };
+Object.assign(LF2_TAGS, { health: { v: 0, spice: 1, pity: 1.2 }, debt: { v: -0.4, spice: 1.3, pity: 0.3 }, honest: { v: 0.5, spice: 0.7, pity: 0 }, news: { v: 0, spice: 0.8, pity: 0 }, business: { v: 0, spice: 0.7, pity: 0.3 } });
 /* character bends a judgement */
 const LF2_TRAITMUL = {
   theft: { devout: 1.4, greedy: 0.5, generous: 1.2 }, trespass: { devout: 1.2, anxious: 1.3, curious: 0.6 }, nuisance: { grumpy: 1.6, anxious: 1.3, jovial: 0.5, cheerful: 0.6 },
@@ -68,7 +69,7 @@ function lfEmit(kind, o) {
   const ev: any = { id: (town.evId = (town.evId || 0) + 1), kind, t: game.time, actor: a ? a.id : null, target: t ? t.id : null,
     x: o.x != null ? o.x : (a ? a.tx : t ? t.tx : 0), y: o.y != null ? o.y : (a ? a.ty : t ? t.ty : 0), sev: o.sev == null ? 1 : o.sev, tags: o.tags || [],
     text: o.text || kind, anonText: o.anonText || null, mem: o.mem || null, cause: o.cause || null, fake: !!o.fake, anon: !!o.anon, know: [], chain: [], effects: [], witnesses: [], place: o.place || (a ? placeOf(a) : '') };
-  const evs = lf2Ev(); evs.push(ev); if (evs.length > 500) evs.splice(0, evs.length - 500);
+  const evs = lf2Ev(); evs.push(ev); if (evs.length > 1500) evs.splice(0, evs.length - 1500);
   let w = o.witnessIds ? o.witnessIds.map(lf2By).filter(Boolean) : lf2Witnesses(ev.x, ev.y, [a], o.loud);
   if (t && o.aware !== false && !t.dead && (t.pose !== 'sleep' || o.loud) && !w.includes(t)) w.push(t);
   if (t && o.aware === false) w = w.filter(q => q !== t);
@@ -84,26 +85,27 @@ function lfEmit(kind, o) {
 }
 /* how one person feels about an event */
 function lf2Judge(o, ev, knowsA) {
-  const a = knowsA ? lf2By(ev.actor) : null, t = lf2By(ev.target); let v = 0, pity = 0;
+  const a = knowsA ? lf2By(sbWhoId(o, ev)) : null, t = lf2By(ev.target); let v = 0, pity = 0;
   for (const tag of ev.tags) { const d = LF2_TAGS[tag]; if (!d) continue; let m = 1; const tm = LF2_TRAITMUL[tag]; if (tm) for (const k in tm) if (lf2Has(o, k)) m *= tm[k]; v += d.v * m; pity += d.pity; }
-  v *= 0.55 + 0.45 * ev.sev;
+  v *= 0.55 + 0.45 * ((o.kn && o.kn[ev.id] && o.kn[ev.id].sev2) || ev.sev);
   const victim = t === o, aA = a ? (o.aff[a.id] || 0) : 0, aT = t && !victim ? (o.aff[t.id] || 0) : 0;
   if (v < 0) { v *= victim ? 2 : 1 + Math.max(0, aT) / 70; if (aA > 40) v *= 0.55; if (aT < -30) v *= 0.4; }
   else if (v > 0) { if (victim) v *= 1.6; if (aA < -30) v *= 0.5; }
   return { v, pity: pity * (victim ? 1.4 : 1) * (0.35 + Math.max(0, aT) / 80), victim, a, t };
 }
 /* someone learns of an event (first hand when from is null) or, already knowing it, learns who did it */
-function lf2Learn(o, ev, from, cert, knowsA) {
+function lf2Learn(o, ev, from, cert, knowsA, ver?) {
   if (!o || o.dead || o.infant || o.age < 5) return false;
   const kn = o.kn || (o.kn = {}); const old = kn[ev.id];
   if (old) {
     if (!knowsA || old.a || old.mine) return false;
-    old.a = true; old.from = from ? from.id : old.from; ev.chain.push({ from: from ? from.id : null, to: o.id, t: game.time, reveal: true });
+    old.a = true; old.from = from ? from.id : old.from; if (ver && ver.who != null) old.who = ver.who; ev.chain.push({ from: from ? from.id : null, to: o.id, t: game.time, reveal: true });
     lf2Feel(o, ev, from, cert, true, true); return true;
   }
-  kn[ev.id] = { t: game.time, from: from ? from.id : null, cert, a: !!knowsA };
+  kn[ev.id] = { t: game.time, from: from ? from.id : null, cert, a: !!knowsA, imp: sbImp(o, ev, !from) };
+  if (ver) { const k = kn[ev.id]; if (ver.who != null) k.who = ver.who; if (ver.ext) k.ext = ver.ext; if (ver.sev2) k.sev2 = ver.sev2; if (ver.m) k.m = ver.m; k.hop = ver.hop || 1; }
   ev.know.push(o.id); if (from) ev.chain.push({ from: from.id, to: o.id, t: game.time });
-  const ks = Object.keys(kn); if (ks.length > 60) delete kn[ks[0]];
+  if (Object.keys(kn).length > 90) sbTrim(o);
   lf2Feel(o, ev, from, cert, knowsA, false);
   return true;
 }
@@ -111,11 +113,14 @@ function lf2Feel(o, ev, from, cert, knowsA, reveal) {
   const j = lf2Judge(o, ev, knowsA), a = j.a, t = j.t, trust = from ? Math.max(0.2, Math.min(1.1, 0.6 + (o.aff[from.id] || 0) / 200)) : 1;
   const c = cert * trust * (ev.fake ? 0.85 : 1);
   if (a && a !== o) {
-    if (Math.abs(j.v) > 0.05) lfAff(o, a, j.v * 8 * c);
+    if (Math.abs(j.v) > 0.05) lfAff(o, a, j.v * 8 * c, 'ev:' + ev.id);
+    if (ev.tags.some(g => ['theft', 'deceit', 'bribe', 'debt'].includes(g))) sbTrust(o, a, -12 * c * ev.sev); else if (ev.tags.some(g => ['help', 'kindness', 'generous', 'honest'].includes(g))) sbTrust(o, a, 5 * c);
+    if (ev.tags.some(g => ['brave', 'help'].includes(g))) sbResp(o, a, 4 * c); else if (ev.tags.some(g => ['embarrass', 'smelly', 'drunk'].includes(g))) sbResp(o, a, -3 * c);
     const rep = (o.rep || (o.rep = {}))[a.id] || (o.rep[a.id] = {});
     for (const tag of ev.tags) if (LF2_TAGS[tag] && tag !== 'crime') rep[tag] = (rep[tag] || 0) + ev.sev * c;
   }
-  if (!reveal && t && t !== o && j.pity > 0.3) lfAff(o, t, j.pity * 2 * c);
+  if (!reveal && t && t !== o && j.pity > 0.3) lfAff(o, t, j.pity * 2 * c, 'ev:' + ev.id);
+  if (!o.player) sbRelFromEvent(o, ev, a, t, j, c);
   const hot = Math.abs(j.v * c) >= 0.5 || (j.victim && Math.abs(j.v) > 0.2);
   const who = a ? a.first : 'whoever did it', how = from ? ` (heard from ${from.first})` : '';
   if (hot && (a || !reveal)) {
@@ -145,7 +150,7 @@ function lf2PickTale(a, b) {
   return best ? { ev: best, reveal: rv } : null;
 }
 function lf2Tell(a, b, ev, reveal, quiet?) {
-  const ak = a.kn[ev.id], act = lf2By(ev.actor), knowsA = ak.a, txt = knowsA || !act ? ev.text : (ev.anonText || ev.text);
+  const ak = a.kn[ev.id], ver = sbPassOn(a, b, ev), act = lf2By(ver.who != null ? ver.who : ev.actor), knowsA = ver.a, txt = sbText(a, ev);
   const j = lf2Judge(b, ev, knowsA), fan = act && knowsA && (b.aff[act.id] || 0) >= 55 && j.v < 0;
   const firstHand = !ak.from, src = firstHand ? (ak.mine ? '' : ' I saw it myself.') : '';
   let line;
@@ -156,7 +161,7 @@ function lf2Tell(a, b, ev, reveal, quiet?) {
     : j.v > 0.5 ? anyOf([`Well, good for ${act ? act.first : 'them'}.`, `That is lovely to hear.`]) : anyOf([`Ha! Poor thing.`, `Well, well.`, `Is that so?`]);
   if (!quiet) say(a, b, [[a, line], [b, reply]]);
   bumpAff(a, b, 1, 6);
-  return lf2Learn(b, ev, a, fan ? ak.cert * 0.25 : ak.cert * (firstHand ? 0.85 : 0.75), knowsA);
+  return lf2Learn(b, ev, a, fan ? ak.cert * 0.25 : ak.cert * (firstHand ? 0.85 : 0.75), knowsA, ver);
 }
 function lf2Gossip() {
   if (!LF2.on('gossip')) return;
@@ -177,7 +182,7 @@ function lf2Gossip() {
     }
   }
 }
-LF2.tickers.push(lf2Gossip);
+/* (news now travels through the social exchanges in social2/sb-exchange.ts, which call lf2PickTale / lf2Tell) */
 
 /* ---------------- reputation: what somebody is known for ---------------- */
 const LF2_REPWORD = { theft: 'a thief', violence: 'violent', harm: 'cruel', nuisance: 'a nuisance', prank: 'a prankster', deceit: 'a liar', kindness: 'kind', help: 'helpful', generous: 'generous', brave: 'brave',

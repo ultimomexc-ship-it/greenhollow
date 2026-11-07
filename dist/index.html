@@ -16249,8 +16249,9 @@ function lfModSum(n) {
   }
   return Math.max(-60, Math.min(40, s));
 }
-function lfAff(a, b, v) {
+function lfAff(a, b, v, why) {
   a.aff[b.id] = Math.max(-100, Math.min(100, (a.aff[b.id] || 0) + v));
+  if (typeof sbWhy === "function" && Math.abs(v) >= 0.5) sbWhy(a, b, v, why);
   relabel(a, b);
 }
 const lfMoodWord = (m) => m >= 80 ? "Delighted" : m >= 62 ? "Happy" : m >= 45 ? "Fine" : m >= 30 ? "Low" : m >= 15 ? "Miserable" : "Despairing";
@@ -17362,6 +17363,7 @@ const LF2_TAGS = {
   sabotage: { v: -1, spice: 1.4, pity: 0.6 },
   bribe: { v: -0.7, spice: 1.5, pity: 0 }
 };
+Object.assign(LF2_TAGS, { health: { v: 0, spice: 1, pity: 1.2 }, debt: { v: -0.4, spice: 1.3, pity: 0.3 }, honest: { v: 0.5, spice: 0.7, pity: 0 }, news: { v: 0, spice: 0.8, pity: 0 }, business: { v: 0, spice: 0.7, pity: 0.3 } });
 const LF2_TRAITMUL = {
   theft: { devout: 1.4, greedy: 0.5, generous: 1.2 },
   trespass: { devout: 1.2, anxious: 1.3, curious: 0.6 },
@@ -17456,7 +17458,7 @@ function lfEmit(kind, o) {
   };
   const evs = lf2Ev();
   evs.push(ev);
-  if (evs.length > 500) evs.splice(0, evs.length - 500);
+  if (evs.length > 1500) evs.splice(0, evs.length - 1500);
   let w = o.witnessIds ? o.witnessIds.map(lf2By).filter(Boolean) : lf2Witnesses(ev.x, ev.y, [a], o.loud);
   if (t && o.aware !== false && !t.dead && (t.pose !== "sleep" || o.loud) && !w.includes(t)) w.push(t);
   if (t && o.aware === false) w = w.filter((q) => q !== t);
@@ -17489,7 +17491,7 @@ function lfEmit(kind, o) {
   return ev;
 }
 function lf2Judge(o, ev, knowsA) {
-  const a = knowsA ? lf2By(ev.actor) : null, t = lf2By(ev.target);
+  const a = knowsA ? lf2By(sbWhoId(o, ev)) : null, t = lf2By(ev.target);
   let v = 0, pity = 0;
   for (const tag of ev.tags) {
     const d = LF2_TAGS[tag];
@@ -17502,7 +17504,7 @@ function lf2Judge(o, ev, knowsA) {
     v += d.v * m;
     pity += d.pity;
   }
-  v *= 0.55 + 0.45 * ev.sev;
+  v *= 0.55 + 0.45 * (o.kn && o.kn[ev.id] && o.kn[ev.id].sev2 || ev.sev);
   const victim = t === o, aA = a ? o.aff[a.id] || 0 : 0, aT = t && !victim ? o.aff[t.id] || 0 : 0;
   if (v < 0) {
     v *= victim ? 2 : 1 + Math.max(0, aT) / 70;
@@ -17514,7 +17516,7 @@ function lf2Judge(o, ev, knowsA) {
   }
   return { v, pity: pity * (victim ? 1.4 : 1) * (0.35 + Math.max(0, aT) / 80), victim, a, t };
 }
-function lf2Learn(o, ev, from, cert, knowsA) {
+function lf2Learn(o, ev, from, cert, knowsA, ver) {
   if (!o || o.dead || o.infant || o.age < 5) return false;
   const kn = o.kn || (o.kn = {});
   const old = kn[ev.id];
@@ -17522,15 +17524,23 @@ function lf2Learn(o, ev, from, cert, knowsA) {
     if (!knowsA || old.a || old.mine) return false;
     old.a = true;
     old.from = from ? from.id : old.from;
+    if (ver && ver.who != null) old.who = ver.who;
     ev.chain.push({ from: from ? from.id : null, to: o.id, t: game.time, reveal: true });
     lf2Feel(o, ev, from, cert, true, true);
     return true;
   }
-  kn[ev.id] = { t: game.time, from: from ? from.id : null, cert, a: !!knowsA };
+  kn[ev.id] = { t: game.time, from: from ? from.id : null, cert, a: !!knowsA, imp: sbImp(o, ev, !from) };
+  if (ver) {
+    const k = kn[ev.id];
+    if (ver.who != null) k.who = ver.who;
+    if (ver.ext) k.ext = ver.ext;
+    if (ver.sev2) k.sev2 = ver.sev2;
+    if (ver.m) k.m = ver.m;
+    k.hop = ver.hop || 1;
+  }
   ev.know.push(o.id);
   if (from) ev.chain.push({ from: from.id, to: o.id, t: game.time });
-  const ks = Object.keys(kn);
-  if (ks.length > 60) delete kn[ks[0]];
+  if (Object.keys(kn).length > 90) sbTrim(o);
   lf2Feel(o, ev, from, cert, knowsA, false);
   return true;
 }
@@ -17538,11 +17548,16 @@ function lf2Feel(o, ev, from, cert, knowsA, reveal) {
   const j = lf2Judge(o, ev, knowsA), a = j.a, t = j.t, trust = from ? Math.max(0.2, Math.min(1.1, 0.6 + (o.aff[from.id] || 0) / 200)) : 1;
   const c = cert * trust * (ev.fake ? 0.85 : 1);
   if (a && a !== o) {
-    if (Math.abs(j.v) > 0.05) lfAff(o, a, j.v * 8 * c);
+    if (Math.abs(j.v) > 0.05) lfAff(o, a, j.v * 8 * c, "ev:" + ev.id);
+    if (ev.tags.some((g) => ["theft", "deceit", "bribe", "debt"].includes(g))) sbTrust(o, a, -12 * c * ev.sev);
+    else if (ev.tags.some((g) => ["help", "kindness", "generous", "honest"].includes(g))) sbTrust(o, a, 5 * c);
+    if (ev.tags.some((g) => ["brave", "help"].includes(g))) sbResp(o, a, 4 * c);
+    else if (ev.tags.some((g) => ["embarrass", "smelly", "drunk"].includes(g))) sbResp(o, a, -3 * c);
     const rep = (o.rep || (o.rep = {}))[a.id] || (o.rep[a.id] = {});
     for (const tag of ev.tags) if (LF2_TAGS[tag] && tag !== "crime") rep[tag] = (rep[tag] || 0) + ev.sev * c;
   }
-  if (!reveal && t && t !== o && j.pity > 0.3) lfAff(o, t, j.pity * 2 * c);
+  if (!reveal && t && t !== o && j.pity > 0.3) lfAff(o, t, j.pity * 2 * c, "ev:" + ev.id);
+  if (!o.player) sbRelFromEvent(o, ev, a, t, j, c);
   const hot = Math.abs(j.v * c) >= 0.5 || j.victim && Math.abs(j.v) > 0.2;
   const who = a ? a.first : "whoever did it", how = from ? ` (heard from ${from.first})` : "";
   if (hot && (a || !reveal)) {
@@ -17583,7 +17598,7 @@ function lf2PickTale(a, b) {
   return best ? { ev: best, reveal: rv } : null;
 }
 function lf2Tell(a, b, ev, reveal, quiet) {
-  const ak = a.kn[ev.id], act = lf2By(ev.actor), knowsA = ak.a, txt = knowsA || !act ? ev.text : ev.anonText || ev.text;
+  const ak = a.kn[ev.id], ver = sbPassOn(a, b, ev), act = lf2By(ver.who != null ? ver.who : ev.actor), knowsA = ver.a, txt = sbText(a, ev);
   const j = lf2Judge(b, ev, knowsA), fan = act && knowsA && (b.aff[act.id] || 0) >= 55 && j.v < 0;
   const firstHand = !ak.from, src = firstHand ? ak.mine ? "" : " I saw it myself." : "";
   let line;
@@ -17592,7 +17607,7 @@ function lf2Tell(a, b, ev, reveal, quiet) {
   const reply = reveal ? j.v < -0.3 ? anyOf([`${act.first}? I will not forget this.`, `I knew it!`, `Wait until I see ${act.first}.`]) : "Huh." : fan ? anyOf([`I do not believe it. Not ${act.first}.`, `That cannot be true.`]) : j.v < -0.5 ? anyOf([`That is dreadful.`, act && knowsA && (b.aff[act.id] || 0) < 10 ? `I always thought ${act.first} was trouble.` : `No! Really?`, `Somebody ought to do something.`]) : j.v > 0.5 ? anyOf([`Well, good for ${act ? act.first : "them"}.`, `That is lovely to hear.`]) : anyOf([`Ha! Poor thing.`, `Well, well.`, `Is that so?`]);
   if (!quiet) say(a, b, [[a, line], [b, reply]]);
   bumpAff(a, b, 1, 6);
-  return lf2Learn(b, ev, a, fan ? ak.cert * 0.25 : ak.cert * (firstHand ? 0.85 : 0.75), knowsA);
+  return lf2Learn(b, ev, a, fan ? ak.cert * 0.25 : ak.cert * (firstHand ? 0.85 : 0.75), knowsA, ver);
 }
 function lf2Gossip() {
   if (!LF2.on("gossip")) return;
@@ -17616,7 +17631,6 @@ function lf2Gossip() {
     }
   }
 }
-LF2.tickers.push(lf2Gossip);
 const LF2_REPWORD = {
   theft: "a thief",
   violence: "violent",
@@ -21974,6 +21988,783 @@ function lf2GrudgePlan(n, tod) {
   } })];
 }
 LF2.dec.push(lf2GrudgePlan);
+const sbWhoId = (o, ev) => {
+  const k = o && o.kn && o.kn[ev.id];
+  return k && k.who != null ? k.who : ev.actor;
+};
+function sbText(o, ev) {
+  const k = o && o.kn && o.kn[ev.id], real = ev.actor ? lf2By(ev.actor) : null;
+  let txt = ev.text || ev.kind;
+  if (k && !k.a && real) txt = ev.anonText || txt.replace(new RegExp("^" + real.first + "\\b"), "Somebody");
+  else if (k && k.who != null && real && k.who !== ev.actor) {
+    const fake = lf2By(k.who);
+    if (fake) txt = txt.replace(new RegExp("\\b" + real.first + "\\b"), fake.first);
+  }
+  if (k && k.ext) txt += ", " + k.ext;
+  return txt;
+}
+function sbKind(o, ev) {
+  const k = o.kn && o.kn[ev.id];
+  if (!k) return "rumour";
+  if (k.mine) return "own";
+  if (ev.fake || k.cert < 0.45 || (k.m || 0) > 1) return "rumour";
+  return k.from == null ? "fact" : "hearsay";
+}
+function sbImp(o, ev, firstHand) {
+  const spice = Math.max(0.4, ...ev.tags.map((g) => (LF2_TAGS[g] || {}).spice || 0.5));
+  let x = spice * (0.5 + 0.5 * ev.sev) / 3;
+  const rel = (id) => {
+    if (id == null) return 0;
+    if (id === o.id) return 0.5;
+    const q = lf2By(id);
+    if (!q) return 0;
+    if (o.fam && o.fam.spouse === id) return 0.35;
+    if (isKin(o, q)) return 0.3;
+    return (o.aff[id] || 0) > 40 ? 0.15 : (o.aff[id] || 0) < -30 ? 0.1 : 0;
+  };
+  x += Math.max(rel(ev.target), rel(ev.actor) * 0.8);
+  if (firstHand) x += 0.1;
+  return Math.max(0.03, Math.min(1, x));
+}
+function sbTrim(o, max = 80) {
+  const kn = o.kn;
+  if (!kn) return;
+  const now = game.time, ids = Object.keys(kn);
+  const eff = (id) => {
+    const k = kn[id], imp = k.imp == null ? 0.3 : k.imp;
+    if (imp >= 0.85 || k.mine) return 9;
+    const age = (now - k.t) / 1440, half = 1 + 60 * imp * imp;
+    return imp * Math.pow(0.5, age / half);
+  };
+  const drop = ids.filter((id) => eff(id) < 0.03);
+  for (const id of drop) delete kn[id];
+  const rest = Object.keys(kn);
+  if (rest.length > max) rest.sort((a, b) => eff(a) - eff(b)).slice(0, rest.length - max).forEach((id) => delete kn[id]);
+}
+const SB_EXAG = {
+  theft: ["and not for the first time", "a whole sack of it", "in broad daylight", "and laughed about it after"],
+  romance: ["and they were not even hiding it", "for the third time this week", "right outside the baths"],
+  violence: ["and there was blood", "and it took three people to pull them apart"],
+  embarrass: ["in front of half the village", "and it happened twice"],
+  smell: ["and you could smell it from the well"],
+  gamble: ["and lost the lot straight after"],
+  kind: ["and would not take a coin for it"],
+  debt: ["and has not paid back a single coin", "and owes half the village besides"],
+  health: ["and it is catching, they say"],
+  other: ["in front of half the village", "and that is not the half of it"]
+};
+function sbScapegoat(a, ev) {
+  let best = null, bw = 10;
+  for (const q of npcs) {
+    if (q === a || q.dead || q.infant || q.age < 12 || q.id === ev.target || q.id === ev.actor) continue;
+    const w = -(a.aff[q.id] || 0) + Math.random() * 15;
+    if (w > bw) {
+      bw = w;
+      best = q;
+    }
+  }
+  return best;
+}
+function sbPassOn(a, b, ev) {
+  const k = a.kn[ev.id], v = { a: !!k.a, who: k.who, ext: k.ext, sev2: k.sev2, m: k.m || 0, hop: (k.hop || 0) + 1 };
+  const p = 0.1 + (lf2Has(a, "gossipy") ? 0.12 : 0) + (lf2Has(a, "dreamy") ? 0.05 : 0) + ((a.drunk || 0) > 40 ? 0.15 : 0) + Math.min(0.15, (k.hop || 0) * 0.04);
+  if (Math.random() < p) {
+    const actor = lf2By(v.who != null ? v.who : ev.actor), likes = actor ? a.aff[actor.id] || 0 : 0, bad = ev.tags.some((t) => (LF2_TAGS[t] || {}).v < 0), r = Math.random(), grp = typeof cvTagGroup === "function" ? cvTagGroup(ev) : "other";
+    if (likes > 35 && bad && r < 0.5) {
+      v.sev2 = Math.max(1, (v.sev2 || ev.sev) - 1);
+      v.ext = "though I am sure it was a misunderstanding";
+      v.m++;
+    } else if (r < 0.45) {
+      v.sev2 = Math.min(3, (v.sev2 || ev.sev) + 1);
+      v.ext = anyOf(SB_EXAG[grp] || SB_EXAG.other);
+      v.m++;
+    } else if (r < 0.7 && bad && (!v.a || k.cert < 0.6)) {
+      const s = sbScapegoat(a, ev);
+      if (s) {
+        v.a = true;
+        v.who = s.id;
+        v.m++;
+      }
+    } else if (v.a && ev.actor) {
+      v.a = false;
+      v.who = null;
+      v.m++;
+    }
+  }
+  return v;
+}
+function sbRelSet(o, a, b, v, cert, why) {
+  if (!o || !a || !b || a === b || o.dead) return;
+  const R = o.sbRel || (o.sbRel = {}), key = a.id + ":" + b.id, old = R[key];
+  if (!old) R[key] = { v, c: cert, t: game.time, why: why || null };
+  else {
+    const w = Math.min(1, cert);
+    old.v = old.v * (1 - w * 0.6) + v * w * 0.6;
+    old.c = Math.max(old.c, cert);
+    old.t = game.time;
+    if (why) old.why = why;
+  }
+  const ks = Object.keys(R);
+  if (ks.length > 60) {
+    ks.sort((x, y) => R[x].t - R[y].t);
+    delete R[ks[0]];
+  }
+}
+const sbRelGet = (o, a, b) => o.sbRel && o.sbRel[a.id + ":" + b.id] || null;
+function sbRelFromEvent(o, ev, a, t, j, c) {
+  if (!a || !t || a === t || a === o || t === o) return;
+  const tags = ev.tags || [], why = "ev:" + ev.id;
+  if (["quarrel", "brawl", "insult", "confront"].includes(ev.kind)) {
+    sbRelSet(o, a, t, -0.6, c, why);
+    sbRelSet(o, t, a, -0.6, c, why);
+    return;
+  }
+  if (tags.includes("romance")) {
+    sbRelSet(o, a, t, 0.8, c, why);
+    return;
+  }
+  if (j.v < -0.2) {
+    sbRelSet(o, t, a, -0.6, c, why);
+    return;
+  }
+  if (j.v > 0.2) {
+    sbRelSet(o, t, a, 0.5, c, why);
+    sbRelSet(o, a, t, 0.4, c, why);
+  }
+}
+function sbWhy(a, b, v, why) {
+  if (!a || !b || a === b) return;
+  const L = a.why || (a.why = {}), arr = L[b.id] || (L[b.id] = []), key = why || "time together", e = arr.find((x) => x.why === key);
+  if (e) {
+    e.v += v;
+    e.t = game.time;
+  } else arr.push({ why: key, v, t: game.time });
+  if (arr.length > 8) {
+    arr.sort((x, y) => Math.abs(y.v) - Math.abs(x.v));
+    arr.length = 8;
+  }
+}
+function sbTopWhy(o, q, sign) {
+  const arr = o.why && o.why[q.id] || [];
+  let best = null;
+  for (const e of arr) {
+    if (sign && Math.sign(e.v) !== sign) continue;
+    if (!best || Math.abs(e.v) > Math.abs(best.v)) best = e;
+  }
+  return best;
+}
+function sbTrust(a, b, v, why) {
+  if (!a || !b || a === b) return;
+  const T2 = a.trust || (a.trust = {});
+  T2[b.id] = Math.max(-100, Math.min(100, (T2[b.id] || 0) + v));
+  if (why) sbWhy(a, b, v * 0.3, why);
+}
+function sbResp(a, b, v) {
+  if (!a || !b || a === b) return;
+  const T2 = a.resp || (a.resp = {});
+  T2[b.id] = Math.max(-100, Math.min(100, (T2[b.id] || 0) + v));
+}
+const sbTrustOf = (a, b) => a.trust && a.trust[b.id] || 0;
+function sbWhyText(o, q, e) {
+  if (!e) return null;
+  const w = e.why;
+  if (w.startsWith("ev:")) {
+    const ev = lf2EvById(+w.slice(3));
+    return ev ? lf2Low(sbText(o, ev)) : null;
+  }
+  const T2 = {
+    "unpaid loan": `the money ${q.first} still owes me`,
+    "paid me back": `${q.first} paid me back, every coin, when ${cvPron(q).he} said ${cvPron(q).he} would`,
+    "lent me money": `${q.first} lent me money when I had none`,
+    "refused a loan": `${q.first} would not lend me so much as a coin when I needed it`,
+    "argument": `that row we had`,
+    "row at home": `the rows we have at home`,
+    "comforted me": `${q.first} sat with me when I was low`,
+    "confided": `${q.first} trusted me with something`,
+    "badmouthed a friend": `the things ${q.first} says about my friends`,
+    "took my side": `${q.first} took my side`,
+    "time together": null,
+    "courting": `${q.first} has been sweet on me`
+  };
+  return T2[w] !== void 0 ? T2[w] : null;
+}
+const SB = { presim: false, pair: /* @__PURE__ */ new Map(), count: {} };
+const sbPairKey = (a, b) => Math.min(a.id, b.id) * 1e5 + Math.max(a.id, b.id);
+const sbAdult = (n) => n && !n.dead && !n.infant && n.age >= 14;
+const sbHas = (n, t) => lf2Has(n, t) ? 1 : 0;
+function sbSocial(a) {
+  return (1 + 0.4 * (sbHas(a, "sociable") + sbHas(a, "jovial")) + 0.3 * sbHas(a, "gossipy") - 0.4 * sbHas(a, "shy") - 0.2 * sbHas(a, "homebody")) * ((a.drunk || 0) > 40 ? 1.4 : 1) * (a.mood < 25 ? 0.8 : 1);
+}
+function sbFree(n) {
+  return !n.dead && !n.infant && n.age >= 6 && n.pose !== "sleep" && !n.player && !n.trapped && !(typeof talkUI !== "undefined" && talkUI.o === n) && !(n.ill && n.ill.until > game.time && n.pose === "sleep");
+}
+const sbNear = (a, b) => typeof game !== "undefined" && game.player && !SB.presim && (lfDist(a, game.player) <= 10 || lfDist(b, game.player) <= 10);
+function sbNote(o, w, ty, about) {
+  const L = o.sbConv || (o.sbConv = []);
+  L.push({ w: w.id, ty, about: about ? about.id || about : null, t: game.time });
+  if (L.length > 16) L.shift();
+}
+const SB_CLASH = [["grumpy", "cheerful"], ["grumpy", "jovial"], ["proud", "proud"], ["gossipy", "shy"], ["gossipy", "homebody"], ["lazy", "early bird"], ["devout", "jovial"], ["anxious", "brave"], ["greedy", "generous"], ["proud", "grumpy"]];
+function sbCompat(a, b) {
+  const key = Math.min(a.id, b.id) + ":" + Math.max(a.id, b.id);
+  a.sbChem = a.sbChem || {};
+  if (a.sbChem[key] !== void 0) return a.sbChem[key];
+  let x = cvHashStr((town.seed || "x") + ":chem:" + key) % 1e3 / 1e3 - 0.5;
+  for (const t of a.traits || []) if ((b.traits || []).includes(t)) x += 0.18;
+  for (const [p, q] of SB_CLASH) if (lf2Has(a, p) && lf2Has(b, q) || lf2Has(a, q) && lf2Has(b, p)) x -= 0.35;
+  if (a.hobby && a.hobby === b.hobby) x += 0.2;
+  if (a.job && a.job === b.job) x += 0.1;
+  x = Math.max(-1, Math.min(1, x));
+  a.sbChem[key] = x;
+  (b.sbChem = b.sbChem || {})[key] = x;
+  return x;
+}
+function sbTogether(a, b, why) {
+  const c = sbCompat(a, b);
+  for (const [x, y] of [[a, b], [b, a]]) {
+    const warm = 1 + 0.35 * (sbHas(x, "cheerful") + sbHas(x, "sociable") + sbHas(x, "generous")) - 0.3 * (sbHas(x, "grumpy") + sbHas(x, "proud")), cur = x.aff[y.id] || 0;
+    let d = c * 2.6 + (Math.random() - 0.5) * 0.8;
+    d *= d > 0 ? warm : 2 - Math.min(1.6, warm);
+    d *= 1 - Math.min(0.9, Math.abs(cur) / 110);
+    lfAff(x, y, d, d >= 0 ? why : "rubs me up the wrong way");
+  }
+}
+function sbStress(a) {
+  return (a.coin < 3 ? 1 : 0) + (a.hunger > 65 ? 1 : 0) + (a.mood < 30 ? 1 : 0) + (a.ill && a.ill.until > game.time ? 1 : 0) + (npcs.some((k) => k.ill && k.ill.until > game.time && isKin(a, k)) ? 1 : 0);
+}
+function sbGrievance(a, b) {
+  let best = null, bw = 15;
+  for (const q of npcs) {
+    if (q === a || q === b || q.dead || q.infant) continue;
+    const w = -(a.aff[q.id] || 0) + (sbTopWhy(a, q, -1) ? 10 : 0);
+    if (w > bw) {
+      bw = w;
+      best = q;
+    }
+  }
+  return best;
+}
+function sbAdmired(a, b) {
+  let best = null, bw = 50;
+  for (const q of npcs) {
+    if (q === a || q === b || q.dead || q.infant) continue;
+    const w = (a.aff[q.id] || 0) + Math.random() * 10;
+    if (w > bw) {
+      bw = w;
+      best = q;
+    }
+  }
+  return best;
+}
+function sbDisagree(a, b) {
+  for (const q of npcs) {
+    if (q === a || q === b || q.dead) continue;
+    const x = a.aff[q.id] || 0, y = b.aff[q.id] || 0;
+    if (x > 45 && y < -30 || x < -30 && y > 45) return q;
+  }
+  return null;
+}
+function sbLoanBetween(a, b) {
+  return (town.sbLoans || []).find((l) => l.state !== "paid" && (l.from === a.id && l.to === b.id || l.from === b.id && l.to === a.id));
+}
+const sbW = () => SB.presim ? SB.ctx && SB.ctx.witnesses || [] : void 0;
+const SB_SAY = {
+  vent: [["I cannot stand {q}. {why}", "Hm. I had heard."], ["Do not get me started on {q}. {why}", "You are not the only one, believe me."], ["{q} again. {why}", "Shh. Not so loud."]],
+  praise: [["Say what you like, {q} is a good sort.", "I have always thought so."], ["{q} did right by me. I will not forget it.", "That is nice to hear."]],
+  console: [["Come here. It will pass.", "\u2026Thank you. I needed that."], ["You look done in. Sit down a moment.", "Is it that obvious?"]],
+  argue: [["That is not how it was, and you know it!", "Do not raise your voice at me!"], ["You always do this.", "And you never listen!"]],
+  row: [["We cannot keep living like this!", "Then do something about it!"], ["Where has the money gone?", "Do not start. Not now."]],
+  court: [["You look well today.", "\u2026Do I? Thank you."], ["Walk with me later?", "I might. I just might."]],
+  borrow: [["I hate to ask\u2026 could you spare a few coins? Just until the end of the week.", "Here. Do not make me regret it."]],
+  refuse: [["Could you spare a few coins? Just a few.", "I am sorry. I have nothing to spare."]],
+  repay: [["Here. Every coin, like I said.", "You are as good as your word."]],
+  confide: [["Can I tell you something? You must not repeat it.", "Of course. I am listening."]]
+};
+function sbSayIfNear(a, b, ty, f) {
+  if (!sbNear(a, b)) return;
+  const L = SB_SAY[ty];
+  if (!L) return;
+  const [x, y] = anyOf(L), fill = (s) => s.replace("{q}", f.q || "").replace("{why}", f.why ? cvCap(f.why) + "." : "");
+  say(a, b, [[a, fill(x)], [b, fill(y)]]);
+}
+const SBX = {
+  small: { u: () => 1, run(a, b) {
+    sbTogether(a, b, "time together");
+    bumpKnow(a, b, 1);
+    if (sbCompat(a, b) < -0.4 && Math.random() < 0.15) return SBX.argue.run(a, b);
+    return "small";
+  } },
+  news: { u(a, b) {
+    const pk2 = lf2PickTale(a, b);
+    if (!pk2) return 0;
+    a._pk = pk2;
+    return 2 * (1 + 0.6 * sbHas(a, "gossipy"));
+  }, run(a, b) {
+    lf2Tell(a, b, a._pk.ev, a._pk.reveal, !sbNear(a, b));
+    return "news";
+  } },
+  vent: {
+    u(a, b) {
+      const q = sbGrievance(a, b);
+      if (!q) return 0;
+      a._q = q;
+      return 1.3 * (1 + 0.4 * (sbHas(a, "grumpy") + sbHas(a, "proud"))) * ((b.aff[q.id] || 0) > 50 ? 0.3 : 1);
+    },
+    run(a, b) {
+      const q = a._q, top = sbTopWhy(a, q, -1), why = top ? sbWhyText(a, q, top) : null, tb = Math.max(0, 0.5 + sbTrustOf(b, a) / 200);
+      sbRelSet(b, a, q, Math.max(-1, (a.aff[q.id] || 0) / 60), 0.9, top ? top.why : null);
+      if ((b.aff[q.id] || 0) > 40) {
+        lfAff(b, a, -2, "badmouthed a friend");
+      } else {
+        lfAff(b, q, -2.5 * tb, top ? top.why : "heard from " + a.first);
+        lfAff(a, b, 1, "took my side");
+      }
+      if (top && top.why.startsWith("ev:")) {
+        const ev = lf2EvById(+top.why.slice(3));
+        if (ev && a.kn && a.kn[ev.id] && !(b.kn && b.kn[ev.id])) lf2Tell(a, b, ev, false, true);
+      }
+      if (!a.player) lfMod(a, "vent" + q.id, `got ${q.first} off my chest to ${b.first}`, 2, 180);
+      sbNote(a, b, "vent", q);
+      sbNote(b, a, "vent", q);
+      sbSayIfNear(a, b, "vent", { q: q.first, why });
+      return "vent";
+    }
+  },
+  praise: { u(a, b) {
+    const q = sbAdmired(a, b);
+    if (!q) return 0;
+    a._q = q;
+    return 0.5;
+  }, run(a, b) {
+    const q = a._q;
+    sbRelSet(b, a, q, Math.min(1, (a.aff[q.id] || 0) / 60), 0.9, (sbTopWhy(a, q, 1) || {}).why);
+    lfAff(b, q, 1.5 * Math.max(0, 0.5 + sbTrustOf(b, a) / 200), "heard good of");
+    sbNote(a, b, "praise", q);
+    sbNote(b, a, "praise", q);
+    sbSayIfNear(a, b, "praise", { q: q.first });
+    return "praise";
+  } },
+  console: {
+    u(a, b) {
+      const low = b.mood < 35 || (b.grief || 0) > 0 || b.ill && b.ill.until > game.time || sbStress(b) >= 2;
+      return low && (a.aff[b.id] || 0) > -5 ? 1.6 * (1 + 0.4 * (sbHas(a, "generous") + sbHas(a, "cheerful"))) : 0;
+    },
+    run(a, b) {
+      if (!b.player) lfMod(b, "comfort" + a.id, `comforted by ${a.first}`, 6, 360);
+      lfAff(b, a, 4, "comforted me");
+      sbTrust(b, a, 3);
+      sbNote(a, b, "console", null);
+      sbNote(b, a, "console", null);
+      lfEmit("comfort", { actor: a, target: b, sev: 1, tags: ["kindness"], witnessIds: sbW(), chron: false, text: `${a.first} sat with ${b.first} when ${cvPron(b).he} was low` });
+      sbSayIfNear(a, b, "console", {});
+      return "console";
+    }
+  },
+  shop: { u(a, b) {
+    return a.job && b.job && (LF2_JOBS[a.job] || LF2_JOBS[b.job] || a.job === b.job) ? 0.8 : 0;
+  }, run(a, b) {
+    sbTogether(a, b, "work");
+    sbResp(a, b, 1);
+    sbResp(b, a, 1);
+    sbNote(a, b, "shop", null);
+    sbNote(b, a, "shop", null);
+    return "shop";
+  } },
+  family: {
+    u(a, b) {
+      return isKin(a, b) || a.fam && a.fam.spouse === b.id ? 1.4 : 0;
+    },
+    run(a, b) {
+      const st = sbStress(a) + sbStress(b), row = Math.random() < 0.08 + 0.12 * st - 0.05 * (sbHas(a, "cheerful") + sbHas(b, "cheerful"));
+      if (row) {
+        lfEmit("quarrel", { actor: a, target: b, sev: 1, loud: true, tags: ["embarrass"], witnessIds: sbW(), chron: false, text: `${a.first} and ${b.first} had a row${a.fam && a.fam.spouse === b.id ? " at home" : ""} ${a.coin + b.coin < 8 ? "about money" : a.hunger > 60 || b.hunger > 60 ? "over an empty pot" : npcs.some((k) => k.ill && k.ill.until > game.time && (isKin(a, k) || isKin(b, k))) ? "about who would sit up with the sick" : anyOf(["about the chores", "about nothing at all, and then about everything", "over the children", "about her mother", "about his mother", "about a broken pot"])}` });
+        lfAff(a, b, -4, "row at home");
+        lfAff(b, a, -4, "row at home");
+        sbNote(a, b, "row", null);
+        sbNote(b, a, "row", null);
+        sbSayIfNear(a, b, "row", {});
+        return "row";
+      }
+      sbTogether(a, b, "family");
+      lfAff(a, b, 0.6, "family");
+      lfAff(b, a, 0.6, "family");
+      sbNote(a, b, "family", null);
+      sbNote(b, a, "family", null);
+      return "family";
+    }
+  },
+  argue: {
+    u(a, b) {
+      const q = sbDisagree(a, b);
+      a._q = q;
+      const hostile = (a.aff[b.id] || 0) < -25 || sbTopWhy(a, b, -1) && (a.aff[b.id] || 0) < -10;
+      return q || hostile ? 0.9 * (1 + 0.5 * (sbHas(a, "grumpy") + sbHas(a, "brave"))) * (1 - 0.6 * sbHas(a, "shy")) : 0;
+    },
+    run(a, b) {
+      const q = a._q;
+      lfEmit("quarrel", { actor: a, target: b, sev: 1, loud: true, tags: ["embarrass"], witnessIds: sbW(), chron: false, text: q ? `${a.first} and ${b.first} argued about ${q.first}` : `${a.first} and ${b.first} had words in the street` });
+      lfAff(a, b, -5, "argument");
+      lfAff(b, a, -5, "argument");
+      sbNote(a, b, "argue", q);
+      sbNote(b, a, "argue", q);
+      sbSayIfNear(a, b, "argue", {});
+      return "argue";
+    }
+  },
+  court: {
+    u(a, b) {
+      const single = lf2Single(a) && lf2Single(b) && a.female !== b.female && a.age >= 17 && b.age >= 17;
+      return a.crush === b.id || single && (a.aff[b.id] || 0) > 35 ? 1.1 : 0;
+    },
+    run(a, b) {
+      lfAff(a, b, 3, "courting");
+      const into = (b.aff[a.id] || 0) > 25 || Math.random() < 0.3;
+      lfAff(b, a, into ? 2.5 : -1, into ? "courting" : "pestering me");
+      a.court = a.court || {};
+      a.court[b.id] = (a.court[b.id] || 0) + 1;
+      sbNote(a, b, "court", null);
+      sbNote(b, a, "court", null);
+      sbSayIfNear(a, b, "court", {});
+      if (into && a.court[b.id] >= 3 && (b.aff[a.id] || 0) > 40 && !a.sbCourted) {
+        a.sbCourted = b.id;
+        lfEmit("courting", { actor: a, target: b, sev: 1, tags: ["romance"], witnessIds: sbW(), chron: false, text: `${a.first} and ${b.first} were seen walking out together` });
+      }
+      return "court";
+    }
+  },
+  borrow: {
+    u(a, b) {
+      return a.coin < 4 && b.coin >= 15 && !sbLoanBetween(a, b) && a.age >= 16 && b.age >= 16 ? 1.5 : 0;
+    },
+    run(a, b) {
+      const yes = (b.aff[a.id] || 0) > 10 && sbTrustOf(b, a) > -15 && (lf2Has(b, "generous") || Math.random() < 0.6) && !lf2Has(b, "greedy");
+      if (!yes) {
+        lfAff(a, b, -3, "refused a loan");
+        sbNote(a, b, "refused", null);
+        sbNote(b, a, "asked", null);
+        sbSayIfNear(a, b, "refuse", {});
+        return "refused";
+      }
+      const amt = Math.max(3, Math.min(12, Math.floor(b.coin * 0.3)));
+      b.coin -= amt;
+      a.coin += amt;
+      const L = town.sbLoans || (town.sbLoans = []);
+      const loan = { id: L.length + 1, from: b.id, to: a.id, amt, t: game.time, due: game.time + (3 + Math.floor(Math.random() * 4)) * 1440, state: "open" };
+      L.push(loan);
+      lfEmit("loan", { actor: b, target: a, sev: 1, tags: ["generous"], witnessIds: [], chron: false, text: `${b.first} lent ${a.first} ${amt} denarii` });
+      lfAff(a, b, 4, "lent me money");
+      sbNote(a, b, "borrow", null);
+      sbNote(b, a, "lend", null);
+      sbSayIfNear(a, b, "borrow", {});
+      return "loan";
+    }
+  },
+  repay: {
+    u(a, b) {
+      const l = sbLoanBetween(a, b);
+      return l && l.to === a.id && a.coin >= l.amt + 3 ? 3 : 0;
+    },
+    run(a, b) {
+      const l = sbLoanBetween(a, b);
+      a.coin -= l.amt;
+      b.coin += l.amt;
+      const late = l.state === "late";
+      l.state = "paid";
+      sbTrust(b, a, late ? 6 : 12, "paid me back");
+      lfAff(b, a, late ? 3 : 5, "paid me back");
+      lfEmit("repaid", { actor: a, target: b, sev: 1, tags: ["honest"], witnessIds: [], chron: false, text: `${a.first} paid back the ${l.amt} denarii ${cvPron(a).he} owed ${b.first}` });
+      sbNote(a, b, "repay", null);
+      sbNote(b, a, "repaid", null);
+      sbSayIfNear(a, b, "repay", {});
+      return "repay";
+    }
+  },
+  confide: {
+    u(a, b) {
+      const L = cvLife(a);
+      return L.secret && !L.secretKnownBy.includes(b.id) && (a.aff[b.id] || 0) > 50 && sbTrustOf(a, b) > 15 ? 0.7 : 0;
+    },
+    run(a, b) {
+      cvLife(a).secretKnownBy.push(b.id);
+      sbTrust(a, b, 3);
+      lfAff(b, a, 3, "confided");
+      lfAff(a, b, 2, "confided");
+      sbNote(a, b, "confide", a);
+      sbNote(b, a, "confided", a);
+      sbSayIfNear(a, b, "confide", {});
+      return "confide";
+    }
+  },
+  leak: {
+    u(a, b) {
+      if (!lf2Has(a, "gossipy") && (a.drunk || 0) < 40) return 0;
+      const s = npcs.find((q) => q !== a && q !== b && !q.dead && q.cvLife && q.cvLife.secret && q.cvLife.secretKnownBy.includes(a.id) && !q.cvLife.secretOut && (a.aff[q.id] || 0) < 30);
+      a._s = s;
+      return s ? 0.6 : 0;
+    },
+    run(a, b) {
+      const q = a._s, L = q.cvLife;
+      const ev = lfEmit("secret", { actor: q, sev: 1, tags: ["scandal"], witnessIds: [], chron: false, text: `${q.first} ${cvThird(L.secret.text, q)}` });
+      L.secretOut = ev.id;
+      delete (q.kn || {})[ev.id];
+      (a.kn || (a.kn = {}))[ev.id] = { t: game.time, from: null, cert: 0.9, a: true, imp: 0.6 };
+      lf2Tell(a, b, ev, false, true);
+      sbTrust(q, a, -20);
+      sbNote(a, b, "leak", q);
+      sbNote(b, a, "heard secret", q);
+      return "leak";
+    }
+  }
+};
+function sbExchange(a, b, ctx2) {
+  SB.ctx = ctx2 || null;
+  let tot = 0;
+  const ws = [];
+  for (const k in SBX) {
+    let u = 0;
+    try {
+      u = SBX[k].u(a, b);
+    } catch (e) {
+      u = 0;
+    }
+    if (u > 0) {
+      ws.push([k, u]);
+      tot += u;
+    }
+  }
+  let r = Math.random() * tot, kind = "small";
+  for (const [k, u] of ws) {
+    r -= u;
+    if (r <= 0) {
+      kind = k;
+      break;
+    }
+  }
+  let res = "small";
+  try {
+    res = SBX[kind].run(a, b);
+  } catch (e) {
+    console.warn("exchange", kind, e && e.message);
+  }
+  SB.pair.set(sbPairKey(a, b), game.time);
+  SB.count[res] = (SB.count[res] || 0) + 1;
+  SB.ctx = null;
+  return res;
+}
+function sbPartnerW(a, b) {
+  const f = a.aff[b.id] || 0;
+  return (1 + Math.max(0, f) / 40 + (isKin(a, b) ? 0.8 : 0) + (a.fam && a.fam.spouse === b.id ? 1 : 0) + (a.job && a.job === b.job ? 0.4 : 0)) * (f < -30 ? 0.5 : 1);
+}
+function sbTick() {
+  if (SB.presim) return;
+  const live = npcs.filter(sbFree);
+  for (const a of live) {
+    if ((a.sbNext || 0) > game.time) continue;
+    a.sbNext = game.time + (20 + Math.random() * 40) / sbSocial(a);
+    let best = null, bw = 0;
+    for (const b of live) {
+      if (b === a || lfDist(a, b) > 4 || (b.sbBusy || 0) > game.time) continue;
+      const last2 = SB.pair.get(sbPairKey(a, b));
+      if (last2 !== void 0 && game.time - last2 < 90) continue;
+      if (seeThrough(a.tx, a.ty, b.tx, b.ty) < 0.5) continue;
+      const w = sbPartnerW(a, b) * (0.5 + Math.random());
+      if (w > bw) {
+        bw = w;
+        best = b;
+      }
+    }
+    if (!best || Math.random() > 0.6 * sbSocial(a)) continue;
+    a.sbBusy = best.sbBusy = game.time + 4;
+    sbExchange(a, best, null);
+  }
+}
+LF2.tickers.push(sbTick);
+function sbDaily() {
+  for (const l of town.sbLoans || []) {
+    if (l.state === "paid") continue;
+    const a = byId(l.to), b = byId(l.from);
+    if (!a || !b || a.dead || b.dead) {
+      l.state = "paid";
+      continue;
+    }
+    if (game.time > l.due && (l.state === "open" || game.time - (l.lastLate || 0) > 2 * 1440)) {
+      l.state = "late";
+      l.lastLate = game.time;
+      sbTrust(b, a, -12, "unpaid loan");
+      lfAff(b, a, -6, "unpaid loan");
+      if (!l.told) {
+        l.told = 1;
+        const ev = lfEmit("default", { actor: a, target: b, sev: 1, tags: ["debt"], witnessIds: [], chron: false, text: `${a.first} has not paid back the ${l.amt} denarii ${cvPron(a).he} owes ${b.first}` });
+        lf2Learn(b, ev, null, 1, true);
+      }
+    }
+  }
+  for (const n of npcs) if (!n.dead && n.kn) sbTrim(n);
+}
+LF2.hourly.push((h) => {
+  if (h === 3) sbDaily();
+});
+const SB_DELIVERY = ["a crate of wine from the mainland", "a letter sealed with red wax", "a cage with a songbird in it", "bolts of bright red cloth", "a strange blue fish nobody can name", "a barrel of salted olives", "a mirror wrapped in straw"];
+const sbHome = (n) => npcs.filter((q) => q !== n && !q.dead && !q.infant && (q.homeRoom && q.homeRoom === n.homeRoom));
+function sbLifeDaily() {
+  const adults = npcs.filter((n) => !n.dead && !n.infant && n.age >= 14 && !n.player);
+  for (const n of adults) {
+    if (!(n.ill && n.ill.until > game.time) && Math.random() < 6e-3 * (n.age > 55 ? 2 : 1) * ((n.health || 60) < 35 ? 2 : 1)) {
+      const days = 1 + Math.floor(Math.random() * 3);
+      n.ill = { until: game.time + days * 1440, t: game.time };
+      lfEmit("illness", { actor: null, target: n, sev: days > 2 ? 2 : 1, tags: ["health", "misfortune"], witnessIds: sbHome(n).map((q) => q.id), chron: false, text: `${n.first} has taken ill with a fever` });
+      if (!n.player) lfMod(n, "ill", "ill in bed", -10, days * 1440);
+    }
+    if (n.ill && n.ill.until <= game.time && !n.ill.done) {
+      n.ill.done = 1;
+      lfEmit("recovered", { actor: null, target: n, sev: 1, tags: ["news"], witnessIds: sbHome(n).map((q) => q.id), chron: false, text: `${n.first} is up and about again after the fever` });
+    }
+    if (n.coin >= 6 && Math.random() < 0.01) {
+      const q = Math.min(n.coin, 2 + Math.floor(Math.random() * 5));
+      n.coin -= q;
+      const lost = lfEmit("lostcoins", { actor: null, target: n, sev: 1, tags: ["misfortune"], witnessIds: [], chron: false, text: `${n.first} lost ${q} denarii somewhere` });
+      lf2Learn(n, lost, null, 1, false);
+      const finder = anyOf(adults.filter((x) => x !== n));
+      if (finder) {
+        const honest = lf2Has(finder, "devout") || lf2Has(finder, "generous") || (finder.aff[n.id] || 0) > 30 || !lf2Has(finder, "greedy") && Math.random() < 0.5;
+        if (honest) {
+          n.coin += q;
+          lfEmit("returned", { actor: finder, target: n, sev: 1, tags: ["honest", "kindness"], witnessIds: [], chron: false, text: `${finder.first} found ${n.first}'s lost coins and gave every one back` });
+        } else {
+          finder.coin += q;
+          const ev = lfEmit("keptcoins", { actor: finder, target: n, sev: 1, tags: ["theft", "deceit"], witnessIds: [], aware: false, chron: false, text: `${finder.first} found ${n.first}'s lost coins and kept them` });
+          ev.unseen = true;
+        }
+      }
+    }
+    if (Math.random() < 4e-3) {
+      const q = 8 + Math.floor(Math.random() * 12);
+      n.coin += q;
+      lfEmit("windfall", { actor: n, target: null, sev: 1, tags: ["rich"], witnessIds: sbHome(n).map((x) => x.id), chron: false, text: `${n.first} has come into ${q} denarii, from somewhere` });
+    }
+    const job = n.job || n.cur;
+    if ((job === "Fisher" || job === "Farmer") && Math.random() < 0.04) lfEmit("bigcatch", { actor: n, sev: 1, tags: ["brave"], chron: false, text: job === "Fisher" ? `${n.first} landed the biggest fish anyone has seen this year` : `${n.first}'s field gave a harvest twice the size of anyone's` });
+  }
+  if (Math.floor(game.time / 1440) % 7 === 0) for (const n of adults) {
+    const J = n.job && LF2_JOBS[n.job];
+    if (!J || !J.room || n.job === "Guard") continue;
+    const good = (n.coin || 0) > 25 ? Math.random() < 0.7 : Math.random() < 0.3;
+    lfEmit("businessweek", { actor: n, sev: 1, tags: ["business", good ? "rich" : "misfortune"], chron: false, text: good ? `${n.first} had the best week at the ${J.name.toLowerCase()}'s in a long while` : `${n.first} had a terrible week at the ${J.name.toLowerCase()}'s; hardly a customer` });
+    if (!n.player) lfMod(n, "week", good ? "a good week at work" : "a bad week at work", good ? 6 : -6, 1440 * 3);
+  }
+  if (Math.random() < 0.15) {
+    const shop = rooms.find((r) => !r.dead && LF2_SELL[r.kind]);
+    const keeper = shop && npcs.find((n) => !n.dead && n.job && LF2_JOBS[n.job] && LF2_JOBS[n.job].room === shop.kind);
+    if (keeper) lfEmit("delivery", { actor: keeper, sev: 1, tags: ["news"], chron: false, text: `${keeper.first} took delivery of ${anyOf(SB_DELIVERY)}`, x: shop.x + 1, y: shop.y + 1 });
+  }
+}
+LF2.hourly.push((h) => {
+  if (h === 8) sbLifeDaily();
+});
+LF2.preD.push(function(n, tod) {
+  if (!n.ill || n.ill.until <= game.time || !n.bed || n.player || n.hunger > 60 || n.starving > 0) return null;
+  return [goS({ x: n.bed.x, y: n.bed.y }, "Going to bed with a fever"), waitS(90, "sleep", "Ill in bed with a fever")];
+});
+const SB_PRESIM_DAYS = 60;
+function sbPresimSlot(slot, adults, R) {
+  const groups = [];
+  if (slot === 12 || slot === 19) {
+    const byHome = /* @__PURE__ */ new Map();
+    for (const n of adults) {
+      const k = n.homeRoom ? n.homeRoom.id : "tent" + n.id;
+      if (!byHome.has(k)) byHome.set(k, []);
+      byHome.get(k).push(n);
+    }
+    groups.push(...byHome.values());
+  }
+  if (slot === 9 || slot === 15) {
+    const byWork = /* @__PURE__ */ new Map();
+    for (const n of adults) {
+      const j = n.job || n.cur;
+      if (!j || j === "Child" || j === "Elder") continue;
+      const k = LF2_JOBS[j] && LF2_JOBS[j].room || j;
+      if (!byWork.has(k)) byWork.set(k, []);
+      byWork.get(k).push(n);
+    }
+    groups.push(...byWork.values());
+    for (const n of adults) if (R() < 0.35) {
+      const other = adults[Math.floor(R() * adults.length)];
+      if (other !== n) groups.push([n, other]);
+    }
+  }
+  if (slot === 21) {
+    const tav = adults.filter((n) => n.age >= 18 && R() < 0.15 + 0.15 * (sbHas(n, "sociable") + sbHas(n, "jovial")) - 0.1 * sbHas(n, "homebody"));
+    if (tav.length > 1) groups.push(tav);
+  }
+  for (const g of groups) {
+    if (g.length < 2) continue;
+    const pairs = Math.min(g.length, 1 + Math.floor(g.length / 2));
+    for (let i = 0; i < pairs; i++) {
+      const a = g[Math.floor(R() * g.length)], b = g[Math.floor(R() * g.length)];
+      if (a === b) continue;
+      if (R() > 0.55 * sbSocial(a)) continue;
+      const last2 = SB.pair.get(sbPairKey(a, b));
+      if (last2 !== void 0 && game.time - last2 < 90) continue;
+      sbExchange(a, b, { witnesses: g.filter((x) => x !== a && x !== b).map((x) => x.id), place: slot === 21 ? "tavern" : slot === 12 || slot === 19 ? "home" : "work" });
+    }
+  }
+}
+function sbPresimMoney(coin0) {
+  const ppl = [...coin0.keys()].filter((n) => !n.dead), d = ppl.map((n) => (n.coin || 0) - coin0.get(n)), mean = d.reduce((s, x) => s + x, 0) / Math.max(1, ppl.length);
+  ppl.forEach((n, i) => {
+    n.coin = Math.max(0, Math.round(coin0.get(n) + (d[i] - mean) * 0.5));
+  });
+}
+function sbPresim(days = SB_PRESIM_DAYS) {
+  if (!town || town.sbPresim) return town && town.sbPresim;
+  const t0 = performance.now(), mr = Math.random, R = cvRng((town.seed || "x") + ":presim");
+  Math.random = R;
+  const coin0 = new Map(npcs.map((n) => [n, n.coin || 0])), time0 = game.time, poses = new Map(npcs.map((n) => [n, n.pose])), chron0 = town.chron.length, ev0 = lf2Ev().length;
+  SB.presim = true;
+  for (const n of npcs) if (!n.dead) n.pose = "stand";
+  try {
+    cvWorld();
+    const base = time0 - days * 1440;
+    for (let d = 0; d < days; d++) {
+      const adults = npcs.filter((n) => !n.dead && !n.infant && n.age >= 6);
+      game.time = base + d * 1440 + 8 * 60;
+      sbLifeDaily();
+      for (const n of adults) {
+        if (n.age < 16) continue;
+        const j = n.job || n.cur;
+        if (j && j !== "Child" && j !== "Elder") n.coin = (n.coin || 0) + (R() < 0.7 ? 1 + Math.floor(R() * 3) : 0);
+        if ((lf2Has(n, "jovial") || lf2Has(n, "greedy") || lf2Has(n, "sociable")) && R() < 0.12) n.coin = Math.max(0, (n.coin || 0) - 3 - Math.floor(R() * 6));
+        if (R() < 0.08) n.coin = Math.max(0, (n.coin || 0) - 2 - Math.floor(R() * 4));
+      }
+      for (const slot of [9, 12, 15, 19, 21]) {
+        game.time = base + d * 1440 + slot * 60;
+        sbPresimSlot(slot, adults, R);
+      }
+      game.time = base + d * 1440 + 23 * 60;
+      if (typeof lf2RomanceDaily === "function") {
+        try {
+          lf2RomanceDaily();
+        } catch (e) {
+        }
+      }
+      game.time = base + (d + 1) * 1440 + 3 * 60;
+      sbDaily();
+    }
+  } finally {
+    Math.random = mr;
+    game.time = time0;
+    SB.presim = false;
+    poses.forEach((p, n) => {
+      n.pose = p;
+    });
+    town.chron.splice(chron0);
+    sbPresimMoney(coin0);
+    for (const n of npcs) {
+      n.ill = n.ill && n.ill.until > game.time ? n.ill : null;
+    }
+  }
+  return town.sbPresim = { days, ms: Math.round(performance.now() - t0), events: lf2Ev().length - ev0, exchanges: Object.assign({}, SB.count) };
+}
 function gaSpec(n, now) {
   const L = n.look || assignLook(n), sp = n._sp || (n._sp = {}), dress = dressFor(n);
   sp.id = n.id;
@@ -23684,6 +24475,11 @@ function newTown(seedText) {
   select(npcs.find((n) => n.adult) || npcs[0]);
   updateUI(true);
   updateMarket(true);
+  if (typeof sbPresim === "function") {
+    SB.count = {};
+    SB.pair = /* @__PURE__ */ new Map();
+    sbPresim();
+  }
   {
     const pn = chooseTipping();
     if (pn) {

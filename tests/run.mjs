@@ -188,7 +188,7 @@ async function talkScene(rng, fn) {
       if (!game.player) startPlaying(byId(game.steer) || npcs.find(canControl)); document.getElementById('c').focus();
       window.__em = []; const e0 = lfEmit; lfEmit = function (k, o) { window.__em.push(k + (o && o.fake ? '(fake)' : '')); return e0.apply(this, arguments); };
       window.__box = () => { const t = document.getElementById('talk'); if (!t || t.hidden) return null; return { name: t.querySelector('.nm b').innerText, say: t.querySelector('.ta').innerText, q: (t.querySelector('.tq') || {}).innerText || '', opts: [...t.querySelectorAll('[data-k]')].map(b => b.innerText.replace(/^\d+\s*/, '').trim()), leave: !!t.querySelector('[data-leave]') }; };
-      window.__friend = (o, aff = 40, know = 40) => { o.aff[game.player.id] = aff; o.know[game.player.id] = Math.max(o.know[game.player.id] || 0, know); return o; };
+      window.__friend = (o, aff = 40, know = 40) => { o.aff[game.player.id] = aff; o.know[game.player.id] = know; if (o.trust) o.trust[game.player.id] = 0; return o; };
       window.__talkable = () => npcs.filter(q => q !== game.player && !q.dead && q.age >= 14 && q.pose !== 'sleep');
     });
     const r = await fn(page);
@@ -247,7 +247,7 @@ test('talk: the right questions unlock more; a stranger gets a deflection where 
     const tellL = (l) => { c.depth[h.key] = l - 1; const u = cvDeepen(c, h, l); return u && u.text; }; const res = { l1: tellL(1), l2: tellL(2), fam: cvVoice(o).arch }; if (talkUI.o) closeTalk(); return res; }, [aff, know]);
   const friend = await t(70, 80), stranger = await t(-5, 2);
   check(friend.l1 && !/(listening to gossip|not true|None of your|I would rather not|not for talking|Why do you want)/.test(friend.l1), 'a close friend should get the story, got: ' + friend.l1);
-  check(stranger.l1 && stranger.l1 !== friend.l1, 'a stranger should not get the same answer as a friend'); return `friend: "${friend.l1.slice(0, 60)}…" · stranger: "${stranger.l1.slice(0, 60)}…"`;
+  check(stranger.l1 && stranger.l1 !== friend.l1, 'a stranger should not get the same answer as a friend: ' + JSON.stringify([friend, stranger])); return `friend: "${friend.l1.slice(0, 60)}…" · stranger: "${stranger.l1.slice(0, 60)}…"`;
 }));
 
 test('talk: they remember what you said to them', await talkScene(41, async page => {

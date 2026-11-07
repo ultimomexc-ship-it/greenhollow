@@ -15,7 +15,7 @@ const lfList = a => a.length > 1 ? a.slice(0, -1).join(', ') + ' and ' + a[a.len
 function lfShout(n, text) { if (n.player) playerSay(n, text); else say(n, n, [[n, text]], true); }
 function lfMod(n, id, text, v, dur) { n.mods = (n.mods || []).filter(m => m.id !== id); n.mods.push({ id, text, v, t0: game.time, dur: dur || 600 }); }
 function lfModSum(n) { let s = 0; for (const m of n.mods || []) { const k = 1 - (game.time - m.t0) / m.dur; if (k > 0) s += m.v * k; } return Math.max(-60, Math.min(40, s)); }
-function lfAff(a, b, v) { a.aff[b.id] = Math.max(-100, Math.min(100, (a.aff[b.id] || 0) + v)); relabel(a, b); }
+function lfAff(a, b, v, why?) { a.aff[b.id] = Math.max(-100, Math.min(100, (a.aff[b.id] || 0) + v)); if (typeof sbWhy === 'function' && Math.abs(v) >= 0.5) sbWhy(a, b, v, why); relabel(a, b); }
 const lfMoodWord = m => m >= 80 ? 'Delighted' : m >= 62 ? 'Happy' : m >= 45 ? 'Fine' : m >= 30 ? 'Low' : m >= 15 ? 'Miserable' : 'Despairing';
 
 /* ---------------- needs and mood ---------------- */
