@@ -13,7 +13,7 @@ const cvMarkHeard = (p, s) => { if (p) cvHeard(p)[s] = game.time; };
 
 /* the grammar: small pieces that recombine */
 const CVG: any = {
-  heard: ['Did you hear', 'Have you heard', 'You will have heard by now', 'Word is going round', 'Everyone is saying', 'I had it this morning'],
+  heard: ['Did you hear', 'Have you heard', 'You will have heard by now', 'Has nobody told you', 'Do you know the latest'],
   shock: ['I nearly dropped my bread.', 'I had to sit down.', 'I have not stopped thinking about it.', 'I could hardly believe it.', 'My mouth fell open, I am not ashamed to say.'],
   laugh: ['I have not laughed so hard since the goose.', 'I laughed until I had to hold the wall.', 'It has made my whole week.', 'I am still laughing, and it was yesterday.'],
   soft: ['It made my whole day, and it was not even me.', 'There is hope for us yet.', 'It does the heart good.', 'That is the village I want to live in.'],
@@ -41,7 +41,11 @@ function cvTagGroup(ev): string {
   if (k === 'smelly' || t.includes('smelly')) return 'smell'; if (k === 'dice' || t.includes('gamble')) return 'gamble';
   if (t.includes('violence') || k === 'brawl' || k === 'shove') return 'violence'; if (t.includes('embarrass') || k === 'stumble' || k === 'sing') return 'embarrass';
   if (['gift', 'charity', 'help', 'newclothes', 'repair'].includes(k) || t.includes('kindness') || t.includes('help') || t.includes('generous')) return 'kind';
-  if (['arrest', 'fined', 'escape'].includes(k)) return 'law'; return 'other';
+  if (['arrest', 'fined', 'escape'].includes(k)) return 'law';
+  if (['loan', 'repaid', 'default', 'lostcoins', 'returned', 'windfall', 'dole'].includes(k) || t.includes('debt')) return 'money';
+  if (t.includes('health') || k === 'illness' || k === 'recovered') return 'health';
+  if (['bigcatch', 'businessweek', 'delivery'].includes(k) || t.includes('business')) return 'work';
+  return 'other';
 }
 function cvEvFacts(c, ev, k) {
   const o = c.o, a = k && k.a && !k.sus && ev.actor ? lf2By(sbWhoId(o, ev)) : null, g = lf2By(ev.target), rel = q => !q ? 'none' : q === o ? 'me' : isKin(o, q) ? 'kin' : (o.aff[q.id] || 0) > 30 ? 'friend' : (o.aff[q.id] || 0) < -20 ? 'foe' : 'none';
@@ -74,6 +78,12 @@ const CV_RULES: any = {
     { when: { tag: 'kind', arch: 'cynic' }, say: ['{text.cap}. I am sure there is an angle. There is always an angle.', '{text.cap}. Kindness. Suspicious, but there it is.'] },
     { when: { tag: 'violence' }, say: ['There was a fight. {text.cap}. Blood on the stones, they say.', '{text.cap}, {when}. Over nothing, as usual. #shock#'] },
     { when: { tag: 'law' }, say: ['The watch has been busy. {text.cap}.', '{text.cap}. So the watch does work, after all.'] },
+    { when: { tag: 'money' }, say: ['Money business: {text}. #shrugs#', '{text.cap}. Coin changes hands and people change with it.', '#heard#? {text.cap}. Everyone is counting, these days.'] },
+    { when: { tag: 'money', me: true }, say: ['{text.cap}. I would rather you did not spread it about.', 'Since you ask: {text}. Money. It is always money.'] },
+    { when: { tag: 'health' }, say: ['{text.cap}. There is a lot of it about.', '#heard#? {text.cap}. I have been keeping my distance, if I am honest.', '{text.cap}. Somebody should take round some broth.'] },
+    { when: { tag: 'health', relTarget: 'friend' }, say: ['{text.cap}. I have been to see {target} twice already.', '{text.cap}. I am worried, and I do not mind saying so.'] },
+    { when: { tag: 'work' }, say: ['{text.cap}. That is the talk of the work, anyway.', '#heard#? {text.cap}.', 'Work news: {text}.'] },
+    { when: { tag: 'work', arch: 'cynic' }, say: ['{text.cap}. Enjoy it while it lasts.'] },
     { when: { src: 'told' }, say: ['{from} told me {text}. #shrugs#', 'I had it from {from}: {text}. Make of that what you will.', '{from} says {text}. And {from} is rarely wrong. Rarely.'] },
     { when: { src: 'told', tag: 'romance' }, say: ['{from} swears {text}. {from} would know, apparently.'] },
   ],
@@ -95,6 +105,9 @@ const CV_RULES: any = {
     { when: { stance: 'amused' }, say: ['Ha! Oh, that is wonderful. Poor {target}.', 'Stop. Stop it. I will tell everyone.', 'Ha! I wish I had seen it.'] },
     { when: { stance: 'pity' }, say: ['Oh, poor {target}. Somebody should look in on them.', 'That is hard. I will take round some bread.'] },
     { when: { stance: 'warm' }, say: ['How lovely. Good for {actor}.', 'That is the nicest thing I have heard all week.', 'You see? People are better than they seem.'] },
+    { when: { tag: 'money' }, say: ['Money again. It is always money with some people.', 'I would keep that quiet, if it were mine.'] },
+    { when: { tag: 'health' }, say: ['Oh dear. I hope it is nothing catching.', 'Poor {target}. I will look in on them.'] },
+    { when: { tag: 'work' }, say: ['Good for them. Or bad. You can never tell with work.', 'I will believe it when I see it.'] },
     { when: { tag: 'romance' }, say: ['No! {actor}? Does anyone else know? Do not answer, I will find out.', 'Well, well. I wondered about those two.'] },
   ],
 };

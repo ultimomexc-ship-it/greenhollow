@@ -4,7 +4,7 @@ const isRestDay = (t?) => Math.floor((t === undefined ? game.time : t) / 1440) %
 const HOBBIES = ['fishing', 'foraging', 'walking', 'whittling', 'singing', 'stargazing'];
 const HOBBY_TXT = { fishing: 'fishing', foraging: 'berry picking', walking: 'long walks', whittling: 'whittling', singing: 'singing', stargazing: 'stargazing' };
 const JOB_VERB = { Woodcutter: 'chop wood', Stonecutter: 'cut stone', Fisher: 'fish', Farmer: 'work the field', Gatherer: 'pick berries' };
-const JOB_NOUN = { Woodcutter: 'a woodcutter', Stonecutter: 'a stonecutter', Fisher: 'a fisher', Farmer: 'a farmer', Gatherer: 'a forager' };
+const JOB_NOUN = { Woodcutter: 'a woodcutter', Stonecutter: 'a stonecutter', Fisher: 'a fisher', Farmer: 'a farmer', Gatherer: 'a forager', Priest: 'a priest', Barkeep: 'a barkeep', Trader: 'a trader' };
 const MEM_REPLY = {
   outing: ['I will never forget it.', 'We should go again soon.', 'You still owe me a bigger one.', 'Best day of the season.'],
   wedding: ['Best day of my life.', 'The whole town danced till dark.'],
