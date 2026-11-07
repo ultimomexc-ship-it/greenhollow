@@ -200,7 +200,7 @@ function carryIcon(n) {
   for (const g of ['wood', 'stone']) if ((n.inv[g] || 0) >= 1) return g;
   return null;
 }
-// the player's own clock: always runs, even when the calendar stands still in the Old Forest
+// the player's own clock: always runs, even when the calendar stands still
 const clk = () => (game.ft == null ? game.time : Math.max(game.ft, game.time));
 function updateSim(dt) {
   game.ft = clk() + dt;

@@ -86,7 +86,9 @@ function lf2WashPlan(n, tod) {
   const h = tod / 60, b = lf2Baths();
   if (b && n.clean < 55 && h >= 13 && h < 19 && (n.coin >= 1 || !LF2.on('economy')) && (n.lf2BathT || 0) < game.time && n.age >= 12) {
     n.lf2BathT = game.time + 900; const seat = anyOf(lf2BathSeats()); if (!seat) return null;
-    return [goS(seat, 'Off to the baths'), waitS(40 + Math.random() * 30, 'leisure', anyOf(['Soaking in the warm pool', 'Steaming at the baths', 'Lounging by the bath pool']), { social: true, nopie: true })];
+    return [goS(seat, 'Off to the baths'), waitS(4, 'stand', 'Changing at the baths', { nopie: true }),
+      waitS(36 + Math.random() * 30, 'leisure', anyOf(['Soaking in the warm pool', 'Steaming at the baths', 'Lounging in the pool', 'Swimming a length of the pool']), { social: true, nopie: true }),
+      waitS(4, 'stand', 'Drying off and dressing at the baths', { nopie: true })];
   }
   if (n.clean < 40 && n.homeRoom && n.homeRoom.spots.pantry && (n.lf2WashT || 0) < game.time) { n.lf2WashT = game.time + 300; return [goS(n.homeRoom.spots.pantry, 'Going home to wash'), waitS(10, 'stand', 'Washing at the basin', { nopie: true, onEnd(nn) { nn.clean = Math.min(100, nn.clean + 45); } })]; }
   return null;

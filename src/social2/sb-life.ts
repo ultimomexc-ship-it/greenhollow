@@ -61,6 +61,7 @@ LF2.preD.push(function (n, tod) { if (!n.ill || n.ill.until <= game.time || !n.b
 /* parents keep the little ones fed: a hungry child and an empty pantry send whoever has the money out for food */
 LF2.preD.push(function (n, tod) {
   if (n.player || n.age < 16 || !n.homeRoom || (n.feedCool || 0) > game.time || (n.ill && n.ill.until > game.time && n.hunger <= 60)) return null;
+  const st = n.plan && n.plan[n.si]; if (n.pose === 'sleep' || (st && st.act === 'sleep') || tod < 6 * 60 || tod > 21 * 60) return null;   // awake, and in the day
   const kid = npcs.find(k => !k.dead && !k.infant && k.age < 14 && k.homeRoom === n.homeRoom && (k.hunger >= 70 || k.starving > 0)); if (!kid || foodCount(pantryOf(n)) >= 1) return null;
   n.feedCool = game.time + 120; const home = [goS(pantrySpot, `Taking food home for ${kid.first}`), waitS(2, 'stand', 'Stocking the pantry', { onEnd: stash })];
   // what they carry goes home first; then the shops; and if there is nothing to buy, out to forage for the household

@@ -1,11 +1,36 @@
 /* ---- people: the paper dolls ---- */
+/** a bather's state, read from what they are doing (so nobody is left in a towel if their plans change): 'dress' while changing or drying
+    on the bench, or the spot in the pool they are standing in (null otherwise) */
+function bathState(n) {
+  const s = n.status || ''; if (n.moving || !/bath|pool/i.test(s)) return null;
+  if (/Changing at the baths|Drying off/.test(s)) return 'dress';
+  if (!/Soaking|Steaming|Lounging in the pool|Swimming|at the baths with friends|Hosting a trip to the baths/.test(s)) return null;
+  const b = typeof lf2Baths === 'function' && lf2Baths(), seat = b && (b.seats || []).find(q => q.x === n.tx && q.y === n.ty); if (!seat || !seat.face) return 'dress';
+  const pool = (x, y) => grid[y] && grid[y][x] === T.POOL, d = seat.face, x1 = n.tx + d.dx, y1 = n.ty + d.dy, x2 = x1 + d.dx, y2 = y1 + d.dy;
+  return d.dy > 0 && pool(x2, y2) ? { x: x2, y: y2 } : pool(x1, y1) ? { x: x1, y: y1 } : 'dress';   /* from the back bench, two steps (clear of the wall); otherwise one */
+}
+const BATH_LINEN = '#ece5d4';
+const GUARD_UNIFORM = { helmet: '#c08a3e', tunic: '#a3241e', belt: '#5a3a22', breeches: '#3a2e2a' };
 function gaSpec(n, now) {
   const L = n.look || assignLook(n), sp = n._sp || (n._sp = {}), dress = dressFor(n);
   sp.id = n.id; sp.role = n.role; sp.age = n.age; sp.female = !!n.female; sp.skin = n.skin; sp.hair = n.hair; sp.hs = L.hs; sp.beard = L.beard; sp.shirt = n.shirt; sp.pat = L.pat; sp.acc = L.acc; sp.pants = L.pants;
   sp.hat = n.hat; sp.hatCol = n.hatCol; sp.hatOn = !!L.hatOn; sp.robe = !!n.robe; sp.apron = !!n.apron; sp.face = n.face || { dx: 0, dy: 1 };
   sp.moving = !!n.moving; sp.pose = n.moving ? 'walk' : (n.pose === 'sit' || n.pose === 'kneel' || n.pose === 'work') ? n.pose : 'stand';
   sp.tool = n.pose === 'work' ? n.tool : null; sp.hold = n.hold || null; sp.dress = dress; sp.mourning = !!(n.mourning && !n.moving); sp.wave = !!(n.waveUntil > game.time && n.pose !== 'sleep'); sp.inv = n.inv; sp.status = n.status;
+  // at the baths: out of their clothes (a loincloth, or a linen shift for women), no hat, nothing in hand
+  const bath = n.age >= 6 && !dress ? bathState(n) : null; n._bath = bath;
+  if (bath) { sp.shirt = n.female ? BATH_LINEN : n.skin; sp.pat = 'plain'; sp.acc = null; sp.pants = BATH_LINEN; sp.hat = 'none'; sp.hatOn = false; sp.robe = false; sp.apron = false; sp.tool = null; sp.hold = null; if (typeof bath === 'object') sp.pose = 'stand'; return sp; }
+  // the watch wear one uniform: bronze helmet, red tunic, leather belt, dark breeches; on duty they carry a spear
+  if (n.job === 'Guard' && !dress) { const U = GUARD_UNIFORM; sp.hat = 'helmet'; sp.hatCol = U.helmet; sp.hatOn = true; sp.shirt = U.tunic; sp.pat = 'belt'; sp.acc = U.belt; sp.pants = U.breeches; sp.robe = false; sp.apron = false;
+    if (!sp.tool && !sp.hold && (sp.pose === 'walk' || sp.pose === 'stand') && !/home|bed|sleep|supper|breakfast|privy|bath|eat/i.test(n.status || '')) sp.tool = 'spear'; }
   return sp;
+}
+/** the pool over a bather's legs: water up to the waist, with a ripple ring that moves. The doll is drawn from the tile corner (px, py)
+    with its feet at (+12, +21.5) game pixels (ART: DCX/2, DBY - DO). */
+function drawWaterline(c, n, px, py, now) {
+  const k = n.age >= 16 ? 1 : 0.8, cx = px + TS / 2, feet = py + 21.5, top = feet - 12 * k, hw = 9 * k, t = now / 700 + (n.id || 0);
+  c.save(); c.fillStyle = '#5a9fb8';   /* the pool's own colour (lf2DrawPool) */ c.beginPath(); c.ellipse(cx, top, hw, 2.6 * k, 0, Math.PI, 0, true); c.lineTo(cx + hw, feet + 1); c.lineTo(cx - hw, feet + 1); c.closePath(); c.fill();
+  c.strokeStyle = 'rgba(255,255,255,0.6)'; c.lineWidth = 0.8; c.beginPath(); c.ellipse(cx, top, hw * (0.85 + 0.08 * Math.sin(t)), 2.4 * k * (1 + 0.15 * Math.sin(t)), 0, 0, Math.PI * 2); c.stroke(); c.restore();
 }
 function drawPerson(c, n, now, px, py) {
   const sp = gaSpec(n, now); c.save();
@@ -145,7 +170,7 @@ function render(now, dtSec, hourOfDay) {
   // people, the forest sprites, the statue... and any tall tile standing in front of them: all in order of who is
   // nearer the bottom of the screen, so whoever is behind a tree, a tent or a statue goes behind it
   { const items = [], near = new Set<number>(), mark = (x, y) => { const x0 = Math.floor(x), y0 = Math.floor(y); for (let yy = y0; yy <= y0 + 2; yy++) for (let xx = x0 - 1; xx <= x0 + 2; xx++) if (yy >= 0 && xx >= 0 && yy < H && xx < W) near.add(yy * W + xx); };
-    for (const n of npcs) { if (n.inShip) continue; const sl = n.pose === 'sleep' && !n.moving; items.push({ k: n.y - (sl ? 0.45 : 0), f: () => { const sxy = gaSlide(n, now), px = sxy[0] * TS, py = sxy[1] * TS; if (sl) drawSleeper(c, n, px, py, now); else drawPerson(c, n, now, px, py); } }); mark(n.x, n.y); }
+    for (const n of npcs) { if (n.inShip) continue; const sl = n.pose === 'sleep' && !n.moving; items.push({ k: n.y - (sl ? 0.45 : 0), f: () => { const sxy = gaSlide(n, now), bw = n._bath && typeof n._bath === 'object' ? n._bath : null, px = (bw ? bw.x : sxy[0]) * TS, py = (bw ? bw.y - 0.3 : sxy[1]) * TS; /* in the pool: feet near the middle of the water tile */ if (sl) drawSleeper(c, n, px, py, now); else { drawPerson(c, n, now, px, py); if (bw) drawWaterline(c, n, px, py, now); } } }); mark(n.x, n.y); }
     for (const prov of YSORT) { const L = prov(c, now) || []; for (const it of L) { items.push(it); if (it.mob) mark(it.x, it.k); } }
     if (cam.z >= 0.6) { const busy = new Set(); for (const w of workTargets()) if (w.kind === 'tree') busy.add(w.y * W + w.x);
       for (const key of near) { const x = key % W, y = (key / W) | 0, t = grid[y][x]; if (!TALL.has(t) || busy.has(key)) continue; items.push({ k: y - 0.02, f: () => drawTallTile(c, x, y, t) }); } }

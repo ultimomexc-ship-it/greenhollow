@@ -3,7 +3,7 @@ Object.assign(GOODS, { bread: { base: 2, sat: 34, name: 'bread' }, stew: { base:
   iron: { base: 6, name: 'iron' }, wool: { base: 3, name: 'wool' }, wine: { base: 1, name: 'wine' } });
 FOODS.push('bread', 'stew');
 T.POOL = 31; BLOCKED.add(T.POOL);
-const LF2_BLD = { bakery: 'The Bakery', smithy: 'The Smithy', shop: 'The Taberna', thermopolium: 'The Thermopolium', baths: 'The Baths', jail: 'The Carcer' };
+const LF2_BLD = { bakery: 'The Bakery', smithy: 'The Smithy', shop: 'The Taberna', thermopolium: 'The Thermopolium', baths: 'The Baths', jail: 'The Carcer', macellum: 'The Market Hall' };
 Object.keys(LF2_BLD).forEach(k => { BUILDING[k] = 1; });
 /* what each workplace sells, and how much stock counts as "plenty" (prices rise as stock runs low) */
 const LF2_SELL = { bakery: { bread: 14 }, thermopolium: { stew: 8 }, smithy: { tools: 4 }, shop: { tools: 3, cloth: 4, bread: 6 } };
@@ -31,6 +31,10 @@ function lf2Furnish(kind, room, put, spot, seat, bed, w, h, doorU) {
     put(w - 2, 1, T.OVEN); for (let u = 2; u <= w - 3; u++) put(u, 2, T.COUNTER);
     spot('cook', 3, 1, 0, 1); spot('front', 3, 3, 0, -1);
     seat(1, h - 3, 1, 0); seat(w - 2, h - 3, -1, 0); seat(1, h - 2, 0, -1); seat(w - 2, h - 2, 0, -1);
+  } else if (kind === 'macellum') {
+    // the market hall: a counter for each seller along the back, with room to stand behind it and a place for customers in front
+    const us = [2, 4, 6, 8].filter(u => u <= w - 2); us.forEach((u, i) => { put(u, 2, T.COUNTER); spot('post' + i, u, 1, 0, 1); spot('front' + i, u, 3, 0, -1); });
+    put(1, h - 2, T.BARREL); put(w - 2, h - 2, T.BARREL);
   } else if (kind === 'baths') {
     for (let u = 3; u <= w - 4; u++) for (let v = 2; v <= h - 4; v++) put(u, v, T.POOL);
     for (let u = 3; u <= w - 4; u++) { seat(u, 1, 0, 1); if (u !== doorU) seat(u, h - 3, 0, -1); }
@@ -49,7 +53,7 @@ function lf2DrawPool(g, x, y) {
 
 /* ---------------- the ready-built Roman quarter ---------------- */
 function lf2Prebuild() {
-  // the town has cleared the scattered trees around the forum (the dark wood stays)
+  // the town has cleared the scattered trees around the forum
   const mk = town.markets[0], cx = mk ? mk.x + (mk.w >> 1) : town.cx, cy = mk ? mk.y + (mk.h >> 1) : town.cy, R = rng(town.seed + 4242);
   for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) { if (grid[y][x] !== T.TREE || wildTile(x, y) || roomAt[y][x] >= 0 || Math.hypot(x - cx, y - cy) > 40 || R() < 0.12) continue; setT(x, y, T.GRASS); }
   town.treeDirty = true; town.treeCache = null; refreshReach();
@@ -66,7 +70,7 @@ function lf2Prebuild() {
   town.chron.length = before;
   // more land under the plough to feed the newcomers
   for (let i = 0; i < 2; i++) lfBuild('field', 10, 5, {}) || lfBuild('field', 8, 4, {}) || lfBuild('field', 8, 4, { clear: true });
-  const tries = { bakery: [[7, 7], [7, 6]], smithy: [[8, 7], [8, 6]], shop: [[9, 8], [8, 7]], thermopolium: [[7, 6], [7, 5]], baths: [[11, 8], [11, 7], [10, 7]], jail: [[7, 6], [6, 5]] };
+  const tries = { bakery: [[7, 7], [7, 6]], smithy: [[8, 7], [8, 6]], shop: [[9, 8], [8, 7]], thermopolium: [[7, 6], [7, 5]], baths: [[11, 8], [11, 7], [10, 7]], jail: [[7, 6], [6, 5]], macellum: [[10, 6], [10, 7], [9, 6]] };
   for (const k of Object.keys(tries)) {
     if (lf2Room(k)) continue;
     let ok = null; for (const [w, h] of tries[k]) { for (const o of [{}, { tight: true }, { clear: true }, { tight: true, clear: true }]) { ok = lfBuild(k, w, h, Object.assign({}, o)); if (ok) break; } if (ok) break; }
@@ -74,7 +78,7 @@ function lf2Prebuild() {
   const st = (k, o) => { const r = lf2Room(k); if (r) Object.assign(lf2Stock(r), o); };
   st('bakery', { grain: 6, bread: 8 }); st('thermopolium', { fish: 3, grain: 3, stew: 4 }); st('smithy', { iron: 4, tools: 3 }); st('shop', { wool: 4, cloth: 2, tools: 1, bread: 2 });
   npcs.forEach(n => { if (n.age >= 16 && n.toolQ == null) n.toolQ = 40 + Math.random() * 60; n.clean = 60 + Math.random() * 40; });
-  lf2AssignJobs(true);
+  lf2AssignJobs(true); moveSellersIndoors();
 }
 function lf2AssignJobs(first) {
   const pool = npcs.filter(n => !n.dead && !n.player && n.role === 'Worker' && n.age >= 18 && n.age < 60 && !n.shop);
@@ -94,7 +98,7 @@ function lf2AssignJobs(first) {
 }
 function lf2SetJob(n, k, quiet) {
   const old = n.job; n.job = k; n.cur = null; n.curUntil = 0; n.jobSat = 60;
-  if (k === 'Guard') { n.hat = 'cap'; n.hatCol = '#b89a4a'; n.shirt = '#9a2a24'; if (typeof updateLook === 'function') updateLook(n); }
+  if (k === 'Guard') { n.hat = 'helmet'; n.hatCol = GUARD_UNIFORM.helmet; n.shirt = GUARD_UNIFORM.tunic; if (typeof updateLook === 'function') updateLook(n); }   // the uniform itself is drawn in gaSpec
   if (!quiet) { chron(`${nameOf(n)} became the ${LF2_JOBS[k].name.toLowerCase()}${old && LF_JOBN && LF_JOBN[old] ? ', giving up ' + LF_JOBN[old] : ''}.`, 'life'); addMem(n, 'job', `the day I became the ${LF2_JOBS[k].name.toLowerCase()}`, null, null); }
 }
 
@@ -288,7 +292,7 @@ function lf2Payday() {
   if (fd >= 0.5) lf2AssignJobs(false);
   if (fd < 0.3) { const t = npcs.filter(n => !n.dead && ['Labourer', 'Weaver', 'BathKeeper', 'Builder'].includes(n.job))[0]; if (t) { const old = LF2_JOBS[t.job].name; t.job = 'Farmer'; t.lf2NoTrade = game.time + 3 * 1440; chron(`Food is short, so ${nameOf(t)} put down the work of a ${old.toLowerCase()} and went to the fields.`, 'life'); } }
 }
-LF2.hourly.push(h => { if (h === 21) lf2Payday(); if (h === 15) lf2GrainShip(); });
+LF2.hourly.push(h => { if (h === 21) lf2Payday(); if (h === 15) lf2GrainShip(); moveSellersIndoors(); });
 /* the grain dole: when the larder runs low, the council buys grain off a ship (if it can afford it) */
 function lf2GrainShip() {
   if (!LF2.on('economy') || typeof foodDaysNow !== 'function' || foodDaysNow() >= 0.45) return;

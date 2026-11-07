@@ -1,5 +1,5 @@
 /* ================= The island =================
-   An island in the open sea. The old forest fills its heart; a ring of meadow and woodland runs round it, where the
+   An island in the open sea (its old forest was cleared for building); a ring of meadow and woodland runs round it, where the
    village grows; then the beach, and on one side a great tidal bay where the sea goes out for miles at low tide. */
 const angDiff = (a, b) => { let d = (a - b) % 6.2832; if (d > 3.1416) d -= 6.2832; if (d < -3.1416) d += 6.2832; return d; };
 function carveIsland(R, ns, ns2) {
@@ -23,12 +23,11 @@ function carveIsland(R, ns, ns2) {
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const k = y * W + x, dx = (x - ix) / rx, dy = (y - iy) / ry, a = Math.atan2(dy, dx), d = Math.hypot(dx, dy) / shape(a) + (vnoise(x * 0.11, y * 0.11, ns + 5) - 0.5) * 0.05;
     const fdx = (x - fcx) / rx, fdy = (y - fcy) / ry, fa = Math.atan2(fdy, fdx), fd = Math.hypot(fdx, fdy) / shape(fa) + (vnoise(x * 0.09, y * 0.09, ns + 6) - 0.5) * 0.06;
-    if (fd < forestR(fa) && d < 0.86) { fmask[k] = 1; const glade = vnoise(x * 0.12, y * 0.12, ns2 + 21); grid[y][x] = glade > 0.72 ? (R() < 0.12 ? T.TREE : T.GRASS) : (R() < 0.9 ? T.TREE : T.GRASS); continue; }
+    // (the old forest that once filled the island's heart has been cleared: it is ordinary, buildable countryside now; fmask stays empty)
     if (d < 0.94) {
       const f = vnoise(x * 0.045, y * 0.045, ns) * 0.75 + vnoise(x * 0.15, y * 0.15, ns + 7) * 0.25, pf = f < 0.4 ? 0.03 : f < 0.55 ? 0.3 : 0.7;
-      const cd = ((x - camp.x) / 22) ** 2 + ((y - camp.y) / 15) ** 2, edge = fd - forestR(fa), shore = 0.94 - d;
+      const cd = ((x - camp.x) / 22) ** 2 + ((y - camp.y) / 15) ** 2, shore = 0.94 - d;
       let p = cd < 1 ? (cd > 0.85 && R() < 0.05 ? 1 : 0) : cd < 1.35 ? Math.min(pf, 0.4) : pf;
-      if (edge < 0.05 && cd >= 1) p = Math.max(p, 0.8);           // the old wood thickens before you are in it
       if (shore < 0.04) p *= 0.3;                                  // wind-bent scrub near the shore
       grid[y][x] = R() < p ? T.TREE : T.GRASS; continue;
     }
@@ -88,8 +87,8 @@ function carveIsland(R, ns, ns2) {
   let fmax = 1; for (let k = 0; k < W * H; k++) if (fmask[k] && town.fin[k] < 255) fmax = Math.max(fmax, town.fin[k]); town.fmax = fmax;
   // the beach nearest the tidal bay: where you walk out onto the flats
   let landing = null, lb = 1e9; const bayP = at(bay, 1); for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) { const k = y * W + x; if (!cmask[k] || hgt[k] >= 0 || islet[k] || grid[y][x] !== T.SAND) continue; const dd = Math.hypot(x - bayP.x, y - bayP.y); if (dd < lb) { lb = dd; landing = { x, y }; } }
-  town.region = { name: 'The Old Forest', ent: ent || { x: Math.round(ix), y: Math.round(iy) }, cx: Math.round(ix), cy: Math.round(iy), found: false };
-  return { cx: camp.x, cy: camp.y, ix, iy, rx, ry, bay, campA, at, isl, tier1, tier2, tier3, lhIs, lh, gapSet, landing: landing || { x: camp.x, y: camp.y }, ent: town.region.ent };
+  town.region = null;   // no named wild region any more (the old forest was cleared)
+  return { cx: camp.x, cy: camp.y, ix, iy, rx, ry, bay, campA, at, isl, tier1, tier2, tier3, lhIs, lh, gapSet, landing: landing || { x: camp.x, y: camp.y }, ent: ent || { x: Math.round(ix), y: Math.round(iy) } };
 }
 // the path in from the forest's edge; the bay is just scenery now
 function islandFeatures(R, I, ns2) {
@@ -114,9 +113,9 @@ function inForest(x, y) { return !!(town && town.fmask && x >= 0 && y >= 0 && x 
 function townName(R) {
   const name = pick(R, TOWN_PRE) + pick(R, TOWN_SUF);
   town.name = name.charAt(0).toUpperCase() + name.slice(1);
-  const f = [`A few families followed the old road into the forest and stopped where the ground was dry. They named it ${town.name} and started on the first clearing.`,
+  const f = [`A few families followed the old road inland and stopped where the ground was dry. They named it ${town.name} and started on the first houses.`,
     `${town.name} began with an axe, a net and three households. Everything else, they decided, they would build themselves.`,
-    `The forest was here first. The founders of ${town.name} are still asking it politely to move over.`];
+    `There was a great forest here once. The founders of ${town.name} cleared it, and the island has been all fields and building ground since.`];
   town.founding = pick(R, f);
   town.arch = { id: 'founding', name: 'Founding settlement' };
 }

@@ -14,7 +14,7 @@ export async function playDays({ days = 30, talksPerDay = 6, turns = 10, seed = 
   const browser = await launch();
   const { page, errors } = await openGame(browser, file || new URL('../dist/index.html', import.meta.url).pathname, { rng, town: seed });
   await page.evaluate(() => {
-    if (!game.player) startPlaying(byId(game.steer) || npcs.find(canControl));
+    if (!game.player) startPlaying(canControl(byId(game.steer)) ? byId(game.steer) : npcs.find(canControl));
     // trace which topics are told (without changing the game)
     window.__trace = []; const t0 = cvTell; cvTell = function (c, t, layer) { const u = t0.apply(this, arguments); if (u) window.__trace.push({ kind: t.kind, key: t.key, layer, day: Math.floor(game.time / 1440) }); return u; };
   });
@@ -23,7 +23,7 @@ export async function playDays({ days = 30, talksPerDay = 6, turns = 10, seed = 
     for (const hour of [10, 18]) {
       const now = await page.evaluate(() => game.time); const target = Math.floor(now / 1440) * 1440 + hour * 60; if (target > now) await simulate(page, target - now);
       const r = await page.evaluate(([n, turns]) => {
-        if (!game.player) startPlaying(byId(game.steer) || npcs.find(canControl)); const out = [], P = game.player; if (!P) { out.push({ err: 'no player: ' + JSON.stringify({ steer: game.steer, dead: (byId(game.steer) || {}).dead, succession: !!town.succession }) }); return out; }
+        if (!game.player) startPlaying(canControl(byId(game.steer)) ? byId(game.steer) : npcs.find(canControl)); const out = [], P = game.player; if (!P) { out.push({ err: 'no player: ' + JSON.stringify({ steer: game.steer, dead: (byId(game.steer) || {}).dead, succession: !!town.succession }) }); return out; }
         // a player who looks after themselves between conversations (the harness does not walk them to meals)
         P.hunger = Math.min(P.hunger, 20); P.energy = Math.max(P.energy || 0, 70); if (P.bladder != null) P.bladder = Math.min(P.bladder, 20); if (P.player) { P.player.sleeping = false; P.pose = 'stand'; }
         const cand = npcs.filter(q => q !== P && !q.dead && !q.infant && q.age >= 8 && q.pose !== 'sleep'); for (let i = cand.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [cand[i], cand[j]] = [cand[j], cand[i]]; }

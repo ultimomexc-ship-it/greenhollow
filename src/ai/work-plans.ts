@@ -109,7 +109,7 @@ function gatherPlan(n) {
 }
 function merchPlan(n, tod) {
   const m = n.shop, h = tod / 60, open = h >= m.def.open[0] && h < m.def.open[1];
-  if (open) return [goS(m.post, 'Opening up the stall'), waitS(14, 'work', 'Minding the stall', { serve: true, tool: 'wipe' })];
+  if (open) return [goS(m.post, m.post.hall ? 'Opening up at the market hall' : 'Opening up the stall'), waitS(14, 'work', m.post.hall ? 'Minding the counter at the market hall' : 'Minding the stall', { serve: true, tool: 'wipe' })];
   return null;
 }
 function demandFor(g) {

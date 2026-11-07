@@ -38,10 +38,24 @@ function initNpcSim(n) {
   if (n.bed && n.bed.x != null && n.x === undefined) { n.x = n.tx = n.bed.x; n.y = n.ty = n.bed.y; }
   n.dead = false; lifeInit(n);
 }
+/** the counters in the market hall, as stalls (a seller stands at x,y behind the counter; customers at front) */
+function hallStalls() {
+  const r = typeof lf2Room === 'function' ? lf2Room('macellum') : null; if (!r) return [];
+  if (!r.hall) r.hall = [0, 1, 2, 3].filter(i => r.spots['post' + i]).map(i => ({ x: r.spots['post' + i].x, y: r.spots['post' + i].y, face: r.spots['post' + i].face, front: { x: r.spots['front' + i].x, y: r.spots['front' + i].y }, owner: null, market: town.markets[0], hall: r }));
+  return r.hall;
+}
+/** sellers work in the market hall: anyone still at an open-air stall moves in when there is a counter free, and the empty stalls on the green are cleared away */
+function moveSellersIndoors() {
+  const H = hallStalls(); if (!H.length) return;
+  for (const m of merchants) { if (m.post && m.post.hall) continue; const free = H.find(s => !s.owner); if (!free) break; const n = m.n;
+    if (n.stall) n.stall.owner = null; n.stall = free; free.owner = n; m.post = free; m.front = { x: free.front.x, y: free.front.y, face: free.face }; }
+  for (const mk of town.markets) for (const st of mk.stalls) { if (st.owner || st.gone) continue; st.gone = true;
+    for (const t of st.tiles || []) if (grid[t.y][t.x] === T.STALL) { setT(t.x, t.y, T.PATH); if (typeof markDirty === 'function') markDirty(t.x, t.y, 1, 1); } }
+}
 function makeMerchant(n, mk?) {
-  let stall;
-  if (mk) stall = mk.stalls.find(s => !s.owner);
-  if (!stall) { const opts = town.markets.filter(m => m.stalls.some(s => !s.owner)).map(m => ({ m, sc: m.stalls.filter(s => s.owner).length * 40 + marketDist2(n, m) })).sort((a, c) => a.sc - c.sc); stall = opts.length ? opts[0].m.stalls.find(s => !s.owner) : null; }
+  let stall = hallStalls().find(s => !s.owner);
+  if (!stall && mk) stall = mk.stalls.find(s => !s.owner && !s.gone);
+  if (!stall) { const opts = town.markets.filter(m => m.stalls.some(s => !s.owner && !s.gone)).map(m => ({ m, sc: m.stalls.filter(s => s.owner).length * 40 + marketDist2(n, m) })).sort((a, c) => a.sc - c.sc); stall = opts.length ? opts[0].m.stalls.find(s => !s.owner && !s.gone) : null; }
   if (!stall) return null;
   n.stall = stall; stall.owner = n;
   const m = { n, role: 'Trader', def: MERCH_DEF, buys: MERCH_DEF.buys, sells: MERCH_DEF.sells, stock: {}, post: stall, front: { x: stall.front.x, y: stall.front.y, face: stall.face }, serving: false, sales: 0, revenue: 0, outlay: 0 };

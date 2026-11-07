@@ -8,7 +8,7 @@ function nearGrave(x, y) {
   return false;
 }
 const remainsAt = (x, y) => (town.remains || []).find(r => r.x === x && r.y === y) || null;
-const wildTile = (x, y) => !!(town.fmask && town.fmask[y * W + x]);   // nobody builds in the dark wood
+const wildTile = (x, y) => !!(town.fmask && town.fmask[y * W + x]);   // (the old forest was cleared; nothing is off limits now)
 const tileFree = (x, y) => x > 0 && y > 0 && x < W - 1 && y < H - 1 && (grid[y][x] === T.GRASS || (grid[y][x] === T.SAND && !(town.hgt && town.hgt[y * W + x] >= 0) && !(town.islet && town.islet[y * W + x]))) && !wildTile(x, y) && roomAt[y][x] < 0 && !town.siteAt[y * W + x] && !town.nodeMap.has(y * W + x) && !nearGrave(x, y);
 function pathDistField() {
   const d = new Int16Array(W * H).fill(-1), q = [];

@@ -7887,17 +7887,10 @@ function carveIsland(R, ns, ns2) {
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const k = y * W + x, dx = (x - ix) / rx, dy = (y - iy) / ry, a = Math.atan2(dy, dx), d = Math.hypot(dx, dy) / shape(a) + (vnoise(x * 0.11, y * 0.11, ns + 5) - 0.5) * 0.05;
     const fdx = (x - fcx) / rx, fdy = (y - fcy) / ry, fa = Math.atan2(fdy, fdx), fd = Math.hypot(fdx, fdy) / shape(fa) + (vnoise(x * 0.09, y * 0.09, ns + 6) - 0.5) * 0.06;
-    if (fd < forestR(fa) && d < 0.86) {
-      fmask[k] = 1;
-      const glade = vnoise(x * 0.12, y * 0.12, ns2 + 21);
-      grid[y][x] = glade > 0.72 ? R() < 0.12 ? T.TREE : T.GRASS : R() < 0.9 ? T.TREE : T.GRASS;
-      continue;
-    }
     if (d < 0.94) {
       const f = vnoise(x * 0.045, y * 0.045, ns) * 0.75 + vnoise(x * 0.15, y * 0.15, ns + 7) * 0.25, pf = f < 0.4 ? 0.03 : f < 0.55 ? 0.3 : 0.7;
-      const cd = ((x - camp.x) / 22) ** 2 + ((y - camp.y) / 15) ** 2, edge = fd - forestR(fa), shore = 0.94 - d;
+      const cd = ((x - camp.x) / 22) ** 2 + ((y - camp.y) / 15) ** 2, shore = 0.94 - d;
       let p = cd < 1 ? cd > 0.85 && R() < 0.05 ? 1 : 0 : cd < 1.35 ? Math.min(pf, 0.4) : pf;
-      if (edge < 0.05 && cd >= 1) p = Math.max(p, 0.8);
       if (shore < 0.04) p *= 0.3;
       grid[y][x] = R() < p ? T.TREE : T.GRASS;
       continue;
@@ -8139,8 +8132,8 @@ function carveIsland(R, ns, ns2) {
       landing = { x, y };
     }
   }
-  town.region = { name: "The Old Forest", ent: ent || { x: Math.round(ix), y: Math.round(iy) }, cx: Math.round(ix), cy: Math.round(iy), found: false };
-  return { cx: camp.x, cy: camp.y, ix, iy, rx, ry, bay, campA, at, isl, tier1, tier2, tier3, lhIs, lh, gapSet, landing: landing || { x: camp.x, y: camp.y }, ent: town.region.ent };
+  town.region = null;
+  return { cx: camp.x, cy: camp.y, ix, iy, rx, ry, bay, campA, at, isl, tier1, tier2, tier3, lhIs, lh, gapSet, landing: landing || { x: camp.x, y: camp.y }, ent: ent || { x: Math.round(ix), y: Math.round(iy) } };
 }
 function islandFeatures(R, I, ns2) {
   town.coast = { name: "The Tidal Flats" };
@@ -8200,9 +8193,9 @@ function townName(R) {
   const name = pick(R, TOWN_PRE) + pick(R, TOWN_SUF);
   town.name = name.charAt(0).toUpperCase() + name.slice(1);
   const f = [
-    `A few families followed the old road into the forest and stopped where the ground was dry. They named it ${town.name} and started on the first clearing.`,
+    `A few families followed the old road inland and stopped where the ground was dry. They named it ${town.name} and started on the first houses.`,
     `${town.name} began with an axe, a net and three households. Everything else, they decided, they would build themselves.`,
-    `The forest was here first. The founders of ${town.name} are still asking it politely to move over.`
+    `There was a great forest here once. The founders of ${town.name} cleared it, and the island has been all fields and building ground since.`
   ];
   town.founding = pick(R, f);
   town.arch = { id: "founding", name: "Founding settlement" };
@@ -9962,12 +9955,41 @@ function initNpcSim(n) {
   n.dead = false;
   lifeInit(n);
 }
+function hallStalls() {
+  const r = typeof lf2Room === "function" ? lf2Room("macellum") : null;
+  if (!r) return [];
+  if (!r.hall) r.hall = [0, 1, 2, 3].filter((i) => r.spots["post" + i]).map((i) => ({ x: r.spots["post" + i].x, y: r.spots["post" + i].y, face: r.spots["post" + i].face, front: { x: r.spots["front" + i].x, y: r.spots["front" + i].y }, owner: null, market: town.markets[0], hall: r }));
+  return r.hall;
+}
+function moveSellersIndoors() {
+  const H2 = hallStalls();
+  if (!H2.length) return;
+  for (const m of merchants) {
+    if (m.post && m.post.hall) continue;
+    const free = H2.find((s) => !s.owner);
+    if (!free) break;
+    const n = m.n;
+    if (n.stall) n.stall.owner = null;
+    n.stall = free;
+    free.owner = n;
+    m.post = free;
+    m.front = { x: free.front.x, y: free.front.y, face: free.face };
+  }
+  for (const mk of town.markets) for (const st of mk.stalls) {
+    if (st.owner || st.gone) continue;
+    st.gone = true;
+    for (const t of st.tiles || []) if (grid[t.y][t.x] === T.STALL) {
+      setT(t.x, t.y, T.PATH);
+      if (typeof markDirty === "function") markDirty(t.x, t.y, 1, 1);
+    }
+  }
+}
 function makeMerchant(n, mk) {
-  let stall;
-  if (mk) stall = mk.stalls.find((s) => !s.owner);
+  let stall = hallStalls().find((s) => !s.owner);
+  if (!stall && mk) stall = mk.stalls.find((s) => !s.owner && !s.gone);
   if (!stall) {
-    const opts = town.markets.filter((m2) => m2.stalls.some((s) => !s.owner)).map((m2) => ({ m: m2, sc: m2.stalls.filter((s) => s.owner).length * 40 + marketDist2(n, m2) })).sort((a, c) => a.sc - c.sc);
-    stall = opts.length ? opts[0].m.stalls.find((s) => !s.owner) : null;
+    const opts = town.markets.filter((m2) => m2.stalls.some((s) => !s.owner && !s.gone)).map((m2) => ({ m: m2, sc: m2.stalls.filter((s) => s.owner).length * 40 + marketDist2(n, m2) })).sort((a, c) => a.sc - c.sc);
+    stall = opts.length ? opts[0].m.stalls.find((s) => !s.owner && !s.gone) : null;
   }
   if (!stall) return null;
   n.stall = stall;
@@ -10836,7 +10858,7 @@ function gatherPlan(n) {
 }
 function merchPlan(n, tod) {
   const m = n.shop, h = tod / 60, open = h >= m.def.open[0] && h < m.def.open[1];
-  if (open) return [goS(m.post, "Opening up the stall"), waitS(14, "work", "Minding the stall", { serve: true, tool: "wipe" })];
+  if (open) return [goS(m.post, m.post.hall ? "Opening up at the market hall" : "Opening up the stall"), waitS(14, "work", m.post.hall ? "Minding the counter at the market hall" : "Minding the stall", { serve: true, tool: "wipe" })];
   return null;
 }
 function demandFor(g) {
@@ -18295,7 +18317,7 @@ Object.assign(GOODS, {
 FOODS.push("bread", "stew");
 T.POOL = 31;
 BLOCKED.add(T.POOL);
-const LF2_BLD = { bakery: "The Bakery", smithy: "The Smithy", shop: "The Taberna", thermopolium: "The Thermopolium", baths: "The Baths", jail: "The Carcer" };
+const LF2_BLD = { bakery: "The Bakery", smithy: "The Smithy", shop: "The Taberna", thermopolium: "The Thermopolium", baths: "The Baths", jail: "The Carcer", macellum: "The Market Hall" };
 Object.keys(LF2_BLD).forEach((k) => {
   BUILDING[k] = 1;
 });
@@ -18330,6 +18352,15 @@ function lf2Furnish(kind, room, put, spot, seat, bed, w, h, doorU) {
     seat(w - 2, h - 3, -1, 0);
     seat(1, h - 2, 0, -1);
     seat(w - 2, h - 2, 0, -1);
+  } else if (kind === "macellum") {
+    const us = [2, 4, 6, 8].filter((u) => u <= w - 2);
+    us.forEach((u, i) => {
+      put(u, 2, T.COUNTER);
+      spot("post" + i, u, 1, 0, 1);
+      spot("front" + i, u, 3, 0, -1);
+    });
+    put(1, h - 2, T.BARREL);
+    put(w - 2, h - 2, T.BARREL);
   } else if (kind === "baths") {
     for (let u = 3; u <= w - 4; u++) for (let v = 2; v <= h - 4; v++) put(u, v, T.POOL);
     for (let u = 3; u <= w - 4; u++) {
@@ -18402,7 +18433,7 @@ function lf2Prebuild() {
   }
   town.chron.length = before;
   for (let i = 0; i < 2; i++) lfBuild("field", 10, 5, {}) || lfBuild("field", 8, 4, {}) || lfBuild("field", 8, 4, { clear: true });
-  const tries = { bakery: [[7, 7], [7, 6]], smithy: [[8, 7], [8, 6]], shop: [[9, 8], [8, 7]], thermopolium: [[7, 6], [7, 5]], baths: [[11, 8], [11, 7], [10, 7]], jail: [[7, 6], [6, 5]] };
+  const tries = { bakery: [[7, 7], [7, 6]], smithy: [[8, 7], [8, 6]], shop: [[9, 8], [8, 7]], thermopolium: [[7, 6], [7, 5]], baths: [[11, 8], [11, 7], [10, 7]], jail: [[7, 6], [6, 5]], macellum: [[10, 6], [10, 7], [9, 6]] };
   for (const k of Object.keys(tries)) {
     if (lf2Room(k)) continue;
     let ok = null;
@@ -18427,6 +18458,7 @@ function lf2Prebuild() {
     n.clean = 60 + Math.random() * 40;
   });
   lf2AssignJobs(true);
+  moveSellersIndoors();
 }
 function lf2AssignJobs(first) {
   const pool = npcs.filter((n) => !n.dead && !n.player && n.role === "Worker" && n.age >= 18 && n.age < 60 && !n.shop);
@@ -18458,9 +18490,9 @@ function lf2SetJob(n, k, quiet) {
   n.curUntil = 0;
   n.jobSat = 60;
   if (k === "Guard") {
-    n.hat = "cap";
-    n.hatCol = "#b89a4a";
-    n.shirt = "#9a2a24";
+    n.hat = "helmet";
+    n.hatCol = GUARD_UNIFORM.helmet;
+    n.shirt = GUARD_UNIFORM.tunic;
     if (typeof updateLook === "function") updateLook(n);
   }
   if (!quiet) {
@@ -18858,6 +18890,7 @@ function lf2Payday() {
 LF2.hourly.push((h) => {
   if (h === 21) lf2Payday();
   if (h === 15) lf2GrainShip();
+  moveSellersIndoors();
 });
 function lf2GrainShip() {
   if (!LF2.on("economy") || typeof foodDaysNow !== "function" || foodDaysNow() >= 0.45) return;
@@ -19591,7 +19624,12 @@ function lf2WashPlan(n, tod) {
     n.lf2BathT = game.time + 900;
     const seat = anyOf(lf2BathSeats());
     if (!seat) return null;
-    return [goS(seat, "Off to the baths"), waitS(40 + Math.random() * 30, "leisure", anyOf(["Soaking in the warm pool", "Steaming at the baths", "Lounging by the bath pool"]), { social: true, nopie: true })];
+    return [
+      goS(seat, "Off to the baths"),
+      waitS(4, "stand", "Changing at the baths", { nopie: true }),
+      waitS(36 + Math.random() * 30, "leisure", anyOf(["Soaking in the warm pool", "Steaming at the baths", "Lounging in the pool", "Swimming a length of the pool"]), { social: true, nopie: true }),
+      waitS(4, "stand", "Drying off and dressing at the baths", { nopie: true })
+    ];
   }
   if (n.clean < 40 && n.homeRoom && n.homeRoom.spots.pantry && (n.lf2WashT || 0) < game.time) {
     n.lf2WashT = game.time + 300;
@@ -20192,7 +20230,7 @@ const CV_LEGENDS = [
   { id: "bell", title: "the bell under the flats", parts: ["Out on the flats, at the lowest tide, there is supposed to be a bell under the sand. A drowned chapel, they say.", "My gran swore she heard it ring the night before the first storm. She also swore the cat was a bishop.", "The odd thing is that every storm season somebody swears they hear it. Never the same somebody."] },
   { id: "rest", title: "the rest day", parts: ["We rest every third day, and it is older than the village. Older than anyone can say.", "The story is that the first settlers worked eleven days straight, and on the eleventh the plough walked off by itself. Since then, we rest.", "Working on a rest day is bad luck. The last man who cut wood on one lost the axe. Not the hand: the axe."] },
   { id: "fire", title: "the bonfire", parts: ["The bonfire on the square goes back to the first winter. They burned the boat they arrived in, so nobody could be tempted to leave.", "Which is why we cheer when it catches, and why nobody likes talking about the boat.", "Once a year somebody throws a tiny model of it on the fire. Nobody admits to making them."] },
-  { id: "pines", title: "the old pines", parts: ["The oldest pines past the fields were the first thing planted here, by a woman who arrived with a bag of seeds and nothing else.", "They say she is buried under the biggest one. They also say it drops a branch on anyone who lies about it.", "I have lain there twice. The branch missed. Make of that what you will."] },
+  { id: "pines", title: "the old pines", parts: ["There was a forest of old pines at the heart of the island once. They say the first of them was planted by a woman who arrived with a bag of seeds and nothing else.", "They cleared it all for building. The old ones say the biggest pine stood right where the houses are now, and that she is buried under it still.", "My grandmother would not walk over that ground at night. I do. Mostly."] },
   { id: "goose", title: "the tavern goose", parts: ["The tavern is named for a goose. That is all anyone will tell you.", "It lived in the rafters for three winters, heard everything, and was therefore allowed to stay.", "There is a rule that nothing said under those rafters is repeated at the baths. It has never once worked."] }
 ];
 function cvWorld() {
@@ -21838,6 +21876,7 @@ function cvEffect(c, opt) {
 function cvRespond(c, opt) {
   c.turns++;
   c.usedOpt[opt.text] = 1;
+  c.lastIntent = opt.intent;
   (c.mem.opts || (c.mem.opts = {}))[opt.text] = game.time;
   {
     const h = opt.hook, k = h && (h.k === "avoid" ? h.extra && h.extra.key : h.key), deeper = !!k && cvCls(opt.intent) === "inquisitive" && !["act", "world", "question", "leaving", "cold"].includes(h.k);
@@ -23006,6 +23045,8 @@ LF2.preD.push(function(n, tod) {
 });
 LF2.preD.push(function(n, tod) {
   if (n.player || n.age < 16 || !n.homeRoom || (n.feedCool || 0) > game.time || n.ill && n.ill.until > game.time && n.hunger <= 60) return null;
+  const st = n.plan && n.plan[n.si];
+  if (n.pose === "sleep" || st && st.act === "sleep" || tod < 6 * 60 || tod > 21 * 60) return null;
   const kid = npcs.find((k) => !k.dead && !k.infant && k.age < 14 && k.homeRoom === n.homeRoom && (k.hunger >= 70 || k.starving > 0));
   if (!kid || foodCount(pantryOf(n)) >= 1) return null;
   n.feedCool = game.time + 120;
@@ -23118,6 +23159,18 @@ function sbPresim(days = SB_PRESIM_DAYS) {
   }
   return town.sbPresim = { days, ms: Math.round(performance.now() - t0), events: lf2Ev().length - ev0, exchanges: Object.assign({}, SB.count) };
 }
+function bathState(n) {
+  const s = n.status || "";
+  if (n.moving || !/bath|pool/i.test(s)) return null;
+  if (/Changing at the baths|Drying off/.test(s)) return "dress";
+  if (!/Soaking|Steaming|Lounging in the pool|Swimming|at the baths with friends|Hosting a trip to the baths/.test(s)) return null;
+  const b = typeof lf2Baths === "function" && lf2Baths(), seat = b && (b.seats || []).find((q) => q.x === n.tx && q.y === n.ty);
+  if (!seat || !seat.face) return "dress";
+  const pool = (x, y) => grid[y] && grid[y][x] === T.POOL, d = seat.face, x1 = n.tx + d.dx, y1 = n.ty + d.dy, x2 = x1 + d.dx, y2 = y1 + d.dy;
+  return d.dy > 0 && pool(x2, y2) ? { x: x2, y: y2 } : pool(x1, y1) ? { x: x1, y: y1 } : "dress";
+}
+const BATH_LINEN = "#ece5d4";
+const GUARD_UNIFORM = { helmet: "#c08a3e", tunic: "#a3241e", belt: "#5a3a22", breeches: "#3a2e2a" };
 function gaSpec(n, now) {
   const L = n.look || assignLook(n), sp = n._sp || (n._sp = {}), dress = dressFor(n);
   sp.id = n.id;
@@ -23147,7 +23200,53 @@ function gaSpec(n, now) {
   sp.wave = !!(n.waveUntil > game.time && n.pose !== "sleep");
   sp.inv = n.inv;
   sp.status = n.status;
+  const bath = n.age >= 6 && !dress ? bathState(n) : null;
+  n._bath = bath;
+  if (bath) {
+    sp.shirt = n.female ? BATH_LINEN : n.skin;
+    sp.pat = "plain";
+    sp.acc = null;
+    sp.pants = BATH_LINEN;
+    sp.hat = "none";
+    sp.hatOn = false;
+    sp.robe = false;
+    sp.apron = false;
+    sp.tool = null;
+    sp.hold = null;
+    if (typeof bath === "object") sp.pose = "stand";
+    return sp;
+  }
+  if (n.job === "Guard" && !dress) {
+    const U = GUARD_UNIFORM;
+    sp.hat = "helmet";
+    sp.hatCol = U.helmet;
+    sp.hatOn = true;
+    sp.shirt = U.tunic;
+    sp.pat = "belt";
+    sp.acc = U.belt;
+    sp.pants = U.breeches;
+    sp.robe = false;
+    sp.apron = false;
+    if (!sp.tool && !sp.hold && (sp.pose === "walk" || sp.pose === "stand") && !/home|bed|sleep|supper|breakfast|privy|bath|eat/i.test(n.status || "")) sp.tool = "spear";
+  }
   return sp;
+}
+function drawWaterline(c, n, px, py, now) {
+  const k = n.age >= 16 ? 1 : 0.8, cx = px + TS / 2, feet = py + 21.5, top = feet - 12 * k, hw = 9 * k, t = now / 700 + (n.id || 0);
+  c.save();
+  c.fillStyle = "#5a9fb8";
+  c.beginPath();
+  c.ellipse(cx, top, hw, 2.6 * k, 0, Math.PI, 0, true);
+  c.lineTo(cx + hw, feet + 1);
+  c.lineTo(cx - hw, feet + 1);
+  c.closePath();
+  c.fill();
+  c.strokeStyle = "rgba(255,255,255,0.6)";
+  c.lineWidth = 0.8;
+  c.beginPath();
+  c.ellipse(cx, top, hw * (0.85 + 0.08 * Math.sin(t)), 2.4 * k * (1 + 0.15 * Math.sin(t)), 0, 0, Math.PI * 2);
+  c.stroke();
+  c.restore();
 }
 function drawPerson(c, n, now, px, py) {
   const sp = gaSpec(n, now);
@@ -23383,9 +23482,12 @@ function render(now, dtSec, hourOfDay) {
       if (n.inShip) continue;
       const sl = n.pose === "sleep" && !n.moving;
       items.push({ k: n.y - (sl ? 0.45 : 0), f: () => {
-        const sxy = gaSlide(n, now), px = sxy[0] * TS, py = sxy[1] * TS;
+        const sxy = gaSlide(n, now), bw = n._bath && typeof n._bath === "object" ? n._bath : null, px = (bw ? bw.x : sxy[0]) * TS, py = (bw ? bw.y - 0.3 : sxy[1]) * TS;
         if (sl) drawSleeper(c, n, px, py, now);
-        else drawPerson(c, n, now, px, py);
+        else {
+          drawPerson(c, n, now, px, py);
+          if (bw) drawWaterline(c, n, px, py, now);
+        }
       } });
       mark(n.x, n.y);
     }

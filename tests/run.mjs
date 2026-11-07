@@ -103,7 +103,7 @@ async function controlScene(name, rng, fn) {
       window.__emitted = []; const e0 = lfEmit; lfEmit = function (kind) { window.__emitted.push(kind); return e0.apply(this, arguments); };
       // helpers used by the scenes below
       window.__place = (n, x, y, face) => { n.tx = x; n.ty = y; n.x = x; n.y = y; n.path = []; n.moving = false; if (face) n.face = face; if (n.player) { n.player.keys = {}; n.player.act = null; n.player.lock = false; n.player.sleeping = false; } };
-      window.__free = (x, y) => walkable(x, y) && !tileOwner.get(tkey(x, y)) && !lfPropAt(x, y) && grid[y][x] !== T.DOOR && roomAt[y][x] < 0 && grid[y][x] !== T.CROP;
+      window.__free = (x, y) => walkable(x, y) && !(town.siteAt && town.siteAt[y * W + x]) && !tileOwner.get(tkey(x, y))   /* (not on a building site: finishing one moves people off it) */ && !lfPropAt(x, y) && grid[y][x] !== T.DOOR && roomAt[y][x] < 0 && grid[y][x] !== T.CROP;
       window.__find = pred => { for (let t = 0; t < 20000; t++) { const x = 6 + Math.floor(Math.random() * (W - 12)), y = 6 + Math.floor(Math.random() * (H - 12)); if (pred(x, y)) return [x, y]; } throw new Error('no suitable ground'); };
       window.__other = () => npcs.find(q => q !== game.player && !q.dead && !q.infant && q.age >= 18 && !q.player);
       window.__stand = (o, x, y, pose = 'stand') => { window.__place(o, x, y); o.pose = pose; o.plan = null; o.si = 0; rebuildOcc(); return o; };
@@ -157,12 +157,13 @@ test('controls: Shift sneaks (pickpocket), R is the hostile shove with consequen
 }));
 
 test('controls: a sleeping person is not pushed around', await controlScene('sleeper', 41, async page => {
-  const r = await page.evaluate(() => { const [x, y] = __find((x, y) => [0, 1, 2, 3].every(i => __free(x + i, y))); __place(game.player, x, y, { dx: 1, dy: 0 }); window.__o = __stand(__other(), x + 1, y, 'sleep'); return { ox: x + 1 }; });
-  await held(page, ['Space'], 2);
-  const e = await page.evaluate(() => ({ them: window.__o.tx, me: game.player.tx, emitted: window.__emitted.slice() }));
-  check(e.them === r.ox, 'a sleeper must stay put (x ' + r.ox + ' -> ' + e.them + ')');
-  check(e.emitted.length === 0, 'got events: ' + e.emitted.join(', '));
-  return 'stayed asleep, no events';
+  // the rule itself (staging a sleeper in the open fights the AI, which sends them off to bed): pushing someone asleep is refused, they stay put, nothing happens
+  const r = await page.evaluate(() => { const [x, y] = __find((x, y) => [0, 1, 2, 3].every(i => __free(x + i, y))); __place(game.player, x, y, { dx: 1, dy: 0 }); const o = __stand(__other(), x + 1, y, 'sleep');
+    const res = lf2PushPerson(game.player, o, 1, 0); return { res, them: o.tx, ox: x + 1, pose: o.pose, emitted: window.__emitted.slice() }; });
+  check(typeof r.res === 'string' && /asleep/.test(r.res), 'pushing a sleeper should be refused, got ' + JSON.stringify(r.res));
+  check(r.them === r.ox && r.pose === 'sleep', `a sleeper must stay put and asleep (x ${r.ox} -> ${r.them}, ${r.pose})`);
+  check(r.emitted.length === 0, 'got events: ' + r.emitted.join(', '));
+  return `"${r.res}"; stayed asleep, no events`;
 }));
 
 test('controls: Space pushes a crate and stepping back pulls it', await controlScene('crate', 41, async page => {
@@ -220,20 +221,20 @@ test('talk: someone in the privy has nothing to say and no replies', await talkS
 test('talk: long random conversations stay specific, never dead-end and never repeat themselves', await talkScene(41, async page => {
   const r = await page.evaluate(() => { const rows = []; for (const o of __talkable().slice(0, 14)) { __friend(o, 35, 40); openTalk(o); const said = [], opts = []; let ended = false, turns = 0;
       for (let i = 0; i < 16; i++) { const b = __box(); if (!b) break; said.push(b.say); opts.push(b.opts.length); if (!b.opts.length) { ended = true; break; } [...document.querySelectorAll('#talk [data-k]')][Math.floor(Math.random() * b.opts.length)].click(); turns++; }
-      rows.push({ who: o.first, arch: cvVoice(o).arch, said, opts, ended, turns, status: o.status }); if (talkUI.o) closeTalk(); } return rows; });
+      rows.push({ who: o.first, arch: cvVoice(o).arch, said, opts, ended, turns, status: o.status, hostile: ['insult', 'accuse', 'blackmail'].includes(talkS.conv && talkS.conv.lastIntent) }); if (talkUI.o) closeTalk(); } return rows; });
   const bad = []; let dup = 0, deep = 0, total = 0;
-  for (const c of r) { if (/privy/i.test(c.status)) continue; total++; if (c.ended && c.said.length >= 3 && c.said.length <= 7) deep++;
+  for (const c of r) { if (/privy/i.test(c.status)) continue; total++; if (c.ended && (c.said.length >= 3 || c.hostile) && c.said.length <= 7) deep++;   // (a threat or an insult can end it sooner)
     for (const s of c.said) if (BANNED.test(s)) bad.push(`${c.who}: "${s}"`);
     for (let i = 1; i < c.said.length; i++) if (c.said[i] === c.said[i - 1]) dup++;
     const dead = c.opts.slice(0, -1).findIndex(n => n === 0); if (dead >= 0) bad.push(`${c.who}: dead end at turn ${dead}`); }
   check(bad.length === 0, bad.slice(0, 4).join(' | ')); check(dup === 0, `${dup} times somebody said the same thing twice running`);
-  check(deep === total, `every conversation should come to a natural end after 3-7 screens; ${total - deep} did not: ` + r.filter(c => !(c.ended && c.said.length >= 3 && c.said.length <= 7)).map(c => c.who + ' ' + c.said.length).join(', '));
+  check(deep === total, `every conversation should come to a natural end after 3-7 screens; ${total - deep} did not: ` + r.filter(c => !(c.ended && (c.said.length >= 3 || c.hostile) && c.said.length <= 7)).map(c => c.who + ' ' + c.said.length + ': ' + JSON.stringify(c.said)).join(', '));
   return `${total} conversations, all ended by themselves (screens: ${r.map(c => c.said.length).join(' ')}); archetypes seen: ${[...new Set(r.map(c => c.arch))].join(', ')}`;
 }));
 
 test('talk: someone too busy stops dead; a chat ends after about three screens unless you keep digging into one thing; next time is different', await talkScene(41, async page => {
   const r = await page.evaluate(() => {
-    const [w, o, q] = __talkable().filter(x => x.age >= 16);
+    const [w, o, q] = __talkable().filter(x => x.age >= 16 && !x.shop);   // (sellers may chat at their counter)
     __friend(w, 40, 40); w.status = 'Hoeing the rows'; w.plan = [{ act: 'work' }]; w.si = 0; openTalk(w); const busy = __box(); if (talkUI.o) closeTalk();
     // wandering: pick a different kind of option each time
     __friend(o, 40, 40); openTalk(o); let c = talkS.conv, screens = 1, u = null; for (let i = 0; i < 10; i++) { const opts = cvOptions(c, u || { text: '', hooks: c.hooks || [] }); const pick = opts.find(x => x.hook && x.hook.k === 'act') || opts[opts.length - 1]; if (!pick) break; u = cvRespond(c, pick); screens++; if (!u || u.end) break; }

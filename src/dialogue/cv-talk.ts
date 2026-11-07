@@ -262,7 +262,7 @@ function cvEffect(c, opt: CvOpt): { react?: string; end?: boolean } {
 
 /* ---------------- going deeper, wandering, closing ---------------- */
 function cvRespond(c, opt: CvOpt): CvUtt | null {
-  c.turns++; c.usedOpt[opt.text] = 1; (c.mem.opts || (c.mem.opts = {}))[opt.text] = game.time;
+  c.turns++; c.usedOpt[opt.text] = 1; c.lastIntent = opt.intent; (c.mem.opts || (c.mem.opts = {}))[opt.text] = game.time;
   { const h = opt.hook, k = h && (h.k === 'avoid' ? h.extra && h.extra.key : h.key), deeper = !!k && cvCls(opt.intent) === 'inquisitive' && !['act', 'world', 'question', 'leaving', 'cold'].includes(h.k);
     if (deeper && k === c.threadKey) c.thread++; else c.thread = 0; c.threadKey = deeper ? k : null; } if (opt.intent === 'gossip') c.asked['s:' + opt.text] = 1; cvSync(c);
   const fx = cvEffect(c, opt); if (fx.end) return { text: fx.react || '…', hooks: [], end: true };
