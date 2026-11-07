@@ -171,3 +171,14 @@ The most repeated lines are now goodbyes; the per-voice goodbye banks are wider.
 Tools: `node tools/lintalk.mjs [days] [talks] [turns] [seed] [--show=rule]`; a test runs it for 3 days and wants nothing flagged.
 Next: the authored scenes (`opinions-scenes.ts`) still offer some short labels rather than sentences; more legends and lives keep the
 long tail fresh; a journal of what the player has learned would make ask-about easier to steer.
+
+## Fields and corners (Nov 2026)
+Found: a ploughed plot looked exactly like untilled soil (the crop painter skipped any plot without a growth stage, and the original game never had separate
+ploughed art), and the four outer corner tiles of every building were black notches from inside (no sight line reaches a tile whose neighbours are all wall).
+Done: untilled (`crop_raw`), ploughed (`crop_0`) and growing plots now look different and join without seams; the player can sow any ploughed plot (before, nothing
+happened until the whole field was ploughed, with no word about it); the wall-top corner tile no longer draws the inner shading stripes that showed as a stray
+line along the bottom wall; TrueSight shows the corner tile at an inner corner. Tests: walking into a field ploughs then sows it and each stage is drawn differently;
+the TrueSight ground checks the four room corners.
+Also seen: on the build before the talk pass farmers ploughed 8 plots and sowed nothing in 10 days (the Market Hall recruited them as street traders; fixed in
+`staffMarkets`); now 127 plots ploughed and sown and harvested in cycles, though resowing lags a day or two when only one farmer is about. Worth a look: more farmers
+when the fields are big, and a farmer who is ill or asleep for a day shouldn't stall a whole field.

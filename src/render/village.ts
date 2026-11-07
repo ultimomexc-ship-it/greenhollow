@@ -209,8 +209,10 @@ function drawDoors(c, dt) {
 function drawCrops(c, now) {
   if (!town.crops) return; const v = gaView();
   for (const t of town.crops) {
-    if (!t.pl || t.x < v.x0 || t.x >= v.x1 || t.y < v.y0 || t.y >= v.y1) continue;
-    const st = cropStage(t); if (!st) continue; gaDraw(c, 'crop_' + Math.min(4, st), t.x * TS, t.y * TS, now, t.x + t.y);
+    if (t.x < v.x0 || t.x >= v.x1 || t.y < v.y0 || t.y >= v.y1) continue;
+    const st = t.pl ? cropStage(t) : -1;   // -1 untilled (rough and weedy), 0 ploughed (dark furrows), 1-4 growing
+    if (st > 0) gaDraw(c, 'crop_0', t.x * TS, t.y * TS, now, 0);   // the ploughed earth under whatever is growing
+    gaDraw(c, st < 0 ? 'crop_raw' : 'crop_' + Math.min(4, st), t.x * TS, t.y * TS, now, t.x + t.y);
   }
 }
 function drawNodes(c, now) {

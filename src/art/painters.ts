@@ -712,6 +712,26 @@ function plants24(g, t, st) { const dkk = 'rgba(40,24,30,.55)'; for (let i = 0; 
       g.strokeStyle = ripe ? 'rgba(150,100,20,.7)' : 'rgba(40,90,40,.6)'; g.lineWidth = 0.14; for (let r = 0; r < 5; r++) { const yy = ey - 0.9 + r * 0.95; g.beginPath(); g.moveTo(ex, yy - 0.5); g.lineTo(ex - 1.1, yy + 0.4); g.moveTo(ex, yy - 0.5); g.lineTo(ex + 1.1, yy + 0.4); g.stroke(); }
       for (const s of [-1, 1]) for (let r = 0; r < 3; r++) ln(g, ex + s * 0.4, ey - 1 + r * 1.1, ex + s * 1.9, ey - 3.4 + r * 0.5, ripe ? '#e8cc78' : '#9acf68', 0.14); dab(g, ex - 0.45, ey + 0.4, 0.3, 1.1, 0, ripe ? '#fff0a8' : '#d4f0a0'); } } }
 
+/* a field plot before it grows anything: rough and weedy until somebody ploughs it, then dark turned earth in three deep rows (the rows the seeds go into) */
+function field24(g, raw) {
+  const r = (i, n) => h32(i, n, 41, raw ? 3 : 4);
+  if (raw) {
+    g.fillStyle = '#85694a'; g.fillRect(0, 0, 24, 24);
+    for (let i = 0; i < 16; i++) dab(g, r(i, 1) * 24, r(i, 2) * 24, 2 + r(i, 3) * 3.4, 1.2 + r(i, 4) * 1.8, r(i, 5) * 3, i % 3 ? 'rgba(168,140,98,.5)' : 'rgba(96,72,50,.5)');
+    for (let i = 0; i < 9; i++) { const x = 1.5 + r(i, 6) * 21, y = 2 + r(i, 7) * 20, h = 2 + r(i, 8) * 2.4;                                    // weed tufts
+      for (const d of [-1.1, 0, 1.1]) ln(g, x, y, x + d * (0.8 + r(i, 9)), y - h + Math.abs(d) * 0.5, i % 2 ? '#5f8a3a' : '#7da446', 0.55); }
+    for (let i = 0; i < 4; i++) { const x = 2 + r(i, 10) * 20, y = 2 + r(i, 11) * 20; dab(g, x + 0.4, y + 0.6, 1.5, 0.8, 0, 'rgba(50,34,26,.4)'); dab(g, x, y, 1.4, 0.9, 0, '#a9a398'); dab(g, x - 0.3, y - 0.3, 0.7, 0.4, 0, '#cfcac0'); }
+    return;
+  }
+  g.fillStyle = '#3a2418'; g.fillRect(0, 0, 24, 24);
+  for (let k = 0; k < 3; k++) { const y0 = 0.6 + k * 7.6;
+    g.fillStyle = '#2a190f'; g.fillRect(0, y0 + 5.1, 24, 2.4);                                                          // the furrow: deep shade between the ridges
+    g.fillStyle = '#6a452d'; g.beginPath(); g.moveTo(0, y0 + 5.1); g.lineTo(0, y0 + 1.1); for (let x = 4; x < 24; x += 4) g.lineTo(x, y0 + 0.6 + r(k * 7 + x, 12) * 1.0); g.lineTo(24, y0 + 1.1); g.lineTo(24, y0 + 5.1); g.closePath(); g.fill();   // the ridge
+    ln(g, 0, y0 + 1.6, 24, y0 + 1.5, '#92694a', 0.9, 'butt'); ln(g, 0, y0 + 3.4, 24, y0 + 3.5, '#4d311f', 0.8, 'butt');   // sun on its crown, shade on its flank
+    for (let i = 0; i < 7; i++) { const x = r(k * 9 + i, 13) * 24, y = y0 + 1.2 + r(k * 9 + i, 14) * 2.6; dab(g, x + 0.3, y + 0.5, 1.1, 0.6, 0, 'rgba(30,16,10,.45)'); dab(g, x, y, 1.0 + r(k * 9 + i, 15) * 0.7, 0.65, 0, i % 2 ? '#80573a' : '#74502f'); }   // clods
+  }
+}
+
 /* ================= the heart statue, Hoot's post, lanterns, relics ================= */
 function statue24(g, t, fill) { /* 2 tiles wide, 3 tall: ground line at y = 70 */
   const px = 24, py = 62; shadowE(g, px + 0.8, py + 5, 20.4, 6.2);
@@ -887,7 +907,8 @@ function cap24(g, side) { /* the top of a side or front wall, seen from above: w
   for (let j = 0; j < 4; j++) { const y = j * 6, off = j % 2 ? 6 : 0; for (let i = -1; i < 3; i++) { const x = off + i * 12 + 0.3; g.fillStyle = (h32(i & 1, j, 7, side.length) < 0.5) ? '#ded1ae' : '#e8dcba'; g.fillRect(x, y + 0.3, 11.4, 5.4); g.fillStyle = 'rgba(255,252,236,.55)'; g.fillRect(x, y + 0.3, 11.4, 0.5); g.fillStyle = 'rgba(150,130,90,.22)'; g.fillRect(x, y + 5.2, 11.4, 0.5);
       for (let q = 0; q < 3; q++) dab(g, x + 0.6 + R() * 10, y + 0.8 + R() * 4.4, 0.25 + R() * 0.3, 0.15 + R() * 0.15, R(), R() < 0.5 ? 'rgba(150,130,90,.3)' : 'rgba(255,252,236,.5)'); }
     g.fillStyle = 'rgba(120,104,70,.45)'; g.fillRect(0, y + 5.7, 24, 0.5); }
-  const ink = 'rgba(42,35,50,.9)', sh = 'rgba(60,45,100,.26)';
+  const ink = 'rgba(42,35,50,.9)', sh = 'rgba(60,45,100,.26)', corner = side.length === 2;   // a corner tile (WS, ES, WN, EN) is where two walls meet: no inner shading, only the outline
+  if (corner && side.includes('S')) { g.fillStyle = ink; g.fillRect(side.includes('W') ? 0 : 22.7, 0, 1.3, 24); g.fillRect(0, 22.7, 24, 1.3); return; }
   if (side.includes('W')) { g.fillStyle = sh; g.fillRect(21, 0, 3, 24); g.fillStyle = ink; g.fillRect(0, 0, 1.3, 24); g.fillStyle = IN2.capLt; g.fillRect(1.3, 0, 0.7, 24); }
   if (side.includes('E')) { g.fillStyle = sh; g.fillRect(0, 0, 3, 24); g.fillStyle = ink; g.fillRect(22.7, 0, 1.3, 24); g.fillStyle = IN2.capLt; g.fillRect(22, 0, 0.7, 24); }
   if (side.includes('S')) { g.fillStyle = sh; g.fillRect(0, 0, 24, 3); g.fillStyle = ink; g.fillRect(0, 22.7, 24, 1.3); }
@@ -1912,6 +1933,8 @@ for (const v of R3(2)) A(`decal_fern_${v}`, 'decals', 'Fern ' + (v + 1), 24, 24,
 for (const v of R3(2)) A(`stump_${v}`, 'trees', 'Tree stump ' + (v + 1), 24, 24, 1, g => stump24(g, v));
 for (const s of R3(3)) A(`herb_${s}`, 'plants', ['Herb patch, bare', 'Herb patch, some', 'Herb patch, in flower'][s], 24, 24, FR, (g, t) => herb24(g, t, 0, s));
 for (const s of [1, 2, 3, 4]) A(`crop_${s}`, 'plants', ['Seedlings', 'Young wheat', 'Green wheat', 'Ripe wheat'][s - 1], 24, 24, FR, (g, t) => plants24(g, t, s), { under: 'soil' });
+A('crop_raw', 'plants', 'Field plot, untilled', 24, 24, 1, g => field24(g, true), { kind: 'tile', under: null });
+A('crop_0', 'plants', 'Field plot, ploughed', 24, 24, 1, g => field24(g, false), { kind: 'tile', under: null });
 A('shroom', 'plants', 'Glow mushrooms', 24, 24, FR, (g, t) => shroom24(g, t));
 /* camp and town props */
 for (const v of R3(4)) A(`tent_${v}`, 'camp', `Tent ${v + 1}`, 24, 26, FR, (g, t) => tent24(g, t, v), { bot: true });
