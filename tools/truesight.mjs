@@ -44,10 +44,18 @@ export async function truesightRun({ file = new URL('../dist/index.html', import
     const approach = []; put(w, 30, 8); for (let y = 12; y >= 8; y--) { put(P, 24, y); cam.x = (L.ox + 30) * TS - cam.cw / cam.z / 2; cam.y = (L.oy + 7) * TS - cam.ch / cam.z / 2; clampCam(); step(); approach.push({ area: Math.round(area(TSIGHT.poly)), sees: tsSees(w.x, w.y) }); }
     return { walk, approach };
   });
+  // standing inside Room A, the four outer corner tiles of the room are shown (a wall carries on round an inner corner), but not the tiles beyond them
+  const corners = await page.evaluate(() => {
+    const L = window.__lab, P = game.player; P.tx = P.x = L.ox + 3; P.ty = P.y = L.oy + 3; rebuildOcc(); cam.follow = false; cam.z = 2.2; clampCam(); cam.x = (L.ox + 3) * TS - cam.cw / cam.z / 2; cam.y = (L.oy + 3) * TS - cam.ch / cam.z / 2; clampCam();
+    for (let i = 0; i < 10; i++) { window.__advance(50); render(performance.now(), 0.016, (game.time % 1440) / 60); }
+    const inQuad = (q, x, y) => { let s = 0; for (let i = 0; i < 4; i++) { const j = (i + 1) % 4, cr = (q[j * 2] - q[i * 2]) * (y - q[i * 2 + 1]) - (q[j * 2 + 1] - q[i * 2 + 1]) * (x - q[i * 2]); if (cr > 1e-9) s |= 1; if (cr < -1e-9) s |= 2; } return s !== 3; };
+    const shown = (x, y) => TSIGHT.faces.some(q => inQuad(q, L.ox + x, L.oy + y));
+    return { corners: [[0.5, 0.5], [6.5, 0.5], [0.5, 6.5], [6.5, 6.5]].map(([x, y]) => shown(x, y)), outside: [[-0.5, 0.5], [0.5, -0.5], [7.5, 6.5], [6.5, 7.5]].map(([x, y]) => shown(x, y)) };
+  });
   // two walls touching only at a corner: a line exactly through that corner must not get through
   const diag = await page.evaluate(() => { const L = window.__lab; return { through: tsLine(L.ox + 38, L.oy + 26, L.ox + 42, L.oy + 20), beside: tsLine(L.ox + 38, L.oy + 26, L.ox + 44, L.oy + 26) }; });
   await browser.close();
-  return { res, diag, moves, errors };
+  return { res, diag, moves, corners, errors };
 }
 if (import.meta.url === `file://${process.argv[1]}`) {
   const r = await truesightRun(); let bad = 0;
@@ -56,6 +64,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   console.log(`\nwalking past the shed: ${w.map(v => v ? 'o' : '.').join('')}  (o seen, . hidden) ${okW ? 'ok' : 'BAD'}`); if (!okW) bad++;
   const ap = r.moves.approach, okA = ap[ap.length - 1].area > ap[0].area && !ap[0].sees && ap[ap.length - 1].sees;
   console.log(`walking up to the corridor corner: visible area ${ap.map(a => a.area).join(' -> ')} tiles; the villager round the corner seen only at the corner: ${ap.map(a => a.sees ? 'o' : '.').join('')} ${okA ? 'ok' : 'BAD'}`); if (!okA) bad++;
+  console.log(`\nroom corners shown from inside: ${r.corners.corners.map(v => v ? 'o' : '.').join('')} (want oooo); tiles beyond them: ${r.corners.outside.map(v => v ? 'o' : '.').join('')} (want ....)`); if (r.corners.corners.includes(false) || r.corners.outside.includes(true)) bad++;
   console.log(`\ndiagonal walls: a line through their touching corner is ${r.diag.through ? 'NOT blocked (BAD)' : 'blocked (ok)'}; a line beside them is ${r.diag.beside ? 'clear (ok)' : 'blocked (BAD)'}`);
   if (r.diag.through || !r.diag.beside) bad++;
   console.log(`\n${bad ? bad + ' wrong' : 'all as expected'}${r.errors.length ? '; page errors: ' + r.errors.slice(0, 3).join(' | ') : ''}`);

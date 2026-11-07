@@ -168,6 +168,23 @@ test('controls: a barrel or crate is pushed when standing and searched when crou
   return `standing: ${s.kind} ${s.x + 1} -> ${pushed.pr}; crouching: ${searched.act}`;
 }));
 
+test('controls: walking into a field ploughs a plot, then sows it, and each stage looks different', await controlScene('field', 41, async page => {
+  const s = await page.evaluate(() => {
+    const c = town.crops.find(c => !town.crops.some(o => o.x === c.x - 1 && o.y === c.y) && __free(c.x - 1, c.y)); if (!c) throw new Error('no field edge with free ground beside it'); c.pl = 0; c.st = 0;   // (reset: villagers may have got to it already)
+    __place(game.player, c.x - 1, c.y, { dx: 1, dy: 0 }); window.__c = c; for (const o of town.crops) { o.claim = null; } rebuildOcc(); return { x: c.x, y: c.y, fieldTiles: town.crops.filter(o => o.f === c.f).length, plowed: town.crops.filter(o => o.f === c.f && o.pl).length };
+  });
+  const art = () => page.evaluate(() => { const c = window.__c; return ART.BYID[!c.pl ? 'crop_raw' : c.st ? 'crop_1' : 'crop_0'].id; });
+  const before = await art(); await held(page, [], 4);
+  const ploughed = await page.evaluate(() => ({ pl: window.__c.pl, st: window.__c.st })); const mid = await art();
+  await page.evaluate(() => { __place(game.player, window.__c.x - 1, window.__c.y, { dx: 1, dy: 0 }); }); await simulate(page, 1);   // (let go of the key for a beat: holding it after an action walks you on)
+  await held(page, [], 12);
+  const sown = await page.evaluate(() => { const P = game.player, c = window.__c; return { pl: c.pl, st: c.st, at: P.tx + ',' + P.ty, plot: c.x + ',' + c.y, act: P.player.act && P.player.act.text, msg: P.player.msg, sneak: !!P.sneak }; }); const after = await art();
+  check(ploughed.pl && !ploughed.st, 'walking into untilled ground should plough that plot: ' + JSON.stringify(ploughed));
+  check(sown.pl && sown.st, 'walking into a ploughed plot should sow it even while the rest of the field is not ploughed: ' + JSON.stringify(sown));
+  check(new Set([before, mid, after]).size === 3, `untilled, ploughed and sown plots should be drawn differently: ${before}, ${mid}, ${after}`);
+  return `plot ${s.x},${s.y} of a ${s.fieldTiles}-plot field (${s.plowed} ploughed): ${before} -> ${mid} -> ${after}`;
+}));
+
 test('controls: a sleeping person is not pushed around', await controlScene('sleeper', 41, async page => {
   // the rule itself (staging a sleeper in the open fights the AI, which sends them off to bed): pushing someone asleep is refused, they stay put, nothing happens
   const r = await page.evaluate(() => { const [x, y] = __find((x, y) => [0, 1, 2, 3].every(i => __free(x + i, y))); __place(game.player, x, y, { dx: 1, dy: 0 }); const o = __stand(__other(), x + 1, y, 'sleep');
@@ -364,6 +381,8 @@ test('truesight: building walls, shut doors, corners and windows hide what they 
   check(!bad.length, bad.join(' | '));
   { const w = r.moves.walk; check(w[0] && w.includes(false) && w[w.length - 1], 'a villager walking behind the shed should be seen, hidden, then seen: ' + w.map(v => v ? 'o' : '.').join('')); }
   { const ap = r.moves.approach; check(ap[ap.length - 1].area > ap[0].area && !ap[0].sees && ap[ap.length - 1].sees, 'walking up to a corner should open the view and reveal who is round it: ' + JSON.stringify(ap)); }
+  check(r.corners.corners.every(Boolean), 'from inside a room all four corner tiles should be shown, not left as black notches: ' + r.corners.corners.join(','));
+  check(!r.corners.outside.some(Boolean), 'the tiles beyond the room corners must stay hidden: ' + r.corners.outside.join(','));
   check(!r.diag.through, 'two walls touching corner to corner must not let a line through'); check(r.diag.beside, 'a line beside those walls should be clear');
   return `${r.res.length} scenes, ${r.res.reduce((n, s) => n + s.seen.length, 0)} villagers placed, all seen or hidden as they should be; the diagonal corner holds`;
 });

@@ -2378,6 +2378,48 @@ const ART = (function() {
       }
     }
   }
+  function field24(g, raw) {
+    const r = (i, n) => h32(i, n, 41, raw ? 3 : 4);
+    if (raw) {
+      g.fillStyle = "#85694a";
+      g.fillRect(0, 0, 24, 24);
+      for (let i = 0; i < 16; i++) dab(g, r(i, 1) * 24, r(i, 2) * 24, 2 + r(i, 3) * 3.4, 1.2 + r(i, 4) * 1.8, r(i, 5) * 3, i % 3 ? "rgba(168,140,98,.5)" : "rgba(96,72,50,.5)");
+      for (let i = 0; i < 9; i++) {
+        const x = 1.5 + r(i, 6) * 21, y = 2 + r(i, 7) * 20, h = 2 + r(i, 8) * 2.4;
+        for (const d of [-1.1, 0, 1.1]) ln(g, x, y, x + d * (0.8 + r(i, 9)), y - h + Math.abs(d) * 0.5, i % 2 ? "#5f8a3a" : "#7da446", 0.55);
+      }
+      for (let i = 0; i < 4; i++) {
+        const x = 2 + r(i, 10) * 20, y = 2 + r(i, 11) * 20;
+        dab(g, x + 0.4, y + 0.6, 1.5, 0.8, 0, "rgba(50,34,26,.4)");
+        dab(g, x, y, 1.4, 0.9, 0, "#a9a398");
+        dab(g, x - 0.3, y - 0.3, 0.7, 0.4, 0, "#cfcac0");
+      }
+      return;
+    }
+    g.fillStyle = "#3a2418";
+    g.fillRect(0, 0, 24, 24);
+    for (let k = 0; k < 3; k++) {
+      const y0 = 0.6 + k * 7.6;
+      g.fillStyle = "#2a190f";
+      g.fillRect(0, y0 + 5.1, 24, 2.4);
+      g.fillStyle = "#6a452d";
+      g.beginPath();
+      g.moveTo(0, y0 + 5.1);
+      g.lineTo(0, y0 + 1.1);
+      for (let x = 4; x < 24; x += 4) g.lineTo(x, y0 + 0.6 + r(k * 7 + x, 12) * 1);
+      g.lineTo(24, y0 + 1.1);
+      g.lineTo(24, y0 + 5.1);
+      g.closePath();
+      g.fill();
+      ln(g, 0, y0 + 1.6, 24, y0 + 1.5, "#92694a", 0.9, "butt");
+      ln(g, 0, y0 + 3.4, 24, y0 + 3.5, "#4d311f", 0.8, "butt");
+      for (let i = 0; i < 7; i++) {
+        const x = r(k * 9 + i, 13) * 24, y = y0 + 1.2 + r(k * 9 + i, 14) * 2.6;
+        dab(g, x + 0.3, y + 0.5, 1.1, 0.6, 0, "rgba(30,16,10,.45)");
+        dab(g, x, y, 1 + r(k * 9 + i, 15) * 0.7, 0.65, 0, i % 2 ? "#80573a" : "#74502f");
+      }
+    }
+  }
   function statue24(g, t, fill) {
     const px = 24, py = 62;
     shadowE(g, px + 0.8, py + 5, 20.4, 6.2);
@@ -3098,7 +3140,13 @@ const ART = (function() {
       g.fillStyle = "rgba(120,104,70,.45)";
       g.fillRect(0, y + 5.7, 24, 0.5);
     }
-    const ink = "rgba(42,35,50,.9)", sh = "rgba(60,45,100,.26)";
+    const ink = "rgba(42,35,50,.9)", sh = "rgba(60,45,100,.26)", corner = side.length === 2;
+    if (corner && side.includes("S")) {
+      g.fillStyle = ink;
+      g.fillRect(side.includes("W") ? 0 : 22.7, 0, 1.3, 24);
+      g.fillRect(0, 22.7, 24, 1.3);
+      return;
+    }
     if (side.includes("W")) {
       g.fillStyle = sh;
       g.fillRect(21, 0, 3, 24);
@@ -6977,6 +7025,8 @@ const ART = (function() {
   for (const v of R3(2)) A(`stump_${v}`, "trees", "Tree stump " + (v + 1), 24, 24, 1, (g) => stump24(g, v));
   for (const s of R3(3)) A(`herb_${s}`, "plants", ["Herb patch, bare", "Herb patch, some", "Herb patch, in flower"][s], 24, 24, FR, (g, t) => herb24(g, t, 0, s));
   for (const s of [1, 2, 3, 4]) A(`crop_${s}`, "plants", ["Seedlings", "Young wheat", "Green wheat", "Ripe wheat"][s - 1], 24, 24, FR, (g, t) => plants24(g, t, s), { under: "soil" });
+  A("crop_raw", "plants", "Field plot, untilled", 24, 24, 1, (g) => field24(g, true), { kind: "tile", under: null });
+  A("crop_0", "plants", "Field plot, ploughed", 24, 24, 1, (g) => field24(g, false), { kind: "tile", under: null });
   A("shroom", "plants", "Glow mushrooms", 24, 24, FR, (g, t) => shroom24(g, t));
   for (const v of R3(4)) A(`tent_${v}`, "camp", `Tent ${v + 1}`, 24, 26, FR, (g, t) => tent24(g, t, v), { bot: true });
   A("lamp_unlit", "camp", "Lamp post, day", 24, 26, 1, (g) => lamp24(g, 0, false), { bot: true });
@@ -14197,9 +14247,8 @@ function targetAt0(n, x, y) {
     } };
     if (!c.pl) return { key: "crop" + x + "," + y + "p", min: 3, text: "Ploughing the field", tool: "hoe", walkOn: true, run(n2) {
       c.pl = 1;
-      playerSay(n2, "Ploughed");
+      playerSay(n2, "Ploughed. Let go, then walk into it again to sow.");
     } };
-    if (!c.st && !fieldPlowed(c)) return null;
     if (!c.st) return { key: "crop" + x + "," + y + "s", min: 7, text: "Sowing seed", tool: "hoe", walkOn: true, run(n2) {
       if (!c.st) {
         c.st = 1;
@@ -15790,7 +15839,19 @@ function tsFaces(ex, ey, pts, G = tsGeo(), depth = 1) {
     tx = tx / tl * 0.03;
     ty = ty / tl * 0.03;
     const o = 0.03;
-    const a0 = a[0] - tx - nx * o, a1 = a[1] - ty - ny * o, b0 = b[0] + tx - nx * o, b1 = b[1] + ty - ny * o;
+    let a0 = a[0] - tx - nx * o, a1 = a[1] - ty - ny * o, b0 = b[0] + tx - nx * o, b1 = b[1] + ty - ny * o;
+    {
+      const ux = tx / 0.03, uy = ty / 0.03, hard = (px, py) => tsTile(Math.floor(px), Math.floor(py)) >= 1, ends = [[seg[s], seg[s + 1]], [seg[s + 2], seg[s + 3]]], at = (p, q) => Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) < 0.02;
+      const corner = (p, dx, dy) => ends.some((q) => at(p, q)) && hard(p[0] + dx * 0.5 + nx * 0.5, p[1] + dy * 0.5 + ny * 0.5) && hard(p[0] + dx * 0.5 - nx * 0.5, p[1] + dy * 0.5 - ny * 0.5);
+      if (corner(a, -ux, -uy)) {
+        a0 -= ux;
+        a1 -= uy;
+      }
+      if (corner(b, ux, uy)) {
+        b0 += ux;
+        b1 += uy;
+      }
+    }
     quads.push([a0, a1, b0, b1, b0 + nx * (depth + o), b1 + ny * (depth + o), a0 + nx * (depth + o), a1 + ny * (depth + o)]);
   }
   return quads;
@@ -16415,10 +16476,10 @@ function drawCrops(c, now) {
   if (!town.crops) return;
   const v = gaView();
   for (const t of town.crops) {
-    if (!t.pl || t.x < v.x0 || t.x >= v.x1 || t.y < v.y0 || t.y >= v.y1) continue;
-    const st = cropStage(t);
-    if (!st) continue;
-    gaDraw(c, "crop_" + Math.min(4, st), t.x * TS, t.y * TS, now, t.x + t.y);
+    if (t.x < v.x0 || t.x >= v.x1 || t.y < v.y0 || t.y >= v.y1) continue;
+    const st = t.pl ? cropStage(t) : -1;
+    if (st > 0) gaDraw(c, "crop_0", t.x * TS, t.y * TS, now, 0);
+    gaDraw(c, st < 0 ? "crop_raw" : "crop_" + Math.min(4, st), t.x * TS, t.y * TS, now, t.x + t.y);
   }
 }
 function drawNodes(c, now) {

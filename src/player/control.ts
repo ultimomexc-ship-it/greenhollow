@@ -58,9 +58,8 @@ function targetAt0(n, x, y) {
   if (c) {
     const st = c.st ? cropStage(c) : 0;
     if (c.st && st === 4) return { key: 'crop' + x + ',' + y + 'h', min: 4, text: 'Harvesting grain', tool: 'hoe', walkOn: true, run(n) { if (c.st && cropStage(c) === 4) { n.inv.grain = (n.inv.grain || 0) + CROP_YIELD; c.st = 0; playerSay(n, '+' + CROP_YIELD + ' grain'); } } };
-    if (!c.pl) return { key: 'crop' + x + ',' + y + 'p', min: 3, text: 'Ploughing the field', tool: 'hoe', walkOn: true, run(n) { c.pl = 1; playerSay(n, 'Ploughed'); } };
-    if (!c.st && !fieldPlowed(c)) return null;
-    if (!c.st) return { key: 'crop' + x + ',' + y + 's', min: 7, text: 'Sowing seed', tool: 'hoe', walkOn: true, run(n) { if (!c.st) { c.st = 1; c.t0 = game.time; playerSay(n, 'Sown'); } } };
+    if (!c.pl) return { key: 'crop' + x + ',' + y + 'p', min: 3, text: 'Ploughing the field', tool: 'hoe', walkOn: true, run(n) { c.pl = 1; playerSay(n, 'Ploughed. Let go, then walk into it again to sow.'); } };
+    if (!c.st) return { key: 'crop' + x + ',' + y + 's', min: 7, text: 'Sowing seed', tool: 'hoe', walkOn: true, run(n) { if (!c.st) { c.st = 1; c.t0 = game.time; playerSay(n, 'Sown'); } } };   // any ploughed plot can be sown; only the farmers wait for the whole field
   }
   const s = siteAtTile(x, y);
   if (s && s.slots) {

@@ -104,7 +104,11 @@ function tsFaces(ex, ey, pts, G = tsGeo(), depth = 1) {
     if ((ex - a[0]) * nx + (ey - a[1]) * ny > 0) { nx = -nx; ny = -ny; }   // pointing away from you, into the wall
     // a hair of overlap (along the face and back into the lit floor) so neighbouring strips and the polygon never show a seam
     let tx = b[0] - a[0], ty = b[1] - a[1]; const tl = Math.hypot(tx, ty) || 1; tx = tx / tl * 0.03; ty = ty / tl * 0.03; const o = 0.03;
-    const a0 = a[0] - tx - nx * o, a1 = a[1] - ty - ny * o, b0 = b[0] + tx - nx * o, b1 = b[1] + ty - ny * o;
+    let a0 = a[0] - tx - nx * o, a1 = a[1] - ty - ny * o, b0 = b[0] + tx - nx * o, b1 = b[1] + ty - ny * o;
+    // an inner corner: where the face ends at the segment's own end and the wall carries on round the corner (solid ahead and solid beside), the corner tile is shown too
+    { const ux = tx / 0.03, uy = ty / 0.03, hard = (px, py) => tsTile(Math.floor(px), Math.floor(py)) >= 1, ends = [[seg[s], seg[s + 1]], [seg[s + 2], seg[s + 3]]], at = (p, q) => Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) < 0.02;
+      const corner = (p, dx, dy) => ends.some(q => at(p, q)) && hard(p[0] + dx * 0.5 + nx * 0.5, p[1] + dy * 0.5 + ny * 0.5) && hard(p[0] + dx * 0.5 - nx * 0.5, p[1] + dy * 0.5 - ny * 0.5);
+      if (corner(a, -ux, -uy)) { a0 -= ux; a1 -= uy; } if (corner(b, ux, uy)) { b0 += ux; b1 += uy; } }
     quads.push([a0, a1, b0, b1, b0 + nx * (depth + o), b1 + ny * (depth + o), a0 + nx * (depth + o), a1 + ny * (depth + o)]);
   }
   return quads;

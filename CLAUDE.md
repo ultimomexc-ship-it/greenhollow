@@ -32,6 +32,7 @@ One key. Walk into something and the obvious thing happens; **Shift toggles crou
 - **Crouching:** villager -> push past them (they move one tile, or you swap places; harmless: no crime, no gossip); barrel, crate -> search it; trees, rocks and water are left alone ("Stand up (Shift) to ...").
 - Nothing else has a key: no Space, E, R, C or Z. Pickpocketing is gone, and so is pulling crates. The other verbs in `lf2Verbs` (steal, pick a lock, wreck, shove, give, wake, follow, distract ...) are still
   registered in the hooks but nothing reaches them; they wait for their own standing / crouching actions. A new action means a new standing and/or crouching case in `lifeAct` (props, world) or the movement code in `player/control.ts` (people).
+- Fields: walking into untilled ground ploughs that plot; walking into a ploughed plot sows it (any plot, the player need not wait for the whole field; farmers do); ripe wheat is harvested. After an action, keep holding to walk on, or let go and press again to act on the same plot. Plots are drawn as `crop_raw` (untilled, weedy), `crop_0` (ploughed, dark furrows) and `crop_1..4` (growing, over the ploughed earth); they are `kind: 'tile'` sprites so they join without seams.
 - `p.sneak` is the state (`lf2Crouching(p)`); the crouched player is drawn low and leaning (`drawPerson`); the hint line says what walking into the thing in front of you does right now. Touch: a Crouch / Stand button.
 
 ## Conversation (src/dialogue/cv-*.ts)
@@ -88,7 +89,7 @@ The village lives without the player: the simulation owns the truth (events), ea
 - Current suite: load and run a day, render without errors, nobody starves in 12 days (three towns),
   the controls (Shift toggles crouching and nothing else has a key; crouching pushes people and swaps against a wall, standing talks; barrels are pushed standing and searched crouching; sleepers), conversations (specific openers, long random talks without dead ends or repeats, insults and sympathy, unlocking layers, memory, witnesses, the arrest), sim speed under 3 s per game-day (about 0.7 s now),
   the social simulation (the pre-simulation is deterministic, fast and leaves nobody a blank slate; news spreads gradually and changes; talk uses beliefs and you can contradict a version),
-  readability and a week of freshness, the dialogue lint, every follow-up answered and ask-about, overheard small talk from real lives (32 tests, about 3 minutes).
+  readability and a week of freshness, the dialogue lint, every follow-up answered and ask-about, overheard small talk from real lives (33 tests, about 3 minutes).
 - The random stream is shared, so any change shifts every later random draw: a test that suddenly fails in one town is often exposing a real
   weakness that luck was hiding (that is how children starving with dole grain in their pockets was found). Find the cause before changing the test.
 - When behaviour changes on purpose, tests may need new expectations; when it changes by accident, they catch it.
@@ -102,6 +103,7 @@ From the player's eye a ray goes to every segment end (and a hair either side), 
 visibility polygon. Everything outside it is covered in near-black, cut along those straight lines. Only what a sight line reaches is shown: the wall
 behind each visible stretch of face (`tsFaces`: a strip one tile deep), so a glancing view shows a sliver; no tile is ever lit as a whole (doors included).
 - ONLY buildings block sight: walls, closed doors, the solid bits beside a window. Trees, rocks, furniture, crates and people never do.
+- At an inner corner (the face ends at the segment's own end and solid wall carries on round it) `tsFaces` shows the corner tile too, so the four outer corner tiles of a room are not black notches when you stand inside.
 - `tsGeo()` builds (and caches, keyed by `town.gridV` and door states) the segments in a cell grid; `tsRay` finds the nearest hit; `tsPolygon`, `tsWalls`.
   `tsSees(x, y)` = can the player see a person standing there (`canSee` uses it; hidden people are not drawn, picked or named).
   `tsLine(ax, ay, bx, by)` = a clear line on the same segments, for NPC perception with its own rules (NPCs still use the older `seeThrough`).
