@@ -22,6 +22,8 @@ function cvPlace(s: string): string {
   return s.replace(/^The /, 'the ');
 }
 const cvU = (text: string, hooks: CvHook[] = []): CvUtt => ({ text, hooks });
+/** the next part of an old story that has not been said in this conversation */
+function cvBackNext(c, b) { const told = c.told['bk' + b.id] || 0, layer = Math.min(2, told); c.told['bk' + b.id] = Math.max(told, layer + 1); cvLearnBack(c, b, layer); return cvBackText(b, c.o, layer) || cvBackText(b, c.o, 0); }
 
 /* ---------------- what somebody is like ---------------- */
 const CV_SKETCH: any = {
@@ -92,7 +94,7 @@ function cvProbePair(c, q): CvUtt {
   if (!secret && !back && !wt) return cvU(cvPkQ(c, ['There isn\'t. I promise you, there isn\'t. Some people are just people you know.', 'You\'re looking for a story. There\'s no story. {Q} is {Q}, and I\'m me.'], q), hooks);
   if (w === 'no') return { text: cvDeflectLine(o, c.p), hooks: [{ k: 'avoid', key: 'avoid:pp' + q.id, label: q.first, extra: { k: 'person', key: 'pe' + q.id, label: q.first, q } }] };
   if (o.crush === q.id) return cvU(cvPkQ(c, ['…All right. I like {him}. More than like. There. Don\'t you dare say a word.', 'Is it that obvious? Gods. Yes. {Q}. Don\'t look at me like that.'], q), hooks);
-  if (back) { hooks.push({ k: 'back', key: 'bk' + back.id, label: cvLabel({ kind: 'back', back }), back }); cvLearnBack(c, back, 1); return cvU(`${cvBackText(back, o, 0)} ${cvBackText(back, o, 1) || ''}`.trim(), hooks); }
+  if (back) { hooks.push({ k: 'back', key: 'bk' + back.id, label: cvLabel({ kind: 'back', back }), back }); const a1 = cvBackNext(c, back), a2 = (c.told['bk' + back.id] || 0) < 3 ? cvBackNext(c, back) : ''; return cvU(`${a1} ${a2 !== a1 ? a2 : ''}`.trim(), hooks); }
   return cvU(cvCap(wt) + '. ' + cvPkQ(c, why.v < 0 ? ['That\'s what\'s between us. It\'s enough.', 'You don\'t forget a thing like that.'] : ['That\'s all. It\'s more than most people do for you.', 'You remember a thing like that.'], q), hooks);
 }
 /** "Do you two always get on like that?" / "Families. Nobody can drive you madder.": about kin */
@@ -118,7 +120,7 @@ function cvFondAns(c, q, which: number): CvUtt {
 /** "You say his name like it tastes of vinegar." / "Go on, what did Q do?": the reason they dislike them */
 function cvSourAns(c, q, which: number): CvUtt {
   const o = c.o, why = sbTopWhy(o, q, -1), wt = why && sbWhyText(o, q, why), back = cvBackOf(o).find(b => b.a === q.id || b.b === q.id), hooks: CvHook[] = [cvPersonHook(q)];
-  if (back) { hooks.push({ k: 'back', key: 'bk' + back.id, label: cvLabel({ kind: 'back', back }), back }); return cvU((which === 0 ? 'Because it does. ' : 'Spill my wine? I wish. ') + cvBackText(back, o, 0), hooks); }
+  if (back) { hooks.push({ k: 'back', key: 'bk' + back.id, label: cvLabel({ kind: 'back', back }), back }); return cvU((which === 0 ? 'Because it does. ' : 'Spill my wine? I wish. ') + cvBackNext(c, back), hooks); }
   if (wt) return cvU((which === 0 ? cvPkQ(c, ['Because it does. ', 'It does, a bit. ']) : cvPkQ(c, ['Worse than wine. ', 'I wish it was wine. '])) + cvCap(wt) + '.', hooks);
   const tr = (q.traits || []).find(t => cvTraitWhy[t]); return cvU((which === 0 ? 'Does it? Well. ' : 'Nothing, exactly. ') + (tr ? cvQ(cvTraitWhy[tr], q) : cvQ('It\'s a feeling. I\'ve had it since the day we met.', q)), hooks);
 }
@@ -329,9 +331,10 @@ function cvAskPersonAns(c, q): CvUtt {
 function cvAskEventAns(c, ev): CvUtt {
   const o = c.o, k = o.kn && o.kn[ev.id], hooks: CvHook[] = [{ k: 'event', key: 'ev' + ev.id, label: cvLabel({ kind: 'event', ev }), ev }];
   if (ev.actor === o.id || ev.target === o.id) { if (k) { const u = cvTellEvent(c, { key: 'ev' + ev.id, kind: 'event', ev }, 0); if (u) return u; } return cvU(pk(['That? I\'d rather not go over it.', 'You heard about that. Of course you did.']), hooks); }
-  if (!k) return cvU(pk(['Never heard a word of it. What happened?', 'Nothing. Nobody tells me anything. Go on, then: tell me.', 'I don\'t know anything about it. Should I?']), [{ k: 'tellit', key: 'tell' + ev.id, label: 'that', ev }]);
-  const u = cvTellEvent(c, { key: 'ev' + ev.id, kind: 'event', ev }, 0); if (!u) return cvU('Only what everyone knows.', hooks);
-  return { text: pk(['Oh, that. ', 'That? ', 'Yes. ', '']) + u.text.replace(/^(Oh, you haven't heard\? Sit down\.|Did you hear\?|Have you heard\?|Well! Where do I begin\?)\s*/, ''), hooks: u.hooks };
+  if (!k) return cvU(cvPkQ(c, ['Never heard a word of it. What happened?', 'Nothing. Nobody tells me anything. Go on, then: tell me.', 'I don\'t know anything about it. Should I?', 'First I\'ve heard of it. Go on.', 'No! Tell me everything. Start at the beginning.', 'Nobody\'s said a thing to me. What is it?']), [{ k: 'tellit', key: 'tell' + ev.id, label: 'that', ev }]);
+  c.told['ev' + ev.id] = 1; cvMem(o, c.p).topics['ev' + ev.id] = game.time; lf2Tell(o, c.p, ev, false, true);
+  const j = lf2Judge(o, ev, k.a), actor = k.a && !k.sus ? lf2By(sbWhoId(o, ev)) : null, target = lf2By(ev.target); if (actor && actor !== o) hooks.push(cvPersonHook(actor)); if (target && target !== o && target !== actor) hooks.push(cvPersonHook(target));
+  return { text: pk(['Oh, that. ', 'That? ', 'Yes. ', 'I heard. ', '']) + cvCap(cvSpeechOf(o, sbText(o, ev), c.p)) + '.' + cvHedge(o, ev, k) + (Math.random() < 0.6 ? ' ' + cvStanceLine(o, cvStanceOf(ev, j)) : ''), hooks };
 }
 function cvAskBackAns(c, b): CvUtt {
   const o = c.o, self = o.id === b.a || o.id === b.b, known = self || b.knownBy.includes(o.id);

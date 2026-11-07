@@ -88,7 +88,7 @@ The village lives without the player: the simulation owns the truth (events), ea
 - Current suite: load and run a day, render without errors, nobody starves in 12 days (three towns),
   the controls (Shift toggles crouching and nothing else has a key; crouching pushes people and swaps against a wall, standing talks; barrels are pushed standing and searched crouching; sleepers), conversations (specific openers, long random talks without dead ends or repeats, insults and sympathy, unlocking layers, memory, witnesses, the arrest), sim speed under 3 s per game-day (about 0.7 s now),
   the social simulation (the pre-simulation is deterministic, fast and leaves nobody a blank slate; news spreads gradually and changes; talk uses beliefs and you can contradict a version),
-  readability and a week of freshness (26 tests, about 2 minutes).
+  readability and a week of freshness, the dialogue lint, every follow-up answered and ask-about, overheard small talk from real lives (32 tests, about 3 minutes).
 - The random stream is shared, so any change shifts every later random draw: a test that suddenly fails in one town is often exposing a real
   weakness that luck was hiding (that is how children starving with dole grain in their pockets was found). Find the cause before changing the test.
 - When behaviour changes on purpose, tests may need new expectations; when it changes by accident, they catch it.

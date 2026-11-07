@@ -165,7 +165,8 @@ What changed:
   canned `makeConvo`): children and spouses by name, where somebody they both know is right now, news they share, crops and fish and prices,
   the tide, village changes. Lines are picked by what the player has heard least recently.
 - Market Hall side effect fixed: villagers no longer get recruited as street traders every few hours once sellers are indoors.
-Measured (30 days, 6 talks a day, seed `longevity`, main -> this pass): distinct sentence templates 37% -> 46%; new templates on days 20-29 ~28% -> ~35%.
+Measured (30 days, 6 talks a day, seed `longevity`, main -> this pass): distinct sentence templates 37% -> 45%; new templates days 0-9 54% -> 68%,
+days 10-19 34% -> 39%, days 20-29 20% -> 27%; facts new to you on days 10-29 48% -> 71%.
 The most repeated lines are now goodbyes; the per-voice goodbye banks are wider.
 Tools: `node tools/lintalk.mjs [days] [talks] [turns] [seed] [--show=rule]`; a test runs it for 3 days and wants nothing flagged.
 Next: the authored scenes (`opinions-scenes.ts`) still offer some short labels rather than sentences; more legends and lives keep the

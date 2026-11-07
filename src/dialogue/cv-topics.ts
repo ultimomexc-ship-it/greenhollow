@@ -48,7 +48,7 @@ const CV_ACTV: any = {
   sky: { say: ['Looking at the sky. Don\'t ask what for; I\'m busy.', 'The stars. There are more than anyone could count. I\'ve tried.'], ask: [['See anything?', ['A bright one. It keeps winking at me.', 'Mostly dark. But it\'s a good dark.']]] },
   pray: { say: ['Prayers. Quietly, please; the Noodle is listening.', 'A moment of quiet before the day starts. You\'re welcome to it.'], ask: [['May I join you?', ['Sit. Close your eyes. Or don\'t; He\'s patient.', 'Of course. It isn\'t a private noodle.']]] },
   visit: { say: null, ask: [['Who are you off to see?', 'VISIT']] },
-  any: { say: null, ask: [['How\'s your day going?', 'MOOD'], ['Anything new?', 'NEWS']] },
+  any: { say: null, ask: [['How\'s your day going?', 'MOOD'], ['What are you up to today?', 'PLANS']] },
 };
 /** an open loan where they are the borrower ('to') or the lender ('from') */
 function cvLoanOf(o, side: 'to' | 'from') { return (town.sbLoans || []).find(l => l.state !== 'paid' && l[side] === o.id && byId(side === 'to' ? l.from : l.to) && !byId(side === 'to' ? l.from : l.to).dead) || null; }

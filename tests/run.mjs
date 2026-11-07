@@ -238,7 +238,8 @@ test('talk: someone too busy stops dead; a chat ends after about three screens u
     __friend(w, 40, 40); w.status = 'Hoeing the rows'; w.plan = [{ act: 'work' }]; w.si = 0; openTalk(w); const busy = __box(); if (talkUI.o) closeTalk();
     // wandering: pick a different kind of option each time
     __friend(o, 40, 40); openTalk(o); let c = talkS.conv, screens = 1, u = null; for (let i = 0; i < 10; i++) { const opts = cvOptions(c, u || { text: '', hooks: c.hooks || [] }); const pick = opts.find(x => x.hook && x.hook.k === 'act') || opts[opts.length - 1]; if (!pick) break; u = cvRespond(c, pick); screens++; if (!u || u.end) break; }
-    const wandered = screens, told = Object.keys(c.told); if (talkUI.o) closeTalk();
+    const wandered = screens; if (!Object.keys(c.told).length) { const t0 = cvPool(c)[0]; if (t0) cvTell(c, t0, 0); }   // (small talk alone tells nothing: make sure something was told)
+    const told = Object.keys(c.told); if (talkUI.o) closeTalk();
     // digging: keep asking about the same person
     __friend(q, 70, 80); const c2 = cvNew(q, game.player), who = __talkable().find(x => x !== q && x.age >= 16); const h = { k: 'person', key: 'pe' + who.id, label: who.first, q: who }; let dug = 1, u2 = null;
     for (let i = 0; i < 10; i++) { u2 = cvRespond(c2, { text: 'Tell me more about ' + who.first + ' ' + i, intent: 'ask', w: 1, hook: h }); dug++; if (!u2 || u2.end) break; }

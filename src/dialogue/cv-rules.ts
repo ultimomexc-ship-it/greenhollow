@@ -13,7 +13,7 @@ const cvMarkHeard = (p, s) => { if (p) cvHeard(p)[s] = game.time; };
 
 /* the grammar: small pieces that recombine */
 const CVG: any = {
-  heard: ['Did you hear', 'Have you heard', 'You will have heard by now', 'Word is going round', 'Everyone is saying', 'I had it this morning'],
+  heard: ['Did you hear', 'Have you heard', 'Did anyone tell you', 'Have you heard the latest', 'Did you hear the news'],
   shock: ['I nearly dropped my bread.', 'I had to sit down.', 'I have not stopped thinking about it.', 'I could hardly believe it.', 'My mouth fell open, I am not ashamed to say.'],
   laugh: ['I have not laughed so hard since the goose.', 'I laughed until I had to hold the wall.', 'It has made my whole week.', 'I am still laughing, and it was yesterday.'],
   soft: ['It made my whole day, and it was not even me.', 'There is hope for us yet.', 'It does the heart good.', 'That is the village I want to live in.'],

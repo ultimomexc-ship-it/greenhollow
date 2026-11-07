@@ -19863,7 +19863,7 @@ LF2.tickers.push(() => {
     const a = anyOf(inT.filter((o) => !o.player)), b = anyOf(inT.filter((o) => o !== a && !o.player));
     if (a && b && a.coin >= 3 && b.coin >= 3 && (lf2Has(a, "jovial") || lf2Has(a, "greedy") || a.drunk > 30)) {
       const res = lf2Dice(a, b, 2 + Math.floor(Math.random() * 4), lf2Has(a, "greedy") && Math.random() < 0.4);
-      if (res && Math.random() < 0.4) say(res.win, res.lose, [[res.win, anyOf(["Sixes! Pay up.", "The gods love me tonight!"])], [res.lose, res.caught ? "Those dice are loaded!" : anyOf(["Again. Double or nothing.", "Bah."])]]);
+      if (res && Math.random() < 0.4) say(res.win, res.lose, [[res.win, sbPick(["Sixes! Pay up.", "The gods love me tonight!", "Mine! Hand it over.", "Read them and weep.", "Ha! Three times running!", "Lucky hands. Always have had."])], [res.lose, res.caught ? "Those dice are loaded!" : sbPick(["Again. Double or nothing.", "Bah.", "You're cheating. I can't prove it, but you are.", "That's my supper you've just won.", "One more. Just one.", "I'm going home. After one more."])]]);
     }
   }
 });
@@ -20747,7 +20747,7 @@ const cvMarkHeard = (p, s) => {
   if (p) cvHeard(p)[s] = game.time;
 };
 const CVG = {
-  heard: ["Did you hear", "Have you heard", "You will have heard by now", "Word is going round", "Everyone is saying", "I had it this morning"],
+  heard: ["Did you hear", "Have you heard", "Did anyone tell you", "Have you heard the latest", "Did you hear the news"],
   shock: ["I nearly dropped my bread.", "I had to sit down.", "I have not stopped thinking about it.", "I could hardly believe it.", "My mouth fell open, I am not ashamed to say."],
   laugh: ["I have not laughed so hard since the goose.", "I laughed until I had to hold the wall.", "It has made my whole week.", "I am still laughing, and it was yesterday."],
   soft: ["It made my whole day, and it was not even me.", "There is hope for us yet.", "It does the heart good.", "That is the village I want to live in."],
@@ -20940,7 +20940,7 @@ const CV_ACTV = {
   sky: { say: ["Looking at the sky. Don't ask what for; I'm busy.", "The stars. There are more than anyone could count. I've tried."], ask: [["See anything?", ["A bright one. It keeps winking at me.", "Mostly dark. But it's a good dark."]]] },
   pray: { say: ["Prayers. Quietly, please; the Noodle is listening.", "A moment of quiet before the day starts. You're welcome to it."], ask: [["May I join you?", ["Sit. Close your eyes. Or don't; He's patient.", "Of course. It isn't a private noodle."]]] },
   visit: { say: null, ask: [["Who are you off to see?", "VISIT"]] },
-  any: { say: null, ask: [["How's your day going?", "MOOD"], ["Anything new?", "NEWS"]] }
+  any: { say: null, ask: [["How's your day going?", "MOOD"], ["What are you up to today?", "PLANS"]] }
 };
 function cvLoanOf(o, side) {
   return (town.sbLoans || []).find((l) => l.state !== "paid" && l[side] === o.id && byId(side === "to" ? l.from : l.to) && !byId(side === "to" ? l.from : l.to).dead) || null;
@@ -21632,6 +21632,12 @@ function cvPlace(s) {
   return s.replace(/^The /, "the ");
 }
 const cvU = (text, hooks = []) => ({ text, hooks });
+function cvBackNext(c, b) {
+  const told = c.told["bk" + b.id] || 0, layer = Math.min(2, told);
+  c.told["bk" + b.id] = Math.max(told, layer + 1);
+  cvLearnBack(c, b, layer);
+  return cvBackText(b, c.o, layer) || cvBackText(b, c.o, 0);
+}
 const CV_SKETCH = {
   cheerful: { warm: ["{He} could find the bright side of a flood. It's exhausting, and I'd miss it terribly.", "{He} hums. All day. You stop noticing, and then {he}'s away for a day and the whole lane feels wrong."], cool: ["Cheerful. Relentlessly. Nobody is that pleased about porridge.", "{He} smiles at everything. I've never trusted a person who smiles at weather."] },
   grumpy: { warm: ["Grumbles like a cart with a bad wheel, but {he}'s the first one there when your roof comes in.", "{He}'d hate me saying it, but under all that scowl {he}'s soft as new bread."], cool: ["{He} could start a row with {his} own shadow, and has.", "A temper like a kicked goat. You learn to stand well back."] },
@@ -21705,8 +21711,8 @@ function cvProbePair(c, q) {
   if (o.crush === q.id) return cvU(cvPkQ(c, ["\u2026All right. I like {him}. More than like. There. Don't you dare say a word.", "Is it that obvious? Gods. Yes. {Q}. Don't look at me like that."], q), hooks);
   if (back) {
     hooks.push({ k: "back", key: "bk" + back.id, label: cvLabel({ kind: "back", back }), back });
-    cvLearnBack(c, back, 1);
-    return cvU(`${cvBackText(back, o, 0)} ${cvBackText(back, o, 1) || ""}`.trim(), hooks);
+    const a1 = cvBackNext(c, back), a2 = (c.told["bk" + back.id] || 0) < 3 ? cvBackNext(c, back) : "";
+    return cvU(`${a1} ${a2 !== a1 ? a2 : ""}`.trim(), hooks);
   }
   return cvU(cvCap(wt) + ". " + cvPkQ(c, why.v < 0 ? ["That's what's between us. It's enough.", "You don't forget a thing like that."] : ["That's all. It's more than most people do for you.", "You remember a thing like that."], q), hooks);
 }
@@ -21727,7 +21733,7 @@ function cvSourAns(c, q, which) {
   const o = c.o, why = sbTopWhy(o, q, -1), wt = why && sbWhyText(o, q, why), back = cvBackOf(o).find((b) => b.a === q.id || b.b === q.id), hooks = [cvPersonHook(q)];
   if (back) {
     hooks.push({ k: "back", key: "bk" + back.id, label: cvLabel({ kind: "back", back }), back });
-    return cvU((which === 0 ? "Because it does. " : "Spill my wine? I wish. ") + cvBackText(back, o, 0), hooks);
+    return cvU((which === 0 ? "Because it does. " : "Spill my wine? I wish. ") + cvBackNext(c, back), hooks);
   }
   if (wt) return cvU((which === 0 ? cvPkQ(c, ["Because it does. ", "It does, a bit. "]) : cvPkQ(c, ["Worse than wine. ", "I wish it was wine. "])) + cvCap(wt) + ".", hooks);
   const tr2 = (q.traits || []).find((t) => cvTraitWhy[t]);
@@ -21963,15 +21969,19 @@ function cvAskEventAns(c, ev) {
   const o = c.o, k = o.kn && o.kn[ev.id], hooks = [{ k: "event", key: "ev" + ev.id, label: cvLabel({ kind: "event", ev }), ev }];
   if (ev.actor === o.id || ev.target === o.id) {
     if (k) {
-      const u2 = cvTellEvent(c, { key: "ev" + ev.id, kind: "event", ev }, 0);
-      if (u2) return u2;
+      const u = cvTellEvent(c, { key: "ev" + ev.id, kind: "event", ev }, 0);
+      if (u) return u;
     }
     return cvU(pk(["That? I'd rather not go over it.", "You heard about that. Of course you did."]), hooks);
   }
-  if (!k) return cvU(pk(["Never heard a word of it. What happened?", "Nothing. Nobody tells me anything. Go on, then: tell me.", "I don't know anything about it. Should I?"]), [{ k: "tellit", key: "tell" + ev.id, label: "that", ev }]);
-  const u = cvTellEvent(c, { key: "ev" + ev.id, kind: "event", ev }, 0);
-  if (!u) return cvU("Only what everyone knows.", hooks);
-  return { text: pk(["Oh, that. ", "That? ", "Yes. ", ""]) + u.text.replace(/^(Oh, you haven't heard\? Sit down\.|Did you hear\?|Have you heard\?|Well! Where do I begin\?)\s*/, ""), hooks: u.hooks };
+  if (!k) return cvU(cvPkQ(c, ["Never heard a word of it. What happened?", "Nothing. Nobody tells me anything. Go on, then: tell me.", "I don't know anything about it. Should I?", "First I've heard of it. Go on.", "No! Tell me everything. Start at the beginning.", "Nobody's said a thing to me. What is it?"]), [{ k: "tellit", key: "tell" + ev.id, label: "that", ev }]);
+  c.told["ev" + ev.id] = 1;
+  cvMem(o, c.p).topics["ev" + ev.id] = game.time;
+  lf2Tell(o, c.p, ev, false, true);
+  const j = lf2Judge(o, ev, k.a), actor = k.a && !k.sus ? lf2By(sbWhoId(o, ev)) : null, target = lf2By(ev.target);
+  if (actor && actor !== o) hooks.push(cvPersonHook(actor));
+  if (target && target !== o && target !== actor) hooks.push(cvPersonHook(target));
+  return { text: pk(["Oh, that. ", "That? ", "Yes. ", "I heard. ", ""]) + cvCap(cvSpeechOf(o, sbText(o, ev), c.p)) + "." + cvHedge(o, ev, k) + (Math.random() < 0.6 ? " " + cvStanceLine(o, cvStanceOf(ev, j)) : ""), hooks };
 }
 function cvAskBackAns(c, b) {
   const o = c.o, self = o.id === b.a || o.id === b.b, known = self || b.knownBy.includes(o.id);
@@ -22152,7 +22162,7 @@ function cvFollowUps(c, h) {
       for (const [text, ans] of A.ask) add(text, "ask", 1.4, (c2) => cvActAnswer(c2, ans, text), "act." + text);
       if (!any) one(["And how is that going, really?", "How's it going today?"], "ask", 0.8, (c2) => cvActHow(c2), "act.how");
       if (!c.kid && !any) one(["Do you like it? Or is it just what there is?", "Do you actually enjoy it?"], "ask", 0.7, (c2) => cvActLike(c2), "act.like");
-      one(["You always look busy.", "Is it ever not like this?", "You make it look like hard work.", "Do you ever stop?"], "tease", 0.5, (c2, i) => cvActBusy(c2, i % 2), "act.busy");
+      if (["farm", "build", "smith", "stall", "forage", "fishing", "patrol", "bakery", "eat", "baths"].includes(cvActivity(c))) one(["You always look busy.", "Is it ever not like this?", "You make it look like hard work.", "Do you ever stop?"], "tease", 0.5, (c2, i) => cvActBusy(c2, i % 2), "act.busy");
       break;
     }
     case "person": {
@@ -22203,7 +22213,7 @@ function cvFollowUps(c, h) {
         if (alt) add(actor ? `I heard it was ${alt.first}, not ${actor.first}.` : `I heard it was ${alt.first}.`, "doubt", 1.5, (c2) => cvContradict(c2, ev), "ev.contra");
         else if (k && !k.mine) one(["I heard it a bit differently.", "That sounds like the kind of thing people exaggerate."], "doubt", 0.6, (c2, i) => cvEvDoubt(c2, ev, i), "ev.doubt");
       }
-      if (!sad) one(["Well, nobody can say this village is dull.", "Next you'll tell me the goose was involved."], "joke", 0.6, (c2, i) => cvEvJoke(c2, ev, i), "ev.joke");
+      if (!sad && t !== o && ev.actor !== o.id) one(["Well, nobody can say this village is dull.", "Next you'll tell me the goose was involved."], "joke", 0.6, (c2, i) => cvEvJoke(c2, ev, i), "ev.joke");
       if (t && t !== o && t !== p && !t.dead) add(pk([`Poor ${t.first}. Does anyone know how ${cvPron(t).he}'s taking it?`, `How's ${t.first} taking it?`, `Is ${t.first} all right?`]), "sympathize", bad || sad ? 0.9 : 0.3, (c2) => cvEvTaking(c2, ev), "ev.sym");
       break;
     }
@@ -22575,7 +22585,7 @@ function cvShare(c) {
   const out = [], p = c.p, o = c.o, list = cvNewsToTell(c);
   if (list.length) {
     const ev = list[0], txt = lf2Low(cvMe(c.p, sbText(c.p, ev))).replace(/\.$/, ""), lead = cvFreshest(p, ["Did you hear? {T}.", "Have you heard? {T}.", "You'll never guess. {T}.", "Here's something: {t}.", "I heard {t}.", "Word is {t}.", "Somebody told me {t}."]);
-    out.push({ text: lead.replace("{T}", cvCap(txt)).replace("{t}", txt), intent: "gossip", w: 1.3, hook: { k: "world", key: "sh", label: "that" }, then: (c2) => cvGossipTell(c2, ev) });
+    out.push({ text: lead.replace("{T}", cvCap(txt)).replace("{t}", txt), intent: "gossip", w: 0.9, hook: { k: "world", key: "sh", label: "that" }, then: (c2) => cvGossipTell(c2, ev) });
   }
   const K = cvKnows(p).back;
   for (const id in K) {
@@ -22583,7 +22593,7 @@ function cvShare(c) {
     if (!b || b.a === o.id || b.b === o.id || b.knownBy.includes(o.id)) continue;
     const A = byId(b.a), B = byId(b.b);
     if (!A || !B) continue;
-    out.push({ text: b.kind === "debt" ? pk([`I heard ${A.first} owes ${B.first} money.`, `Is it true ${A.first} owes ${B.first} a pile?`]) : b.kind === "feud" ? pk([`Is it true ${A.first} and ${B.first} aren't speaking?`, `What's going on between ${A.first} and ${B.first}? They won't look at each other.`]) : pk([`I heard ${A.first} and ${B.first} were once\u2026 close.`, `Were ${A.first} and ${B.first} ever sweet on each other?`]), intent: "gossip", w: 1.2, hook: { k: "world", key: "sh" + id, label: "that" }, then: (c2) => cvBackGossip(c2, b) });
+    out.push({ text: b.kind === "debt" ? pk([`I heard ${A.first} owes ${B.first} money.`, `Is it true ${A.first} owes ${B.first} a pile?`]) : b.kind === "feud" ? pk([`Is it true ${A.first} and ${B.first} aren't speaking?`, `What's going on between ${A.first} and ${B.first}? They won't look at each other.`]) : pk([`I heard ${A.first} and ${B.first} were once\u2026 close.`, `Were ${A.first} and ${B.first} ever sweet on each other?`]), intent: "gossip", w: 0.7, hook: { k: "world", key: "sh" + id, label: "that" }, then: (c2) => cvBackGossip(c2, b) });
     break;
   }
   return out;
@@ -22857,6 +22867,7 @@ function cvBridge(c, h, t, text) {
 const CV_BYE = { _: ["Right. I'd better get on.", "Anyway. Things to do.", "Well. I'll see you about.", "I should get back to it.", "Come and find me another day.", "Mind how you go.", "That's me, then.", "I'd best be off.", "Look at the time. Well, the sun.", "Good talking to you.", "Off I go.", "Until next time, then."], talkative: ["That's enough of my chatter for one day.", "Listen to me, going on. Off you go.", "I could talk all day. I nearly have."], reserved: ["Well.", "That's all.", "I'll be off."], nosy: ["Come back when you've heard something.", "Off you go. Bring me news."], cynic: ["Right. Back to the misery.", "Well. This was tolerable."], sunny: ["Lovely to see you! Come again soon.", "Oh, this was nice. Mind how you go!"], wary: ["I should go. People will wonder.", "I'd better get on before anyone notices."], prickly: ["Right. Enough.", "Off you go, then."], smooth: ["Always a pleasure. Until next time.", "Do come again. I mean it, mostly."], lonely: ["Will you come again? You don't have to say.", "Thank you for stopping. Really."] };
 function cvClose(c, u) {
   if (u.end) return u;
+  if (u.hooks.some((h) => h.k === "tellit" || h.k === "question") && c.turns < c.cap + 4) return u;
   if (c.turns >= c.cap + Math.min(3, c.thread) && c.activity !== "privy") {
     c.leaving = true;
     const more = c.thread > 0 ? ["There is more to that, but not today.", "Ask me the rest another time."] : [];
@@ -22900,6 +22911,9 @@ function cvActAnswer(c, ans, label) {
     const m = (c.status || "").match(/(?:with|see) (\w+)/), q = m && npcs.find((x) => x.first === m[1] && !x.dead);
     t = q ? cvQ(pk(["{Q}. {He} asked me round, and you don't say no to {Q}.", "{Q}. We're overdue a talk.", "{Q}, if {he}'s in. {He} usually is."]), q) : "Nobody you'd know.";
     if (q) return { text: t, hooks: [cvPersonHook(q), { k: "act", key: "act", label: "that" }] };
+  } else if (ans === "PLANS") {
+    const h = game.time % 1440 / 60;
+    t = pk(h < 11 ? ["Work, mostly. Then more work. Then supper, if I've earned it.", "Whatever needs doing first. Then whatever needs doing second."] : h < 17 ? ["Same as this morning, but slower.", "Finishing what I started this morning. In theory."] : ["Supper, then bed. I'm living the dream.", "As little as possible, if I can get away with it."]);
   } else if (ans === "MOOD") t = o.mood < 35 ? "Could be better. Could be a lot better." : o.mood > 70 ? "Better than most, to be honest." : "Fine. Ordinary. I will take ordinary.";
   else t = cvVillageWord(c).text;
   return { text: t, hooks: [{ k: "act", key: "act", label: "that" }] };
@@ -22949,6 +22963,14 @@ function cvGossipTell(c, ev) {
   if (o.kn && o.kn[ev.id] && (o.kn[ev.id].a || !known)) return { text: pk(["Old news, I am afraid. It reached me yesterday.", "You are the third to tell me that. It has been a busy day for it.", "I know. Everyone knows. It is only you who thinks it is a secret."]), hooks: [{ k: "event", key: "ev" + ev.id, label: cvLabel({ kind: "event", ev }), ev }] };
   lf2Tell(p, o, ev, false, true);
   bumpAff(p, o, 1, 6);
+  {
+    const ko = o.kn && o.kn[ev.id];
+    if (ko && known) {
+      ko.a = true;
+      ko.who = k.who != null ? k.who : ev.actor;
+      delete ko.sus;
+    }
+  }
   const a = known && ev.actor ? lf2By(ev.actor) : null, hooks = [{ k: "event", key: "ev" + ev.id, label: cvLabel({ kind: "event", ev }), ev }];
   if (a && a !== o) hooks.push(cvPersonHook(a));
   c.told["ev" + ev.id] = 1;
@@ -22964,7 +22986,7 @@ function cvBackGossip(c, b) {
   c.told["bk" + b.id] = 0;
   cvMem(o, c.p).topics["bk" + b.id] = game.time;
   const near = o.aff[A.id] > 40 || o.aff[B.id] > 40;
-  return { text: near ? pk(["Who told you that? That is not for repeating.", "You should not carry that around. It will hurt someone."]) : pk(["So that is getting round. I thought only a few knew.", "You have heard that too. This village has no walls."]), hooks };
+  return { text: near ? cvPkQ(c, ["Who told you that? That isn't for repeating.", "You shouldn't carry that around. It'll hurt someone.", "Careful. Those are my friends you're talking about.", "I'd keep that to yourself, if I were you. I mean it.", "Where did you hear that? \u2026Never mind. I don't want to know."]) : cvPkQ(c, ["So that's getting round. I thought only a few knew.", "You've heard that too. This village has no walls.", "Old news, that. Older than you'd think.", "Ha! Everyone knows. Nobody says. That's the rule.", "Is that what they're saying now? Well. It isn't wrong."]), hooks };
 }
 function cvReciprocate(c) {
   const o = c.o;
@@ -23979,7 +24001,7 @@ function sbSmallTalk(a, b, c = {}) {
   {
     const both = npcs.filter((q) => q !== a && q !== b && q !== P && !q.dead && !q.infant && q.age >= 12 && (a.know[q.id] || 0) > 15 && (b.know[q.id] || 0) > 15);
     if (both.length && adult) opts.push([2, () => {
-      const q = both[Math.floor(Math.random() * both.length)], f = sbPr(q), st = q.status ? cvLow(q.status).replace(/\bThe (Bakery|Smithy|Baths|Taberna|Thermopolium|Market Hall|Carcer)\b/g, (m, x) => "the " + (x === "Bakery" || x === "Smithy" || x === "Baths" ? x.toLowerCase() : x)) : "", ill = q.ill && q.ill.until > game.time, fa2 = cvFeel(a, q);
+      const q = both[Math.floor(Math.random() * both.length)], f = sbPr(q), st = q.status ? cvLow(cvSpeechOf(b, q.status, a)).replace(/\bThe (Bakery|Smithy|Baths|Taberna|Thermopolium|Market Hall|Carcer)\b/g, (m, x) => "the " + (x === "Bakery" || x === "Smithy" || x === "Baths" ? x.toLowerCase() : x)) : "", ill = q.ill && q.ill.until > game.time, fa2 = cvFeel(a, q);
       const ans = ill ? sbPick(["In bed, I heard. Fever.", "{QHe}'s poorly. Somebody should look in."]) : q.pose === "sleep" ? "Asleep, last I saw. Lucky {qhim}." : st && !/^(standing|idle)/.test(st) ? `Last I saw, ${f.qhe} was ${st.replace(/^is /, "")}.` : sbPick(["Not since yesterday.", "Somewhere about. {QHe} always is."]);
       return [sbFill(sbPick(["Seen {q} today?", "Have you seen {q} about?", "Where's {q} got to?"]), f), sbFill(ans, f), fa2 === "love" || fa2 === "like" ? sbFill(sbPick(["Good. I've been meaning to drop by.", "I'll catch {qhim} later.", ""]), f) : fa2 === "hate" || fa2 === "dislike" ? sbFill(sbPick(["Good. Keep {qhim} there.", "Shame.", ""]), f) : ""];
     }]);
@@ -24005,7 +24027,7 @@ function sbSmallTalk(a, b, c = {}) {
     if (tl < 26) opts.push([0.5, () => [sbPick(["Tide's right out.", "Have you seen the flats? You could walk to the mainland.", "Low water. The smell!", "The flats are full of children and crabs again."]), sbPick(["The children will be out there all day.", "Crabs everywhere. I trod on two.", "Somebody'll go looking for that bell again.", "Good. I need cockles."])]]);
     else if (tl > 82) opts.push([0.4, () => [sbPick(["Water's right up to the wall.", "High tide. Look at it.", "The sea's in a mood today.", "You can hear the water from my bed."]), sbPick(["Mind your feet. It comes in faster than you think.", "It'll be back out by supper.", "I don't trust it. Never have.", "Pretty, though. From up here."])]]);
   }
-  if (isRestDay() && adult) opts.push([2, () => sbPick([["No axes today. Feels strange.", "Feels wonderful, you mean."], ["What are you doing with the rest day?", "As little as I can manage."], ["Going to the water later?", "If the little ones let me."], ["I'm going to sit in the sun and think about nothing.", "You'll be asleep by noon.", "That's the plan."]])]);
+  if (isRestDay() && adult) opts.push([1.6, () => sbPick([["No axes today. Feels strange.", "Feels wonderful, you mean."], ["What are you doing with the rest day?", "As little as I can manage."], ["Going to the water later?", "If the little ones let me."], ["I'm going to sit in the sun and think about nothing.", "You'll be asleep by noon.", "That's the plan."], ["I nearly picked up the hoe this morning. Habit.", "Put it down. Slowly. Back away."], ["Rest day, and I'm still up at dawn.", "Your body doesn't know what day it is."], ["Fancy a walk round the headland?", "Only if we stop at the tavern on the way back."], ["Somebody's working. I can hear a hammer.", "Let them. More rest for the rest of us."], ["I'm going to eat until I can't move.", "Ambitious. I respect it."], ["Have you seen the children? They're all on the flats.", "Good. Peace."]])]);
   else if (isRestDay(game.time + 1440) && adult) opts.push([1, () => sbPick([["Rest day tomorrow.", "Don't. I'll start thinking about it and stop working."], ["One more day.", "One more day."]])]);
   if (town.feast && game.time < town.feast.end && adult) opts.push([2, () => sbPick([["Are you going to the bonfire?", "I said I wasn't. I'm going."], ["Save me a place by the fire.", "Only if you bring the wine."]])]);
   {
