@@ -134,3 +134,7 @@ so you only see into a room from roughly in front of its door).
 Revision (Nov 2026): the first TrueSight cast against every tile (trees and rocks included) and showed hit tiles as squares. Now only buildings block
 sight, as polygons of straight wall segments, so edges are straight sight lines like Nox (a diagonal beam through a door, a clean wedge behind a shed);
 and it is about four times faster. Still to decide: NPC perception on `tsLine` (doors would then stop witnesses), thinner wall art.
+
+Second revision (Nov 2026): walls are full-thickness solids again (the line-down-the-middle version cast shadows from the wrong places): outer corners
+cast from the outside point of the corner tile, door beams from the inside corners of the door frame. A viewer at 45 degrees to a door sees only a sliver
+(a one-tile doorway through a one-tile wall); in front of the door the beam is full width. Thinner wall art would make side views of doors more generous.

@@ -80,8 +80,10 @@ The village lives without the player: the simulation owns the truth (events), ea
 - When behaviour changes on purpose, tests may need new expectations; when it changes by accident, they catch it.
 
 ## What the player can see: TrueSight (src/render/truesight.ts)
-Visibility, not lighting (night, lamps and shadows stay in render/lighting-wild.ts). Buildings are polygons: each room is a closed outline of straight
-segments down the middle of its walls, with gaps for open doors, archways and (narrow) windows; free-standing wall tiles add their exposed edges.
+Visibility, not lighting (night, lamps and shadows stay in render/lighting-wild.ts). Buildings are polygons whose walls are as thick as they are drawn:
+every wall tile is a solid square and the segments are the straight edges of the solid parts, merged along each wall. So a building's outer corner casts
+from the outermost point of its corner tile, a doorway is a real opening between two jambs (the beam through it starts at the inside corners of the door
+frame), and a window is a gap in the middle of its tile with a solid piece either side.
 From the player's eye a ray goes to every segment end (and a hair either side), stopping at the first segment; the hit points in angle order are the
 visibility polygon. Everything outside it is covered in near-black, cut along those straight lines. Wall tiles you look at are shown whole.
 - ONLY buildings block sight: walls, closed doors, the solid bits beside a window. Trees, rocks, furniture, crates and people never do.

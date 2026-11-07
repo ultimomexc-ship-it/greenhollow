@@ -1,12 +1,13 @@
 /* ================= TrueSight: what the player can actually see (Nox-style line of sight) =================
-   Visibility, not lighting. BUILDINGS are polygons: each room is a closed outline drawn down the middle of its walls, made of straight line
-   segments, with gaps where there is an open door, an archway or a window. From the player's eye a ray goes to every end of every
+   Visibility, not lighting. BUILDINGS are polygons: walls are as thick as they are drawn, and their edges are straight line segments
+   (an outer corner casts from the outermost point of its tile; a doorway is an opening between two jambs, so the beam through it is bounded by
+   the inside corners of the door frame; a window is a gap in the middle of its tile). From the player's eye a ray goes to every end of every
    segment (and a hair either side); each ray stops at the first segment it meets. The hit points, in order of angle, are the VISIBILITY
    POLYGON: a wall gives a straight edge, a corner a sharp turn, a doorway an opening. Everything outside the polygon is covered by darkness,
    cut along those straight lines (not along tiles).
    Only buildings block sight: walls, closed doors, and the solid bits either side of a window. Trees, boulders, furniture, crates and people
    never do; you see around and past them.
-   Wall tiles you are looking at are shown whole (a wall is a tile thick, the line is down its middle), so buildings read as buildings.
+   Wall tiles you are looking at are shown whole, so buildings read as buildings.
    NPC perception is separate: tsLine(a, b) answers "is there a clear line?" on the same segments, for any system that wants it, with its
    own range and rules.                                                                                                                 */
 const TSIGHT: any = { on: true, poly: null, hits: null, key: '', rect: null, eye: null, ms: 0, cv: null, geo: null, geoKey: '' };
@@ -24,43 +25,45 @@ function tsTile(x, y) {
 
 /* ---------------- the geometry: segments in a grid, so a ray only meets the ones near it ---------------- */
 const TS_CELL = 2;
-/** segments (x1, y1, x2, y2 ... flat), the wall tiles to show when seen, and a cell grid over the map */
+/** segments (x1, y1, x2, y2 ... flat), the wall tiles to show when seen, and a cell grid over the map.
+    Walls are as thick as they are drawn: every wall tile is a solid square, and the segments are the straight edges of the solid parts, merged along each wall.
+    So a building's outer corner casts from the outermost point of its corner tile, and a doorway is a real opening between two door jambs: the beam through
+    it is bounded by the inside corners of the door frame. A window is a gap in the middle of its tile with a solid piece either side. */
 function tsBuild() {
-  const seg: number[] = [], walls: any[] = [], add = (x1, y1, x2, y2) => { if (Math.abs(x1 - x2) + Math.abs(y1 - y2) > 1e-6) seg.push(x1, y1, x2, y2); };
-  const ring = new Uint8Array(W * H);
-  for (const r of rooms) {
-    if (r.dead) continue;
-    // the four sides: the tiles along each, and which axis they run on
-    const sides: [boolean, number, number, number][] = [[true, r.y, r.x, r.x + r.w - 1], [true, r.y + r.h - 1, r.x, r.x + r.w - 1], [false, r.x, r.y, r.y + r.h - 1], [false, r.x + r.w - 1, r.y, r.y + r.h - 1]];
-    for (const [horiz, fixed, a, b] of sides) {
-      const iv: number[][] = [];   // solid stretches along the line, in tile units
-      for (let i = a; i <= b; i++) {
-        const x = horiz ? i : fixed, y = horiz ? fixed : i; ring[y * W + x] = 1;
-        const k = (i === a || i === b) ? 1 : tsTile(x, y), lo = i === a ? i + 0.5 : i, hi = i === b ? i + 0.5 : i + 1;
-        if (k === 1) { iv.push([lo, hi]); walls.push({ x, y, solid: true, pts: [[horiz ? i + 0.5 : fixed + 0.5, horiz ? fixed + 0.5 : i + 0.5], [horiz ? i + 0.15 : fixed + 0.5, horiz ? fixed + 0.5 : i + 0.15], [horiz ? i + 0.85 : fixed + 0.5, horiz ? fixed + 0.5 : i + 0.85]] }); }
-        else if (k === 2) { iv.push([lo, i + 0.25], [i + 0.75, hi]); walls.push({ x, y, solid: false, pts: [[i + 0.5, fixed + 0.5]] }); }   // a window: shown when its middle is seen
-        else walls.push({ x, y, solid: false, pts: [[x + 0.5, y + 0.5]] });                                                       // an open door or archway
-      }
-      iv.sort((p, q) => p[0] - q[0]); const m: number[][] = []; for (const s of iv) { const l = m[m.length - 1]; if (l && s[0] <= l[1] + 1e-6) l[1] = Math.max(l[1], s[1]); else m.push(s.slice()); }
-      for (const [lo, hi] of m) horiz ? add(lo, fixed + 0.5, hi, fixed + 0.5) : add(fixed + 0.5, lo, fixed + 0.5, hi);
+  const full = (x, y) => x >= 0 && y >= 0 && x < W && y < H && ((grid[y][x] === T.WALL && !tsWindow(x, y)) || (grid[y][x] === T.DOOR && !tsDoorOpen(x, y)));
+  const win = (x, y) => x >= 0 && y >= 0 && x < W && y < H && grid[y][x] === T.WALL && tsWindow(x, y);
+  const hard = (x, y) => full(x, y) || win(x, y);
+  const hE = new Map<number, number[][]>(), vE = new Map<number, number[][]>(), walls: any[] = [];
+  const addH = (y, x1, x2) => { let l = hE.get(y); if (!l) hE.set(y, l = []); l.push([x1, x2]); }, addV = (x, y1, y2) => { let l = vE.get(x); if (!l) vE.set(x, l = []); l.push([y1, y2]); };
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const t = grid[y][x]; if (t !== T.WALL && t !== T.DOOR) continue;
+    if (full(x, y)) {
+      const pts: number[][] = [];
+      if (!hard(x, y - 1)) { addH(y, x, x + 1); pts.push([x + 0.5, y], [x + 0.15, y], [x + 0.85, y]); } if (!hard(x, y + 1)) { addH(y + 1, x, x + 1); pts.push([x + 0.5, y + 1], [x + 0.15, y + 1], [x + 0.85, y + 1]); }
+      if (!hard(x - 1, y)) { addV(x, y, y + 1); pts.push([x, y + 0.5], [x, y + 0.15], [x, y + 0.85]); } if (!hard(x + 1, y)) { addV(x + 1, y, y + 1); pts.push([x + 1, y + 0.5], [x + 1, y + 0.15], [x + 1, y + 0.85]); }
+      walls.push({ x, y, pts: pts.length ? pts : [[x + 0.5, y + 0.5]] });
+    } else if (win(x, y)) {   // a window: a solid piece either side of a gap in the middle (the back wall, so it runs along x)
+      addH(y, x, x + 0.25); addH(y + 1, x, x + 0.25); addV(x + 0.25, y, y + 1); addH(y, x + 0.75, x + 1); addH(y + 1, x + 0.75, x + 1); addV(x + 0.75, y, y + 1);
+      if (!hard(x - 1, y)) addV(x, y, y + 1); if (!hard(x + 1, y)) addV(x + 1, y, y + 1);
+      walls.push({ x, y, pts: [[x + 0.5, y + 0.5], [x + 0.125, y], [x + 0.875, y], [x + 0.125, y + 1], [x + 0.875, y + 1]] });
     }
   }
-  // free-standing walls (not on a room's outline): the straight edges between a wall tile and open ground, along the tile boundary
-  const solid = (x, y) => x >= 0 && y >= 0 && x < W && y < H && (grid[y][x] === T.WALL || (grid[y][x] === T.DOOR && !tsDoorOpen(x, y)));
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    if (grid[y][x] !== T.WALL || ring[y * W + x]) continue; const ex: [number, number, number, number, number, number][] = [];
-    if (!solid(x, y - 1)) ex.push([x, y, x + 1, y, x + 0.5, y]); if (!solid(x, y + 1)) ex.push([x, y + 1, x + 1, y + 1, x + 0.5, y + 1]);
-    if (!solid(x - 1, y)) ex.push([x, y, x, y + 1, x, y + 0.5]); if (!solid(x + 1, y)) ex.push([x + 1, y, x + 1, y + 1, x + 1, y + 0.5]);
-    for (const e of ex) add(e[0], e[1], e[2], e[3]);
-    walls.push({ x, y, solid: true, pts: ex.length ? ex.map(e => [e[4], e[5]]) : [[x + 0.5, y + 0.5]], free: true });
-  }
+  // open doors and archways in the outline of a room: shown when seen, like the wall beside them
+  for (const r of rooms) { if (r.dead) continue;
+    for (let i = r.x; i < r.x + r.w; i++) for (const y of [r.y, r.y + r.h - 1]) if (!hard(i, y) && !full(i, y)) walls.push({ x: i, y, pts: [[i + 0.5, y + 0.5]] });
+    for (let j = r.y + 1; j < r.y + r.h - 1; j++) for (const x of [r.x, r.x + r.w - 1]) if (!hard(x, j) && !full(x, j)) walls.push({ x, y: j, pts: [[x + 0.5, j + 0.5]] }); }
+  // merge the straight edges along each line into single segments
+  const seg: number[] = [], merge = (m: Map<number, number[][]>, horiz: boolean) => { for (const [k, list] of m) { list.sort((a, b) => a[0] - b[0]); let cur = list[0].slice();
+    for (let n = 1; n < list.length; n++) { const e = list[n]; if (e[0] <= cur[1] + 1e-6) cur[1] = Math.max(cur[1], e[1]); else { horiz ? seg.push(cur[0], k, cur[1], k) : seg.push(k, cur[0], k, cur[1]); cur = e.slice(); } }
+    horiz ? seg.push(cur[0], k, cur[1], k) : seg.push(k, cur[0], k, cur[1]); } };
+  merge(hE, true); merge(vE, false);
   // a cell grid over the map: each cell lists the segments that pass through it
   const cw = Math.ceil(W / TS_CELL), ch = Math.ceil(H / TS_CELL), cells: (number[] | null)[] = new Array(cw * ch).fill(null);
   for (let s = 0; s < seg.length; s += 4) {
     const x1 = seg[s], y1 = seg[s + 1], x2 = seg[s + 2], y2 = seg[s + 3], n = Math.max(1, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / (TS_CELL * 0.5))); let last = -1;
-    for (let i = 0; i <= n; i++) { const cx = Math.min(cw - 1, Math.max(0, Math.floor((x1 + (x2 - x1) * i / n) / TS_CELL))), cy = Math.min(ch - 1, Math.max(0, Math.floor((y1 + (y2 - y1) * i / n) / TS_CELL))), k = cy * cw + cx; if (k === last) continue; last = k; (cells[k] || (cells[k] = [])).push(s);
+    for (let i = 0; i <= n; i++) { const px = x1 + (x2 - x1) * i / n, py = y1 + (y2 - y1) * i / n, cx = Math.min(cw - 1, Math.max(0, Math.floor(px / TS_CELL))), cy = Math.min(ch - 1, Math.max(0, Math.floor(py / TS_CELL))), k = cy * cw + cx; if (k !== last) { last = k; (cells[k] || (cells[k] = [])).push(s); }
       // a segment along a cell border also belongs to the cell next door
-      for (const [dx, dy] of [[1, 0], [0, 1], [1, 1]]) { const px = x1 + (x2 - x1) * i / n, py = y1 + (y2 - y1) * i / n, nx = Math.floor((px + 1e-6 * dx) / TS_CELL), ny = Math.floor((py + 1e-6 * dy) / TS_CELL); if ((dx && nx !== cx) || (dy && ny !== cy)) { const k2 = Math.min(ch - 1, ny) * cw + Math.min(cw - 1, nx); if (k2 !== k) (cells[k2] || (cells[k2] = [])).push(s); } } }
+      for (const [dx, dy] of [[1, 0], [0, 1], [1, 1]]) { const nx = Math.floor((px + 1e-6 * dx) / TS_CELL), ny = Math.floor((py + 1e-6 * dy) / TS_CELL); if ((dx && nx !== cx) || (dy && ny !== cy)) { const k2 = Math.min(ch - 1, ny) * cw + Math.min(cw - 1, nx); if (k2 !== k && !(cells[k2] && cells[k2].includes(s))) (cells[k2] || (cells[k2] = [])).push(s); } } }
   }
   return { seg, walls, cells, cw, ch };
 }
@@ -102,7 +105,7 @@ function tsWalls(ex, ey, R, G = tsGeo()) {
   const out = new Set<string>();
   for (const w of G.walls) {
     if (w.x + 1 < R.x0 - 1 || w.x > R.x1 + 1 || w.y + 1 < R.y0 - 1 || w.y > R.y1 + 1) continue;
-    for (const p of w.pts) if (tsClear(G, ex, ey, p[0], p[1], w.solid ? 0.03 : 0)) { out.add(w.x + ',' + w.y); break; }
+    for (const p of w.pts) if (tsClear(G, ex, ey, p[0], p[1], 0.03)) { out.add(w.x + ',' + w.y); break; }
   }
   return out;
 }
