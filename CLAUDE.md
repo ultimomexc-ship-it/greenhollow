@@ -80,16 +80,18 @@ The village lives without the player: the simulation owns the truth (events), ea
 - When behaviour changes on purpose, tests may need new expectations; when it changes by accident, they catch it.
 
 ## What the player can see: TrueSight (src/render/truesight.ts)
-Visibility, not lighting (night, lamps and shadows stay in render/lighting-wild.ts). From the player's eye, rays go to every corner of every
-obstacle on screen (and a hair either side); each stops at the first thing it hits; the hit points in angle order are the visibility polygon.
-Everything outside it is covered in near-black, wall faces you look at stay visible, and people outside it are not drawn, picked or named.
-- Obstacles come from the tile grid (`tsOcc`): walls, mountains and closed doors are full tiles; trees and boulders are boxes inside their tile;
-  windows in a room's back wall let sight through; furniture, crates and people never block. Public buildings keep their doors open by day (`tsPropDoors`).
-- `tsSees(x, y)` = can the player see a person standing there (`canSee` uses it). `tsLine(ax, ay, bx, by)` = a clear line on the same geometry, for
-  NPC perception with its own rules (NPCs still use the older `seeThrough` today). Zoomed out to the map (zoom < 0.6) nothing is hidden.
-- `node tools/truesight.mjs [--out=dir]` stamps a test ground (`tsLab`: rooms with an archway and a shut door, a corridor with three corners,
-  a house with windows, trees, a shed, walls touching corner to corner), checks who is seen from each spot, and saves screenshots. The tests run it.
-- It recomputes only when the eye, the view or a door changes (~1 ms at normal zoom, ~2 ms zoomed out); `town.gridV` counts tile changes so caches know.
+Visibility, not lighting (night, lamps and shadows stay in render/lighting-wild.ts). Buildings are polygons: each room is a closed outline of straight
+segments down the middle of its walls, with gaps for open doors, archways and (narrow) windows; free-standing wall tiles add their exposed edges.
+From the player's eye a ray goes to every segment end (and a hair either side), stopping at the first segment; the hit points in angle order are the
+visibility polygon. Everything outside it is covered in near-black, cut along those straight lines. Wall tiles you look at are shown whole.
+- ONLY buildings block sight: walls, closed doors, the solid bits beside a window. Trees, rocks, furniture, crates and people never do.
+- `tsGeo()` builds (and caches, keyed by `town.gridV` and door states) the segments in a cell grid; `tsRay` finds the nearest hit; `tsPolygon`, `tsWalls`.
+  `tsSees(x, y)` = can the player see a person standing there (`canSee` uses it; hidden people are not drawn, picked or named).
+  `tsLine(ax, ay, bx, by)` = a clear line on the same segments, for NPC perception with its own rules (NPCs still use the older `seeThrough`).
+- Public buildings keep their doors open by day (`tsPropDoors`). Zoomed out to the map (zoom < 0.6) nothing is hidden.
+- `node tools/truesight.mjs [--out=dir]` stamps a test ground (`tsLab`: rooms with an archway and a shut door, a corridor with three corners, a house
+  with windows, trees, a shed, walls touching corner to corner), checks who is seen from each spot (and while people walk), and saves screenshots. Tests run it.
+- ~0.2 ms per recompute at normal zoom, ~0.5 ms zoomed out, only when the eye, the view or a door changes.
 
 ## Performance tools
 - `node tools/profile.mjs <seconds> <zoom> [--pan] [--cpu] [--file=other.html]`: the real frame loop, with per-stage times, frame-time percentiles and optional panning / CPU profile. Headless Chromium paints in software, so compare before/after rather than against 60 fps.

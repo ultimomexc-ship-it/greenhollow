@@ -12,7 +12,7 @@ export const SCENES = [
   ['corridor: at the entrance, the first corner hides the rest', [2 + 22, 12], [[24, 9, true, 'up the first leg'], [30, 8, false, 'round the first corner'], [35, 4, false, 'round the second corner']], [30, 7]],
   ['corridor: at the first corner, the next leg opens up', [24, 8], [[30, 8, true, 'along the second leg'], [35, 8, true, 'at the far end of the leg'], [35, 4, false, 'round the second corner']], [30, 6]],
   ['window house: outside the back wall, a window lets you look in', [2, 10], [[2, 14, true, 'straight in through the window'], [6, 15, false, 'inside, not in line with a window'], [8, 13, false, 'inside, behind the wall between the windows']], [5, 13]],
-  ['outdoors: trees hide what is right behind them', [10, 22], [[16, 18, false, 'behind a tree'], [16, 23, true, 'in the open'], [4, 22, true, 'behind you, in the open']], [11, 21]],
+  ['outdoors: trees do not hide anything, you see around them', [10, 22], [[16, 18, true, 'behind a tree'], [16, 23, true, 'in the open'], [4, 22, true, 'behind you, in the open']], [11, 21]],
   ['outdoors: behind the shed', [22, 22], [[33, 22, false, 'on the far side of the shed'], [28, 27, true, 'south of the shed, in the open']], [28, 22]],
 ];
 export async function truesightRun({ file = new URL('../dist/index.html', import.meta.url).pathname, shots = out } = {}) {

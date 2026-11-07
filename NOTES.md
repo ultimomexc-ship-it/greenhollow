@@ -130,3 +130,7 @@ ignoring doors, letting diagonal wall corners leak) with a visibility polygon (r
 Cost: ~1 ms per recompute at normal zoom, ~0.6 ms more per frame on average. Next: give NPC perception its own `tsLine`-based sight (with doors),
 so witnesses, gossip and guards respect closed doors too; decide whether walls should be thinner than a tile (doorways are short tunnels now,
 so you only see into a room from roughly in front of its door).
+
+Revision (Nov 2026): the first TrueSight cast against every tile (trees and rocks included) and showed hit tiles as squares. Now only buildings block
+sight, as polygons of straight wall segments, so edges are straight sight lines like Nox (a diagonal beam through a door, a clean wedge behind a shed);
+and it is about four times faster. Still to decide: NPC perception on `tsLine` (doors would then stop witnesses), thinner wall art.
