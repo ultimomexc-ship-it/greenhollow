@@ -201,16 +201,6 @@ function greetParentPlan(n, tod) {
 }
 
 /* ---------- graves and the chapel ---------- */
-function graveVisitPlan(n, tod) {
-  if (n.age < 8 || !town.graveyard || !town.graveyard.slots) return null;
-  const mine = town.graveyard.slots.filter(sl => sl.used && sl.used !== 'reserved' && ((sl.used.person && isKin(n, sl.used.person)) || (n.aff[sl.used.id] || 0) >= 45) && game.time - sl.used.died < 4 * YEAR);
-  if (!mine.length) return null;
-  const sl = mine[Math.floor(Math.random() * mine.length)], rec = sl.used, b = besideTile(sl.x, sl.y); if (!b) return null;
-  n.mourning = rec.id;
-  return [goS({ x: b.x, y: b.y, face: { dx: Math.sign(sl.x - b.x), dy: Math.sign(sl.y - b.y) } }, `Walking to ${rec.first}'s grave`),
-    waitS(18, 'stand', `Visiting ${rec.first}'s grave`, { social: true, nopie: true, onEnd(n) { n.mourning = null; n.social = Math.min(100, n.social + 8); } }),
-    { k: 'wait', min: 1, act: 'stand', text: 'Saying goodbye', nopie: true }];
-}
 function chapelPlan(n, tod) {
   const ch = town.church; if (!ch || !ch.floorTiles || !ch.floorTiles.length || n.age < 6) return null;
   const h = tod / 60; if (h < 8 || h > 18) return null;

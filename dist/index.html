@@ -9240,12 +9240,6 @@ function nextAt(hour, minGap) {
   while (t < game.time + minGap) t += 1440;
   return t;
 }
-function scheduleWedding(a, b) {
-  const at = nextAt(16, 12 * 60);
-  const ch = town.church;
-  town.wedding = { a, b, at, end: at + 70, done: false, mk: { plaza: ch.floorTiles, x: ch.x + ch.w / 2, y: ch.y + ch.h / 2, arch: { x: ch.doorX, y: ch.doorY + (ch.side === "b" ? 1 : -1) }, church: true } };
-  chron(`${a.first} ${a.surname} and ${b.first} ${b.surname} will be married on ${dayLabel(at)}.`, "love");
-}
 const dayLabel = (t) => `day ${Math.floor(t / 1440) % 3 + 1} of year ${yearsOf(t) + 1}`;
 function marry(a, b) {
   const groom = a.female ? b : a, bride = a.female ? a : b;
@@ -9500,56 +9494,12 @@ function die(n, cause) {
     s.crew = s.crew.filter((id) => id !== n.id);
   });
 }
-function startFuneral(rec) {
-  const at = nextAt(15, 5 * 60);
-  const slot = town.graveyard.slots.filter((s) => !s.used).sort((a, b) => Math.hypot(a.x - town.cx, a.y - town.cy) - Math.hypot(b.x - town.cx, b.y - town.cy))[0] || null;
-  if (slot) slot.used = "reserved";
-  town.funeral = { rec, at, end: at + 55, slot, leader: null, done: false, started: game.time };
-  chron(`The funeral of ${rec.name} will be held on ${dayLabel(at)} at the churchyard.`, "death");
-}
-function mournSpots(f) {
-  const sl = f.slot || { x: town.graveyard.x + 5, y: town.graveyard.y + 4 }, out = [];
-  for (let y = sl.y - 3; y <= sl.y + 3; y++) for (let x = sl.x - 3; x <= sl.x + 3; x++) if (x > 0 && y > 0 && grid[y] && grid[y][x] === T.PLOT && !(Math.abs(x - sl.x) <= 0 && Math.abs(y - sl.y) <= 0) && !town.graveyard.slots.some((s) => s.x === x && s.y === y)) out.push({ x, y, face: { dx: Math.sign(sl.x - x), dy: Math.sign(sl.y - y) } });
-  return out.length ? out : [{ x: town.graveyard.x, y: town.graveyard.y }];
-}
 function attends(n, rec) {
   if (n.infant) return false;
   if (n.age < 16) return !!npcs.find((p) => p.age >= 16 && (n.fam.mother === p.id || n.fam.father === p.id)) || (n.know[rec.id] || 0) > 40;
   return npcs.length <= 24 || isKinOf(n, rec) || (n.know[rec.id] || 0) >= 20 || (n.aff[rec.id] || 0) >= 15;
 }
 const isKinOf = (n, rec) => rec.person && isKin(n, rec.person);
-function finishFuneral(f) {
-  const rec = f.rec;
-  f.done = true;
-  const sl = f.slot;
-  if (sl) {
-    sl.used = rec;
-    setT(sl.x, sl.y, T.GRAVE);
-    markDirty(sl.x, sl.y, 1, 1);
-    town.graves++;
-  }
-  const p = rec.person;
-  const here = npcs.filter((n) => attends(n, rec) && n.mourning === rec.id);
-  const leader = here.find((n) => n.role === "Priest") || here.filter((n) => n.age >= 16).sort((a, b) => b.age - a.age)[0] || null;
-  here.forEach((n) => {
-    n.social = Math.min(100, n.social + 35);
-    n.mourning = null;
-  });
-  const kin = here.filter((n) => isKinOf(n, rec));
-  chron(`${rec.name} was laid to rest${leader && leader.role === "Priest" ? " by " + leader.first : ""}${here.length ? " with " + here.length + " mourners present" : ""}.`, "death");
-  if (leader) {
-    const o = here.filter((n) => n !== leader)[0] || leader, tr2 = rec.traits[0], role = rec.role === "Child" ? "child" : rec.role.toLowerCase();
-    const l1 = rec.age < 16 ? `${rec.first} was only ${rec.age}. Too little time, and every minute of it was bright.` : `${rec.first} ${rec.quirk}. We will all remember that.`;
-    const l2 = rec.age < 16 ? "Rest easy, little one." : `A ${tr2} soul and a good ${role === "elder" ? "neighbour" : role}. ${town.name} is smaller today.`;
-    const lines = [{ who: leader, text: l1 }, { who: o, text: l2 }];
-    const rm = here.map((h) => ({ h, m: (h.mem || []).filter((m) => m.w === rec.id && m.we).slice(-1)[0] })).find((x) => x.m && x.h !== leader);
-    if (rm) lines.push({ who: rm.h, text: `I will always remember ${rm.m.we.replace(/\byou\b/g, rec.first).replace(/\bwe\b/g, rec.first + " and I").replace(/\byour\b/g, rec.first + "'s")}.` });
-    game.events.push({ time: game.time, a: leader, b: o, place: "the churchyard", topic: "funeral", quiet: false, lines });
-  }
-  calAdd("funeral", `Funeral of ${rec.name}`);
-  town.funeral = null;
-  town.lastFuneral = game.time;
-}
 function makeTownIndex() {
   town.byId = /* @__PURE__ */ new Map();
   npcs.forEach((n) => town.byId.set(n.id, n));
@@ -10498,23 +10448,6 @@ function needsPlan(n) {
   }
   return null;
 }
-function funeralPlan(n, tod) {
-  const f = town.funeral;
-  if (!f || f.done || game.time < f.at - 45 || game.time >= f.end) return null;
-  if (n.hunger > 85 || !attends(n, f.rec)) return null;
-  n.mourning = f.rec.id;
-  const spots = mournSpots(f);
-  return [goS((nn) => pickFrom(spots, nn), `Walking to the churchyard for ${f.rec.first}'s funeral`), waitS(f.end - game.time, "stand", `Standing at ${f.rec.first}'s funeral`)];
-}
-function weddingPlan(n, tod) {
-  const w = town.wedding;
-  if (!w || w.done || game.time < w.at - 30 || game.time >= w.end) return null;
-  const mine = n === w.a || n === w.b;
-  if (!mine) {
-    if (n.infant || n.hunger > 85 || !(npcs.length <= 24 || isKin(n, w.a) || isKin(n, w.b) || (n.know[w.a.id] || 0) > 25 || (n.know[w.b.id] || 0) > 25)) return null;
-  }
-  return [goS((nn) => pickFrom(w.mk.plaza, nn), mine ? "Going to be married" : "Heading to the wedding"), waitS(w.end - game.time, "leisure", mine ? "Being married" : `Celebrating ${w.a.first} and ${w.b.first}'s wedding`, { area: w.mk.plaza, roam: [8, 15] })];
-}
 function assignCrews() {
 }
 const SITE_PRI = { church: 0, house: 1, market: 2, tavern: 3, graveyard: 4, field: 5, road: 6, demolish: 7 };
@@ -10610,13 +10543,6 @@ function deliverMatsPlan(n) {
     ];
   }
   return null;
-}
-function priestPlan(n, tod) {
-  const c = town.church;
-  if (!c || !c.spots.altar) return null;
-  const h = tod / 60;
-  if (h < 7.5 || h > 18) return null;
-  return [goS(c.spots.altar, "Going to the altar"), waitS(25, "work", "Tending the chapel", { tool: "bless" })];
 }
 function barPlan(n, tod) {
   const c = town.tavern;
@@ -11964,22 +11890,6 @@ function greetParentPlan(n, tod) {
         bumpAff(n2, p, 3, 15);
       }
     } })
-  ];
-}
-function graveVisitPlan(n, tod) {
-  if (n.age < 8 || !town.graveyard || !town.graveyard.slots) return null;
-  const mine = town.graveyard.slots.filter((sl2) => sl2.used && sl2.used !== "reserved" && (sl2.used.person && isKin(n, sl2.used.person) || (n.aff[sl2.used.id] || 0) >= 45) && game.time - sl2.used.died < 4 * YEAR);
-  if (!mine.length) return null;
-  const sl = mine[Math.floor(Math.random() * mine.length)], rec = sl.used, b = besideTile(sl.x, sl.y);
-  if (!b) return null;
-  n.mourning = rec.id;
-  return [
-    goS({ x: b.x, y: b.y, face: { dx: Math.sign(sl.x - b.x), dy: Math.sign(sl.y - b.y) } }, `Walking to ${rec.first}'s grave`),
-    waitS(18, "stand", `Visiting ${rec.first}'s grave`, { social: true, nopie: true, onEnd(n2) {
-      n2.mourning = null;
-      n2.social = Math.min(100, n2.social + 8);
-    } }),
-    { k: "wait", min: 1, act: "stand", text: "Saying goodbye", nopie: true }
   ];
 }
 function chapelPlan(n, tod) {

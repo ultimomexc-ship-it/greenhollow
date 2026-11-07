@@ -152,18 +152,6 @@ function needsPlan(n) {
 }
 
 /* ---------- community plans: funerals, weddings, building ---------- */
-function funeralPlan(n, tod) {
-  const f = town.funeral; if (!f || f.done || game.time < f.at - 45 || game.time >= f.end) return null;
-  if (n.hunger > 85 || !attends(n, f.rec)) return null;
-  n.mourning = f.rec.id; const spots = mournSpots(f);
-  return [goS(nn => pickFrom(spots, nn), `Walking to the churchyard for ${f.rec.first}'s funeral`), waitS(f.end - game.time, 'stand', `Standing at ${f.rec.first}'s funeral`)];
-}
-function weddingPlan(n, tod) {
-  const w = town.wedding; if (!w || w.done || game.time < w.at - 30 || game.time >= w.end) return null;
-  const mine = n === w.a || n === w.b;
-  if (!mine) { if (n.infant || n.hunger > 85 || !(npcs.length <= 24 || isKin(n, w.a) || isKin(n, w.b) || (n.know[w.a.id] || 0) > 25 || (n.know[w.b.id] || 0) > 25)) return null; }
-  return [goS(nn => pickFrom(w.mk.plaza, nn), mine ? 'Going to be married' : 'Heading to the wedding'), waitS(w.end - game.time, 'leisure', mine ? 'Being married' : `Celebrating ${w.a.first} and ${w.b.first}'s wedding`, { area: w.mk.plaza, roam: [8, 15] })];
-}
 function assignCrews() {}
 const SITE_PRI = { church: 0, house: 1, market: 2, tavern: 3, graveyard: 4, field: 5, road: 6, demolish: 7 };
 const KINDTXT = { wood: 'timber', stone: 'stone' };
@@ -210,11 +198,6 @@ function deliverMatsPlan(n) {
       waitS(Math.max(1.5, Math.min(handsMax(n), n.inv[k]) * 0.8), 'work', 'Throwing ' + KINDTXT[k] + ' onto the site', { onEnd(n) { if (!throwOnSite(n, s, k)) return false; } })];
   }
   return null;
-}
-function priestPlan(n, tod) {
-  const c = town.church; if (!c || !c.spots.altar) return null;
-  const h = tod / 60; if (h < 7.5 || h > 18) return null;
-  return [goS(c.spots.altar, 'Going to the altar'), waitS(25, 'work', 'Tending the chapel', { tool: 'bless' })];
 }
 function barPlan(n, tod) {
   const c = town.tavern; if (!c || !c.spots.bar) return null;

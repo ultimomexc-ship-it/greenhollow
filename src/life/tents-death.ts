@@ -116,45 +116,12 @@ function die(n, cause) {
   if (false) chron(`${n.first} cannot have a funeral yet: ${town.name} has no church.`, 'death');
   if (town.sites.length) town.sites.forEach(s => { s.owners = s.owners.filter(id => id !== n.id); s.crew = s.crew.filter(id => id !== n.id); });
 }
-function startFuneral(rec) {
-  const at = nextAt(15, 5 * 60);
-  const slot = town.graveyard.slots.filter(s => !s.used).sort((a, b) => Math.hypot(a.x - town.cx, a.y - town.cy) - Math.hypot(b.x - town.cx, b.y - town.cy))[0] || null;
-  if (slot) slot.used = 'reserved';
-  town.funeral = { rec, at, end: at + 55, slot, leader: null, done: false, started: game.time };
-  chron(`The funeral of ${rec.name} will be held on ${dayLabel(at)} at the churchyard.`, 'death');
-}
-function mournSpots(f) {
-  const sl = f.slot || { x: town.graveyard.x + 5, y: town.graveyard.y + 4 }, out = [];
-  for (let y = sl.y - 3; y <= sl.y + 3; y++) for (let x = sl.x - 3; x <= sl.x + 3; x++) if (x > 0 && y > 0 && grid[y] && grid[y][x] === T.PLOT && !(Math.abs(x - sl.x) <= 0 && Math.abs(y - sl.y) <= 0) && !town.graveyard.slots.some(s => s.x === x && s.y === y)) out.push({ x, y, face: { dx: Math.sign(sl.x - x), dy: Math.sign(sl.y - y) } });
-  return out.length ? out : [{ x: town.graveyard.x, y: town.graveyard.y }];
-}
 function attends(n, rec) {
   if (n.infant) return false;
   if (n.age < 16) return !!npcs.find(p => p.age >= 16 && (n.fam.mother === p.id || n.fam.father === p.id)) || (n.know[rec.id] || 0) > 40;
   return npcs.length <= 24 || isKinOf(n, rec) || (n.know[rec.id] || 0) >= 20 || (n.aff[rec.id] || 0) >= 15;
 }
 const isKinOf = (n, rec) => rec.person && isKin(n, rec.person);
-function finishFuneral(f) {
-  const rec = f.rec; f.done = true;
-  const sl = f.slot;
-  if (sl) { sl.used = rec; setT(sl.x, sl.y, T.GRAVE); markDirty(sl.x, sl.y, 1, 1); town.graves++; }
-  const p = rec.person;
-  const here = npcs.filter(n => attends(n, rec) && n.mourning === rec.id);
-  const leader = here.find(n => n.role === 'Priest') || here.filter(n => n.age >= 16).sort((a, b) => b.age - a.age)[0] || null;
-  here.forEach(n => { n.social = Math.min(100, n.social + 35); n.mourning = null; });
-  const kin = here.filter(n => isKinOf(n, rec));
-  chron(`${rec.name} was laid to rest${leader && leader.role === 'Priest' ? ' by ' + leader.first : ''}${here.length ? ' with ' + here.length + ' mourners present' : ''}.`, 'death');
-  if (leader) {
-    const o = here.filter(n => n !== leader)[0] || leader, tr = rec.traits[0], role = rec.role === 'Child' ? 'child' : rec.role.toLowerCase();
-    const l1 = rec.age < 16 ? `${rec.first} was only ${rec.age}. Too little time, and every minute of it was bright.` : `${rec.first} ${rec.quirk}. We will all remember that.`;
-    const l2 = rec.age < 16 ? 'Rest easy, little one.' : `A ${tr} soul and a good ${role === 'elder' ? 'neighbour' : role}. ${town.name} is smaller today.`;
-    const lines = [{ who: leader, text: l1 }, { who: o, text: l2 }];
-    const rm = here.map(h => ({ h, m: (h.mem || []).filter(m => m.w === rec.id && m.we).slice(-1)[0] })).find(x => x.m && x.h !== leader);
-    if (rm) lines.push({ who: rm.h, text: `I will always remember ${rm.m.we.replace(/\byou\b/g, rec.first).replace(/\bwe\b/g, rec.first + ' and I').replace(/\byour\b/g, rec.first + "'s")}.` });
-    game.events.push({ time: game.time, a: leader, b: o, place: 'the churchyard', topic: 'funeral', quiet: false, lines });
-  }
-  calAdd("funeral", `Funeral of ${rec.name}`); town.funeral = null; town.lastFuneral = game.time;
-}
 
 /* ---------- people helpers shared with the sim ---------- */
 function makeTownIndex() { town.byId = new Map(); npcs.forEach(n => town.byId.set(n.id, n)); town.funeralQ = []; town.funeral = null; town.wedding = null; }

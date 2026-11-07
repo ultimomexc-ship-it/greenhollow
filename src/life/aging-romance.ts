@@ -99,11 +99,6 @@ function romanceTick() {
   });
 }
 function nextAt(hour, minGap) { let t = Math.floor(game.time / 1440) * 1440 + hour * 60; while (t < game.time + minGap) t += 1440; return t; }
-function scheduleWedding(a, b) {
-  const at = nextAt(16, 12 * 60);
-  const ch = town.church; town.wedding = { a, b, at, end: at + 70, done: false, mk: { plaza: ch.floorTiles, x: ch.x + ch.w / 2, y: ch.y + ch.h / 2, arch: { x: ch.doorX, y: ch.doorY + (ch.side === 'b' ? 1 : -1) }, church: true } };
-  chron(`${a.first} ${a.surname} and ${b.first} ${b.surname} will be married on ${dayLabel(at)}.`, 'love');
-}
 const dayLabel = t => `day ${Math.floor(t / 1440) % 3 + 1} of year ${yearsOf(t) + 1}`;
 function marry(a, b) {
   const groom = a.female ? b : a, bride = a.female ? a : b;
