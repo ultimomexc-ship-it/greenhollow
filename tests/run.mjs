@@ -189,7 +189,7 @@ async function talkScene(rng, fn) {
       if (!game.player) startPlaying(canControl(byId(game.steer)) ? byId(game.steer) : npcs.find(canControl)); document.getElementById('c').focus();
       window.__em = []; const e0 = lfEmit; lfEmit = function (k, o) { window.__em.push(k + (o && o.fake ? '(fake)' : '')); return e0.apply(this, arguments); };
       window.__box = () => { const t = document.getElementById('talk'); if (!t || t.hidden) return null; return { name: t.querySelector('.nm b').innerText, say: t.querySelector('.ta').innerText, q: (t.querySelector('.tq') || {}).innerText || '', opts: [...t.querySelectorAll('[data-k]')].map(b => b.innerText.replace(/^\d+\s*/, '').trim()), leave: !!t.querySelector('[data-leave]') }; };
-      window.__friend = (o, aff = 40, know = 40) => { o.aff[game.player.id] = aff; o.know[game.player.id] = know; if (o.trust) o.trust[game.player.id] = 0; return o; };
+      window.__friend = (o, aff = 40, know = 40) => { o.aff[game.player.id] = aff; o.know[game.player.id] = know; if (o.trust) o.trust[game.player.id] = 0; o.plan = null; o.status = 'Standing about'; o.bladder = Math.min(o.bladder || 0, 40); o.hunger = Math.min(o.hunger || 0, 40); o.ill = null; return o; };   // free to talk
       window.__talkable = () => npcs.filter(q => q !== game.player && !q.dead && q.age >= 14 && q.pose !== 'sleep');
     });
     const r = await fn(page);
@@ -222,13 +222,34 @@ test('talk: long random conversations stay specific, never dead-end and never re
       for (let i = 0; i < 16; i++) { const b = __box(); if (!b) break; said.push(b.say); opts.push(b.opts.length); if (!b.opts.length) { ended = true; break; } [...document.querySelectorAll('#talk [data-k]')][Math.floor(Math.random() * b.opts.length)].click(); turns++; }
       rows.push({ who: o.first, arch: cvVoice(o).arch, said, opts, ended, turns, status: o.status }); if (talkUI.o) closeTalk(); } return rows; });
   const bad = []; let dup = 0, deep = 0, total = 0;
-  for (const c of r) { if (/privy/i.test(c.status)) continue; total++; if (c.turns >= 8) deep++;
+  for (const c of r) { if (/privy/i.test(c.status)) continue; total++; if (c.ended && c.said.length >= 3 && c.said.length <= 7) deep++;
     for (const s of c.said) if (BANNED.test(s)) bad.push(`${c.who}: "${s}"`);
     for (let i = 1; i < c.said.length; i++) if (c.said[i] === c.said[i - 1]) dup++;
     const dead = c.opts.slice(0, -1).findIndex(n => n === 0); if (dead >= 0) bad.push(`${c.who}: dead end at turn ${dead}`); }
   check(bad.length === 0, bad.slice(0, 4).join(' | ')); check(dup === 0, `${dup} times somebody said the same thing twice running`);
-  check(deep >= total * 0.5, `only ${deep} of ${total} conversations lasted 8+ turns`);
-  return `${total} conversations; ${deep} went 8+ turns; archetypes seen: ${[...new Set(r.map(c => c.arch))].join(', ')}`;
+  check(deep === total, `every conversation should come to a natural end after 3-7 screens; ${total - deep} did not: ` + r.filter(c => !(c.ended && c.said.length >= 3 && c.said.length <= 7)).map(c => c.who + ' ' + c.said.length).join(', '));
+  return `${total} conversations, all ended by themselves (screens: ${r.map(c => c.said.length).join(' ')}); archetypes seen: ${[...new Set(r.map(c => c.arch))].join(', ')}`;
+}));
+
+test('talk: someone too busy stops dead; a chat ends after about three screens unless you keep digging into one thing; next time is different', await talkScene(41, async page => {
+  const r = await page.evaluate(() => {
+    const [w, o, q] = __talkable().filter(x => x.age >= 16);
+    __friend(w, 40, 40); w.status = 'Hoeing the rows'; w.plan = [{ act: 'work' }]; w.si = 0; openTalk(w); const busy = __box(); if (talkUI.o) closeTalk();
+    // wandering: pick a different kind of option each time
+    __friend(o, 40, 40); openTalk(o); let c = talkS.conv, screens = 1, u = null; for (let i = 0; i < 10; i++) { const opts = cvOptions(c, u || { text: '', hooks: c.hooks || [] }); const pick = opts.find(x => x.hook && x.hook.k === 'act') || opts[opts.length - 1]; if (!pick) break; u = cvRespond(c, pick); screens++; if (!u || u.end) break; }
+    const wandered = screens, told = Object.keys(c.told); if (talkUI.o) closeTalk();
+    // digging: keep asking about the same person
+    __friend(q, 70, 80); const c2 = cvNew(q, game.player), who = __talkable().find(x => x !== q && x.age >= 16); const h = { k: 'person', key: 'pe' + who.id, label: who.first, q: who }; let dug = 1, u2 = null;
+    for (let i = 0; i < 10; i++) { u2 = cvRespond(c2, { text: 'Tell me more about ' + who.first + ' ' + i, intent: 'ask', w: 1, hook: h }); dug++; if (!u2 || u2.end) break; }
+    // next time: what they told you is held back
+    game.time += 600; __friend(o, 40, 40); const c3 = cvNew(o, game.player), pool = cvPool(c3), again = told.filter(k => { const t = pool.find(x => x.key === k); return t && t.w > 0.2; });
+    return { busy, wandered, dug, ended: !!(u2 && u2.end), told: told.length, again: again.length };
+  });
+  check(r.busy && r.busy.opts.length === 0 && r.busy.say.split(/[.!?]/).filter(Boolean).length <= 2, 'a busy person should brush you off in a line with no replies: ' + JSON.stringify(r.busy));
+  check(r.wandered >= 3 && r.wandered <= 4, `a wandering chat should end after about three screens, took ${r.wandered}`);
+  check(r.dug > r.wandered && r.dug <= 7 && r.ended, `digging into one subject should earn more screens, then end: ${r.dug}`);
+  check(r.told > 0 && r.again === 0, `what they told you should not come straight back next time (${r.again} of ${r.told} did)`);
+  return `busy: "${r.busy.say}"; wandering ended after ${r.wandered} screens, digging after ${r.dug}; ${r.told} topics held back for next time`;
 }));
 
 test('talk: the sentence carries the attitude (an insult stings and is noticed; sympathy is warmly received)', await talkScene(41, async page => {

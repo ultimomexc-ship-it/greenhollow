@@ -111,6 +111,8 @@ function cvPool(c): CvTopic[] {
   pool.push(...cvWorldTopics(c));
   // the player
   pool.push(...cvPlayerTopics(c));
+  // what they told you in the last two days stays back, so the next conversation is a different one
+  const past = cvMem(o, p).topics; for (const t of pool) { const at = past[t.key]; if (at != null && !c.told[t.key] && game.time - at < 2 * 1440) t.w *= 0.08; }
   return pool.filter(t => !c.told[t.key]);
 }
 

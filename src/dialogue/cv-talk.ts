@@ -14,7 +14,7 @@ function cvNew(o, p) {
   cvWorld();
   const aff = o.aff[p.id] || 0, know = o.know[p.id] || 0, st = o.plan && o.plan[o.si], close = aff < -15 ? 'cold' : aff >= 60 ? 'close' : aff >= 25 ? 'friend' : know >= 10 ? 'known' : 'stranger', v = cvVoice(o);
   const c: any = { o, p, v, mem: cvMem(o, p), aff, know, close, status: o.status || '', act: st && st.act, hr: (game.time % 1440) / 60, kid: o.age < 12, warmth: 0, patience: 3 + v.chat * 5 + (close === 'close' ? 2 : 0), turns: 0, depth: {}, told: {}, pressed: {}, usedOpt: {}, hooks: [], activity: '', cap: 0, log: [], asked: {}, said: {} };
-  c.activity = cvActivity(c); c.cap = Math.round(5 + v.chat * 10 + (close === 'friend' ? 3 : close === 'close' ? 5 : 0) - (close === 'stranger' ? 2 : 0));
+  c.activity = cvActivity(c); c.cap = 2 + (v.chat > 0.75 && close !== 'stranger' && Math.random() < 0.35 ? 1 : 0); c.thread = 0; c.threadKey = null;   // replies before the goodbye: the third screen is usually the last
   return c;
 }
 const cvSync = c => { c.aff = c.o.aff[c.p.id] || 0; };
@@ -50,6 +50,7 @@ function cvOpen(c): CvUtt {
   const o = c.o, p = c.p, v = c.v;
   if (o.job === 'Guard' && lf2Wanted()[p.id]) return { text: anyOf(['Stop right there, ' + p.first + '.', 'We need to talk about what happened.', 'I have been looking for you.']), hooks: [{ k: 'arrest', key: 'arrest', label: 'that' }] };
   if (c.activity === 'privy') return { text: anyOf(CV_ACTV.privy.say), hooks: [] };
+  { const b = cvBusy(c); if (b) return { text: b, hooks: [], end: true }; }
   if (c.close === 'cold') return { text: anyOf(['What.', 'Not now.', '*looks straight through you*', 'I have nothing to say to you.']), hooks: [{ k: 'cold', key: 'cold', label: 'that' }] };
   const cb = cvCallback(c); c.mem.talks++; c.mem.last = game.time;
   const greet = cb ? cb.text : (c.mem.talks > 1 && game.time - c.mem.last < 90 ? '' : cvGreetLine(o, p, c.close));
@@ -59,6 +60,15 @@ function cvOpen(c): CvUtt {
   if (chatty && c.pool.length) { const t = cvChoose(c, c.pool); utt = cvTell(c, t, 0); }
   if (!utt) utt = cvTellAct(c);
   return { text: [greet, utt.text].filter(Boolean).join(' '), hooks: utt.hooks };
+}
+/** too busy to talk: one line and they are gone (null when they have a moment) */
+function cvBusy(c): string | null {
+  const o = c.o, s = c.status || '', ill = o.ill && o.ill.until > game.time, shop = o.shop || c.activity === 'stall';
+  const why = ill ? 'ill' : (o.bladder || 0) > 85 || /privy/i.test(s) ? 'privy' : (o.hunger || 0) > 88 ? 'hungry' : /hurry|rush|late|fetch|Taking .* home|for food|bite to eat|Going to bed with a fever/i.test(s) ? 'rush' : (c.act === 'work' || ['farm', 'build', 'smith'].includes(c.activity)) && !shop && !c.kid ? 'work' : null;
+  if (!why) return null; const fr = c.close === 'close' || c.close === 'friend';
+  const L: any = { ill: ['*coughs* Not today. Please.', 'I am not fit for company. Come back when I am on my feet.'], privy: ['Not. Now.', 'Later! Much later!'], hungry: ['I need to eat something before I fall over. Later.', 'Food first. Then talk.'],
+    rush: fr ? ['Cannot stop, sorry! Later!', 'Running late. Find me after.'] : ['Sorry, cannot stop.', 'Not now, I am in a hurry.'], work: fr ? ['Busy, busy. Catch me when I am done?', 'Hands full. Later, I promise.'] : ['I am working.', 'Busy. Another time.', '*keeps working*'] };
+  const ln = cvFreshest(c.p, L[why]); cvMarkHeard(c.p, ln); return ln;
 }
 /** after a scene (the authored kind) the conversation carries on in this system */
 function cvAfterScene(o, p, said) {
@@ -217,7 +227,8 @@ function cvOptions(c, utt: CvUtt): CvOpt[] {
   follow = follow.filter(o => !c.usedOpt[o.text]);
   cands.push(...follow, ...cvObserve(c).map(x => ({ ...x, w: x.w * 0.55 })), ...cvShare(c).filter(x => !c.asked['s:' + x.text]).map(x => ({ ...x, w: x.w * 0.7 })), ...cvSpecial(c));
   if (c.v.chat > 0.4 && !c.asked.q && c.turns > 2 && c.close !== 'stranger') {}
-  const sh = c.shownText || (c.shownText = {}); cands = cands.filter(o => !c.usedOpt[o.text] && (sh[o.text] || 0) < 2);
+  const sh = c.shownText || (c.shownText = {}), past = c.mem.opts || {}, fresh = (o: CvOpt) => !(past[o.text] && game.time - past[o.text] < 2 * 1440 && !c.usedOpt[o.text]);
+  { const f2 = cands.filter(fresh); if (f2.length >= 2) cands = f2; } cands = cands.filter(o => !c.usedOpt[o.text] && (sh[o.text] || 0) < 2);
   const used = new Set<string>(), picked: CvOpt[] = [], seen = c.shown || (c.shown = {}), byW = (arr: CvOpt[]) => arr.map(x => ({ x, s: x.w * (0.6 + Math.random() * 0.8) * Math.pow(0.3, seen[x.fam || x.intent] || 0) })).sort((a, b) => b.s - a.s).map(y => y.x);
   const take = (arr: CvOpt[], pred?: (o: CvOpt) => boolean) => { for (const o of byW(arr)) { if (pred && !pred(o)) continue; if (used.has(o.text)) continue; used.add(o.text); picked.push(o); return true; } return false; };
   if (follow.length) { take(follow, o => cvCls(o.intent) === 'inquisitive'); }
@@ -251,7 +262,9 @@ function cvEffect(c, opt: CvOpt): { react?: string; end?: boolean } {
 
 /* ---------------- going deeper, wandering, closing ---------------- */
 function cvRespond(c, opt: CvOpt): CvUtt | null {
-  c.turns++; c.usedOpt[opt.text] = 1; if (opt.intent === 'gossip') c.asked['s:' + opt.text] = 1; cvSync(c);
+  c.turns++; c.usedOpt[opt.text] = 1; (c.mem.opts || (c.mem.opts = {}))[opt.text] = game.time;
+  { const h = opt.hook, k = h && (h.k === 'avoid' ? h.extra && h.extra.key : h.key), deeper = !!k && cvCls(opt.intent) === 'inquisitive' && !['act', 'world', 'question', 'leaving', 'cold'].includes(h.k);
+    if (deeper && k === c.threadKey) c.thread++; else c.thread = 0; c.threadKey = deeper ? k : null; } if (opt.intent === 'gossip') c.asked['s:' + opt.text] = 1; cvSync(c);
   const fx = cvEffect(c, opt); if (fx.end) return { text: fx.react || '…', hooks: [], end: true };
   let body: CvUtt | null | undefined;
   if (opt.then) { body = opt.then(c); if (body === null && (opt.hook && opt.hook.k === 'arrest' || !opt.hook)) return null; }
@@ -290,8 +303,10 @@ function cvPivotUtt(c, h?: CvHook): CvUtt {
 /** now and then they have somewhere to be; they say so, and you can go with them */
 function cvClose(c, u: CvUtt): CvUtt {
   if (u.end) return u;
-  if (c.turns >= c.cap && !c.leaving && c.activity !== 'privy') { c.leaving = true; const walk = ['talkative', 'lonely', 'sunny', 'nosy'].includes(c.v.arch) ? ' Walk with me a little? I will finish the story.' : '';
-    return { text: u.text + ' ' + pk(['I have kept you, and I have things to do.', 'Look at me going on. I have got to get back to it.']) + walk, hooks: [{ k: 'leaving', key: 'leaving', label: 'that' }] }; }
+  if (c.turns >= c.cap + Math.min(3, c.thread) && c.activity !== 'privy') { c.leaving = true;
+    const more = c.thread > 0 ? ['There is more to that, but not today.', 'Ask me the rest another time.'] : [];
+    const bye = cvFreshest(c.p, more.length && Math.random() < 0.6 ? more : ['Right. I had better get on.', 'Anyway. Things to do.', 'Well. I will see you about.', 'I should get back to it.', 'Come and find me another day.', 'That is enough of my chatter for one day.']); cvMarkHeard(c.p, bye);
+    return { text: u.text + ' ' + bye, hooks: [], end: true }; }
   if (c.patience <= 0) return { text: u.text + ' ' + pk(['I am going now.', 'That is enough for one day.']), hooks: [], end: true };
   return u;
 }

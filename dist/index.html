@@ -20714,6 +20714,11 @@ function cvPool(c) {
   for (const g of CV_LEGENDS) pool.push({ key: "lg" + g.id, kind: "legend", id: g.id, w: 0.45 + (lf2Has(o, "devout") || o.age > 50 ? 0.3 : 0) + (v.arch === "sunny" || v.arch === "talkative" ? 0.3 : 0), sens: 0.1 });
   pool.push(...cvWorldTopics(c));
   pool.push(...cvPlayerTopics(c));
+  const past = cvMem(o, p).topics;
+  for (const t of pool) {
+    const at = past[t.key];
+    if (at != null && !c.told[t.key] && game.time - at < 2 * 1440) t.w *= 0.08;
+  }
   return pool.filter((t) => !c.told[t.key]);
 }
 function cvWorldTopics(c) {
@@ -21253,7 +21258,9 @@ function cvNew(o, p) {
   const aff = o.aff[p.id] || 0, know = o.know[p.id] || 0, st = o.plan && o.plan[o.si], close = aff < -15 ? "cold" : aff >= 60 ? "close" : aff >= 25 ? "friend" : know >= 10 ? "known" : "stranger", v = cvVoice(o);
   const c = { o, p, v, mem: cvMem(o, p), aff, know, close, status: o.status || "", act: st && st.act, hr: game.time % 1440 / 60, kid: o.age < 12, warmth: 0, patience: 3 + v.chat * 5 + (close === "close" ? 2 : 0), turns: 0, depth: {}, told: {}, pressed: {}, usedOpt: {}, hooks: [], activity: "", cap: 0, log: [], asked: {}, said: {} };
   c.activity = cvActivity(c);
-  c.cap = Math.round(5 + v.chat * 10 + (close === "friend" ? 3 : close === "close" ? 5 : 0) - (close === "stranger" ? 2 : 0));
+  c.cap = 2 + (v.chat > 0.75 && close !== "stranger" && Math.random() < 0.35 ? 1 : 0);
+  c.thread = 0;
+  c.threadKey = null;
   return c;
 }
 const cvSync = (c) => {
@@ -21319,6 +21326,10 @@ function cvOpen(c) {
   const o = c.o, p = c.p, v = c.v;
   if (o.job === "Guard" && lf2Wanted()[p.id]) return { text: anyOf(["Stop right there, " + p.first + ".", "We need to talk about what happened.", "I have been looking for you."]), hooks: [{ k: "arrest", key: "arrest", label: "that" }] };
   if (c.activity === "privy") return { text: anyOf(CV_ACTV.privy.say), hooks: [] };
+  {
+    const b = cvBusy(c);
+    if (b) return { text: b, hooks: [], end: true };
+  }
   if (c.close === "cold") return { text: anyOf(["What.", "Not now.", "*looks straight through you*", "I have nothing to say to you."]), hooks: [{ k: "cold", key: "cold", label: "that" }] };
   const cb = cvCallback(c);
   c.mem.talks++;
@@ -21333,6 +21344,22 @@ function cvOpen(c) {
   }
   if (!utt) utt = cvTellAct(c);
   return { text: [greet, utt.text].filter(Boolean).join(" "), hooks: utt.hooks };
+}
+function cvBusy(c) {
+  const o = c.o, s = c.status || "", ill = o.ill && o.ill.until > game.time, shop = o.shop || c.activity === "stall";
+  const why = ill ? "ill" : (o.bladder || 0) > 85 || /privy/i.test(s) ? "privy" : (o.hunger || 0) > 88 ? "hungry" : /hurry|rush|late|fetch|Taking .* home|for food|bite to eat|Going to bed with a fever/i.test(s) ? "rush" : (c.act === "work" || ["farm", "build", "smith"].includes(c.activity)) && !shop && !c.kid ? "work" : null;
+  if (!why) return null;
+  const fr = c.close === "close" || c.close === "friend";
+  const L = {
+    ill: ["*coughs* Not today. Please.", "I am not fit for company. Come back when I am on my feet."],
+    privy: ["Not. Now.", "Later! Much later!"],
+    hungry: ["I need to eat something before I fall over. Later.", "Food first. Then talk."],
+    rush: fr ? ["Cannot stop, sorry! Later!", "Running late. Find me after."] : ["Sorry, cannot stop.", "Not now, I am in a hurry."],
+    work: fr ? ["Busy, busy. Catch me when I am done?", "Hands full. Later, I promise."] : ["I am working.", "Busy. Another time.", "*keeps working*"]
+  };
+  const ln = cvFreshest(c.p, L[why]);
+  cvMarkHeard(c.p, ln);
+  return ln;
 }
 function cvAfterScene(o, p, said) {
   const c = cvNew(o, p);
@@ -21693,7 +21720,11 @@ function cvOptions(c, utt) {
   cands.push(...follow, ...cvObserve(c).map((x) => ({ ...x, w: x.w * 0.55 })), ...cvShare(c).filter((x) => !c.asked["s:" + x.text]).map((x) => ({ ...x, w: x.w * 0.7 })), ...cvSpecial(c));
   if (c.v.chat > 0.4 && !c.asked.q && c.turns > 2 && c.close !== "stranger") {
   }
-  const sh = c.shownText || (c.shownText = {});
+  const sh = c.shownText || (c.shownText = {}), past = c.mem.opts || {}, fresh = (o) => !(past[o.text] && game.time - past[o.text] < 2 * 1440 && !c.usedOpt[o.text]);
+  {
+    const f2 = cands.filter(fresh);
+    if (f2.length >= 2) cands = f2;
+  }
   cands = cands.filter((o) => !c.usedOpt[o.text] && (sh[o.text] || 0) < 2);
   const used = /* @__PURE__ */ new Set(), picked = [], seen = c.shown || (c.shown = {}), byW = (arr) => arr.map((x) => ({ x, s: x.w * (0.6 + Math.random() * 0.8) * Math.pow(0.3, seen[x.fam || x.intent] || 0) })).sort((a, b) => b.s - a.s).map((y) => y.x);
   const take = (arr, pred) => {
@@ -21807,6 +21838,13 @@ function cvEffect(c, opt) {
 function cvRespond(c, opt) {
   c.turns++;
   c.usedOpt[opt.text] = 1;
+  (c.mem.opts || (c.mem.opts = {}))[opt.text] = game.time;
+  {
+    const h = opt.hook, k = h && (h.k === "avoid" ? h.extra && h.extra.key : h.key), deeper = !!k && cvCls(opt.intent) === "inquisitive" && !["act", "world", "question", "leaving", "cold"].includes(h.k);
+    if (deeper && k === c.threadKey) c.thread++;
+    else c.thread = 0;
+    c.threadKey = deeper ? k : null;
+  }
   if (opt.intent === "gossip") c.asked["s:" + opt.text] = 1;
   cvSync(c);
   const fx = cvEffect(c, opt);
@@ -21898,10 +21936,12 @@ function cvPivotUtt(c, h) {
 }
 function cvClose(c, u) {
   if (u.end) return u;
-  if (c.turns >= c.cap && !c.leaving && c.activity !== "privy") {
+  if (c.turns >= c.cap + Math.min(3, c.thread) && c.activity !== "privy") {
     c.leaving = true;
-    const walk = ["talkative", "lonely", "sunny", "nosy"].includes(c.v.arch) ? " Walk with me a little? I will finish the story." : "";
-    return { text: u.text + " " + pk(["I have kept you, and I have things to do.", "Look at me going on. I have got to get back to it."]) + walk, hooks: [{ k: "leaving", key: "leaving", label: "that" }] };
+    const more = c.thread > 0 ? ["There is more to that, but not today.", "Ask me the rest another time."] : [];
+    const bye = cvFreshest(c.p, more.length && Math.random() < 0.6 ? more : ["Right. I had better get on.", "Anyway. Things to do.", "Well. I will see you about.", "I should get back to it.", "Come and find me another day.", "That is enough of my chatter for one day."]);
+    cvMarkHeard(c.p, bye);
+    return { text: u.text + " " + bye, hooks: [], end: true };
   }
   if (c.patience <= 0) return { text: u.text + " " + pk(["I am going now.", "That is enough for one day."]), hooks: [], end: true };
   return u;
@@ -22373,7 +22413,7 @@ function sbWhyText(o, q, e) {
   const w = e.why;
   if (w.startsWith("ev:")) {
     const ev = lf2EvById(+w.slice(3));
-    return ev ? lf2Low(typeof cvMe === "function" ? cvMe(o, sbText(o, ev)) : sbText(o, ev)) : null;
+    return ev && (ev.actor === q.id || ev.actor === o.id) ? lf2Low(typeof cvMe === "function" ? cvMe(o, sbText(o, ev)) : sbText(o, ev)) : null;
   }
   const T2 = {
     "unpaid loan": `the money ${q.first} still owes me`,
