@@ -33,23 +33,28 @@ Walking into something does the obvious thing. Holding a key changes it; there i
 - Each verb is added with `add(label, fn, ...)` in the hooks (`LF2.verbs`); `lf2VerbMod(label)` decides which key owns it. A new verb needs no key code: add it, and map its label there if it is not a "help" verb.
 - Touch: a Mode button cycles Walk, Push, Sneak, Help, Rough.
 
-## Conversation (src/dialogue/conversation.ts)
-- Talking is generated from the villager's real state, not a menu. `convOpen` says what they are doing (`CV_ACT`, picked by
-  `convActivity` from their status text) and often one thing on their mind (`CV_LIFE`: tools, hunger, love, news, other people ...).
-  You get at most two replies and Goodbye; some people (the privy) offer only Goodbye.
-- Tone is how you answer: hold E (kind), Shift (sly), R (harsh), or tap the tone buttons; honest is the default. A reply can write its
-  own tone lines (`tones`), otherwise `CV_GEN` supplies them. `convToneFx` is what a tone does to how they feel (kind +opinion,
-  sly = a lie that may be believed, harsh = an insult event that ends the talk). A reply with `own` handles tones itself
-  (blackmail, flirting, dice, secrets, news, the arrest). A reply with `about: person` aims the tone at that third person (rumours).
-- Authored scenes (`dialogue/opinions-scenes.ts`) still fire first when they apply; "Anything else?" then continues in the new style.
-- To add content: add a bit to `CV_ACT` (an activity) or a thread to `CV_LIFE` (something on their mind), with `ok(c)` saying when it
-  applies. Tests in `tests/run.mjs` ("talk: ...") check the shape (no bare greetings, at most two replies, tones differ).
+## Conversation (src/dialogue/cv-*.ts)
+Talking is generated from the village, not from a menu. You say whole sentences; the attitude (a joke, sympathy, an insult, a probe,
+a flirt, gossip, a lie) is part of the sentence, and the person answers the attitude as well as the words. There is no tone selector and no Goodbye reply (a small Leave control instead).
+- `cv-world.ts`: the village behind the talk. `cvLife(o)` (ambition, regret, pride, fear, maybe a secret), `cvWorld()` (old stories tying people together: debts, feuds, old flames,
+  who knows what; legends), `cvMem(o,p)` (what they remember of you: trust, moments with your own words), `cvKnows(p)` (your journal), `cvSaw` (harmless sightings, e.g. you pushed someone).
+  Generated lazily per town seed, so a seed gives the same village; it also nudges the sim (debtors repay, feuds sour opinions).
+- `cv-voice.ts`: nine ways of talking (`cvVoice`: talkative, reserved, nosy, cynic, sunny, wary, prickly, smooth, lonely) and their banks (greetings, reactions, deflections, gossip lead-ins).
+- `cv-topics.ts`: `cvPool(c)` = everything they might bring up (events they know, people, old stories, their own life, legends, the day, the tide, shops, the chronicle, things about you), weighted;
+  `cvWilling` = how much they will tell (trust, who they are, what you have done this talk).
+- `cv-tell.ts`: `cvTell(c, topic, layer)` turns a topic into words, layer by layer (0 a hint, 1 the story, 2-3 what they do not usually say). Every layer names things you can follow up.
+- `cv-talk.ts`: options (`cvFollowUps`, `cvObserve`, `cvShare`, `cvSpecial`; each option has an `intent`), `cvEffect` (what each attitude does to opinion, trust, patience, events, memory),
+  `cvRespond` / `cvDeepen` / `cvPivotUtt` (go deeper, wander to a related topic, they ask you something), `cvClose` (they have somewhere to be; walk with them), `convBegin` (entry point).
+- Authored scenes (`dialogue/opinions-scenes.ts`) still fire first when they apply; after a scene reply the conversation carries on here (`cvAfterScene`).
+- To add content: a bit of activity talk in `CV_ACTV`, a thing on their mind in `CV_STATES`, a legend in `CV_LEGENDS`, a secret/regret/fear in `cv-world.ts`, new option lines in `cvFollowUps`.
+  Avoid generic filler ("That is interesting", "It is complicated", "Anything else?"): `CV_BANNED` and the tests reject it.
+- `node tools/talk.mjs [seed] [people] [turns] [random|first]` prints real conversations; read them after every content change.
 
 ## Tests
 - `tests/lib.mjs` loads `dist/index.html` deterministically: seeded `Math.random`, a fake clock, frame loop
   held, the harness steps the sim (`simulate(page, minutes)`) the way the frame loop does. Same seed, same result.
 - Current suite: load and run a day, render without errors, nobody starves in 12 days (three towns),
-  the hold-a-key controls (push people and crates, swap, pull, Shift, R, sleepers), conversations (openers, tones, rumours, the arrest), sim speed under 3 s per game-day (about 0.6 s now).
+  the hold-a-key controls (push people and crates, swap, pull, Shift, R, sleepers), conversations (specific openers, long random talks without dead ends or repeats, insults and sympathy, unlocking layers, memory, witnesses, the arrest), sim speed under 3 s per game-day (about 0.6 s now).
 - When behaviour changes on purpose, tests may need new expectations; when it changes by accident, they catch it.
 
 ## Performance tools

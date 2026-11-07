@@ -194,13 +194,11 @@ body.fs #c { height: 100vh !important; height: 100dvh !important; }
 
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
-/* the tone row under a conversation: how you say it */
-.talk .tones { display: flex; align-items: center; gap: 6px; padding: 0 12px 10px; background: #13181a; }
-.talk .tones small { color: var(--muted); font-size: 12px; margin-right: 2px; }
-.talk .tones button { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: #1e2528; color: var(--fg); font: 500 12.5px var(--font-body); cursor: pointer; }
-.talk .tones button i { font: 500 10.5px var(--font-mono); opacity: .6; font-style: normal; }
-.talk .tones button.on { background: var(--amber); color: #1b1b1b; border-color: var(--amber); }
-.talk .tones button.on i { opacity: .8; }
+/* the talk box: a small Leave control instead of a Goodbye reply */
+.talk .th .lv { flex-shrink: 0; align-self: flex-start; background: transparent; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; padding: 3px 10px; font: 500 12px var(--font-body); cursor: pointer; }
+.talk .th .lv i { font: 500 10px var(--font-mono); font-style: normal; opacity: .7; margin-left: 4px; }
+.talk .th .lv:hover, .talk .th .lv:focus-visible { color: var(--fg); border-color: var(--amber); }
+.talk .ta { white-space: pre-line; }
 
 </style>
 </head>
@@ -13094,7 +13092,6 @@ function brushOff(n, p) {
 function talkStep(key) {
   const S = talkS;
   if (!S) return null;
-  if (key === "lf2more") return convMore();
   if (S.custom) return lf2TalkStep(key);
   if (key === "bye") return null;
   const i = +key.slice(1), fn = S.fns && S.fns[i];
@@ -13108,7 +13105,7 @@ function talkStep(key) {
   S.fns = null;
   bumpAff(S.n, S.p, 1, 6);
   if (!say2) return { close: true };
-  return { say: say2, opts: [["bye", anyOf(["Goodbye", "See you around", "Take care", "Leave"])]] };
+  return cvAfterScene(S.n, S.p, say2);
 }
 const MD = (p) => p.female ? "Mum" : "Dad";
 const FAMILY_BITS = {
@@ -13295,7 +13292,7 @@ function talkBegin(n, p) {
   let say2 = b.sc.lines(n, p, b.c);
   for (let i = 0; i < 4 && n.lastSay[b.sc.id] === say2; i++) say2 = b.sc.lines(n, p, b.c);
   n.lastSay[b.sc.id] = say2;
-  return { say: say2, opts: opts.map((o, i) => ["o" + i, o[0]]).concat((n.know[p.id] || 0) >= 10 && Math.random() < 0.5 ? [["lf2more", "Anything else?"]] : []) };
+  return { say: say2, opts: opts.map((o, i) => ["o" + i, o[0]]) };
 }
 function topicalBark(n, p) {
   const out = [];
@@ -18161,6 +18158,7 @@ function lf2PushPerson(n, o, dx, dy) {
   if (lf2PersonOK(bx, by) && !tileOwner.get(tkey(bx, by))) lf2Relocate(o, bx, by);
   else if (lf2PersonOK(n.tx, n.ty)) lf2Relocate(o, n.tx, n.ty);
   else return "There is no room to push " + o.first + ".";
+  cvSaw(n, o, "push");
   if (!o.player && Math.random() < 0.3) lfShout(o, anyOf(PUSH_WORDS));
   return true;
 }
@@ -20091,57 +20089,386 @@ function lf2Stories(force) {
 FIRST_M.splice(0, FIRST_M.length, "Marcus", "Gaius", "Lucius", "Titus", "Quintus", "Decimus", "Aulus", "Gnaeus", "Publius", "Sextus", "Servius", "Tiberius", "Manius", "Spurius", "Numerius", "Faustus", "Felix", "Rufus", "Silvanus", "Crispus", "Varro", "Brutus", "Corvus", "Cato", "Drusus", "Paullus", "Nero", "Seneca", "Galba", "Otho");
 FIRST_F.splice(0, FIRST_F.length, "Livia", "Prisca", "Severa", "Faustina", "Camilla", "Lucilla", "Sabina", "Agrippina", "Drusilla", "Octavia", "Aemilia", "Tertia", "Secunda", "Paulina", "Marcella", "Lucia", "Gaia", "Rufina", "Albina", "Felicitas", "Fortunata", "Vitalia", "Urbica", "Junilla", "Nonna", "Crispina", "Galla", "Vibiana", "Quinta", "Saturnina");
 SURNAMES.splice(0, SURNAMES.length, "Aurelius", "Cornelius", "Valerius", "Flavius", "Claudius", "Antonius", "Fabius", "Tullius", "Marcius", "Domitius", "Junius", "Caecilius", "Licinius", "Sempronius", "Sergius", "Pompeius", "Vibius", "Horatius", "Quinctius", "Petronius", "Lucretius", "Plautius", "Calpurnius", "Hortensius", "Sulpicius", "Furius", "Manlius", "Postumius", "Septimius", "Terentius");
-const CV_KEYTONE = { help: "kind", take: "sly", rough: "harsh" };
+const cvHashStr = (s) => {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+};
+function cvRng(seed) {
+  let a = cvHashStr(seed);
+  return () => {
+    a = a + 1831565813 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
 const pk = (x, ...a) => {
   const v = typeof x === "function" ? x(...a) : x;
   return Array.isArray(v) ? anyOf(v) : v;
 };
-const cvHash = (s) => {
-  let h = 7;
-  for (let i = 0; i < s.length; i++) h = h * 31 + s.charCodeAt(i) | 0;
-  return Math.abs(h);
-};
-const cvLower = (s) => s ? s.charAt(0).toLowerCase() + s.slice(1) : s;
-function convTone() {
-  const p = game.player && game.player.player, m = p && lf2ActiveMod(p);
-  return talkUI.tone || m && CV_KEYTONE[m] || "honest";
+const cvPick = (R, arr) => arr[Math.floor(R() * arr.length) % arr.length];
+const cvCap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+const cvLow = (s) => s ? s.charAt(0).toLowerCase() + s.slice(1) : s;
+function cvPron(o) {
+  return o.female ? { he: "she", him: "her", his: "her", He: "She" } : { he: "he", him: "him", his: "his", He: "He" };
 }
-const CV_GEN = {
-  ask: { kind: ["I would love to hear about it.", "Tell me everything. You make it interesting."], sly: ["Everyone says you know most about this.", "I hear you are the one to ask."], harsh: ["Do you ever talk about anything else?", "Spare me the speech."] },
-  offer: { kind: ["Please, let me. I would like to.", "You do enough for everyone. Let me."], sly: ["I could. For a favour later.", "I will, and you will remember it."], harsh: ["You are doing it wrong. Move.", "Hopeless. Give it here."] },
-  agree: { kind: ["You are doing better than you think.", "You make it look easy."], sly: ["Everyone says you have the knack. Everyone.", "Between us, nobody does it better."], harsh: ["Not that you are any good at it.", "Shame you are so bad at it."] }
-};
-function convLabel(r, tone) {
-  const base = typeof r.label === "function" ? r.label() : r.label;
-  if (tone === "honest") return base;
-  if (r.tones && r.tones[tone]) return r.tones[tone];
-  const g = CV_GEN[r.type || "ask"][tone];
-  return g[cvHash(base + tone) % g.length];
+function cvThird(s, o) {
+  const p = cvPron(o);
+  return s.replace(/\{I\}/g, p.He).replace(/\{my\}/g, p.his).replace(/\{am\}/g, "is").replace(/\{have\}/g, "has").replace(/\{me\}/g, p.him);
 }
-function convCtx(o, p) {
-  const aff = o.aff[p.id] || 0, know = o.know[p.id] || 0, st = o.plan && o.plan[o.si];
-  const close = aff < -15 ? "cold" : aff >= 60 ? "close" : aff >= 25 ? "friend" : know >= 10 ? "known" : "stranger";
-  const ctx2 = {
-    o,
-    p,
-    aff,
-    know,
-    close,
-    status: o.status || "",
-    activity: "",
-    act: st && st.act,
-    hr: game.time % 1440 / 60,
-    kid: o.age < 12,
-    job: o.job || o.cur || null,
-    personal: close === "friend" || close === "close",
-    used: {},
-    fx: null,
-    cur: []
+function cvFirst(s) {
+  return s.replace(/\{I\}/g, "I").replace(/\{my\}/g, "my").replace(/\{am\}/g, "am").replace(/\{have\}/g, "have").replace(/\{me\}/g, "me");
+}
+const cvAdult = (n) => n && !n.dead && !n.infant && n.age >= 16;
+const CV_AMB = {
+  Farmer: ["own the big field by the stream", "grow a pumpkin the size of a goat", "put by enough to stop dreading winter"],
+  Woodcutter: ["build a house with a window that faces the sea", "fell the oldest pine and hear it come down", "teach somebody to swing an axe properly"],
+  Stonecutter: ["carve something that outlasts the village", "build one wall that never needs patching"],
+  Fisher: ["land the great grey eel everybody swears is out there", "own a boat with a real sail", "see what is on the far side of the sea"],
+  Gatherer: ["find a berry nobody has ever named", "keep a herb garden of my own"],
+  Baker: ["bake bread people talk about in other villages", "be trusted with the wedding cakes"],
+  Smith: ["forge one blade good enough to hang on a wall"],
+  Guard: ["go a whole year without arresting anybody I like", "be remembered as fair"],
+  Cook: ["feed the whole village at one long table"],
+  Priest: ["hear a confession that actually surprises me"],
+  child: ["be a watchman when I grow up", "catch a fish bigger than my arm", "have a dog (do not tell Mum)", "stay up all night, just once"],
+  elder: ["see the little ones grown and settled", "sit in the sun and be left alone", "be buried near the old pine"],
+  any: ["learn to read properly", "see the whole island from the highest hill at dawn", "be remembered for something besides my cooking", "host the bonfire one year", "learn to swim", "be asked to dance", "see this place with a second house in it"]
+};
+const CV_REGRET = ["{I} never learned to read", "{I} left someone behind on the mainland and never wrote", "{I} sold {my} father's boat for far too little", "{I} said something at {my} mother's funeral that cannot be taken back", "{I} was too proud to ask for help when it mattered", "{I} never told someone how {I} felt, and then it was too late", "{I} chose the safe thing every single time", "{I} laughed at somebody who was being brave, and never said sorry"];
+const CV_PRIDE = ["{I} once carried a whole sheep home on {my} back", "{I} can out-walk anyone on the island", "{I} have never missed a day of work", "{I} won the dice at the harvest feast, fair and square", "{I} can tell the tide by the smell of the flats", "{I} pulled somebody out of the water once. They never said thank you; {I} did not mind", "{I} can name every bird on the island by its voice"];
+const CV_FEAR = ["{am} afraid of deep water", "{am} afraid of being left alone", "{am} afraid of ending up like {my} father", "{am} afraid there is nothing past the horizon", "{am} afraid of dying before the house is finished", "{am} afraid of geese", "{am} afraid that everyone is only being polite"];
+const CV_SECRETS = [
+  ["skim", "{I} {have} been taking a handful of grain from the larder every week", 0.8, (n) => lf2Has(n, "greedy") || n.coin < 6],
+  ["poems", "{I} {have} been writing love poems to somebody who is not {my} spouse", 0.9, (n) => !!(n.fam && n.fam.spouse)],
+  ["ring", "{I} lost the family ring at dice and told everyone it was stolen", 0.85, (n) => n.age > 22],
+  ["reader", "{I} cannot actually read, and {have} been bluffing for years", 0.7, (n) => n.age > 25],
+  ["bottle", "{I} keep a bottle hidden behind the hearth and visit it more than {I} admit", 0.6, (n) => n.age > 25],
+  ["grand", "{I} told everyone {I} came from a grand family. {I} did not", 0.6, (n) => true],
+  ["coward", "{I} ran when the roof gave way at the chapel and left somebody underneath", 0.95, (n) => n.age > 22],
+  ["cats", "{I} feed every stray in the village and pretend {I} dislike them", 0.25, (n) => lf2Has(n, "generous") || lf2Has(n, "grumpy")],
+  ["loan", "{I} {have} been quietly lending coins to people who will never repay", 0.5, (n) => lf2Has(n, "generous")],
+  ["leave", "{I} plan to take the next ship out and not come back", 0.85, (n) => n.age < 40]
+];
+function cvLife(o) {
+  if (o.cvLife) return o.cvLife;
+  const R = cvRng((town.seed || "x") + ":life:" + o.id), job = o.job || o.cur || o.role;
+  const ambs = o.age < 14 ? CV_AMB.child : o.age >= 60 ? CV_AMB.elder : (CV_AMB[job] || []).concat(CV_AMB.any);
+  const sec = o.age >= 18 && R() < 0.55 ? CV_SECRETS.filter((s2) => s2[3](o)) : [];
+  const s = sec.length ? cvPick(R, sec) : null;
+  return o.cvLife = {
+    ambition: cvPick(R, ambs),
+    regret: o.age >= 20 ? cvPick(R, CV_REGRET) : null,
+    pride: cvPick(R, CV_PRIDE),
+    fear: cvPick(R, CV_FEAR),
+    secret: s ? { kind: s[0], text: s[1], sens: s[2] } : null,
+    secretKnownBy: []
   };
-  ctx2.activity = convActivity(ctx2);
-  return ctx2;
 }
-function convActivity(c) {
+const CV_DEBT_WHY = ["a new roof after the storm", "seed grain in a bad year", "a funeral nobody planned for", "a boat that leaked", "a wedding that cost more than anyone said"];
+const CV_FEUD_WHY = ["a fence that moved six inches in the night", "a goat that ate the wrong thing", "something said at a wedding", "who was meant to pay for the well rope", "a borrowed axe that never came back", "a recipe somebody swears was stolen"];
+const CV_FEUD_DEEP = ["they did not come to my mother's funeral", "they took the other side when it mattered", "they laughed, and I never forgave it", "they were right, and I could not stand it"];
+const CV_FLAME_WHY = ["one summer, years ago, at the harvest", "before either of us married", "the winter we nearly sailed away together"];
+const CV_LEGENDS = [
+  { id: "well", title: "the well", parts: ["They say the well was dug in a single night by somebody who never asked to be paid.", "You leave a coin on the rim for them. Nobody has ever seen a coin go, but the rim is bare by morning.", "Some say the water tastes different when you owe somebody something. I have not tested it."] },
+  { id: "bell", title: "the bell under the flats", parts: ["Out on the flats, at the lowest tide, there is supposed to be a bell under the sand. A drowned chapel, they say.", "My gran swore she heard it ring the night before the first storm. She also swore the cat was a bishop.", "The odd thing is that every storm season somebody swears they hear it. Never the same somebody."] },
+  { id: "rest", title: "the rest day", parts: ["We rest every third day, and it is older than the village. Older than anyone can say.", "The story is that the first settlers worked eleven days straight, and on the eleventh the plough walked off by itself. Since then, we rest.", "Working on a rest day is bad luck. The last man who cut wood on one lost the axe. Not the hand: the axe."] },
+  { id: "fire", title: "the bonfire", parts: ["The bonfire on the square goes back to the first winter. They burned the boat they arrived in, so nobody could be tempted to leave.", "Which is why we cheer when it catches, and why nobody likes talking about the boat.", "Once a year somebody throws a tiny model of it on the fire. Nobody admits to making them."] },
+  { id: "pines", title: "the old pines", parts: ["The oldest pines past the fields were the first thing planted here, by a woman who arrived with a bag of seeds and nothing else.", "They say she is buried under the biggest one. They also say it drops a branch on anyone who lies about it.", "I have lain there twice. The branch missed. Make of that what you will."] },
+  { id: "goose", title: "the tavern goose", parts: ["The tavern is named for a goose. That is all anyone will tell you.", "It lived in the rafters for three winters, heard everything, and was therefore allowed to stay.", "There is a rule that nothing said under those rafters is repeated at the baths. It has never once worked."] }
+];
+function cvWorld() {
+  if (town.cv) return town.cv;
+  const R = cvRng((town.seed || "x") + ":world"), cv = town.cv = { back: [], legends: CV_LEGENDS, seen: [], day: -1 };
+  const ppl = npcs.filter((n) => cvAdult(n) && !n.player && n.id !== game.steer), used = /* @__PURE__ */ new Set();
+  for (const o of ppl) cvLife(o);
+  const free = (o) => !used.has(o.id);
+  const pickPair = (pred) => {
+    for (let t = 0; t < 40; t++) {
+      const a = cvPick(R, ppl), b = cvPick(R, ppl);
+      if (a !== b && free(a) && free(b) && (!pred || pred(a, b))) return [a, b];
+    }
+    return null;
+  };
+  const add = (b) => {
+    b.id = cv.back.length + 1;
+    b.knownBy = b.knownBy || [];
+    cv.back.push(b);
+    return b;
+  };
+  const target = Math.max(3, Math.round(ppl.length * 0.55));
+  const kinds = ["debt", "feud", "flame", "debt", "feud", "flame", "debt"];
+  for (let i = 0, g = 0; cv.back.length < target && g < 60; g++) {
+    const kind = kinds[i % kinds.length];
+    i++;
+    const pr = pickPair((a2, b2) => !isKin(a2, b2) && !(lf2Spouse(a2) === b2));
+    if (!pr) continue;
+    const [a, b] = pr;
+    if (kind === "debt") {
+      const amt = 6 + Math.floor(R() * 34);
+      const by = add({ kind, a: a.id, b: b.id, amt, why: cvPick(R, CV_DEBT_WHY), sens: 0.5 });
+      a.aff[b.id] = (a.aff[b.id] || 0) - 6;
+      b.aff[a.id] = (b.aff[a.id] || 0) - 10;
+      used.add(a.id);
+      by.paid = false;
+    } else if (kind === "feud") {
+      add({ kind, a: a.id, b: b.id, why: cvPick(R, CV_FEUD_WHY), deep: cvPick(R, CV_FEUD_DEEP), sens: 0.4 });
+      a.aff[b.id] = (a.aff[b.id] || 0) - 25;
+      b.aff[a.id] = (b.aff[a.id] || 0) - 25;
+      used.add(a.id);
+      used.add(b.id);
+    } else {
+      const married = lf2Spouse(a) || lf2Spouse(b);
+      add({ kind: "flame", a: a.id, b: b.id, why: cvPick(R, CV_FLAME_WHY), sens: married ? 0.85 : 0.45 });
+      a.aff[b.id] = (a.aff[b.id] || 0) + 8;
+      b.aff[a.id] = (b.aff[a.id] || 0) + 8;
+      used.add(a.id);
+      used.add(b.id);
+    }
+  }
+  for (const o of ppl) {
+    const L = cvLife(o);
+    if (!L.secret) continue;
+    const n = Math.floor(R() * 3);
+    for (let k = 0; k < n; k++) {
+      const w = cvPick(R, ppl);
+      if (w !== o && !L.secretKnownBy.includes(w.id)) L.secretKnownBy.push(w.id);
+    }
+  }
+  for (const b of cv.back) for (let k = 0; k < 2; k++) {
+    const w = cvPick(R, ppl);
+    if (w.id !== b.a && w.id !== b.b && !b.knownBy.includes(w.id)) b.knownBy.push(w.id);
+  }
+  return cv;
+}
+const cvBackOf = (o) => cvWorld().back.filter((b) => b.a === o.id || b.b === o.id);
+const cvOther = (b, o) => byId(b.a === o.id ? b.b : b.a);
+function cvBackText(b, o, layer) {
+  const A = byId(b.a), B = byId(b.b);
+  if (!A || !B) return null;
+  const me = o.id === b.a ? A : o.id === b.b ? B : null, other = me === A ? B : A, ph = cvPron(other);
+  if (b.kind === "debt") {
+    if (me === A) return [`I owe ${B.first} money. Not a fortune. Enough that I cross the square to avoid ${ph.him}.`, `${b.amt} denarii, for ${b.why}. I meant to pay at harvest. Then there was another harvest.`, `${ph.He} has never once asked. That is the part I cannot stand.`][layer];
+    if (me === B) return [`${A.first} and I have an arrangement. ${cvPron(A).He} knows what it is.`, `${b.amt} denarii, for ${b.why}. I do not ask. I keep count, though.`, `I would forgive it tomorrow if ${cvPron(A).he} would just look me in the eye.`][layer];
+    return [`${A.first} owes ${B.first} a pile, last I heard. Do not repeat it.`, `${b.amt} denarii or thereabouts, for ${b.why}.`, `And neither of them will mention it. That is the real trouble.`][layer];
+  }
+  if (b.kind === "feud") {
+    if (me) return [`${other.first} and I do not speak. It is easier.`, `It started over ${b.why}. ${cvCap(ph.he)} will tell it differently.`, `It was never really about that. It was that ${b.deep}.`][layer];
+    return [`${A.first} and ${B.first}? Do not seat them together.`, `It began with ${b.why}. At least, that is the version people tell.`, `Some say it was never about that at all.`][layer];
+  }
+  if (me) return [`${other.first} and I were close, once.`, `${cvCap(b.why)}. We never spoke about it again.`, `I still think of it more than I should. ${lf2Spouse(me) ? "Do not breathe a word." : "Silly, at my age."}`][layer];
+  return [`${A.first} and ${B.first}? There was something there once.`, `${cvCap(b.why)}, I heard. Nobody ever talks about it.`, `It is not finished with either of them. You can tell from how they do not look at each other.`][layer];
+}
+function cvMem(o, p) {
+  const m = o.cvm || (o.cvm = {});
+  return m[p.id] || (m[p.id] = { talks: 0, last: -1e9, topics: {}, moments: [], trust: 0, lied: {} });
+}
+function cvNote(o, p, kind, text) {
+  const m = cvMem(o, p);
+  m.moments.push({ k: kind, t: game.time, text });
+  if (m.moments.length > 14) m.moments.shift();
+}
+function cvKnows(p) {
+  return p.cvK || (p.cvK = { back: {}, life: {}, legend: {} });
+}
+function cvSaw(actor, target, kind) {
+  const cv = cvWorld(), w = npcs.filter((q) => q !== actor && q !== target && !q.dead && !q.infant && q.pose !== "sleep" && Math.abs(q.tx - actor.tx) + Math.abs(q.ty - actor.ty) <= 9).map((q) => q.id);
+  cv.seen.push({ t: game.time, actor: actor.id, target: target ? target.id : null, kind, w });
+  if (cv.seen.length > 40) cv.seen.shift();
+}
+LF2.tickers.push(() => {
+  if (!town.cv) return;
+  const day = Math.floor(game.time / 1440);
+  if (town.cv.day === day) return;
+  town.cv.day = day;
+  for (const b of town.cv.back) {
+    if (b.kind !== "debt" || b.paid) continue;
+    const a = byId(b.a), c = byId(b.b);
+    if (!a || !c || a.dead || c.dead) {
+      b.paid = true;
+      continue;
+    }
+    if (a.coin >= b.amt + 14 && Math.random() < 0.35) {
+      a.coin -= b.amt;
+      c.coin = (c.coin || 0) + b.amt;
+      b.paid = true;
+      lfAff(a, c, 5);
+      lfAff(c, a, 8);
+      chron(`${a.first} paid back ${b.amt} denarii to ${c.first}.`, "note");
+    } else if (Math.random() < 0.08) lfAff(c, a, -1);
+  }
+});
+const CV_ARCHS = ["talkative", "reserved", "nosy", "cynic", "sunny", "wary", "prickly", "smooth", "lonely"];
+const CV_CHAT = { talkative: 0.9, sunny: 0.7, nosy: 0.8, lonely: 0.8, smooth: 0.6, cynic: 0.45, wary: 0.35, prickly: 0.3, reserved: 0.2 };
+const CV_CAND = { talkative: 0.8, nosy: 0.7, sunny: 0.7, lonely: 0.75, cynic: 0.5, smooth: 0.45, prickly: 0.35, wary: 0.25, reserved: 0.2 };
+const CV_TICS = [null, null, null, "you know", "mark me", "honestly", "as it happens", "I tell you", "heh"];
+function cvVoice(o) {
+  if (o.cvV) return o.cvV;
+  const h = cvHashStr((town.seed || "x") + ":voice:" + o.id), noise = (k) => (h >>> k * 3 & 7) / 7 * 0.8, t = (x) => lf2Has(o, x) ? 1 : 0;
+  const lonely = (!o.fam || !o.fam.spouse && !(o.fam.kids || []).length) && o.age > 28 ? 1.2 : 0;
+  const s = {
+    talkative: t("sociable") * 2 + t("jovial") * 1.5 + t("cheerful") + noise(0),
+    reserved: t("shy") * 2 + t("homebody") * 1.5 + noise(1),
+    nosy: t("gossipy") * 2 + t("curious") * 1.5 + noise(2),
+    cynic: t("grumpy") * 1.5 + t("proud") * 0.5 + (o.age > 45 ? 0.6 : 0) + noise(3),
+    sunny: t("cheerful") * 1.5 + t("generous") + t("dreamy") * 0.4 + noise(4),
+    wary: t("anxious") * 2 + t("devout") * 0.3 + noise(5),
+    prickly: t("grumpy") * 1.5 + t("brave") + noise(6),
+    smooth: t("greedy") * 1.5 + t("proud") + t("sociable") * 0.5 + noise(7),
+    lonely: t("homebody") + t("dreamy") * 0.7 + lonely + noise(8)
+  };
+  if (o.age < 12) {
+    s.talkative += 1;
+    s.sunny += 1;
+    s.cynic = s.prickly = s.smooth = -9;
+  }
+  let arch = "sunny", best = -1;
+  for (const a of CV_ARCHS) if (s[a] > best) {
+    best = s[a];
+    arch = a;
+  }
+  const humor = arch === "cynic" || arch === "smooth" ? "dry" : arch === "talkative" && h & 1 ? "bawdy" : arch === "prickly" || arch === "wary" ? "none" : "gentle";
+  return o.cvV = { arch, humor, chat: CV_CHAT[arch], candour: CV_CAND[arch], tic: CV_TICS[(h >>> 5) % CV_TICS.length] };
+}
+const VX = {
+  greet: {
+    talkative: { stranger: ["Oh, hello! New face, or I have not been paying attention.", "Well, hello there! I do not think we have properly met."], known: ["Ah, {p}! Come, come. What is the news?", "{p}! Just the person."], friend: ["{p}! There you are. I was only just thinking about you.", "{p}! Sit, sit. I have a hundred things to tell you."] },
+    reserved: { stranger: ["Hm. Yes?"], known: ["{p}."], friend: ["Oh. {p}. Good."] },
+    nosy: { stranger: ["Well! Somebody I do not know well enough. Yet."], known: ["{p}! Tell me everything.", "Ah, {p}. You look like you know something."], friend: ["There you are. I have been saving things up for you."] },
+    cynic: { stranger: ["Yes? You look like you want something."], known: ["Oh. It is you.", "Ah. {p}. What now?"], friend: ["The only sensible one. Sit down."] },
+    sunny: { stranger: ["Hello! Lovely day for it, is it not?"], known: ["{p}! Lovely to see you!"], friend: ["{p}! My favourite!", "Oh, it is you! Come here, come here."] },
+    wary: { stranger: ["\u2026Yes? Do I know you?"], known: ["Oh. {p}. Hello."], friend: ["{p}. Good. I can talk to you."] },
+    prickly: { stranger: ["What do you want?"], known: ["What now?"], friend: ["Hmph. You again. Fine."] },
+    smooth: { stranger: ["Ah, a new face. Delighted. Truly."], known: ["{p}. A pleasure, as ever."], friend: ["My friend! Come and tell me about your day."] },
+    lonely: { stranger: ["Oh! Hello. Hello. Do stop, if you like."], known: ["Oh, {p}. I was hoping somebody would come."], friend: ["{p}! You came. You actually came."] }
+  },
+  react: {
+    // how they take what you said: warm, funny (a joke or tease that lands), sting (an insult or an accusation), flirtok, flirtno, press (you are pushing), thanks
+    talkative: { warm: ["Ha! You are good for the soul, you know that?", "Well, now you have gone and made my day."], funny: ["Ha! Oh, that is a good one. I will be telling that one.", "Stop, you will have me crying into the porridge."], sting: ["Well! I will have you know I have been called worse by better.", "Oh, that is how it is, is it? And here I was being friendly."], flirtok: ["Careful. I talk a great deal, and I can flirt back.", "Ha! Is that so? Go on."], flirtno: ["Ha! No, no. Not in this life, my friend.", "You have the wrong end of the stick, but I am flattered."], press: ["You do not give up, do you? I like that. Not that, though.", "Ah, now you are just being nosy. Delightful."], thanks: ["Oh, you are a dear.", "That is decent of you, that is."] },
+    reserved: { warm: ["\u2026Thank you.", "That is kind. I am not used to it."], funny: ["Hm. *a small smile*", "\u2026That is not bad."], sting: ["Noted.", "Right. I will remember that."], flirtok: ["\u2026Oh. Well.", "I do not quite know where to look."], flirtno: ["No.", "I do not think so."], press: ["I said no.", "You will get nothing more from me."], thanks: ["\u2026Thanks.", "Ta."] },
+    nosy: { warm: ["Oh! And I thought you only came for the gossip.", "That is kind. Now, what do you know?"], funny: ["Ha! You are wasted on the fields.", "Oh, you cheeky thing. Tell me more."], sting: ["How rude! Who put that in your head?", "I will remember that next time I hear something about you."], flirtok: ["Ooh. Do go on. Does anyone else know?", "Well, well. I will keep that to myself. For a while."], flirtno: ["Oh, do not be silly, I am only interested in other people's love lives.", "Not me, love. But I could tell you who."], press: ["Ha! Now YOU are asking the questions I ask.", "You are after something. I like it."], thanks: ["Is that not sweet. Come closer, I will tell you something.", "Oh, that is nice. I will owe you a secret."] },
+    cynic: { warm: ["Flattery. How novel. It is working, annoyingly.", "Well. That is something."], funny: ["Hm. Almost funny.", "I would laugh, but my face would crack."], sting: ["Charming. I will put it on the pile.", "Go on, you are not the first today."], flirtok: ["Is that supposed to work? \u2026It is working a little.", "Hm. Brave. Or stupid."], flirtno: ["Hardly.", "Save it for somebody with the energy."], press: ["You will get nowhere with that.", "Persistence. How tiresome."], thanks: ["Do not make a habit of it.", "Hm. Fine."] },
+    sunny: { warm: ["Aw, that is lovely of you!", "You are a treasure, you know that?"], funny: ["Ha! Oh, I needed that!", "You do make me laugh."], sting: ["Oh. Oh, that was a bit sharp, was it not?", "\u2026Ouch. I think I will just sit with that a moment."], flirtok: ["Oh! Oh my. Well!", "You are making me blush. Stop. Do not stop."], flirtno: ["Aw, I am flattered, but no. Truly.", "You are sweet. But no."], press: ["Let us talk about something happier, shall we?", "Oh, I do not think that is a cheerful subject."], thanks: ["Bless you!", "Thank you, truly!"] },
+    wary: { warm: ["\u2026Thank you. I was not expecting that.", "That is kind. Is it a trick?"], funny: ["Ha. Sorry. I am on edge. That was funny.", "Hm. You would say that, would you not?"], sting: ["That is \u2014 I do not like that. Please do not.", "I thought you were all right. Maybe not."], flirtok: ["Oh \u2014 I \u2014 hello. Goodness.", "You cannot just say things like that!"], flirtno: ["Please do not.", "I\u2026 no. Sorry."], press: ["Why do you want to know? Who sent you?", "You are asking a lot of questions."], thanks: ["Thanks. I mean it.", "\u2026Thank you."] },
+    prickly: { warm: ["Hm. Do not go soft on me.", "\u2026Fine. Thanks."], funny: ["Hmph. That was not funny. \u2026It was a bit funny.", "Do that again and I will hit you. Probably."], sting: ["Say that again. Go on.", "You have got a nerve."], flirtok: ["Oh, shut up. \u2026Say it again, though.", "Hmph. Do not think that works."], flirtno: ["Not a chance.", "Do not be ridiculous."], press: ["Leave it.", "I said mind your own."], thanks: ["Hmph. Right.", "Do not mention it. Actually, do not."] },
+    smooth: { warm: ["You are too kind. Keep going.", "Ah, {p}. You do understand people."], funny: ["Ha! Wit and good looks. Dangerous.", "You are sharper than you let on."], sting: ["How very disappointing. I had thought better of you.", "Oh dear. And we were getting on so nicely."], flirtok: ["Now this is a conversation.", "I wondered when you would say it."], flirtno: ["You are charming, but no.", "In another life. Not this one."], press: ["Now, now, {p}. Some things have a price.", "You are persistent. I admire that. It will not help."], thanks: ["Always a pleasure.", "I will remember that you said so."] },
+    lonely: { warm: ["Oh \u2014 that is \u2014 thank you. Nobody says that.", "You have no idea what that means."], funny: ["Ha! Oh, I had forgotten what that feels like.", "That is the best thing anyone has said all week."], sting: ["Oh. \u2026Oh. That hurt.", "I thought you would be kind."], flirtok: ["Oh! Me? Really?", "I \u2014 yes. Please, go on."], flirtno: ["I\u2026 no. Sorry. I am just glad to talk.", "Oh, no, I am only lonely, not \u2014 thank you, though."], press: ["Please. Do not make me. Not today.", "I would tell you, if I could."], thanks: ["Thank you. Truly.", "You are the first person who has asked."] }
+  },
+  deflect: {
+    talkative: ["Ha! You will have to buy me a drink before I tell you that one.", "Now, now. Some things I keep for the second cup."],
+    reserved: ["I would rather not.", "That is not for talking about.", "Hm. No."],
+    nosy: ["Oh, I could not. \u2026Who told you to ask?", "I could tell you. But then you would have to tell me something, and you look careful."],
+    cynic: ["Of course you would ask that.", "Ask me something I am paid to answer."],
+    sunny: ["Oh, let us not get into that today, hm?", "That is a grey-cloud sort of subject. Ask me something sunny."],
+    wary: ["Why do you want to know?", "Who has been talking? Who said I would say?"],
+    prickly: ["None of your business.", "Mind your own, {p}."],
+    smooth: ["A person of discretion does not tell. But I like that you asked.", "Ah, {p}. You do ask the interesting questions. Not that one, though."],
+    lonely: ["\u2026Not yet. But stay, and maybe.", "Can we not? Talk about something else. Please."]
+  },
+  lead: {
+    // the way they begin a bit of gossip
+    talkative: ["Oh, you have not heard? Sit down.", "Well! Where do I begin?"],
+    reserved: ["Only what I saw.", "I do not gossip. But \u2014"],
+    nosy: ["Now, this stays between us \u2014", "You did not hear it from me, but \u2014"],
+    cynic: ["Because somebody has to say it:", "You will love this."],
+    sunny: ["Oh, it is all rather sweet, really:", "Lovely news, or sad news, depending on who you ask:"],
+    wary: ["Keep your voice down. \u2014", "I should not, but \u2014"],
+    prickly: ["Fine. Since you are asking:", "If you must know:"],
+    smooth: ["Between you and me, {p}:", "I would only tell you:"],
+    lonely: ["Oh \u2014 nobody ever asks me. All right:", "Come closer, it is a long one:"]
+  },
+  stance: {
+    // how they feel about what they have just told
+    talkative: { outraged: ["It is a scandal, is what it is. A scandal!"], amused: ["I laughed for a full minute. I am not ashamed."], pity: ["Poor soul. I could cry."], warm: ["It does the heart good, hearing that."], shrug: ["There it is, then. Make of it what you will."] },
+    reserved: { outraged: ["It was wrong."], amused: ["\u2026I will admit I smiled."], pity: ["I felt for them."], warm: ["Good. People should do that more."], shrug: ["Not mine to judge."] },
+    nosy: { outraged: ["Disgraceful. And I intend to find out the rest."], amused: ["Oh, I could hardly breathe."], pity: ["The poor thing. I will look in on them. And ask questions."], warm: ["Is that not lovely? I do love a nice story."], shrug: ["Well. More to follow, I expect."] },
+    cynic: { outraged: ["Of course. Of course they did."], amused: ["Best thing that has happened all week, and it did not happen to me."], pity: ["Somebody always pays for other people's mistakes."], warm: ["Hm. Will not last, but it is nice."], shrug: ["Same as ever."] },
+    sunny: { outraged: ["Oh, it made my stomach turn!"], amused: ["Oh, I could not stop giggling!"], pity: ["It broke my heart, honestly."], warm: ["Oh, it was so lovely!"], shrug: ["Oh well! Onward."] },
+    wary: { outraged: ["It frightened me, honestly. What is next?"], amused: ["Funny, yes. But I would not like it to be me."], pity: ["I could not sleep, thinking on it."], warm: ["I could use more news like that."], shrug: ["I try not to think on it."] },
+    prickly: { outraged: ["Disgraceful. Somebody ought to say something. I will."], amused: ["Idiots, all of them. Funny, though."], pity: ["Tough luck. Tougher world."], warm: ["Hmph. Fine. Good for them."], shrug: ["Not my business. Except it is, a bit."] },
+    smooth: { outraged: ["Appalling. And, between us, instructive."], amused: ["One has to laugh."], pity: ["A shame. One hates to see it."], warm: ["Charming. I do enjoy a decent person now and then."], shrug: ["The village does like its entertainments."] },
+    lonely: { outraged: ["It made me so sad I could not eat."], amused: ["I laughed. By myself. It felt odd."], pity: ["I thought of them all night."], warm: ["It is good to hear about kind things. I do not get many."], shrug: ["Nobody tells me anything. You are the first."] }
+  },
+  pivot: { talkative: ["Which reminds me \u2014", "Oh, and while I think of it \u2014"], reserved: ["\u2026Also."], nosy: ["And now I think of it \u2014", "Speaking of which \u2014"], cynic: ["And, naturally, that leads to \u2014", "Which brings us to \u2014"], sunny: ["Oh, that makes me think of \u2014"], wary: ["Which \u2014 look, it connects \u2014"], prickly: ["And another thing \u2014"], smooth: ["Now that you mention it \u2014"], lonely: ["Can I tell you something else? \u2014"] },
+  ask: [
+    // a personal question they put to you
+    { id: "whence", say: "Where did you come from before all this, {p}? You never say.", opts: [["honest", "Somewhere smaller than this. I do not miss it as much as I should."], ["dodge", "Somewhere I would rather not talk about. Not yet."], ["joke", "A very small village. They took the whole place off the map; it was easier."], ["lie", "A big house by a river. We had a bell and everything."]] },
+    { id: "miss", say: "Do you ever miss anyone, {p}? I do. Odd, how it comes at strange moments.", opts: [["honest", "Every day, a little. Mostly at supper."], ["dodge", "Do I? That is a question for a much longer evening."], ["joke", "Only the ones who owed me money."], ["lie", "No. I am quite fine on my own."]] },
+    { id: "freeday", say: "If you had a whole free day and nobody needed you, what would you do?", opts: [["honest", "Sleep late, then walk to the water and not think about anything."], ["dodge", "I would probably find a reason to be useful. It is a habit."], ["joke", "Eat, nap, argue with a goose. Not necessarily in that order."], ["lie", "Read. Constantly. I am very well read."]] },
+    { id: "happy", say: "Are you happy here? Truly? You can tell me.", opts: [["honest", "More than I expected. Some days even without trying."], ["dodge", "Ask me in the spring."], ["joke", "Define happy. Define here."], ["lie", "Blissful. Completely. Ask anyone."]] },
+    { id: "likes", say: "Who do you like best in the village? Honestly. I will not say who said.", opts: [["honest", "Hard to say. The ones who ask how I am and listen to the answer."], ["dodge", "It changes by the week. Do not tell anyone I said so."], ["joke", "The baker. For reasons that are largely bread."], ["lie", "You, obviously. Is that not what you wanted to hear?"]] },
+    { id: "fear", say: "What frightens you? Not the sensible things. The other ones.", opts: [["honest", "Being unnecessary. I think about it more than I should."], ["dodge", "Heights, mostly. And questions."], ["joke", "Geese. Obviously. They know what they did."], ["lie", "Nothing. I am entirely without fear."]] }
+  ]
+};
+function cvLine(o, bank, p, key) {
+  const used = o.cvUsed || (o.cvUsed = {}), k = key || bank[0], fresh = bank.filter((s2) => !used[k + "|" + s2] || game.time - used[k + "|" + s2] > 240);
+  const s = (fresh.length ? fresh : bank)[Math.floor(Math.random() * (fresh.length ? fresh.length : bank.length))];
+  used[k + "|" + s] = game.time;
+  return p ? s.replace(/\{p\}/g, p.first) : s;
+}
+const cvArchOf = (o) => cvVoice(o).arch;
+const cvGreetLine = (o, p, close) => cvLine(o, VX.greet[cvArchOf(o)][close === "cold" ? "stranger" : close === "close" ? "friend" : close] || VX.greet[cvArchOf(o)].known, p, "greet" + close);
+const cvReactLine = (o, p, cls) => cvLine(o, VX.react[cvArchOf(o)][cls], p, "react" + cls);
+const cvDeflectLine = (o, p) => cvLine(o, VX.deflect[cvArchOf(o)], p, "deflect");
+const cvLeadLine = (o, p) => cvLine(o, VX.lead[cvArchOf(o)], p, "lead");
+const cvStanceLine = (o, stance) => cvLine(o, VX.stance[cvArchOf(o)][stance] || VX.stance[cvArchOf(o)].shrug, null, "stance" + stance);
+const cvPivotLine = (o) => cvLine(o, VX.pivot[cvArchOf(o)], null, "pivot");
+const CV_MAXLAYER = { act: 1, state: 1, ambition: 2, regret: 2, pride: 1, fear: 1, secret: 2, person: 3, event: 3, back: 2, legend: 2, player: 2, world: 1, chron: 1 };
+function cvOpenness(c) {
+  const o = c.o, m = c.mem;
+  let x = c.v.candour + c.aff / 100 * 0.4 + m.trust / 100 * 0.4 + c.warmth * 0.06;
+  if ((o.drunk || 0) > 40) x += 0.2;
+  if (c.know < 10) x -= 0.25;
+  if (o.mood < 25) x -= 0.05;
+  return x;
+}
+function cvWilling(c, sens, key) {
+  const x = cvOpenness(c) + (c.pressed[key] || 0) * (lf2Has(c.o, "gossipy") || lf2Has(c.o, "anxious") ? 0.14 : 0.08);
+  if (x >= sens) return "yes";
+  if (x >= sens - 0.15) return "hint";
+  return "no";
+}
+function cvSlips(c) {
+  return (lf2Has(c.o, "gossipy") || lf2Has(c.o, "anxious") || (c.o.drunk || 0) > 45) && Math.random() < 0.3;
+}
+function cvLearnBack(c, b, layer) {
+  const K = cvKnows(c.p).back;
+  K[b.id] = Math.max(K[b.id] === void 0 ? -1 : K[b.id], layer);
+}
+function cvLearnLife(c, who, facet) {
+  const K = cvKnows(c.p).life;
+  (K[who.id] = K[who.id] || {})[facet] = 1;
+}
+const CV_ACTV = {
+  forage: { say: ["Off to see whether the berry bushes have anything left.", "Foraging. The good bushes get further out every week.", "Berries. If I come back with an empty basket, we are eating air."], ask: [["Any luck lately?", ["Some. The east bank is picked bare. Everyone had the same idea.", "A basket on a good day. Half on most."]], ["Mind if I come along?", "TAG:Come on, then. Two pairs of eyes."]] },
+  eat: { say: ["My stomach is leading the way. Home for a meal.", "Meal time. I think better with something in me."], ask: [["What is for dinner?", ["Grain and whatever the larder spared.", "Stew, if nobody has got at the pot."]]] },
+  eating: { say: ["Mmf. Sorry. Eating.", "Mid-bite. Give me a moment.", "Eating. It is the best part of the day."], ask: [["What are you having?", ["Whatever there was. It is good, though.", "Grain and berries. The usual feast."]]] },
+  bed: { say: ["Bed. Do not talk to me, I am already asleep.", "Done for the day. The blanket is calling."], ask: [["Long day?", ["Long enough that my bones have opinions.", "Not bad, really. Habit, mostly."]]] },
+  party: { say: ["Cake! Have you seen the cake?", "A party! I have been looking forward to this all week."], ask: [["Is it a good one?", ["It is going to be. There is cake.", "Good enough. I am only here for the food."]]] },
+  patrol: { say: ["Eyes open, boots on. Quiet streets are the best streets.", "On patrol. Nothing to report, which is how I like it."], ask: [["Anything to report?", ["Nothing. Somebody left a crate across a door, but that is a prank, not a crime.", "Not a thing. Which is suspicious in itself."]]] },
+  bakery: { say: ["Off for the morning bread. It is gone by seven if you dawdle.", "Bread run. I cannot face the day without it."], ask: [["Is it any good?", ["The best thing on the island. Do not tell the baker, he will charge more.", "It is bread. It is warm. What more do you want?"]]] },
+  foodOut: { say: ["No fish, no grain. I am standing here hoping something changes.", "The larder is empty and everyone is staring at it."], ask: [["Can I spare you something?", "FOOD:Oh. Thank you. Truly."]] },
+  relax: { say: ["Doing nothing. It is harder than it looks.", "Resting. Sit down if you like. Nobody is timing us."], ask: [["Ever get bored?", ["Never. There is always someone to watch.", "Constantly. I have started naming the ants."]]] },
+  water: { say: ["A walk by the water. It clears the head.", "I come to the water when the village gets too loud."], ask: [["What do you think about out here?", ["Nothing. That is the whole point.", "My knees, mostly. And whether it will rain."]], ["Mind some company?", "TAG:Not at all. Keep up, though."]] },
+  fishing: { say: ["Shh! You will scare them.", "Fishing. Patience, mostly, and bread for bait."], ask: [["Catching anything?", ["Two so far. One was a boot.", "Nothing yet. They are being difficult."]]] },
+  stall: { say: ["The stall is open. Have a look; nothing bites.", "Minding the shop. Prices are fair. Mostly."], ask: [["How is business?", "BIZ"]] },
+  privy: { say: ["Not. Now.", "*shuffles urgently*", "Please. Talk. Later."], ask: [] },
+  social: { say: ["Out with friends. It is nice to be asked.", "A day out. I have been looking forward to it."], ask: [["Room for one more?", "TAG:Always! The more the merrier."]] },
+  tag: { say: ['Dad says I should "learn the trade". I am learning to be bored.', "Tagging along. It is less fun than it sounds."], ask: [["Is it that bad?", ["Not bad. Just slow. Everything is slow when you are watching.", "I get to carry things. It is practically a promotion."]]] },
+  baths: { say: ["Off to the baths. A person can only be so grubby.", "The baths. The heat gets the aches out."], ask: [["Is it worth the fuss?", ["Every coin. Every splash.", "Ask me when I am clean and sleepy."]]] },
+  drink: { say: ["Just the one drink. Maybe two. It is a long evening.", "Wine, dice and gossip. In that order."], ask: [["Buy you another?", "BUY:You are a good sort. Remind me of that tomorrow."]] },
+  farm: { say: ["The barley is coming on slow this year. Or it is me.", "Back to the field. The weeds never take a day off.", "Ploughing. Straight lines are harder than they look."], ask: [["How are the crops?", ["Thirsty. So am I.", "Better than last year. Do not tell the crows."]], ["Need a hand?", "HELP:Many hands! Thank you."]] },
+  build: { say: ["Walls do not build themselves. I have checked.", "Another beam, another blister."], ask: [["How far along is it?", ["Further than yesterday. Not as far as I promised.", "Closer. That is all I will say, or I jinx it."]], ["Need a hand?", "HELP:That went quicker. You are a good sort."]] },
+  smith: { say: ["Iron is honest work. Loud, but honest.", "If you can hear me over the hammer, you are standing too far away."], ask: [["What are you making?", ["Whatever someone breaks next. Nails, mostly.", "A hinge. A very good hinge."]]] },
+  sky: { say: ["Looking at the sky. Do not ask what for; I am busy.", "The stars. There are more than anyone could count. I have tried."], ask: [["See anything?", ["A bright one. It keeps winking at me.", "Mostly dark. But it is a good dark."]]] },
+  pray: { say: ["Prayers. Quietly, please; the Noodle is listening.", "A moment of quiet before the day starts. You are welcome to it."], ask: [["May I join you?", ["Sit. Close your eyes. Or do not; He is patient.", "Of course. It is not a private noodle."]]] },
+  any: { say: null, ask: [["How is your day going?", "MOOD"], ["Anything new?", "NEWS"]] }
+};
+function cvActivity(c) {
   const s = c.status, o = c.o;
   if (/privy/i.test(s)) return "privy";
   if (/Out of .*Waiting/i.test(s)) return "foodOut";
@@ -20150,7 +20477,7 @@ function convActivity(c) {
   if (/forage|berr|herb|larder/i.test(s)) return "forage";
   if (/to bed|Heading to bed/i.test(s)) return "bed";
   if (/bakery|bread/i.test(s)) return "bakery";
-  if (c.act === "eat" || /^Eating|\bEating\b/.test(s)) return "eating";
+  if (c.act === "eat" || /\bEating\b/.test(s)) return "eating";
   if (/supper|breakfast|dinner|\beat\b|food home|shopping home|cook/i.test(s)) return "eat";
   if (/Playing|play\b|Running/i.test(s)) return "play";
   if (/bath|wash/i.test(s)) return "baths";
@@ -20159,7 +20486,7 @@ function convActivity(c) {
   if (/stall|counter|shop/i.test(s)) return "stall";
   if (/Fishing|fishing trip|favourite fishing/i.test(s)) return "fishing";
   if (/Tagging along/i.test(s)) return "tag";
-  if (/picnic|friends|Out with|Going out with|Heading out with|Tagging along|talk with|word with/i.test(s)) return "social";
+  if (/picnic|friends|Out with|Going out with|Heading out with|talk with|word with/i.test(s)) return "social";
   if (/field|plough|seed|grain|rows/i.test(s)) return "farm";
   if (/walls|plaster|build|timber|logs/i.test(s)) return "build";
   if (/sky|stars/i.test(s)) return "sky";
@@ -20168,620 +20495,1251 @@ function convActivity(c) {
   if (/Relaxing|at home|door bolted/i.test(s)) return "relax";
   return "any";
 }
-const CV_ACT = {
-  forage: {
-    say: ["Off to see whether the berry bushes have anything left.", "Foraging. The good bushes get further out every week.", "Berries. If I come back with an empty basket, we are eating air."],
-    r: [
-      { label: "Any luck lately?", tones: { kind: "You always find the best bushes.", sly: "I heard you found a secret patch.", harsh: "You look hopeless at it." }, ans: ["Some. The east bank is picked bare. Everyone had the same idea.", "A basket on a good day. Half on most.", "Enough to keep the pantry from sulking."] },
-      { label: "Mind if I come along?", tones: { kind: "I would love your company.", sly: "I know the best spot. I will show you. For a favour.", harsh: "Fine. Try not to slow me down." }, type: "offer", ans: (c) => {
-        tagAlong(c.o, c.p, 120, "Foraging with " + c.p.first);
-        like(c.o, c.p, 2);
-        return anyOf(["Come on, then. Two pairs of eyes.", "Bring a basket. I only have the one."]);
-      } }
-    ]
-  },
-  eat: {
-    say: ["My stomach is leading the way. Home for a meal.", "Meal time. I think better with something in me.", "Off to eat. I am no use to anyone before."],
-    r: [
-      { label: "What is for dinner?", tones: { kind: "Whatever it is, it smells wonderful.", sly: "I hear the cook outdid themselves.", harsh: "Slop again, I expect." }, ans: ["Grain and whatever the larder spared.", "Stew, if nobody has got at the pot.", "Honestly? Nobody told me. I am hoping."] },
-      { label: "Enjoy it.", type: "agree", ans: ["I will. Properly. Sitting down.", "Ha! I intend to."] }
-    ]
-  },
-  eating: {
-    say: ["Mmf. Sorry. Eating.", "Mid-bite. Give me a moment.", "Eating. It is the best part of the day."],
-    r: [{ label: "What are you having?", ans: ["Whatever there was. It is good, though.", "Grain and berries. The usual feast.", "I have stopped asking. I just eat it."] }, { label: "Do not let me stop you.", type: "agree", ans: ["I was not going to.", "Wise. I get dangerous when interrupted."] }]
-  },
-  bed: {
-    say: ["Bed. Do not talk to me, I am already asleep.", "Done for the day. The blanket is calling."],
-    r: [{ label: "Long day?", tones: { kind: "You work so hard. It shows.", sly: "I heard you were up before dawn. Impressive.", harsh: "You look it." }, ans: (c) => c.o.energy < 35 ? "Long enough that my bones have opinions." : "Not bad, really. Habit, mostly." }, { label: "Sleep well.", type: "agree", ans: ["You too. Do not let the bugs bite.", "Mm. Goodnight."] }]
-  },
-  party: {
-    say: ["Cake! Have you seen the cake?", "A party! I have been looking forward to this all week."],
-    r: [{ label: "Is it a good one?", ans: ["It is going to be. There is cake.", "Good enough. I am only here for the food."] }, { label: "Save me a slice.", type: "agree", ans: ["No promises. I am a weak person.", "Cross my heart. Probably."] }]
-  },
-  patrol: {
-    say: ["Eyes open, boots on. Quiet streets are the best streets.", "On patrol. Nothing to report, which is how I like it."],
-    r: [{ label: "Anything to report?", tones: { kind: "It is good to know you are out there.", sly: "Heard anything about the crate across a door?", harsh: "Another dull patrol, I bet." }, ans: ["Nothing. Somebody left a crate across a door, but that is a prank, not a crime.", "Not a thing. Which is suspicious in itself."] }, { label: "Stay safe out there.", type: "agree", ans: ["I always do. Mostly by being boring.", "It is a very small island. I will manage."] }]
-  },
-  bakery: {
-    say: ["Off for the morning bread. It is gone by seven if you dawdle.", "Bread run. I cannot face the day without it."],
-    r: [{ label: "Is it any good?", tones: { kind: "I am sure it is the best bread around.", sly: "The baker told me the secret ingredient.", harsh: "It looks stale from here." }, ans: ["The best thing on the island. Do not tell the baker, he will charge more.", "It is bread. It is warm. What more do you want?"] }, { label: "Fetch me a loaf?", type: "offer", ans: ["Ha! Buy your own. Queue is short, you can see for yourself.", "Only if you carry it back."] }]
-  },
-  foodOut: {
-    say: ["No fish, no grain. I am standing here hoping something changes.", "The larder is empty and everyone is staring at it."],
-    r: [
-      { label: "Can I spare you something?", type: "offer", ans: (c) => {
-        const g = FOODS.concat(["bread", "stew"]).find((g2) => (c.p.inv[g2] || 0) > 0);
-        if (!g) return "Kind of you, but you look as empty-handed as I am.";
-        lf2GiveFood(c.p, c.o);
-        return "Oh. Thank you. Truly.";
-      } },
-      { label: "It will turn up.", type: "agree", ans: ["It always does. Eventually.", "I hope you are right. My stomach has stopped believing."] }
-    ]
-  },
-  relax: {
-    say: ["Doing nothing. It is harder than it looks.", "Resting. Sit down if you like. Nobody is timing us."],
-    r: [{ label: "Ever get bored?", ans: ["Never. There is always someone to watch.", "Constantly. I have started naming the ants."] }, { label: "A quiet moment is a good thing.", type: "agree", ans: ["It is. They do not come often.", "Mm. Savour it."] }]
-  },
-  water: {
-    say: ["A walk by the water. It clears the head.", "I come to the water when the village gets too loud."],
-    r: [{ label: "What do you think about out here?", tones: { kind: "You seem like a deep thinker.", sly: "I bet you are planning something big.", harsh: "Nothing, by the look of you." }, ans: ["Nothing. That is the whole point.", "My knees, mostly. And whether it will rain."] }, { label: "Mind some company?", type: "offer", ans: (c) => {
-      tagAlong(c.o, c.p, 90, "Walking with " + c.p.first);
-      like(c.o, c.p, 2);
-      return "Not at all. Keep up, though.";
-    } }]
-  },
-  fishing: {
-    say: ["Shh! You will scare them.", "Fishing. Patience, mostly, and bread for bait."],
-    r: [{ label: "Catching anything?", tones: { kind: "You have the patience of a saint.", sly: "I heard you landed the big one yesterday.", harsh: "Not a thing, by the look of it." }, ans: ["Two so far. One was a boot.", "Nothing yet. They are being difficult.", "A few. The big one is watching me from under that rock."] }, { label: "Will you teach me?", type: "offer", ans: ["Stand still, say nothing, and wait. That is the whole of it.", "Ha. Not today, the tide is wrong. Ask me again."] }]
-  },
-  stall: {
-    say: ["The stall is open. Have a look; nothing bites.", "Minding the shop. Prices are fair. Mostly."],
-    r: [{ label: "How is business?", tones: { kind: "Everything you sell is the best on the island.", sly: "I hear your prices are generous. To me.", harsh: "Nobody buys anything from you, do they?" }, ans: (c) => c.o.coin < 5 ? "Thin. Everyone is counting coins." : "Steady. Better after supper, when people are hungry and careless." }, { label: "What is good today?", ans: ["Whatever is freshest. Ask me nicely.", "Everything. Obviously."] }]
-  },
-  privy: { say: ["Not. Now.", "*shuffles urgently*", "Please. Talk. Later."], r: [] },
-  social: {
-    say: ["Out with friends. It is nice to be asked.", "A day out. I have been looking forward to it."],
-    r: [{ label: "Room for one more?", tones: { kind: "I always have the best time with you.", sly: "I will bring wine. Nobody has to know.", harsh: "I will come. Someone must keep an eye on you." }, type: "offer", ans: (c) => {
-      tagAlong(c.o, c.p, 120, "Out with " + c.p.first);
-      like(c.o, c.p, 2);
-      return "Always! The more the merrier.";
-    } }, { label: "Who else is coming?", ans: ["Whoever turns up. That is how it works.", "The usual lot. You know how it is."] }]
-  },
-  tag: {
-    say: ['Dad says I should "learn the trade". I am learning to be bored.', "Tagging along. It is less fun than it sounds.", "I am being shown how things are done. Again."],
-    r: [{ label: "Is it that bad?", ans: ["Not bad. Just slow. Everything is slow when you are watching.", "I get to carry things. It is practically a promotion."] }, { label: "You will thank them one day.", type: "agree", ans: ["That is what they say. Every single time.", "Hm. Maybe. Not today."] }]
-  },
-  baths: {
-    say: ["Off to the baths. A person can only be so grubby.", "The baths. The heat gets the aches out."],
-    r: [{ label: "Is it worth the fuss?", tones: { kind: "You always look so fresh afterwards.", sly: "I hear the bath keeper gives friends a discount.", harsh: "You could use it." }, ans: ["Every coin. Every splash.", "Ask me when I am clean and sleepy."] }, { label: "Enjoy your soak.", type: "agree", ans: ["I plan to turn into a prune.", "Do not wait up."] }]
-  },
-  drink: {
-    say: ["Just the one drink. Maybe two. It is a long evening.", "Wine, dice and gossip. In that order."],
-    r: [
-      { label: "Buy you another?", type: "offer", ans: (c) => {
-        if (c.p.coin < 3) return "Kind of you to offer with empty pockets.";
-        c.p.coin -= 3;
-        c.o.coin = (c.o.coin || 0) + 3;
-        like(c.o, c.p, 3);
-        return "You are a good sort. Remind me of that tomorrow.";
-      } },
-      { label: "Heard anything?", ans: (c) => convNewsLine(c) || "Only that the wine is watered." }
-    ]
-  },
-  farm: {
-    say: ["The barley is coming on slow this year. Or it is me.", "Back to the field. The weeds never take a day off.", "Ploughing. Straight lines are harder than they look."],
-    r: [{ label: "How are the crops?", tones: { kind: "Your field is the envy of the island.", sly: "I heard the neighbours are jealous of yours.", harsh: "They look half dead. Like you." }, ans: ["Thirsty. So am I.", "Better than last year. Do not tell the crows.", "Alive. That is about the best I can say."] }, { label: "Need a hand?", tones: { kind: "Let me carry that for you.", sly: "I will help. You will owe me.", harsh: "You are too slow. Move over." }, type: "offer", ans: (c) => convHelp(c) }]
-  },
-  build: {
-    say: ["Walls do not build themselves. I have checked.", "Another beam, another blister."],
-    r: [{ label: "How far along is it?", ans: ["Further than yesterday. Not as far as I promised.", "Closer. That is all I will say, or I jinx it."] }, { label: "Need a hand?", tones: { kind: "Let me carry that for you.", sly: "I will help. You will owe me.", harsh: "You are too slow. Move over." }, type: "offer", ans: (c) => convHelp(c) }]
-  },
-  smith: {
-    say: ["Iron is honest work. Loud, but honest.", "If you can hear me over the hammer, you are standing too far away."],
-    r: [{ label: "What are you making?", tones: { kind: "Your work is the finest on the island.", sly: "Is it true the watch ordered one of those?", harsh: "Whatever it is, it looks bent." }, ans: ["Whatever someone breaks next. Nails, mostly.", "A hinge. A very good hinge."] }, { label: "Looks hot in here.", type: "agree", ans: ["It is. That is the job.", "Hot? You should see me in summer."] }]
-  },
-  sky: {
-    say: ["Looking at the sky. Do not ask what for; I am busy.", "The stars. There are more than anyone could count. I have tried."],
-    r: [{ label: "See anything?", tones: { kind: "You have such a good eye for it.", sly: "I heard a comet is due. Do not tell anyone.", harsh: "Nothing. You are just staring." }, ans: ["A bright one. It keeps winking at me.", "Mostly dark. But it is a good dark."] }, { label: "Mind if I look too?", type: "offer", ans: ["Lie down. The grass is damp, but the view is free.", "Go on. Count the ones on the left."] }]
-  },
-  pray: {
-    say: ["Prayers. Quietly, please; the Noodle is listening.", "A moment of quiet before the day starts. You are welcome to it."],
-    r: [{ label: "May I join you?", type: "offer", ans: ["Sit. Close your eyes. Or do not; He is patient.", "Of course. It is not a private noodle."] }, { label: "Sorry to interrupt.", type: "agree", ans: ["Hm. He is used to it.", "No harm done."] }]
-  },
-  any: {
-    say: (c) => [/^[A-Z][a-z]+ing\b/.test(c.status) ? `Just ${cvLower(c.status)}.` : c.status ? c.status + ", as it happens." : "Just on my way.", "Mm? Oh, hello. I was miles away.", "Can I help you? Or are we both just standing here?"][cvHash(c.o.first + Math.floor(game.time / 90)) % 3],
-    r: [{ label: "How is your day going?", tones: { kind: "You look like you are doing well.", sly: "I heard good things about you today.", harsh: "You look terrible." }, ans: (c) => c.o.mood < 35 ? "Could be better. Could be a lot better." : c.o.mood > 70 ? "Better than most, to be honest." : "Fine. Ordinary. I will take ordinary." }, { label: "Anything new?", tones: { kind: "You always know the interesting things.", sly: "I have heard rumours. Have you?", harsh: "Nothing, I expect. It is dull here." }, ans: (c) => convNewsLine(c) || "Nothing worth saying. Quiet lately." }]
-  }
-};
-const CV_KID = [
-  {
-    say: ["Look! I can skip a stone eleven times!", "I found a frog. He does not do anything, but he is mine.", "I am not small. I am compact.", "I am not allowed to say what we are playing. It is tag."],
-    r: [{ label: "Show me!", ans: ["Watch! Watch! \u2026it sank. That was practice.", "Ready? Really ready? You have to watch properly."] }, { label: "Is that so?", type: "agree", ans: ["It IS so. Ask anyone.", "Yes. Obviously. Grown-ups never listen."] }]
-  }
-];
-function convToolNoun(o) {
-  return { Farmer: "hoe", Woodcutter: "axe", Stonecutter: "chisel", Fisher: "net", Gatherer: "basket" }[o.job || o.cur] || (o.job === "Smith" ? "hammer" : "tools");
+const CV_KIDSAY = ["Look! I can skip a stone eleven times!", "I found a frog. He does not do anything, but he is mine.", "I am not small. I am compact.", "I am not allowed to say what we are playing. It is tag.", "Do you know there are forty-one steps to the well? I counted."];
+function cvActSay(c) {
+  const a = cvActivity(c), A = CV_ACTV[a] || CV_ACTV.any;
+  if (c.kid && a !== "privy") return anyOf(CV_KIDSAY);
+  if (a === "any") return /^[A-Z][a-z]+ing\b/.test(c.status) ? `Just ${cvLow(c.status)}.` : c.status ? c.status + ", as it happens." : "Mm? Oh, hello. I was miles away.";
+  return anyOf(A.say);
 }
-function convPerson(c) {
-  const o = c.o;
-  let best = null, bw = 0;
+const cvToolNoun = (o) => ({ Farmer: "hoe", Woodcutter: "axe", Stonecutter: "chisel", Fisher: "net", Gatherer: "basket" })[o.job || o.cur] || (o.job === "Smith" ? "hammer" : "tools");
+const CV_STATES = [
+  { id: "tool", ok: (c) => c.o.toolQ != null && c.o.toolQ < 35 && c.o.job && c.o.job !== "Guard", say: (c) => `My ${cvToolNoun(c.o)} is nearly worn through. Another week and it is a stick.`, deeper: ["Everything takes twice as long with a bad tool, and twice as long means less coin, and less coin means no new tool. It goes round.", "The smith wants {tools} denarii. I have never seen that much in one place."] },
+  { id: "hungry", ok: (c) => c.o.hunger >= 62, say: ["My stomach has been growling at me since morning.", "I could eat a goat. A small one."], deeper: ["Last time I ate properly was\u2026 the funeral? No. That was a different hunger."] },
+  { id: "tired", ok: (c) => c.o.energy < 28 && c.activity !== "bed", say: ["I could sleep on a fence post.", "Barely keeping my eyes open. Do not let me stop moving."], deeper: ["It is not the work. It is lying there at night, adding things up.", "I keep waking at the same hour. Like somebody is calling me."] },
+  { id: "poor", ok: (c) => (c.o.coin || 0) < 4 && c.close !== "stranger", say: ["My purse is thin. I keep checking it, as if it might change its mind.", "Money is tight. Do not repeat that. Pride, you understand."], deeper: ["It is not even the amount. It is being a person who counts."] },
+  { id: "low", ok: (c) => c.o.mood < 30 && c.close !== "stranger", say: ["Rotten day. Everything has gone slightly wrong.", "I am not myself today."], deeper: ["It piles up. Small things. Then one more small thing, and suddenly you are crying over a bucket."] },
+  { id: "high", ok: (c) => c.o.mood > 82, say: ["I am in a wonderful mood and I have no idea why.", "Good day. Good, good day. I feel like singing."], deeper: ["No reason. That is the best sort. Do not examine it."] },
+  { id: "love", ok: (c) => c.o.crush != null && byId(c.o.crush) && !byId(c.o.crush).dead && c.close !== "stranger", say: ["Sorry. My mind wandered off. It does that lately.", "Hm? Oh. Nothing. Thinking. About\u2026 things."], deeper: ["It is a someone. I will not say who. I do not want to jinx it."] },
+  { id: "baby", ok: (c) => !!c.o.preg, say: ["*hand on belly* Any day now. Everyone keeps asking.", "The little one has been kicking all morning. Practising for something."], deeper: ["I am frightened and thrilled in equal measure. Mostly in the same breath."] }
+];
+function cvPool(c) {
+  const o = c.o, p = c.p, pool = [], v = c.v, evs = lf2Ev();
+  for (let i = evs.length - 1; i >= 0 && pool.length < 40; i--) {
+    const ev = evs[i];
+    if (game.time - ev.t > 5 * 1440) break;
+    const k = o.kn && o.kn[ev.id];
+    if (!k || ev.actor === o.id && !k.brag) continue;
+    if (ev.actor === p.id || ev.target === p.id) continue;
+    const spice = Math.max(0, ...ev.tags.map((g) => (LF2_TAGS[g] || {}).spice || 0.5)), rec = 1.25 - (game.time - ev.t) / (5 * 1440), mine = ev.target === o.id ? 1.2 : 1;
+    pool.push({ key: "ev" + ev.id, kind: "event", ev, w: spice * (0.5 + 0.5 * ev.sev) * k.cert * rec * mine * (v.arch === "nosy" ? 1.7 : 1), sens: ev.target === o.id ? 0.5 : 0.2 + 0.1 * (ev.tags.includes("scandal") || ev.tags.includes("affair") ? 3 : 0) });
+  }
+  const rel = [];
   for (const q of npcs) {
-    if (q === o || q === c.p || q.dead || q.infant || q.age < 12) continue;
-    const k = o.know[q.id] || 0;
-    if (k < 20 && !isKin(o, q)) continue;
-    const w = Math.abs(o.aff[q.id] || 0) + (isKin(o, q) ? 30 : 0) + Math.random() * 25;
-    if (w > bw) {
-      bw = w;
-      best = q;
+    if (q === o || q === p || q.dead || q.infant || q.age < 8) continue;
+    const a = o.aff[q.id] || 0, kin = isKin(o, q), kn = o.know[q.id] || 0, hasBack = cvBackOf(o).some((b) => b.a === q.id || b.b === q.id);
+    const w = Math.abs(a) / 35 + (kin ? 1 : 0) + (hasBack ? 1.2 : 0) + (kn > 40 ? 0.3 : 0);
+    if (w > 0.8) rel.push({ key: "pe" + q.id, kind: "person", q, w: w * (v.arch === "nosy" || v.arch === "cynic" ? 1.3 : 1), sens: 0.25 });
+  }
+  pool.push(...rel.sort((x, y) => y.w - x.w).slice(0, 6));
+  for (const b of cvBackOf(o)) pool.push({ key: "bk" + b.id, kind: "back", back: b, w: 1.4, sens: b.sens });
+  for (const b of cvWorld().back) if (b.knownBy.includes(o.id) && b.a !== o.id && b.b !== o.id) pool.push({ key: "bk" + b.id, kind: "back", back: b, w: 0.9, sens: 0.3 });
+  const L = cvLife(o);
+  pool.push({ key: "amb", kind: "ambition", w: 0.8, sens: 0.3 }, { key: "pri", kind: "pride", w: v.arch === "talkative" || v.arch === "smooth" ? 1.2 : 0.6, sens: 0.15 }, { key: "fea", kind: "fear", w: 0.5, sens: 0.45 });
+  if (L.regret) pool.push({ key: "reg", kind: "regret", w: 0.6, sens: 0.55 });
+  if (L.secret) pool.push({ key: "sec", kind: "secret", w: 0.7, sens: L.secret.sens });
+  for (const s of CV_STATES) {
+    let ok = false;
+    try {
+      ok = s.ok(c);
+    } catch (e) {
+    }
+    if (ok) pool.push({ key: "st" + s.id, kind: "state", id: s.id, w: 1.6, sens: 0.1 });
+  }
+  for (const g of CV_LEGENDS) pool.push({ key: "lg" + g.id, kind: "legend", id: g.id, w: 0.45 + (lf2Has(o, "devout") || o.age > 50 ? 0.3 : 0) + (v.arch === "sunny" || v.arch === "talkative" ? 0.3 : 0), sens: 0.1 });
+  pool.push(...cvWorldTopics(c));
+  pool.push(...cvPlayerTopics(c));
+  return pool.filter((t) => !c.told[t.key]);
+}
+function cvWorldTopics(c) {
+  const out = [], o = c.o, hr = c.hr, L = typeof tideLevel === "function" ? tideLevel() : 50;
+  if (town.coast) {
+    if (L < 26) out.push({ key: "w:tide", kind: "world", facet: "low", w: 0.7, sens: 0 });
+    else if (L > 82) out.push({ key: "w:tide", kind: "world", facet: "high", w: 0.5, sens: 0 });
+  }
+  if (isRestDay()) out.push({ key: "w:rest", kind: "world", facet: "rest", w: 0.8, sens: 0 });
+  else if (isRestDay(game.time + 1440)) out.push({ key: "w:rest", kind: "world", facet: "eve", w: 0.6, sens: 0 });
+  if (town.feast && game.time < town.feast.end) out.push({ key: "w:feast", kind: "world", facet: "feast", w: 1.1, sens: 0 });
+  for (const r of rooms) {
+    if (r.dead || !LF2_SELL[r.kind]) continue;
+    const st = lf2Stock(r), g = Object.keys(LF2_SELL[r.kind])[0];
+    if ((st[g] || 0) <= 0) out.push({ key: "w:out" + r.id, kind: "world", facet: "out", id: r.id, extra: g, w: 0.9, sens: 0 });
+  }
+  const J = o.job && LF2_JOBS[o.job];
+  if (J && J.room) {
+    const r = lf2Room(J.room);
+    if (r && (o.coin || 0) < 8) out.push({ key: "w:biz", kind: "world", facet: "biz", id: r.id, w: 1.5, sens: 0.1 });
+  }
+  for (let i = town.chron.length - 1; i >= 0 && i > town.chron.length - 40; i--) {
+    const ch = town.chron[i];
+    if (game.time - ch.time > 3 * 1440) break;
+    if (ch.kind === "life" || ch.kind === "death" || ch.kind === "wedding" || ch.kind === "birth" || ch.kind === "note") {
+      out.push({ key: "ch" + ch.time + ":" + i, kind: "chron", extra: ch, w: 0.7, sens: 0 });
+      if (out.length > 14) break;
     }
   }
-  return best;
+  return out;
 }
-function convNewsLine(c) {
-  const pkd = lf2PickTale(c.o, c.p);
-  if (!pkd) return null;
-  lf2Tell(c.o, c.p, pkd.ev, pkd.reveal, true);
-  const k = c.o.kn[pkd.ev.id], txt = k.a ? pkd.ev.text : pkd.ev.anonText || pkd.ev.text;
-  return (pkd.reveal ? `You know about that? It was ${lf2By(pkd.ev.actor).first}.` : anyOf(["Well, ", "Between us, ", "Word is "]) + lf2Low(txt) + ".") + (k.from ? ` ${byId(k.from) ? byId(k.from).first : "Someone"} told me.` : k.mine ? "" : " I saw it myself.");
-}
-function convHelp(c) {
-  const o = c.o, st = o.plan && o.plan[o.si];
-  if (!st || st.act !== "work") return anyOf(["Kind, but I have not started yet.", "Not just now. Ask me when I am knee-deep."]);
-  o.until = Math.max(game.time, (o.until || game.time) - 15);
-  bumpAff(c.p, o, 4, 8);
-  lfEmit("help", { actor: c.p, target: o, sev: 1, tags: ["help", "kindness"], chron: false, text: `${c.p.first} lent ${o.first} a hand with the work` });
-  return anyOf(["Many hands! Thank you.", "That went quicker. You are a good sort."]);
-}
-function convGive(c, q) {
-  if (c.p.coin < q) return "You do not have " + q + " denarii on you. Kind thought, though.";
-  lf2Give(c.p, c.o, q);
-  return anyOf(["Are you sure? Thank you. I will not forget it.", "That is\u2026 generous. Thank you."]);
-}
-function convFake(c, who, kind, tags, sev, text) {
-  const p = c.p, ev = lfEmit(kind, { actor: who, sev, tags, fake: true, witnessIds: [], chron: false, text });
-  ev.liar = p.id;
-  ev.know = [p.id];
-  delete (who.kn || {})[ev.id];
-  (p.kn || (p.kn = {}))[ev.id] = { t: game.time, from: null, cert: 1, a: true, mine: true, liar: true };
-  return ev;
-}
-function convRumour(c, q) {
-  const o = c.o, p = c.p, a = o.aff[q.id] || 0, trust = Math.max(0.2, Math.min(1, 0.55 + (o.aff[p.id] || 0) / 120));
-  if (!c.fx || !c.fx.believed) return anyOf(["I would not go saying that about people.", "Nobody has said anything like that to me."]);
-  if (a > 35 && Math.random() < 0.6) {
-    const ev2 = convFake(c, q, "rumour", ["kindness"], 1, `${q.first} has been quietly helping folk who are struggling`);
-    lf2Learn(o, ev2, p, 0.7 * trust, true);
-    return anyOf(["That is lovely to hear. It sounds just like them.", "Is that so? I always thought they had it in them."]);
+function cvPlayerTopics(c) {
+  const o = c.o, p = c.p, out = [], cv = cvWorld();
+  for (const s of cv.seen) {
+    if (s.actor !== p.id || !s.w.includes(o.id) || game.time - s.t > 2 * 1440) continue;
+    out.push({ key: "sw" + s.t, kind: "player", facet: "saw", extra: s, w: 2.4, sens: 0 });
   }
-  const ev = convFake(c, q, "rumour", ["theft"], 1, `${q.first} has been stealing from neighbours`);
-  lf2Learn(o, ev, p, 0.7 * trust, true);
-  return a > 50 ? `${q.first}? I do not believe a word of it.` : anyOf(["I knew it.", "Really? I will keep an eye on my things."]);
+  const heavy = Object.keys(p.inv || {}).filter((g) => (p.inv[g] || 0) >= 2 && (g === "wood" || g === "stone" || g === "herbs" || g === "cloth" || g === "tools"))[0];
+  if (heavy) out.push({ key: "carry" + heavy, kind: "player", facet: "carry", extra: heavy, w: 1.6, sens: 0 });
+  const bad = Object.keys(o.kn || {}).map((id) => lf2EvById(+id)).filter((ev) => ev && ev.actor === p.id && !ev.fake && ev.tags.some((t) => ["theft", "crime", "trespass", "deceit", "violence"].includes(t)) && game.time - ev.t < 4 * 1440 && o.kn[ev.id].a);
+  if (bad.length) out.push({ key: "susp", kind: "player", facet: "suspect", ev: bad[bad.length - 1], w: 3, sens: 0 });
+  const good = Object.keys(o.kn || {}).map((id) => lf2EvById(+id)).filter((ev) => ev && ev.actor === p.id && ev.target === o.id && ev.tags.some((t) => ["help", "kindness", "generous"].includes(t)) && game.time - ev.t < 6 * 1440);
+  if (good.length) out.push({ key: "thx", kind: "player", facet: "helped", ev: good[good.length - 1], w: 2.6, sens: 0 });
+  const others = Object.keys(o.kn || {}).map((id) => lf2EvById(+id)).filter((ev) => ev && ev.actor === p.id && ev.target && ev.target !== o.id && !ev.fake && game.time - ev.t < 3 * 1440 && ev.tags.some((t) => ["kindness", "help", "generous", "harm", "nuisance", "embarrass"].includes(t)));
+  if (others.length) out.push({ key: "ow" + others[others.length - 1].id, kind: "player", facet: "heard", ev: others[others.length - 1], w: 1.8, sens: 0 });
+  if (!c.close || c.close !== "stranger") {
+    const st = lf2Standing(p);
+    if (Math.abs(st) > 12) out.push({ key: "rep", kind: "player", facet: st > 0 ? "liked" : "disliked", w: 0.9, sens: 0 });
+  }
+  return out;
 }
-const cvSnub = (c) => {
-  const f = convToneFx(c, "harsh");
-  return { say: f.say, end: true };
+const cvKindWord = { theft: "theft", pickpocket: "stolen purse", quarrel: "quarrel", brawl: "brawl", insult: "insult", gift: "gift", help: "kindness", fined: "fine", arrest: "arrest", escape: "escape", bribe: "bribe", breakin: "break-in", snoop: "snooping", robbed: "robbery", jealous: "jealous scene", flirt: "flirting", crush: "crush", confront: "confrontation", cheat: "cheating", sabotage: "sabotage", blockdoor: "blocked door", shutin: "locked door", stumble: "tumble", smelly: "smell", sing: "singing", rumour: "rumour", dice: "dice game", charity: "charity", repair: "repair", newclothes: "new clothes", dole: "grain dole", report: "report", blackmail: "blackmail", distract: "distraction", knock: "knocking", wake: "wake-up" };
+function cvLabel(t) {
+  switch (t.kind) {
+    case "event": {
+      const a = t.ev.actor ? lf2By(t.ev.actor) : null, g = lf2By(t.ev.target);
+      return a && g ? `the ${cvKindWord[t.ev.kind] || "business"} between ${a.first} and ${g.first}` : g ? `what happened to ${g.first}` : a ? `what ${a.first} did` : `the ${cvKindWord[t.ev.kind] || "business"}`;
+    }
+    case "person":
+      return t.q.first;
+    case "back": {
+      const a = byId(t.back.a), b = byId(t.back.b);
+      return t.back.kind === "debt" ? `the money between ${a.first} and ${b.first}` : t.back.kind === "feud" ? `the quarrel between ${a.first} and ${b.first}` : `${a.first} and ${b.first}`;
+    }
+    case "ambition":
+      return "that dream";
+    case "regret":
+      return "that regret";
+    case "pride":
+      return "that story";
+    case "fear":
+      return "that fear";
+    case "secret":
+      return "that secret";
+    case "state":
+      return "that";
+    case "legend":
+      return (CV_LEGENDS.find((g) => g.id === t.id) || { title: "that" }).title;
+    default:
+      return "that";
+  }
+}
+const cvHook = (t, label) => ({ k: t.kind, key: t.key, label: label || cvLabel(t), q: t.q, ev: t.ev, back: t.back, facet: t.facet, id: t.id, extra: t.extra });
+const cvPersonHook = (q) => ({ k: "person", key: "pe" + q.id, label: q.first, q });
+const cvAdvise = { talkative: "I would stand on the square and tell everyone, frankly.", reserved: "I would say nothing. And I would watch.", nosy: "I am going to find out the rest. I always do.", cynic: "Nothing. Nothing ever comes of it.", sunny: "I would hope they sort it out between themselves.", wary: "I would lock my door and hope for the best.", prickly: "I would have it out with them. Loudly.", smooth: "I would make use of it. Quietly.", lonely: "I would bake them something. I do not know why. It is what I do." };
+const cvTraitWhy = { greedy: "Light fingers, that one. Always has been.", grumpy: "Temper like a kicked goat.", lazy: "Always about, never doing.", shy: "The quiet ones, you never quite know.", proud: "Cannot stand being wrong. Cannot stand anyone else being right.", anxious: "Frightened people do odd things.", gossipy: "Talks too much. Fills the gaps with whatever is to hand.", brave: "Does not think before doing. Never has.", devout: "Judges everyone, quietly, from a great height.", curious: "Gets into everything. Eventually, into the wrong thing.", jovial: "Laughs it off. Then you find out what was behind the laugh.", cheerful: "Too cheerful. Nobody is that happy for no reason.", dreamy: "Head in the clouds; hands somewhere they should not be.", generous: "Gives with one hand, keeps a ledger with the other.", sociable: "Everyone's friend. Which means nobody's.", homebody: "Never goes out. Which is when you wonder what they get up to." };
+const cvTraitGood = { generous: "Gives with both hands, that one. Always has.", cheerful: "Cannot help being kind. It is like a cough.", devout: "Does it quietly and tells no one. Which is how I know.", brave: "Does what needs doing, never mind who is looking.", jovial: "Does good the way other people do gossip: constantly, and with relish.", shy: "Never makes a fuss about it. You only find out afterwards.", sociable: "Likes people. It really is that simple, in the end.", dreamy: "Does the right thing and forgets to mention it." };
+const cvGoodWhy = (S) => {
+  const t = (S.traits || []).find((x) => cvTraitGood[x]);
+  return t ? cvTraitGood[t] : `That is simply what ${S.first} is like. Always has been.`;
 };
-const cvDirt = (c) => Object.keys(c.p.kn || {}).map((id) => lf2EvById(+id)).filter((ev) => ev && ev.actor === c.o.id && c.p.kn[ev.id].a && !ev.fake && ev.tags.some((t) => ["crime", "affair", "scandal", "theft"].includes(t)) && !(c.o.lf2Paid && c.o.lf2Paid[ev.id]));
-const cvSecret = (c) => Object.keys(c.o.kn || {}).map((id) => lf2EvById(+id)).filter((ev) => ev && ev.know.length <= 4 && !(c.p.kn && c.p.kn[ev.id]) && ev.actor !== c.p.id && ev.tags.some((t) => (LF2_TAGS[t] || {}).spice >= 1.2)).pop();
-const cvNewsToTell = (c) => Object.keys(c.p.kn || {}).map((id) => lf2EvById(+id)).filter((ev) => ev && ev.actor !== c.o.id && game.time - ev.t < 4 * 1440 && !(c.o.kn && c.o.kn[ev.id] && (c.o.kn[ev.id].a || !c.p.kn[ev.id].a))).slice(-6).reverse();
-function cvBlackmail(c, tone) {
+const cvEvWhy = (o, S) => {
+  const t = (S.traits || []).find((x) => cvTraitWhy[x]);
+  return t ? cvTraitWhy[t] : "No reason. A feeling.";
+};
+function cvStanceOf(ev, j) {
+  if (j.pity > 0.7 && j.v >= -0.6) return "pity";
+  if (j.v < -0.55) return "outraged";
+  if (ev.tags.some((t) => ["embarrass", "funny", "prank", "drunk", "smelly"].includes(t)) && Math.abs(j.v) < 0.7) return "amused";
+  if (j.v > 0.4) return "warm";
+  if (j.v < -0.2) return "outraged";
+  return "shrug";
+}
+function cvSuspect(c, ev) {
+  const o = c.o, key = ev.id;
+  o.cvSusp = o.cvSusp || {};
+  if (o.cvSusp[key]) return byId(o.cvSusp[key]);
+  const cand = npcs.filter((q) => q !== o && !q.dead && !q.infant && q.age >= 14 && q.id !== ev.target && q !== c.p).map((q) => ({ q, s: -(o.aff[q.id] || 0) + (q.traits.includes("greedy") ? 15 : 0) + Math.random() * 30 })).sort((a, b) => b.s - a.s);
+  const pick2 = cand[0] && cand[0].q;
+  if (pick2) o.cvSusp[key] = pick2.id;
+  return pick2;
+}
+function cvTellEvent(c, t, layer) {
+  const o = c.o, p = c.p, ev = t.ev, k = o.kn && o.kn[ev.id];
+  if (!k) return null;
+  const j = lf2Judge(o, ev, k.a), stance = cvStanceOf(ev, j), actor = k.a ? lf2By(ev.actor) : null, target = lf2By(ev.target), txt = k.a ? ev.text : ev.anonText || ev.text, hooks = [cvHook(t)];
+  if (actor && actor !== o) hooks.push(cvPersonHook(actor));
+  if (target && target !== o && target !== actor) hooks.push(cvPersonHook(target));
+  if (layer === 0) {
+    lf2Tell(o, p, ev, false, true);
+    const src = k.from ? ` ${byId(k.from) ? byId(k.from).first : "Someone"} told me.` : k.mine ? "" : " I saw it myself.";
+    return { text: `${cvLeadLine(o, p)} ${cvCap(lf2Low(txt))}.${src}${Math.random() < 0.7 ? " " + cvStanceLine(o, stance) : ""}`, hooks };
+  }
+  if (layer === 1) {
+    if (!actor) {
+      const S = cvSuspect(c, ev);
+      if (!S) return { text: "Nobody knows who. That is what bothers me.", hooks };
+      const ph2 = cvPron(S);
+      hooks.push(cvPersonHook(S));
+      return { text: `Me? I would look at ${S.first}. ${cvEvWhy(o, S)} I am not saying it was ${ph2.him}. I am saying I would look.`, hooks };
+    }
+    const rel = cvBackOf(actor).find((b) => b.a === (target && target.id) || b.b === (target && target.id)), ph = cvPron(actor);
+    if (rel) {
+      hooks.push({ k: "back", key: "bk" + rel.id, label: cvLabel({ kind: "back", back: rel }), back: rel });
+      return { text: `Why would ${actor.first} do it? You would have to know about ${actor.first} and ${target.first}. They have never got on. ${cvBackText(rel, o, 0) || ""}`, hooks };
+    }
+    if (j.v > 0.25) return { text: `Why did ${actor.first} do it? ${cvGoodWhy(actor)} ${target && target !== o ? `${target.first} will not forget it.` : ""}`.trim(), hooks };
+    return { text: `Why would ${actor.first} do it? ${cvEvWhy(o, actor)} ${target && target !== o ? `And ${target.first} was always going to be the one to feel it.` : ""}`.trim(), hooks };
+  }
+  if (layer === 2) {
+    const from = k.from && byId(k.from);
+    return { text: `${cvAdvise[c.v.arch]}${from ? ` Mind you, I only have it from ${from.first}, and I would not swear to ${cvPron(from).his} memory.` : ""}`, hooks };
+  }
+  const names = (ev.witnesses || []).map((id) => byId(id)).filter((q) => q && q !== o && q !== p).slice(0, 3);
+  if (!names.length || ev.unseen) return { text: "Nobody saw it, you see. That is the part that keeps me up.", hooks };
+  names.forEach((q) => hooks.push(cvPersonHook(q)));
+  return { text: `${names.map((q) => q.first).join(", ")} ${names.length > 1 ? "were" : "was"} there. Ask ${names.length > 1 ? "them" : cvPron(names[0]).him}. I would, only I have heard enough.`, hooks };
+}
+function cvTellPerson(c, t, layer) {
+  const o = c.o, p = c.p, q = t.q, a = o.aff[q.id] || 0, kw = kinWord(o, q), ph = cvPron(q), hooks = [cvHook(t)], L = cvLife(q);
+  if (layer === 0) {
+    const band = a > 55 ? [`is the best of us. I would walk into the sea for ${ph.him}.`, `is one of the good ones. Do not tell ${ph.him} I said so; I would never hear the end of it.`] : a > 20 ? [`is decent. Reliable. That is rarer than people think.`, `is good company, on the whole.`] : a > -20 ? [`keeps to ${ph.his} own business. I respect that. Mostly.`, `I hardly know ${ph.him}, to be honest. ${cvCap(ph.he)} seems fine.`] : a > -45 ? [`and I do not get on.`, `is somebody I can only take in small quantities.`] : [`is somebody I would cross the square to avoid.`, `\u2014 I do not say ${ph.his} name in my house.`];
+    const rel = cvBackOf(o).find((b) => b.a === q.id || b.b === q.id);
+    if (rel) hooks.push({ k: "back", key: "bk" + rel.id, label: cvLabel({ kind: "back", back: rel }), back: rel });
+    const job = q.age >= 16 && q.job && LF2_JOBS[q.job] ? lf2JobName(q) : q.age >= 16 && q.job ? (JOB_NOUN[q.job] || "").replace(/^an? /, "") : "";
+    return { text: `${q.first}${kw && kw !== "friend" && kw !== "rival" ? `, my ${kw},` : ""} ${anyOf(band)}${job && a > -45 && Math.random() < 0.4 ? ` ${cvCap(ph.he)} is the ${cvLow(job)}, you know.` : ""}`, hooks };
+  }
+  if (layer === 1) {
+    const rel = cvBackOf(o).find((b) => b.a === q.id || b.b === q.id);
+    if (rel) {
+      hooks.push({ k: "back", key: "bk" + rel.id, label: cvLabel({ kind: "back", back: rel }), back: rel });
+      return { text: cvBackText(rel, o, 0) + " " + (rel.kind === "flame" ? "Do not read too much into it." : "I would rather it was not like that."), hooks };
+    }
+    const evs = Object.keys(o.kn || {}).map((id) => lf2EvById(+id)).filter((ev) => ev && ev.actor === q.id && o.kn[ev.id].a && game.time - ev.t < 6 * 1440).sort((x, y) => y.sev - x.sev);
+    if (evs.length) {
+      const ev = evs[0], jv = lf2Judge(o, ev, true).v;
+      hooks.push({ k: "event", key: "ev" + ev.id, label: `what ${q.first} did`, ev });
+      return { text: jv < -0.3 ? `Honestly? It is what ${q.first} did. ${cvCap(lf2Low(ev.text))}. Hard to look at ${ph.him} the same way.` : jv > 0.3 ? `I think of the time ${lf2Low(ev.text)}. People like that are rarer than they should be.` : `Remember when ${lf2Low(ev.text)}? That is the sort of person ${q.first} is. Take that how you like.`, hooks };
+    }
+    if (kw && !["friend", "rival", "sweetheart"].includes(kw)) {
+      const K = { son: `Children. You love them and they send you the bill in grey hair.`, daughter: `Children. You love them and they send you the bill in grey hair.`, mother: `Parents. You spend your life turning into them and complaining about it.`, father: `Parents. You spend your life turning into them and complaining about it.`, husband: `Marriage. You learn each other's silences. Some of them are loud.`, wife: `Marriage. You learn each other's silences. Some of them are loud.` };
+      return { text: K[kw] || `We grew up too close. You know how it is. You love someone and you cannot stand how ${ph.he} breathes.`, hooks };
+    }
+    const tr2 = (q.traits || []).find((x) => cvTraitWhy[x]);
+    return { text: tr2 ? cvTraitWhy[tr2] : `Nothing I could put a finger on. It is a feeling, and I do not trust feelings, and I have it anyway.`, hooks };
+  }
+  if (layer === 2) {
+    const known = L.secret && L.secretKnownBy.includes(o.id);
+    if (known) {
+      hooks.push({ k: "secret", key: "qsec" + q.id, label: `${q.first}'s secret`, q });
+      return { text: `Between us \u2014 and I mean that \u2014 ${q.first} has something ${ph.he} would rather not have known. I am not saying what. I am saying it exists.`, hooks };
+    }
+    const rum = Object.keys(o.kn || {}).map((id) => lf2EvById(+id)).filter((ev) => ev && ev.actor === q.id && o.kn[ev.id].a).sort((x, y) => y.t - x.t)[0];
+    if (rum) {
+      hooks.push({ k: "event", key: "ev" + rum.id, label: `what ${q.first} did`, ev: rum });
+      return { text: `There is the matter of ${cvLow(rum.text)}. I do not know the half of it. People talk.`, hooks };
+    }
+    return { text: pk([`Past that I know nothing for certain. And I do not guess about people I have to meet at supper.`, `That is the lot. If there is more, nobody has been brave enough to tell me.`, `I have said more than I meant. The rest is theirs to tell.`]), hooks };
+  }
+  const L3 = L.secret && L.secretKnownBy.includes(o.id);
+  if (!L3) return null;
+  cvLearnLife(c, q, "secret");
+  return { text: `${q.first} ${cvThird(L.secret.text, q)}. There. I never said it, and neither did you.`, hooks };
+}
+function cvTellBack(c, t, layer) {
+  const o = c.o, b = t.back, txt = cvBackText(b, o, layer);
+  if (!txt) return null;
+  cvLearnBack(c, b, layer);
+  const other = cvOther(b, o), hooks = [cvHook(t)];
+  if (other && other !== o) hooks.push(cvPersonHook(other));
+  const A = byId(b.a), B = byId(b.b);
+  if (!other || other === o) {
+    hooks.push(cvPersonHook(A));
+    hooks.push(cvPersonHook(B));
+  }
+  return { text: (layer === 0 && !(o.id === b.a || o.id === b.b) ? cvLeadLine(o, c.p) + " " : "") + txt, hooks };
+}
+function cvTellSelf(c, t, layer) {
+  const o = c.o, L = cvLife(o), hooks = [cvHook(t)];
+  switch (t.kind) {
+    case "ambition":
+      return [{ text: `If I am honest, and I am, with you: I would like to ${L.ambition}.`, hooks }, { text: anyOf(["What is stopping me? Time. Coin. Nerve. Mostly nerve.", "People think wanting is the hard part. It is the easy part. The rest is getting out of bed."]), hooks }, { text: "I have never said that out loud. It sounds smaller outside my head.", hooks }][layer] || null;
+    case "regret":
+      return [{ text: `${cvCap(cvFirst(L.regret))}. If I could undo one thing, that is the one.`, hooks }, { text: "It comes back when it is quiet. Rain, mostly.", hooks }, { text: "I never told anyone how it felt. I am not sure I know.", hooks }][layer] || null;
+    case "pride":
+      return [{ text: `${cvCap(cvFirst(L.pride))}. Ask anyone. Well. Do not ask anyone. They would say I made it up.`, hooks }, { text: "It is the one story I have that is entirely mine.", hooks }][layer] || null;
+    case "fear":
+      return [{ text: `${cvCap(cvFirst(L.fear))}, if you want the truth.`, hooks }, { text: "I know it is silly. Knowing does not help.", hooks }][layer] || null;
+    case "secret": {
+      if (!L.secret) return null;
+      if (layer === 0) return { text: "There is something I do not talk about. Not because it is terrible. Because it is mine.", hooks };
+      cvLearnLife(c, o, "secret");
+      if (layer === 1) return { text: `${cvCap(cvFirst(L.secret.text))}. There. Now you have it.`, hooks };
+      const kb = L.secretKnownBy.map((id) => byId(id)).filter((q) => q && !q.dead);
+      kb.forEach((q) => hooks.push(cvPersonHook(q)));
+      return kb.length ? { text: `${kb.map((q) => q.first).join(" and ")} know${kb.length > 1 ? "" : "s"}. If it gets round, I will know who to thank.`, hooks } : { text: "You are the only person who knows. Please keep it that way.", hooks };
+    }
+    case "state": {
+      const s = CV_STATES.find((x) => x.id === t.id);
+      if (!s) return null;
+      return layer === 0 ? { text: pk(s.say, c), hooks } : { text: pk(s.deeper, c).replace("{tools}", "16"), hooks };
+    }
+  }
+  return null;
+}
+const CV_LEGEND_FLAVOUR = { cynic: " Rubbish, obviously. I still would not drink from it.", sunny: " I think it is lovely.", wary: " Do not repeat that where it can hear you.", talkative: " And that is the short version.", smooth: " I tell it better after a drink.", lonely: " Nobody asks me about it any more. Thank you." };
+function cvTellLegend(c, t, layer) {
+  const g = CV_LEGENDS.find((x) => x.id === t.id);
+  if (!g || !g.parts[layer]) return null;
+  cvKnows(c.p).legend[g.id] = Math.max(cvKnows(c.p).legend[g.id] || 0, layer + 1);
+  return { text: g.parts[layer] + (layer === g.parts.length - 1 ? CV_LEGEND_FLAVOUR[c.v.arch] || "" : ""), hooks: [cvHook(t, g.title)] };
+}
+function cvTellWorld(c, t, layer) {
+  const o = c.o, hooks = [cvHook(t, "that")];
+  switch (t.facet) {
+    case "low":
+      return { text: "The tide is right out. The flats are full of crabs and children, and I would not stand between either and a puddle.", hooks };
+    case "high":
+      return { text: "Water is right up to the wall. Mind your feet on the flats; it comes in faster than you think.", hooks };
+    case "rest":
+      return { text: "Rest day. I intend to do nothing, loudly.", hooks };
+    case "eve":
+      return { text: "Tomorrow is rest day, so everybody is pretending to work today. It is rather touching.", hooks };
+    case "feast":
+      return { text: "There is a bonfire on the square. Everyone is pretending they are not going.", hooks };
+    case "out": {
+      const r = rooms[t.id], g = t.extra;
+      return { text: `${LF2_BLD[r.kind] || "The shop"} is out of ${GOODS[g] ? GOODS[g].name : g} again. I could cry. I might.`, hooks };
+    }
+    case "biz":
+      return { text: anyOf(["Business is thin. People walk past and look at the floor. I charge fair. I do not know what else they want from me.", "The takings would not feed a sparrow. I do not say it to the customers; they feel bad enough."]), hooks };
+  }
+  return null;
+}
+function cvTellChron(c, t, layer) {
+  if (layer > 0) return null;
+  const txt = t.extra.text, named = npcs.filter((q) => !q.dead && q !== c.o && q !== c.p && new RegExp("\\b" + q.first + "\\b").test(txt)).slice(0, 2);
+  if (!named.length || new RegExp("\\b" + c.o.first + "\\b").test(txt)) return null;
+  return { text: `${cvLeadLine(c.o, c.p)} ${txt}`, hooks: named.map(cvPersonHook) };
+}
+const cvLiked = { liked: ["People like you, you know. I was not sure you realised.", "You have a good name round here. Do not waste it."], disliked: ["People are talking about you, {p}. Not kindly.", "I will say it plainly: your name is not a good one at the moment."] };
+function cvTellPlayer(c, t, layer) {
+  const o = c.o, p = c.p, v = c.v.arch, hooks = [cvHook(t, "that")];
+  switch (t.facet) {
+    case "saw": {
+      const s = t.extra, q = byId(s.target);
+      if (!q) return null;
+      const a = o.aff[q.id] || 0;
+      hooks.push(cvPersonHook(q));
+      return { text: `I saw you shove ${q.first} out of the way. ${a > 35 ? "Not nice, that." : a < -20 ? "I enjoyed that more than I should have." : "No harm done, I suppose. Everyone is fair game round here, apparently."}`, hooks };
+    }
+    case "carry": {
+      const g = t.extra, n = GOODS[g] ? GOODS[g].name : g;
+      hooks[0] = { k: "question", key: "q:carry", label: "that", id: "carry", extra: n };
+      return { text: `What are you hauling all that ${n} about for? You look like a pack mule with opinions.`, hooks };
+    }
+    case "suspect": {
+      const ev = t.ev;
+      hooks[0] = cvHook({ kind: "event", key: "ev" + ev.id, ev }, "what they say you did");
+      const L = { wary: "You are not going to take my purse, are you? I heard what you did.", prickly: "I have heard what you did. Keep your hands off my things.", smooth: "I heard something about you. I am not judging. I am\u2026 interested.", nosy: `Is it true? What they say you did? ${cvCap(ev.text)}. Tell me everything.`, cynic: `So you are the one who ${lf2Low(ev.text)}. I thought thieves would be taller.`, talkative: `Well! ${cvCap(ev.text)}. Everyone is talking. I almost did not talk to you. Almost.`, sunny: "Oh, I heard about it. I am sure there is an explanation. Is there an explanation?", reserved: "I heard. I have nothing to say about it. Yet.", lonely: "They say things about you. I do not care. I am just glad you are here." };
+      return { text: L[v], hooks };
+    }
+    case "helped":
+      return { text: anyOf(["I have not forgotten you helped me. People do not, round here. Not the good bits, at least.", "You helped me, and I never said thank you properly. Thank you."]), hooks };
+    case "heard": {
+      const ev = t.ev;
+      hooks[0] = cvHook({ kind: "event", key: "ev" + ev.id, ev }, "that");
+      return { text: `${cvLeadLine(o, p)} ${cvCap(lf2Low(ev.text))}. That was you, was it not?`, hooks };
+    }
+    case "liked":
+    case "disliked":
+      return { text: cvLine(o, cvLiked[t.facet], p, "rep"), hooks };
+  }
+  return null;
+}
+function cvTellAct(c) {
+  return { text: cvActSay(c), hooks: [{ k: "act", key: "act", label: "that" }] };
+}
+function cvTell(c, t, layer) {
+  c.told[t.key] = Math.max(c.told[t.key] || 0, layer + 1);
+  c.depth[t.key] = layer;
+  cvMem(c.o, c.p).topics[t.key] = game.time;
+  switch (t.kind) {
+    case "event":
+      return cvTellEvent(c, t, layer);
+    case "person":
+      return cvTellPerson(c, t, layer);
+    case "back":
+      return cvTellBack(c, t, layer);
+    case "ambition":
+    case "regret":
+    case "pride":
+    case "fear":
+    case "secret":
+    case "state":
+      return cvTellSelf(c, t, layer);
+    case "legend":
+      return cvTellLegend(c, t, layer);
+    case "world":
+      return layer > 0 ? null : cvTellWorld(c, t, layer);
+    case "chron":
+      return cvTellChron(c, t, layer);
+    case "player":
+      return cvTellPlayer(c, t, layer);
+    case "act":
+      return cvTellAct(c);
+  }
+  return null;
+}
+const CV_CLS = { warm: ["sympathize", "praise", "offer", "agree", "mercy", "matchmake", "apologize"], playful: ["tease", "joke", "flirt"], hostile: ["insult", "accuse", "blackmail"], inquisitive: ["ask", "probe", "press", "doubt"], sharing: ["gossip", "confide", "lie", "answer"] };
+const cvCls = (i) => {
+  for (const k in CV_CLS) if (CV_CLS[k].includes(i)) return k;
+  return "other";
+};
+const CV_BANNED = [/that'?s interesting/i, /i see what you mean/i, /it'?s complicated/i, /anything else (you'?d like|you want) to know/i, /that'?s life in the village/i, /^anything else\??$/i, /^goodbye\.?$/i, /how can i help you/i, /as an ai/i];
+function cvNew(o, p) {
+  cvWorld();
+  const aff = o.aff[p.id] || 0, know = o.know[p.id] || 0, st = o.plan && o.plan[o.si], close = aff < -15 ? "cold" : aff >= 60 ? "close" : aff >= 25 ? "friend" : know >= 10 ? "known" : "stranger", v = cvVoice(o);
+  const c = { o, p, v, mem: cvMem(o, p), aff, know, close, status: o.status || "", act: st && st.act, hr: game.time % 1440 / 60, kid: o.age < 12, warmth: 0, patience: 3 + v.chat * 5 + (close === "close" ? 2 : 0), turns: 0, depth: {}, told: {}, pressed: {}, usedOpt: {}, hooks: [], activity: "", cap: 0, log: [], asked: {}, said: {} };
+  c.activity = cvActivity(c);
+  c.cap = Math.round(5 + v.chat * 10 + (close === "friend" ? 3 : close === "close" ? 5 : 0) - (close === "stranger" ? 2 : 0));
+  return c;
+}
+const cvSync = (c) => {
+  c.aff = c.o.aff[c.p.id] || 0;
+};
+const CV_CB = {
+  insult: { hurt: ['Back again? Last time you told me "{t}". I have not forgotten.', 'I thought about what you said. "{t}". I decided to be the bigger person. Hello.'], sharp: ['Oh good, it is you. The one who said "{t}".', 'You called me \u2014 "{t}". Charming. Hello again.'] },
+  flirt: { any: ['Hm. Are you going to say something clever again, or just stand there? You said "{t}" and I have been thinking about it.', 'You said "{t}" to me. I remembered. I am not sure what to do with that.'] },
+  offer: { any: ["{p}! I have not forgotten you helped me. What can I do for you?", "You \u2014 the one who helped. I owe you."] },
+  joke: { any: ['Ha \u2014 you are the one who said "{t}". I have told it to three people.', 'I still laugh about "{t}". Do not tell anyone.'] },
+  tease: { any: ['You said "{t}" and nobody laughed. Including me. But I remembered.'] },
+  confide: { any: ['I have been thinking about what you told me. "{t}". I am glad you did.', 'You trusted me with "{t}". I have kept it. All of it.'] },
+  praise: { any: ['I have been smiling about "{t}" all week. Thank you.'] }
+};
+function cvCallback(c) {
+  const o = c.o, p = c.p, ms = c.mem.moments.filter((m2) => !m2.used && game.time - m2.t < 3 * 1440 && CV_CB[m2.k]);
+  if (!ms.length) return null;
+  const order = ["insult", "flirt", "offer", "confide", "joke", "tease", "praise"];
+  ms.sort((a, b) => order.indexOf(a.k) - order.indexOf(b.k));
+  const m = ms[0];
+  m.used = true;
+  const bank = CV_CB[m.k], hurt = ["sunny", "lonely", "wary", "reserved"].includes(c.v.arch), list = bank.any || (hurt ? bank.hurt : bank.sharp);
+  return { text: cvLine(o, list, p, "cb" + m.k).replace("{t}", m.text.replace(/\.$/, "")) };
+}
+const CV_KINDMUL = { nosy: { event: 1.5, person: 1.3, back: 1.3 }, reserved: { world: 1.3, event: 0.6, person: 0.6, back: 0.4, secret: 0.3, regret: 0.3 }, cynic: { person: 1.2, world: 1.2 }, lonely: { ambition: 1.4, regret: 1.4, state: 1.4 }, wary: { player: 1.5 }, talkative: { legend: 1.4, pride: 1.4 }, sunny: { legend: 1.3, world: 1.2 }, prickly: { person: 1.2 }, smooth: { pride: 1.3, person: 1.3 } };
+function cvChoose(c, pool) {
+  const mul = CV_KINDMUL[c.v.arch] || {}, open = cvOpenness(c);
+  let tot = 0;
+  const ws = pool.map((t) => {
+    let w = t.w * (mul[t.kind] || 1);
+    if (t.sens > open + 0.3) w *= 0.2;
+    w = Math.max(0.02, w);
+    tot += w;
+    return w;
+  });
+  let r = Math.random() * tot;
+  for (let i = 0; i < pool.length; i++) {
+    r -= ws[i];
+    if (r <= 0) return pool[i];
+  }
+  return pool[pool.length - 1];
+}
+const cvTopicOf = (h) => ({ key: h.key, kind: h.k, q: h.q, ev: h.ev, back: h.back, facet: h.facet, id: h.id, extra: h.extra, sens: cvSensOf(h) });
+function cvSensOf(h) {
+  switch (h.k) {
+    case "back":
+      return h.back ? h.back.sens : 0.4;
+    case "secret":
+      return 0.8;
+    case "regret":
+      return 0.55;
+    case "fear":
+      return 0.45;
+    case "event":
+      return 0.25;
+    case "person":
+      return 0.25;
+    default:
+      return 0.15;
+  }
+}
+function cvOpen(c) {
+  const o = c.o, p = c.p, v = c.v;
+  if (o.job === "Guard" && lf2Wanted()[p.id]) return { text: anyOf(["Stop right there, " + p.first + ".", "We need to talk about what happened.", "I have been looking for you."]), hooks: [{ k: "arrest", key: "arrest", label: "that" }] };
+  if (c.activity === "privy") return { text: anyOf(CV_ACTV.privy.say), hooks: [] };
+  if (c.close === "cold") return { text: anyOf(["What.", "Not now.", "*looks straight through you*", "I have nothing to say to you."]), hooks: [{ k: "cold", key: "cold", label: "that" }] };
+  const cb = cvCallback(c);
+  c.mem.talks++;
+  c.mem.last = game.time;
+  const greet = cb ? cb.text : c.mem.talks > 1 && game.time - c.mem.last < 90 ? "" : cvGreetLine(o, p, c.close);
+  c.pool = cvPool(c);
+  let utt = null;
+  const chatty = Math.random() < 0.3 + v.chat * 0.65;
+  if (chatty && c.pool.length) {
+    const t = cvChoose(c, c.pool);
+    utt = cvTell(c, t, 0);
+  }
+  if (!utt) utt = cvTellAct(c);
+  return { text: [greet, utt.text].filter(Boolean).join(" "), hooks: utt.hooks };
+}
+function cvAfterScene(o, p, said) {
+  const c = cvNew(o, p);
+  talkS = { n: o, p, sc: null, c: null, stage: 0, custom: true, conv: c, fns: [] };
+  c.mem.talks++;
+  c.pool = cvPool(c);
+  const t = c.pool.length ? cvChoose(c, c.pool) : null, u = t ? cvTell(c, t, 0) : cvTellAct(c);
+  return cvFrame(c, { text: said + " " + (u ? cvPivotLine(o) + " " + u.text : ""), hooks: u ? u.hooks : [] });
+}
+const pick1 = (a, c) => a[Math.floor(Math.random() * a.length)];
+function cvFollowUps(c, h) {
+  const o = c.o, p = c.p, out = [], add = (text, intent, w = 1, then, fam) => out.push({ text, intent, hook: h, w, then, fam: fam || h.k + "." + intent }), q = h.q, ph = q ? cvPron(q) : null, a = q ? o.aff[q.id] || 0 : 0, l = h.label;
+  switch (h.k) {
+    case "act": {
+      const A = CV_ACTV[cvActivity(c)] || CV_ACTV.any;
+      for (const [text, ans] of A.ask) add(text, "ask", 1.4, (c2) => cvActAnswer(c2, ans, text));
+      add(anyOf(["And how is that going, really?", "Do you like it? Or is it just what there is?"]), "ask", 0.8);
+      add(anyOf(["You always look busy.", "Is it ever not like this?"]), "tease", 0.5);
+      break;
+    }
+    case "person": {
+      const kw = kinWord(o, q), kin = kw && !["friend", "rival", "sweetheart"].includes(kw), job = q.age >= 16 && q.job && JOB_VERB[q.job], hob = q.hobby && HOBBY_TXT[q.hobby], fond = a > 55 || o.crush === q.id;
+      add(pick1([`What is ${q.first} really like?`, `How did you two end up like this?`]), "ask", 1.3, null, "pe.ask");
+      add(pick1([`There is more to you and ${q.first} than you say.`, `You keep not saying something about ${q.first}.`]), "probe", 1, null, "pe.probe");
+      if (kin) add(pick1([`Do you two always get on like that?`, `Families. Nobody can drive you madder.`]), "tease", 0.9, null, "pe.kin");
+      else if (fond) add(pick1([`You light up when you say ${ph.his} name.`, `If you like ${ph.him} that much, tell ${ph.him}.`]), "tease", 0.9, null, "pe.fond");
+      else if (a < -25) add(pick1([`You say ${ph.his} name like it tastes of vinegar.`, `Go on, what did ${q.first} do? Spill your wine?`]), "tease", 0.9, null, "pe.sour");
+      else if (hob) add(`Is it true ${q.first} spends every spare moment at ${hob}?`, "ask", 0.8, (c2) => ({ text: pk([`Every one. ${cvCap(ph.he)} would do it at ${ph.his} own wedding.`, `More or less. It is the only time ${ph.he} is truly quiet.`]), hooks: [cvHook({ kind: "person", key: "pe" + q.id, q })] }), "pe.hobby");
+      else if (job) add(`Does ${q.first} ever stop working?`, "tease", 0.7, null, "pe.work");
+      if (a < -20) add(pick1(["That sounds like it hurts.", "Sounds like it has cost you something."]), "sympathize", 0.8, null, "pe.sym");
+      if (a > -10 && a < 40 && (o.know[q.id] || 0) < 35) add(`You should spend more time with ${q.first}. I think you would get on.`, "matchmake", 0.5, (c2) => cvMatch(c2, q), "pe.match");
+      const news = cvEventsAbout(c, q);
+      if (news) add(`I heard ${lf2Low(news.text)}. Is that true?`, "gossip", 1.2, (c2) => cvGossipTell(c2, news), "pe.gossip");
+      if (a < 20 && !c.asked.lie) add(`I would watch ${q.first} around money, if I were you.`, "lie", 0.3, (c2) => {
+        c2.asked.lie = 1;
+        return cvLie(c2, q);
+      }, "pe.lie");
+      break;
+    }
+    case "event": {
+      const ev = h.ev, t = lf2By(ev.target), k = o.kn && o.kn[ev.id], actor = k && k.a ? lf2By(ev.actor) : null;
+      add("Where did this happen?", "ask", 1.1, (c2) => cvEvWhere(c2, ev), "ev.where");
+      add("When was this?", "ask", 0.9, (c2) => cvEvWhen(c2, ev), "ev.when");
+      add("Who saw it?", "ask", 1, (c2) => cvEvWho(c2, ev), "ev.who");
+      if (!actor) add("Who do you think did it?", "ask", 1.4, null, "ev.suspect");
+      add(pick1(["How do you know it is true?", "Does anyone actually know the whole story?"]), "probe", 0.9, null, "ev.probe");
+      add(pick1(["I heard it a bit differently.", "That sounds like the kind of thing people exaggerate."]), "doubt", 0.7, null, "ev.doubt");
+      add(pick1(["Well, nobody can say this village is dull.", "Next you will tell me the goose was involved."]), "joke", 0.6, null, "ev.joke");
+      if (t && t !== o) add(`Poor ${t.first}. Does anyone know how ${cvPron(t).he} is taking it?`, "sympathize", 0.8, null, "ev.sym");
+      break;
+    }
+    case "back": {
+      const b = h.back;
+      add(pick1(["How did that start?", "Have you ever tried to put it right?"]), "ask", 1.2, null, "bk.ask");
+      add("There is more to it than that, is there not?", "probe", 1, null, "bk.probe");
+      if (b && b.kind === "debt") add("How much are we talking about?", "ask", 1.1, (c2) => cvBackDetail(c2, b, "amt"), "bk.amt");
+      if (b && b.kind === "feud") add("Who started it?", "ask", 1.1, (c2) => cvBackDetail(c2, b, "start"), "bk.start");
+      add("Who else knows about this?", "ask", 0.9, (c2) => cvBackDetail(c2, b, "who"), "bk.who");
+      add(pick1(["That sounds like it has weighed on you.", "I am sorry. That cannot be easy."]), "sympathize", 0.9, null, "bk.sym");
+      if (b && b.kind === "flame") add("It sounds as if you still have a soft spot.", "tease", 0.8, null, "bk.tease");
+      add("Whatever happened, I will not repeat it.", "mercy", 0.9, null, "bk.mercy");
+      if (b && b.kind === "debt") add("Perhaps you could simply pay it back and sleep better.", "doubt", 0.6, null, "bk.pay");
+      break;
+    }
+    case "ambition":
+      add(pick1(["What is stopping you?", "When would you start?"]), "ask", 1.2);
+      add("That is a good thing to want.", "praise", 0.9);
+      add("And what would you do once you had it?", "tease", 0.7);
+      add("I have something like that. I never say it either.", "confide", 0.8, (c2) => cvReciprocate(c2));
+      break;
+    case "regret":
+      add(pick1(["That is a heavy thing to carry around.", "Could you put it right, even now?"]), "sympathize", 1.2);
+      add("What would you do differently?", "ask", 1);
+      add("I have a few of those myself.", "confide", 0.9, (c2) => cvReciprocate(c2));
+      add("Does anybody else know?", "probe", 0.7);
+      break;
+    case "pride":
+      add(pick1(["How did it happen?", "Did anyone see?"]), "ask", 1.1);
+      add("I bet that story gets better every year.", "tease", 1);
+      add("That is something to be proud of.", "praise", 0.9);
+      add("You are telling that story differently from last time. I think.", "doubt", 0.3);
+      break;
+    case "fear":
+      add("Since when?", "ask", 1);
+      add("That is nothing to be ashamed of.", "sympathize", 1);
+      add("Does anyone know?", "probe", 0.7);
+      add("I will not tell the geese.", "joke", 0.5);
+      break;
+    case "secret":
+      add(pick1(["You can tell me. I am good at keeping things.", "Whatever it is, I will not judge."]), "probe", 1.2);
+      add("Whatever it is, it stays with me.", "mercy", 1);
+      add("Is it the sort of secret that makes you smile or the other kind?", "ask", 0.8);
+      break;
+    case "state": {
+      add(pick1(["What is going on?", "Want to talk about it?"]), "ask", 1);
+      add("That sounds hard.", "sympathize", 0.9);
+      if (h.id === "hungry" && cvHasFood(p)) add("Here, have something to eat.", "offer", 1.3, (c2) => cvFeed(c2));
+      if ((h.id === "poor" || h.id === "tool") && p.coin >= 5) add("Here, take five denarii.", "offer", 1.3, (c2) => cvCoin(c2, 5));
+      if (h.id === "love") {
+        add("Who is it?", "probe", 1.3);
+        add("Go on, tell me. I will not tell a soul.", "press", 0.7);
+      }
+      if (h.id === "baby") add("Congratulations. Truly.", "praise", 1);
+      if (h.id === "high") add("Whatever it is, bottle it.", "joke", 0.8);
+      break;
+    }
+    case "legend": {
+      const g = CV_LEGENDS.find((x) => x.id === h.id);
+      add(pick1(["Is any of that true?", "Who told you that?"]), "ask", 1, null, "lg.ask");
+      add("Have you ever seen it for yourself?", "ask", 1, (c2) => ({ text: cvLegendSeen(c2), hooks: [h] }), "lg.seen");
+      add("That sounds like something somebody made up to sell wine.", "doubt", 0.7, null, "lg.doubt");
+      add("I have heard it told differently.", "confide", 0.5, (c2) => cvLegendSwap(c2, h), "lg.swap");
+      add("Who tells it best round here?", "ask", 0.8, (c2) => {
+        const q2 = npcs.filter((x) => x !== o && x !== p && !x.dead && x.age > 30 && (lf2Has(x, "gossipy") || lf2Has(x, "jovial") || lf2Has(x, "sociable"))).sort((x, y) => (o.know[y.id] || 0) - (o.know[x.id] || 0))[0];
+        return q2 ? { text: `${q2.first}. ${cvPron(q2).He} has been adding to it for years. By now it has a dragon in it.`, hooks: [cvPersonHook(q2)] } : null;
+      }, "lg.who");
+      add("Next you will say the well talks.", "joke", 0.5, null, "lg.joke");
+      break;
+    }
+    case "world":
+      add(pick1(["Is that usual?", "Does that happen every year?"]), "ask", 0.8);
+      add(pick1(["I will believe it when I see it.", "Nobody tells me these things."]), "joke", 0.5);
+      break;
+    case "chron":
+      add("Who else knows?", "ask", 1);
+      add("Poor things. All of them.", "sympathize", 0.6);
+      break;
+    case "player":
+      return cvPlayerOpts(c, h);
+    case "question":
+      return cvQuestionOpts(c, h);
+    case "avoid": {
+      const orig = h.extra;
+      add(pick1(["You went quiet just then.", "That is not all of it, is it?"]), "press", 1.2);
+      add(pick1(["It is all right. You can trust me with it.", "You do not have to say. But I am not going anywhere."]), "sympathize", 1.1);
+      add(pick1(["Fine. Another time.", "We can leave that one. Tell me something else."]), "change", 0.8);
+      break;
+    }
+    case "leaving":
+      add(`Walk with ${cvPron(o).him} for a bit.`, "plain", 1.4, (c2) => cvWalkWith(c2));
+      add(pick1(["Go on, then. I will find you later.", "Off you go. I will be around."]), "plain", 1, (c2) => ({ text: pk(["Do. And think about what I said.", "Mind how you go."]), hooks: [], end: true }));
+      break;
+    case "cold":
+      add("I am sorry about before.", "apologize", 1.3, (c2) => cvApologize(c2));
+      add("You are not worth the breath.", "insult", 0.4);
+      add("I will leave you be.", "plain", 0.8, (c2) => ({ text: "\u2026Good.", hooks: [], end: true }));
+      break;
+    case "arrest":
+      for (const t of ["Is this about the purse?", "There must be some mistake, officer.", "You will have to catch me."]) add(t, "plain", 1, (c2) => {
+        setTimeout(() => lf2ArrestDialog(c2.o, c2.p), 0);
+        return null;
+      });
+      break;
+  }
+  return out;
+}
+const cvDayWord = (t) => {
+  const d = Math.floor(game.time / 1440) - Math.floor(t / 1440), hh = t % 1440 / 60, part = hh < 11 ? "in the morning" : hh < 17 ? "in the afternoon" : hh < 21 ? "towards evening" : "late at night";
+  return (d <= 0 ? "Today" : d === 1 ? "Yesterday" : d + " days ago") + " " + part;
+};
+function cvEvWhere(c, ev) {
+  const hooks = [{ k: "event", key: "ev" + ev.id, label: "that", ev }];
+  return { text: ev.place ? pk([`By ${ev.place}, I heard. Of all places.`, `Round ${ev.place}. Everything happens round ${ev.place}.`]) : "Out in the open, which is the part I cannot get over.", hooks };
+}
+function cvEvWhen(c, ev) {
+  const hooks = [{ k: "event", key: "ev" + ev.id, label: "that", ev }];
+  return { text: `${cvDayWord(ev.t)}. It feels longer; news does that.`, hooks };
+}
+function cvEvWho(c, ev) {
+  const names = (ev.witnesses || []).map((id) => byId(id)).filter((q) => q && q !== c.o && q !== c.p && !q.dead).slice(0, 3), hooks = [{ k: "event", key: "ev" + ev.id, label: "that", ev }];
+  names.forEach((q) => hooks.push(cvPersonHook(q)));
+  return { text: !names.length || ev.unseen ? "Nobody, supposedly. Which is exactly what somebody would say who wanted it unseen." : `${names.map((q) => q.first).join(", ")}, among others. I would ask ${names.length > 1 ? "them" : cvPron(names[0]).him} before you ask me again.`, hooks };
+}
+function cvBackDetail(c, b, what) {
+  const o = c.o, A = byId(b.a), B = byId(b.b), hooks = [{ k: "back", key: "bk" + b.id, label: cvLabel({ kind: "back", back: b }), back: b }, cvPersonHook(A), cvPersonHook(B)];
+  const self = o.id === b.a || o.id === b.b, w = cvWilling(c, b.sens + 0.1, "bk" + b.id);
+  if (self && w === "no") return { text: cvDeflectLine(o, c.p), hooks: [{ k: "avoid", key: "avoid:bk" + b.id, label: "that", extra: hooks[0] }] };
+  if (what === "amt") {
+    cvLearnBack(c, b, 1);
+    return { text: self ? `${b.amt} denarii. I know to the coin. ${o.id === b.a ? "I lie awake counting it." : "I check the jar."}` : `About ${b.amt}, I heard. It does not sound much until it is you.`, hooks };
+  }
+  if (what === "start") return { text: `Ask ${self ? cvPron(cvOther(b, o)).him : A.first} and you will hear it was the other one. It was ${b.why}. After that it did not matter who began.`, hooks };
+  const k = b.knownBy.map((id) => byId(id)).filter((q) => q && q !== o && q !== c.p && !q.dead).slice(0, 3);
+  k.forEach((q) => hooks.push(cvPersonHook(q)));
+  return { text: k.length ? `${k.map((q) => q.first).join(" and ")}, as far as I know. ${pk(["And then there is you, now.", "It is never as few as people think."])}` : "Nobody, I thought. And now you.", hooks };
+}
+const CV_SEEN = { talkative: "Seen it? I have practically lived in it. Ask me about the time I was nearly in it.", reserved: "No.", nosy: "No, but I know three people who have. I am going through them one at a time.", cynic: "No. Neither has anyone. That is how you know it is a good story.", sunny: "No, but I like to think of it. Is that not nearly as good?", wary: "I stay well away. Some places do not like being looked at.", prickly: "Do I look like someone who goes and looks at things?", smooth: "I have seen a great many things. Most of them were just as disappointing.", lonely: "I go sometimes, when it is quiet. I like it better than pretending." };
+const cvLegendSeen = (c) => CV_SEEN[c.v.arch];
+const cvHasFood = (p) => FOODS.concat(["bread", "stew"]).some((g) => (p.inv[g] || 0) > 0);
+function cvPlayerOpts(c, h) {
+  const out = [], add = (text, intent, w, then) => out.push({ text, intent, hook: h, w, then }), o = c.o;
+  switch (h.facet) {
+    case "saw":
+      add("He had it coming.", "joke", 1, (c2) => cvLine2(c2, "tease", ["Ha! Probably.", "That is not for me to say."]));
+      add("I only needed to get past.", "answer", 1, (c2) => ({ text: pk(["Next time, say excuse me. It works wonders.", "Fair enough. The paths are narrow."]), hooks: [] }));
+      add("Do not tell anyone, please.", "confide", 0.8, (c2) => ({ text: pk(["Who would I tell? \u2026Do not answer that.", "Your secret is safe. It is not much of a secret."]), hooks: [] }));
+      break;
+    case "suspect":
+      add("That was not me.", "lie", 1, (c2) => cvDeny(c2, h));
+      add("It was me. I am not proud of it.", "confide", 1, (c2) => cvConfess(c2, h));
+      add("Prove it.", "accuse", 0.8, (c2) => cvDefy(c2, h));
+      add("There is more to it than they say.", "answer", 0.9, (c2) => ({ text: "There always is. Tell me, then. I am listening.", hooks: [h] }));
+      break;
+    case "helped":
+      add("It was nothing.", "answer", 1, (c2) => ({ text: pk(["It was not nothing. That is why I am saying it.", "Do not argue with me. I am grateful and I am going to be about it."]), hooks: [] }));
+      add("Anyone would have.", "answer", 0.8, (c2) => ({ text: "No. They would not. That is rather the point.", hooks: [] }));
+      add("You can repay me with a story.", "joke", 0.7, (c2) => cvPivotUtt(c2, h));
+      break;
+    case "heard":
+      add("Yes, that was me.", "answer", 1, (c2) => cvOwnUp(c2, h));
+      add("That is not how it happened.", "lie", 0.8, (c2) => cvDeny(c2, h));
+      add("Who told you that?", "probe", 0.9, (c2) => cvPivotUtt(c2, h));
+      break;
+    case "liked":
+      add("That is kind of you to say.", "praise", 1, (c2) => ({ text: "It is simply true. Try not to spoil it.", hooks: [] }));
+      add("And what do they say about you?", "tease", 0.8, (c2) => cvPivotUtt(c2, h));
+      break;
+    case "disliked":
+      add("What are they saying?", "ask", 1.2, (c2) => cvPivotUtt(c2, h));
+      add("Let them. I know what I am.", "answer", 0.8, (c2) => ({ text: pk(["Hm. I hope you do.", "Good. That sort of confidence is useful. Or doomed."]), hooks: [] }));
+      break;
+  }
+  return out;
+}
+function cvQuestionOpts(c, h) {
+  if (h.id === "carry") return [{ text: "It is for the house. A bit at a time.", intent: "answer", hook: h, w: 1, then: (c2) => ({ text: pk(["Slowly. Honest work. I respect it.", "That is how every house starts. With a person looking foolish carrying things."]), hooks: [] }) }, { text: "Rocks have excellent conversation.", intent: "joke", hook: h, w: 1, then: (c2) => cvLine2(c2, "joke", ["Ha! More than some of my neighbours.", "I have met worse company."]) }, { text: "It is a gift. For the whole village. Secret.", intent: "lie", hook: h, w: 0.8, then: (c2) => ({ text: pk(["A gift of\u2026 a rock? I will act surprised.", "Mysterious. I like it. I will tell nobody. Except possibly everybody."]), hooks: [] }) }];
+  const q = VX.ask.find((x) => x.id === h.id);
+  if (!q) return [];
+  return q.opts.map(([kind, text]) => ({ text, intent: kind === "honest" ? "confide" : kind === "joke" ? "joke" : kind === "lie" ? "lie" : "answer", hook: h, w: 1, then: (c2) => cvAnswerQuestion(c2, kind, text) }));
+}
+function cvAnswerQuestion(c, kind, text) {
+  const o = c.o, p = c.p;
+  cvNote(o, p, kind === "honest" ? "confide" : kind === "joke" ? "joke" : "answer", text);
+  if (kind === "honest") {
+    c.mem.trust += 5;
+    lfAff(o, p, 3);
+    return { text: `${cvReactLine(o, p, "warm")} ${pk(["I will remember that.", "That means something to me."])}`, hooks: [{ k: "self-p", key: "k", label: "that" }] };
+  }
+  if (kind === "joke") {
+    const ok = Math.random() < 0.55 + (c.v.humor === "none" ? -0.25 : 0.1);
+    lfAff(o, p, ok ? 2 : 0);
+    return { text: ok ? cvReactLine(o, p, "funny") : pk(["Hm. Very good. Avoid the question much?", "Ha. You dodge well."]), hooks: [] };
+  }
+  if (kind === "lie") {
+    c.mem.lied[text] = 1;
+    return { text: pk(["Is that so? How\u2026 impressive.", "Hm. I will take your word for it."]), hooks: [] };
+  }
+  return { text: pk(["Fair enough. Everyone is allowed a locked door.", "I understand. Some questions are for later."]), hooks: [] };
+}
+const cvLine2 = (c, cls, bank) => ({ text: pk(bank), hooks: [] });
+function cvObserve(c, h) {
+  const o = c.o, out = [], add = (text, intent, w, then, hook) => out.push({ text, intent, w, hook: hook || { k: "state", key: "obs:" + text, label: "that", id: "obs" }, then });
+  if (o.energy < 32) {
+    add("You look a little tired. Everything alright?", "sympathize", 1.2, (c2) => cvStateSay(c2, "tired"));
+    add("Long night?", "ask", 1, (c2) => cvStateSay(c2, "tired"));
+    add("Well, you look terrible today.", "insult", 0.5);
+  }
+  if (o.hunger > 60) {
+    add("Have you eaten anything today?", "sympathize", 1, (c2) => cvStateSay(c2, "hungry"));
+    add("That stomach is louder than you are.", "tease", 0.7, (c2) => cvStateSay(c2, "hungry"));
+  }
+  if (o.clean != null && o.clean < 35) {
+    add("Been to the baths lately?", "tease", 0.9);
+    add("There is a certain aroma about you today.", "insult", 0.4);
+  }
+  if (o.mood < 38) {
+    add("Having a rough morning?", "sympathize", 1.2, (c2) => cvStateSay(c2, "low"));
+    add("Who stole your breakfast?", "tease", 0.8, (c2) => cvStateSay(c2, "low"));
+  }
+  if (o.mood > 78) {
+    add("You are in a good mood. What happened?", "ask", 1.2, (c2) => cvStateSay(c2, "high"));
+    add("Did somebody give you gold, or did you win the goose?", "tease", 0.8, (c2) => cvStateSay(c2, "high"));
+  }
+  if (c.turns < 2 && o.hat && o.hat !== "none") add(`That is a fine ${o.hat === "cap" ? "cap" : "hat"}.`, "praise", 0.6);
+  if (o.toolQ != null && o.toolQ < 40 && o.job) add(`That ${cvToolNoun(o)} has seen better days.`, "tease", 0.9, (c2) => cvStateSay(c2, "tool"));
+  if (o.preg) add("You look well. When is the baby due?", "ask", 1.1, (c2) => cvStateSay(c2, "baby"));
+  if (!out.length && c.turns < 3) {
+    add("You look different today. Did something happen?", "ask", 0.5);
+    add("You look well.", "praise", 0.5);
+    add("Well, you look like you have seen better days.", "insult", 0.2);
+  }
+  return out;
+}
+function cvStateSay(c, id) {
+  const t = { key: "st" + id, kind: "state", id, sens: 0.1 };
+  const u = cvTell(c, t, c.told["st" + id] ? 1 : 0);
+  return u || null;
+}
+function cvEventsAbout(c, q) {
+  return Object.keys(c.p.kn || {}).map((id) => lf2EvById(+id)).filter((ev) => ev && !(c.gossiped && (c.gossiped[ev.id] || c.gossiped["t:" + ev.text])) && ev.actor === q.id && c.p.kn[ev.id] && c.p.kn[ev.id].a && !(c.o.kn && c.o.kn[ev.id] && c.o.kn[ev.id].a) && game.time - ev.t < 5 * 1440).sort((a, b) => b.t - a.t)[0] || null;
+}
+const cvNewsToTell = (c) => Object.keys(c.p.kn || {}).map((id) => lf2EvById(+id)).filter((ev) => ev && !(c.gossiped && (c.gossiped[ev.id] || c.gossiped["t:" + ev.text])) && ev.actor !== c.o.id && game.time - ev.t < 4 * 1440 && !(c.o.kn && c.o.kn[ev.id] && (c.o.kn[ev.id].a || !c.p.kn[ev.id].a))).filter((ev, i, a) => a.findIndex((x) => x.text === ev.text) === i).slice(-6).reverse();
+function cvShare(c) {
+  const out = [], p = c.p, o = c.o, list = cvNewsToTell(c);
+  if (list.length) {
+    const ev = list[0], txt = c.p.kn[ev.id].a ? ev.text : ev.anonText || ev.text;
+    out.push({ text: `Did you hear? ${cvCap(lf2Low(txt))}.`, intent: "gossip", w: 1.3, hook: { k: "world", key: "sh", label: "that" }, then: (c2) => cvGossipTell(c2, ev) });
+  }
+  const K = cvKnows(p).back;
+  for (const id in K) {
+    const b = cvWorld().back.find((x) => x.id === +id);
+    if (!b || b.a === o.id || b.b === o.id || b.knownBy.includes(o.id)) continue;
+    const A = byId(b.a), B = byId(b.b);
+    if (!A || !B) continue;
+    out.push({ text: b.kind === "debt" ? `I heard ${A.first} owes ${B.first} money.` : b.kind === "feud" ? `Is it true ${A.first} and ${B.first} are not speaking?` : `I heard ${A.first} and ${B.first} were once\u2026 close.`, intent: "gossip", w: 1.2, hook: { k: "world", key: "sh" + id, label: "that" }, then: (c2) => cvBackGossip(c2, b) });
+    break;
+  }
+  return out;
+}
+function cvDirt(c) {
+  return Object.keys(c.p.kn || {}).map((id) => lf2EvById(+id)).filter((ev) => ev && ev.actor === c.o.id && c.p.kn[ev.id].a && !ev.fake && ev.tags.some((t) => ["crime", "affair", "scandal", "theft"].includes(t)) && !(c.o.lf2Paid && c.o.lf2Paid[ev.id]));
+}
+function cvSpecial(c) {
+  const o = c.o, p = c.p, out = [], h = { k: "world", key: "sp", label: "that" };
+  if (cvDirt(c).length && c.close !== "stranger") {
+    out.push({ text: "I know what you did. I think we should talk about it.", intent: "blackmail", w: 1, hook: h, then: (c2) => cvBlackmail(c2) });
+    out.push({ text: "Whatever you did, I will not breathe a word.", intent: "mercy", w: 1, hook: h, then: (c2) => cvMercy(c2) });
+  }
+  if (town.tavern && lf2InRoom(p, town.tavern) && p.coin >= 3 && o.coin >= 3 && c.close !== "cold") {
+    out.push({ text: "Fancy a hand of dice? Three denarii a throw.", intent: "plain", w: 1.1, hook: h, then: (c2) => cvDice(c2, false) });
+    out.push({ text: "I brought my own dice. For luck.", intent: "cheat", w: 0.4, hook: h, then: (c2) => cvDice(c2, true) });
+  }
+  if (lf2Single(o) && lf2Single(p) && o.female !== p.female && c.aff >= 10 && c.close !== "cold") out.push({ text: pick1(["You are very easy to talk to. Among other things.", "Do you always look this good, or is it for my benefit?", "If I asked you to the bonfire, would you say yes?"]), intent: "flirt", w: 0.7, hook: h });
+  if (!c.asked.village) out.push({ text: pick1(["Anything strange going on round here lately?", "What is the word in the village? Nobody tells me anything."]), intent: "ask", w: 0.8, hook: h, then: (c2) => {
+    c2.asked.village = 1;
+    return cvVillageWord(c2);
+  } });
+  if (!c.asked.you) out.push({ text: pick1(["Tell me about yourself. Properly.", "What is a day like for you, really?"]), intent: "ask", w: 0.6, hook: h, then: (c2) => {
+    c2.asked.you = 1;
+    const L = cvLife(c2.o), keys = ["amb", "pri", "fea"], t = cvPool(c2).filter((x) => keys.includes(x.key));
+    const tt = t.length ? t[Math.floor(Math.random() * t.length)] : null;
+    return tt ? cvTell(c2, tt, 0) : null;
+  } });
+  return out;
+}
+function cvOptions(c, utt) {
+  if (utt.end || c.activity === "privy") return [];
+  let cands = [], follow = [];
+  for (const h of utt.hooks) follow.push(...cvFollowUps(c, h));
+  follow = follow.filter((o) => !c.usedOpt[o.text]);
+  cands.push(...follow, ...cvObserve(c).map((x) => ({ ...x, w: x.w * 0.55 })), ...cvShare(c).filter((x) => !c.asked["s:" + x.text]).map((x) => ({ ...x, w: x.w * 0.7 })), ...cvSpecial(c));
+  if (c.v.chat > 0.4 && !c.asked.q && c.turns > 2 && c.close !== "stranger") {
+  }
+  const sh = c.shownText || (c.shownText = {});
+  cands = cands.filter((o) => !c.usedOpt[o.text] && (sh[o.text] || 0) < 2);
+  const used = /* @__PURE__ */ new Set(), picked = [], seen = c.shown || (c.shown = {}), byW = (arr) => arr.map((x) => ({ x, s: x.w * (0.6 + Math.random() * 0.8) * Math.pow(0.3, seen[x.fam || x.intent] || 0) })).sort((a, b) => b.s - a.s).map((y) => y.x);
+  const take = (arr, pred) => {
+    for (const o of byW(arr)) {
+      if (pred && !pred(o)) continue;
+      if (used.has(o.text)) continue;
+      used.add(o.text);
+      picked.push(o);
+      return true;
+    }
+    return false;
+  };
+  if (follow.length) {
+    take(follow, (o) => cvCls(o.intent) === "inquisitive");
+  }
+  take(follow.length ? follow : cands, (o) => !picked.some((p) => cvCls(p.intent) === cvCls(o.intent)));
+  take(cands, (o) => !picked.some((p) => cvCls(p.intent) === cvCls(o.intent)));
+  if (picked.length < 3) take(cands, (o) => !picked.some((p) => p.intent === o.intent));
+  if (!picked.length) picked.push({ text: anyOf(["Go on.", "You were saying."]), intent: "ask", w: 1, hook: utt.hooks[0] });
+  const fin = picked.slice(0, 3);
+  for (const o of fin) {
+    seen[o.fam || o.intent] = (seen[o.fam || o.intent] || 0) + 1;
+    sh[o.text] = (sh[o.text] || 0) + 1;
+  }
+  return fin;
+}
+function cvEffect(c, opt) {
+  const o = c.o, p = c.p, v = c.v, cls = cvCls(opt.intent), has = (t) => lf2Has(o, t), aff = o.aff[p.id] || 0, m = c.mem, text = opt.text;
+  switch (opt.intent) {
+    case "praise": {
+      if (aff <= -20) {
+        lfAff(o, p, 1);
+        return { react: pk(["Flattery will not work on me.", "Hm. What do you want?"]) };
+      }
+      lfAff(o, p, has("shy") || has("proud") || has("cheerful") ? 4 : 3);
+      m.trust += 1;
+      c.warmth += 1;
+      cvNote(o, p, "praise", text);
+      return { react: cvReactLine(o, p, "warm") };
+    }
+    case "sympathize":
+    case "mercy":
+      lfAff(o, p, 2);
+      m.trust += 2;
+      c.warmth += 2;
+      return Math.random() < 0.6 ? { react: cvReactLine(o, p, "thanks") } : {};
+    case "offer":
+    case "matchmake":
+    case "agree":
+      c.warmth += 1;
+      return {};
+    case "apologize":
+      return {};
+    case "tease":
+    case "joke": {
+      const ok = Math.random() < Math.max(0.15, Math.min(0.9, 0.35 + aff / 150 + (v.humor !== "none" ? 0.25 : 0) + (["sunny", "talkative", "smooth"].includes(v.arch) ? 0.1 : 0) - (["wary", "reserved"].includes(v.arch) ? 0.1 : 0)));
+      if (ok) {
+        lfAff(o, p, 2);
+        c.warmth += 1;
+        cvNote(o, p, "joke", text);
+        return { react: cvReactLine(o, p, "funny") };
+      }
+      lfAff(o, p, -1);
+      cvNote(o, p, "tease", text);
+      return { react: opt.intent === "tease" ? pk(["\u2026Funny.", "Hm. If you say so.", "That was meant to be funny, was it?"]) : pk(["\u2026Right.", "Hm."]) };
+    }
+    case "flirt": {
+      const ok = aff > 30 || aff > 15 && Math.random() < 0.3;
+      lfAff(o, p, ok ? 5 : -2);
+      if (ok && Math.random() < 0.4) o.crush = p.id;
+      lfEmit("flirt", { actor: p, target: o, sev: 1, tags: ["romance"], chron: false, text: `${p.first} was flirting with ${o.first}` });
+      cvNote(o, p, "flirt", text);
+      return { react: cvReactLine(o, p, ok ? "flirtok" : "flirtno") };
+    }
+    case "insult": {
+      lfEmit("insult", { actor: p, target: o, sev: 1, loud: true, tags: ["nuisance", "embarrass"], chron: false, text: `${p.first} was rude to ${o.first}'s face` });
+      lfAff(o, p, o.age < 14 ? -8 : -5);
+      m.trust -= 4;
+      c.patience -= 2;
+      c.warmth -= 3;
+      cvNote(o, p, "insult", text);
+      if ((has("brave") || has("grumpy") || (o.drunk || 0) > 60) && Math.random() < 0.35 && LF2.on("tavern")) {
+        setTimeout(() => lf2Brawl(o, p), 0);
+        return { react: "Right. That does it!", end: true };
+      }
+      const r = cvReactLine(o, p, "sting");
+      return c.patience <= 0 ? { react: r + " " + pk(["I am done talking to you.", "We are finished here."]), end: true } : { react: r };
+    }
+    case "accuse":
+      lfAff(o, p, -4);
+      m.trust -= 2;
+      c.patience -= 1;
+      return { react: cvReactLine(o, p, "sting") };
+    case "probe":
+    case "press":
+    case "doubt": {
+      if (opt.intent === "press") c.patience -= ["prickly", "wary", "reserved"].includes(v.arch) ? 1 : 0.4;
+      if (c.patience <= 0) return { react: cvReactLine(o, p, "press") + " " + pk(["I am going now.", "That is enough of that."]), end: true };
+      return opt.intent === "press" && Math.random() < 0.5 ? { react: cvReactLine(o, p, "press") } : {};
+    }
+    case "confide":
+      m.trust += 4;
+      lfAff(o, p, 2);
+      c.warmth += 2;
+      cvNote(o, p, "confide", text);
+      return {};
+    default:
+      return {};
+  }
+}
+function cvRespond(c, opt) {
+  c.turns++;
+  c.usedOpt[opt.text] = 1;
+  if (opt.intent === "gossip") c.asked["s:" + opt.text] = 1;
+  cvSync(c);
+  const fx = cvEffect(c, opt);
+  if (fx.end) return { text: fx.react || "\u2026", hooks: [], end: true };
+  let body;
+  if (opt.then) {
+    body = opt.then(c);
+    if (body === null && (opt.hook && opt.hook.k === "arrest" || !opt.hook)) return null;
+  } else if (opt.hook) body = cvContinue(c, opt);
+  if (!body) body = cvPivotUtt(c, opt.hook);
+  if (body && body.end) return { text: [fx.react, body.text].filter(Boolean).join(" "), hooks: [], end: true };
+  return cvClose(c, { text: [fx.react, body.text].filter(Boolean).join(" "), hooks: body.hooks });
+}
+function cvContinue(c, opt) {
+  const h = opt.hook, cls = cvCls(opt.intent), o = c.o;
+  if (h.k === "avoid") {
+    const orig = h.extra;
+    if (opt.intent === "press") c.pressed[orig.key] = (c.pressed[orig.key] || 0) + 1;
+    else if (opt.intent === "sympathize") c.warmth += 2;
+    else return cvPivotUtt(c, orig);
+    return cvDeepen(c, orig, c.depth[orig.key] === void 0 ? 0 : c.depth[orig.key] + 1);
+  }
+  if (cls === "inquisitive" || cls === "warm" || opt.intent === "confide") {
+    if (opt.intent === "doubt" && h.k === "person") return cvDeepen(c, h, (c.depth[h.key] || 0) + 1);
+    return cvDeepen(c, h, c.depth[h.key] === void 0 ? 1 : c.depth[h.key] + 1);
+  }
+  if (cls === "playful" || opt.intent === "insult") return Math.random() < 0.6 ? cvDeepen(c, h, c.depth[h.key] === void 0 ? 1 : c.depth[h.key] + 1) : cvPivotUtt(c, h);
+  return cvPivotUtt(c, h);
+}
+function cvDeepen(c, h, layer) {
+  const t = cvTopicOf(h), max = CV_MAXLAYER[h.k] === void 0 ? 1 : CV_MAXLAYER[h.k];
+  if (layer > max) return cvPivotUtt(c, h);
+  const w = cvWilling(c, t.sens + 0.08 * layer, h.key), o = c.o, p = c.p;
+  if (w === "no") {
+    if (cvSlips(c)) {
+      const u2 = cvTell(c, t, layer);
+      if (u2) return { text: `${u2.text} \u2026I should not have said that.`, hooks: u2.hooks };
+    }
+    if (["smooth", "wary", "prickly"].includes(c.v.arch) && (h.k === "secret" || h.k === "back") && Math.random() < 0.45) {
+      c.mem.lied[h.key] = 1;
+      return { text: pk(["There is nothing to tell. You have been listening to gossip.", "I do not know what you have heard. It is not true."]), hooks: [{ k: "avoid", key: "avoid:" + h.key, label: h.label, extra: h }] };
+    }
+    return { text: cvDeflectLine(o, p), hooks: [{ k: "avoid", key: "avoid:" + h.key, label: h.label, extra: h }] };
+  }
+  const u = cvTell(c, t, layer);
+  if (!u) return cvPivotUtt(c, h);
+  if (w === "hint") u.text = pk(["I will say this much: ", "I will only say: "]) + u.text.split(/(?<=[.!?])\s/)[0];
+  return u;
+}
+function cvPivotUtt(c, h) {
+  const o = c.o, pool = cvPool(c);
+  c.pool = pool;
+  const rel = (t) => {
+    let w = t.w;
+    if (h) {
+      if (h.q && (t.q === h.q || t.back && (t.back.a === h.q.id || t.back.b === h.q.id) || t.ev && (t.ev.actor === h.q.id || t.ev.target === h.q.id))) w *= 4;
+      if (h.ev && t.q && (t.q.id === h.ev.actor || t.q.id === h.ev.target)) w *= 4;
+      if (h.k === t.kind) w *= 1.3;
+    }
+    return w;
+  };
+  if (pool.length) {
+    let tot = 0;
+    const ws = pool.map((t) => {
+      const w = Math.max(0.02, rel(t) * (t.sens > cvOpenness(c) + 0.3 ? 0.2 : 1));
+      tot += w;
+      return w;
+    });
+    let r = Math.random() * tot, pickT = pool[0];
+    for (let i = 0; i < pool.length; i++) {
+      r -= ws[i];
+      if (r <= 0) {
+        pickT = pool[i];
+        break;
+      }
+    }
+    const u = cvTell(c, pickT, 0);
+    if (u) return { text: (["event", "chron"].includes(pickT.kind) || Math.random() > 0.55 ? "" : cvPivotLine(o) + " ") + u.text, hooks: u.hooks };
+  }
+  const qs = VX.ask.filter((x) => !c.asked["q" + x.id]);
+  if (qs.length) {
+    const q = anyOf(qs);
+    c.asked["q" + q.id] = 1;
+    return { text: q.say.replace("{p}", c.p.first), hooks: [{ k: "question", key: "q:" + q.id, label: "that", id: q.id }] };
+  }
+  return { text: pk(["I have talked your ear off. Come back when I have more to say.", "That is all I have. You have got the best of me today."]), hooks: [], end: true };
+}
+function cvClose(c, u) {
+  if (u.end) return u;
+  if (c.turns >= c.cap && !c.leaving && c.activity !== "privy") {
+    c.leaving = true;
+    const walk = ["talkative", "lonely", "sunny", "nosy"].includes(c.v.arch) ? " Walk with me a little? I will finish the story." : "";
+    return { text: u.text + " " + pk(["I have kept you, and I have things to do.", "Look at me going on. I have got to get back to it."]) + walk, hooks: [{ k: "leaving", key: "leaving", label: "that" }] };
+  }
+  if (c.patience <= 0) return { text: u.text + " " + pk(["I am going now.", "That is enough for one day."]), hooks: [], end: true };
+  return u;
+}
+function cvActAnswer(c, ans, label) {
+  const o = c.o, p = c.p;
+  let t;
+  if (Array.isArray(ans)) t = anyOf(ans);
+  else if (ans.startsWith("TAG:")) {
+    tagAlong(o, p, 120, "With " + p.first);
+    like(o, p, 2);
+    t = ans.slice(4);
+  } else if (ans.startsWith("HELP:")) t = (() => {
+    const st = o.plan && o.plan[o.si];
+    if (!st || st.act !== "work") return pk(["Kind, but I have not started yet.", "Not just now. Ask me when I am knee-deep."]);
+    o.until = Math.max(game.time, (o.until || game.time) - 15);
+    bumpAff(p, o, 4, 8);
+    lfEmit("help", { actor: p, target: o, sev: 1, tags: ["help", "kindness"], chron: false, text: `${p.first} lent ${o.first} a hand with the work` });
+    cvNote(o, p, "offer", label);
+    return ans.slice(5);
+  })();
+  else if (ans.startsWith("FOOD:")) t = cvHasFood(p) ? (() => {
+    lf2GiveFood(p, o);
+    cvNote(o, p, "offer", label);
+    return ans.slice(5);
+  })() : "Kind of you, but you look as empty-handed as I am.";
+  else if (ans.startsWith("BUY:")) t = p.coin < 3 ? "Kind of you to offer with empty pockets." : (() => {
+    p.coin -= 3;
+    o.coin = (o.coin || 0) + 3;
+    like(o, p, 3);
+    return ans.slice(4);
+  })();
+  else if (ans === "BIZ") t = (o.coin || 0) < 6 ? "Thin. Everyone is counting coins." : "Steady. Better after supper, when people are hungry and careless.";
+  else if (ans === "MOOD") t = o.mood < 35 ? "Could be better. Could be a lot better." : o.mood > 70 ? "Better than most, to be honest." : "Fine. Ordinary. I will take ordinary.";
+  else t = cvVillageWord(c).text;
+  return { text: t, hooks: [{ k: "act", key: "act", label: "that" }] };
+}
+const cvFeed = (c) => {
+  lf2GiveFood(c.p, c.o);
+  cvNote(c.o, c.p, "offer", "a meal");
+  return { text: pk(["Oh, bless you. I was about to chew my sleeve.", "Thank you. I will not forget that."]), hooks: [] };
+};
+const cvCoin = (c, q) => {
+  if (c.p.coin < q) return { text: "You do not have " + q + " denarii on you. Kind thought, though.", hooks: [] };
+  lf2Give(c.p, c.o, q);
+  cvNote(c.o, c.p, "offer", q + " denarii");
+  c.mem.trust += 4;
+  return { text: pk(["Are you sure? Thank you. I will not forget it.", "That is\u2026 generous. Thank you."]), hooks: [] };
+};
+function cvMatch(c, q) {
+  lfAff(c.o, q, 6);
+  bumpKnow(c.o, q, 15);
+  c.o.lf2Seek = q.id;
+  return { text: pk([`${q.first}? I should talk to ${cvPron(q).him} more. You may be right.`, `Hm. ${q.first}. I will make the effort. Do not make a fuss about it.`]), hooks: [cvPersonHook(q)] };
+}
+function cvLie(c, q) {
+  const o = c.o, p = c.p, trust = Math.max(0.2, Math.min(1, 0.55 + (o.aff[p.id] || 0) / 120 + c.mem.trust / 300)) * (lf2Has(o, "curious") ? 0.75 : 1);
+  if (Math.random() >= trust) {
+    lfAff(o, p, -2);
+    c.mem.trust -= 2;
+    return { text: pk(["I would not go saying that about people.", "Nobody has said anything like that to me. Where did you get it?"]), hooks: [cvPersonHook(q)] };
+  }
+  const same = Object.keys(p.kn || {}).map((id) => lf2EvById(+id)).find((e) => e && e.fake && e.actor === q.id && e.liar === p.id && game.time - e.t < 4 * 1440);
+  const ev = same || lfEmit("rumour", { actor: q, sev: 1, tags: ["theft"], fake: true, witnessIds: [], chron: false, text: `${q.first} has been stealing from neighbours` });
+  if (!same) {
+    ev.liar = p.id;
+    ev.know = [p.id];
+    delete (q.kn || {})[ev.id];
+    (p.kn || (p.kn = {}))[ev.id] = { t: game.time, from: null, cert: 1, a: true, mine: true, liar: true };
+  }
+  lf2Learn(o, ev, p, 0.7 * trust, true);
+  cvNote(o, p, "lie", `${q.first} cannot be trusted`);
+  return { text: (o.aff[q.id] || 0) > 50 ? `${q.first}? I do not believe a word of it.` : pk(["I knew it.", "Really? I will keep an eye on my things."]), hooks: [cvPersonHook(q)] };
+}
+function cvGossipTell(c, ev) {
+  const o = c.o, p = c.p, k = p.kn[ev.id], known = k.a, j = lf2Judge(o, ev, known), stance = cvStanceOf(ev, j);
+  (c.gossiped = c.gossiped || {})[ev.id] = 1;
+  c.gossiped["t:" + ev.text] = 1;
+  if (o.kn && o.kn[ev.id] && (o.kn[ev.id].a || !known)) return { text: pk(["Old news, I am afraid. It reached me yesterday.", "You are the third to tell me that. It has been a busy day for it.", "I know. Everyone knows. It is only you who thinks it is a secret."]), hooks: [{ k: "event", key: "ev" + ev.id, label: cvLabel({ kind: "event", ev }), ev }] };
+  lf2Tell(p, o, ev, false, true);
+  bumpAff(p, o, 1, 6);
+  const a = known && ev.actor ? lf2By(ev.actor) : null, hooks = [{ k: "event", key: "ev" + ev.id, label: cvLabel({ kind: "event", ev }), ev }];
+  if (a && a !== o) hooks.push(cvPersonHook(a));
+  c.told["ev" + ev.id] = 1;
+  return { text: `${cvStanceLine(o, stance)} ${a ? `${a.first}, of all people.` : ""}`.trim(), hooks };
+}
+function cvBackGossip(c, b) {
+  const o = c.o, hooks = [{ k: "back", key: "bk" + b.id, label: cvLabel({ kind: "back", back: b }), back: b }];
+  const A = byId(b.a), B = byId(b.b);
+  hooks.push(cvPersonHook(A), cvPersonHook(B));
+  if (!b.knownBy.includes(o.id)) b.knownBy.push(o.id);
+  c.told["bk" + b.id] = 0;
+  const near = o.aff[A.id] > 40 || o.aff[B.id] > 40;
+  return { text: near ? pk(["Who told you that? That is not for repeating.", "You should not carry that around. It will hurt someone."]) : pk(["So that is getting round. I thought only a few knew.", "You have heard that too. This village has no walls."]), hooks };
+}
+function cvReciprocate(c) {
+  const o = c.o;
+  c.mem.trust += 3;
+  const keys = ["reg", "sec", "fea", "amb"].filter((k) => !c.told[k]), t = cvPool(c).find((x) => keys.includes(x.key));
+  if (!t) return null;
+  const u = cvTell(c, t, c.told[t.key] ? 1 : 0);
+  return u ? { text: `${pk(["Thank you for telling me that.", "I did not expect that, and I am glad of it."])} Since we are being honest: ${u.text}`, hooks: u.hooks } : null;
+}
+function cvLegendSwap(c, h) {
+  lfAff(c.o, c.p, 1);
+  return { text: pk(["Different? How? Tell me. I love a second version.", "Ha! Everyone has their own. Which makes me think mine is wrong."]), hooks: [h] };
+}
+function cvWalkWith(c) {
+  tagAlong(c.o, c.p, 120, "Walking with " + c.p.first);
+  like(c.o, c.p, 3);
+  return { text: pk(["Come on, then. Keep up.", "Good. I hate finishing a story to an empty road."]), hooks: [], end: true };
+}
+function cvApologize(c) {
+  const o = c.o, p = c.p, ok = (o.aff[p.id] || 0) > -40;
+  if (ok) {
+    lfAff(o, p, 6);
+    return { text: pk(["\u2026Thank you. I will think about it.", "Hm. That cost you something to say. I noticed."]), hooks: [{ k: "act", key: "act", label: "that" }] };
+  }
+  return { text: "Words are cheap.", hooks: [], end: true };
+}
+function cvVillageWord(c) {
+  const pool = cvPool(c).filter((t) => t.kind === "event" || t.kind === "chron" || t.kind === "back");
+  if (!pool.length) return { text: pk(["Quiet, honestly. Suspiciously quiet.", "Nothing worth repeating. Which means somebody is up to something."]), hooks: [] };
+  const u = cvTell(c, cvChoose(c, pool), 0);
+  return u || { text: "Nothing worth repeating.", hooks: [] };
+}
+function cvDeny(c, h) {
+  const o = c.o, p = c.p, trust = Math.max(0.15, Math.min(0.9, 0.4 + (o.aff[p.id] || 0) / 140 + c.mem.trust / 250));
+  if (Math.random() < trust) {
+    lfAff(o, p, 1);
+    return { text: pk(["Then I will believe you. People make things up.", "I thought so. It did not sound like you."]), hooks: [] };
+  }
+  lfAff(o, p, -3);
+  c.mem.trust -= 3;
+  return { text: pk(["That is not what I heard.", "Hm. You said that quickly."]), hooks: [h] };
+}
+function cvConfess(c, h) {
+  const o = c.o, p = c.p;
+  lfAff(o, p, lf2Has(o, "devout") || lf2Has(o, "proud") ? -4 : 2);
+  c.mem.trust += 3;
+  return { text: pk(["Well. I appreciate you saying so. That is more than most would.", "I did not think you would admit it. That is worth something."]), hooks: [] };
+}
+function cvDefy(c, h) {
+  lfAff(c.o, c.p, -3);
+  c.patience -= 1;
+  return { text: pk(["I do not need to. Everyone is saying it.", "Hm. Bold."]), hooks: [h] };
+}
+function cvOwnUp(c, h) {
+  lfAff(c.o, c.p, 1);
+  return { text: pk(["I thought so. It sounded like you.", "Good. People who own what they do are rarer than they should be."]), hooks: [] };
+}
+function cvBlackmail(c) {
   const o = c.o, p = c.p, ev = cvDirt(c).pop();
-  if (!ev) return { say: "I do not know what you mean.", end: true };
-  const full = Math.max(5, Math.round(o.coin * 0.4)), pays = (lf2Has(o, "anxious") || lf2Has(o, "proud") || ev.tags.includes("affair")) && !lf2Has(o, "brave") && o.coin >= 5;
-  if (tone === "kind") {
-    lfAff(o, p, 8);
-    (o.lf2Paid = o.lf2Paid || {})[ev.id] = 1;
-    return { say: "You\u2026 thank you. I will not forget this. I mean it." };
-  }
-  if (tone === "honest") {
-    lfAff(o, p, -3);
-    return { say: anyOf(["I do not know what you mean.", "\u2026Who told you? Never mind. Please. Do not spread it."]) };
-  }
-  if (tone === "sly") {
-    if (!pays) return { say: "I do not follow. Say it plainly, or not at all." };
-    const ask = Math.max(3, Math.round(full / 2));
+  if (!ev) return { text: "I do not know what you mean.", hooks: [], end: true };
+  const ask = Math.max(5, Math.round(o.coin * 0.4)), pays = (lf2Has(o, "anxious") || lf2Has(o, "proud") || ev.tags.includes("affair")) && !lf2Has(o, "brave") && o.coin >= 5;
+  lfAff(o, p, -25);
+  c.mem.trust -= 20;
+  lfEmit("blackmail", { actor: p, target: o, sev: 2, tags: ["deceit", "crime"], witnessIds: [], chron: false, text: `${p.first} blackmailed ${o.first} over ${lf2Low(ev.text).replace(new RegExp("^" + o.first + " "), "how they ")}` });
+  cvNote(o, p, "insult", "I know what you did");
+  if (pays) {
     o.coin -= ask;
     p.coin += ask;
     (o.lf2Paid = o.lf2Paid || {})[ev.id] = 1;
-    lfAff(o, p, -8);
-    return { say: `Ah. I see. Perhaps ${ask} denarii would help you keep it quiet.`, end: true };
-  }
-  lfAff(o, p, -25);
-  lfEmit("blackmail", { actor: p, target: o, sev: 2, tags: ["deceit", "crime"], witnessIds: [], chron: false, text: `${p.first} blackmailed ${o.first} over ${lf2Low(ev.text).replace(new RegExp("^" + o.first + " "), "how they ")}` });
-  if (pays) {
-    o.coin -= full;
-    p.coin += full;
-    (o.lf2Paid = o.lf2Paid || {})[ev.id] = 1;
-    return { say: `\u2026How much? Fine. ${full} denarii. Now leave me alone.`, end: true };
+    return { text: `\u2026How much? Fine. ${ask} denarii. Now leave me alone.`, hooks: [], end: true };
   }
   if (Math.random() < 0.3) o.lf2Report = { ev: lf2Ev()[lf2Ev().length - 1].id, t: game.time, a: true };
-  return { say: anyOf(["Go on, tell everyone. See if I care.", "You would not dare.", "Get out of my sight."]), end: true };
+  return { text: pk(["Go on, tell everyone. See if I care.", "You would not dare.", "Get out of my sight."]), hooks: [], end: true };
 }
-function cvFlirt(c, tone) {
+function cvMercy(c) {
+  const o = c.o, p = c.p, ev = cvDirt(c).pop();
+  if (ev) (o.lf2Paid = o.lf2Paid || {})[ev.id] = 1;
+  lfAff(o, p, 8);
+  c.mem.trust += 10;
+  cvNote(o, p, "confide", "I will not breathe a word");
+  return { text: pk(["You\u2026 thank you. I will not forget this. I mean it.", "I do not know what to say. Nobody has ever done that."]), hooks: [{ k: "act", key: "act", label: "that" }] };
+}
+function cvDice(c, cheat) {
   const o = c.o, p = c.p;
-  if (tone === "harsh") return cvSnub(c);
-  const ok = (o.aff[p.id] || 0) > (tone === "kind" ? 25 : tone === "sly" ? 35 : 30);
-  lfAff(o, p, ok ? tone === "kind" ? 6 : 5 : tone === "sly" ? -3 : -2);
-  if (ok && Math.random() < 0.4) o.crush = p.id;
-  lfEmit("flirt", { actor: p, target: o, sev: 1, tags: ["romance"], chron: false, text: `${p.first} was flirting with ${o.first}` });
-  return { say: ok ? anyOf(["Oh! Well. Maybe.", "*laughs* You are terrible.", "Hm. You are not so bad yourself."]) : anyOf(["I do not think so.", "Is that supposed to work?"]) };
-}
-function cvDice(c, tone) {
-  const o = c.o, p = c.p;
-  if (p.coin < 3 || o.coin < 3) return { say: "I have no money to bet.", end: true };
-  const r = lf2Dice(p, o, 3, tone === "sly");
-  if (r && r.caught) return { say: "Those dice are LOADED!", end: true };
-  if (tone === "harsh") lfAff(o, p, -1);
-  return { say: r ? r.win === p ? anyOf(["Bah! Take it.", "Again? You are lucky tonight."]) : "Ha! Mine." : "\u2026", next: [CV_DICE_AGAIN] };
-}
-const CV_DICE_AGAIN = { label: "Again?", type: "agree", tones: { kind: "One more. I am enjoying this.", sly: "One more. I feel lucky. Very lucky.", harsh: "Again. I want to see you lose." }, own: cvDice };
-function cvTellNews(c, tone) {
-  const o = c.o, p = c.p;
-  let list = cvNewsToTell(c);
-  if (!list.length) return { say: "Nothing new, then. Pity." };
-  const val = (ev2) => lf2Judge(o, ev2, p.kn[ev2.id].a).v;
-  if (tone === "kind") list = list.slice().sort((a, b) => val(b) - val(a));
-  else if (tone === "sly") list = list.slice().sort((a, b) => Math.max(...b.tags.map((g) => (LF2_TAGS[g] || {}).spice || 0.5)) - Math.max(...a.tags.map((g) => (LF2_TAGS[g] || {}).spice || 0.5)));
-  const ev = list[0], j = lf2Judge(o, ev, p.kn[ev.id].a);
-  lf2Tell(p, o, ev, false, true);
-  return { say: j.v < -0.4 ? anyOf(["That is terrible!", "No! I had no idea."]) : j.v > 0.4 ? "How lovely." : anyOf(["Really?", "Well, well."]) + " " + lf2Cap(p.kn[ev.id].a ? ev.text : ev.anonText || ev.text) + ". Who would have thought." };
-}
-function cvSecretTell(c, tone) {
-  const sec = cvSecret(c);
-  if (!sec) return { say: "Actually\u2026 no. Forget I said anything." };
-  lf2Tell(c.o, c.p, sec, false, true);
-  return { say: `Keep this to yourself, but ${lf2Low(c.o.kn[sec.id].a ? sec.text : sec.anonText || sec.text)}.` };
-}
-const CV_LIFE = [
-  {
-    id: "tool",
-    ok: (c) => c.o.toolQ != null && c.o.toolQ < 35 && c.o.job && c.job !== "Guard",
-    say: (c) => [`My ${convToolNoun(c.o)} is nearly worn through. Another week and it is a stick.`, `The ${convToolNoun(c.o)} is on its last legs. So am I, some days.`],
-    r: (c) => [
-      { label: "That sounds hard.", type: "agree", ans: ["It is slow work with a bad tool. Everything takes twice as long.", "I will manage. I always do. Muttering helps."] },
-      { label: "Here, take five denarii.", type: "offer", tones: { sly: "Five denarii. You will owe me one, of course." }, ans: (c2) => convGive(c2, 5) }
-    ]
-  },
-  {
-    id: "hungry",
-    ok: (c) => c.o.hunger >= 62 && !/^(eat|eating|foodOut|forage|bakery)$/.test(c.activity),
-    say: ["My stomach has been growling at me since morning.", "I could eat a goat. A small one."],
-    r: (c) => [
-      { label: "Have something to eat.", type: "offer", ans: (c2) => {
-        const g = FOODS.concat(["bread", "stew"]).find((g2) => (c2.p.inv[g2] || 0) > 0);
-        if (!g) return "You have nothing on you either, have you? Kind thought.";
-        lf2GiveFood(c2.p, c2.o);
-        return "Oh, bless you. I was about to chew my sleeve.";
-      } },
-      { label: "When did you last eat?", ans: ["Yesterday. Probably. The days run together.", "Long enough ago to count."] }
-    ]
-  },
-  {
-    id: "tired",
-    ok: (c) => c.o.energy < 28 && c.activity !== "bed",
-    say: ["I could sleep on a fence post.", "Barely keeping my eyes open. Do not let me stop moving."],
-    r: (c) => [{ label: "Go and rest.", type: "agree", ans: ["After this. Probably. If I do not fall over first.", "You are right. I know you are right."] }, { label: "Late night?", ans: ["Early morning. Same thing.", "The kind where you lie there thinking. You know how it is."] }]
-  },
-  {
-    id: "poor",
-    ok: (c) => (c.o.coin || 0) < 4 && c.personal,
-    say: ["My purse is thin. I keep checking it, as if it might change its mind.", "Money is tight. Do not repeat that. Pride, you understand."],
-    r: (c) => [{ label: "Here, take five denarii.", type: "offer", ans: (c2) => convGive(c2, 5) }, { label: "Times are hard for everyone.", type: "agree", ans: ["They are. It helps to hear it, strangely.", "We get by. Somehow we always do."] }]
-  },
-  {
-    id: "low",
-    ok: (c) => c.o.mood < 30 && c.personal,
-    say: ["Rotten day. Everything has gone slightly wrong.", "I am not myself today. Ask me tomorrow."],
-    r: (c) => [{ label: "What is wrong?", ans: ["Nothing, really. Everything. You know the feeling.", "It piles up, you know? Small things. Then one more small thing."] }, { label: "It will pass.", type: "agree", ans: ["It usually does. Thank you for saying so.", "I know. It just takes longer than I would like."] }]
-  },
-  {
-    id: "high",
-    ok: (c) => c.o.mood > 82,
-    say: ["I am in a wonderful mood and I have no idea why.", "Good day. Good, good day. I feel like singing."],
-    r: (c) => [{ label: "What is the secret?", ans: ["No secret. Sleep, food, nobody shouting. It is a short list.", "I have not found out yet. I will tell you when I do."] }, { label: "It suits you.", type: "agree", ans: ["Ha! Does it? I will wear it more often.", "Careful, you will make me blush."] }]
-  },
-  {
-    id: "love",
-    ok: (c) => c.o.crush != null && c.personal && byId(c.o.crush) && !byId(c.o.crush).dead,
-    say: ["Hm? Oh. Nothing. I was thinking. About\u2026 things.", "Sorry. My mind wandered off. It does that lately."],
-    r: (c) => [
-      { label: "Who is it?", ans: (c2) => {
-        const q = byId(c2.o.crush);
-        return c2.close === "close" ? `\u2026${q.first}. Do not look at me like that. Do not tell anyone.` : "I do not know what you mean. I do not know what you mean at all.";
-      } },
-      { label: "You look happy.", type: "agree", ans: ["Do I? I did not mean to. It just happens.", "I suppose I am."] }
-    ]
-  },
-  {
-    id: "baby",
-    ok: (c) => !!c.o.preg,
-    say: ["*hand on belly* Any day now. Any day. Everyone keeps asking.", "The little one has been kicking all morning. Practising for something."],
-    r: (c) => [{ label: "How are you feeling?", ans: ["Enormous. Happy. Enormous.", "Tired and thrilled. Mostly in that order."] }, { label: "Congratulations.", type: "agree", ans: ["Thank you. I am still getting used to the idea.", "Thank you. It has not sunk in yet."] }]
-  },
-  {
-    id: "news",
-    ok: (c) => c.close !== "stranger" && !!lf2PickTale(c.o, c.p),
-    say: ["Have you heard? I should not say. \u2026I am going to say.", "There is word going round. Do you want to hear it?"],
-    r: (c) => [{ label: "Go on, tell me.", ans: (c2) => convNewsLine(c2) || "Actually, never mind. Forget I spoke." }, { label: "I would rather not.", type: "agree", ans: ["Fair enough. Probably wise.", "Hm. You are the first person to say that. I respect it."] }]
-  },
-  {
-    id: "folk",
-    ok: (c) => c.close !== "stranger" && c.close !== "cold" && !!(c.q = c.q || convPerson(c)),
-    say: (c) => {
-      const q = c.q, a = c.o.aff[q.id] || 0;
-      return a > 35 ? [`Have you seen ${q.first} today? Lovely person.`, `${q.first} did me a kindness the other day. I have not forgotten.`] : a < -20 ? [`Have you had dealings with ${q.first}? I would be careful.`, `Do not get me started on ${q.first}.`] : [`Have you seen ${q.first} lately? I have not.`, `I keep meaning to talk to ${q.first}.`];
-    },
-    r: (c) => {
-      const q = c.q;
-      return [
-        { label: `What is ${q.first} like, really?`, about: q, tones: { kind: `I have always liked ${q.first}.`, sly: `Funny. I heard something about ${q.first}\u2026`, harsh: `${q.first} is a menace, if you ask me.` }, sly: (c2) => convRumour(c2, q), ans: (c2) => {
-          const w = q.mood > 65 ? "doing well" : q.mood < 35 ? "having a rough time" : "getting by", a = c2.o.aff[q.id] || 0;
-          return `${q.first} is ${w}, I think. ${a > 40 ? "I am fond of " + q.first + "." : a < -20 ? "We are not close." : "Decent enough."}`;
-        } },
-        { label: `Give ${q.first} my best.`, type: "agree", about: q, tones: { kind: `${q.first} deserves all the best.`, sly: `Tell ${q.first} I said something nice. I did not.`, harsh: `Tell ${q.first} to mind their own business.` }, ans: (c2) => {
-          lfAff(c2.o, q, 1);
-          return anyOf(["I will. They will like that.", "I will let them know."]);
-        } }
-      ];
-    }
-  },
-  {
-    id: "hobby",
-    ok: (c) => !!c.o.hobby && c.personal && (c.act === "leisure" || c.hr > 17),
-    say: (c) => [`I would rather be ${HOBBY_TXT[c.o.hobby]} than almost anything.`, `Nothing beats a bit of ${HOBBY_TXT[c.o.hobby]} after a long day.`],
-    r: (c) => [{ label: "Are you any good at it?", ans: ["Terrible. It is not about being good.", "Ha! No. But I am enthusiastic."] }, { label: "We should go together.", type: "offer", ans: (c2) => {
-      tagAlong(c2.o, c2.p, 120, `${lf2Cap(HOBBY_TXT[c2.o.hobby])} with ${c2.p.first}`);
-      like(c2.o, c2.p, 3);
-      return "We should. Now? Why not now?";
-    } }]
-  },
-  {
-    id: "quirk",
-    ok: (c) => c.close === "close" && !!c.o.quirk && Math.random() < 0.5,
-    say: (c) => [`Can I tell you something silly? People say I ${convQuirk(c.o.quirk)}. Do not laugh.`],
-    r: (c) => [{ label: "I will not laugh.", type: "agree", ans: ["You are laughing on the inside. I can see it.", "Thank you. It means a lot that you would listen."] }, { label: "That is wonderful.", type: "agree", ans: ["Is it? I never thought so. Thank you.", "Ha! I like that you think so."] }]
-  },
-  {
-    id: "unease",
-    ok: (c) => c.close !== "stranger" && c.close !== "cold" && cvDirt(c).length > 0,
-    say: ["You keep looking at me strangely. Is something wrong?", "Do I have something on my face? You keep staring."],
-    r: (c) => [
-      { label: "I know what you did.", type: "ask", own: (c2, tone) => cvBlackmail(c2, tone), harshOK: true, tones: { kind: "Your secret is safe with me.", sly: "It would be a shame if folk found out\u2026", harsh: "I know what you did. Pay up." } },
-      { label: "Nothing. Sorry.", type: "agree", ans: ["Hm. If you say so.", "Good. I am a private person."] }
-    ]
-  },
-  {
-    id: "spark",
-    ok: (c) => lf2Single(c.o) && lf2Single(c.p) && c.o.female !== c.p.female && c.aff >= 10 && c.close !== "cold",
-    say: ["You are looking well today. Not that I noticed.", "Oh! I did not see you there. \u2026I mean, hello."],
-    r: (c) => [
-      { label: "So are you.", type: "agree", own: (c2, tone) => cvFlirt(c2, tone), tones: { kind: "I think about you more than I should.", sly: "Funny. I was hoping to run into you.", harsh: "Do not flatter yourself." } },
-      { label: "Thank you.", type: "agree", ans: ["Ha. Do not let it go to your head.", "It was only an observation."] }
-    ]
-  },
-  {
-    id: "dice",
-    ok: (c) => !!town.tavern && lf2InRoom(c.p, town.tavern) && c.p.coin >= 3 && c.o.coin >= 3 && c.close !== "cold",
-    say: ["Fancy a hand of dice? Three denarii a throw.", "Dice? The wine is better when someone is losing money."],
-    r: (c) => [
-      { label: "You are on.", type: "agree", own: cvDice, tones: { kind: "Let us make a night of it.", sly: "Dice? I brought my own. For luck.", harsh: "Let us see you lose, then." } },
-      { label: "Not tonight.", type: "agree", ans: ["Your loss. Literally, probably.", "Suit yourself."] }
-    ]
-  },
-  {
-    id: "secret",
-    ok: (c) => c.close === "close" && !!cvSecret(c),
-    say: ["There is something I have been dying to tell someone.", "Can you keep a secret? Because I cannot."],
-    r: (c) => [
-      { label: "You can trust me.", type: "agree", own: (c2, tone) => tone === "harsh" ? cvSnub(c2) : cvSecretTell(c2, tone), tones: { kind: "Whatever it is, it stays with me.", sly: "I am a vault. Mostly.", harsh: "Spit it out, then." } },
-      { label: "Maybe not.", type: "agree", ans: ["Wise. I would not trust me either.", "Fair. Forget I spoke."] }
-    ]
-  },
-  {
-    id: "gossipTo",
-    ok: (c) => c.close !== "stranger" && c.close !== "cold" && (lf2Has(c.o, "gossipy") || lf2Has(c.o, "curious") || Math.random() < 0.25) && cvNewsToTell(c).length > 0,
-    say: ["I never hear anything. Tell me something.", "What is the word about town? I am always the last to know."],
-    r: (c) => [
-      { label: "Well, I heard\u2026", type: "agree", own: (c2, tone) => tone === "harsh" ? cvSnub(c2) : cvTellNews(c2, tone), tones: { kind: "Something nice, actually\u2026", sly: "Between us\u2026", harsh: "You really are the last to know." } },
-      { label: "Nothing much.", type: "agree", ans: ["Typical. The one day I ask.", "Hm. I will find out some other way."] }
-    ]
+  if (p.coin < 3 || o.coin < 3) return { text: "I have no money to bet.", hooks: [] };
+  const r = lf2Dice(p, o, 3, cheat);
+  if (r && r.caught) {
+    cvNote(o, p, "insult", "loaded dice");
+    return { text: "Those dice are LOADED!", hooks: [], end: true };
   }
-];
-const CV_QV = { hums: "hum", is: "am", has: "have", does: "do", writes: "write", feeds: "feed", claims: "claim", collects: "collect", talks: "talk", forgets: "forget", keeps: "keep", swears: "swear", sings: "sing", dreams: "dream" };
-function convQuirk(q) {
-  const w = q.split(" ");
-  let i = 0;
-  while (i < w.length - 1 && /^(secretly|never|always)$/.test(w[i])) i++;
-  w[i] = CV_QV[w[i]] || w[i];
-  return w.join(" ").replace(/\bthey\b/g, "I").replace(/\btheir\b/g, "my");
+  return { text: r ? r.win === p ? pk(["Bah! Take it.", "Again? You are lucky tonight."]) : "Ha! Mine." : "\u2026", hooks: [{ k: "act", key: "act", label: "that" }] };
 }
-const CV_VOICE = { cheerful: ["Ha! ", ""], jovial: ["Ho! ", ""], grumpy: ["Hmph. ", ""], shy: ["Oh. Um. ", ""], anxious: ["Oh! ", ""], dreamy: ["*gazes off* ", ""] };
-function convVoice(o, say2) {
-  if (!o.cvVoiced || game.time - o.cvVoiced > 20) {
-    const t = o.traits.find((x) => CV_VOICE[x]);
-    if (t && Math.random() < 0.4) {
-      o.cvVoiced = game.time;
-      return CV_VOICE[t][0] + say2;
-    }
-  }
-  return say2;
+function cvTurn(c, u) {
+  const opts = cvOptions(c, u);
+  c.hooks = u.hooks;
+  c.cur = opts;
+  for (const re of CV_BANNED) if (re.test(u.text)) console.warn("banned phrase in dialogue:", u.text);
+  c.log.push({ who: "npc", text: u.text });
+  return { say: u.text, opts: opts.map((o) => [o.text, () => cvStep(c, o)]) };
 }
-const CV_COLD = ["What.", "Not now.", "*looks straight through you*", "I have nothing to say to you."];
-function convPickLife(c, more) {
-  const seen = c.o.cvSeen || (c.o.cvSeen = {});
-  const pool = CV_LIFE.filter((L2) => {
-    if (c.used[L2.id]) return false;
-    if (!more && seen[L2.id] && game.time - seen[L2.id] < 240) return false;
-    try {
-      return L2.ok(c);
-    } catch (e) {
-      return false;
-    }
-  });
-  if (!pool.length) return null;
-  const L = anyOf(pool);
-  c.used[L.id] = 1;
-  seen[L.id] = game.time;
-  return L;
+function cvStep(c, opt) {
+  c.log.push({ who: "p", text: opt.text });
+  const u = cvRespond(c, opt);
+  if (!u) return null;
+  return cvTurn(c, u);
 }
-function convOpen(c, more) {
-  const o = c.o;
-  if (c.close === "cold") return { say: anyOf(CV_COLD), replies: [{ label: "About before. I am sorry.", type: "agree", ans: (c2) => {
-    const ok = c2.aff > -40;
-    if (ok) lfAff(c2.o, c2.p, 6);
-    return ok ? "Hm. \u2026Thank you. I will think about it." : "Words are cheap.";
-  } }] };
-  if (o.job === "Guard" && lf2Wanted()[c.p.id]) return { say: anyOf(["Stop right there, " + c.p.first + ".", "We need to talk about what happened.", "I have been looking for you."]), replies: [{ label: "About that business\u2026", type: "agree", harshOK: true, tones: { kind: "I would like to explain.", sly: "Whatever do you mean, officer?", harsh: "Come and get me." }, own: (c2, tone) => {
-    setTimeout(() => lf2ArrestDialog(c2.o, c2.p), 0);
-    return { close: true };
-  } }] };
-  if (c.kid) {
-    const K = anyOf(CV_KID);
-    return { say: convVoice(o, pk(K.say)), replies: K.r };
-  }
-  const A = CV_ACT[convActivity(c)] || CV_ACT.any;
-  let say2 = pk(A.say, c), replies = A.r.slice();
-  const L = (more || c.close !== "stranger") && (more || Math.random() < 0.55) ? convPickLife(c, more) : null;
-  if (L) {
-    say2 = more ? pk(L.say, c) : say2 + " " + anyOf(["", "", "Oh. ", "Anyway. "]) + pk(L.say, c);
-    replies = L.r(c);
-  } else if (more) return { say: anyOf(["That is about all I have, really.", "Nothing more. You have had the best of me."]), replies: [] };
-  return { say: convVoice(o, say2), replies: replies.slice(0, 2) };
-}
-function convToneFx(c, tone, r) {
-  const o = c.o, p = c.p, aff = o.aff[p.id] || 0, has = (t) => lf2Has(o, t);
-  if (r && r.about) {
-    const q = r.about, a = o.aff[q.id] || 0;
-    if (tone === "harsh") {
-      if (a > 40) {
-        lfAff(o, p, -4);
-        return { end: true, say: "That is a friend of mine you are talking about. I will not listen to that." };
-      }
-      lfAff(o, p, 2);
-      lfAff(o, q, -1);
-      return { react: anyOf(["Ha! You are not wrong.", "Do not let them hear you say that. \u2026Go on, though."]) };
-    }
-    if (tone === "kind") {
-      if (a < -20) {
-        lfAff(o, p, -1);
-        return { react: "Hm. If you say so." };
-      }
-      lfAff(o, p, 2);
-      lfAff(o, q, 1);
-      return { react: "That is kind of you to say." };
-    }
-  }
-  if (tone === "kind") {
-    if (aff <= -20) {
-      lfAff(o, p, 1);
-      return { react: "Flattery will not work on me." };
-    }
-    lfAff(o, p, has("shy") || has("proud") || has("cheerful") ? 4 : 3);
-    return { react: has("shy") ? "Oh! Um. Thank you." : has("proud") ? "Well. Naturally." : has("grumpy") ? "Hm. Do not get used to it." : has("jovial") || has("cheerful") ? "Ha! You are too kind!" : anyOf(["That is kind of you.", "Oh, stop it. (Do not stop.)"]) };
-  }
-  if (tone === "sly") {
-    const trust = Math.max(0.2, Math.min(1, 0.55 + aff / 120)) * (has("curious") ? 0.75 : 1);
-    if (Math.random() < trust) {
-      lfAff(o, p, 1);
-      return { react: Math.random() < 0.35 ? anyOf(["Heh. You are too clever by half.", "Is that right? Well, well.", "Flatterer."]) : "", believed: true };
-    }
-    lfAff(o, p, -2);
-    return { react: anyOf(["Is that so?", "You are not being straight with me.", "Hm. I am not sure I believe you."]), believed: false };
-  }
-  if (tone === "harsh") {
-    lfEmit("insult", { actor: p, target: o, sev: 1, loud: true, tags: ["nuisance", "embarrass"], chron: false, text: `${p.first} was rude to ${o.first}'s face` });
-    lfAff(o, p, o.age < 14 ? -8 : -5);
-    if ((has("brave") || has("grumpy") || (o.drunk || 0) > 60) && Math.random() < 0.35 && LF2.on("tavern")) {
-      setTimeout(() => lf2Brawl(o, p), 0);
-      return { end: true, say: "Right. That does it!" };
-    }
-    return { end: true, say: has("shy") ? "*flinches and looks away*" : has("anxious") ? "That\u2026 that was unkind." : has("proud") ? "You will regret that tone." : anyOf(["How dare you.", "Charming.", "Get away from me."]) };
-  }
-  like(o, p, 1);
-  return { react: "" };
-}
-function convPick(c, r) {
-  const tone = convTone();
-  talkUI.tone = null;
-  const o = c.o, p = c.p;
-  bumpKnow(o, p, 2);
-  if (r.own) {
-    const res = r.own(c, tone);
-    if (!res || res.close) return null;
-    return res.end ? { say: res.say, opts: [] } : convTurn(c, { say: res.say, replies: (res.next || []).slice(0, 2) });
-  }
-  const fx = convToneFx(c, tone, r);
-  c.fx = fx;
-  c.tone = tone;
-  if (fx.end) return { say: fx.say, opts: [] };
-  let ans = "";
-  if (tone === "sly" && r.sly) ans = r.sly(c);
-  else if (r.ans) ans = pk(r.ans, c, tone, r);
-  const say2 = ((fx.react ? fx.react + " " : "") + (ans || "")).trim();
-  let next = r.then ? r.then(c) : [], tail = "";
-  if (!next.length && c.personal && Math.random() < 0.45) {
-    const L = convPickLife(c, true);
-    if (L) {
-      tail = " " + anyOf(["", "Oh. ", "Anyway. "]) + pk(L.say, c);
-      next = L.r(c);
-    }
-  }
-  return convTurn(c, { say: say2 + tail, replies: next.slice(0, 2) });
-}
-function convTurn(c, t) {
-  c.cur = t.replies;
-  const tone = convTone();
-  return { say: t.say, opts: t.replies.map((r) => [convLabel(r, tone), () => convPick(c, r)]) };
+function cvFrame(c, u) {
+  const t = cvTurn(c, u);
+  talkS.fns = t.opts.map((x) => x[1]);
+  return { say: t.say, opts: t.opts.map((x, i) => ["c" + i, x[0]]) };
 }
 function convBegin(o, p) {
-  const c = convCtx(o, p);
-  bumpKnow(o, p, 2);
+  const c = cvNew(o, p);
   talkS = { n: o, p, sc: null, c: null, stage: 0, custom: true, conv: c, fns: [] };
-  return convFrame(c, convOpen(c));
+  bumpKnow(o, p, 2);
+  return cvFrame(c, cvOpen(c));
 }
-function convFrame(c, t) {
-  const turn = convTurn(c, t);
-  talkS.fns = turn.opts.map((x) => x[1]);
-  return { say: turn.say, opts: turn.opts.map((x, i) => ["c" + i, x[0]]) };
-}
-function convMore() {
-  const S = talkS, c = convCtx(S.n, S.p);
-  S.custom = true;
-  S.conv = c;
-  return convFrame(c, convOpen(c, true));
-}
-function convSyncLabels() {
-  if (!talkUI.o || !talkS || !talkS.conv) return;
-  const tone = convTone(), box = document.getElementById("talk");
-  if (!box) return;
-  (talkS.conv.cur || []).forEach((r, i) => {
-    const b = box.querySelector('[data-k="c' + i + '"]');
-    if (b && b.lastChild) b.lastChild.textContent = convLabel(r, tone);
-  });
-  box.querySelectorAll("[data-tone]").forEach((b) => b.classList.toggle("on", b.dataset.tone === tone));
-}
-function convDecorate(box) {
-  if (!talkS || !talkS.conv) return;
-  const tk = box.querySelector(".tk");
-  if (!tk) return;
-  const row = document.createElement("div");
-  row.className = "tones";
-  row.innerHTML = "<small>Say it:</small>" + [["kind", "Kind", "E"], ["sly", "Sly", "Shift"], ["harsh", "Harsh", "R"]].map((t) => `<button type="button" data-tone="${t[0]}">${t[1]}<i>${t[2]}</i></button>`).join("");
-  tk.appendChild(row);
-  row.querySelectorAll("[data-tone]").forEach((b) => b.addEventListener("click", (e) => {
-    e.preventDefault();
-    talkUI.tone = talkUI.tone === b.dataset.tone ? null : b.dataset.tone;
-    convSyncLabels();
-  }));
-  convSyncLabels();
-}
-window.addEventListener("keydown", (e) => {
-  if (talkUI.o && talkS && talkS.conv && /^(e|r|shift)$/i.test(e.key || "")) convSyncLabels();
-}, true);
-window.addEventListener("keyup", (e) => {
-  if (talkUI.o && talkS && talkS.conv && /^(e|r|shift)$/i.test(e.key || "")) convSyncLabels();
-});
 LF2.react.push(function(o, ev, j, c, first, reveal) {
   if (!LF2.on("revenge") || o.player || !j.victim || !j.a || j.a === o || j.v > -0.6 || c < 0.4) return;
   const g = o.lf2Grudge && o.lf2Grudge.who === j.a.id ? o.lf2Grudge : { who: j.a.id, n: 0 };
@@ -23047,7 +24005,6 @@ function closeTalk() {
   const o = talkUI.o;
   if (!o) return;
   talkUI.o = null;
-  talkUI.tone = null;
   el("talk").hidden = true;
   talkS = null;
   if (typeof refreshMarks === "function") refreshMarks();
@@ -23074,8 +24031,8 @@ function talkPick(key, label) {
     closeTalk();
     return;
   }
-  if (r.say) {
-    talkUI.say = voiced(talkUI.o, r.say);
+  if (r.say !== void 0) {
+    talkUI.say = talkS && talkS.conv ? r.say : voiced(talkUI.o, r.say);
     talkUI.q = label || "";
   }
   talkUI.opts = r.opts;
@@ -23127,15 +24084,15 @@ function renderTalk() {
   if (!o || !n) return;
   const a = Math.max(-100, Math.min(100, o.aff[n.id] || 0)), k = o.know[n.id] || 0;
   const tr2 = o.traits.map((t) => t.charAt(0).toUpperCase() + t.slice(1)).join(", ");
-  if (!talkUI.opts.some((op) => op[0] === "bye")) talkUI.opts = talkUI.opts.concat([["bye", "Goodbye."]]);
   box.hidden = false;
-  box.innerHTML = '<div class="tk"><div class="th"><div class="nm"><b>' + esc(nameOf(o)) + "</b><small>" + esc(closenessWord(o, n)) + '</small></div><small class="kh">W S choose \xB7 D pick \xB7 A leave</small></div>' + (talkUI.q ? '<div class="tq">' + esc(talkUI.q) + "</div>" : "") + '<div class="ta">' + esc(talkUI.say) + '</div><div class="topts">' + talkUI.opts.map((op, i) => '<button type="button" data-k="' + esc(op[0]) + '""><span>' + (i + 1) + "</span>" + esc(op[1]) + "</button>").join("") + "</div></div>";
+  box.innerHTML = '<div class="tk"><div class="th"><div class="nm"><b>' + esc(nameOf(o)) + "</b><small>" + esc(closenessWord(o, n)) + '</small></div><small class="kh">W S choose \xB7 D pick</small><button type="button" class="lv" data-leave="1" title="Leave (A)">Leave <i>A</i></button></div>' + (talkUI.q ? '<div class="tq">' + esc(talkUI.q) + "</div>" : "") + '<div class="ta">' + esc(talkUI.say) + '</div><div class="topts">' + talkUI.opts.map((op, i) => '<button type="button" data-k="' + esc(op[0]) + '""><span>' + (i + 1) + "</span>" + esc(op[1]) + "</button>").join("") + "</div></div>";
   {
     const tk = box.querySelector(".tk");
     talkUI.dy = tk ? (tk.offsetHeight / 2 + 10) / (TS * cam.z) : 0;
   }
   box.querySelectorAll("[data-k]").forEach((b) => b.addEventListener("click", () => talkPick(b.dataset.k, b.textContent.replace(/^\d+/, ""))));
-  if (typeof convDecorate === "function") convDecorate(box);
+  const lv = box.querySelector("[data-leave]");
+  if (lv) lv.addEventListener("click", () => closeTalk());
   menuFirst(box, "[data-k]");
 }
 window.addEventListener("keydown", (e) => {

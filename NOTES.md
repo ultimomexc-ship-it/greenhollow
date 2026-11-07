@@ -85,11 +85,11 @@ turn friends against each other; loan coins with interest and send a collector.
   ceremonies/ceremonies.ts ever ran. The dead copies were removed.
 - Tree sprites check for a 'pine' kind that treeKind() never returns (render/village.ts); harmless.
 
-## Conversation prototype (Nov 2026)
-Talking now comes from what people are doing and what is on their mind (see CLAUDE.md). Replies are at most two plus Goodbye;
-tone (E kind, Shift sly, R harsh) replaces the compliment / insult / rumour / flirt / blackmail menu items.
-- Ported into conversation: news (both ways), secrets, flirting, dice (and cheating = sly), blackmail (harsh), the arrest (guards
-  bring it up), rumours about a third person (sly on a topic about someone).
-- Dropped for now: "Introduce them to someone".
-- Ideas not built yet: memory of past conversations ("back again?"), walk-and-talk bubbles, more activity bits and voices,
-  a Claude-written line option.
+## Conversation overhaul (Nov 2026)
+Replaced the tone-key prototype. See CLAUDE.md for how it works. Done: no tone selector (the sentence carries the attitude), layered facts
+(hint, story, hidden truth) with willingness by trust and voice, nine voices, generated lives and old stories (debts, feuds, old flames, secrets,
+legends), memory of what you said, witnesses who mention a shove, events and the tide and shops and the chronicle as talk, lies and rumours
+(NPCs smear rivals too), the arrest / blackmail / dice / flirting as things you can say, walk-with-me when they have to go.
+Ideas next: more events from the simulation (what people talk about is limited by what happens), a journal tab for what you have learned,
+NPCs contradicting each other when you compare notes, weather, more voices per situation, free-text input through a language model (needs a server),
+more tangents, jokes and stories per personality, children's talk, family disputes that develop over days.

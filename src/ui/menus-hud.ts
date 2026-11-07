@@ -12,7 +12,7 @@ function openTalk(o) {
   talkUI.say = r.say; talkUI.opts = r.opts; renderTalk();
 }
 function closeTalk() {
-  const o = talkUI.o; if (!o) return; talkUI.o = null; (talkUI as any).tone = null; el('talk').hidden = true; talkS = null; if (typeof refreshMarks === 'function') refreshMarks();
+  const o = talkUI.o; if (!o) return; talkUI.o = null; el('talk').hidden = true; talkS = null; if (typeof refreshMarks === 'function') refreshMarks();
   o.talkUntil = game.time + 3; const n = game.player; if (n) { o.social = Math.min(100, o.social + 12); n.social = Math.min(100, n.social + 12); }
   pairCool.set(Math.min(n ? n.id : 0, o.id) * 1000 + Math.max(n ? n.id : 0, o.id), game.time + 60);
   const b: any = document.querySelector('[data-speed="' + talkUI.prev + '"]'); if (b) b.click();
@@ -22,7 +22,7 @@ function talkPick(key, label) {
   if (!talkUI.o || !talkS) return;
   if (key === 'bye') { closeTalk(); return; }
   const r: any = talkStep(key); if (!r || r.close) { closeTalk(); return; }
-  if (r.say) { talkUI.say = voiced(talkUI.o, r.say); talkUI.q = label || ''; }
+  if (r.say !== undefined) { talkUI.say = talkS && talkS.conv ? r.say : voiced(talkUI.o, r.say); talkUI.q = label || ''; }
   talkUI.opts = r.opts; renderTalk();
 }
 /* ---------- every menu works with WASD: W and S move, D picks, A backs out (the mouse still works too) ---------- */
@@ -42,15 +42,14 @@ function renderTalk() {
   const o = talkUI.o, n = game.player, box = el('talk'); if (!o || !n) return;
   const a = Math.max(-100, Math.min(100, o.aff[n.id] || 0)), k = o.know[n.id] || 0;
   const tr = o.traits.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(', ');
-  if (!talkUI.opts.some(op => op[0] === 'bye')) talkUI.opts = talkUI.opts.concat([['bye', 'Goodbye.']]);   /* there is always a way out */
   box.hidden = false;
   box.innerHTML = '<div class="tk"><div class="th"><div class="nm"><b>' + esc(nameOf(o)) + '</b><small>' + esc(closenessWord(o, n)) + '</small></div>' +
-    '<small class="kh">W S choose · D pick · A leave</small></div>' +
+    '<small class="kh">W S choose · D pick</small><button type="button" class="lv" data-leave="1" title="Leave (A)">Leave <i>A</i></button></div>' +
     (talkUI.q ? '<div class="tq">' + esc(talkUI.q) + '</div>' : '') + '<div class="ta">' + esc(talkUI.say) + '</div>' +
     '<div class="topts">' + talkUI.opts.map((op, i) => '<button type="button" data-k="' + esc(op[0]) + '""><span>' + (i + 1) + '</span>' + esc(op[1]) + '</button>').join('') + '</div></div>';
   { const tk: any = box.querySelector('.tk'); talkUI.dy = tk ? (tk.offsetHeight / 2 + 10) / (TS * cam.z) : 0; }
   box.querySelectorAll('[data-k]').forEach((b: any) => b.addEventListener('click', () => talkPick(b.dataset.k, b.textContent.replace(/^\d+/, ''))));
-  if (typeof convDecorate === 'function') convDecorate(box);
+  const lv: any = box.querySelector('[data-leave]'); if (lv) lv.addEventListener('click', () => closeTalk());
   menuFirst(box, '[data-k]');
 }
 window.addEventListener('keydown', e => {

@@ -90,6 +90,7 @@ function lf2PushPerson(n, o, dx, dy): true | string {
   if (lf2PersonOK(bx, by) && !tileOwner.get(tkey(bx, by))) lf2Relocate(o, bx, by);
   else if (lf2PersonOK(n.tx, n.ty)) lf2Relocate(o, n.tx, n.ty);      // against a wall or a crowd: change places
   else return 'There is no room to push ' + o.first + '.';
+  cvSaw(n, o, 'push');
   if (!o.player && Math.random() < 0.3) lfShout(o, anyOf(PUSH_WORDS));
   return true;
 }

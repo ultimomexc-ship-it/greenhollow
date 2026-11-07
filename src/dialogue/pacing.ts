@@ -61,7 +61,7 @@ function talkBegin(n, p) {
   n.lastSay = n.lastSay || {}; let say = b.sc.lines(n, p, b.c);
   for (let i = 0; i < 4 && n.lastSay[b.sc.id] === say; i++) say = b.sc.lines(n, p, b.c);
   n.lastSay[b.sc.id] = say;
-  return { say, opts: opts.map((o, i) => ['o' + i, o[0]]).concat((n.know[p.id] || 0) >= 10 && Math.random() < 0.5 ? [['lf2more', 'Anything else?']] : []) };
+  return { say, opts: opts.map((o, i) => ['o' + i, o[0]]) };
 }
 
 /* one-line bubbles for things already said */
