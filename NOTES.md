@@ -122,3 +122,11 @@ Found on the way: children could not eat dole grain handed to them (it went into
 with parents now fetching or foraging food for a hungry child. Starvation over 9 towns x 12 days: 3 -> 0.
 Next: opinions about businesses and traditions; villagers who investigate a theft and change their minds; invented rumours from villagers;
 a journal of what the player has heard, with the versions side by side; a "rumour outran the truth" pattern that actually happens.
+
+## TrueSight: Nox-style line of sight (Nov 2026)
+Replaced the old visibility (a tile-by-tile Bresenham test out to a radius, blurred into the lighting texture, with a radial fade at the edge,
+ignoring doors, letting diagonal wall corners leak) with a visibility polygon (render/truesight.ts). See CLAUDE.md. Proved on a test ground
+(tools/truesight.mjs) with rooms, an archway, a shut door, a corridor with corners, windows, trees, a shed, diagonal walls and people walking behind them.
+Cost: ~1 ms per recompute at normal zoom, ~0.6 ms more per frame on average. Next: give NPC perception its own `tsLine`-based sight (with doors),
+so witnesses, gossip and guards respect closed doors too; decide whether walls should be thinner than a tile (doorways are short tunnels now,
+so you only see into a room from roughly in front of its door).

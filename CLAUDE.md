@@ -79,6 +79,18 @@ The village lives without the player: the simulation owns the truth (events), ea
   weakness that luck was hiding (that is how children starving with dole grain in their pockets was found). Find the cause before changing the test.
 - When behaviour changes on purpose, tests may need new expectations; when it changes by accident, they catch it.
 
+## What the player can see: TrueSight (src/render/truesight.ts)
+Visibility, not lighting (night, lamps and shadows stay in render/lighting-wild.ts). From the player's eye, rays go to every corner of every
+obstacle on screen (and a hair either side); each stops at the first thing it hits; the hit points in angle order are the visibility polygon.
+Everything outside it is covered in near-black, wall faces you look at stay visible, and people outside it are not drawn, picked or named.
+- Obstacles come from the tile grid (`tsOcc`): walls, mountains and closed doors are full tiles; trees and boulders are boxes inside their tile;
+  windows in a room's back wall let sight through; furniture, crates and people never block. Public buildings keep their doors open by day (`tsPropDoors`).
+- `tsSees(x, y)` = can the player see a person standing there (`canSee` uses it). `tsLine(ax, ay, bx, by)` = a clear line on the same geometry, for
+  NPC perception with its own rules (NPCs still use the older `seeThrough` today). Zoomed out to the map (zoom < 0.6) nothing is hidden.
+- `node tools/truesight.mjs [--out=dir]` stamps a test ground (`tsLab`: rooms with an archway and a shut door, a corridor with three corners,
+  a house with windows, trees, a shed, walls touching corner to corner), checks who is seen from each spot, and saves screenshots. The tests run it.
+- It recomputes only when the eye, the view or a door changes (~1 ms at normal zoom, ~2 ms zoomed out); `town.gridV` counts tile changes so caches know.
+
 ## Performance tools
 - `node tools/profile.mjs <seconds> <zoom> [--pan] [--cpu] [--file=other.html]`: the real frame loop, with per-stage times, frame-time percentiles and optional panning / CPU profile. Headless Chromium paints in software, so compare before/after rather than against 60 fps.
 - `node tools/diff.mjs a.html b.html [--no-people]`: renders both builds at fixed views and compares pixels. Use it after any rendering change.

@@ -25,6 +25,7 @@
   "player/control.ts",
   "render/soft-style.ts",
   "render/lighting-wild.ts",
+  "render/truesight.ts",
   "render/village.ts",
   "life/living-village.ts",
   "life/friends-jobs.ts",

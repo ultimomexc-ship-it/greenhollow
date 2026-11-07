@@ -1,7 +1,7 @@
 // Frame-time profiler: runs the real game loop (real clock, real requestAnimationFrame) in headless Chromium
 // and reports where each frame's time goes. Headless Chromium draws in software, so absolute numbers are
 // pessimistic; compare before/after, not against 60 fps.
-//   node tools/profile.mjs [seconds] [zoom]      e.g. node tools/profile.mjs 8 1.5
+//   node tools/profile.mjs [seconds] [zoom] [--play]      e.g. node tools/profile.mjs 8 1.5 --play   (--play: control a villager, so the player's view (TrueSight) is drawn)
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -14,13 +14,14 @@ const fileArg = process.argv.find(a => a.startsWith('--file='));
 const browser = await launch();
 const { page, errors } = await openGame(browser, fileArg ? fileArg.slice(7) : path.join(root, 'dist/index.html'), { live: true, viewport: { width: 1280, height: 800 } });
 await page.waitForTimeout(1500);
-await page.evaluate(([zoom, pan]) => { window.__pan = pan;
+await page.evaluate(([zoom, pan, play]) => { window.__pan = pan;
+  if (play && !game.player) startPlaying(canControl(byId(game.steer)) ? byId(game.steer) : npcs.find(canControl));
   if (zoom) { cam.z = zoom; }
   const stat = window.__prof = { frames: 0, frameMs: [], parts: {} };
   const wrap = (name) => { const f = window[name]; if (typeof f !== 'function') return; window[name] = function () { const t = performance.now(); const r = f.apply(this, arguments); const d = performance.now() - t; stat.parts[name] = stat.parts[name] || { n: 0, ms: 0, max: 0 }; const p = stat.parts[name]; p.n++; p.ms += d; if (d > p.max) p.max = d; return r; }; };
-  for (const n of ['updateSim', 'render', 'updateUI', 'drawClock', 'drainEvents', 'flushDirty', 'drawGround', 'gaBake', 'drawCrops', 'drawDoors', 'drawTide', 'drawNodes', 'drawSites', 'drawEventsFx', 'drawWorkFx', 'stepWild', 'drawWild', 'stepSea', 'drawSea', 'drawLabels', 'drawPerson', 'drawSleeper', 'drawTallTile', 'drawLighting', 'buildLightMaps', 'drawBubbles', 'drawOverlay', 'drawYard', 'drawFeast', 'drawDrops', 'drawRemains', 'drawActivityBars', 'drawTalkMarks', 'drawSiteTags', 'drawPlayerFx', 'drawCeremonyFire', 'daylight']) wrap(n);
+  for (const n of ['updateSim', 'render', 'updateUI', 'drawClock', 'drainEvents', 'flushDirty', 'drawGround', 'gaBake', 'drawCrops', 'drawDoors', 'drawTide', 'drawNodes', 'drawSites', 'drawEventsFx', 'drawWorkFx', 'stepWild', 'drawWild', 'stepSea', 'drawSea', 'drawLabels', 'drawPerson', 'drawSleeper', 'drawTallTile', 'drawLighting', 'buildLightMaps', 'drawTrueSight', 'tsUpdate', 'drawBubbles', 'drawOverlay', 'drawYard', 'drawFeast', 'drawDrops', 'drawRemains', 'drawActivityBars', 'drawTalkMarks', 'drawSiteTags', 'drawPlayerFx', 'drawCeremonyFire', 'daylight']) wrap(n);
   let last = performance.now(); let dir = 1; const tick = now => { stat.frames++; if (window.__pan) { cam.follow = false; const sp = 6 / Math.max(0.3, cam.z); cam.x += dir * sp; cam.y += dir * sp * 0.35; clampCam(); if (cam.x <= 0 || cam.x >= W * TS - cam.cw / cam.z) dir = -dir; } stat.frameMs.push(now - last); last = now; requestAnimationFrame(tick); }; requestAnimationFrame(tick);
-}, [zoom, pan]);
+}, [zoom, pan, process.argv.includes('--play')]);
 let client, session;
 if (cpu) { client = await page.context().newCDPSession(page); await client.send('Profiler.enable'); await client.send('Profiler.setSamplingInterval', { interval: 500 }); await client.send('Profiler.start'); }
 await page.waitForTimeout(secs * 1000);

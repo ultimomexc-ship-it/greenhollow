@@ -42,7 +42,7 @@ function buildLightMaps(hour) {
       const f = 1 - d / (s.r + 0.5), v = s.s * k * f * (2 - f) ; const i = (y - y0) * rw + x - x0; if (v > light[i]) light[i] = v;
     }
   }
-  // what Tipping can see: everything in a straight unblocked line, out to a range that shrinks at night
+  // (the old tile-based sight: only used when TrueSight is switched off)
   const p = game.player, Rf = 7.5 + daylight(hour) * 30, R = Math.round(18 + daylight(hour) * 22); // you see daylight a short way, but a lit lamp from far off
   if (p && !p.dead) {
     for (let y = Math.max(y0, p.ty - R); y < Math.min(y1, p.ty + R + 1); y++) for (let x = Math.max(x0, p.tx - R); x < Math.min(x1, p.tx + R + 1); x++) {
@@ -50,12 +50,15 @@ function buildLightMaps(hour) {
       const k = seeThrough(p.tx, p.ty, x, y); if (k > 0.25) { const i = (y - y0) * rw + x - x0; vis[i] = k > 0.6 ? 2 : 1; sight[i] = Math.max(0, Math.min(1, (Rf + 2.5 - Math.hypot(x - p.tx, y - p.ty)) / 9)); }
     }
   } else { vis.fill(2); sight.fill(1); }
+  // TrueSight (truesight.ts) decides what you can see; this map is only about light
+  if (TSIGHT.on) { vis.fill(2); sight.fill(1); }
   // zoomed out to look at the island: everything shows plainly
   if (p && !p.dead && cam.z < 0.6) { vis.fill(2); sight.fill(1); }
   return { x0, y0, rw, rh, light, vis, sight };
 }
 // can the player make this tile out right now? (lighting on only)
 function canSee(x, y) {
+  if (tsActive() && !tsSees(x, y)) return false;   // out of your line of sight
   if (!STYLE.light || !LGT.map || !game.player) return true;
   const m = LGT.map, i = (Math.round(y) - m.y0) * m.rw + Math.round(x) - m.x0;
   if (i < 0 || i >= m.vis.length || Math.round(x) < m.x0 || Math.round(x) >= m.x0 + m.rw) return false;

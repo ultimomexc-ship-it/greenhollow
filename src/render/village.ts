@@ -195,10 +195,11 @@ function drawTreeSprite(c, px, py, x, y, ox, oy) { const it = ART.BYID[gaSpriteI
 function drawBoulder(c, x, y, px, py) { const it = ART.BYID[gaSpriteId(x, y, T.ROCK)]; if (it) c.drawImage(ART.frameOf(it, 0), px, py + TS - it.gh, it.gw, it.gh); }
 function drawTallTile(c, x, y, t) { const id = gaSpriteId(x, y, t), it = id && ART.BYID[id]; if (it) c.drawImage(ART.frameOf(it, 0), x * TS, y * TS + TS - it.gh, it.gw, it.gh); }
 function drawDoors(c, dt) {
+  tsPropDoors();
   for (const d of doors) {
-    let near = false;
+    let near = !!d.propped && !d.shut;
     for (const n of npcs) if (Math.abs(n.x - d.x) + Math.abs(n.y - d.y) < 1.7) { near = true; break; }
-    d.o += ((near ? 1 : 0) - d.o) * Math.min(1, dt * 9);
+    if (d.shut) near = false; d.o += ((near ? 1 : 0) - d.o) * Math.min(1, dt * 9);
     if (!gaOnScreen(d.x, d.y, 1)) continue;
     const r = rooms[d.room]; if (!r) continue; const op = d.o > 0.5, fk = r.floor === 'stone' ? 'stone' : 'wood';
     c.drawImage(ART.terr(fk, (ART.h32(d.x, d.y, 5, 5) * 2) | 0), d.x * TS, d.y * TS, TS, TS);

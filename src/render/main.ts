@@ -170,7 +170,8 @@ function render(now, dtSec, hourOfDay) {
   // people, the forest sprites, the statue... and any tall tile standing in front of them: all in order of who is
   // nearer the bottom of the screen, so whoever is behind a tree, a tent or a statue goes behind it
   { const items = [], near = new Set<number>(), mark = (x, y) => { const x0 = Math.floor(x), y0 = Math.floor(y); for (let yy = y0; yy <= y0 + 2; yy++) for (let xx = x0 - 1; xx <= x0 + 2; xx++) if (yy >= 0 && xx >= 0 && yy < H && xx < W) near.add(yy * W + xx); };
-    for (const n of npcs) { if (n.inShip) continue; const sl = n.pose === 'sleep' && !n.moving; items.push({ k: n.y - (sl ? 0.45 : 0), f: () => { const sxy = gaSlide(n, now), bw = n._bath && typeof n._bath === 'object' ? n._bath : null, px = (bw ? bw.x : sxy[0]) * TS, py = (bw ? bw.y - 0.3 : sxy[1]) * TS; /* in the pool: feet near the middle of the water tile */ if (sl) drawSleeper(c, n, px, py, now); else { drawPerson(c, n, now, px, py); if (bw) drawWaterline(c, n, px, py, now); } } }); mark(n.x, n.y); }
+    if (tsActive()) tsUpdate(now);
+    for (const n of npcs) { if (n.inShip || (!n.player && tsActive() && !tsSees(n.x, n.y))) continue; const sl = n.pose === 'sleep' && !n.moving; items.push({ k: n.y - (sl ? 0.45 : 0), f: () => { const sxy = gaSlide(n, now), bw = n._bath && typeof n._bath === 'object' ? n._bath : null, px = (bw ? bw.x : sxy[0]) * TS, py = (bw ? bw.y - 0.3 : sxy[1]) * TS; /* in the pool: feet near the middle of the water tile */ if (sl) drawSleeper(c, n, px, py, now); else { drawPerson(c, n, now, px, py); if (bw) drawWaterline(c, n, px, py, now); } } }); mark(n.x, n.y); }
     for (const prov of YSORT) { const L = prov(c, now) || []; for (const it of L) { items.push(it); if (it.mob) mark(it.x, it.k); } }
     if (cam.z >= 0.6) { const busy = new Set(); for (const w of workTargets()) if (w.kind === 'tree') busy.add(w.y * W + w.x);
       for (const key of near) { const x = key % W, y = (key / W) | 0, t = grid[y][x]; if (!TALL.has(t) || busy.has(key)) continue; items.push({ k: y - 0.02, f: () => drawTallTile(c, x, y, t) }); } }
@@ -191,6 +192,7 @@ function render(now, dtSec, hourOfDay) {
   const d = daylight(hourOfDay), night = 1 - d, warmth = 0;
   for (const rm of rooms) { if (rm.dead) continue; const occupied = npcs.some(n => n.pose !== 'sleep' && n.x > rm.x && n.x < rm.x + rm.w - 1 && n.y > rm.y && n.y < rm.y + rm.h - 1); const tavernOpen = rm.kind === 'tavern' && hourOfDay >= 17 && hourOfDay < 23.5; rm.lit += ((occupied || tavernOpen ? 1 : 0) - rm.lit) * Math.min(1, dtSec * 3); }
   if (STYLE.light) drawLighting(c, hourOfDay, now);
+  drawTrueSight(c, now);   // what you cannot see from where you stand (visibility, not light)
   if (!STYLE.light && night > 0.01) {
     const r = Math.round(14 + warmth * 160), g = Math.round(20 + warmth * 60), b = Math.round(58 - warmth * 20);
     dctx.setTransform(DK, 0, 0, DK, 0, 0);
@@ -242,7 +244,7 @@ function render(now, dtSec, hourOfDay) {
 
 function npcAt(wx, wy) {
   let best = null, bd = Math.max(0.85, 14 / (cam.z * TS));
-  for (const n of npcs) { const d = Math.hypot(n.x + 0.5 - wx, n.y + 0.55 - wy); if (d < bd) { bd = d; best = n; } }
+  for (const n of npcs) { if (!n.player && !canSee(n.x, n.y)) continue; const d = Math.hypot(n.x + 0.5 - wx, n.y + 0.55 - wy); if (d < bd) { bd = d; best = n; } }   // nobody you cannot see can be picked
   return best;
 }
 

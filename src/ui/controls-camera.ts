@@ -80,7 +80,7 @@ canvas.addEventListener('pointermove', e => {
       const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
       if (pinch0 > 0) zoomAt(d / pinch0, (a.x + b.x) / 2, (a.y + b.y) / 2); pinch0 = d; dragMoved = 99; hideHint();
     }
-  } else { const w = worldTile(p); view.hover = npcAt(w.x, w.y); canvas.style.cursor = view.hover ? 'pointer' : ''; showTip(p, view.hover ? null : tileTip(Math.floor(w.x), Math.floor(w.y))); }
+  } else { const w = worldTile(p); view.hover = npcAt(w.x, w.y); canvas.style.cursor = view.hover ? 'pointer' : ''; showTip(p, view.hover || (tsActive() && !tsSees(Math.floor(w.x), Math.floor(w.y)) && !(TSIGHT.hits && TSIGHT.hits.has(Math.floor(w.x) + ',' + Math.floor(w.y)))) ? null : tileTip(Math.floor(w.x), Math.floor(w.y))); }   // no tips about what you cannot see
 });
 canvas.addEventListener('pointerleave', () => showTip(null, null));
 function showTip(p, html) {

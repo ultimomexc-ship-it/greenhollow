@@ -1,5 +1,5 @@
 /* ================= world construction ================= */
-const setT = (x, y, t) => { if (x >= 0 && y >= 0 && x < W && y < H) grid[y][x] = t; };
+const setT = (x, y, t) => { if (x >= 0 && y >= 0 && x < W && y < H && grid[y][x] !== t) { grid[y][x] = t; if (town) town.gridV = (town.gridV || 0) + 1; } };   // gridV: anything that caches the map (TrueSight) knows it changed
 const rectT = (x, y, w, h, t) => { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) setT(i, j, t); };
 function resetWorld() {
   grid = Array.from({ length: H }, () => Array(W).fill(T.GRASS));

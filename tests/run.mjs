@@ -353,6 +353,33 @@ test('social: people talk from what they believe (who cannot stand whom, and why
 }));
 
 /* ---------------------------------------------------------------------------------------------- */
+// TrueSight (src/render/truesight.ts): the player sees only what their character could see from where they stand.
+import { truesightRun } from '../tools/truesight.mjs';
+
+test('truesight: walls, shut doors, corners, windows, trees and buildings hide exactly what they should', async () => {
+  const r = await truesightRun({ shots: null }), bad = [];
+  check(r.errors.length === 0, 'page errors: ' + r.errors.slice(0, 3).join(' | '));
+  for (const sc of r.res) for (const p of sc.seen) if (p.want !== p.got) bad.push(`${sc.name.split(':')[0]}: "${p.who}" is ${p.got ? 'seen' : 'hidden'}`);
+  check(!bad.length, bad.join(' | '));
+  { const w = r.moves.walk; check(w[0] && w.includes(false) && w[w.length - 1], 'a villager walking behind the shed should be seen, hidden, then seen: ' + w.map(v => v ? 'o' : '.').join('')); }
+  { const ap = r.moves.approach; check(ap[ap.length - 1].area > ap[0].area && !ap[0].sees && ap[ap.length - 1].sees, 'walking up to a corner should open the view and reveal who is round it: ' + JSON.stringify(ap)); }
+  check(!r.diag.through, 'two walls touching corner to corner must not let a line through'); check(r.diag.beside, 'a line beside those walls should be clear');
+  return `${r.res.length} scenes, ${r.res.reduce((n, s) => n + s.seen.length, 0)} villagers placed, all seen or hidden as they should be; the diagonal corner holds`;
+});
+
+test('truesight: the view is a polygon, recomputed quickly even zoomed out', async browser => {
+  const { page, errors } = await openGame(browser, GAME, { rng: 5, town: 'truesight-speed', viewport: { width: 1280, height: 800 } });
+  await simulate(page, 600);
+  await page.evaluate(() => { cam.follow = false; cam.z = 0.6; clampCam(); cam.x = town.cx * TS - cam.cw / cam.z / 2; cam.y = town.cy * TS - cam.ch / cam.z / 2; clampCam(); });
+  const pts = await page.evaluate(() => { const R = { x0: cam.x / TS - 2, y0: cam.y / TS - 2, x1: (cam.x + cam.cw / cam.z) / TS + 2, y1: (cam.y + cam.ch / cam.z) / TS + 2 }; window.__R = R; return tsPolygon((R.x0 + R.x1) / 2, (R.y0 + R.y1) / 2, R).pts.length; });
+  const t0 = Date.now(); await page.evaluate(() => { const R = window.__R; for (let i = 0; i < 40; i++) { const ex = (R.x0 + R.x1) / 2 + Math.sin(i) * 6, ey = (R.y0 + R.y1) / 2 + Math.cos(i) * 4; const P = tsPolygon(ex, ey, R); tsFaces(ex, ey, R, P.hits); } });
+  const ms = (Date.now() - t0) / 40; await page.close();
+  check(errors.length === 0, 'page errors: ' + errors.slice(0, 3).join(' | ')); check(pts > 20, 'expected a real polygon, got ' + pts + ' points');
+  check(ms < 8, `a recompute took ${ms.toFixed(2)} ms at the widest zoom (want under 8)`);
+  return `${pts} polygon points at the widest zoom; ${ms.toFixed(2)} ms per recompute (only when the eye, the view or a door changes)`;
+});
+
+/* ---------------------------------------------------------------------------------------------- */
 // Longevity and readability (tools/longevity.mjs runs the long version: node tools/longevity.mjs 30)
 import { playDays, measure } from '../tools/longevity.mjs';
 let LONG = null; const longRun = async () => LONG || (LONG = measure(await playDays({ days: 8, talksPerDay: 4, turns: 8, seed: 'ci-longevity' })));
