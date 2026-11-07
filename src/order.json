@@ -32,6 +32,7 @@
   "life2/actions.ts",
   "life2/controls.ts",
   "life2/town.ts",
+  "life2/cooking.ts",
   "life2/law.ts",
   "life2/daily-life.ts",
   "life2/glue.ts",

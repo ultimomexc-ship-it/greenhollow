@@ -20,7 +20,7 @@ const arg = (k, d = null) => { const a = process.argv.find(x => x.startsWith(`--
 function walk(dir, out = []) { for (const f of fs.readdirSync(dir)) { const p = path.join(dir, f); if (fs.statSync(p).isDirectory()) walk(p, out); else out.push(p); } return out; }
 const SRC = () => walk(path.join(root, 'src')).filter(f => f.endsWith('.ts'));
 /** the tags an lfEmit call can give (handles "tags: cond ? ['a'] : ['b']") */
-export function tagsIn(call) { const out = new Set(); for (const m of call.matchAll(/tags:\s*/g)) { const rest = call.slice(m.index + m[0].length), end = rest.search(/\]\s*(,\s*[a-zA-Z]+\s*:|\s*\})/); for (const t of (rest.slice(0, end < 0 ? 120 : end + 1).match(/'([^']+)'/g) || [])) out.add(t.replace(/'/g, '')); } return [...out]; }
+export function tagsIn(call) { const out = new Set(); for (const m of call.matchAll(/tags:\s*/g)) { const rest = call.slice(m.index + m[0].length), end = rest.search(/\]\s*(,\s*[a-zA-Z]+\s*:|\s*\})/); for (const b of rest.slice(0, end < 0 ? 120 : end + 1).matchAll(/\[([^\]]*)\]/g)) for (const t of (b[1].match(/'([^']+)'/g) || [])) out.add(t.replace(/'/g, '')); } return [...out]; }
 /** event kinds the code can create, with where and how (the lfEmit call's options) */
 export function staticEvents() {
   const evs = {};
@@ -67,7 +67,7 @@ function assessEvent(kind, sites, inv) {
   const noWit = /witnessIds:\s*\[\]/.test(call), hidden = /aware:\s*false/.test(call), chron = /chron:\s*true/.test(call);
   const y = (ok, how) => ({ ok, how });
   return {
-    see: y(!noWit, noWit ? 'nobody can witness it (witnessIds: [])' + (hidden ? ', not even the target' : '') : 'people nearby witness it (lfEmit picks witnesses)'),
+    see: y(!noWit, noWit ? 'nobody can witness it (witnessIds: [])' + (hidden ? ', not even the target' : '') : /witnessIds:/.test(call) ? 'the people the code names see it (witnessIds), plus the target' : 'people nearby witness it (lfEmit picks witnesses)'),
     hear: y(spice > 0 || known.length > 0, known.length ? `passed on as gossip (tags ${known.join(', ')}${spice ? `, spice ${spice}` : ''})` : 'no known tags, so nobody finds it worth repeating'),
     remember: y(true, 'every witness and listener keeps their own version (lf2Learn), kept or forgotten by importance (sbImp)'),
     opinion: y(judged, judged ? 'changes how people feel about those involved (tags with a value or pity in LF2_TAGS)' : 'no tag carries a judgement, so it changes no feelings'),
