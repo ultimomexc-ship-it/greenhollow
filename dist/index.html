@@ -11640,7 +11640,7 @@ const isRestDay = (t) => Math.floor((t === void 0 ? game.time : t) / 1440) % 3 =
 const HOBBIES = ["fishing", "foraging", "walking", "whittling", "singing", "stargazing"];
 const HOBBY_TXT = { fishing: "fishing", foraging: "berry picking", walking: "long walks", whittling: "whittling", singing: "singing", stargazing: "stargazing" };
 const JOB_VERB = { Woodcutter: "chop wood", Stonecutter: "cut stone", Fisher: "fish", Farmer: "work the field", Gatherer: "pick berries" };
-const JOB_NOUN = { Woodcutter: "a woodcutter", Stonecutter: "a stonecutter", Fisher: "a fisher", Farmer: "a farmer", Gatherer: "a forager" };
+const JOB_NOUN = { Woodcutter: "a woodcutter", Stonecutter: "a stonecutter", Fisher: "a fisher", Farmer: "a farmer", Gatherer: "a forager", Priest: "a priest", Barkeep: "a barkeep", Trader: "a trader" };
 const MEM_REPLY = {
   outing: ["I will never forget it.", "We should go again soon.", "You still owe me a bigger one.", "Best day of the season."],
   wedding: ["Best day of my life.", "The whole town danced till dark."],
@@ -20454,7 +20454,7 @@ const cvMarkHeard = (p, s) => {
   if (p) cvHeard(p)[s] = game.time;
 };
 const CVG = {
-  heard: ["Did you hear", "Have you heard", "You will have heard by now", "Word is going round", "Everyone is saying", "I had it this morning"],
+  heard: ["Did you hear", "Have you heard", "You will have heard by now", "Has nobody told you", "Do you know the latest"],
   shock: ["I nearly dropped my bread.", "I had to sit down.", "I have not stopped thinking about it.", "I could hardly believe it.", "My mouth fell open, I am not ashamed to say."],
   laugh: ["I have not laughed so hard since the goose.", "I laughed until I had to hold the wall.", "It has made my whole week.", "I am still laughing, and it was yesterday."],
   soft: ["It made my whole day, and it was not even me.", "There is hope for us yet.", "It does the heart good.", "That is the village I want to live in."],
@@ -20508,6 +20508,9 @@ function cvTagGroup(ev) {
   if (t.includes("embarrass") || k === "stumble" || k === "sing") return "embarrass";
   if (["gift", "charity", "help", "newclothes", "repair"].includes(k) || t.includes("kindness") || t.includes("help") || t.includes("generous")) return "kind";
   if (["arrest", "fined", "escape"].includes(k)) return "law";
+  if (["loan", "repaid", "default", "lostcoins", "returned", "windfall", "dole"].includes(k) || t.includes("debt")) return "money";
+  if (t.includes("health") || k === "illness" || k === "recovered") return "health";
+  if (["bigcatch", "businessweek", "delivery"].includes(k) || t.includes("business")) return "work";
   return "other";
 }
 function cvEvFacts(c, ev, k) {
@@ -20555,6 +20558,12 @@ const CV_RULES = {
     { when: { tag: "kind", arch: "cynic" }, say: ["{text.cap}. I am sure there is an angle. There is always an angle.", "{text.cap}. Kindness. Suspicious, but there it is."] },
     { when: { tag: "violence" }, say: ["There was a fight. {text.cap}. Blood on the stones, they say.", "{text.cap}, {when}. Over nothing, as usual. #shock#"] },
     { when: { tag: "law" }, say: ["The watch has been busy. {text.cap}.", "{text.cap}. So the watch does work, after all."] },
+    { when: { tag: "money" }, say: ["Money business: {text}. #shrugs#", "{text.cap}. Coin changes hands and people change with it.", "#heard#? {text.cap}. Everyone is counting, these days."] },
+    { when: { tag: "money", me: true }, say: ["{text.cap}. I would rather you did not spread it about.", "Since you ask: {text}. Money. It is always money."] },
+    { when: { tag: "health" }, say: ["{text.cap}. There is a lot of it about.", "#heard#? {text.cap}. I have been keeping my distance, if I am honest.", "{text.cap}. Somebody should take round some broth."] },
+    { when: { tag: "health", relTarget: "friend" }, say: ["{text.cap}. I have been to see {target} twice already.", "{text.cap}. I am worried, and I do not mind saying so."] },
+    { when: { tag: "work" }, say: ["{text.cap}. That is the talk of the work, anyway.", "#heard#? {text.cap}.", "Work news: {text}."] },
+    { when: { tag: "work", arch: "cynic" }, say: ["{text.cap}. Enjoy it while it lasts."] },
     { when: { src: "told" }, say: ["{from} told me {text}. #shrugs#", "I had it from {from}: {text}. Make of that what you will.", "{from} says {text}. And {from} is rarely wrong. Rarely."] },
     { when: { src: "told", tag: "romance" }, say: ["{from} swears {text}. {from} would know, apparently."] }
   ],
@@ -20576,6 +20585,9 @@ const CV_RULES = {
     { when: { stance: "amused" }, say: ["Ha! Oh, that is wonderful. Poor {target}.", "Stop. Stop it. I will tell everyone.", "Ha! I wish I had seen it."] },
     { when: { stance: "pity" }, say: ["Oh, poor {target}. Somebody should look in on them.", "That is hard. I will take round some bread."] },
     { when: { stance: "warm" }, say: ["How lovely. Good for {actor}.", "That is the nicest thing I have heard all week.", "You see? People are better than they seem."] },
+    { when: { tag: "money" }, say: ["Money again. It is always money with some people.", "I would keep that quiet, if it were mine."] },
+    { when: { tag: "health" }, say: ["Oh dear. I hope it is nothing catching.", "Poor {target}. I will look in on them."] },
+    { when: { tag: "work" }, say: ["Good for them. Or bad. You can never tell with work.", "I will believe it when I see it."] },
     { when: { tag: "romance" }, say: ["No! {actor}? Does anyone else know? Do not answer, I will find out.", "Well, well. I wondered about those two."] }
   ]
 };
@@ -20664,6 +20676,25 @@ function cvActSay(c) {
   if (a === "any" || !A.say || !A.say.length) return /^[A-Z][a-z]+ing\b/.test(c.status) ? `Just ${cvLow(c.status)}.` : c.status ? c.status + ", as it happens." : "Mm? Oh, hello. I was miles away.";
   return anyOf(A.say);
 }
+const CV_WORKTALK = {
+  Woodcutter: "cuts the timber for every roof in the village",
+  Stonecutter: "breaks stone out at the rocks",
+  Fisher: "goes out for fish when the tide allows",
+  Farmer: "works the fields from first light",
+  Gatherer: "knows every berry bush on the island",
+  Priest: "keeps the chapel and says the words over the dead",
+  Barkeep: "pours the wine and hears every secret in the village",
+  Trader: "buys and sells from a stall",
+  Guard: "walks the streets and keeps the cells",
+  Baker: "is up before dawn at the ovens",
+  Cook: "stirs the stew pots all day",
+  Smith: "makes and mends every tool we have",
+  Shopkeeper: "minds the shop and knows what everyone buys",
+  Weaver: "sits at the loom from morning to night",
+  BathKeeper: "keeps the baths hot",
+  Builder: "puts up the walls and patches the roofs",
+  Labourer: "carries whatever needs carrying"
+};
 const cvToolNoun = (o) => ({ Farmer: "hoe", Woodcutter: "axe", Stonecutter: "chisel", Fisher: "net", Gatherer: "basket" })[o.job || o.cur] || (o.job === "Smith" ? "hammer" : "tools");
 const CV_STATES = [
   { id: "tool", ok: (c) => c.o.toolQ != null && c.o.toolQ < 35 && c.o.job && c.o.job !== "Guard", say: (c) => `My ${cvToolNoun(c.o)} is nearly worn through. Another week and it is a stick.`, deeper: ["Everything takes twice as long with a bad tool, and twice as long means less coin, and less coin means no new tool. It goes round.", "The smith wants {tools} denarii. I have never seen that much in one place."] },
@@ -20714,12 +20745,14 @@ function cvPool(c) {
   for (const g of CV_LEGENDS) pool.push({ key: "lg" + g.id, kind: "legend", id: g.id, w: 0.45 + (lf2Has(o, "devout") || o.age > 50 ? 0.3 : 0) + (v.arch === "sunny" || v.arch === "talkative" ? 0.3 : 0), sens: 0.1 });
   pool.push(...cvWorldTopics(c));
   pool.push(...cvPlayerTopics(c));
-  const past = cvMem(o, p).topics;
-  for (const t of pool) {
+  const past = cvMem(o, p).topics, recent = (t) => {
     const at = past[t.key];
-    if (at != null && !c.told[t.key] && game.time - at < 2 * 1440) t.w *= 0.08;
-  }
-  return pool.filter((t) => !c.told[t.key]);
+    return at != null && !c.told[t.key] && game.time - at < 2 * 1440;
+  };
+  const open = pool.filter((t) => !c.told[t.key]), fresh = open.filter((t) => !recent(t));
+  if (fresh.length >= 5) return fresh;
+  for (const t of open) if (recent(t)) t.w *= 0.05;
+  return open;
 }
 function cvWorldTopics(c) {
   const out = [], o = c.o, hr = c.hr, L = typeof tideLevel === "function" ? tideLevel() : 50;
@@ -20770,7 +20803,7 @@ function cvPlayerTopics(c) {
   }
   return out;
 }
-const cvKindWord = { theft: "theft", pickpocket: "stolen purse", quarrel: "quarrel", brawl: "brawl", insult: "insult", gift: "gift", help: "kindness", fined: "fine", arrest: "arrest", escape: "escape", bribe: "bribe", breakin: "break-in", snoop: "snooping", robbed: "robbery", jealous: "jealous scene", flirt: "flirting", crush: "crush", confront: "confrontation", cheat: "cheating", sabotage: "sabotage", blockdoor: "blocked door", shutin: "locked door", stumble: "tumble", smelly: "smell", sing: "singing", rumour: "rumour", dice: "dice game", charity: "charity", repair: "repair", newclothes: "new clothes", dole: "grain dole", report: "report", blackmail: "blackmail", distract: "distraction", knock: "knocking", wake: "wake-up" };
+const cvKindWord = { closed: "closing", newjob: "change of trade", comfort: "kindness", loan: "loan", repaid: "debt paid off", default: "unpaid debt", secret: "secret", illness: "fever", recovered: "recovery", lostcoins: "lost coins", returned: "honest find", keptcoins: "kept coins", windfall: "windfall", bigcatch: "catch", businessweek: "week at work", delivery: "delivery", pilfer: "theft", courting: "courtship", tryst: "affair", shove: "shove", theft: "theft", pickpocket: "stolen purse", quarrel: "quarrel", brawl: "brawl", insult: "insult", gift: "gift", help: "kindness", fined: "fine", arrest: "arrest", escape: "escape", bribe: "bribe", breakin: "break-in", snoop: "snooping", robbed: "robbery", jealous: "jealous scene", flirt: "flirting", crush: "crush", confront: "confrontation", cheat: "cheating", sabotage: "sabotage", blockdoor: "blocked door", shutin: "locked door", stumble: "tumble", smelly: "smell", sing: "singing", rumour: "rumour", dice: "dice game", charity: "charity", repair: "repair", newclothes: "new clothes", dole: "grain dole", report: "report", blackmail: "blackmail", distract: "distraction", knock: "knocking", wake: "wake-up" };
 function cvLabel(t) {
   switch (t.kind) {
     case "event": {
@@ -20895,7 +20928,8 @@ function cvTellPerson(c, t, layer) {
     const job = q.age >= 16 && q.job && LF2_JOBS[q.job] ? lf2JobName(q) : q.age >= 16 && q.job ? (JOB_NOUN[q.job] || "").replace(/^an? /, "") : "";
     const b0 = cvFreshest(p, band), lead = /^(I |—)/.test(b0) ? `${q.first}? ` : `${q.first}${kw && kw !== "friend" && kw !== "rival" ? `, my ${kw},` : ""} `;
     cvMarkHeard(p, b0);
-    return { text: `${lead}${b0}${job && a > -45 && Math.random() < 0.4 ? ` ${cvCap(ph.he)} is the ${cvLow(job)}, you know.` : ""}`, hooks };
+    const wk = CV_WORKTALK[q.job || q.cur || ""], past = (q.sbPastJobs || []).slice(-1)[0], was = past && game.time - past.until < 30 * 1440 ? ` Used to be ${sbJobWord(past.job)}, mind.` : "";
+    return { text: `${lead}${b0}${job && a > -45 && Math.random() < 0.4 ? ` ${cvCap(ph.he)} is the ${cvLow(job)}, you know.${wk && Math.random() < 0.5 ? ` ${cvCap(wk)}.` : ""}${was}` : ""}`, hooks };
   }
   if (layer === 1) {
     const rel = cvBackOf(o).find((b) => b.a === q.id || b.b === q.id);
@@ -22292,8 +22326,10 @@ const SB_EXAG = {
   smell: ["and you could smell it from the well"],
   gamble: ["and lost the lot straight after"],
   kind: ["and would not take a coin for it"],
-  debt: ["and has not paid back a single coin", "and owes half the village besides"],
-  health: ["and it is catching, they say"],
+  money: ["and has not paid back a single coin", "and owes half the village besides", "and it was twice that, I heard"],
+  health: ["and it is catching, they say", "and could barely stand"],
+  work: ["and the whole village is talking about it", "twice over, if you believe it"],
+  law: ["and went quietly, for once"],
   other: ["in front of half the village", "and that is not the half of it"]
 };
 function sbScapegoat(a, ev) {
@@ -22937,7 +22973,7 @@ function sbLifeDaily() {
   }
   if (Math.floor(game.time / 1440) % 7 === 0) for (const n of adults) {
     const J = n.job && LF2_JOBS[n.job];
-    if (!J || !J.room || n.job === "Guard") continue;
+    if (!J || !J.room || n.job === "Guard" || !lf2Room(J.room)) continue;
     const good = (n.coin || 0) > 25 ? Math.random() < 0.7 : Math.random() < 0.3;
     lfEmit("businessweek", { actor: n, sev: 1, tags: ["business", good ? "rich" : "misfortune"], chron: false, text: good ? `${n.first} had the best week at the ${J.name.toLowerCase()}'s in a long while` : `${n.first} had a terrible week at the ${J.name.toLowerCase()}'s; hardly a customer` });
     if (!n.player) lfMod(n, "week", good ? "a good week at work" : "a bad week at work", good ? 6 : -6, 1440 * 3);
@@ -23018,6 +23054,35 @@ LF2.preD.push(function(n, tod) {
   if (!SB.presim && !n.player) lfMod(n, "feed" + kid.id, `worried about feeding ${kid.first}`, -2, 240);
   return s;
 });
+function sbWatchWorld() {
+  if (SB.presim || !town) return;
+  const W2 = town.sbWatch || (town.sbWatch = { shops: {}, closed: [] });
+  for (const r of rooms) if (!r.dead && LF2_SELL[r.kind] && !W2.shops[r.id]) W2.shops[r.id] = { name: r.name, kind: r.kind, x: r.x, y: r.y };
+  for (const id in W2.shops) {
+    const r = rooms.find((q) => String(q.id) === id), sh = W2.shops[id];
+    if (r && !r.dead) continue;
+    delete W2.shops[id];
+    const keeper = npcs.find((n) => !n.dead && n.job && LF2_JOBS[n.job] && LF2_JOBS[n.job].room === sh.kind);
+    const ev = lfEmit("closed", { actor: null, target: keeper || null, sev: 2, tags: ["business", "news"], chron: true, x: sh.x + 1, y: sh.y + 1, text: `${sh.name || "The " + sh.kind} has shut for good` });
+    W2.closed.push({ kind: sh.kind, name: sh.name, t: game.time, ev: ev.id });
+  }
+  for (const n of npcs) {
+    if (n.dead || n.infant || n.age < 16) continue;
+    const j = n.job || null;
+    if (n.sbJob === void 0) {
+      n.sbJob = j;
+      continue;
+    }
+    if (n.sbJob === j) continue;
+    const was = n.sbJob;
+    n.sbJob = j;
+    if (!was || !j) continue;
+    (n.sbPastJobs = n.sbPastJobs || []).push({ job: was, until: game.time });
+    lfEmit("newjob", { actor: n, sev: 1, tags: ["business", "news"], chron: false, text: `${n.first} has given up being ${sbJobWord(was)} and is ${sbJobWord(j)} now` });
+  }
+}
+const sbJobWord = (j) => LF2_JOBS[j] ? "the " + LF2_JOBS[j].name.toLowerCase() : JOB_NOUN[j] || "a " + String(j).toLowerCase();
+LF2.tickers.push(sbWatchWorld);
 const SB_PRESIM_DAYS = 60;
 function sbPresimSlot(slot, adults, R) {
   const groups = [];

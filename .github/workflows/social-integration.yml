@@ -1,0 +1,111 @@
+name: social integration
+# Keeps the conversation and social simulation in step with the game (docs/social-integration.md).
+# 1. check: runs tools/integrate.mjs against the registry, posts the report on the PR and in the run summary.
+# 2. integrate: when something needs a decision (or a registered feature's code changed) and a Claude key is configured,
+#    Claude acts on the report: on a PR it commits to the PR branch; after a push to main it opens a new PR. It never merges.
+#    To switch it on, add the repository secret ANTHROPIC_API_KEY (or CLAUDE_CODE_OAUTH_TOKEN).
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
+
+concurrency:
+  group: social-integration-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      needs_action: ${{ steps.check.outputs.needs_action }}
+      touched: ${{ steps.check.outputs.touched }}
+      has_key: ${{ steps.key.outputs.has_key }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Compare the game with the integration registry
+        id: check
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: |
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then BASE=HEAD~1; fi
+          node tools/integrate.mjs --base="$BASE" --md=integration-report.md --json=integration-report.json
+          node -e "const r=require('./integration-report.json');require('fs').appendFileSync(process.env.GITHUB_OUTPUT,'touched='+(r.touched.length>0)+'\n')"
+          cat integration-report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Is a Claude key configured?
+        id: key
+        run: echo "has_key=${{ secrets.ANTHROPIC_API_KEY != '' || secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+      - name: Post the report on the pull request
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: social-integration
+          path: integration-report.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: integration-report
+          path: |
+            integration-report.md
+            integration-report.json
+
+  integrate:
+    needs: check
+    # only when there is something to act on, a key to act with, and the change did not come from this job itself
+    if: >-
+      needs.check.outputs.has_key == 'true' &&
+      (needs.check.outputs.needs_action == 'true' || needs.check.outputs.touched == 'true') &&
+      github.actor != 'claude[bot]' && github.actor != 'github-actions[bot]' &&
+      !contains(github.event.head_commit.message, '[social-integration]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - uses: actions/download-artifact@v4
+        with:
+          name: integration-report
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You keep this game's conversation and social simulation in step with the game itself.
+            Read CLAUDE.md, then docs/social-integration.md (the playbook: follow it exactly), then integration-report.md (this change's report)
+            and the diff: ${{ github.event_name == 'pull_request' && format('git diff origin/{0}...HEAD', github.base_ref) || format('git diff {0}..{1}', github.event.before, github.sha) }}.
+
+            For everything the report lists as added, removed, dangling, thin or touched, decide what village life needs, then:
+            - make the straightforward changes yourself (labels, talk groups and lines, reasons, registry entries, clean-up of obsolete talk,
+              historical status for removed things people would remember), following the playbook;
+            - do not change how the game plays and do not delete game code beyond conversation content; propose those instead;
+            - run npm run build, npm run typecheck, node tools/integrate.mjs --strict and npm test, and read node tools/talk.mjs output after content changes;
+            - commit with a message ending "[social-integration]" (and commit dist/index.html with src changes).
+            ${{ github.event_name == 'pull_request' && format('Push your commits to this pull request''s branch ({0}), then add a comment to pull request #{1} with the six sections of the playbook''s report, section 5 filled in with what you changed and section 6 with what a person must decide.', github.event.pull_request.head.ref, github.event.pull_request.number) || format('Create a branch named social-integration/{0}, push it, and open a pull request into main with gh pr create, whose description has the six sections of the playbook''s report (section 5: what you changed; section 6: what a person must decide).', github.sha) }}
+            Never merge anything.
+          claude_args: >-
+            --max-turns 80
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(npm ci),Bash(npm run build),Bash(npm run typecheck),Bash(npm test),Bash(node tools/*),Bash(node tests/*),Bash(git status),Bash(git diff *),Bash(git log *),Bash(git add *),Bash(git commit *),Bash(git checkout *),Bash(git switch *),Bash(git push *),Bash(gh pr create *),Bash(gh pr comment *),Bash(gh pr view *)"

@@ -35,7 +35,7 @@ function sbLifeDaily() {
     if ((job === 'Fisher' || job === 'Farmer') && Math.random() < 0.04) lfEmit('bigcatch', { actor: n, sev: 1, tags: ['brave'], chron: false, text: job === 'Fisher' ? `${n.first} landed the biggest fish anyone has seen this year` : `${n.first}'s field gave a harvest twice the size of anyone's` });
   }
   // a shopkeeper's week
-  if (Math.floor(game.time / 1440) % 7 === 0) for (const n of adults) { const J = n.job && LF2_JOBS[n.job]; if (!J || !J.room || n.job === 'Guard') continue;
+  if (Math.floor(game.time / 1440) % 7 === 0) for (const n of adults) { const J = n.job && LF2_JOBS[n.job]; if (!J || !J.room || n.job === 'Guard' || !lf2Room(J.room)) continue;   // a shut business has no weeks
     const good = (n.coin || 0) > 25 ? Math.random() < 0.7 : Math.random() < 0.3;
     lfEmit('businessweek', { actor: n, sev: 1, tags: ['business', good ? 'rich' : 'misfortune'], chron: false, text: good ? `${n.first} had the best week at the ${J.name.toLowerCase()}'s in a long while` : `${n.first} had a terrible week at the ${J.name.toLowerCase()}'s; hardly a customer` });
     if (!n.player) lfMod(n, 'week', good ? 'a good week at work' : 'a bad week at work', good ? 6 : -6, 1440 * 3); }
@@ -68,3 +68,19 @@ LF2.preD.push(function (n, tod) {
   if (!SB.presim && !n.player) lfMod(n, 'feed' + kid.id, `worried about feeding ${kid.first}`, -2, 240);
   return s;
 });
+
+/* the world changes under the village: a business shuts, somebody changes trade. Villagers learn it as news and keep it as history;
+   what is offered as current (shop talk, a week at work, the job in "she is the baker") always reads the live game. */
+function sbWatchWorld() {
+  if (SB.presim || !town) return; const W = town.sbWatch || (town.sbWatch = { shops: {}, closed: [] });
+  for (const r of rooms) if (!r.dead && LF2_SELL[r.kind] && !W.shops[r.id]) W.shops[r.id] = { name: r.name, kind: r.kind, x: r.x, y: r.y };
+  for (const id in W.shops) { const r = rooms.find(q => String(q.id) === id), sh = W.shops[id]; if (r && !r.dead) continue; delete W.shops[id];
+    const keeper = npcs.find(n => !n.dead && n.job && LF2_JOBS[n.job] && LF2_JOBS[n.job].room === sh.kind);
+    const ev = lfEmit('closed', { actor: null, target: keeper || null, sev: 2, tags: ['business', 'news'], chron: true, x: sh.x + 1, y: sh.y + 1, text: `${sh.name || 'The ' + sh.kind} has shut for good` }); W.closed.push({ kind: sh.kind, name: sh.name, t: game.time, ev: ev.id }); }
+  for (const n of npcs) { if (n.dead || n.infant || n.age < 16) continue; const j = n.job || null;
+    if (n.sbJob === undefined) { n.sbJob = j; continue; } if (n.sbJob === j) continue;
+    const was = n.sbJob; n.sbJob = j; if (!was || !j) continue; (n.sbPastJobs = n.sbPastJobs || []).push({ job: was, until: game.time });
+    lfEmit('newjob', { actor: n, sev: 1, tags: ['business', 'news'], chron: false, text: `${n.first} has given up being ${sbJobWord(was)} and is ${sbJobWord(j)} now` }); }
+}
+const sbJobWord = j => (LF2_JOBS[j] ? 'the ' + LF2_JOBS[j].name.toLowerCase() : JOB_NOUN[j] || 'a ' + String(j).toLowerCase());
+LF2.tickers.push(sbWatchWorld);

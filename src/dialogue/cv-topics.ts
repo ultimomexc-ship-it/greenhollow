@@ -69,6 +69,11 @@ function cvActSay(c) {
 }
 
 /* ---------------- things on their mind right now (their state) ---------------- */
+/** what a job is, in a villager's words (every job and worker task the game has: tools/integrate.mjs checks this) */
+const CV_WORKTALK: any = { Woodcutter: 'cuts the timber for every roof in the village', Stonecutter: 'breaks stone out at the rocks', Fisher: 'goes out for fish when the tide allows', Farmer: 'works the fields from first light',
+  Gatherer: 'knows every berry bush on the island', Priest: 'keeps the chapel and says the words over the dead', Barkeep: 'pours the wine and hears every secret in the village', Trader: 'buys and sells from a stall',
+  Guard: 'walks the streets and keeps the cells', Baker: 'is up before dawn at the ovens', Cook: 'stirs the stew pots all day', Smith: 'makes and mends every tool we have', Shopkeeper: 'minds the shop and knows what everyone buys',
+  Weaver: 'sits at the loom from morning to night', BathKeeper: 'keeps the baths hot', Builder: 'puts up the walls and patches the roofs', Labourer: 'carries whatever needs carrying' };
 const cvToolNoun = o => ({ Farmer: 'hoe', Woodcutter: 'axe', Stonecutter: 'chisel', Fisher: 'net', Gatherer: 'basket' } as any)[o.job || o.cur] || (o.job === 'Smith' ? 'hammer' : 'tools');
 const CV_STATES: any[] = [
   { id: 'tool', ok: c => c.o.toolQ != null && c.o.toolQ < 35 && c.o.job && c.o.job !== 'Guard', say: c => `My ${cvToolNoun(c.o)} is nearly worn through. Another week and it is a stick.`, deeper: ['Everything takes twice as long with a bad tool, and twice as long means less coin, and less coin means no new tool. It goes round.', 'The smith wants {tools} denarii. I have never seen that much in one place.'] },
@@ -112,8 +117,9 @@ function cvPool(c): CvTopic[] {
   // the player
   pool.push(...cvPlayerTopics(c));
   // what they told you in the last two days stays back, so the next conversation is a different one
-  const past = cvMem(o, p).topics; for (const t of pool) { const at = past[t.key]; if (at != null && !c.told[t.key] && game.time - at < 2 * 1440) t.w *= 0.08; }
-  return pool.filter(t => !c.told[t.key]);
+  const past = cvMem(o, p).topics, recent = (t: CvTopic) => { const at = past[t.key]; return at != null && !c.told[t.key] && game.time - at < 2 * 1440; };
+  const open = pool.filter(t => !c.told[t.key]), fresh = open.filter(t => !recent(t));
+  if (fresh.length >= 5) return fresh; for (const t of open) if (recent(t)) t.w *= 0.05; return open;   // with little else to say, an old topic may come back, rarely
 }
 
 /* the day, the weather (the tide), the shops, the chronicle */

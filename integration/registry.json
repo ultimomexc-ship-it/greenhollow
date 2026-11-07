@@ -1,0 +1,272 @@
+{
+ "about": "How each part of the game reaches village life and conversation. tools/integrate.mjs compares this with the game; docs/social-integration.md says how to act on the differences. status: active = in the game now; historical = gone from the game but remembered (labels kept, nothing generates or offers it).",
+ "features": {
+  "crime-and-law": {
+   "status": "active",
+   "describe": "Stealing, sneaking, sabotage and the town watch that catches people for it.",
+   "events": [
+    "theft",
+    "pickpocket",
+    "breakin",
+    "robbed",
+    "pilfer",
+    "keptcoins",
+    "snoop",
+    "sabotage",
+    "shutin",
+    "blockdoor",
+    "distract",
+    "blackmail",
+    "bribe",
+    "report",
+    "arrest",
+    "fined",
+    "escape"
+   ],
+   "jobs": [
+    "Guard"
+   ],
+   "places": [
+    "jail"
+   ],
+   "code": [
+    "src/life2/actions.ts",
+    "src/life2/law.ts",
+    "src/life2/grudges.ts",
+    "src/social2/sb-life.ts"
+   ],
+   "integrations": {
+    "see": "witnesses near the act (lfEmit); anonymous acts (anon) leave the victim's household suspecting somebody (sbPilfer)",
+    "hear": "told on as gossip (SBX.news, lf2Tell); culprits can be swapped on the way (sbPassOn scapegoat)",
+    "remember": "each person's own version (o.kn: who, cert, sus); serious ones are never forgotten (sbImp)",
+    "opinion": "theft/deceit/crime tags lower liking and trust (lf2Feel, sbTrust); grudges (life2/grudges)",
+    "gossip": "high spice; versions differ; 'the wrong person blamed' in sift",
+    "talk": "cvTellEvent with hedges, suspects (layer 1), 'I heard it was X' (cvContradict), the guard's arrest talk"
+   },
+   "accepted": {
+    "escape": "opinion: an escape is judged through the arrest before it, not on its own"
+   }
+  },
+  "quarrels-and-kindness": {
+   "status": "active",
+   "describe": "How villagers treat each other day to day: rows, insults, shoves, help, gifts, comfort.",
+   "events": [
+    "quarrel",
+    "brawl",
+    "insult",
+    "shove",
+    "confront",
+    "comfort",
+    "help",
+    "gift",
+    "charity",
+    "wake",
+    "knock",
+    "repair",
+    "rumour",
+    "newclothes"
+   ],
+   "code": [
+    "src/life2/actions.ts",
+    "src/life2/daily-life.ts",
+    "src/life2/glue.ts",
+    "src/life2/town.ts",
+    "src/social2/sb-exchange.ts"
+   ],
+   "integrations": {
+    "see": "witnesses; family rows are heard by the household",
+    "hear": "news exchanges",
+    "remember": "versions and the reason ledger (o.why: 'argument', 'comforted me')",
+    "opinion": "lfAff with reasons; second-order beliefs (o.sbRel) for people who hear of it",
+    "gossip": "quarrels and brawls travel; kindness travels less",
+    "talk": "event telling, 'X cannot stand Y, ever since\u2026' (cvTellRel), 'today I had words with\u2026' (cvTellConv)"
+   }
+  },
+  "romance": {
+   "status": "active",
+   "describe": "Crushes, flirting, courting, affairs and jealousy.",
+   "events": [
+    "flirt",
+    "crush",
+    "courting",
+    "tryst",
+    "jealous"
+   ],
+   "code": [
+    "src/life2/daily-life.ts",
+    "src/social2/sb-exchange.ts",
+    "src/dialogue/cv-talk.ts"
+   ],
+   "integrations": {
+    "see": "witnesses; trysts are hidden unless seen",
+    "hear": "juicy gossip",
+    "remember": "versions",
+    "opinion": "jealousy sours the rival (sbDaily)",
+    "gossip": "high spice, exaggerated on the way",
+    "talk": "romance rules in cv-rules; 'X is sweet on Y'; flirting as an attitude"
+   }
+  },
+  "money": {
+   "status": "active",
+   "describe": "Coins changing hands: loans, debts, dice, windfalls, lost and found money, the dole.",
+   "events": [
+    "loan",
+    "repaid",
+    "default",
+    "lostcoins",
+    "returned",
+    "windfall",
+    "dice",
+    "cheat",
+    "dole"
+   ],
+   "code": [
+    "src/social2/sb-exchange.ts",
+    "src/social2/sb-life.ts",
+    "src/life2/daily-life.ts",
+    "src/life2/town.ts"
+   ],
+   "integrations": {
+    "see": "the two people involved (and dice tables)",
+    "hear": "news exchanges",
+    "remember": "loans in town.sbLoans; reasons 'unpaid loan', 'paid me back', 'lent me money'",
+    "opinion": "trust rises when repaid, falls when late (sbDaily)",
+    "gossip": "defaults and windfalls travel",
+    "talk": "money rules in cv-rules; 'I had to ask X for a loan' (cvTellConv); reasons when asked about someone"
+   },
+   "accepted": {
+    "dole": "opinion: taking the dole is no shame here; it is news, not a judgement"
+   }
+  },
+  "health": {
+   "status": "active",
+   "describe": "Falling ill, being nursed, getting better.",
+   "events": [
+    "illness",
+    "recovered"
+   ],
+   "code": [
+    "src/social2/sb-life.ts"
+   ],
+   "integrations": {
+    "see": "the household",
+    "hear": "news exchanges",
+    "remember": "versions",
+    "opinion": "pity; friends visit (console)",
+    "gossip": "travels as news",
+    "talk": "health rules in cv-rules; busy/ill people brush you off (cvBusy)"
+   },
+   "accepted": {
+    "recovered": "opinion: getting better is good news, nobody is judged for it"
+   }
+  },
+  "mishaps": {
+   "status": "active",
+   "describe": "Small embarrassments: smells, singing, stumbles.",
+   "events": [
+    "smelly",
+    "sing",
+    "stumble"
+   ],
+   "code": [
+    "src/life2/daily-life.ts"
+   ],
+   "integrations": {
+    "see": "witnesses",
+    "hear": "amusing gossip",
+    "remember": "fades in days (low importance)",
+    "opinion": "mild",
+    "gossip": "travels for laughs",
+    "talk": "smell and embarrass rules in cv-rules"
+   }
+  },
+  "secrets": {
+   "status": "active",
+   "describe": "Each villager's secret (cv-world) and what happens when one leaks.",
+   "events": [
+    "secret"
+   ],
+   "code": [
+    "src/dialogue/cv-world.ts",
+    "src/social2/sb-exchange.ts"
+   ],
+   "integrations": {
+    "see": "nobody: secrets are confided (SBX.confide) or leaked (SBX.leak)",
+    "hear": "the leak is gossip",
+    "remember": "secretKnownBy; versions",
+    "opinion": "leaking costs trust",
+    "gossip": "scandal tag",
+    "talk": "layered telling (cvTellSelf/cvTellPerson layer 3)"
+   }
+  },
+  "work-and-trade": {
+   "status": "active",
+   "describe": "Jobs, the businesses that sell things, and the goods they make and sell.",
+   "events": [
+    "bigcatch",
+    "businessweek",
+    "delivery",
+    "closed",
+    "newjob"
+   ],
+   "jobs": [
+    "Woodcutter",
+    "Stonecutter",
+    "Fisher",
+    "Gatherer",
+    "Farmer",
+    "Priest",
+    "Barkeep",
+    "Trader",
+    "Baker",
+    "Cook",
+    "Smith",
+    "Shopkeeper",
+    "Weaver",
+    "BathKeeper",
+    "Builder",
+    "Labourer"
+   ],
+   "places": [
+    "bakery",
+    "thermopolium",
+    "smithy",
+    "shop",
+    "baths"
+   ],
+   "goods": [
+    "fish",
+    "berries",
+    "grain",
+    "wood",
+    "herbs",
+    "bread",
+    "stew",
+    "tools",
+    "cloth",
+    "iron",
+    "wool",
+    "wine"
+   ],
+   "code": [
+    "src/life2/town.ts",
+    "src/life2/jobs.ts",
+    "src/economy",
+    "src/ai/work-plans.ts",
+    "src/social2/sb-life.ts",
+    "src/world/constants-people.ts"
+   ],
+   "integrations": {
+    "see": "colleagues at work (SBX.shop, presim work groups)",
+    "hear": "a good or bad week, deliveries and catches are news",
+    "remember": "versions; rivalry reasons ('competition'); a business that shuts becomes a 'closed' event (history: remembered and gossiped, no longer offered as current); a change of trade is a 'newjob' event, and 'used to be the baker' in talk (sbWatchWorld)",
+    "opinion": "respect (sbResp) between colleagues; rivalry in the same trade",
+    "gossip": "business news travels",
+    "talk": "activity talk (CV_ACTV), job names (LF2_JOBS name / JOB_NOUN), 'the shop is out of bread' (cvWorldTopics), busy at work (cvBusy), job changes ('newjob')"
+   },
+   "accepted": {
+    "delivery": "opinion: a delivery is news about the shop, not about anybody"
+   }
+  }
+ }
+}

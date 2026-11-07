@@ -37,7 +37,7 @@ function sbTrim(o, max = 80) {
 /* ---------------- stories change on the way ---------------- */
 const SB_EXAG: any = { theft: ['and not for the first time', 'a whole sack of it', 'in broad daylight', 'and laughed about it after'], romance: ['and they were not even hiding it', 'for the third time this week', 'right outside the baths'],
   violence: ['and there was blood', 'and it took three people to pull them apart'], embarrass: ['in front of half the village', 'and it happened twice'], smell: ['and you could smell it from the well'], gamble: ['and lost the lot straight after'],
-  kind: ['and would not take a coin for it'], debt: ['and has not paid back a single coin', 'and owes half the village besides'], health: ['and it is catching, they say'], other: ['in front of half the village', 'and that is not the half of it'] };
+  kind: ['and would not take a coin for it'], money: ['and has not paid back a single coin', 'and owes half the village besides', 'and it was twice that, I heard'], health: ['and it is catching, they say', 'and could barely stand'], work: ['and the whole village is talking about it', 'twice over, if you believe it'], law: ['and went quietly, for once'], other: ['in front of half the village', 'and that is not the half of it'] };
 function sbScapegoat(a, ev) { let best = null, bw = 10; for (const q of npcs) { if (q === a || q.dead || q.infant || q.age < 12 || q.id === ev.target || q.id === ev.actor) continue; const w = -(a.aff[q.id] || 0) + Math.random() * 15; if (w > bw) { bw = w; best = q; } } return best; }
 /** the version a teller passes on: their own, sometimes bent (exaggerated, pinned on somebody they dislike, the name lost, or softened for a friend) */
 function sbPassOn(a, b, ev) {

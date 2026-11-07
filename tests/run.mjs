@@ -352,6 +352,53 @@ test('social: people talk from what they believe (who cannot stand whom, and why
 }));
 
 /* ---------------------------------------------------------------------------------------------- */
+// Social integration (integration/registry.json, tools/integrate.mjs, docs/social-integration.md): the conversation never drifts from the game.
+import { staticEvents, inventory, compare } from '../tools/integrate.mjs';
+import fs from 'node:fs';
+
+test('integration: every event, job, business and good is accounted for in the registry, and nothing in talk refers to what is gone', async () => {
+  const reg = JSON.parse(fs.readFileSync(path.join(root, 'integration', 'registry.json'), 'utf8')), inv = await inventory(GAME), R = compare(reg, staticEvents(), inv);
+  check(inv.errors.length === 0, 'page errors: ' + inv.errors.slice(0, 3).join(' | '));
+  check(!R.added.length, 'not in the registry (decide how villagers learn of and talk about each; see docs/social-integration.md): ' + R.added.map(a => a.type + ' ' + a.id).join(', '));
+  check(!R.removed.length, 'gone from the game but still active in the registry (erase, or keep as history): ' + R.removed.map(r => r.type + ' ' + r.id + ' (' + r.refs.length + ' references)').join(', '));
+  check(!R.dangling.length, R.dangling.map(d => d.why).join(' | '));
+  check(!R.gaps.length, 'thin integration: ' + R.gaps.map(g => g.id + ': ' + g.miss.join('; ')).join(' | '));
+  const n = Object.values(reg.features).reduce((s, f) => s + ['events', 'jobs', 'places', 'goods'].reduce((t, k) => t + (f[k] || []).length, 0), 0);
+  return `${Object.keys(reg.features).length} features, ${n} things registered; ${Object.keys(staticEvents()).length} event kinds, ${Object.keys(inv.jobs).length} jobs, ${inv.places.length} places, ${inv.goods.length} goods in the game`;
+});
+
+test('integration: a business that shuts is remembered and gossiped about, but no longer offered as current', await talkScene(41, async page => {
+  const r = await page.evaluate(() => {
+    const shop = rooms.find(x => !x.dead && LF2_SELL[x.kind]); const kind = shop.kind, name = shop.name;
+    // somebody remembers something that happened there before it shut
+    const [o, w] = __talkable().filter(x => x.age >= 16); const old = lfEmit('delivery', { actor: w, sev: 1, tags: ['news'], witnessIds: [o.id], chron: false, text: `${w.first} took delivery of a barrel at ${name}`, x: shop.x + 1, y: shop.y + 1 });
+    shop.dead = true; for (let i = 0; i < 3; i++) LF2.tickers.forEach(f => { try { f(); } catch (e) {} });
+    const closed = lf2Ev().find(e => e.kind === 'closed'); if (closed) lf2Learn(o, closed, null, 1, true);
+    __friend(o, 60, 60); const c = cvNew(o, game.player), pool = cvPool(c), offered = pool.filter(t => t.kind === 'world' && t.id === shop.id).length;
+    const t = pool.find(x => x.ev === closed), told = t ? cvTell(c, t, 0).text : null; sbLifeDaily(); const week = lf2Ev().filter(e => e.kind === 'businessweek' && e.t === game.time && LF2_JOBS[(byId(e.actor) || {}).job || ''] && LF2_JOBS[byId(e.actor).job].room === kind).length;
+    return { closed: !!closed, text: closed && closed.text, knowsOld: !!(o.kn && o.kn[old.id]), offered, told, week };
+  });
+  check(r.closed, 'shutting a business should be news'); check(r.knowsOld, 'what happened there before should still be remembered');
+  check(r.offered === 0, 'a shut business should not be offered as current shop talk'); check(r.week === 0, 'a shut business should not have a week at work');
+  check(r.told && /shut/.test(r.told), 'villagers should be able to tell you it shut: ' + r.told);
+  return `"${r.told}"; older memories kept; no current shop talk for it`;
+}));
+
+test('integration: a villager who changes trade is known by the new one, remembered in the old one, and the change is news', await talkScene(41, async page => {
+  const r = await page.evaluate(() => {
+    const q = __talkable().find(x => x.age >= 18 && x.job && LF2_JOBS[x.job] && x.job !== 'Guard') || __talkable().find(x => x.age >= 18 && x.job); const before = q.job, mem = Object.keys(q.kn || {}).length;
+    const to = Object.keys(LF2_JOBS).find(j => j !== before && j !== 'Guard'); LF2.tickers.forEach(f => { try { f(); } catch (e) {} }); q.job = to; q.lf2Kept = true; sbWatchWorld();
+    const ev = lf2Ev().slice().reverse().find(e => e.kind === 'newjob' && e.actor === q.id), o = __talkable().find(x => x !== q && x.age >= 16); lf2Learn(o, ev, null, 1, true);
+    __friend(o, 60, 60); let said = ''; for (let i = 0; i < 30 && !/Used to be/.test(said); i++) { const c = cvNew(o, game.player); said = cvTell(c, { key: 'pe' + q.id, kind: 'person', q, w: 1, sens: 0 }, 0).text; }
+    return { before, to, ev: ev && ev.text, said, past: (q.sbPastJobs || []).map(p => p.job), kept: Object.keys(q.kn || {}).length >= mem, name: lf2JobName(q) };
+  });
+  check(r.ev && r.ev.includes(r.name.toLowerCase()), 'changing trade should be news naming the new trade: ' + r.ev);
+  check(r.past.includes(r.before), 'the old trade should be kept as history'); check(r.kept, 'their memories should not be wiped');
+  check(/Used to be/.test(r.said), 'people should be able to say what they used to do: ' + r.said);
+  return `${r.before} -> ${r.to}: "${r.ev}"; "${r.said.slice(0, 110)}"`;
+}));
+
+/* ---------------------------------------------------------------------------------------------- */
 // Longevity and readability (tools/longevity.mjs runs the long version: node tools/longevity.mjs 30)
 import { playDays, measure } from '../tools/longevity.mjs';
 let LONG = null; const longRun = async () => LONG || (LONG = measure(await playDays({ days: 8, talksPerDay: 4, turns: 8, seed: 'ci-longevity' })));

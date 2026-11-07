@@ -68,13 +68,23 @@ The village lives without the player: the simulation owns the truth (events), ea
   contradicting a version with "I heard it was X").
 - Measure with `node tools/network.mjs [days] [seed]` (the village at arrival, how news travels, versions, wrong blame) and `node tools/sift.mjs [days]`.
 
+## Social integration: a permanent check (docs/social-integration.md)
+Every change to the game is a change to village talk. `integration/registry.json` lists every event kind, job, business and good, grouped into
+features, with status (`active` / `historical`) and how each reaches villagers (see, hear, remember, opinion, gossip, talk).
+- `node tools/integrate.mjs [--base=main]` compares the game with the registry: added (with the six questions answered), removed (with every reference
+  by layer), dangling talk tables, thin integration, features a diff touched. `npm test` fails until the registry and the game agree.
+- When you add something, integrate and register it; when you remove something, decide **erase** or **history** (keep labels and memories,
+  stop generating and offering it). Never delete villagers' memories in code. Follow the playbook in docs/social-integration.md.
+- `.github/workflows/social-integration.yml` posts the report on every PR and push to main; with an `ANTHROPIC_API_KEY` (or `CLAUDE_CODE_OAUTH_TOKEN`)
+  secret it also asks Claude to act on it and open or update a PR. Those automated PRs are reviewed by a person before merging.
+
 ## Tests
 - `tests/lib.mjs` loads `dist/index.html` deterministically: seeded `Math.random`, a fake clock, frame loop
   held, the harness steps the sim (`simulate(page, minutes)`) the way the frame loop does. Same seed, same result.
 - Current suite: load and run a day, render without errors, nobody starves in 12 days (three towns),
   the hold-a-key controls (push people and crates, swap, pull, Shift, R, sleepers), conversations (specific openers, long random talks without dead ends or repeats, insults and sympathy, unlocking layers, memory, witnesses, the arrest), sim speed under 3 s per game-day (about 0.7 s now),
   the social simulation (the pre-simulation is deterministic, fast and leaves nobody a blank slate; news spreads gradually and changes; talk uses beliefs and you can contradict a version),
-  readability and a week of freshness (26 tests, about 2 minutes).
+  readability and a week of freshness, and social integration (the registry matches the game; a shut business and a change of trade) (30 tests, about 2 minutes).
 - The random stream is shared, so any change shifts every later random draw: a test that suddenly fails in one town is often exposing a real
   weakness that luck was hiding (that is how children starving with dole grain in their pockets was found). Find the cause before changing the test.
 - When behaviour changes on purpose, tests may need new expectations; when it changes by accident, they catch it.
