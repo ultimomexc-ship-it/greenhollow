@@ -6,7 +6,7 @@ const browser = await launch();
 const { page, errors } = await openGame(browser, new URL('../dist/index.html', import.meta.url).pathname, { rng: 41, town: seed });
 await simulate(page, 3 * 1440 + 10 * 60);
 const out = await page.evaluate(async ([people, turns, mode]) => {
-  if (!game.player) startPlaying(byId(game.steer) || npcs.find(canControl));
+  if (!game.player) startPlaying(canControl(byId(game.steer)) ? byId(game.steer) : npcs.find(canControl));
   const res = [];
   const cand = npcs.filter(q => q !== game.player && !q.dead && q.age >= 14 && q.pose !== 'sleep');
   for (const o of cand.slice(0, people)) {
@@ -18,7 +18,7 @@ const out = await page.evaluate(async ([people, turns, mode]) => {
       if (!b.opts.length) { lines.push('   [no options: they are done]'); break; }
       let k = mode === 'first' ? 0 : Math.floor(Math.random() * b.opts.length);
       lines.push(...b.opts.map((x, j) => `   ${j === k ? '>' : ' '} ${j + 1}. ${x}`));
-      const btn = document.querySelector(`#talk [data-k="c${k}"]`); btn.click();
+      const btn = document.querySelectorAll("#talk [data-k]")[k]; if (!btn) break; btn.click();
     }
     if (talkUI.o) closeTalk(); res.push(lines.join('\n'));
   }

@@ -30,7 +30,7 @@ function cvRule(cat: string, f: any, p): string | null {
   for (const r of rules) { let ok = true, n = 0; for (const k in r.when) { const want = r.when[k], have = f[k]; if (Array.isArray(want) ? !want.includes(have) : typeof want === 'function' ? !want(have, f) : want !== have) { ok = false; break; } n++; }
     if (!ok) continue; if (n > top) { top = n; best = [r]; } else if (n === top) best.push(r); }
   if (!best.length) return null;
-  const lines = best.flatMap(r => r.say), pick = cvFreshest(p, lines); cvMarkHeard(p, pick); return cvFill(p, pick, f);
+  const all = best.flatMap(r => r.say), fit = all.filter(l => !(l.includes('{actor}') && (!f.actor || f.actor === 'somebody')) && !(l.includes('{target}') && 'target' in f && !f.target)), lines = fit.length ? fit : all, pick = cvFreshest(p, lines); cvMarkHeard(p, pick); return cvFill(p, pick, f);
 }
 
 /* ---------------- the facts of an event, as one person sees it ---------------- */
@@ -44,8 +44,8 @@ function cvTagGroup(ev): string {
   if (['arrest', 'fined', 'escape'].includes(k)) return 'law'; return 'other';
 }
 function cvEvFacts(c, ev, k) {
-  const o = c.o, a = k && k.a && ev.actor ? lf2By(ev.actor) : null, g = lf2By(ev.target), rel = q => !q ? 'none' : q === o ? 'me' : isKin(o, q) ? 'kin' : (o.aff[q.id] || 0) > 30 ? 'friend' : (o.aff[q.id] || 0) < -20 ? 'foe' : 'none';
-  const d = Math.floor(game.time / 1440) - Math.floor(ev.t / 1440), j = lf2Judge(o, ev, !!(k && k.a)), txt = (k && k.a ? ev.text : (ev.anonText || ev.text)) || '';
+  const o = c.o, a = k && k.a && !k.sus && ev.actor ? lf2By(sbWhoId(o, ev)) : null, g = lf2By(ev.target), rel = q => !q ? 'none' : q === o ? 'me' : isKin(o, q) ? 'kin' : (o.aff[q.id] || 0) > 30 ? 'friend' : (o.aff[q.id] || 0) < -20 ? 'foe' : 'none';
+  const d = Math.floor(game.time / 1440) - Math.floor(ev.t / 1440), j = lf2Judge(o, ev, !!(k && k.a)), txt = cvMe(o, sbText(o, ev)) || '';
   const tail = a && txt.startsWith(a.first + ' ') ? txt.slice(a.first.length + 1) : null;
   return { tag: cvTagGroup(ev), arch: c.v.arch, stance: cvStanceOf(ev, j), relActor: rel(a), relTarget: rel(g), known: !!a, me: g === o, src: k && k.from ? 'told' : k && !k.mine ? 'saw' : 'mine',
     actor: a ? a.first : 'somebody', target: g ? g.first : '', text: lf2Low(txt), tail: tail ? tail : lf2Low(txt), when: d <= 0 ? 'today' : d === 1 ? 'yesterday' : 'the other day', place: ev.place || 'the square',

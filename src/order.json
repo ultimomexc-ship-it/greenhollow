@@ -40,6 +40,7 @@
   "dialogue/cv-rules.ts",
   "dialogue/cv-topics.ts",
   "dialogue/cv-tell.ts",
+  "dialogue/cv-social.ts",
   "dialogue/cv-talk.ts",
   "life2/grudges.ts",
   "social2/sb-core.ts",

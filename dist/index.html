@@ -10428,7 +10428,7 @@ function eatPlan(n) {
     const m = findSeller(n, g);
     return m ? sellPrice(m, g) : 99;
   }));
-  if (n.age < 16) return homeEatPlan(n) || (n.hunger > 55 ? sharePlan(n) : null) || (n.hunger > 65 ? foragePlan(n) : null);
+  if (n.age < 16) return homeEatPlan(n) || packedPlan(n) || (n.hunger > 55 ? sharePlan(n) : null) || (n.hunger > 65 ? foragePlan(n) : null);
   if (n.shop) {
     const p = stockEatPlan(n);
     if (p) return p;
@@ -18889,7 +18889,7 @@ LF2.tickers.push(() => {
     if (c) lf2SetJob(c, k, true);
   }
   if (LF2.on("economy")) for (const n of npcs) {
-    if (n.dead || n.player || n.infant || !(n.starving > 300) || (n.lf2Dole || 0) > game.time) continue;
+    if (n.dead || n.player || n.infant || !(n.starving > (n.age < 14 ? 120 : 300)) || (n.lf2Dole || 0) > game.time) continue;
     n.lf2Dole = game.time + 600;
     n.inv.grain = (n.inv.grain || 0) + 3;
     town.treasury -= 3;
@@ -20132,10 +20132,10 @@ function cvPron(o) {
 }
 function cvThird(s, o) {
   const p = cvPron(o);
-  return s.replace(/\{I\}/g, p.He).replace(/\{my\}/g, p.his).replace(/\{am\}/g, "is").replace(/\{have\}/g, "has").replace(/\{me\}/g, p.him);
+  return s.replace(/^\{I\} /, "").replace(/\{I\}/g, p.He).replace(/\{my\}/g, p.his).replace(/\{am\}/g, "is").replace(/\{have\}/g, "has").replace(/\{me\}/g, p.him);
 }
 function cvFirst(s) {
-  return s.replace(/\{I\}/g, "I").replace(/\{my\}/g, "my").replace(/\{am\}/g, "am").replace(/\{have\}/g, "have").replace(/\{me\}/g, "me");
+  return s.replace(/^\{(am|have)\}/, "I {$1}").replace(/\{I\}/g, "I").replace(/\{my\}/g, "my").replace(/\{am\}/g, "am").replace(/\{have\}/g, "have").replace(/\{me\}/g, "me");
 }
 const cvAdult = (n) => n && !n.dead && !n.infant && n.age >= 16;
 const CV_AMB = {
@@ -20233,6 +20233,10 @@ function cvWorld() {
       add({ kind, a: a.id, b: b.id, why: cvPick(R, CV_FEUD_WHY), deep: cvPick(R, CV_FEUD_DEEP), sens: 0.4 });
       a.aff[b.id] = (a.aff[b.id] || 0) - 25;
       b.aff[a.id] = (b.aff[a.id] || 0) - 25;
+      if (typeof sbWhy === "function") {
+        sbWhy(a, b, -25, "old feud");
+        sbWhy(b, a, -25, "old feud");
+      }
       used.add(a.id);
       used.add(b.id);
     } else {
@@ -20490,7 +20494,7 @@ function cvRule(cat, f, p) {
     } else if (n === top) best.push(r);
   }
   if (!best.length) return null;
-  const lines = best.flatMap((r) => r.say), pick2 = cvFreshest(p, lines);
+  const all = best.flatMap((r) => r.say), fit = all.filter((l) => !(l.includes("{actor}") && (!f.actor || f.actor === "somebody")) && !(l.includes("{target}") && "target" in f && !f.target)), lines = fit.length ? fit : all, pick2 = cvFreshest(p, lines);
   cvMarkHeard(p, pick2);
   return cvFill(p, pick2, f);
 }
@@ -20507,8 +20511,8 @@ function cvTagGroup(ev) {
   return "other";
 }
 function cvEvFacts(c, ev, k) {
-  const o = c.o, a = k && k.a && ev.actor ? lf2By(ev.actor) : null, g = lf2By(ev.target), rel = (q) => !q ? "none" : q === o ? "me" : isKin(o, q) ? "kin" : (o.aff[q.id] || 0) > 30 ? "friend" : (o.aff[q.id] || 0) < -20 ? "foe" : "none";
-  const d = Math.floor(game.time / 1440) - Math.floor(ev.t / 1440), j = lf2Judge(o, ev, !!(k && k.a)), txt = (k && k.a ? ev.text : ev.anonText || ev.text) || "";
+  const o = c.o, a = k && k.a && !k.sus && ev.actor ? lf2By(sbWhoId(o, ev)) : null, g = lf2By(ev.target), rel = (q) => !q ? "none" : q === o ? "me" : isKin(o, q) ? "kin" : (o.aff[q.id] || 0) > 30 ? "friend" : (o.aff[q.id] || 0) < -20 ? "foe" : "none";
+  const d = Math.floor(game.time / 1440) - Math.floor(ev.t / 1440), j = lf2Judge(o, ev, !!(k && k.a)), txt = cvMe(o, sbText(o, ev)) || "";
   const tail = a && txt.startsWith(a.first + " ") ? txt.slice(a.first.length + 1) : null;
   return {
     tag: cvTagGroup(ev),
@@ -20575,7 +20579,7 @@ const CV_RULES = {
     { when: { tag: "romance" }, say: ["No! {actor}? Does anyone else know? Do not answer, I will find out.", "Well, well. I wondered about those two."] }
   ]
 };
-const CV_MAXLAYER = { act: 1, state: 1, ambition: 2, regret: 2, pride: 1, fear: 1, secret: 2, person: 3, event: 3, back: 2, legend: 2, player: 2, world: 1, chron: 1 };
+const CV_MAXLAYER = { act: 1, state: 1, ambition: 2, regret: 2, pride: 1, fear: 1, secret: 2, person: 3, event: 3, back: 2, legend: 2, player: 2, world: 1, chron: 1, rel: 2, conv: 1 };
 function cvOpenness(c) {
   const o = c.o, m = c.mem;
   let x = c.v.candour + c.aff / 100 * 0.4 + m.trust / 100 * 0.4 + c.warmth * 0.06;
@@ -20657,7 +20661,7 @@ const CV_KIDSAY = ["Look! I can skip a stone eleven times!", "I found a frog. He
 function cvActSay(c) {
   const a = cvActivity(c), A = CV_ACTV[a] || CV_ACTV.any;
   if (c.kid && a !== "privy") return anyOf(CV_KIDSAY);
-  if (a === "any") return /^[A-Z][a-z]+ing\b/.test(c.status) ? `Just ${cvLow(c.status)}.` : c.status ? c.status + ", as it happens." : "Mm? Oh, hello. I was miles away.";
+  if (a === "any" || !A.say || !A.say.length) return /^[A-Z][a-z]+ing\b/.test(c.status) ? `Just ${cvLow(c.status)}.` : c.status ? c.status + ", as it happens." : "Mm? Oh, hello. I was miles away.";
   return anyOf(A.say);
 }
 const cvToolNoun = (o) => ({ Farmer: "hoe", Woodcutter: "axe", Stonecutter: "chisel", Fisher: "net", Gatherer: "basket" })[o.job || o.cur] || (o.job === "Smith" ? "hammer" : "tools");
@@ -20675,11 +20679,13 @@ function cvPool(c) {
   const o = c.o, p = c.p, pool = [], v = c.v, evs = lf2Ev();
   for (let i = evs.length - 1; i >= 0 && pool.length < 40; i--) {
     const ev = evs[i];
-    if (game.time - ev.t > 5 * 1440) break;
+    if (game.time - ev.t > 30 * 1440) break;
     const k = o.kn && o.kn[ev.id];
     if (!k || ev.actor === o.id && !k.brag) continue;
+    if ((ev.target === o.id || ev.actor === o.id) && (o.sbConv || []).some((n) => n.t >= ev.t - 5 && n.t <= ev.t + 5)) continue;
+    if (game.time - ev.t > 5 * 1440 && (k.imp || 0) < 0.45) continue;
     if (ev.actor === p.id || ev.target === p.id) continue;
-    const spice = Math.max(0, ...ev.tags.map((g) => (LF2_TAGS[g] || {}).spice || 0.5)), rec = 1.25 - (game.time - ev.t) / (5 * 1440), mine = ev.target === o.id ? 1.2 : 1;
+    const spice = Math.max(0, ...ev.tags.map((g) => (LF2_TAGS[g] || {}).spice || 0.5)), rec = Math.max(0.3, 1.25 - (game.time - ev.t) / (5 * 1440)), mine = ev.target === o.id ? 1.2 : 1;
     pool.push({ key: "ev" + ev.id, kind: "event", ev, w: spice * (0.5 + 0.5 * ev.sev) * k.cert * rec * mine * (v.arch === "nosy" ? 1.7 : 1), sens: ev.target === o.id ? 0.5 : 0.2 + 0.1 * (ev.tags.includes("scandal") || ev.tags.includes("affair") ? 3 : 0) });
   }
   const rel = [];
@@ -20690,6 +20696,7 @@ function cvPool(c) {
     if (w > 0.8) rel.push({ key: "pe" + q.id, kind: "person", q, w: w * (v.arch === "nosy" || v.arch === "cynic" ? 1.3 : 1), sens: 0.25 });
   }
   pool.push(...rel.sort((x, y) => y.w - x.w).slice(0, 6));
+  pool.push(...cvRelTopics(c), ...cvConvTopics(c));
   for (const b of cvBackOf(o)) pool.push({ key: "bk" + b.id, kind: "back", back: b, w: 1.4, sens: b.sens });
   for (const b of cvWorld().back) if (b.knownBy.includes(o.id) && b.a !== o.id && b.b !== o.id) pool.push({ key: "bk" + b.id, kind: "back", back: b, w: 0.9, sens: 0.3 });
   const L = cvLife(o);
@@ -20767,6 +20774,10 @@ function cvLabel(t) {
     }
     case "person":
       return t.q.first;
+    case "rel":
+      return `${t.q.first} and ${t.extra.b.first}`;
+    case "conv":
+      return `you and ${t.q.first}`;
     case "back": {
       const a = byId(t.back.a), b = byId(t.back.b);
       return t.back.kind === "debt" ? `the money between ${a.first} and ${b.first}` : t.back.kind === "feud" ? `the quarrel between ${a.first} and ${b.first}` : `${a.first} and ${b.first}`;
@@ -20822,21 +20833,29 @@ function cvSuspect(c, ev) {
 function cvTellEvent(c, t, layer) {
   const o = c.o, p = c.p, ev = t.ev, k = o.kn && o.kn[ev.id];
   if (!k) return null;
-  const j = lf2Judge(o, ev, k.a), stance = cvStanceOf(ev, j), actor = k.a ? lf2By(ev.actor) : null, target = lf2By(ev.target), txt = k.a ? ev.text : ev.anonText || ev.text, hooks = [cvHook(t)];
+  const j = lf2Judge(o, ev, k.a), stance = cvStanceOf(ev, j), actor = k.a && !k.sus ? lf2By(sbWhoId(o, ev)) : null, target = lf2By(ev.target), txt = cvMe(o, sbText(o, ev)), hooks = [cvHook(t)];
   if (actor && actor !== o) hooks.push(cvPersonHook(actor));
   if (target && target !== o && target !== actor) hooks.push(cvPersonHook(target));
   if (layer === 0) {
     lf2Tell(o, p, ev, false, true);
+    if (ev.actor === o.id || ev.target === o.id) {
+      const bad = ev.tags.some((g) => (LF2_TAGS[g] || {}).v < 0);
+      return { text: `${cvCap(lf2Low(txt))}. ${cvFreshest(p, bad ? ["I am not proud of it.", "I would rather not go over it again.", "It has been on my mind since.", "I still do not know how it got that far."] : ["I still think about it.", "It meant more than I said at the time.", "I keep meaning to say thank you properly."])}`, hooks };
+    }
+    const hedge = cvHedge(o, ev, k), soft = k.sus || sbKind(o, ev) === "rumour";
     {
       const line = cvRule("ev.tell", cvEvFacts(c, ev, k), p);
-      if (line) return { text: line, hooks };
+      if (line) return { text: line + (soft ? hedge : ""), hooks };
     }
-    const src = k.from ? ` ${byId(k.from) ? byId(k.from).first : "Someone"} told me.` : k.mine ? "" : " I saw it myself.";
-    return { text: `${cvLeadLine(o, p)} ${cvCap(lf2Low(txt))}.${src}${Math.random() < 0.7 ? " " + cvStanceLine(o, stance) : ""}`, hooks };
+    return { text: `${cvLeadLine(o, p)} ${cvCap(lf2Low(txt))}.${hedge}${Math.random() < 0.7 ? " " + cvStanceLine(o, stance) : ""}`, hooks };
   }
   if (layer === 1) {
+    if (!actor && !ev.actor && target) {
+      const tp = cvPron(target);
+      return { text: target === o ? pk(["I will live. Everyone keeps telling me so, which is how I know they are worried.", "It is nothing. It is not nothing. Ask me another day."]) : ev.tags.includes("health") ? `${target.first} will mend. ${cvCap(tp.he)} has people sitting up with ${tp.him}, which is more than some.` : `Nobody did anything. It just happened to ${target.first}. Those are the worst kind.`, hooks };
+    }
     if (!actor) {
-      const S = cvSuspect(c, ev);
+      const S = k.sus && k.who != null ? byId(k.who) : cvSuspect(c, ev);
       if (!S) return { text: "Nobody knows who. That is what bothers me.", hooks };
       const ph2 = cvPron(S);
       hooks.push(cvPersonHook(S));
@@ -20855,7 +20874,7 @@ function cvTellEvent(c, t, layer) {
   }
   if (layer === 2) {
     const from = k.from && byId(k.from);
-    return { text: `${cvAdvise[c.v.arch]}${from ? ` Mind you, I only have it from ${from.first}, and I would not swear to ${cvPron(from).his} memory.` : ""}`, hooks };
+    return { text: `${cvAdvise[c.v.arch]}${from === p ? " Mind you, you are the one who told me." : from ? ` Mind you, I only have it from ${from.first}, and I would not swear to ${cvPron(from).his} memory.` : ""}`, hooks };
   }
   const names = (ev.witnesses || []).map((id) => byId(id)).filter((q) => q && q !== o && q !== p).slice(0, 3);
   if (!names.length || ev.unseen) return { text: "Nobody saw it, you see. That is the part that keeps me up.", hooks };
@@ -20879,11 +20898,15 @@ function cvTellPerson(c, t, layer) {
       hooks.push({ k: "back", key: "bk" + rel.id, label: cvLabel({ kind: "back", back: rel }), back: rel });
       return { text: cvBackText(rel, o, 0) + " " + (rel.kind === "flame" ? "Do not read too much into it." : "I would rather it was not like that."), hooks };
     }
-    const evs = Object.keys(o.kn || {}).map((id) => lf2EvById(+id)).filter((ev) => ev && ev.actor === q.id && o.kn[ev.id].a && game.time - ev.t < 6 * 1440).sort((x, y) => y.sev - x.sev);
+    {
+      const top = sbTopWhy(o, q, a >= 0 ? 1 : -1), wt = top && Math.abs(top.v) >= 3 && sbWhyText(o, q, top);
+      if (wt) return { text: a >= 0 ? cvFreshest(p, [`If you want to know why: ${wt}.`, `${cvCap(wt)}. That is why.`, `${cvCap(wt)}. You do not forget a thing like that.`]) : cvFreshest(p, [`Why? ${cvCap(wt)}. That is why.`, `${cvCap(wt)}. I have not forgotten, and I will not.`, `Ask me why and I will tell you: ${wt}.`]), hooks };
+    }
+    const evs = Object.keys(o.kn || {}).map((id) => lf2EvById(+id)).filter((ev) => ev && ev.actor === q.id && ev.target !== o.id && o.kn[ev.id].a && !o.kn[ev.id].sus && game.time - ev.t < 6 * 1440).sort((x, y) => y.sev - x.sev);
     if (evs.length) {
-      const ev = evs[0], jv = lf2Judge(o, ev, true).v;
+      const ev = evs[0], jv = lf2Judge(o, ev, true).v, et = cvMe(o, sbText(o, ev));
       hooks.push({ k: "event", key: "ev" + ev.id, label: `what ${q.first} did`, ev });
-      return { text: jv < -0.3 ? `Honestly? It is what ${q.first} did. ${cvCap(lf2Low(ev.text))}. Hard to look at ${ph.him} the same way.` : jv > 0.3 ? `I think of the time ${lf2Low(ev.text)}. People like that are rarer than they should be.` : `Remember when ${lf2Low(ev.text)}? That is the sort of person ${q.first} is. Take that how you like.`, hooks };
+      return { text: jv < -0.3 ? `Honestly? It is what ${q.first} did. ${cvCap(lf2Low(et))}. Hard to look at ${ph.him} the same way.` : jv > 0.3 ? `I think of the time ${lf2Low(et)}. People like that are rarer than they should be.` : `Remember when ${lf2Low(et)}? That is the sort of person ${q.first} is. Take that how you like.`, hooks };
     }
     if (kw && !["friend", "rival", "sweetheart"].includes(kw)) {
       const K = { son: `Children. You love them and they send you the bill in grey hair.`, daughter: `Children. You love them and they send you the bill in grey hair.`, mother: `Parents. You spend your life turning into them and complaining about it.`, father: `Parents. You spend your life turning into them and complaining about it.`, husband: `Marriage. You learn each other's silences. Some of them are loud.`, wife: `Marriage. You learn each other's silences. Some of them are loud.` };
@@ -20898,10 +20921,10 @@ function cvTellPerson(c, t, layer) {
       hooks.push({ k: "secret", key: "qsec" + q.id, label: `${q.first}'s secret`, q });
       return { text: `Between us \u2014 and I mean that \u2014 ${q.first} has something ${ph.he} would rather not have known. I am not saying what. I am saying it exists.`, hooks };
     }
-    const rum = Object.keys(o.kn || {}).map((id) => lf2EvById(+id)).filter((ev) => ev && ev.actor === q.id && o.kn[ev.id].a).sort((x, y) => y.t - x.t)[0];
+    const rum = Object.keys(o.kn || {}).map((id) => lf2EvById(+id)).filter((ev) => ev && ev.actor === q.id && ev.target !== o.id && o.kn[ev.id].a && !o.kn[ev.id].sus).sort((x, y) => y.t - x.t)[0];
     if (rum) {
       hooks.push({ k: "event", key: "ev" + rum.id, label: `what ${q.first} did`, ev: rum });
-      return { text: `There is the matter of ${cvLow(rum.text)}. I do not know the half of it. People talk.`, hooks };
+      return { text: `People say ${lf2Low(cvMe(o, sbText(o, rum)))}. I do not know the half of it. People talk.`, hooks };
     }
     return { text: pk([`Past that I know nothing for certain. And I do not guess about people I have to meet at supper.`, `That is the lot. If there is more, nobody has been brave enough to tell me.`, `I have said more than I meant. The rest is theirs to tell.`]), hooks };
   }
@@ -21014,7 +21037,7 @@ function cvTellPlayer(c, t, layer) {
     case "heard": {
       const ev = t.ev;
       hooks[0] = cvHook({ kind: "event", key: "ev" + ev.id, ev }, "that");
-      return { text: `${cvLeadLine(o, p)} ${cvCap(lf2Low(ev.text))}. That was you, was it not?`, hooks };
+      return { text: `${cvLeadLine(o, p)} ${cvCap(lf2Low(cvMe(o, sbText(o, ev))))}. That was you, was it not?`, hooks };
     }
     case "liked":
     case "disliked":
@@ -21051,10 +21074,173 @@ function cvTell(c, t, layer) {
       return cvTellChron(c, t, layer);
     case "player":
       return cvTellPlayer(c, t, layer);
+    case "rel":
+      return cvTellRel(c, t, layer);
+    case "conv":
+      return cvTellConv(c, t, layer);
     case "act":
       return cvTellAct(c);
   }
   return null;
+}
+function cvYou(txt, o) {
+  const p = game.player;
+  if (!p || p === o || !txt || !new RegExp("\\b" + p.first + "\\b").test(txt)) return txt;
+  return txt.replace(new RegExp("^" + p.first + "'s\\b"), "Your").replace(new RegExp("\\b" + p.first + "'s\\b", "g"), "your").replace(new RegExp("^" + p.first + "\\b"), "You").replace(new RegExp("\\b" + p.first + "\\b", "g"), "you");
+}
+function cvMe(o, txt) {
+  txt = cvYou(txt, o);
+  if (!o || !txt || !new RegExp("\\b" + o.first + "\\b").test(txt)) return txt;
+  const ph = cvPron(o), P = ph.he;
+  let s = txt.replace(new RegExp("^" + o.first + " and (\\w+)"), "$1 and I").replace(new RegExp("\\band " + o.first + "\\b"), "and me").replace(new RegExp("^" + o.first + "'s\\b"), "My").replace(new RegExp("\\b" + o.first + "'s\\b", "g"), "my").replace(new RegExp("^" + o.first + "\\b"), "I").replace(new RegExp("\\b" + o.first + "\\b", "g"), "me");
+  const subj = new RegExp("^" + o.first + "\\b").test(txt), V = (v) => ({ is: "am", has: "have", owes: "owe" })[v] || v;
+  s = s.replace(new RegExp("\\b(when|as|because|since|while|so|that|and) " + P + " (was|is|has|had|owes|said|would)\\b", "g"), (m, w, v) => `${w} I ${V(v)}`);
+  if (subj) s = s.replace(new RegExp("\\b" + P + " (was|is|has|had|owes|said|would)\\b", "g"), (m, v) => `I ${V(v)}`);
+  s = s.replace(/^(\w+) and me\b/, "$1 and I");
+  s = s.replace(/^I (is|has|owes|was|lands|lost|landed)\b/, (m, v) => "I " + ({ is: "am", has: "have", owes: "owe" }[v] || v)).replace(/\bI and (\w+)/, "$1 and I").replace(/^I and/, "I and");
+  return s.replace(new RegExp("\\b" + ph.his + " own\\b", "g"), "my own");
+}
+function cvHedge(o, ev, k) {
+  if (!k || k.mine) return "";
+  if (k.sus && k.who != null) {
+    const s = byId(k.who);
+    return s ? " " + pk([`Nobody saw who. I would bet my last coin it was ${s.first}, mind.`, `Nobody saw. But I know what I think, and I think ${s.first}.`]) : "";
+  }
+  const from = k.from != null ? byId(k.from) : null, kind = sbKind(o, ev);
+  if (from && from === game.player) return " " + pk(["You told me yourself.", "You were the one who told me."]);
+  if (kind === "fact") return " " + pk(["I saw it myself.", "I was there."]);
+  if (kind === "rumour") return " " + (from ? pk([`${from.first} told me, though I would not swear to it.`, `That is what ${from.first} says. Make of it what you like.`]) : pk(["That is what people are saying, anyway.", "Or so they say."]));
+  return from ? " " + pk([`${from.first} told me.`, `I had it from ${from.first}.`]) : "";
+}
+const CV_RELWHY = {
+  "unpaid loan": "over money that was never paid back",
+  "paid me back": "ever since the money was paid back on time",
+  "lent me money": "ever since the loan",
+  "refused a loan": "ever since the loan that never was",
+  argument: "since they had words",
+  "row at home": "the rows at home",
+  "comforted me": "since the time they sat up together",
+  competition: "over work. Always over work",
+  jealous: "over a sweetheart",
+  "old feud": "it goes back years",
+  courting: "they have been walking out",
+  "took my side": "since one took the other's side"
+};
+function cvRelWhy(o, a, b, r) {
+  if (!r || !r.why) return "";
+  if (r.why.startsWith("ev:")) {
+    const ev = lf2EvById(+r.why.slice(3));
+    return ev && o.kn && o.kn[ev.id] ? `Ever since ${lf2Low(cvMe(o, sbText(o, ev)))}.` : "";
+  }
+  const w = CV_RELWHY[r.why];
+  return w ? cvCap(w) + "." : "";
+}
+function cvRelTopics(c) {
+  const o = c.o, p = c.p, R = o.sbRel || {}, out = [];
+  for (const key in R) {
+    const r = R[key];
+    if (Math.abs(r.v) < 0.4 || r.c < 0.45 || game.time - r.t > 20 * 1440) continue;
+    const [ai, bi] = key.split(":").map(Number), a = byId(ai), b = byId(bi);
+    if (!a || !b || a.dead || b.dead || a === o || b === o || a === p || b === p) continue;
+    out.push({ key: "rel" + key, kind: "rel", q: a, extra: { b, r }, w: (0.5 + Math.abs(r.v)) * (c.v.arch === "nosy" || lf2Has(o, "gossipy") ? 1.5 : 1) * (r.v < 0 ? 1.2 : 1), sens: r.v < 0 ? 0.3 : 0.15 });
+  }
+  return out.sort((x, y) => y.w - x.w).slice(0, 4);
+}
+function cvTellRel(c, t, layer) {
+  const o = c.o, p = c.p, a = t.q, b = t.extra.b, r = sbRelGet(o, a, b) || t.extra.r, hooks = [cvHook(t), cvPersonHook(a), cvPersonHook(b)], pa = cvPron(a);
+  if (layer === 0) {
+    const v = r.v, why = cvRelWhy(o, a, b, r), sure = r.c < 0.7 ? pk([" Or so it looks to me.", " That is how it looks, anyway."]) : "";
+    const say2 = v <= -0.6 ? pk([`${a.first} cannot stand ${b.first}, you know.`, `There is no love lost between ${a.first} and ${b.first}. Not from ${a.first}'s side, anyway.`, `${a.first} would cross the square to avoid ${b.first}.`]) : v < 0 ? pk([`${a.first} is cool with ${b.first} these days.`, `Something has soured between ${a.first} and ${b.first}. ${a.first} barely says good morning.`]) : v >= 0.7 ? pk([`${a.first} is sweet on ${b.first}. Have you not noticed?`, `${a.first} thinks the world of ${b.first}.`]) : pk([`${a.first} has a lot of time for ${b.first}.`, `${a.first} and ${b.first} get on, these days.`]);
+    return { text: `${say2} ${why}${sure}`.replace(/\s+/g, " ").trim(), hooks };
+  }
+  if (layer === 1) {
+    const mine = o.aff[b.id] || 0, agree = r.v < 0 ? mine < -10 : mine > 20, top = sbTopWhy(o, b, r.v < 0 ? -1 : 1), wt = top && sbWhyText(o, b, top);
+    if (agree) return { text: r.v < 0 ? `And between you and me, I see why. ${wt ? cvCap(wt) + "." : `${b.first} has a way of getting under your skin.`}` : `I can see it. ${wt ? cvCap(wt) + "." : `${b.first} is easy to like.`}`, hooks };
+    const ex = sbTopWhy(o, b, mine >= 0 ? 1 : -1), et = ex && sbWhyText(o, b, ex);
+    return { text: r.v < 0 ? `I do not see it myself. ${et && mine >= 0 ? cvCap(et) + "." : `${b.first} has always been decent enough to me.`} But ${a.first} is ${a.first}.` : `I cannot see what ${a.first} sees in ${cvPron(b).him}, frankly.${et && mine < 0 ? " " + cvCap(et) + "." : ""}`, hooks };
+  }
+  if (layer === 2) {
+    const told = Object.values(o.sbConv || []).filter((n) => n.about === b.id && n.w === a.id && (n.ty === "vent" || n.ty === "praise")).length;
+    return { text: told ? `${a.first} told me so ${pa.him}self, more than once. I did not have to guess.` : pk([`Nobody told me. You only have to watch them in the same room.`, `I have eyes. That is all it takes in a village this size.`]), hooks };
+  }
+  return null;
+}
+const CV_CONVSAY = {
+  vent: (w, q) => [`${w.first} was going on to me about ${q.first} this morning. On and on.`, `I have had an earful from ${w.first} about ${q.first} already today.`],
+  praise: (w, q) => [`${w.first} was singing ${q.first}'s praises to me earlier. Funny, I had never heard that before.`],
+  console: (w) => [`I sat with ${w.first} for a while earlier. ${cvCap(cvPron(w).he)} is not doing well.`],
+  row: (w) => [`${w.first} and I had words at home this morning. I do not want to talk about it. \u2026Well. Maybe a little.`],
+  argue: (w) => [`${w.first} and I had a proper argument earlier. I am still turning it over.`],
+  borrow: (w) => [`I had to ask ${w.first} for a loan. Do not look at me like that.`],
+  lend: (w) => [`${w.first} came to me for money this morning. I said yes. I hope I do not regret it.`],
+  refused: (w) => [`I asked ${w.first} for a few coins and ${cvPron(w).he} said no. After everything.`],
+  asked: (w) => [`${w.first} asked me for money. I said no. I feel bad about it, but I have little enough.`],
+  repaid: (w) => [`${w.first} paid me back today. Every coin. I had half given up.`],
+  court: (w) => [`I walked with ${w.first} for a while this morning. \u2026That is all. Why are you smiling?`],
+  "heard secret": (w, q) => [`${w.first} told me something about ${q ? q.first : "somebody"} that I was not supposed to hear.`],
+  rivalry: (w) => [`${w.first} is at it again at work. Always has to be first, always has to be best.`]
+};
+function cvConvTopics(c) {
+  const o = c.o, p = c.p, out = [];
+  for (const n of (o.sbConv || []).slice().reverse()) {
+    if (game.time - n.t > 1440 || !CV_CONVSAY[n.ty]) continue;
+    const w = byId(n.w);
+    if (!w || w === p || w.dead) continue;
+    const q = n.about != null ? byId(n.about) : null;
+    if (q === p) continue;
+    const k = "cv" + n.ty + n.w + "." + n.t;
+    out.push({ key: k, kind: "conv", q: w, extra: { n, about: q }, w: ["vent", "row", "argue", "refused", "heard secret"].includes(n.ty) ? 1.3 : 0.8, sens: ["row", "borrow", "refused", "heard secret"].includes(n.ty) ? 0.35 : 0.15 });
+    if (out.length >= 2) break;
+  }
+  return out;
+}
+function cvTellConv(c, t, layer) {
+  const o = c.o, n = t.extra.n, w = t.q, q = t.extra.about, hooks = [cvHook(t), cvPersonHook(w)];
+  if (q && q !== o) hooks.push(cvPersonHook(q));
+  if (layer === 0) {
+    const L = CV_CONVSAY[n.ty](w, q);
+    const ln = cvFreshest(c.p, L);
+    cvMarkHeard(c.p, ln);
+    return { text: ln, hooks };
+  }
+  if (layer === 1) {
+    if (n.ty === "vent" && q) {
+      const r = sbRelGet(o, w, q), why = cvRelWhy(o, w, q, r);
+      return { text: `${why || `I never did get to the bottom of why.`} ${(o.aff[q.id] || 0) > 30 ? `I like ${q.first}, so I said nothing. It was hard.` : `I let ${cvPron(w).him} talk. It seemed to help.`}`, hooks };
+    }
+    if (n.ty === "row") {
+      const ev = lf2Ev().slice().reverse().find((e) => e.kind === "quarrel" && (e.actor === o.id && e.target === w.id || e.actor === w.id && e.target === o.id));
+      return { text: ev ? `If you must know, ${lf2Low(ev.text.replace(/^.*? had a row( at home)? /, "it was "))}. It is always something small. It is never something small.` : "It is always something small. It is never something small.", hooks };
+    }
+    if (n.ty === "borrow" || n.ty === "lend" || n.ty === "refused" || n.ty === "asked") {
+      const l = (town.sbLoans || []).slice().reverse().find((x) => x.from === w.id && x.to === o.id || x.from === o.id && x.to === w.id);
+      return { text: l ? `${l.amt} denarii. ${l.from === o.id ? `${cvCap(cvPron(w).he)} says by the end of the week. We will see.` : `I will pay it back. I always pay it back.`}` : `Money is a cold thing to ask for. It does not matter which side of it you are on.`, hooks };
+    }
+    return { text: pk([`That is all there is to it. Some days are like that.`, `I keep thinking about it, is all.`]), hooks };
+  }
+  return null;
+}
+function cvVersionGap(c, ev) {
+  const o = c.o, p = c.p, mine = p.kn && p.kn[ev.id], theirs = o.kn && o.kn[ev.id];
+  if (!mine || !theirs || !mine.a) return null;
+  const pw = mine.who != null ? mine.who : ev.actor, ow = theirs.a ? theirs.who != null ? theirs.who : ev.actor : null;
+  return pw !== ow ? lf2By(pw) : null;
+}
+function cvContradict(c, ev) {
+  const o = c.o, p = c.p, k = o.kn[ev.id], alt = cvVersionGap(c, ev), cur = k.a ? lf2By(sbWhoId(o, ev)) : null, hooks = [{ k: "event", key: "ev" + ev.id, label: cvLabel({ kind: "event", ev }), ev }];
+  if (!alt) return { text: pk([`Differently how? That is how I heard it, and from somebody who should know.`, `Then somebody has been telling it wrong, and it is not me.`]), hooks };
+  hooks.push(cvPersonHook(alt));
+  const trust = (o.aff[p.id] || 0) / 100 + sbTrustOf(o, p) / 100 + (k.cert < 0.6 ? 0.3 : 0) - (sbKind(o, ev) === "fact" ? 0.6 : 0), likesCur = cur ? o.aff[cur.id] || 0 : 0;
+  if (trust + Math.random() * 0.4 > 0.45 + Math.max(0, -likesCur) / 150) {
+    k.who = alt.id;
+    k.a = true;
+    k.from = p.id;
+    k.cert = Math.max(0.4, k.cert * 0.8);
+    delete k.sus;
+    if (cur && cur !== alt) lfAff(o, cur, 2, "misjudged");
+    return { text: cur ? `${alt.first}? Not ${cur.first}? \u2026Well. That changes things. I have been saying ${cur.first} to anyone who would listen.` : `${alt.first}. Huh. I should have guessed. Thank you for telling me.`, hooks };
+  }
+  return { text: cur ? `${alt.first}? No. It was ${cur.first}. ${sbKind(o, ev) === "fact" ? "I was there." : "Whoever told you that has their own reasons."}` : `${alt.first}? You cannot know that. Nobody saw.`, hooks };
 }
 const CV_CLS = { warm: ["sympathize", "praise", "offer", "agree", "mercy", "matchmake", "apologize"], playful: ["tease", "joke", "flirt"], hostile: ["insult", "accuse", "blackmail"], inquisitive: ["ask", "probe", "press", "doubt"], sharing: ["gossip", "confide", "lie", "answer"] };
 const cvCls = (i) => {
@@ -21187,13 +21373,17 @@ function cvFollowUps(c, h) {
       break;
     }
     case "event": {
-      const ev = h.ev, t = lf2By(ev.target), k = o.kn && o.kn[ev.id], actor = k && k.a ? lf2By(ev.actor) : null;
+      const ev = h.ev, t = lf2By(ev.target), k = o.kn && o.kn[ev.id], actor = k && k.a && !k.sus ? lf2By(sbWhoId(o, ev)) : null;
       add("Where did this happen?", "ask", 1.1, (c2) => cvEvWhere(c2, ev), "ev.where");
       add("When was this?", "ask", 0.9, (c2) => cvEvWhen(c2, ev), "ev.when");
       add("Who saw it?", "ask", 1, (c2) => cvEvWho(c2, ev), "ev.who");
-      if (!actor) add("Who do you think did it?", "ask", 1.4, null, "ev.suspect");
+      if (!actor && ev.actor) add("Who do you think did it?", "ask", 1.4, null, "ev.suspect");
       add(pick1(["How do you know it is true?", "Does anyone actually know the whole story?"]), "probe", 0.9, null, "ev.probe");
-      add(pick1(["I heard it a bit differently.", "That sounds like the kind of thing people exaggerate."]), "doubt", 0.7, null, "ev.doubt");
+      {
+        const alt = cvVersionGap(c, ev);
+        if (alt) add(`I heard it was ${alt.first}, not ${actor ? actor.first : "nobody knows who"}.`, "doubt", 1.5, (c2) => cvContradict(c2, ev), "ev.contra");
+        else add(pick1(["I heard it a bit differently.", "That sounds like the kind of thing people exaggerate."]), "doubt", 0.7, null, "ev.doubt");
+      }
       add(pick1(["Well, nobody can say this village is dull.", "Next you will tell me the goose was involved."]), "joke", 0.6, null, "ev.joke");
       if (t && t !== o) add(`Poor ${t.first}. Does anyone know how ${cvPron(t).he} is taking it?`, "sympathize", 0.8, null, "ev.sym");
       break;
@@ -21273,6 +21463,19 @@ function cvFollowUps(c, h) {
     case "chron":
       add("Who else knows?", "ask", 1);
       add("Poor things. All of them.", "sympathize", 0.6);
+      break;
+    case "rel": {
+      const b = h.extra && h.extra.b;
+      add(pick1([`How do you know?`, `Does ${b ? b.first : "the other one"} know?`]), "ask", 1.1, null, "rel.ask");
+      add(pick1([`And what do you make of ${b ? b.first : "it"}?`, `Whose side are you on?`]), "probe", 1.2, null, "rel.side");
+      add(pick1([`That will end in tears.`, `Somebody should lock them in a room together.`]), "joke", 0.6, null, "rel.joke");
+      if (h.q) add(`Poor ${h.q.first}.`, "sympathize", 0.5, null, "rel.sym");
+      break;
+    }
+    case "conv":
+      add(pick1(["What was it about?", "How did it end?"]), "ask", 1.2, null, "conv.ask");
+      add(pick1(["That sounds like a lot.", "Are you all right?"]), "sympathize", 0.9, null, "conv.sym");
+      add(pick1(["Half the village has had a morning like that.", "And you are telling me. So it is news now."]), "tease", 0.6, null, "conv.tease");
       break;
     case "player":
       return cvPlayerOpts(c, h);
@@ -21438,11 +21641,11 @@ function cvStateSay(c, id) {
 function cvEventsAbout(c, q) {
   return Object.keys(c.p.kn || {}).map((id) => lf2EvById(+id)).filter((ev) => ev && !(c.gossiped && (c.gossiped[ev.id] || c.gossiped["t:" + ev.text])) && ev.actor === q.id && c.p.kn[ev.id] && c.p.kn[ev.id].a && !(c.o.kn && c.o.kn[ev.id] && c.o.kn[ev.id].a) && game.time - ev.t < 5 * 1440).sort((a, b) => b.t - a.t)[0] || null;
 }
-const cvNewsToTell = (c) => Object.keys(c.p.kn || {}).map((id) => lf2EvById(+id)).filter((ev) => ev && !(c.gossiped && (c.gossiped[ev.id] || c.gossiped["t:" + ev.text])) && ev.actor !== c.o.id && game.time - ev.t < 4 * 1440 && !(c.o.kn && c.o.kn[ev.id] && (c.o.kn[ev.id].a || !c.p.kn[ev.id].a))).filter((ev, i, a) => a.findIndex((x) => x.text === ev.text) === i).slice(-6).reverse();
+const cvNewsToTell = (c) => Object.keys(c.p.kn || {}).map((id) => lf2EvById(+id)).filter((ev) => ev && !(c.gossiped && (c.gossiped[ev.id] || c.gossiped["t:" + ev.text])) && ev.actor !== c.o.id && ev.actor !== c.p.id && game.time - ev.t < 4 * 1440 && !(c.o.kn && c.o.kn[ev.id] && (c.o.kn[ev.id].a || !c.p.kn[ev.id].a))).filter((ev, i, a) => a.findIndex((x) => x.text === ev.text) === i).slice(-6).reverse();
 function cvShare(c) {
   const out = [], p = c.p, o = c.o, list = cvNewsToTell(c);
   if (list.length) {
-    const ev = list[0], txt = c.p.kn[ev.id].a ? ev.text : ev.anonText || ev.text;
+    const ev = list[0], txt = cvMe(c.p, sbText(c.p, ev));
     out.push({ text: `Did you hear? ${cvCap(lf2Low(txt))}.`, intent: "gossip", w: 1.3, hook: { k: "world", key: "sh", label: "that" }, then: (c2) => cvGossipTell(c2, ev) });
   }
   const K = cvKnows(p).back;
@@ -21995,7 +22198,7 @@ const sbWhoId = (o, ev) => {
 function sbText(o, ev) {
   const k = o && o.kn && o.kn[ev.id], real = ev.actor ? lf2By(ev.actor) : null;
   let txt = ev.text || ev.kind;
-  if (k && !k.a && real) txt = ev.anonText || txt.replace(new RegExp("^" + real.first + "\\b"), "Somebody");
+  if (k && (!k.a || k.sus) && real) txt = ev.anonText || txt.replace(new RegExp("^" + real.first + " and (\\w+) "), "$1 and somebody ").replace(new RegExp("^" + real.first + "\\b"), "Somebody");
   else if (k && k.who != null && real && k.who !== ev.actor) {
     const fake = lf2By(k.who);
     if (fake) txt = txt.replace(new RegExp("\\b" + real.first + "\\b"), fake.first);
@@ -22170,7 +22373,7 @@ function sbWhyText(o, q, e) {
   const w = e.why;
   if (w.startsWith("ev:")) {
     const ev = lf2EvById(+w.slice(3));
-    return ev ? lf2Low(sbText(o, ev)) : null;
+    return ev ? lf2Low(typeof cvMe === "function" ? cvMe(o, sbText(o, ev)) : sbText(o, ev)) : null;
   }
   const T2 = {
     "unpaid loan": `the money ${q.first} still owes me`,
@@ -22183,6 +22386,14 @@ function sbWhyText(o, q, e) {
     "confided": `${q.first} trusted me with something`,
     "badmouthed a friend": `the things ${q.first} says about my friends`,
     "took my side": `${q.first} took my side`,
+    "old feud": `the old business between ${q.first} and me`,
+    "misjudged": null,
+    "competition": `${q.first} is always trying to outdo me at work`,
+    "jealous": `${q.first} is after somebody I care about`,
+    "rubs me up the wrong way": `${q.first} rubs me up the wrong way, I cannot say why`,
+    "pestering me": `${q.first} will not leave me alone`,
+    "heard good of": null,
+    "heard from": null,
     "time together": null,
     "courting": `${q.first} has been sweet on me`
   };
@@ -22223,9 +22434,13 @@ function sbTogether(a, b, why) {
   const c = sbCompat(a, b);
   for (const [x, y] of [[a, b], [b, a]]) {
     const warm = 1 + 0.35 * (sbHas(x, "cheerful") + sbHas(x, "sociable") + sbHas(x, "generous")) - 0.3 * (sbHas(x, "grumpy") + sbHas(x, "proud")), cur = x.aff[y.id] || 0;
-    let d = c * 2.6 + (Math.random() - 0.5) * 0.8;
+    let d = c * (c < 0 ? 6.5 : 2.6) + (Math.random() - 0.5) * 0.8;
     d *= d > 0 ? warm : 2 - Math.min(1.6, warm);
     d *= 1 - Math.min(0.9, Math.abs(cur) / 110);
+    if (d > 0) {
+      const g = sbTopWhy(x, y, -1);
+      if (g && g.v < -8) d *= 0.25;
+    }
     lfAff(x, y, d, d >= 0 ? why : "rubs me up the wrong way");
   }
 }
@@ -22233,10 +22448,10 @@ function sbStress(a) {
   return (a.coin < 3 ? 1 : 0) + (a.hunger > 65 ? 1 : 0) + (a.mood < 30 ? 1 : 0) + (a.ill && a.ill.until > game.time ? 1 : 0) + (npcs.some((k) => k.ill && k.ill.until > game.time && isKin(a, k)) ? 1 : 0);
 }
 function sbGrievance(a, b) {
-  let best = null, bw = 15;
+  let best = null, bw = 12;
   for (const q of npcs) {
     if (q === a || q === b || q.dead || q.infant) continue;
-    const w = -(a.aff[q.id] || 0) + (sbTopWhy(a, q, -1) ? 10 : 0);
+    const w = -(a.aff[q.id] || 0) + (sbTopWhy(a, q, -1) ? 12 : 0);
     if (w > bw) {
       bw = w;
       best = q;
@@ -22291,7 +22506,7 @@ const SBX = {
   small: { u: () => 1, run(a, b) {
     sbTogether(a, b, "time together");
     bumpKnow(a, b, 1);
-    if (sbCompat(a, b) < -0.4 && Math.random() < 0.15) return SBX.argue.run(a, b);
+    if (sbCompat(a, b) < -0.35 && Math.random() < 0.18) return SBX.argue.run(a, b);
     return "small";
   } },
   news: { u(a, b) {
@@ -22363,6 +22578,15 @@ const SBX = {
   shop: { u(a, b) {
     return a.job && b.job && (LF2_JOBS[a.job] || LF2_JOBS[b.job] || a.job === b.job) ? 0.8 : 0;
   }, run(a, b) {
+    const same = (a.job || a.cur) === (b.job || b.cur), proud = sbHas(a, "proud") + sbHas(a, "greedy") + sbHas(b, "proud") + sbHas(b, "greedy");
+    if (same && Math.random() < 0.05 + 0.12 * proud) {
+      const [x, y] = Math.random() < 0.5 ? [a, b] : [b, a];
+      lfAff(x, y, -3, "competition");
+      sbResp(y, x, 1);
+      sbNote(a, b, "rivalry", null);
+      sbNote(b, a, "rivalry", null);
+      return "rivalry";
+    }
     sbTogether(a, b, "work");
     sbResp(a, b, 1);
     sbResp(b, a, 1);
@@ -22375,9 +22599,9 @@ const SBX = {
       return isKin(a, b) || a.fam && a.fam.spouse === b.id ? 1.4 : 0;
     },
     run(a, b) {
-      const st = sbStress(a) + sbStress(b), row = Math.random() < 0.08 + 0.12 * st - 0.05 * (sbHas(a, "cheerful") + sbHas(b, "cheerful"));
+      const st = sbStress(a) + sbStress(b), row = Math.random() < 0.035 + 0.07 * st - 0.025 * (sbHas(a, "cheerful") + sbHas(b, "cheerful"));
       if (row) {
-        lfEmit("quarrel", { actor: a, target: b, sev: 1, loud: true, tags: ["embarrass"], witnessIds: sbW(), chron: false, text: `${a.first} and ${b.first} had a row${a.fam && a.fam.spouse === b.id ? " at home" : ""} ${a.coin + b.coin < 8 ? "about money" : a.hunger > 60 || b.hunger > 60 ? "over an empty pot" : npcs.some((k) => k.ill && k.ill.until > game.time && (isKin(a, k) || isKin(b, k))) ? "about who would sit up with the sick" : anyOf(["about the chores", "about nothing at all, and then about everything", "over the children", "about her mother", "about his mother", "about a broken pot"])}` });
+        lfEmit("quarrel", { actor: a, target: b, sev: 1, loud: st >= 3, tags: ["embarrass"], witnessIds: sbW(), chron: false, text: `${a.first} and ${b.first} had a row${a.fam && a.fam.spouse === b.id ? " at home" : ""} ${a.coin + b.coin < 8 ? "about money" : a.hunger > 60 || b.hunger > 60 ? "over an empty pot" : npcs.some((k) => k.ill && k.ill.until > game.time && (isKin(a, k) || isKin(b, k))) ? "about who would sit up with the sick" : anyOf(["about the chores", "about nothing at all, and then about everything", "over the children", "about her mother", "about his mother", "about a broken pot"])}` });
         lfAff(a, b, -4, "row at home");
         lfAff(b, a, -4, "row at home");
         sbNote(a, b, "row", null);
@@ -22398,7 +22622,7 @@ const SBX = {
       const q = sbDisagree(a, b);
       a._q = q;
       const hostile = (a.aff[b.id] || 0) < -25 || sbTopWhy(a, b, -1) && (a.aff[b.id] || 0) < -10;
-      return q || hostile ? 0.9 * (1 + 0.5 * (sbHas(a, "grumpy") + sbHas(a, "brave"))) * (1 - 0.6 * sbHas(a, "shy")) : 0;
+      return q || hostile ? 0.55 * (1 + 0.5 * (sbHas(a, "grumpy") + sbHas(a, "brave"))) * (1 - 0.6 * sbHas(a, "shy")) : 0;
     },
     run(a, b) {
       const q = a._q;
@@ -22434,7 +22658,7 @@ const SBX = {
   },
   borrow: {
     u(a, b) {
-      return a.coin < 4 && b.coin >= 15 && !sbLoanBetween(a, b) && a.age >= 16 && b.age >= 16 ? 1.5 : 0;
+      return (a.coin < 5 || a.coin < 9 && sbStress(a) >= 2) && b.coin >= 12 && !sbLoanBetween(a, b) && a.age >= 16 && b.age >= 16 ? 1.5 : 0;
     },
     run(a, b) {
       const yes = (b.aff[a.id] || 0) > 10 && sbTrustOf(b, a) > -15 && (lf2Has(b, "generous") || Math.random() < 0.6) && !lf2Has(b, "greedy");
@@ -22462,7 +22686,7 @@ const SBX = {
   repay: {
     u(a, b) {
       const l = sbLoanBetween(a, b);
-      return l && l.to === a.id && a.coin >= l.amt + 3 ? 3 : 0;
+      return l && l.to === a.id && a.coin >= l.amt + (lf2Has(a, "greedy") ? 6 : 0) ? 4 : 0;
     },
     run(a, b) {
       const l = sbLoanBetween(a, b);
@@ -22583,6 +22807,12 @@ function sbDaily() {
   for (const l of town.sbLoans || []) {
     if (l.state === "paid") continue;
     const a = byId(l.to), b = byId(l.from);
+    if (!a || !b || a.dead || b.dead) continue;
+    if (a.coin >= l.amt && !lf2Has(a, "greedy") && Math.random() < (lf2Has(a, "devout") || lf2Has(a, "proud") ? 0.6 : 0.35)) SBX.repay.run(a, b);
+  }
+  for (const l of town.sbLoans || []) {
+    if (l.state === "paid") continue;
+    const a = byId(l.to), b = byId(l.from);
     if (!a || !b || a.dead || b.dead) {
       l.state = "paid";
       continue;
@@ -22596,6 +22826,21 @@ function sbDaily() {
         l.told = 1;
         const ev = lfEmit("default", { actor: a, target: b, sev: 1, tags: ["debt"], witnessIds: [], chron: false, text: `${a.first} has not paid back the ${l.amt} denarii ${cvPron(a).he} owes ${b.first}` });
         lf2Learn(b, ev, null, 1, true);
+      }
+    }
+  }
+  for (const ev of lf2Ev()) {
+    if (ev.kind !== "courting" && ev.kind !== "flirt" && ev.kind !== "tryst") continue;
+    if (game.time - ev.t > 20 * 1440) continue;
+    for (const c of npcs) {
+      if (c.dead || c.id === ev.actor || c.id === ev.target || !c.kn || !c.kn[ev.id] || c.kn[ev.id].jel) continue;
+      const keen = c.crush === ev.target || (c.aff[ev.target] || 0) > 55 && lf2Single(c) && !isKin(c, lf2By(ev.target) || c);
+      if (!keen) continue;
+      c.kn[ev.id].jel = 1;
+      const rival = lf2By(ev.actor);
+      if (rival) {
+        lfAff(c, rival, -10, "jealous");
+        if (!c.player) lfMod(c, "jel" + rival.id, `${rival.first} is after ${(lf2By(ev.target) || {}).first || "them"}`, -5, 1440 * 2);
       }
     }
   }
@@ -22614,6 +22859,10 @@ function sbLifeDaily() {
       n.ill = { until: game.time + days * 1440, t: game.time };
       lfEmit("illness", { actor: null, target: n, sev: days > 2 ? 2 : 1, tags: ["health", "misfortune"], witnessIds: sbHome(n).map((q) => q.id), chron: false, text: `${n.first} has taken ill with a fever` });
       if (!n.player) lfMod(n, "ill", "ill in bed", -10, days * 1440);
+    }
+    if (n.ill && n.ill.until > game.time && Math.random() < 0.6) {
+      const v = npcs.filter((q) => q !== n && !q.dead && !q.infant && q.age >= 12 && !(q.ill && q.ill.until > game.time) && (isKin(q, n) || (q.aff[n.id] || 0) > 30)).sort((x, y) => (y.aff[n.id] || 0) - (x.aff[n.id] || 0))[0];
+      if (v) SBX.console.run(v, n);
     }
     if (n.ill && n.ill.until <= game.time && !n.ill.done) {
       n.ill.done = 1;
@@ -22637,6 +22886,7 @@ function sbLifeDaily() {
         }
       }
     }
+    if (n.coin >= 4 && Math.random() < 0.012) sbPilfer(n, adults);
     if (Math.random() < 4e-3) {
       const q = 8 + Math.floor(Math.random() * 12);
       n.coin += q;
@@ -22661,9 +22911,72 @@ function sbLifeDaily() {
 LF2.hourly.push((h) => {
   if (h === 8) sbLifeDaily();
 });
+const SB_PILFER = ["a purse", "the coins from under the mattress", "a good knife", "a ham from the rafters", "a jar of honey", "a pair of boots left out to dry", "the eggs, every morning this week"];
+function sbPilfer(n, adults) {
+  const cands = adults.filter((x) => x !== n && x.age >= 14 && !isKin(x, n) && (lf2Has(x, "greedy") || x.coin < 3 || lf2Has(x, "lazy")));
+  const thief = anyOf(cands);
+  if (!thief) return null;
+  const what = anyOf(SB_PILFER), q = Math.min(n.coin, 1 + Math.floor(Math.random() * 4));
+  n.coin -= q;
+  thief.coin += q;
+  const home = sbHome(n), saw = Math.random() < 0.25 ? [anyOf(adults.filter((x) => x !== thief && x !== n))].filter(Boolean) : [];
+  const ev = lfEmit("pilfer", {
+    actor: thief,
+    target: n,
+    sev: 1,
+    anon: true,
+    sawActor: saw.map((x) => x.id),
+    tags: ["theft", "crime"],
+    witnessIds: home.map((x) => x.id),
+    chron: false,
+    text: `${thief.first} took ${what} from ${n.first}'s house`,
+    anonText: `Somebody took ${what} from ${n.first}'s house`
+  });
+  const sus = (o) => {
+    let best = null, bw = 8;
+    for (const x of adults) {
+      if (x === o || x === n || isKin(x, o)) continue;
+      const w = -(o.aff[x.id] || 0) * 0.6 + (x.coin < 3 ? 6 : 0) + (lf2Has(x, "greedy") ? 5 : 0) + (x === thief ? 4 : 0) + Math.random() * 12;
+      if (w > bw) {
+        bw = w;
+        best = x;
+      }
+    }
+    return best;
+  };
+  for (const o of [n, ...home]) {
+    if (o === thief || !o.kn || !o.kn[ev.id] || o.kn[ev.id].a) continue;
+    if (Math.random() < (o === n ? 0.6 : 0.3)) {
+      const s = sus(o);
+      if (s) {
+        const k = o.kn[ev.id];
+        k.who = s.id;
+        k.a = true;
+        k.cert = 0.4;
+        k.sus = 1;
+        lf2Feel(o, ev, null, 0.4, true, true);
+      }
+    }
+  }
+  return ev;
+}
 LF2.preD.push(function(n, tod) {
-  if (!n.ill || n.ill.until <= game.time || !n.bed || n.player || n.hunger > 60 || n.starving > 0) return null;
+  if (!n.ill || n.ill.until <= game.time || !n.bed || n.player || n.hunger > 60 || n.starving > 0 || n.age >= 16 && pantryDays(n) < 1.2) return null;
   return [goS({ x: n.bed.x, y: n.bed.y }, "Going to bed with a fever"), waitS(90, "sleep", "Ill in bed with a fever")];
+});
+LF2.preD.push(function(n, tod) {
+  if (n.player || n.age < 16 || !n.homeRoom || (n.feedCool || 0) > game.time || n.ill && n.ill.until > game.time && n.hunger <= 60) return null;
+  const kid = npcs.find((k) => !k.dead && !k.infant && k.age < 14 && k.homeRoom === n.homeRoom && (k.hunger >= 70 || k.starving > 0));
+  if (!kid || foodCount(pantryOf(n)) >= 1) return null;
+  n.feedCool = game.time + 120;
+  const home = [goS(pantrySpot, `Taking food home for ${kid.first}`), waitS(2, "stand", "Stocking the pantry", { onEnd: stash })];
+  const s = foodCount(n.inv) >= 1 ? home : n.coin >= 3 && foodShopPlan(n) || (() => {
+    const f = foragePlan(n);
+    return f ? f.concat(home) : null;
+  })();
+  if (!s) return null;
+  if (!SB.presim && !n.player) lfMod(n, "feed" + kid.id, `worried about feeding ${kid.first}`, -2, 240);
+  return s;
 });
 const SB_PRESIM_DAYS = 60;
 function sbPresimSlot(slot, adults, R) {

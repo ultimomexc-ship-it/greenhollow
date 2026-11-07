@@ -10,7 +10,7 @@ const sbWhoId = (o, ev) => { const k = o && o.kn && o.kn[ev.id]; return k && k.w
 /** the event as this person would tell it: their culprit (or "somebody"), their extra detail */
 function sbText(o, ev) {
   const k = o && o.kn && o.kn[ev.id], real = ev.actor ? lf2By(ev.actor) : null; let txt = ev.text || ev.kind;
-  if (k && !k.a && real) txt = ev.anonText || txt.replace(new RegExp('^' + real.first + '\\b'), 'Somebody');
+  if (k && (!k.a || k.sus) && real) txt = ev.anonText || txt.replace(new RegExp('^' + real.first + ' and (\\w+) '), '$1 and somebody ').replace(new RegExp('^' + real.first + '\\b'), 'Somebody');
   else if (k && k.who != null && real && k.who !== ev.actor) { const fake = lf2By(k.who); if (fake) txt = txt.replace(new RegExp('\\b' + real.first + '\\b'), fake.first); }
   if (k && k.ext) txt += ', ' + k.ext;
   return txt;
@@ -83,8 +83,9 @@ const sbTrustOf = (a, b) => (a.trust && a.trust[b.id]) || 0;
 /** words for a reason, from the speaker's point of view */
 function sbWhyText(o, q, e) {
   if (!e) return null; const w = e.why;
-  if (w.startsWith('ev:')) { const ev = lf2EvById(+w.slice(3)); return ev ? lf2Low(sbText(o, ev)) : null; }
+  if (w.startsWith('ev:')) { const ev = lf2EvById(+w.slice(3)); return ev ? lf2Low(typeof cvMe === 'function' ? cvMe(o, sbText(o, ev)) : sbText(o, ev)) : null; }
   const T: any = { 'unpaid loan': `the money ${q.first} still owes me`, 'paid me back': `${q.first} paid me back, every coin, when ${cvPron(q).he} said ${cvPron(q).he} would`, 'lent me money': `${q.first} lent me money when I had none`, 'refused a loan': `${q.first} would not lend me so much as a coin when I needed it`,
-    'argument': `that row we had`, 'row at home': `the rows we have at home`, 'comforted me': `${q.first} sat with me when I was low`, 'confided': `${q.first} trusted me with something`, 'badmouthed a friend': `the things ${q.first} says about my friends`, 'took my side': `${q.first} took my side`, 'time together': null, 'courting': `${q.first} has been sweet on me` };
+    'argument': `that row we had`, 'row at home': `the rows we have at home`, 'comforted me': `${q.first} sat with me when I was low`, 'confided': `${q.first} trusted me with something`, 'badmouthed a friend': `the things ${q.first} says about my friends`, 'took my side': `${q.first} took my side`, 'old feud': `the old business between ${q.first} and me`, 'misjudged': null, 'competition': `${q.first} is always trying to outdo me at work`, 'jealous': `${q.first} is after somebody I care about`,
+    'rubs me up the wrong way': `${q.first} rubs me up the wrong way, I cannot say why`, 'pestering me': `${q.first} will not leave me alone`, 'heard good of': null, 'heard from': null, 'time together': null, 'courting': `${q.first} has been sweet on me` };
   return T[w] !== undefined ? T[w] : null;
 }

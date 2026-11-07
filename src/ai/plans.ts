@@ -118,7 +118,7 @@ function foragePlan(n) {
 }
 function eatPlan(n) {
   const cheapest = Math.min.apply(null, FOODS.map(g => { const m = findSeller(n, g); return m ? sellPrice(m, g) : 99; }));
-  if (n.age < 16) return homeEatPlan(n) || (n.hunger > 55 ? sharePlan(n) : null) || (n.hunger > 65 ? foragePlan(n) : null);
+  if (n.age < 16) return homeEatPlan(n) || packedPlan(n) || (n.hunger > 55 ? sharePlan(n) : null) || (n.hunger > 65 ? foragePlan(n) : null);
   if (n.shop) { const p = stockEatPlan(n); if (p) return p; }
   const inside = roomAt[Math.round(n.y)] && roomAt[Math.round(n.y)][Math.round(n.x)] >= 0;
   if (!inside) { const p = packedPlan(n); if (p && pantryDays(n) < 1) return p; }

@@ -87,10 +87,10 @@ function cvFollowUps(c, h: CvHook): CvOpt[] {
       if (a > -10 && a < 40 && (o.know[q.id] || 0) < 35) add(`You should spend more time with ${q.first}. I think you would get on.`, 'matchmake', 0.5, c2 => cvMatch(c2, q), 'pe.match');
       const news = cvEventsAbout(c, q); if (news) add(`I heard ${lf2Low(news.text)}. Is that true?`, 'gossip', 1.2, c2 => cvGossipTell(c2, news), 'pe.gossip');
       if (a < 20 && !c.asked.lie) add(`I would watch ${q.first} around money, if I were you.`, 'lie', 0.3, c2 => { c2.asked.lie = 1; return cvLie(c2, q); }, 'pe.lie'); break; }
-    case 'event': { const ev = h.ev, t = lf2By(ev.target), k = o.kn && o.kn[ev.id], actor = k && k.a ? lf2By(ev.actor) : null;
+    case 'event': { const ev = h.ev, t = lf2By(ev.target), k = o.kn && o.kn[ev.id], actor = k && k.a && !k.sus ? lf2By(sbWhoId(o, ev)) : null;
       add('Where did this happen?', 'ask', 1.1, c2 => cvEvWhere(c2, ev), 'ev.where'); add('When was this?', 'ask', 0.9, c2 => cvEvWhen(c2, ev), 'ev.when'); add('Who saw it?', 'ask', 1, c2 => cvEvWho(c2, ev), 'ev.who');
-      if (!actor) add('Who do you think did it?', 'ask', 1.4, null, 'ev.suspect');
-      add(pick1(['How do you know it is true?', 'Does anyone actually know the whole story?']), 'probe', 0.9, null, 'ev.probe'); add(pick1(['I heard it a bit differently.', 'That sounds like the kind of thing people exaggerate.']), 'doubt', 0.7, null, 'ev.doubt');
+      if (!actor && ev.actor) add('Who do you think did it?', 'ask', 1.4, null, 'ev.suspect');
+      add(pick1(['How do you know it is true?', 'Does anyone actually know the whole story?']), 'probe', 0.9, null, 'ev.probe'); { const alt = cvVersionGap(c, ev); if (alt) add(`I heard it was ${alt.first}, not ${actor ? actor.first : 'nobody knows who'}.`, 'doubt', 1.5, c2 => cvContradict(c2, ev), 'ev.contra'); else add(pick1(['I heard it a bit differently.', 'That sounds like the kind of thing people exaggerate.']), 'doubt', 0.7, null, 'ev.doubt'); }
       add(pick1(['Well, nobody can say this village is dull.', 'Next you will tell me the goose was involved.']), 'joke', 0.6, null, 'ev.joke'); if (t && t !== o) add(`Poor ${t.first}. Does anyone know how ${cvPron(t).he} is taking it?`, 'sympathize', 0.8, null, 'ev.sym'); break; }
     case 'back': { const b = h.back; add(pick1(['How did that start?', 'Have you ever tried to put it right?']), 'ask', 1.2, null, 'bk.ask'); add('There is more to it than that, is there not?', 'probe', 1, null, 'bk.probe');
       if (b && b.kind === 'debt') add('How much are we talking about?', 'ask', 1.1, c2 => cvBackDetail(c2, b, 'amt'), 'bk.amt');
@@ -114,6 +114,9 @@ function cvFollowUps(c, h: CvHook): CvOpt[] {
       add('Next you will say the well talks.', 'joke', 0.5, null, 'lg.joke'); break; }
     case 'world': add(pick1(['Is that usual?', 'Does that happen every year?']), 'ask', 0.8); add(pick1(['I will believe it when I see it.', 'Nobody tells me these things.']), 'joke', 0.5); break;
     case 'chron': add('Who else knows?', 'ask', 1); add('Poor things. All of them.', 'sympathize', 0.6); break;
+    case 'rel': { const b = h.extra && h.extra.b; add(pick1([`How do you know?`, `Does ${b ? b.first : 'the other one'} know?`]), 'ask', 1.1, null, 'rel.ask'); add(pick1([`And what do you make of ${b ? b.first : 'it'}?`, `Whose side are you on?`]), 'probe', 1.2, null, 'rel.side');
+      add(pick1([`That will end in tears.`, `Somebody should lock them in a room together.`]), 'joke', 0.6, null, 'rel.joke'); if (h.q) add(`Poor ${h.q.first}.`, 'sympathize', 0.5, null, 'rel.sym'); break; }
+    case 'conv': add(pick1(['What was it about?', 'How did it end?']), 'ask', 1.2, null, 'conv.ask'); add(pick1(['That sounds like a lot.', 'Are you all right?']), 'sympathize', 0.9, null, 'conv.sym'); add(pick1(['Half the village has had a morning like that.', 'And you are telling me. So it is news now.']), 'tease', 0.6, null, 'conv.tease'); break;
     case 'player': return cvPlayerOpts(c, h);
     case 'question': return cvQuestionOpts(c, h);
     case 'avoid': { const orig: CvHook = h.extra; add(pick1(['You went quiet just then.', 'That is not all of it, is it?']), 'press', 1.2); add(pick1(['It is all right. You can trust me with it.', 'You do not have to say. But I am not going anywhere.']), 'sympathize', 1.1);
@@ -187,10 +190,10 @@ function cvStateSay(c, id) { const t = { key: 'st' + id, kind: 'state', id, sens
 
 /* ---------------- things you can bring up yourself ---------------- */
 function cvEventsAbout(c, q) { return Object.keys(c.p.kn || {}).map(id => lf2EvById(+id)).filter(ev => ev && !(c.gossiped && (c.gossiped[ev.id] || c.gossiped['t:' + ev.text])) && ev.actor === q.id && c.p.kn[ev.id] && c.p.kn[ev.id].a && !(c.o.kn && c.o.kn[ev.id] && c.o.kn[ev.id].a) && game.time - ev.t < 5 * 1440).sort((a, b) => b.t - a.t)[0] || null; }
-const cvNewsToTell = c => Object.keys(c.p.kn || {}).map(id => lf2EvById(+id)).filter(ev => ev && !(c.gossiped && (c.gossiped[ev.id] || c.gossiped['t:' + ev.text])) && ev.actor !== c.o.id && game.time - ev.t < 4 * 1440 && !(c.o.kn && c.o.kn[ev.id] && (c.o.kn[ev.id].a || !c.p.kn[ev.id].a))).filter((ev, i, a) => a.findIndex(x => x.text === ev.text) === i).slice(-6).reverse();
+const cvNewsToTell = c => Object.keys(c.p.kn || {}).map(id => lf2EvById(+id)).filter(ev => ev && !(c.gossiped && (c.gossiped[ev.id] || c.gossiped['t:' + ev.text])) && ev.actor !== c.o.id && ev.actor !== c.p.id && game.time - ev.t < 4 * 1440 && !(c.o.kn && c.o.kn[ev.id] && (c.o.kn[ev.id].a || !c.p.kn[ev.id].a))).filter((ev, i, a) => a.findIndex(x => x.text === ev.text) === i).slice(-6).reverse();
 function cvShare(c): CvOpt[] {
   const out: CvOpt[] = [], p = c.p, o = c.o, list = cvNewsToTell(c);
-  if (list.length) { const ev = list[0], txt = c.p.kn[ev.id].a ? ev.text : (ev.anonText || ev.text); out.push({ text: `Did you hear? ${cvCap(lf2Low(txt))}.`, intent: 'gossip', w: 1.3, hook: { k: 'world', key: 'sh', label: 'that' }, then: c2 => cvGossipTell(c2, ev) }); }
+  if (list.length) { const ev = list[0], txt = cvMe(c.p, sbText(c.p, ev)); out.push({ text: `Did you hear? ${cvCap(lf2Low(txt))}.`, intent: 'gossip', w: 1.3, hook: { k: 'world', key: 'sh', label: 'that' }, then: c2 => cvGossipTell(c2, ev) }); }
   const K = cvKnows(p).back; for (const id in K) { const b = cvWorld().back.find(x => x.id === +id); if (!b || b.a === o.id || b.b === o.id || b.knownBy.includes(o.id)) continue; const A = byId(b.a), B = byId(b.b); if (!A || !B) continue;
     out.push({ text: b.kind === 'debt' ? `I heard ${A.first} owes ${B.first} money.` : b.kind === 'feud' ? `Is it true ${A.first} and ${B.first} are not speaking?` : `I heard ${A.first} and ${B.first} were once… close.`, intent: 'gossip', w: 1.2, hook: { k: 'world', key: 'sh' + id, label: 'that' }, then: c2 => cvBackGossip(c2, b) }); break; }
   return out;

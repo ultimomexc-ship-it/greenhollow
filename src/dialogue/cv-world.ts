@@ -15,8 +15,8 @@ const cvCap = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 const cvLow = (s: string) => s ? s.charAt(0).toLowerCase() + s.slice(1) : s;
 /** pronouns and the verb forms a first-person bank line needs: cvSay('{I} {have} lost {my} ring', o) -> "He has lost his ring" */
 function cvPron(o) { return o.female ? { he: 'she', him: 'her', his: 'her', He: 'She' } : { he: 'he', him: 'him', his: 'his', He: 'He' }; }
-function cvThird(s: string, o) { const p = cvPron(o); return s.replace(/\{I\}/g, p.He).replace(/\{my\}/g, p.his).replace(/\{am\}/g, 'is').replace(/\{have\}/g, 'has').replace(/\{me\}/g, p.him); }
-function cvFirst(s: string) { return s.replace(/\{I\}/g, 'I').replace(/\{my\}/g, 'my').replace(/\{am\}/g, 'am').replace(/\{have\}/g, 'have').replace(/\{me\}/g, 'me'); }
+function cvThird(s: string, o) { const p = cvPron(o); return s.replace(/^\{I\} /, '').replace(/\{I\}/g, p.He).replace(/\{my\}/g, p.his).replace(/\{am\}/g, 'is').replace(/\{have\}/g, 'has').replace(/\{me\}/g, p.him); }
+function cvFirst(s: string) { return s.replace(/^\{(am|have)\}/, 'I {$1}').replace(/\{I\}/g, 'I').replace(/\{my\}/g, 'my').replace(/\{am\}/g, 'am').replace(/\{have\}/g, 'have').replace(/\{me\}/g, 'me'); }
 const cvAdult = n => n && !n.dead && !n.infant && n.age >= 16;
 
 /* ---------------- a life: ambition, regret, pride, fear, and maybe a secret ---------------- */
@@ -89,7 +89,7 @@ function cvWorld() {
     const kind = kinds[i % kinds.length]; i++;
     const pr = pickPair((a, b) => !isKin(a, b) && !(lf2Spouse(a) === b)); if (!pr) continue; const [a, b] = pr;
     if (kind === 'debt') { const amt = 6 + Math.floor(R() * 34); const by = add({ kind, a: a.id, b: b.id, amt, why: cvPick(R, CV_DEBT_WHY), sens: 0.5 }); a.aff[b.id] = (a.aff[b.id] || 0) - 6; b.aff[a.id] = (b.aff[a.id] || 0) - 10; used.add(a.id); by.paid = false; }
-    else if (kind === 'feud') { add({ kind, a: a.id, b: b.id, why: cvPick(R, CV_FEUD_WHY), deep: cvPick(R, CV_FEUD_DEEP), sens: 0.4 }); a.aff[b.id] = (a.aff[b.id] || 0) - 25; b.aff[a.id] = (b.aff[a.id] || 0) - 25; used.add(a.id); used.add(b.id); }
+    else if (kind === 'feud') { add({ kind, a: a.id, b: b.id, why: cvPick(R, CV_FEUD_WHY), deep: cvPick(R, CV_FEUD_DEEP), sens: 0.4 }); a.aff[b.id] = (a.aff[b.id] || 0) - 25; b.aff[a.id] = (b.aff[a.id] || 0) - 25; if (typeof sbWhy === 'function') { sbWhy(a, b, -25, 'old feud'); sbWhy(b, a, -25, 'old feud'); } used.add(a.id); used.add(b.id); }
     else { const married = lf2Spouse(a) || lf2Spouse(b); add({ kind: 'flame', a: a.id, b: b.id, why: cvPick(R, CV_FLAME_WHY), sens: married ? 0.85 : 0.45 }); a.aff[b.id] = (a.aff[b.id] || 0) + 8; b.aff[a.id] = (b.aff[a.id] || 0) + 8; used.add(a.id); used.add(b.id); }
   }
   // somebody always knows more than they should: a couple of people know each secret, and a couple more know each old story

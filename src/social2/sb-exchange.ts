@@ -26,10 +26,10 @@ function sbCompat(a, b) {
 }
 /** a little time together: chemistry decides which way it goes; the closer they already are, the less one chat moves it */
 function sbTogether(a, b, why) { const c = sbCompat(a, b); for (const [x, y] of [[a, b], [b, a]]) { const warm = 1 + 0.35 * (sbHas(x, 'cheerful') + sbHas(x, 'sociable') + sbHas(x, 'generous')) - 0.3 * (sbHas(x, 'grumpy') + sbHas(x, 'proud')), cur = x.aff[y.id] || 0;
-  let d = c * 2.6 + (Math.random() - 0.5) * 0.8; d *= d > 0 ? warm : 2 - Math.min(1.6, warm); d *= 1 - Math.min(0.9, Math.abs(cur) / 110); lfAff(x, y, d, d >= 0 ? why : 'rubs me up the wrong way'); } }
+  let d = c * (c < 0 ? 6.5 : 2.6) + (Math.random() - 0.5) * 0.8; d *= d > 0 ? warm : 2 - Math.min(1.6, warm); d *= 1 - Math.min(0.9, Math.abs(cur) / 110); if (d > 0) { const g = sbTopWhy(x, y, -1); if (g && g.v < -8) d *= 0.25; } lfAff(x, y, d, d >= 0 ? why : 'rubs me up the wrong way'); } }
 function sbStress(a) { return (a.coin < 3 ? 1 : 0) + (a.hunger > 65 ? 1 : 0) + (a.mood < 30 ? 1 : 0) + (a.ill && a.ill.until > game.time ? 1 : 0) + (npcs.some(k => k.ill && k.ill.until > game.time && isKin(a, k)) ? 1 : 0); }
 /* somebody they have a grievance with (and the reason), or somebody they admire */
-function sbGrievance(a, b) { let best = null, bw = 15; for (const q of npcs) { if (q === a || q === b || q.dead || q.infant) continue; const w = -(a.aff[q.id] || 0) + (sbTopWhy(a, q, -1) ? 10 : 0); if (w > bw) { bw = w; best = q; } } return best; }
+function sbGrievance(a, b) { let best = null, bw = 12; for (const q of npcs) { if (q === a || q === b || q.dead || q.infant) continue; const w = -(a.aff[q.id] || 0) + (sbTopWhy(a, q, -1) ? 12 : 0); if (w > bw) { bw = w; best = q; } } return best; }
 function sbAdmired(a, b) { let best = null, bw = 50; for (const q of npcs) { if (q === a || q === b || q.dead || q.infant) continue; const w = (a.aff[q.id] || 0) + Math.random() * 10; if (w > bw) { bw = w; best = q; } } return best; }
 function sbDisagree(a, b) {   // they feel very differently about somebody
   for (const q of npcs) { if (q === a || q === b || q.dead) continue; const x = a.aff[q.id] || 0, y = b.aff[q.id] || 0; if ((x > 45 && y < -30) || (x < -30 && y > 45)) return q; } return null; }
@@ -54,7 +54,7 @@ function sbSayIfNear(a, b, ty, f) { if (!sbNear(a, b)) return; const L = SB_SAY[
 
 /* ---------------- the kinds of exchange ---------------- */
 const SBX: any = {
-  small: { u: () => 1, run(a, b) { sbTogether(a, b, 'time together'); bumpKnow(a, b, 1); if (sbCompat(a, b) < -0.4 && Math.random() < 0.15) return SBX.argue.run(a, b); return 'small'; } },
+  small: { u: () => 1, run(a, b) { sbTogether(a, b, 'time together'); bumpKnow(a, b, 1); if (sbCompat(a, b) < -0.35 && Math.random() < 0.18) return SBX.argue.run(a, b); return 'small'; } },
   news: { u(a, b) { const pk = lf2PickTale(a, b); if (!pk) return 0; a._pk = pk; return 2 * (1 + 0.6 * sbHas(a, 'gossipy')); }, run(a, b) { lf2Tell(a, b, a._pk.ev, a._pk.reveal, !sbNear(a, b)); return 'news'; } },
   vent: { u(a, b) { const q = sbGrievance(a, b); if (!q) return 0; a._q = q; return 1.3 * (1 + 0.4 * (sbHas(a, 'grumpy') + sbHas(a, 'proud'))) * ((b.aff[q.id] || 0) > 50 ? 0.3 : 1); },
     run(a, b) { const q = a._q, top = sbTopWhy(a, q, -1), why = top ? sbWhyText(a, q, top) : null, tb = Math.max(0, 0.5 + sbTrustOf(b, a) / 200);
@@ -66,13 +66,15 @@ const SBX: any = {
   console: { u(a, b) { const low = b.mood < 35 || (b.grief || 0) > 0 || (b.ill && b.ill.until > game.time) || sbStress(b) >= 2; return low && (a.aff[b.id] || 0) > -5 ? 1.6 * (1 + 0.4 * (sbHas(a, 'generous') + sbHas(a, 'cheerful'))) : 0; },
     run(a, b) { if (!b.player) lfMod(b, 'comfort' + a.id, `comforted by ${a.first}`, 6, 360); lfAff(b, a, 4, 'comforted me'); sbTrust(b, a, 3); sbNote(a, b, 'console', null); sbNote(b, a, 'console', null);
       lfEmit('comfort', { actor: a, target: b, sev: 1, tags: ['kindness'], witnessIds: sbW(), chron: false, text: `${a.first} sat with ${b.first} when ${cvPron(b).he} was low` }); sbSayIfNear(a, b, 'console', {}); return 'console'; } },
-  shop: { u(a, b) { return a.job && b.job && (LF2_JOBS[a.job] || LF2_JOBS[b.job] || a.job === b.job) ? 0.8 : 0; }, run(a, b) { sbTogether(a, b, 'work'); sbResp(a, b, 1); sbResp(b, a, 1); sbNote(a, b, 'shop', null); sbNote(b, a, 'shop', null); return 'shop'; } },
+  shop: { u(a, b) { return a.job && b.job && (LF2_JOBS[a.job] || LF2_JOBS[b.job] || a.job === b.job) ? 0.8 : 0; }, run(a, b) { const same = (a.job || a.cur) === (b.job || b.cur), proud = sbHas(a, 'proud') + sbHas(a, 'greedy') + sbHas(b, 'proud') + sbHas(b, 'greedy');
+      if (same && Math.random() < 0.05 + 0.12 * proud) { const [x, y] = Math.random() < 0.5 ? [a, b] : [b, a]; lfAff(x, y, -3, 'competition'); sbResp(y, x, 1); sbNote(a, b, 'rivalry', null); sbNote(b, a, 'rivalry', null); return 'rivalry'; }
+      sbTogether(a, b, 'work'); sbResp(a, b, 1); sbResp(b, a, 1); sbNote(a, b, 'shop', null); sbNote(b, a, 'shop', null); return 'shop'; } },
   family: { u(a, b) { return isKin(a, b) || (a.fam && a.fam.spouse === b.id) ? 1.4 : 0; },
-    run(a, b) { const st = sbStress(a) + sbStress(b), row = Math.random() < 0.08 + 0.12 * st - 0.05 * (sbHas(a, 'cheerful') + sbHas(b, 'cheerful'));
-      if (row) { lfEmit('quarrel', { actor: a, target: b, sev: 1, loud: true, tags: ['embarrass'], witnessIds: sbW(), chron: false, text: `${a.first} and ${b.first} had a row${a.fam && a.fam.spouse === b.id ? ' at home' : ''} ${a.coin + b.coin < 8 ? 'about money' : a.hunger > 60 || b.hunger > 60 ? 'over an empty pot' : npcs.some(k => k.ill && k.ill.until > game.time && (isKin(a, k) || isKin(b, k))) ? 'about who would sit up with the sick' : anyOf(['about the chores', 'about nothing at all, and then about everything', 'over the children', 'about her mother', 'about his mother', 'about a broken pot'])}` });
+    run(a, b) { const st = sbStress(a) + sbStress(b), row = Math.random() < 0.035 + 0.07 * st - 0.025 * (sbHas(a, 'cheerful') + sbHas(b, 'cheerful'));
+      if (row) { lfEmit('quarrel', { actor: a, target: b, sev: 1, loud: st >= 3, tags: ['embarrass'], witnessIds: sbW(), chron: false, text: `${a.first} and ${b.first} had a row${a.fam && a.fam.spouse === b.id ? ' at home' : ''} ${a.coin + b.coin < 8 ? 'about money' : a.hunger > 60 || b.hunger > 60 ? 'over an empty pot' : npcs.some(k => k.ill && k.ill.until > game.time && (isKin(a, k) || isKin(b, k))) ? 'about who would sit up with the sick' : anyOf(['about the chores', 'about nothing at all, and then about everything', 'over the children', 'about her mother', 'about his mother', 'about a broken pot'])}` });
         lfAff(a, b, -4, 'row at home'); lfAff(b, a, -4, 'row at home'); sbNote(a, b, 'row', null); sbNote(b, a, 'row', null); sbSayIfNear(a, b, 'row', {}); return 'row'; }
       sbTogether(a, b, 'family'); lfAff(a, b, 0.6, 'family'); lfAff(b, a, 0.6, 'family'); sbNote(a, b, 'family', null); sbNote(b, a, 'family', null); return 'family'; } },
-  argue: { u(a, b) { const q = sbDisagree(a, b); a._q = q; const hostile = (a.aff[b.id] || 0) < -25 || (sbTopWhy(a, b, -1) && (a.aff[b.id] || 0) < -10); return (q || hostile) ? 0.9 * (1 + 0.5 * (sbHas(a, 'grumpy') + sbHas(a, 'brave'))) * (1 - 0.6 * sbHas(a, 'shy')) : 0; },
+  argue: { u(a, b) { const q = sbDisagree(a, b); a._q = q; const hostile = (a.aff[b.id] || 0) < -25 || (sbTopWhy(a, b, -1) && (a.aff[b.id] || 0) < -10); return (q || hostile) ? 0.55 * (1 + 0.5 * (sbHas(a, 'grumpy') + sbHas(a, 'brave'))) * (1 - 0.6 * sbHas(a, 'shy')) : 0; },
     run(a, b) { const q = a._q; lfEmit('quarrel', { actor: a, target: b, sev: 1, loud: true, tags: ['embarrass'], witnessIds: sbW(), chron: false, text: q ? `${a.first} and ${b.first} argued about ${q.first}` : `${a.first} and ${b.first} had words in the street` });
       lfAff(a, b, -5, 'argument'); lfAff(b, a, -5, 'argument'); sbNote(a, b, 'argue', q); sbNote(b, a, 'argue', q); sbSayIfNear(a, b, 'argue', {}); return 'argue'; } },
   court: { u(a, b) { const single = lf2Single(a) && lf2Single(b) && a.female !== b.female && a.age >= 17 && b.age >= 17; return (a.crush === b.id || (single && (a.aff[b.id] || 0) > 35)) ? 1.1 : 0; },
@@ -80,13 +82,13 @@ const SBX: any = {
       a.court = a.court || {}; a.court[b.id] = (a.court[b.id] || 0) + 1; sbNote(a, b, 'court', null); sbNote(b, a, 'court', null); sbSayIfNear(a, b, 'court', {});
       if (into && a.court[b.id] >= 3 && (b.aff[a.id] || 0) > 40 && !a.sbCourted) { a.sbCourted = b.id; lfEmit('courting', { actor: a, target: b, sev: 1, tags: ['romance'], witnessIds: sbW(), chron: false, text: `${a.first} and ${b.first} were seen walking out together` }); }
       return 'court'; } },
-  borrow: { u(a, b) { return a.coin < 4 && b.coin >= 15 && !sbLoanBetween(a, b) && a.age >= 16 && b.age >= 16 ? 1.5 : 0; },
+  borrow: { u(a, b) { return (a.coin < 5 || (a.coin < 9 && sbStress(a) >= 2)) && b.coin >= 12 && !sbLoanBetween(a, b) && a.age >= 16 && b.age >= 16 ? 1.5 : 0; },
     run(a, b) { const yes = (b.aff[a.id] || 0) > 10 && sbTrustOf(b, a) > -15 && (lf2Has(b, 'generous') || Math.random() < 0.6) && !lf2Has(b, 'greedy');
       if (!yes) { lfAff(a, b, -3, 'refused a loan'); sbNote(a, b, 'refused', null); sbNote(b, a, 'asked', null); sbSayIfNear(a, b, 'refuse', {}); return 'refused'; }
       const amt = Math.max(3, Math.min(12, Math.floor(b.coin * 0.3))); b.coin -= amt; a.coin += amt; const L = town.sbLoans || (town.sbLoans = []);
       const loan = { id: L.length + 1, from: b.id, to: a.id, amt, t: game.time, due: game.time + (3 + Math.floor(Math.random() * 4)) * 1440, state: 'open' }; L.push(loan);
       lfEmit('loan', { actor: b, target: a, sev: 1, tags: ['generous'], witnessIds: [], chron: false, text: `${b.first} lent ${a.first} ${amt} denarii` }); lfAff(a, b, 4, 'lent me money'); sbNote(a, b, 'borrow', null); sbNote(b, a, 'lend', null); sbSayIfNear(a, b, 'borrow', {}); return 'loan'; } },
-  repay: { u(a, b) { const l = sbLoanBetween(a, b); return l && l.to === a.id && a.coin >= l.amt + 3 ? 3 : 0; },
+  repay: { u(a, b) { const l = sbLoanBetween(a, b); return l && l.to === a.id && a.coin >= l.amt + (lf2Has(a, 'greedy') ? 6 : 0) ? 4 : 0; },
     run(a, b) { const l = sbLoanBetween(a, b); a.coin -= l.amt; b.coin += l.amt; const late = l.state === 'late'; l.state = 'paid';
       sbTrust(b, a, late ? 6 : 12, 'paid me back'); lfAff(b, a, late ? 3 : 5, 'paid me back'); lfEmit('repaid', { actor: a, target: b, sev: 1, tags: ['honest'], witnessIds: [], chron: false, text: `${a.first} paid back the ${l.amt} denarii ${cvPron(a).he} owed ${b.first}` });
       sbNote(a, b, 'repay', null); sbNote(b, a, 'repaid', null); sbSayIfNear(a, b, 'repay', {}); return 'repay'; } },
@@ -123,9 +125,14 @@ LF2.tickers.push(sbTick);
 
 /* ---------------- once a day: loans fall due, knowledge fades ---------------- */
 function sbDaily() {
+  for (const l of town.sbLoans || []) { if (l.state === 'paid') continue; const a = byId(l.to), b = byId(l.from); if (!a || !b || a.dead || b.dead) continue;
+    if (a.coin >= l.amt && !lf2Has(a, 'greedy') && Math.random() < (lf2Has(a, 'devout') || lf2Has(a, 'proud') ? 0.6 : 0.35)) SBX.repay.run(a, b); }
   for (const l of town.sbLoans || []) { if (l.state === 'paid') continue; const a = byId(l.to), b = byId(l.from); if (!a || !b || a.dead || b.dead) { l.state = 'paid'; continue; }
     if (game.time > l.due && (l.state === 'open' || game.time - (l.lastLate || 0) > 2 * 1440)) { l.state = 'late'; l.lastLate = game.time; sbTrust(b, a, -12, 'unpaid loan'); lfAff(b, a, -6, 'unpaid loan');
       if (!l.told) { l.told = 1; const ev = lfEmit('default', { actor: a, target: b, sev: 1, tags: ['debt'], witnessIds: [], chron: false, text: `${a.first} has not paid back the ${l.amt} denarii ${cvPron(a).he} owes ${b.first}` }); lf2Learn(b, ev, null, 1, true); } } }
+  for (const ev of lf2Ev()) { if (ev.kind !== 'courting' && ev.kind !== 'flirt' && ev.kind !== 'tryst') continue; if (game.time - ev.t > 20 * 1440) continue;
+    for (const c of npcs) { if (c.dead || c.id === ev.actor || c.id === ev.target || !c.kn || !c.kn[ev.id] || c.kn[ev.id].jel) continue; const keen = c.crush === ev.target || ((c.aff[ev.target] || 0) > 55 && lf2Single(c) && !isKin(c, lf2By(ev.target) || c));
+      if (!keen) continue; c.kn[ev.id].jel = 1; const rival = lf2By(ev.actor); if (rival) { lfAff(c, rival, -10, 'jealous'); if (!c.player) lfMod(c, 'jel' + rival.id, `${rival.first} is after ${(lf2By(ev.target) || {}).first || 'them'}`, -5, 1440 * 2); } } }
   for (const n of npcs) if (!n.dead && n.kn) sbTrim(n);
 }
 LF2.hourly.push(h => { if (h === 3) sbDaily(); });

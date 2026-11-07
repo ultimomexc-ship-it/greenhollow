@@ -99,7 +99,7 @@ async function controlScene(name, rng, fn) {
     const { page, errors } = await openGame(browser, GAME, { rng, town: 'controls' });
     await simulate(page, 9 * 60 + 30);
     await page.evaluate(() => {
-      if (!game.player) startPlaying(byId(game.steer) || npcs.find(canControl));
+      if (!game.player) startPlaying(canControl(byId(game.steer)) ? byId(game.steer) : npcs.find(canControl));
       window.__emitted = []; const e0 = lfEmit; lfEmit = function (kind) { window.__emitted.push(kind); return e0.apply(this, arguments); };
       // helpers used by the scenes below
       window.__place = (n, x, y, face) => { n.tx = x; n.ty = y; n.x = x; n.y = y; n.path = []; n.moving = false; if (face) n.face = face; if (n.player) { n.player.keys = {}; n.player.act = null; n.player.lock = false; n.player.sleeping = false; } };
@@ -166,13 +166,14 @@ test('controls: a sleeping person is not pushed around', await controlScene('sle
 }));
 
 test('controls: Space pushes a crate and stepping back pulls it', await controlScene('crate', 41, async page => {
-  const s = await page.evaluate(() => { const [x, y] = __find((x, y) => [0, 1, 2, 3, 4, 5].every(i => __free(x + i, y))); const pr = town.props.find(Boolean); town.pblock[pr.y * W + pr.x] = 0; town.propAt.delete(pr.y * W + pr.x); pr.x = x + 1; pr.y = y; town.pblock[y * W + x + 1] = 1; town.propAt.set(y * W + x + 1, pr); __place(game.player, x, y, { dx: 1, dy: 0 }); window.__pr = pr; return { x, y }; });
+  const s = await page.evaluate(() => { const [x, y] = __find((x, y) => [-3, -2, -1, 0, 1, 2, 3, 4, 5].every(i => __free(x + i, y))); const pr = town.props.find(Boolean); town.pblock[pr.y * W + pr.x] = 0; town.propAt.delete(pr.y * W + pr.x); pr.x = x + 1; pr.y = y; town.pblock[y * W + x + 1] = 1; town.propAt.set(y * W + x + 1, pr); __place(game.player, x, y, { dx: 1, dy: 0 }); window.__pr = pr; return { x, y }; });
   await held(page, ['Space'], 2);
   const pushed = await page.evaluate(() => ({ pr: window.__pr.x, me: game.player.tx }));
   check(pushed.pr > s.x + 1, `the crate should have moved east (x ${s.x + 1} -> ${pushed.pr})`);
+  await page.evaluate(() => { __place(game.player, window.__pr.x - 1, window.__pr.y, { dx: 1, dy: 0 }); rebuildOcc(); });   // stand right behind it (a passer-by may have come between)
   await held(page, ['Space'], 3, 'a');
-  const pulled = await page.evaluate(() => ({ pr: window.__pr.x, me: game.player.tx }));
-  check(pulled.pr < pushed.pr, `stepping back with Space should pull the crate after you (x ${pushed.pr} -> ${pulled.pr})`);
+  const pulled = await page.evaluate(() => ({ pr: window.__pr.x, me: game.player.tx, st: game.player.status + ' ' + JSON.stringify(game.player.player && { act: game.player.player.act, lock: game.player.player.lock }) + ' talk ' + !!talkUI.o }));
+  check(pulled.pr < pushed.pr, `stepping back with Space should pull the crate after you (x ${pushed.pr} -> ${pulled.pr}; player ${pushed.me} -> ${pulled.me}; ${pulled.st})`);
   return `crate ${s.x + 1} -> ${pushed.pr} (pushed) -> ${pulled.pr} (pulled)`;
 }));
 
@@ -185,7 +186,7 @@ async function talkScene(rng, fn) {
     const { page, errors } = await openGame(browser, GAME, { rng, town: 'talk' });
     await simulate(page, 3 * 1440 + 10 * 60);
     await page.evaluate(() => {
-      if (!game.player) startPlaying(byId(game.steer) || npcs.find(canControl)); document.getElementById('c').focus();
+      if (!game.player) startPlaying(canControl(byId(game.steer)) ? byId(game.steer) : npcs.find(canControl)); document.getElementById('c').focus();
       window.__em = []; const e0 = lfEmit; lfEmit = function (k, o) { window.__em.push(k + (o && o.fake ? '(fake)' : '')); return e0.apply(this, arguments); };
       window.__box = () => { const t = document.getElementById('talk'); if (!t || t.hidden) return null; return { name: t.querySelector('.nm b').innerText, say: t.querySelector('.ta').innerText, q: (t.querySelector('.tq') || {}).innerText || '', opts: [...t.querySelectorAll('[data-k]')].map(b => b.innerText.replace(/^\d+\s*/, '').trim()), leave: !!t.querySelector('[data-leave]') }; };
       window.__friend = (o, aff = 40, know = 40) => { o.aff[game.player.id] = aff; o.know[game.player.id] = know; if (o.trust) o.trust[game.player.id] = 0; return o; };
@@ -271,6 +272,62 @@ test('talk: when the watch is after you, the guard brings it up and the arrest f
   check(r && r.opts.length >= 1, 'the guard should bring it up, got ' + JSON.stringify(r));
   await page.keyboard.press('1'); await page.waitForTimeout(100);
   const b = await page.evaluate(() => __box()); check(b && b.opts.length >= 2, 'expected the arrest choices, got ' + JSON.stringify(b)); return `"${r.say}" -> ${b.opts.join(' | ')}`;
+}));
+
+/* ---------------------------------------------------------------------------------------------- */
+// The social simulation (src/social2): the village has a past before the player arrives, news travels and changes, people talk from what they believe.
+import { networkRun } from '../tools/network.mjs';
+
+test('social: the weeks before arrival give everyone a past, the same past for the same seed, and quickly', async browser => {
+  const sig = async () => { const { page, errors } = await openGame(browser, GAME, { rng: 7, town: 'social' });
+    const r = await page.evaluate(() => { const live = npcs.filter(n => !n.dead && !n.infant && n.age >= 6 && !n.player); let aff = 0, kn = 0; for (const n of live) { for (const k in n.aff) aff += Math.round(n.aff[k]); kn += Object.keys(n.kn || {}).length; }
+      const pairs = []; for (const a of live) for (const b of live) if (a.id < b.id) pairs.push([a.aff[b.id] || 0, b.aff[a.id] || 0]);
+      return { aff, kn, ev: lf2Ev().length, blank: live.filter(n => !Object.keys(n.kn || {}).length).map(n => n.first), kinds: Object.keys(town.sbPresim.exchanges), friends: pairs.filter(([x, y]) => x > 35 && y > 35).length, sour: pairs.filter(([x, y]) => x < -15 || y < -15).length }; });
+    return { r, page, errors }; };
+  const A = await sig(), B = await sig();
+  const t0 = Date.now(); await B.page.evaluate(() => { town.sbPresim = null; sbPresim(); }); const ms = Date.now() - t0;
+  check(A.errors.length === 0 && B.errors.length === 0, 'page errors: ' + A.errors.concat(B.errors).slice(0, 3).join(' | '));
+  check(JSON.stringify(A.r) === JSON.stringify(B.r), `the same seed should give the same past: ${JSON.stringify(A.r)} vs ${JSON.stringify(B.r)}`);
+  check(A.r.blank.length === 0, 'nobody should arrive a blank slate: ' + A.r.blank.join(', '));
+  check(A.r.friends >= 3 && A.r.sour >= 2, `expected friendships and some bad feeling, got ${A.r.friends} mutual friends, ${A.r.sour} soured pairs`);
+  check(A.r.kinds.length >= 5, 'expected many kinds of exchange, got ' + A.r.kinds.join(', '));
+  check(ms < 2500, `the pre-simulation took ${ms} ms (want under 2.5 s)`);
+  await A.page.close(); await B.page.close();
+  return `${A.r.kn} things known, ${A.r.ev} events, ${A.r.friends} mutual friends, ${A.r.sour} soured pairs; ${A.r.kinds.length} kinds of exchange; 60 days in ${ms} ms`;
+});
+
+test('social: news spreads gradually, and stories change on the way', async () => {
+  const r = await networkRun({ days: 3, seed: 'social-news' }), A = r.arrival, people = A.people;
+  check(r.errors.length === 0, 'page errors: ' + r.errors.slice(0, 3).join(' | '));
+  const born = r.daily[0].versions.filter(v => v.t >= (r.daily[0].day - 1) * 1440), med = d => { const ks = born.map(b => (d.versions.find(v => v.id === b.id) || { know: 0 }).know).sort((x, y) => x - y); return ks[Math.floor(ks.length / 2)] || 0; };
+  const d1 = med(r.daily[0]), d3 = med(r.daily[2]);
+  check(born.length >= 5, 'expected things to happen on the first day, got ' + born.length);
+  check(d1 < people / 2, `news should not reach everyone at once: median ${d1} of ${people} after a day`);
+  check(d3 >= d1, `news should keep spreading: median ${d1} after a day, ${d3} after three`);
+  const circ = A.versions.filter(v => v.know >= 3), multi = circ.filter(v => v.versions > 1).length;
+  check(multi >= 2, `stories should change as they travel; only ${multi} of ${circ.length} have more than one version`);
+  return `median knowers ${d1} after a day, ${d3} after three (of ${people}); ${multi} of ${circ.length} stories exist in more than one version, ${circ.filter(v => v.wrong).length} with somebody blamed wrongly`;
+});
+
+test('social: people talk from what they believe (who cannot stand whom, and why; and they argue with your version)', await talkScene(41, async page => {
+  const r = await page.evaluate(() => {
+    const P = game.player, ppl = __talkable().filter(q => q.age >= 16);
+    // a second-hand belief: o thinks a cannot stand b, because of a quarrel o heard about
+    const [o, a, b] = ppl; __friend(o, 60, 60); const ev = lfEmit('quarrel', { actor: a, target: b, sev: 1, tags: ['embarrass'], witnessIds: [], chron: false, text: `${a.first} and ${b.first} had words in the street` });
+    lf2Learn(o, ev, null, 1, true); sbRelSet(o, a, b, -0.8, 0.9, 'ev:' + ev.id);
+    const c = cvNew(o, P), t = cvPool(c).find(x => x.kind === 'rel' && x.q === a && x.extra.b === b); const rel = t && cvTell(c, t, 0);
+    // a story told in their own version, and the player knowing a different culprit
+    const [, , , x, thief, other] = ppl; __friend(x, 70, 70); const th = lfEmit('pilfer', { actor: thief, target: other, sev: 1, anon: true, tags: ['theft', 'crime'], witnessIds: [], chron: false, text: `${thief.first} took a ham from ${other.first}'s house`, anonText: `Somebody took a ham from ${other.first}'s house` });
+    lf2Learn(x, th, null, 0.6, true, { a: true, who: other.id === b.id ? a.id : b.id }); lf2Learn(P, th, null, 1, true);
+    const c2 = cvNew(x, P), told = cvTell(c2, { key: 'ev' + th.id, kind: 'event', ev: th, w: 1, sens: 0 }, 0), opts = cvFollowUps(c2, { k: 'event', key: 'ev' + th.id, label: 'that', ev: th }), contra = opts.find(op => op.fam === 'ev.contra');
+    const ans = contra && contra.then(c2);
+    return { rel: rel && rel.text, a: a.first, b: b.first, told: told && told.text, wrong: byId(x.kn[th.id].who).first, thief: thief.first, contra: contra && contra.text, ans: ans && ans.text };
+  });
+  check(r.rel && r.rel.includes(r.a) && r.rel.includes(r.b), 'they should say how ' + r.a + ' feels about ' + r.b + ', got: ' + r.rel);
+  check(r.told && !r.told.includes(r.thief), `they should tell their own (wrong) version, not the truth: "${r.told}"`);
+  check(r.contra && r.contra.includes(r.thief) && r.contra.includes(r.wrong), 'the player should be able to say they heard it was ' + r.thief + ': ' + r.contra);
+  check(r.ans && r.ans.includes(r.thief), 'they should answer the other version: ' + r.ans);
+  return `"${r.rel}" · "${r.told.slice(0, 70)}…" · you: "${r.contra}" → "${r.ans}"`;
 }));
 
 /* ---------------------------------------------------------------------------------------------- */

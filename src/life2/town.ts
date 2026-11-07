@@ -306,7 +306,7 @@ LF2.tickers.push(() => {
   const p = game.player;
   if (p && LF2_JOBS[p.job] && !p.lf2Kept) { const k = p.job; p.job = 'Farmer'; const c = npcs.filter(o => !o.dead && !o.player && o.role === 'Worker' && o.age >= 18 && o.age < 60 && !o.shop && !LF2_JOBS[o.job]).sort((a, b) => (LF2_JOBS[k].fit || []).filter(t => lf2Has(b, t)).length - (LF2_JOBS[k].fit || []).filter(t => lf2Has(a, t)).length)[0]; if (c) lf2SetJob(c, k, true); }
   // the grain dole: nobody is left to starve to death in the street
-  if (LF2.on('economy')) for (const n of npcs) { if (n.dead || n.player || n.infant || !(n.starving > 300) || (n.lf2Dole || 0) > game.time) continue; n.lf2Dole = game.time + 600; n.inv.grain = (n.inv.grain || 0) + 3; town.treasury -= 3;
+  if (LF2.on('economy')) for (const n of npcs) { if (n.dead || n.player || n.infant || !(n.starving > (n.age < 14 ? 120 : 300)) || (n.lf2Dole || 0) > game.time) continue; n.lf2Dole = game.time + 600; n.inv.grain = (n.inv.grain || 0) + 3; town.treasury -= 3;
     lfEmit('dole', { target: n, sev: 1, tags: ['misfortune'], witnessIds: [], aware: false, chron: false, text: `${n.first} was so hungry the council handed out grain from the dole` }); }
 });
 LF2.work.push((n, tod) => {

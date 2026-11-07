@@ -4,7 +4,7 @@
    Whether they tell it depends on how much they trust you, who they are, and what you have done in this conversation.                    */
 interface CvHook { k: string; key: string; label: string; q?: any; ev?: any; back?: any; facet?: string; id?: any; opts?: any; extra?: any }
 interface CvUtt { text: string; hooks: CvHook[]; end?: boolean }
-const CV_MAXLAYER: any = { act: 1, state: 1, ambition: 2, regret: 2, pride: 1, fear: 1, secret: 2, person: 3, event: 3, back: 2, legend: 2, player: 2, world: 1, chron: 1 };
+const CV_MAXLAYER: any = { act: 1, state: 1, ambition: 2, regret: 2, pride: 1, fear: 1, secret: 2, person: 3, event: 3, back: 2, legend: 2, player: 2, world: 1, chron: 1, rel: 2, conv: 1 };
 
 /* ---------------- how willing are they? ---------------- */
 function cvOpenness(c) {
@@ -64,7 +64,7 @@ const CV_KIDSAY = ['Look! I can skip a stone eleven times!', 'I found a frog. He
 function cvActSay(c) {
   const a = cvActivity(c), A = CV_ACTV[a] || CV_ACTV.any;
   if (c.kid && a !== 'privy') return anyOf(CV_KIDSAY);
-  if (a === 'any') return /^[A-Z][a-z]+ing\b/.test(c.status) ? `Just ${cvLow(c.status)}.` : c.status ? c.status + ', as it happens.' : 'Mm? Oh, hello. I was miles away.';
+  if (a === 'any' || !A.say || !A.say.length) return /^[A-Z][a-z]+ing\b/.test(c.status) ? `Just ${cvLow(c.status)}.` : c.status ? c.status + ', as it happens.' : 'Mm? Oh, hello. I was miles away.';
   return anyOf(A.say);
 }
 
@@ -87,9 +87,9 @@ function cvPool(c): CvTopic[] {
   const o = c.o, p = c.p, pool: CvTopic[] = [], v = c.v, evs = lf2Ev();
   // events they know of, recent
   for (let i = evs.length - 1; i >= 0 && pool.length < 40; i--) {
-    const ev = evs[i]; if (game.time - ev.t > 5 * 1440) break; const k = o.kn && o.kn[ev.id]; if (!k || ev.actor === o.id && !k.brag) continue;
+    const ev = evs[i]; if (game.time - ev.t > 30 * 1440) break; const k = o.kn && o.kn[ev.id]; if (!k || ev.actor === o.id && !k.brag) continue; if ((ev.target === o.id || ev.actor === o.id) && (o.sbConv || []).some(n => n.t >= ev.t - 5 && n.t <= ev.t + 5)) continue; if (game.time - ev.t > 5 * 1440 && (k.imp || 0) < 0.45) continue;
     if (ev.actor === p.id || ev.target === p.id) continue;                         // about the player: handled below
-    const spice = Math.max(0, ...ev.tags.map(g => (LF2_TAGS[g] || {}).spice || 0.5)), rec = 1.25 - (game.time - ev.t) / (5 * 1440), mine = ev.target === o.id ? 1.2 : 1;
+    const spice = Math.max(0, ...ev.tags.map(g => (LF2_TAGS[g] || {}).spice || 0.5)), rec = Math.max(0.3, 1.25 - (game.time - ev.t) / (5 * 1440)), mine = ev.target === o.id ? 1.2 : 1;
     pool.push({ key: 'ev' + ev.id, kind: 'event', ev, w: spice * (0.5 + 0.5 * ev.sev) * k.cert * rec * mine * (v.arch === 'nosy' ? 1.7 : 1), sens: ev.target === o.id ? 0.5 : 0.2 + 0.1 * (ev.tags.includes('scandal') || ev.tags.includes('affair') ? 3 : 0) });
   }
   // other people
@@ -97,6 +97,8 @@ function cvPool(c): CvTopic[] {
   for (const q of npcs) { if (q === o || q === p || q.dead || q.infant || q.age < 8) continue; const a = o.aff[q.id] || 0, kin = isKin(o, q), kn = o.know[q.id] || 0, hasBack = cvBackOf(o).some(b => b.a === q.id || b.b === q.id);
     const w = Math.abs(a) / 35 + (kin ? 1 : 0) + (hasBack ? 1.2 : 0) + (kn > 40 ? 0.3 : 0); if (w > 0.8) rel.push({ key: 'pe' + q.id, kind: 'person', q, w: w * (v.arch === 'nosy' || v.arch === 'cynic' ? 1.3 : 1), sens: 0.25 }); }
   pool.push(...rel.sort((x, y) => y.w - x.w).slice(0, 6));
+  // what they believe about others' feelings, and who they have talked to today
+  pool.push(...cvRelTopics(c), ...cvConvTopics(c));
   // old stories
   for (const b of cvBackOf(o)) pool.push({ key: 'bk' + b.id, kind: 'back', back: b, w: 1.4, sens: b.sens });
   for (const b of cvWorld().back) if (b.knownBy.includes(o.id) && b.a !== o.id && b.b !== o.id) pool.push({ key: 'bk' + b.id, kind: 'back', back: b, w: 0.9, sens: 0.3 });
