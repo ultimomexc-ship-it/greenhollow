@@ -173,6 +173,83 @@ test('controls: a barrel or crate is pushed in Push mode and searched in Search 
   return `Talk: stays ("${talk.msg}"); Push: ${s.kind} ${s.x + 1} -> ${pushed.pr}; Search: ${searched.act}`;
 }));
 
+test('push: things move at exactly your pace, in lines of up to three, and a line moves only if its last piece can', await controlScene('chain', 41, async page => {
+  const s = await page.evaluate(() => {
+    const [x, y] = __find((x, y) => [0, 1, 2, 3, 4, 5, 6, 7, 8].every(i => __free(x + i, y)) && ![0, 1, 2, 3, 4, 5, 6, 7, 8].some(i => lfNearDoor(x + i, y)));
+    window.__ps = town.props.slice(0, 4); const put = (pr, tx) => { town.pblock[pr.y * W + pr.x] = 0; town.propAt.delete(pr.y * W + pr.x); pr.x = tx; pr.y = y; town.pblock[y * W + tx] = 1; town.propAt.set(y * W + tx, pr); };
+    window.__put = put; window.__ps.slice(0, 3).forEach((pr, i) => put(pr, x + 1 + i)); __place(game.player, x, y, { dx: 1, dy: 0 }); return { x, y };
+  });
+  await page.keyboard.press('q');   // Talk -> Push
+  await page.keyboard.down('d'); const gaps = [];
+  for (let i = 0; i < 10; i++) { await simulate(page, 0.4); gaps.push(await page.evaluate(() => { const P = game.player, now = performance.now(); return window.__ps.slice(0, 3).map((pr, k) => +(lfPropPos(pr, now)[0] - P.x - 1 - k).toFixed(3)); })); }
+  await page.keyboard.up('d'); await simulate(page, 2);
+  const flat = gaps.flat(); check(flat.every(g => Math.abs(g) < 0.02), 'every piece should stay exactly one tile apart from you and each other while you push: gaps ' + JSON.stringify(gaps.slice(0, 3)));
+  const after = await page.evaluate(() => ({ xs: window.__ps.slice(0, 3).map(pr => pr.x), me: game.player.tx }));
+  check(after.xs[0] > s.x + 1 && after.xs[1] === after.xs[0] + 1 && after.xs[2] === after.xs[1] + 1, 'all three should have been pushed along together: ' + JSON.stringify(after));
+  const four = await page.evaluate(() => { const y = window.__ps[0].y, x0 = window.__ps[0].x - 1; __place(game.player, x0, y, { dx: 1, dy: 0 }); window.__put(window.__ps[3], window.__ps[2].x + 1); const xs = window.__ps.map(pr => pr.x); const r = lf2PushLine(game.player, window.__ps[0].x, y, 1, 0); return { r, same: window.__ps.every((pr, i) => pr.x === xs[i]) }; });
+  check(four.r === 'Too much to push at once.' && four.same, 'four in a row is too much, and nothing moves: ' + JSON.stringify(four));
+  const blocked = await page.evaluate(() => { window.__put(window.__ps[3], window.__ps[2].x + 6); const y = window.__ps[0].y, ps = window.__ps.slice(0, 3); const wall = ps[2].x + 1; const tr = town.trees ? null : null; setT(wall, y, T.WALL); const xs = ps.map(pr => pr.x); __place(game.player, ps[0].x - 1, y, { dx: 1, dy: 0 }); const r = lf2PushLine(game.player, ps[0].x, y, 1, 0); setT(wall, y, T.GRASS); return { r, same: ps.every((pr, i) => pr.x === xs[i]) }; });
+  check(blocked.r === 'It won\'t budge.' && blocked.same, 'a line against a wall should not move at all: ' + JSON.stringify(blocked));
+  return `three pieces moved together ${after.xs[0] - s.x - 1} tiles at your pace (gaps within 0.02); four refused; a blocked line stays put`;
+}));
+
+test('push: rocks can be pushed (and chained) and become loose rocks you can build with; the hammer breaks one', await controlScene('rocks', 41, async page => {
+  const r = await page.evaluate(() => {
+    let rk = null; for (let y = 4; y < H - 4 && !rk; y++) for (let x = 4; x < W - 6; x++) if (grid[y][x] === T.ROCK && __free(x - 1, y) && __free(x + 1, y) && __free(x + 2, y) && !town.nodeMap.has(y * W + x + 1)) { rk = [x, y]; break; }
+    if (!rk) throw new Error('no free rock'); const [x, y] = rk, P = game.player; __place(P, x - 1, y, { dx: 1, dy: 0 }); P.mode = 'push'; P.sel = 0;
+    const res = lf2PushLine(P, x, y, 1, 0), pr = lfPropAt(x + 1, y), tile = grid[y][x];
+    const loose = pr && pr.kind === 'rock' && tile === T.GRASS && town.pblock[y * W + x + 1] === 1, art = pr && lfPropArt(pr);
+    __place(P, x, y, { dx: 1, dy: 0 }); const again = lf2PushLine(P, x + 1, y, 1, 0), moved = pr && pr.x === x + 2;
+    P.sel = P.belt.findIndex(q => q && q[0] === 'i' && itById(P, +q.slice(1)).kind === 'hammer'); const act = lifeAct(P, P.player, pr.x, pr.y, 1, 0); const stone0 = (town.drops || []).length; act.run(P);
+    return { res, loose, art, again, moved, hammer: act.key, gone: !lfPropAt(pr.x, pr.y) && !town.props.includes(pr), dropped: (town.drops || []).length > stone0 };
+  });
+  check(r.res === true && r.loose, 'pushing a rock should turn it into a loose rock one tile along: ' + JSON.stringify(r));
+  check(/^boulder_/.test(r.art), 'a loose rock should be drawn as a boulder: ' + r.art);
+  check(r.again === true && r.moved, 'a loose rock should push like a crate');
+  check(/^rock/.test(r.hammer) && r.gone && r.dropped, 'the hammer should break a loose rock and leave stone: ' + JSON.stringify(r));
+  return 'rock -> loose rock (pushed twice) -> broken with the hammer, stone dropped';
+}));
+
+test('push: loose things can be pushed through a doorway and into a house', await controlScene('doorway', 41, async page => {
+  const r = await page.evaluate(() => {
+    const house = rooms.find(q => !q.dead && q.kind === 'house' && q.side === 'b'), crate = town.props[0], P = game.player, trail = [];
+    town.pblock[crate.y * W + crate.x] = 0; town.propAt.delete(crate.y * W + crate.x); crate.x = house.doorX; crate.y = house.doorY + 1; town.pblock[crate.y * W + crate.x] = 1; town.propAt.set(crate.y * W + crate.x, crate); P.mode = 'push'; P.sel = 0;
+    __place(P, house.doorX, house.doorY + 2, { dx: 0, dy: -1 });
+    for (let i = 0; i < 3; i++) { const res = lf2PushLine(P, crate.x, crate.y, 0, -1); trail.push({ res, y: crate.y, inside: roomAt[crate.y][crate.x] === rooms.indexOf(house) }); if (res !== true) break; __place(P, crate.x, crate.y + 1, { dx: 0, dy: -1 }); }
+    return { trail, doorY: house.doorY };
+  });
+  check(r.trail[0].res === true && r.trail[0].y === r.doorY, 'a crate pushed at the door should go onto the doorway: ' + JSON.stringify(r.trail));
+  check(r.trail[1].res === true && r.trail[1].inside, 'and on into the house: ' + JSON.stringify(r.trail));
+  return 'a crate went through the door and into the house';
+}));
+
+test('push: chairs, beds and the family barrel can be moved inside a house, never so the house is cut off, and the household carries on', await controlScene('furniture', 41, async page => {
+  const r = await page.evaluate(() => {
+    const hs = rooms.find(q => !q.dead && q.kind === 'house' && q.seats.length && q.beds.length && q.barrel), P = game.player; P.mode = 'push'; P.sel = 0;
+    const chair = hs.seats[0], bed = hs.beds[0], dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]], res = {};
+    const go = (o, dx, dy) => { const f = pushFurniture(o.x, o.y); if (!f) return 'not furniture'; if (!pushFurnitureOK(f, o.x + dx, o.y + dy)) return 'no'; __place(P, o.x - dx, o.y - dy, { dx, dy }); P.tx = P.x = o.x - dx; P.ty = P.y = o.y - dy; return lf2PushLine(P, o.x, o.y, dx, dy); };
+    const cd = dirs.find(([dx, dy]) => { const f = pushFurniture(chair.x, chair.y); return f && pushFurnitureOK(f, chair.x + dx, chair.y + dy); }); const c0 = [chair.x, chair.y];
+    res.chair = cd ? { r: go(chair, cd[0], cd[1]), tile: grid[chair.y][chair.x] === T.SEAT, old: grid[c0[1]][c0[0]] === T.FLOOR, moved: chair.x !== c0[0] || chair.y !== c0[1] } : 'no free side';
+    const bd = dirs.find(([dx, dy]) => { const f = pushFurniture(bed.x, bed.y); return f && pushFurnitureOK(f, bed.x + dx, bed.y + dy); }); const b0 = [bed.x, bed.y];
+    res.bed = bd ? { r: go(bed, bd[0], bd[1]), tile: grid[bed.y][bed.x] === T.BED, moved: bed.x !== b0[0] || bed.y !== b0[1] } : 'no free side';
+    const owner = npcs.find(n => n.bed === bed); res.ownerBed = owner ? { same: owner.bed === bed, tile: grid[owner.bed.y][owner.bed.x] === T.BED } : 'unowned';
+    const bar = hs.barrel, sp0 = [hs.spots.pantry.x, hs.spots.pantry.y], bdirs = dirs.filter(([dx, dy]) => { const f = pushFurniture(bar.x, bar.y); return f && pushFurnitureOK(f, bar.x + dx, bar.y + dy); });
+    if (bdirs.length) { const [dx, dy] = bdirs[0], r2 = go(bar, dx, dy); res.barrel = { r: r2, tile: grid[bar.y][bar.x] === T.BARREL, pantry: hs.spots.pantry.x - sp0[0] === dx && hs.spots.pantry.y - sp0[1] === dy }; } else res.barrel = 'no free side';
+    // somebody sitting in a chair keeps it
+    const sitter = npcs.find(n => !n.dead && !n.player && n !== owner); const ch2 = hs.seats[1] || hs.seats[0]; const keep = [ch2.x, ch2.y]; const prev = tileOwner.get(ch2.y * W + ch2.x); tileOwner.set(ch2.y * W + ch2.x, sitter); const d2 = dirs.find(([dx, dy]) => { const f = pushFurniture(ch2.x, ch2.y); return f && pushFurnitureOK(f, ch2.x + dx, ch2.y + dy); }); __place(P, ch2.x - (d2 ? d2[0] : 1), ch2.y - (d2 ? d2[1] : 0), { dx: 1, dy: 0 }); res.occupied = d2 ? lf2PushLine(P, ch2.x, ch2.y, d2[0], d2[1]) : 'no free side'; if (prev) tileOwner.set(ch2.y * W + ch2.x, prev); else tileOwner.delete(ch2.y * W + ch2.x); res.occupiedStayed = ch2.x === keep[0] && ch2.y === keep[1];
+    window.__hs = hs; return res;
+  });
+  check(r.chair === 'no free side' || (r.chair.r === true && r.chair.tile && r.chair.old && r.chair.moved), 'a chair should move one tile, leaving bare floor: ' + JSON.stringify(r.chair));
+  check(r.bed === 'no free side' || (r.bed.r === true && r.bed.tile && r.bed.moved), 'a bed should move: ' + JSON.stringify(r.bed));
+  check(r.ownerBed === 'unowned' || (r.ownerBed.same && r.ownerBed.tile), 'the bed\'s owner should still have that bed: ' + JSON.stringify(r.ownerBed));
+  check(r.barrel === 'no free side' || (r.barrel.r === true && r.barrel.tile && r.barrel.pantry), 'the family barrel and its pantry spot should move together: ' + JSON.stringify(r.barrel));
+  check(typeof r.occupied === 'string' && r.occupiedStayed, 'a chair somebody is using should stay put: ' + JSON.stringify(r.occupied));
+  await simulate(page, 2 * 1440);
+  const after = await page.evaluate(() => { const hs = window.__hs, ppl = npcs.filter(n => !n.dead && n.homeRoom === hs); return { dead: npcs.filter(n => n.dead).length, beds: ppl.every(n => !n.bed || n.bed.x == null || grid[n.bed.y][n.bed.x] === T.BED), n: ppl.length }; });
+  check(after.beds && after.dead === 0, 'two days later the household should be fine: ' + JSON.stringify(after));
+  return `chair, bed and barrel moved; an occupied chair stays; the household of ${after.n} carried on for two days`;
+}));
+
 test('controls: a tree needs the axe in hand: with the hand you are told, with the axe you fell it', await controlScene('tree', 41, async page => {
   const s = await page.evaluate(() => { const [x, y] = __find((x, y) => __free(x, y) && grid[y][x + 1] === T.TREE && !wildTile(x + 1, y)); __place(game.player, x, y, { dx: 1, dy: 0 }); return { x, y }; });
   await held(page, [], 1); const hand = await page.evaluate(() => ({ act: game.player.player.act && game.player.player.act.text, msg: game.player.player.msg }));

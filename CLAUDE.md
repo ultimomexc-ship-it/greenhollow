@@ -28,8 +28,14 @@ crime and a town watch, drawn on a canvas. The owner is hands-off with GitHub: d
 
 ## Controls (src/player/items.ts, src/life2/controls.ts)
 Explicit actions: **the thing in your hand decides what walking into something does**; nothing is picked for you. No Shift, no crouching.
-- **Hand** (belt slot 1) has three modes, cycled with **Q**: **Talk** (villager -> talk; seller -> buy), **Push** (barrel, crate, stool -> push it along;
-  villager -> push them one tile, or swap places against a wall; harmless: no crime, no gossip), **Search** (barrel, crate -> search it). The hand also gathers
+- **Hand** (belt slot 1) has three modes, cycled with **Q**: **Talk** (villager -> talk; seller -> buy), **Push** (see below; villager -> push them one tile, or swap
+  places against a wall; harmless: no crime, no gossip), **Search** (barrel, crate -> search it).
+- **Pushing is Sokoban** (`life2/push.ts`): the thing moves at exactly your pace (it is drawn following your own step, `lfPropPos`), and things in a line go together, up to
+  three pieces; a line moves only if its last piece can. Pushable: crates, barrels and stools; rocks (a pushed rock becomes a loose rock, `kind: 'rock'`, that pushes
+  like a crate and is broken with the hammer for stone and now and then iron: build with them); and light furniture in a house (chairs, beds, the family barrel: it
+  stays in its room, never onto the doorway tile or a person, never so a seat, bed or the pantry is cut off from the door, and the room's `seats`/`beds`/`barrel`/
+  `spots.pantry` entries move with it, so villagers' `n.bed`/`n.seat` still point at it). Loose things can go through a doorway and into a house. A line is all
+  loose things or all furniture. Villagers shoving things (`lfPush`) still use the old timed slide. The hand also gathers
   berries and herbs and throws materials onto building sites; beds, tents and the food barrel work whatever you hold.
 - **Belt** (keys **1-9**): axe (fell trees), hammer (break rocks, put up walls), hoe (plough and harvest), rod (fish), lockpicks, seeds (sow a ploughed plot; any plot,
   the player need not wait for the whole field; farmers do). **B** opens the bag (hands, belt, bag; click to put things on or take them off the belt).
@@ -103,9 +109,9 @@ The village lives without the player: the simulation owns the truth (events), ea
 - `tests/lib.mjs` loads `dist/index.html` deterministically: seeded `Math.random`, a fake clock, frame loop
   held, the harness steps the sim (`simulate(page, minutes)`) the way the frame loop does. Same seed, same result.
 - Current suite: load and run a day, render without errors, nobody starves in 12 days (three towns),
-  the controls (Q cycles the hand modes, 1-9 the belt, Shift and old keys do nothing; Push pushes people and swaps against a wall, Talk talks; barrels pushed in Push and searched in Search; trees need the axe; the hoe ploughs and seeds sow; sleepers), conversations (specific openers, long random talks without dead ends or repeats, insults and sympathy, unlocking layers, memory, witnesses, the arrest), sim speed under 3 s per game-day (about 0.7 s now),
+  the controls (Q cycles the hand modes, 1-9 the belt, Shift and old keys do nothing; Push pushes people and swaps against a wall, Talk talks; crates pushed in Push (Sokoban: at your pace, in lines of three, through doors) and searched in Search; rocks pushed and broken; chairs, beds and the barrel moved; trees need the axe; the hoe ploughs and seeds sow; sleepers), conversations (specific openers, long random talks without dead ends or repeats, insults and sympathy, unlocking layers, memory, witnesses, the arrest), sim speed under 3 s per game-day (about 0.7 s now),
   the social simulation (the pre-simulation is deterministic, fast and leaves nobody a blank slate; news spreads gradually and changes; talk uses beliefs and you can contradict a version),
-  readability and a week of freshness, items in the economy (villager tools, wear and the smith, iron, seeds and the garden, lockpicks, the sawmill), the dialogue lint, every follow-up answered and ask-about, overheard small talk from real lives (39 tests, about 4 minutes).
+  readability and a week of freshness, items in the economy (villager tools, wear and the smith, iron, seeds and the garden, lockpicks, the sawmill), the dialogue lint, every follow-up answered and ask-about, overheard small talk from real lives (43 tests, about 4 minutes).
 - The random stream is shared, so any change shifts every later random draw: a test that suddenly fails in one town is often exposing a real
   weakness that luck was hiding (that is how children starving with dole grain in their pockets was found). Find the cause before changing the test.
 - When behaviour changes on purpose, tests may need new expectations; when it changes by accident, they catch it.

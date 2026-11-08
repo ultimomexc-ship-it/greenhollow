@@ -231,9 +231,8 @@ YSORT.push(function (c, now) {
   for (const p of town.puddles || []) if (gaOnScreen(p.x, p.y, 1)) out.push({ k: p.y - 0.4, f: () => { c.fillStyle = 'rgba(214,190,70,.5)'; c.beginPath(); c.ellipse(p.x * TS + 12, p.y * TS + 19, 6, 2.6, 0, 0, 6.3); c.fill(); c.fillStyle = 'rgba(255,240,150,.3)'; c.beginPath(); c.ellipse(p.x * TS + 10, p.y * TS + 18.4, 2.6, 1, 0, 0, 6.3); c.fill(); } });
   for (const pr of town.props || []) {
     if (!gaOnScreen(pr.x, pr.y, 2)) continue;
-    out.push({ k: pr.y - 0.015, f: () => {
-      let x = pr.x, y = pr.y; if (pr.st) { const e = Math.min(1, (now - pr.st) / pr.dur); if (e < 1) { const q = e * e * (3 - 2 * e); x = pr.fx + (pr.x - pr.fx) * q; y = pr.fy + (pr.y - pr.fy) * q; } else pr.st = 0; }
-      gaDraw(c, LF_ART[pr.kind] || 'crate', x * TS, y * TS, now, 0); } });
+    const [px, py] = lfPropPos(pr, now);   // (life2/push.ts: follows the player's step when pushed by the player)
+    out.push({ k: py - 0.015, f: () => { gaDraw(c, lfPropArt(pr), px * TS, py * TS, now, 0); } });
   }
   return out;
 });
