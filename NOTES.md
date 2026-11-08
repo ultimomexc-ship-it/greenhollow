@@ -215,3 +215,7 @@ Open: a villager shut in by a box waits for the player (the chronicle says so); 
 Third push pass: people are ordinary pieces of the line (same rules as boxes: pushed along, counted toward the three, swapped past at a wall); a sleeper or sitter blocks a line.
 Invisible walls in the square: pushLooseOK refused the 3x3 patch round the stockpile yard and the tile in front of every market stall (nothing is drawn there; the yard is
 just the campfire, which noStep still covers). Removed; a test fails with them put back. Still refused: building sites (they are marked), fields, the campfire, ceremony tiles.
+
+Fourth push pass: five at once; things push over fields (the plot returns to bare dirt: `pushTrample`); a doorway swap with a bed that cannot move; lines and singles of extra
+boxes on and around the square (`lfPlayBoxes`, seed-deterministic); the steered villager is free of hunger, bladder and sleep for now (`PLAYER_NEEDS`). Remember to turn the
+last one back on (and reconsider the testing kit) before the game is for anyone but us.

@@ -9,6 +9,9 @@
    stacks in n.bag; the belt (n.belt, 9 slots) holds references: 'hand', 'i<item id>' or 's:<stack key>'. n.sel is the slot in hand, n.mode the hand mode.
    Villagers will own real tools the same way (next step); for testing, whoever you steer starts with the whole kit (IT.kit = 'test').            */
 const IT: any = { kit: 'test' };
+/** for now the villager you steer is never troubled by hunger, a full bladder or tiredness (no forced bedtime either: you can still choose to sleep in a bed) */
+const PLAYER_NEEDS = false;
+LF2.tickers.push(() => { const n = game.player; if (!n || PLAYER_NEEDS) return; n.hunger = Math.min(n.hunger, 20); n.bladder = Math.min(n.bladder || 0, 15); n.energy = Math.max(n.energy == null ? 100 : n.energy, 90); n.starving = 0; });
 const IT_TOOLS: any = { axe: { name: 'Axe', verb: 'fell trees' }, hammer: { name: 'Hammer', verb: 'break rocks, build walls' }, hoe: { name: 'Hoe', verb: 'plough and harvest' }, rod: { name: 'Fishing rod', verb: 'fish' } };
 const IT_STACKS: any = { lockpick: { name: 'Lockpick', verb: 'pick a lock (they snap)' }, seed_barley: { name: 'Barley seed', seed: 'barley', col: '#c9a96a' }, seed_turnip: { name: 'Turnip seed', seed: 'turnip', col: '#b58ac4' }, seed_bean: { name: 'Bean seed', seed: 'bean', col: '#8fb07a' } };
 const IT_MODES = ['talk', 'push', 'search'], IT_MODE_NAME: any = { talk: 'Talk', push: 'Push', search: 'Search' };

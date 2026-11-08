@@ -175,7 +175,7 @@ function tickPlayer0(n, dt) {
         }
       } else p.summoned = null; }
     // bedtime: too tired to go on, walk to bed and sleep until morning
-    if (!p.autoBed && !p.act && !n.jail && !isAwake(n, game.time % 1440) && !(typeof lateNight === 'function' && lateNight()) && !(typeof talkUI !== 'undefined' && talkUI.o)) {
+    if (PLAYER_NEEDS && !p.autoBed && !p.act && !n.jail && !isAwake(n, game.time % 1440) && !(typeof lateNight === 'function' && lateNight()) && !(typeof talkUI !== 'undefined' && talkUI.o)) {
       p.autoBed = true; p.keys = {}; p.grace = null;
       game.events.push({ time: game.time, a: n, b: n, place: '', topic: 'greet', quiet: true, self: true, lines: [{ who: n, text: anyOf(['*yawns* I can barely keep my eyes open. Bed.', 'So tired... I could sleep standing up.', '*yawns* That is enough for one day.', 'My feet are done. Bed, now.']) }] });
       let tg = n.bed && n.bed.x != null ? { x: n.bed.x, y: n.bed.y } : null;
