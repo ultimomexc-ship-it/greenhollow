@@ -79,6 +79,7 @@ function itFacing(n): { what: string; verb: string; need: string | null } | null
   const { x, y } = lf2Front(n); if (x < 0 || y < 0 || x >= W || y >= H) return null;
   const o = lf2Occ(x, y, n), pr = lfPropAt(x, y), g = grid[y][x], c = cropAt(x, y), mode = itMode(n), hand = itHeld(n).kind === 'hand';
   if (o) return o.pose === 'sleep' ? { what: o.first, verb: 'asleep', need: null } : hand && mode === 'push' ? { what: o.first, verb: 'Push past', need: 'push' } : { what: o.first, verb: 'Talk', need: 'talk' };
+  if (pr && pr.dispense) { const yi = YARD_ITEMS.find(q => q.kind === pr.dispense); return { what: (yi ? yi.name : 'Stand') + ' stand', verb: 'Take one (free)', need: 'talk' }; }
   if (pr && pr.kind === 'rock' && itHeld(n).kind === 'hammer') return { what: 'Loose rock', verb: 'Break', need: 'hammer' };
   if (pr) { const nm = cvCap(LF_NOUN[pr.kind]); return hand && mode === 'search' ? { what: nm, verb: 'Search', need: 'search' } : { what: nm, verb: 'Push', need: 'push' }; }
   if (g === T.DOOR && typeof lf2DoorRoom === 'function' && LF2.on('nightlocks') && lf2Night()) { const r = lf2DoorRoom(x, y); if (r && r.kind === 'house' && r !== n.homeRoom && r.unbarred !== dayN() + ':' + n.id && !lf2InRoom(n, r)) return { what: r.name + ', barred', verb: 'Pick the lock', need: 'lockpick' }; }

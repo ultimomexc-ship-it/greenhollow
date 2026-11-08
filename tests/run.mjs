@@ -375,6 +375,48 @@ test('push: a table can be pushed inside a house (never out of the door, never s
   return `${r.moved} tables pushed (${r.tried} tried)`;
 }));
 
+test('builder\'s yard: stands on the edge of the square hand out building blocks (free) onto a pad; they push, chain and swap like boxes; the stands never move; the pad fills up', await controlScene('yard', 41, async page => {
+  const r = await page.evaluate(() => {
+    const b = town.builder, P = game.player, res = { yard: !!b }; if (!b) return res;
+    const stands = town.props.filter(p => p.fixed && p.dispense); res.stands = stands.length; res.kinds = stands.map(p => p.dispense).join();
+    // each stand: Push mode refuses (and the stand stays), Talk mode gives one
+    const log = [];
+    for (const st of stands) {
+      P.tx = P.x = st.x; P.ty = P.y = st.y + 1; P.path = []; P.moving = false; rebuildOcc(); P.mode = 'push'; P.sel = 0;
+      const a1 = lifeAct(P, P.player, st.x, st.y, 0, -1); const pushed = lf2PushLine(P, st.x, st.y, 0, -1);
+      P.mode = 'talk'; const before = town.props.length, a2 = lifeAct(P, P.player, st.x, st.y, 0, -1); if (a2 && a2.run) a2.run(P);
+      log.push(a1 && a1.msg ? 'refused' : 'NOT refused', pushed === null ? 'fixed' : 'MOVABLE', town.props.length === before + 1 ? 'one' : 'count ' + (town.props.length - before));
+      if (lfPropAt(st.x, st.y) !== st) log.push('STAND MOVED');
+    }
+    res.log = log.join(' '); const made = town.props.filter(p => p.yard); res.made = made.map(p => p.kind).join(); res.onPad = made.every(p => p.y >= b.pad.y && p.y < b.pad.y + b.pad.h + 4);
+    // a chain of two blocks pushed along the pad
+    const walls = made.filter(p => p.kind === 'bwall' || p.kind === 'bdoor' || p.kind === 'bwindow'); res.free = walls.length;
+    // fill the pad up
+    let said = ''; for (let i = 0; i < 30; i++) { const st = stands[0]; P.tx = P.x = st.x; P.ty = P.y = st.y + 1; rebuildOcc(); const a = lifeAct(P, P.player, st.x, st.y, 0, -1); window.__said = null; const old = playerSay; if (a && a.run) { playerSay = (n, t) => { said = t; }; a.run(P); playerSay = old; } }
+    res.full = /full/.test(said); res.total = town.props.filter(p => p.yard).length;
+    return res;
+  });
+  check(r.yard && r.stands === 7, 'the yard should have 7 stands: ' + JSON.stringify(r));
+  check(!/NOT refused|MOVABLE|STAND MOVED|count/.test(r.log) && r.made.split(',').length === 7, 'each stand refuses a push, stays put, and gives one thing in Talk mode: ' + r.log + ' / ' + r.made);
+  check(r.onPad, 'what you take should appear on the pad: ' + JSON.stringify(r));
+  check(r.full && r.total <= 17, 'the pad should fill up and say so: ' + JSON.stringify(r));
+  return `${r.stands} stands; one of each taken onto the pad; stands fixed; pad full at ${r.total}`;
+}));
+
+test('builder\'s yard: blocks are loose things (a wall block chains with a crate)', await controlScene('blocks', 41, async page => {
+  const r = await page.evaluate(() => {
+    const P = game.player; P.mode = 'push'; P.sel = 0; const res = {};
+    const [x, y] = __find((x, y) => [0, 1, 2, 3, 4, 5].every(i => __free(x + i, y))); __place(P, x, y, { dx: 1, dy: 0 });
+    const a = lfAddProp('bwall', x + 1, y), b = lfAddProp('bdoor', x + 2, y), c = lfAddProp('crate', x + 3, y);
+    res.r1 = lf2PushLine(P, x + 1, y, 1, 0); res.pos = [a.x - x, b.x - x, c.x - x].join();
+    setT(x + 6, y, T.WALL); res.r2 = lf2PushLine(P, x + 2, y, 1, 0); res.noun = LF_NOUN.bwall + '/' + lfPropArt(a) + '/' + lfPropArt(lfAddProp('table', x, y + 1)); setT(x + 6, y, T.GRASS);
+    return res;
+  });
+  check(r.r1 === true && r.pos === '2,3,4', 'a wall block, a door block and a crate move as one line: ' + JSON.stringify(r));
+  check(r.noun === 'wall block/blk_wall/table_loose', 'blocks have names and art: ' + r.noun);
+  return 'wall + door + crate chained; art and names set';
+}));
+
 test('push: a sleeper rides in the bed (and a sitter in the chair), out of the door into the world; they wake up outside; the bed stays theirs', await controlScene('rider', 41, async page => {
   const r = await page.evaluate(() => {
     const hs = rooms.find(q => !q.dead && q.kind === 'house' && q.seats.length && q.beds.length && q.barrel && q.side === 'b'), P = game.player; P.mode = 'push'; P.sel = 0;

@@ -191,7 +191,7 @@ function lfPlaceProps() {
     if (r.kind === 'privy') near(r.doorX + 2, fy, 'barrel');
   }
   const cx = town.cx, cy = town.cy;
-  lfPlayBoxes(free);
+  lfPlayBoxes(free); if (typeof lfPlaceYard === 'function') lfPlaceYard();
   for (const [dx, dy, k] of [[-8, 3, 'crate1'], [8, 3, 'crate'], [-4, -7, 'barrel'], [7, -5, 'crate'], [2, 9, 'stool']]) { const x = cx + dx, y = cy + dy; if (grid[y] && (grid[y][x] === T.PATH || grid[y][x] === T.GRASS) && roomAt[y][x] < 0 && walkable(x, y) && !lfPropAt(x, y) && !town.siteAt[y * W + x] && !lfNearDoor(x, y)) lfAddProp(k, x, y); }
 }
 /** extra boxes about the square and the lanes, to push about and build with: three lines of three (for pushing several at once) and a scatter of singles */

@@ -1975,7 +1975,23 @@ T24('door_back_closed', 'walls', 'Wooden door, shut (north wall)', g => doorN24(
 T24('door_mat_closed', 'walls', 'Wooden door, shut (south wall, from above)', g => doorS24(g, false), { kind: 'furniture' }); T24('door_mat_open', 'walls', 'Wooden door, open (south wall, from above)', g => doorS24(g, true), { kind: 'furniture' });
 for (const [i, c] of BLANKET.entries()) { T24(`bed_head_up_${i}`, 'furniture', `Bed, head up, ${['blue', 'red', 'green', 'violet', 'gold'][i]}`, g => bed24(g, c, true)); T24(`bed_head_down_${i}`, 'furniture', `Bed, head down, ${['blue', 'red', 'green', 'violet', 'gold'][i]}`, g => bed24(g, c, false)); }
 for (const f of ['down', 'up', 'left', 'right']) T24(`seat_${f}`, 'furniture', `Chair facing ${f}`, g => seat24(g, f));
-for (const p of ['single', 'left', 'mid', 'right']) for (const d of ['plain', 'plate', 'vase']) T24(`table_${p}_${d}`, 'furniture', `Table ${p}${d === 'plain' ? '' : ', ' + d}`, g => table24(g, p, d, 0));
+
+/* loose building blocks (pushed about, bought at the builder's yard) and the yard's sample stands */
+function blkCap(g, h) { g.save(); g.beginPath(); g.rect(0, 0, 24, h); g.clip(); cap24(g, ''); g.restore(); g.fillStyle = 'rgba(42,35,50,.9)'; g.fillRect(0, 0, 24, 1); g.fillRect(0, 0, 1, 24); g.fillRect(23, 0, 1, 24); g.fillRect(0, 23, 24, 1); }
+function blkWall24(g, kind) { shadowE(g, 12, 22.6, 11, 2);
+  if (kind === 'door') { g.save(); g.translate(0, 9); g.beginPath(); g.rect(0, 0, 24, 15); g.clip(); doorN24(g, false); g.restore(); }
+  else { g.save(); g.translate(0, 10); g.beginPath(); g.rect(0, 0, 24, 14); g.clip(); wallFace24(g, kind === 'window'); g.restore(); }
+  blkCap(g, kind === 'door' ? 9 : 10); g.fillStyle = 'rgba(42,35,50,.55)'; g.fillRect(0, kind === 'door' ? 9 : 10, 24, 0.8); }
+for (const k of ['wall', 'window', 'door']) T24('blk_' + k, 'furniture', 'Building block, ' + k, g => blkWall24(g, k), { under: null });
+function stand24(g, draw) { shadowE(g, 12, 22.4, 11, 2.2);
+  wood(g, 2.4, 17.4, 19.2, 5, { dir: 'h', planks: 2, seed: 77, P: WOODD, nails: true, knots: 0.1 });
+  wood(g, 3.4, 22, 2, 1.8, { dir: 'v', planks: 1, seed: 78, P: WOODD, nails: false, knots: 0 }); wood(g, 18.6, 22, 2, 1.8, { dir: 'v', planks: 1, seed: 79, P: WOODD, nails: false, knots: 0 });
+  g.save(); g.translate(12 - 12 * 0.74, 17.6 - 24 * 0.74); g.scale(0.74, 0.74); draw(g); g.restore();
+  g.fillStyle = '#e8c04a'; g.fillRect(2.4, 17.4, 19.2, 1.1); g.fillStyle = 'rgba(90,60,10,.5)'; g.fillRect(2.4, 18.4, 19.2, 0.4); }
+for (const k of ['wall', 'window', 'door']) T24('yd_' + k, 'furniture', 'Yard stand, ' + k, g => stand24(g, q => blkWall24(q, k)), { under: null });
+T24('yd_bed', 'furniture', 'Yard stand, bed', g => stand24(g, q => bed24(q, BLANKET[1], true)), { under: null }); T24('yd_chair', 'furniture', 'Yard stand, chair', g => stand24(g, q => seat24(q, 'down')), { under: null });
+T24('yd_table', 'furniture', 'Yard stand, table', g => stand24(g, q => table24(q, 'single', null, 0)), { under: null }); T24('yd_barrel', 'furniture', 'Yard stand, barrel', g => stand24(g, q => barrel24(q)), { under: null });
+T24('table_loose', 'furniture', 'Table, loose', g => table24(g, 'single', null, 0), { under: null });for (const p of ['single', 'left', 'mid', 'right']) for (const d of ['plain', 'plate', 'vase']) T24(`table_${p}_${d}`, 'furniture', `Table ${p}${d === 'plain' ? '' : ', ' + d}`, g => table24(g, p, d, 0));
 T24('barrel', 'furniture', 'Barrel', g => barrel24(g)); for (const v of [0, 1]) T24('shelf_' + v, 'furniture', 'Shelf ' + (v + 1), g => shelf24(g, v)); T24('rug', 'furniture', 'Rug', g => rug24(g, 0)); T24('rug_1', 'furniture', 'Rug, indigo', g => rug24(g, 1)); T24('rug_2', 'furniture', 'Rug, green', g => rug24(g, 2));
 T24('counter_0', 'furniture', 'Counter, mug', g => counter24(g, true)); T24('counter_1', 'furniture', 'Counter', g => counter24(g, false)); T24('pew', 'furniture', 'Pew', g => pew24(g), { under: 'stone' });
 T24('altar_0', 'furniture', 'Altar', (g, t) => altar24(g, 0, false), { under: 'stone' }); T24('altar_1', 'furniture', 'Altar, candle', (g, t) => altar24(g, t, true), { under: 'stone', frames: FR });
