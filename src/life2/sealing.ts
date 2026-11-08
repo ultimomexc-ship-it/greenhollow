@@ -9,7 +9,7 @@ const BLD_MAX = 260;                 // a region bigger than this counts as open
 const bldBlock = pr => !!pr && BLD_KINDS.includes(pr.kind) && !pr.fixed;
 const bldSolid = (x, y) => { const g = grid[y][x]; return g === T.WALL || g === T.DOOR || bldBlock(lfPropAt(x, y)); };
 const bldFreeRoom = (x, y) => { const i = roomAt[y][x]; const r = i >= 0 ? rooms[i] : null; return r && r.free && !r.dead ? r : null; };
-const bldOKTile = (x, y) => { const g = grid[y][x]; if (g !== T.GRASS && g !== T.PATH && g !== T.FLOOR && g !== T.CROP && g !== T.SAND) return false; if (town.siteAt[y * W + x] || (town.nodeMap && town.nodeMap.has(y * W + x))) return false; const p = lfPropAt(x, y); if (p && p.fixed) return false; if (roomAt[y][x] >= 0 && !bldFreeRoom(x, y)) return false; return !bldOnPad(x, y); };
+const bldOKTile = (x, y) => { const g = grid[y][x]; if (g !== T.GRASS && g !== T.PATH && g !== T.FLOOR && g !== T.CROP && g !== T.SAND) return false; if (town.siteAt[y * W + x]) return false; /* (a berry or herb bush inside does not stop it: the bush is cleared away when the room closes) */ const p = lfPropAt(x, y); if (p && p.fixed) return false; if (roomAt[y][x] >= 0 && !bldFreeRoom(x, y)) return false; return !bldOnPad(x, y); };
 const bldOnPad = (x, y) => { const b = town.builder; return !!b && x >= b.pad.x - 1 && x < b.pad.x + b.pad.w + 1 && y >= b.pad.y - 1 && y < b.pad.y + b.pad.h + 1; };
 const BLD_D8: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]], BLD_D4: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
@@ -68,6 +68,7 @@ function bldMake(regions: number[][], dissolve: any[]) {
   for (const R of regions) {
     const idx = rooms.length, set = new Set<number>(R); let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
     for (const k of R) { const x = k % W, y = (k / W) | 0; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+      if (town.nodeMap && town.nodeMap.has(k)) { town.nodes = town.nodes.filter(nd => !(nd.x === x && nd.y === y)); town.nodeMap.delete(k); }
       if (!town.bldWas.has(k)) town.bldWas.set(k, grid[y][x] === T.CROP ? T.GRASS : grid[y][x]); if (grid[y][x] === T.CROP) town.crops = (town.crops || []).filter(c => !(c.x === x && c.y === y)); setT(x, y, T.FLOOR); roomAt[y][x] = idx; }
     const edge = new Set<number>(); for (const k of R) { const x = k % W, y = (k / W) | 0; for (const [dx, dy] of BLD_D8) { const nx = x + dx, ny = y + dy, t = grid[ny][nx]; if (t === T.WALL || t === T.DOOR) edge.add(nx + ny * W); } }
     for (const k of edge) { const x = k % W, y = (k / W) | 0; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); const cur = roomAt[y][x]; if (cur < 0 || (rooms[cur] && rooms[cur].dead)) roomAt[y][x] = idx; }

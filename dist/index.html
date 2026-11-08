@@ -18519,7 +18519,7 @@ const bldFreeRoom = (x, y) => {
 const bldOKTile = (x, y) => {
   const g = grid[y][x];
   if (g !== T.GRASS && g !== T.PATH && g !== T.FLOOR && g !== T.CROP && g !== T.SAND) return false;
-  if (town.siteAt[y * W + x] || town.nodeMap && town.nodeMap.has(y * W + x)) return false;
+  if (town.siteAt[y * W + x]) return false;
   const p = lfPropAt(x, y);
   if (p && p.fixed) return false;
   if (roomAt[y][x] >= 0 && !bldFreeRoom(x, y)) return false;
@@ -18646,6 +18646,10 @@ function bldMake(regions, dissolve) {
       x1 = Math.max(x1, x);
       y0 = Math.min(y0, y);
       y1 = Math.max(y1, y);
+      if (town.nodeMap && town.nodeMap.has(k)) {
+        town.nodes = town.nodes.filter((nd) => !(nd.x === x && nd.y === y));
+        town.nodeMap.delete(k);
+      }
       if (!town.bldWas.has(k)) town.bldWas.set(k, grid[y][x] === T.CROP ? T.GRASS : grid[y][x]);
       if (grid[y][x] === T.CROP) town.crops = (town.crops || []).filter((c) => !(c.x === x && c.y === y));
       setT(x, y, T.FLOOR);
