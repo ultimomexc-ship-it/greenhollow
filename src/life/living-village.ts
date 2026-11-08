@@ -3,7 +3,9 @@
    their mood; mood drives what they choose to do. Things can be pushed about, doors can be blocked, friends organise things. */
 const LF = { seeThru: false };
 const LF_ART = { crate: 'crate', crate1: 'crate_1', barrel: 'barrel_o', stool: 'stool' };
-const LF_NOUN = { crate: 'crate', crate1: 'crate', barrel: 'barrel', stool: 'stool' };
+const LF_NOUN: any = { crate: 'crate', crate1: 'crate', barrel: 'barrel', stool: 'stool', chair: 'chair', bed: 'bed' };
+/** for now villagers never tidy, shove, rescue or haul anything: only the player moves things (a villager shut in by a blocked door waits to be let out) */
+const LF_NPC_MOVES_THINGS = false;
 const LF_JOBN = { Fisher: 'fishing', Farmer: 'farming', Gatherer: 'foraging', Woodcutter: 'woodcutting', Stonecutter: 'stonecutting' };
 const lfR = n => (n && n.rand) ? n.rand() : Math.random();
 const lfDay = () => Math.floor(game.time / 1440);
@@ -253,6 +255,7 @@ function lfTrapTick(n, dt) {
   const mins = game.time - t.since;
   if (n.pose !== 'sleep') t.aw = (t.aw || 0) + dt;
   if (t.aw > 400 && t.prop && !lfPushDirs(t.prop).length && game.time >= (t.hauled || 0)) { t.hauled = game.time + 60; lfHaul(n); }   // nobody can budge it: the street sorts it out in the end
+  if (mins > 60 && !t.noted && t.prop) { t.noted = 1; chron(`${nameOf(n)} has been shut in for an hour by ${t.prop.kind === 'rock' ? 'a rock' : 'a ' + LF_NOUN[t.prop.kind]} against ${n.female ? 'her' : 'his'} door. Somebody will have to move it.`, 'note'); }
   lfMod(n, 'trapped', 'shut in', -Math.min(34, 10 + mins / 25), 90);
   if (n.player) return;
   t.text = mins < 60 ? 'Stuck! Something is blocking the way' : 'Shut in for hours, getting desperate';
@@ -282,6 +285,7 @@ function lfPushDirs(pr) {
 }
 /* the one way a shut door stays shut for good: nobody can budge the thing. After a long while the neighbours drag it off between them */
 function lfHaul(v) {
+  if (!LF_NPC_MOVES_THINGS) return;
   const t = v.trapped, pr = t && t.prop; if (!pr || lfPropAt(pr.x, pr.y) !== pr) return;
   let best = null, bd = 99;
   for (let dy = -7; dy <= 7; dy++) for (let dx = -7; dx <= 7; dx++) {
@@ -296,6 +300,7 @@ function lfHaul(v) {
   chron(`The neighbours finally dragged the ${LF_NOUN[pr.kind]} away from ${nameOf(v)}'s door.`, 'note');
 }
 function lfRescue(h, v) {
+  if (!LF_NPC_MOVES_THINGS) return false;
   const t = v.trapped; if (!t || !t.prop) return false;
   const pr = t.prop, st = town.yard.stand;
   if (lfPropAt(pr.x, pr.y) !== pr) return false;
@@ -316,6 +321,7 @@ function lfRescue(h, v) {
   return true;
 }
 function lfTidyPlan(n) {
+  if (!LF_NPC_MOVES_THINGS) return null;
   let best = null, bd = 99;
   for (const pr of town.props || []) { if (pr.x === pr.home.x && pr.y === pr.home.y) continue; const d = Math.abs(pr.x - n.tx) + Math.abs(pr.y - n.ty); if (d < bd && d <= 18) { bd = d; best = pr; } }
   if (!best) return null;

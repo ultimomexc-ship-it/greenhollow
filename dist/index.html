@@ -16615,7 +16615,8 @@ function drawFeast(c, now) {
 }
 const LF = { seeThru: false };
 const LF_ART = { crate: "crate", crate1: "crate_1", barrel: "barrel_o", stool: "stool" };
-const LF_NOUN = { crate: "crate", crate1: "crate", barrel: "barrel", stool: "stool" };
+const LF_NOUN = { crate: "crate", crate1: "crate", barrel: "barrel", stool: "stool", chair: "chair", bed: "bed" };
+const LF_NPC_MOVES_THINGS = false;
 const LF_JOBN = { Fisher: "fishing", Farmer: "farming", Gatherer: "foraging", Woodcutter: "woodcutting", Stonecutter: "stonecutting" };
 const lfR = (n) => n && n.rand ? n.rand() : Math.random();
 const lfDay = () => Math.floor(game.time / 1440);
@@ -17033,6 +17034,10 @@ function lfTrapTick(n, dt) {
     t.hauled = game.time + 60;
     lfHaul(n);
   }
+  if (mins > 60 && !t.noted && t.prop) {
+    t.noted = 1;
+    chron(`${nameOf(n)} has been shut in for an hour by ${t.prop.kind === "rock" ? "a rock" : "a " + LF_NOUN[t.prop.kind]} against ${n.female ? "her" : "his"} door. Somebody will have to move it.`, "note");
+  }
   lfMod(n, "trapped", "shut in", -Math.min(34, 10 + mins / 25), 90);
   if (n.player) return;
   t.text = mins < 60 ? "Stuck! Something is blocking the way" : "Shut in for hours, getting desperate";
@@ -17080,6 +17085,7 @@ function lfPushDirs(pr) {
   return [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dy]) => lfPushOK(pr, dx, dy) && walkable(pr.x - dx, pr.y - dy) && roomAt[pr.y - dy][pr.x - dx] < 0 && !tileOwner.get((pr.y - dy) * W + pr.x - dx));
 }
 function lfHaul(v) {
+  if (!LF_NPC_MOVES_THINGS) return;
   const t = v.trapped, pr = t && t.prop;
   if (!pr || lfPropAt(pr.x, pr.y) !== pr) return;
   let best = null, bd = 99;
@@ -17111,6 +17117,7 @@ function lfHaul(v) {
   chron(`The neighbours finally dragged the ${LF_NOUN[pr.kind]} away from ${nameOf(v)}'s door.`, "note");
 }
 function lfRescue(h, v) {
+  if (!LF_NPC_MOVES_THINGS) return false;
   const t = v.trapped;
   if (!t || !t.prop) return false;
   const pr = t.prop, st = town.yard.stand;
@@ -17138,6 +17145,7 @@ function lfRescue(h, v) {
   return true;
 }
 function lfTidyPlan(n) {
+  if (!LF_NPC_MOVES_THINGS) return null;
   let best = null, bd = 99;
   for (const pr2 of town.props || []) {
     if (pr2.x === pr2.home.x && pr2.y === pr2.home.y) continue;
@@ -18180,10 +18188,7 @@ function lifeAct(n, p, fx, fy, dx, dy) {
   if (itHand(n, "push")) {
     const r = lf2PushLine(n, fx, fy, dx, dy);
     if (r === true) return null;
-    if (r) {
-      if (pr && !lfPropAt(fx + dx, fy + dy) && lf2Swap(n, pr)) return { msg: "" };
-      return { msg: r };
-    }
+    if (r) return { msg: r };
   }
   if (pr) {
     const label = LF_NOUN[pr.kind];
@@ -18402,7 +18407,7 @@ function lf2Follow(n, p) {
 const PUSH_MAX = 3;
 const LF_ROCK_ART = ["boulder_0", "boulder_1", "boulder_2", "boulder_3"];
 Object.assign(LF_NOUN, { rock: "rock" });
-const lfPropArt = (pr) => pr.kind === "rock" ? LF_ROCK_ART[(pr.v || 0) & 3] : LF_ART[pr.kind] || "crate";
+const lfPropArt = (pr) => pr.kind === "rock" ? LF_ROCK_ART[(pr.v || 0) & 3] : pr.kind === "chair" ? "seat_down" : pr.kind === "bed" ? "bed_head_up_" + (pr.v || 0) % 5 : LF_ART[pr.kind] || "crate";
 const PUSH_FURNITURE = /* @__PURE__ */ new Set([T.SEAT, T.BED, T.BARREL]);
 const pushRoomOf = (x, y) => {
   const i = roomAt[y] && roomAt[y][x];
@@ -18414,20 +18419,19 @@ function pushFurniture(x, y) {
   const r = pushRoomOf(x, y);
   if (!r || r.dead || r.kind === "privy" || r.kind === "church" || r.kind === "jail") return null;
   if (g === T.SEAT) {
-    const s = (r.seats || []).find((q) => q.x === x && q.y === y);
+    const s = (r.seats || []).find((q) => q.x === x && q.y === y && !q.out);
     return s ? { type: "seat", t: g, r, o: s } : null;
   }
   if (g === T.BED) {
-    const b = (r.beds || []).find((q) => q.x === x && q.y === y);
+    const b = (r.beds || []).find((q) => q.x === x && q.y === y && !q.out);
     return b ? { type: "bed", t: g, r, o: b } : null;
   }
-  if (r.barrel && r.barrel.x === x && r.barrel.y === y) return { type: "barrel", t: g, r, o: r.barrel };
+  if (r.barrel && !r.barrel.out && r.barrel.x === x && r.barrel.y === y) return { type: "barrel", t: g, r, o: r.barrel };
   return null;
 }
-const pushInDoorway = (r, x, y) => r.doorX != null && x === r.doorX && y === (r.side === "b" ? r.doorY - 1 : r.doorY + 1);
-function pushLooseOK(nx, ny) {
+function pushLooseOK(nx, ny, ignoreOwner) {
   if (nx < 2 || ny < 2 || nx >= W - 2 || ny >= H - 2) return false;
-  if (!walkable(nx, ny) || tileOwner.get(ny * W + nx)) return false;
+  if (!walkable(nx, ny) || !ignoreOwner && tileOwner.get(ny * W + nx)) return false;
   const g = grid[ny][nx];
   if (g === T.SEAT || g === T.BED || g === T.PEW || g === T.CROP || g === T.PLOT || g === T.TENT) return false;
   if (town.siteAt[ny * W + nx] || noStep(nx, ny)) return false;
@@ -18438,11 +18442,11 @@ function pushLooseOK(nx, ny) {
   if (rm && (rm.kind === "jail" || rm.kind === "church" || rm.kind === "privy")) return false;
   return true;
 }
-function pushFurnitureOK(f, nx, ny) {
+function pushFurnitureOK(f, nx, ny, ignoreOwner) {
   const r = f.r;
-  if (pushRoomOf(nx, ny) !== r) return false;
-  if (nx <= r.x || nx >= r.x + r.w - 1 || ny <= r.y || ny >= r.y + r.h - 1) return false;
-  if (pushInDoorway(r, nx, ny) || tileOwner.get(ny * W + nx)) return false;
+  if (nx === r.doorX && ny === r.doorY) return pushLooseOK(nx, ny, ignoreOwner);
+  if (pushRoomOf(nx, ny) !== r || nx <= r.x || nx >= r.x + r.w - 1 || ny <= r.y || ny >= r.y + r.h - 1) return false;
+  if (!ignoreOwner && tileOwner.get(ny * W + nx)) return false;
   const g = grid[ny][nx];
   if (g !== T.FLOOR && g !== T.RUG) return false;
   if (lfPropAt(nx, ny)) return false;
@@ -18450,14 +18454,14 @@ function pushFurnitureOK(f, nx, ny) {
     const sp = r.spots && r.spots.pantry;
     if (sp) {
       const sx = sp.x + (nx - f.o.x), sy = sp.y + (ny - f.o.y), sg = grid[sy] && grid[sy][sx];
-      if (pushRoomOf(sx, sy) !== r || sg !== T.FLOOR && sg !== T.RUG && sg !== T.SEAT && sg !== T.BED || pushInDoorway(r, sx, sy)) return false;
+      if (pushRoomOf(sx, sy) !== r || sg !== T.FLOOR && sg !== T.RUG && sg !== T.SEAT && sg !== T.BED) return false;
     }
   }
   return true;
 }
 function pushRoomConnected(r, moves) {
-  const inside = (x, y) => x > r.x && x < r.x + r.w - 1 && y > r.y && y < r.y + r.h - 1, b = r.barrel, mb = b && moves.find((m) => m[0] === b.x && m[1] === b.y);
-  const barrel = b ? mb ? [mb[2], mb[3]] : [b.x, b.y] : null, key = (x, y) => y * W + x;
+  const inside = (x, y) => x > r.x && x < r.x + r.w - 1 && y > r.y && y < r.y + r.h - 1, b = r.barrel && !r.barrel.out ? r.barrel : null, mb = b && moves.find((m) => m[0] === b.x && m[1] === b.y), leaving = (m) => !(m[2] > r.x && m[2] < r.x + r.w - 1 && m[3] > r.y && m[3] < r.y + r.h - 1);
+  const barrel = b ? mb && !leaving(mb) ? [mb[2], mb[3]] : mb ? null : [b.x, b.y] : null, key = (x, y) => y * W + x;
   const blocked = (x, y) => BLOCKED.has(grid[y][x]) && grid[y][x] !== T.BARREL || barrel && barrel[0] === x && barrel[1] === y || grid[y][x] === T.BARREL && !(b && b.x === x && b.y === y);
   const din = { x: r.doorX, y: r.side === "b" ? r.doorY - 1 : r.doorY + 1 }, seen = /* @__PURE__ */ new Set([key(din.x, din.y)]), q = [din];
   while (q.length) {
@@ -18471,10 +18475,10 @@ function pushRoomConnected(r, moves) {
   }
   const at = (o) => {
     const m = moves.find((mm) => mm[0] === o.x && mm[1] === o.y);
-    return m ? [m[2], m[3]] : [o.x, o.y];
+    return m ? leaving(m) ? null : [m[2], m[3]] : [o.x, o.y];
   };
-  const need = [...r.seats || [], ...r.beds || []].map(at), sp = r.spots && r.spots.pantry;
-  if (sp) need.push(mb ? [sp.x + (mb[2] - mb[0]), sp.y + (mb[3] - mb[1])] : [sp.x, sp.y]);
+  const need = [...r.seats || [], ...r.beds || []].filter((o) => !o.out).map(at).filter(Boolean), sp = r.spots && r.spots.pantry;
+  if (sp && !(b === null && r.barrel)) need.push(mb && !leaving(mb) ? [sp.x + (mb[2] - mb[0]), sp.y + (mb[3] - mb[1])] : [sp.x, sp.y]);
   return need.every(([x, y]) => seen.has(key(x, y)));
 }
 function pushRockToProp(x, y) {
@@ -18501,24 +18505,46 @@ function pushLine(n, x, y, dx, dy) {
   }
   return line.length ? line : null;
 }
+function pushShoveTarget(n, nx, ny, dx, dy) {
+  const who = tileOwner.get(ny * W + nx);
+  if (!who || who === n || who.dead || who.infant) return null;
+  if (who.pose === "sleep" || who.pose === "sit" || who.pose === "kneel") return (who.first || "Somebody") + " is in the way.";
+  for (const [ax, ay] of [[dx, dy], [dy, dx], [-dy, -dx]]) {
+    const x = nx + ax, y = ny + ay;
+    if (lf2PersonOK(x, y) && !tileOwner.get(y * W + x) && !lfPropAt(x, y)) return { who, x, y };
+  }
+  return (who.first || "Somebody") + " has nowhere to go.";
+}
 function lf2PushLine(n, x, y, dx, dy) {
   const line = pushLine(n, x, y, dx, dy);
   if (!line) return null;
-  if (line.length > PUSH_MAX) return "Too much to push at once.";
   const furn = line[0].kind === "furniture";
-  if (line.some((p) => p.kind === "furniture" !== furn)) return "It won't budge.";
+  if (line.some((p) => p.kind === "furniture" !== furn)) return pushSwap(n, line[0]);
   const last2 = line[line.length - 1], nx = last2.x + dx, ny = last2.y + dy;
+  let shove = null, name = "It";
   if (furn) {
     const r = line[0].f.r;
-    if (line.some((p) => p.f.r !== r)) return "It won't budge.";
+    if (line.some((p) => p.f.r !== r)) return pushSwap(n, line[0]);
     for (const p of line) {
       const who = tileOwner.get(p.y * W + p.x);
-      if (who) return (who.first || "Somebody") + " is using it.";
+      if (who && who !== n) return (who.first || "Somebody") + " is using it.";
     }
-    const name = line[0].f.type === "seat" ? "chair" : line[0].f.type;
-    if (!pushFurnitureOK(last2.f, nx, ny)) return "The " + name + " won't go there.";
+    name = "The " + (line[0].f.type === "seat" ? "chair" : line[0].f.type);
+    if (!pushFurnitureOK(last2.f, nx, ny, true)) return pushSwap(n, line[0]);
+    shove = pushShoveTarget(n, nx, ny, dx, dy);
+    if (typeof shove === "string") return shove;
+    const leaves = nx === r.doorX && ny === r.doorY || line.some((p) => p.x + dx === r.doorX && p.y + dy === r.doorY);
     if (!pushRoomConnected(r, line.map((p) => [p.x, p.y, p.x + dx, p.y + dy]))) return "That would block the way in the " + (r.kind === "house" ? "house" : "room") + ".";
-  } else if (!pushLooseOK(nx, ny)) return "It won't budge.";
+  } else {
+    if (!pushLooseOK(nx, ny, true)) return pushSwap(n, line[0]);
+    shove = pushShoveTarget(n, nx, ny, dx, dy);
+    if (typeof shove === "string") return shove;
+  }
+  if (line.length > PUSH_MAX) return "Too much to push at once.";
+  if (shove) {
+    lf2Relocate(shove.who, shove.x, shove.y);
+    if (Math.random() < 0.5) lfShout(shove.who, anyOf(["Oi!", "Hey! Watch it!", "Oh! Excuse me.", "Steady on!"]));
+  }
   const moved = [];
   for (let i = line.length - 1; i >= 0; i--) {
     const p = line[i];
@@ -18531,10 +18557,32 @@ function lf2PushLine(n, x, y, dx, dy) {
     if (p.kind === "prop") {
       pushMoveProp(p.pr, dx, dy, n);
       moved.push(p.pr);
-    } else pushMoveFurniture(p.f, dx, dy);
+    } else {
+      const pr = pushMoveFurniture(p.f, dx, dy, n);
+      if (pr) moved.push(pr);
+    }
   }
   if (typeof refreshReach === "function") refreshReach();
-  for (const pr of moved) if (typeof lf2AfterPush === "function") lf2AfterPush(n, pr);
+  for (const pr of moved) if (typeof lf2AfterPush === "function" && lfPropAt(pr.x, pr.y) === pr) lf2AfterPush(n, pr);
+  return true;
+}
+function pushSwap(n, piece) {
+  const px = n.tx, py = n.ty;
+  if (piece.kind === "furniture") {
+    const f = piece.f;
+    if (tileOwner.get(piece.y * W + piece.x) && tileOwner.get(piece.y * W + piece.x) !== n) return "It won't budge.";
+    if (!pushFurnitureOK(f, px, py, true) || !(px !== f.r.doorX || py !== f.r.doorY)) return "The " + (f.type === "seat" ? "chair" : f.type) + " won't budge.";
+    if (!pushRoomConnected(f.r, [[piece.x, piece.y, px, py]])) return "That would block the way in the room.";
+    pushMoveFurniture(f, px - piece.x, py - piece.y, n);
+    if (typeof refreshReach === "function") refreshReach();
+    return true;
+  }
+  let pr = piece.pr;
+  if (!pr && piece.kind === "rock") pr = pushRockToProp(piece.x, piece.y);
+  if (!pr) return "It won't budge.";
+  if (!pushLooseOK(px, py, true)) return "It won't budge.";
+  pushMoveProp(pr, px - pr.x, py - pr.y, n);
+  if (typeof refreshReach === "function") refreshReach();
   return true;
 }
 function pushMoveProp(pr, dx, dy, by) {
@@ -18546,6 +18594,7 @@ function pushMoveProp(pr, dx, dy, by) {
   pr.y += dy;
   pr.st = by && by.player ? 0 : performance.now();
   pr.follow = by && by.player ? by : null;
+  pr.followW = by ? by.walked : 0;
   pr.moved = game.time;
   pr.by = by ? by.id : null;
   town.pblock[pr.y * W + pr.x] = 1;
@@ -18553,9 +18602,55 @@ function pushMoveProp(pr, dx, dy, by) {
   town.lfPV = (town.lfPV || 0) + 1;
   pr.seen = [];
   for (const o of npcs) if (o !== by && !o.dead && !o.infant && o.pose !== "sleep" && Math.abs(o.tx - pr.x) + Math.abs(o.ty - pr.y) <= 10) pr.seen.push(o.id);
+  if (pr.fur) pushMaybeRestore(pr);
 }
-function pushMoveFurniture(f, dx, dy) {
+function pushMaybeRestore(pr) {
+  const f = pr.fur, r = f.r, ri2 = rooms.indexOf(r);
+  if (roomAt[pr.y][pr.x] !== ri2 || pr.x === r.doorX && pr.y === r.doorY) return;
+  const g = grid[pr.y][pr.x];
+  if (g !== T.FLOOR && g !== T.RUG) return;
+  const o = f.o, dx = pr.x - o.x, dy = pr.y - o.y;
+  town.pblock[pr.y * W + pr.x] = 0;
+  town.propAt.delete(pr.y * W + pr.x);
+  town.props = town.props.filter((q) => q !== pr);
+  setT(pr.x, pr.y, f.t);
+  o.x = pr.x;
+  o.y = pr.y;
+  delete o.out;
+  if (f.type === "barrel" && r.spots && r.spots.pantry) {
+    r.spots.pantry.x += dx;
+    r.spots.pantry.y += dy;
+  }
+  if (f.type === "seat") {
+    for (const [ax, ay] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) if (grid[pr.y + ay] && grid[pr.y + ay][pr.x + ax] === T.TABLE) {
+      o.face = { dx: ax, dy: ay };
+      break;
+    }
+  }
+  markDirty(pr.x, pr.y, 1, 1);
+  town.lfPV = (town.lfPV || 0) + 1;
+  town.gridV = (town.gridV || 0) + 1;
+}
+function pushMoveFurniture(f, dx, dy, by) {
   const o = f.o, fx = o.x, fy = o.y, tx = fx + dx, ty = fy + dy;
+  if (tx === f.r.doorX && ty === f.r.doorY) {
+    setT(fx, fy, T.FLOOR);
+    o.out = true;
+    const kind = f.type === "seat" ? "chair" : f.type, pr = lfAddProp(kind, tx, ty);
+    pr.fur = f;
+    pr.v = Math.floor(ART.h32(fx, fy, 61, 61) * 5);
+    pr.fx = fx;
+    pr.fy = fy;
+    pr.st = by && by.player ? 0 : performance.now();
+    pr.follow = by && by.player ? by : null;
+    pr.followW = by ? by.walked : 0;
+    pr.moved = game.time;
+    pr.by = by ? by.id : null;
+    pr.seen = [];
+    markDirty(Math.min(fx, tx), Math.min(fy, ty), Math.abs(dx) + 1, Math.abs(dy) + 1);
+    town.gridV = (town.gridV || 0) + 1;
+    return pr;
+  }
   setT(fx, fy, T.FLOOR);
   setT(tx, ty, f.t);
   o.x = tx;
@@ -18573,15 +18668,16 @@ function pushMoveFurniture(f, dx, dy) {
       break;
     }
   }
-  if (typeof markDirty === "function") markDirty(Math.min(fx, tx), Math.min(fy, ty), Math.abs(dx) + 1, Math.abs(dy) + 1);
+  markDirty(Math.min(fx, tx), Math.min(fy, ty), Math.abs(dx) + 1, Math.abs(dy) + 1);
   town.lfPV = (town.lfPV || 0) + 1;
   town.gridV = (town.gridV || 0) + 1;
+  return null;
 }
 function lfPropPos(pr, now) {
   let x = pr.x, y = pr.y;
   if (pr.follow) {
     const f = pr.follow;
-    if (f.moving && f.path && f.path.length) {
+    if (f.moving && f.path && f.path.length && f.walked === pr.followW) {
       const t = Math.max(0, Math.min(1, f.t || 0));
       x = pr.fx + (pr.x - pr.fx) * t;
       y = pr.fy + (pr.y - pr.fy) * t;

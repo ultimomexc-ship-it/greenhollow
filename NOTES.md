@@ -206,3 +206,8 @@ three; rocks turn into loose rocks; loose things may cross a doorway; chairs, be
 Not done / ideas: tables are not movable; furniture cannot leave its room; loose rocks are not quarried by stonecutters; NPCs do not tidy rearranged furniture
 (they carry on, but a plan made before a move may walk to the old spot); a door with a crate on it is handled by the old trapped-villager rescue; pushing onto a
 site could count as delivering materials.
+
+Second pass on pushing: furniture goes out through the door and can come back; a line against a wall swaps you through it piece by piece; pushed boxes shove people
+aside; villagers no longer tidy, rescue or haul (flag `LF_NPC_MOVES_THINGS`, for now). The sideways box: a pushed box followed the player's *next* step if a new step
+began before a frame was drawn (the box drew itself with the wrong step's progress); it now follows only the step that pushed it. A regression test reproduces it.
+Open: a villager shut in by a box waits for the player (the chronicle says so); a bed pushed out of the house leaves its owner sleeping on the bare floor spot.
