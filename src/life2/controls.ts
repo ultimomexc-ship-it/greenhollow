@@ -18,11 +18,11 @@ function lf2Relocate(o, x, y) {
 /** Push o one tile in the direction (dx, dy); when there is no room behind them you swap places. Returns true, or the reason it cannot be done. */
 function lf2PushPerson(n, o, dx, dy): true | string {
   if (!lf2Adj(n, o)) return 'Too far to push.';
-  if (o.pose === 'sleep') return o.first + ' is asleep.';
   if (o.pose === 'sit' || o.pose === 'kneel') return o.first + ' is settled in.';
   const bx = o.tx + dx, by = o.ty + dy, ox = o.tx, oy = o.ty;
-  if (lf2PersonOK(bx, by) && !tileOwner.get(tkey(bx, by))) lf2Relocate(o, bx, by);
-  else if (lf2PersonOK(n.tx, n.ty)) lf2Relocate(o, n.tx, n.ty);      // against a wall or a crowd: change places
+  const move = o.pose === 'sleep' ? (x, y) => pushCarry(o, x, y, n) : (x, y) => lf2Relocate(o, x, y);   // (a sleeper is carried, still asleep)
+  if (lf2PersonOK(bx, by) && !tileOwner.get(tkey(bx, by))) move(bx, by);
+  else if (lf2PersonOK(n.tx, n.ty)) move(n.tx, n.ty);      // against a wall or a crowd: change places
   else return 'There is no room to push ' + o.first + '.';
   cvSaw(n, o, 'push');
   if (!o.player && Math.random() < 0.3) lfShout(o, anyOf(PUSH_WORDS));
@@ -31,6 +31,7 @@ function lf2PushPerson(n, o, dx, dy): true | string {
 /** how a villager is drawn while they slide to the tile they were pushed onto (screen time, not game time) */
 function gaSlide(n, now) {
   const s = n.slide; if (!s) return [n.x, n.y];
+  if (s.by) { const f = s.by; if (f.moving && f.path && f.path.length && f.walked === s.w) { const t = Math.max(0, Math.min(1, f.t || 0)); return [s.fx + (n.x - s.fx) * t, s.fy + (n.y - s.fy) * t]; } n.slide = null; return [n.x, n.y]; }   // (carried along by the player's own step)
   const t = (now - s.st) / 170; if (!(t < 1)) { n.slide = null; return [n.x, n.y]; }
   const e = 1 - (1 - t) * (1 - t);
   return [s.fx + (n.x - s.fx) * e, s.fy + (n.y - s.fy) * e];

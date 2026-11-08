@@ -219,3 +219,7 @@ just the campfire, which noStep still covers). Removed; a test fails with them p
 Fourth push pass: five at once; things push over fields (the plot returns to bare dirt: `pushTrample`); a doorway swap with a bed that cannot move; lines and singles of extra
 boxes on and around the square (`lfPlayBoxes`, seed-deterministic); the steered villager is free of hunger, bladder and sleep for now (`PLAYER_NEEDS`). Remember to turn the
 last one back on (and reconsider the testing kit) before the game is for anyone but us.
+
+## Push pass 5: riders
+- Pushing furniture no longer refuses when somebody is in it: sleepers and sitters are carried (`pushCarry` in life2/push.ts; tile, `tileOwner`, `slide` that follows the player's step). Out of the door the bed/chair prop has `rider`; pushing it on or back in carries them; restore keeps them in it.
+- `who.shoved` is set when first carried; a ticker notes the wake-up outside (shout, -4 opinion of the pusher, chronicle). Still to do: an owner whose bed is outside goes to its old spot (floor) at bedtime; could instead drag the bed back or sleep in the bed outside.

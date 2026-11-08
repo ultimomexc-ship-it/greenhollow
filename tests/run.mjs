@@ -239,19 +239,21 @@ test('push: chairs, beds and the family barrel can be moved inside a house, neve
     const owner = npcs.find(n => n.bed === bed); res.ownerBed = owner ? { same: owner.bed === bed, tile: grid[owner.bed.y][owner.bed.x] === T.BED } : 'unowned';
     const bar = hs.barrel, sp0 = [hs.spots.pantry.x, hs.spots.pantry.y], bdirs = dirs.filter(([dx, dy]) => { const f = pushFurniture(bar.x, bar.y); return f && pushFurnitureOK(f, bar.x + dx, bar.y + dy); });
     if (bdirs.length) { const [dx, dy] = bdirs[0], r2 = go(bar, dx, dy); res.barrel = { r: r2, tile: grid[bar.y][bar.x] === T.BARREL, pantry: hs.spots.pantry.x - sp0[0] === dx && hs.spots.pantry.y - sp0[1] === dy }; } else res.barrel = 'no free side';
-    // somebody sitting in a chair keeps it
-    const sitter = npcs.find(n => !n.dead && !n.player && n !== owner); const ch2 = hs.seats[1] || hs.seats[0]; const keep = [ch2.x, ch2.y]; const prev = tileOwner.get(ch2.y * W + ch2.x); tileOwner.set(ch2.y * W + ch2.x, sitter); const d2 = dirs.find(([dx, dy]) => { const f = pushFurniture(ch2.x, ch2.y); return f && pushFurnitureOK(f, ch2.x + dx, ch2.y + dy); }); __place(P, ch2.x - (d2 ? d2[0] : 1), ch2.y - (d2 ? d2[1] : 0), { dx: 1, dy: 0 }); res.occupied = d2 ? lf2PushLine(P, ch2.x, ch2.y, d2[0], d2[1]) : 'no free side'; if (prev) tileOwner.set(ch2.y * W + ch2.x, prev); else tileOwner.delete(ch2.y * W + ch2.x); res.occupiedStayed = ch2.x === keep[0] && ch2.y === keep[1];
+    // somebody sitting in a chair is carried with it, still sitting
+    const sitter = npcs.find(n => !n.dead && !n.player && n !== owner); const ch2 = hs.seats[1] || hs.seats[0]; const sOld = { tx: sitter.tx, ty: sitter.ty, pose: sitter.pose }; tileOwner.delete(sitter.ty * W + sitter.tx); sitter.tx = sitter.x = ch2.x; sitter.ty = sitter.y = ch2.y; sitter.pose = 'sit'; tileOwner.set(ch2.y * W + ch2.x, sitter);
+    const d2 = dirs.find(([dx, dy]) => { const f = pushFurniture(ch2.x, ch2.y); return f && pushFurnitureOK(f, ch2.x + dx, ch2.y + dy); }); if (d2) { __place(P, ch2.x - d2[0], ch2.y - d2[1], { dx: d2[0], dy: d2[1] }); res.occupied = lf2PushLine(P, ch2.x, ch2.y, d2[0], d2[1]); } else res.occupied = 'no free side';
+    res.sitterWith = d2 ? sitter.tx === ch2.x && sitter.ty === ch2.y && sitter.pose === 'sit' && tileOwner.get(ch2.y * W + ch2.x) === sitter : true; sitter.pose = 'stand'; sitter.shoved = null; tileOwner.delete(ch2.y * W + ch2.x);
     window.__hs = hs; return res;
   });
   check(r.chair === 'no free side' || (r.chair.r === true && r.chair.tile && r.chair.old && r.chair.moved), 'a chair should move one tile, leaving bare floor: ' + JSON.stringify(r.chair));
   check(r.bed === 'no free side' || (r.bed.r === true && r.bed.tile && r.bed.moved), 'a bed should move: ' + JSON.stringify(r.bed));
   check(r.ownerBed === 'unowned' || (r.ownerBed.same && r.ownerBed.tile), 'the bed\'s owner should still have that bed: ' + JSON.stringify(r.ownerBed));
   check(r.barrel === 'no free side' || (r.barrel.r === true && r.barrel.tile && r.barrel.pantry), 'the family barrel and its pantry spot should move together: ' + JSON.stringify(r.barrel));
-  check(typeof r.occupied === 'string' && r.occupiedStayed, 'a chair somebody is using should stay put: ' + JSON.stringify(r.occupied));
+  check((r.occupied === true || r.occupied === 'no free side') && r.sitterWith, 'a chair with somebody in it should carry them along, still sitting: ' + JSON.stringify([r.occupied, r.sitterWith]));
   await simulate(page, 2 * 1440);
   const after = await page.evaluate(() => { const hs = window.__hs, ppl = npcs.filter(n => !n.dead && n.homeRoom === hs); return { dead: npcs.filter(n => n.dead).length, beds: ppl.every(n => !n.bed || n.bed.x == null || grid[n.bed.y][n.bed.x] === T.BED), n: ppl.length }; });
   check(after.beds && after.dead === 0, 'two days later the household should be fine: ' + JSON.stringify(after));
-  return `chair, bed and barrel moved; an occupied chair stays; the household of ${after.n} carried on for two days`;
+  return `chair, bed and barrel moved; an occupied chair carries its sitter; the household of ${after.n} carried on for two days`;
 }));
 
 test('push: people are pieces in the line just like boxes (pushed along, counted, swapped past at a wall); sleepers block; a box never drifts sideways when you turn', await controlScene('shove', 41, async page => {
@@ -264,10 +266,10 @@ test('push: people are pieces in the line just like boxes (pushed along, counted
     put(crate, x + 2); __stand(o, x + 1, y); __place(P, x, y, { dx: 1, dy: 0 }); res.B = { r: lf2PushLine(P, x + 1, y, 1, 0), who: o.tx - x, crate: crate.x - x };
     // C. a person against a wall: you swap places with them
     __stand(o, x + 1, y); put(crate, x + 5); setT(x + 2, y, T.WALL); __place(P, x, y, { dx: 1, dy: 0 }); res.C = { r: lf2PushLine(P, x + 1, y, 1, 0), who: o.tx - x }; setT(x + 2, y, T.GRASS);
-    // D. a sleeper behind a box blocks the line: you swap past the box, the sleeper stays
-    __stand(o, x + 2, y, 'sleep'); put(crate, x + 1); __place(P, x, y, { dx: 1, dy: 0 }); res.D = { r: lf2PushLine(P, x + 1, y, 1, 0), crate: crate.x - x, sleeper: o.tx - x }; __stand(o, o.tx, o.ty, 'stand');
-    // E. a sleeper right in front: you are told, nothing moves
-    __stand(o, x + 1, y, 'sleep'); __place(P, x, y, { dx: 1, dy: 0 }); res.E = { r: lf2PushLine(P, x + 1, y, 1, 0), who: o.tx - x }; __stand(o, 3, 3, 'stand');
+    // D. a kneeler behind a box blocks the line: you swap past the box, the kneeler stays
+    __stand(o, x + 2, y, 'kneel'); put(crate, x + 1); __place(P, x, y, { dx: 1, dy: 0 }); res.D = { r: lf2PushLine(P, x + 1, y, 1, 0), crate: crate.x - x, sleeper: o.tx - x }; __stand(o, o.tx, o.ty, 'stand');
+    // E. a kneeler right in front: you are told, nothing moves
+    __stand(o, x + 1, y, 'kneel'); __place(P, x, y, { dx: 1, dy: 0 }); res.E = { r: lf2PushLine(P, x + 1, y, 1, 0), who: o.tx - x }; __stand(o, 3, 3, 'stand');
     // F. the sideways glitch: push, finish the step, start a step sideways before a frame is drawn: the box must stay where it is
     town.pblock.fill(0); town.propAt.clear(); put(crate, x + 1); __place(P, x, y, { dx: 1, dy: 0 }); const ok = lf2PushLine(P, x + 1, y, 1, 0); P.path = [{ x: x + 1, y }]; P.moving = true; P.t = 0; stepNpc(P, 1000);
     P.path = [{ x: P.tx, y: P.ty + 1 }]; P.moving = true; P.t = 0.5; res.F = { ok, seen: lfPropPos(crate, performance.now()).join(), pos: [crate.x, crate.y].join() };
@@ -276,10 +278,10 @@ test('push: people are pieces in the line just like boxes (pushed along, counted
   check(r.A.r === true && r.A.crate === 2 && r.A.who === 3, 'a box into a person should push them along ahead of it: ' + JSON.stringify(r.A));
   check(r.B.r === true && r.B.who === 2 && r.B.crate === 3, 'a person pushed first should carry the box behind them along: ' + JSON.stringify(r.B));
   check(r.C.r === true && r.C.who === 0, 'a person against a wall should swap places with you: ' + JSON.stringify(r.C));
-  check(r.D.r === true && r.D.crate === 0 && r.D.sleeper === 2, 'a sleeper behind a box blocks the line, so you swap past the box and the sleeper stays: ' + JSON.stringify(r.D));
-  check(typeof r.E.r === 'string' && /asleep/.test(r.E.r) && r.E.who === 1, 'a sleeper in front is not pushed: ' + JSON.stringify(r.E));
+  check(r.D.r === true && r.D.crate === 0 && r.D.sleeper === 2, 'somebody kneeling behind a box blocks the line, so you swap past the box and they stay: ' + JSON.stringify(r.D));
+  check(typeof r.E.r === 'string' && /settled/.test(r.E.r) && r.E.who === 1, 'a kneeler in front is not pushed: ' + JSON.stringify(r.E));
   check(r.F.seen === r.F.pos, 'after the push step the box must stay on its tile (it drifted: ' + r.F.seen + ', tile ' + r.F.pos + ')');
-  return 'people join the line like boxes; swap at a wall; sleepers block; the box stayed put when you turned';
+  return 'people join the line like boxes; swap at a wall; kneelers block; the box stayed put when you turned';
 }));
 
 test('push: open ground in the square never acts like a wall (nothing invisible stops a push)', await controlScene('square', 41, async page => {
@@ -353,6 +355,31 @@ test('push: furniture can be pushed out of the door (it becomes a loose thing) a
   return 'chair: inside -> door (loose) -> outside -> back in (furniture again, the room\'s list restored)';
 }));
 
+test('push: a sleeper rides in the bed (and a sitter in the chair), out of the door into the world; they wake up outside; the bed stays theirs', await controlScene('rider', 41, async page => {
+  const r = await page.evaluate(() => {
+    const hs = rooms.find(q => !q.dead && q.kind === 'house' && q.seats.length && q.beds.length && q.barrel && q.side === 'b'), P = game.player; P.mode = 'push'; P.sel = 0;
+    const bed = hs.beds[0], din = { x: hs.doorX, y: hs.doorY - 1 }, res = {};
+    const who = npcs.find(n => !n.dead && !n.player && !n.infant && n.age >= 16 && n !== P); who.bed = bed;
+    setT(bed.x, bed.y, T.FLOOR); bed.x = din.x; bed.y = din.y; setT(din.x, din.y, T.BED);
+    tileOwner.delete(who.ty * W + who.tx); who.tx = who.x = din.x; who.ty = who.y = din.y; who.pose = 'sleep'; who.moving = false; who.path = []; rebuildOcc(); tileOwner.set(din.y * W + din.x, who);
+    __place(P, din.x, din.y - 1, { dx: 0, dy: 1 }); res.out1 = lf2PushLine(P, din.x, din.y, 0, 1);
+    const prop = lfPropAt(hs.doorX, hs.doorY); res.onDoor = !!prop && prop.rider === who && who.tx === hs.doorX && who.ty === hs.doorY && who.pose === 'sleep' && tileOwner.get(hs.doorY * W + hs.doorX) === who;
+    __place(P, din.x, din.y, { dx: 0, dy: 1 }); res.out2 = lf2PushLine(P, hs.doorX, hs.doorY, 0, 1); __place(P, hs.doorX, hs.doorY + 1, { dx: 0, dy: 1 }); res.out3 = lf2PushLine(P, prop.x, prop.y, 0, 1);
+    res.outside = roomAt[prop.y][prop.x] < 0 && who.tx === prop.x && who.ty === prop.y && who.pose === 'sleep' && bed.out === true && who.bed === bed;
+    who.pose = 'stand'; const before = town.chron.length; for (const f of LF2.tickers) f(); res.chron = town.chron.slice(before).map(c => c.text).join(' | '); res.cleared = !who.shoved;
+    who.pose = 'sleep'; who.shoved = { by: P.id, room: hs, pose: 'sleep', t: 0 }; prop.rider = who;
+    __place(P, hs.doorX, hs.doorY + 3, { dx: 0, dy: -1 }); res.in1 = lf2PushLine(P, prop.x, prop.y, 0, -1); __place(P, hs.doorX, hs.doorY + 2, { dx: 0, dy: -1 }); res.in2 = lf2PushLine(P, prop.x, prop.y, 0, -1); __place(P, hs.doorX, hs.doorY + 1, { dx: 0, dy: -1 }); res.in3 = lf2PushLine(P, prop.x, prop.y, 0, -1);
+    res.back = grid[din.y][din.x] === T.BED && !bed.out && who.tx === din.x && who.ty === din.y && who.pose === 'sleep' && who.bed === bed;
+    who.pose = 'stand'; who.shoved = null; tileOwner.delete(din.y * W + din.x);
+    return res;
+  });
+  check(r.out1 === true && r.onDoor, 'a bed with somebody asleep in it should go out of the door with them in it: ' + JSON.stringify(r));
+  check(r.out2 === true && r.out3 === true && r.outside, 'and on outside, the sleeper still asleep and the bed still theirs: ' + JSON.stringify(r));
+  check(/woke up/.test(r.chron) && /bed and all/.test(r.chron) && r.cleared, 'waking up outside should be noted in the chronicle: ' + JSON.stringify(r.chron));
+  check(r.in1 === true && r.in2 === true && r.in3 === true && r.back, 'pushed back in, the bed is the house\'s again with the sleeper in it: ' + JSON.stringify(r));
+  return 'sleeper carried out of the door in the bed, woke up outside (' + r.chron + '), carried back in';
+}));
+
 test('controls: a tree needs the axe in hand: with the hand you are told, with the axe you fell it', await controlScene('tree', 41, async page => {
   const s = await page.evaluate(() => { const [x, y] = __find((x, y) => __free(x, y) && grid[y][x + 1] === T.TREE && !wildTile(x + 1, y)); __place(game.player, x, y, { dx: 1, dy: 0 }); return { x, y }; });
   await held(page, [], 1); const hand = await page.evaluate(() => ({ act: game.player.player.act && game.player.player.act.text, msg: game.player.player.msg }));
@@ -386,14 +413,14 @@ test('controls: the hoe ploughs a plot, seeds sow it, and each stage looks diffe
   return `hoe (${s.hoe}) ploughs, barley (${s.seed}) sows, ${s.seeds} -> ${sown.left} seeds: ${before} -> ${mid} -> ${after}`;
 }));
 
-test('controls: a sleeping person is not pushed around', await controlScene('sleeper', 41, async page => {
-  // the rule itself (staging a sleeper in the open fights the AI, which sends them off to bed): pushing someone asleep is refused, they stay put, nothing happens
+test('controls: a sleeping person on the ground is pushed along, still asleep', await controlScene('sleeper', 41, async page => {
+  // the rule itself (staging a sleeper in the open fights the AI): pushing someone asleep carries them along without waking them
   const r = await page.evaluate(() => { const [x, y] = __find((x, y) => [0, 1, 2, 3].every(i => __free(x + i, y))); __place(game.player, x, y, { dx: 1, dy: 0 }); const o = __stand(__other(), x + 1, y, 'sleep');
     const res = lf2PushPerson(game.player, o, 1, 0); return { res, them: o.tx, ox: x + 1, pose: o.pose, emitted: window.__emitted.slice() }; });
-  check(typeof r.res === 'string' && /asleep/.test(r.res), 'pushing a sleeper should be refused, got ' + JSON.stringify(r.res));
-  check(r.them === r.ox && r.pose === 'sleep', `a sleeper must stay put and asleep (x ${r.ox} -> ${r.them}, ${r.pose})`);
+  check(r.res === true, 'pushing a sleeper should carry them, got ' + JSON.stringify(r.res));
+  check(r.them === r.ox + 1 && r.pose === 'sleep', `a sleeper is carried one tile and stays asleep (x ${r.ox} -> ${r.them}, ${r.pose})`);
   check(r.emitted.length === 0, 'got events: ' + r.emitted.join(', '));
-  return `"${r.res}"; stayed asleep, no events`;
+  return `carried one tile, still asleep, no events`;
 }));
 
 /* ---------------------------------------------------------------------------------------------- */
