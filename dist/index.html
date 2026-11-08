@@ -13738,7 +13738,7 @@ function targetAt0(n, x, y) {
       town.stoneCache = null;
     }
   } };
-  if (bldHammerWall(x, y)) return { key: "wall" + x + "," + y, min: 9, text: "Knocking out a wall block", tool: "hammer", run(n2) {
+  if (bldHammerWall(x, y, typeof itHeld === "function" && itHeld(n).kind === "hammer")) return { key: "wall" + x + "," + y, min: 9, text: "Knocking out a wall block", tool: "hammer", run(n2) {
     bldBreak(x, y, n2);
     playerSay(n2, "Gone.");
   } };
@@ -18832,6 +18832,10 @@ function bldDissolve(list) {
   return spots;
 }
 function bldBreak(x, y, by) {
+  {
+    const vi = roomAt[y][x], vr = vi >= 0 ? rooms[vi] : null;
+    if (vr && !vr.free && !vr.dead) return bldDemolish(vr, x, y, by);
+  }
   const k = x + y * W;
   town.bldWall = town.bldWall || /* @__PURE__ */ new Map();
   const aff = /* @__PURE__ */ new Set();
@@ -18866,11 +18870,9 @@ function bldBreak(x, y, by) {
   chron(`${by ? by.first : "Somebody"} knocked a block out of a wall${after < before ? before - after > 1 ? ", and " + (before - after) + " rooms fell apart" : ", and a room fell apart" : ""}.`, "build");
   return true;
 }
-function bldHammerWall(x, y) {
-  if (grid[y][x] !== T.WALL) return false;
-  if (town.bldWall && town.bldWall.has(x + y * W)) return true;
-  const i = roomAt[y][x], r = i >= 0 ? rooms[i] : null;
-  return !!r && !r.dead && !r.free && r.kind === "house";
+function bldHammerWall(x, y, hammer) {
+  const g = grid[y][x];
+  return g === T.WALL || g === T.DOOR && !!hammer;
 }
 function bldDeleteProp(pr) {
   if (!pr || pr.fixed || !town.props.includes(pr)) return false;
@@ -18918,6 +18920,71 @@ function bldDeleteFurniture(x, y) {
   if (typeof refreshReach === "function") refreshReach();
   rebuildOcc();
   if (typeof syncTents === "function" && town.tents) syncTents();
+  return true;
+}
+function bldDemolish(r, hx, hy, by) {
+  if (!r || r.dead || r.free) return false;
+  const ri2 = rooms.indexOf(r);
+  r.dead = true;
+  const out = (x, y, kind, extra) => {
+    if (lfPropAt(x, y)) return null;
+    const p = lfAddProp(kind, x, y);
+    if (kind === "bed") p.v = Math.floor(Math.random() * 5);
+    if (extra) Object.assign(p, extra);
+    return p;
+  };
+  const loose = [];
+  for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+    if (roomAt[y][x] !== ri2) continue;
+    const t = grid[y][x], hole = x === hx && y === hy;
+    setT(x, y, T.GRASS);
+    roomAt[y][x] = -1;
+    if (hole) continue;
+    if (t === T.WALL || t === T.DOOR) {
+      const win = t === T.WALL && y === r.y && x !== r.x && x !== r.x + r.w - 1 && x !== r.doorX && (x - r.x) % 3 === 2;
+      if (out(x, y, t === T.DOOR ? "bdoor" : win ? "bwindow" : "bwall")) loose.push([x, y]);
+    } else if (t === T.BED) {
+      const b = (r.beds || []).find((q) => q.x === x && q.y === y);
+      out(x, y, "bed", { ownerId: b && b.owner ? b.owner.id : null });
+    } else if (t === T.SEAT) out(x, y, "chair");
+    else if (t === T.TABLE) out(x, y, "table");
+    else if (t === T.BARREL) out(x, y, "barrel", { pantry: r.pantry });
+  }
+  doors = doors.filter((d) => rooms[d.room] !== r);
+  town.props = town.props.filter((p) => !(p.fur && p.fur.r === r));
+  for (const n of npcs) if (n.homeRoom === r) {
+    n.homeRoom = null;
+    n.bed = { owner: null };
+    n.seat = null;
+    n.homeless = true;
+    abortPlan(n);
+  }
+  if (town.church === r) town.church = null;
+  if (town.tavern === r) town.tavern = null;
+  r.beds = [];
+  r.seats = [];
+  r.barrel = null;
+  markDirty(r.x - 1, r.y - 1, r.w + 2, r.h + 2);
+  town.gridV = (town.gridV || 0) + 1;
+  town.lfPV = (town.lfPV || 0) + 1;
+  const near = rooms.filter((q) => q.free && !q.dead && q.x <= r.x + r.w && q.x + q.w >= r.x - 1 && q.y <= r.y + r.h && q.y + q.h >= r.y - 1);
+  if (near.length) {
+    let spots = bldDissolve(near).concat(loose);
+    bldEvaluate(spots);
+    for (let g = 0; g < 8; g++) {
+      const bad = rooms.filter((q) => q.free && !q.dead && !bldExit([...q.cells], []));
+      if (!bad.length) break;
+      spots = bldDissolve(bad);
+      bldEvaluate(spots);
+    }
+  }
+  if (typeof syncTents === "function") {
+    town.tents = town.tents || [];
+    syncTents();
+  }
+  if (typeof refreshReach === "function") refreshReach();
+  rebuildOcc();
+  chron(`${by ? by.first : "Somebody"} tore down ${r.name}.`, "build");
   return true;
 }
 const lf2PersonOK = (x, y) => {
@@ -19144,7 +19211,7 @@ function itFacing(n) {
     if (fu) return { what: cvCap(fu.type === "seat" ? "chair" : fu.type), verb: "Push", need: "push" };
   }
   if (g === T.ROCK && hand && mode === "push") return { what: "Rock", verb: "Push", need: "push" };
-  if (g === T.WALL && bldHammerWall(x, y)) return { what: "Wall block", verb: "Break", need: "hammer" };
+  if (bldHammerWall(x, y, itHeld(n).kind === "hammer")) return { what: g === T.DOOR ? "Door" : "Wall block", verb: "Break", need: "hammer" };
   if (g === T.TREE) return { what: "Tree", verb: "Fell", need: "axe" };
   if (g === T.ROCK) return { what: "Rock", verb: "Break", need: "hammer" };
   if (g === T.WATER) return { what: "Water", verb: "Fish", need: "rod" };

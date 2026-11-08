@@ -151,6 +151,7 @@ function bldDissolve(list: any[]): [number, number][] {
 /** a block of a built wall is broken (the hammer): it is gone, and every room it held up is looked at again. A room that is still closed carries on (two rooms may become one);
     one that is not falls apart into loose blocks, and so does any room left with no way out. The missing block can be replaced to close it again. */
 function bldBreak(x: number, y: number, by?: any) {
+  { const vi = roomAt[y][x], vr = vi >= 0 ? rooms[vi] : null; if (vr && !vr.free && !vr.dead) return bldDemolish(vr, x, y, by); }   // (a villagers' house, the church, a shop: it comes down as a whole)
   const k = x + y * W; town.bldWall = town.bldWall || new Map();   // (any wall of a house or a room you built; the tile is simply deleted)
   const aff = new Set<any>(); for (const [dx, dy] of BLD_D8) { const r = bldFreeRoom(x + dx, y + dy); if (r) aff.add(r); } const own = roomAt[y][x] >= 0 ? rooms[roomAt[y][x]] : null; if (own && own.free && !own.dead) aff.add(own);
   const before = rooms.filter(q => q.free && !q.dead).length;
@@ -169,11 +170,8 @@ function bldBreak(x: number, y: number, by?: any) {
 }
 
 
-/** the walls the hammer may delete: those of a room you built, and those of a villager's house (not the church, tavern or shops) */
-function bldHammerWall(x: number, y: number) {
-  if (grid[y][x] !== T.WALL) return false; if (town.bldWall && town.bldWall.has(x + y * W)) return true;
-  const i = roomAt[y][x], r = i >= 0 ? rooms[i] : null; return !!r && !r.dead && !r.free && r.kind === 'house';
-}
+/** what the hammer can hit: any wall, and (with the hammer in hand you cannot walk through it) any door. Every building can be destroyed. */
+function bldHammerWall(x: number, y: number, hammer?: boolean) { const g = grid[y][x]; return g === T.WALL || (g === T.DOOR && !!hammer); }
 /** the hammer deletes a loose thing (a block, crate, barrel, bed, chair, table or stool) outright */
 function bldDeleteProp(pr: any) {
   if (!pr || pr.fixed || !town.props.includes(pr)) return false;
@@ -191,4 +189,32 @@ function bldDeleteFurniture(x: number, y: number) {
   else if (f.type === 'barrel') { o.out = true; o.gone = true; }
   setT(x, y, T.FLOOR); markDirty(x, y, 1, 1); town.gridV = (town.gridV || 0) + 1; town.lfPV = (town.lfPV || 0) + 1; if (typeof refreshReach === 'function') refreshReach(); rebuildOcc();
   if (typeof syncTents === 'function' && town.tents) syncTents(); return true;
+}
+
+/** a village building (a house, the church, the tavern, a shop ...) loses a wall or a door to the hammer: that tile is gone, and the whole building falls apart: the floor goes back to grass,
+    every other wall, window and door becomes a loose block, beds, chairs, tables and barrels become loose things (a barrel keeps the household's food), and whatever else stood inside is gone.
+    Whoever lived there is homeless (a tent goes up for each). Sealed rooms of yours that leaned on its walls are looked at again. No other consequences yet. */
+function bldDemolish(r: any, hx: number, hy: number, by?: any) {
+  if (!r || r.dead || r.free) return false;
+  const ri = rooms.indexOf(r); r.dead = true;
+  const out = (x, y, kind, extra?) => { if (lfPropAt(x, y)) return null; const p: any = lfAddProp(kind, x, y); if (kind === 'bed') p.v = Math.floor(Math.random() * 5); if (extra) Object.assign(p, extra); return p; };
+  const loose: [number, number][] = [];
+  for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+    if (roomAt[y][x] !== ri) continue; const t = grid[y][x], hole = x === hx && y === hy;
+    setT(x, y, T.GRASS); roomAt[y][x] = -1; if (hole) continue;
+    if (t === T.WALL || t === T.DOOR) { const win = t === T.WALL && y === r.y && x !== r.x && x !== r.x + r.w - 1 && x !== r.doorX && (x - r.x) % 3 === 2; if (out(x, y, t === T.DOOR ? 'bdoor' : win ? 'bwindow' : 'bwall')) loose.push([x, y]); }
+    else if (t === T.BED) { const b = (r.beds || []).find(q => q.x === x && q.y === y); out(x, y, 'bed', { ownerId: b && b.owner ? b.owner.id : null }); }
+    else if (t === T.SEAT) out(x, y, 'chair'); else if (t === T.TABLE) out(x, y, 'table'); else if (t === T.BARREL) out(x, y, 'barrel', { pantry: r.pantry });
+  }
+  doors = doors.filter(d => rooms[d.room] !== r); town.props = town.props.filter(p => !(p.fur && p.fur.r === r));
+  for (const n of npcs) if (n.homeRoom === r) { n.homeRoom = null; n.bed = { owner: null }; n.seat = null; n.homeless = true; abortPlan(n); }
+  if (town.church === r) town.church = null; if (town.tavern === r) town.tavern = null;
+  r.beds = []; r.seats = []; r.barrel = null;
+  markDirty(r.x - 1, r.y - 1, r.w + 2, r.h + 2); town.gridV = (town.gridV || 0) + 1; town.lfPV = (town.lfPV || 0) + 1;
+  // rooms you built that leaned on its walls
+  const near = rooms.filter(q => q.free && !q.dead && q.x <= r.x + r.w && q.x + q.w >= r.x - 1 && q.y <= r.y + r.h && q.y + q.h >= r.y - 1);
+  if (near.length) { let spots = bldDissolve(near).concat(loose); bldEvaluate(spots); for (let g = 0; g < 8; g++) { const bad = rooms.filter(q => q.free && !q.dead && !bldExit([...q.cells], [])); if (!bad.length) break; spots = bldDissolve(bad); bldEvaluate(spots); } }
+  if (typeof syncTents === 'function') { town.tents = town.tents || []; syncTents(); }
+  if (typeof refreshReach === 'function') refreshReach(); rebuildOcc();
+  chron(`${by ? by.first : 'Somebody'} tore down ${r.name}.`, 'build'); return true;
 }
