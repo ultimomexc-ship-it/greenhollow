@@ -7,7 +7,7 @@
    Loose things can be pushed through a doorway and into a house (they stay loose things; the neighbours still drag one away if it traps somebody behind a door).
    Furniture stays in its room, never onto the doorstep inside, never onto somebody, and never so that it cuts a seat, bed or the pantry off from the door.
    Villagers shoving things about (lfPush) work as before.                                                                                                      */
-const PUSH_MAX = 3;
+const PUSH_MAX = 5;   // the player is strong: five things at once
 const LF_ROCK_ART = ['boulder_0', 'boulder_1', 'boulder_2', 'boulder_3'];
 Object.assign(LF_NOUN, { rock: 'rock' });
 /** how a loose thing is drawn (a chair or bed pushed out of a house keeps its look) */
@@ -29,7 +29,7 @@ function pushLooseOK(nx, ny, ignoreOwner?) {
   if (nx < 2 || ny < 2 || nx >= W - 2 || ny >= H - 2) return false;
   if (!walkable(nx, ny) || (!ignoreOwner && tileOwner.get(ny * W + nx))) return false;
   const g = grid[ny][nx];
-  if (g === T.SEAT || g === T.BED || g === T.PEW || g === T.CROP || g === T.PLOT || g === T.TENT) return false;
+  if (g === T.SEAT || g === T.BED || g === T.PEW || g === T.PLOT || g === T.TENT) return false;   // (a field is fine: whatever is growing there is trampled)
   if (town.siteAt[ny * W + nx] || noStep(nx, ny)) return false;
   // (the tiles reserved round the stockpile yard and in front of the stalls are not drawn, so they never stop a push; only the campfire, which noStep covers, does)
   const rm = pushRoomOf(nx, ny); if (rm && (rm.kind === 'jail' || rm.kind === 'church' || rm.kind === 'privy')) return false;
@@ -117,7 +117,7 @@ function pushSwap(n, piece): true | string {
   if (piece.kind === 'person') { const who = piece.who; if (pushSettled(who)) return pushWhy(who); if (!lf2PersonOK(px, py)) return (who.first || 'Somebody') + ' won\'t budge.'; pushMovePerson(n, who, px, py); return true; }
   if (piece.kind === 'furniture') {
     const f = piece.f; if (tileOwner.get(piece.y * W + piece.x) && tileOwner.get(piece.y * W + piece.x) !== n) return 'It won\'t budge.';
-    if (!pushFurnitureOK(f, px, py, true) || !(px !== f.r.doorX || py !== f.r.doorY)) return 'The ' + (f.type === 'seat' ? 'chair' : f.type) + ' won\'t budge.';
+    if (!pushFurnitureOK(f, px, py, true)) return 'The ' + (f.type === 'seat' ? 'chair' : f.type) + ' won\'t budge.';   // (standing in the doorway you can swap: the furniture takes the doorway, you go in)
     if (!pushRoomConnected(f.r, [[piece.x, piece.y, px, py]])) return 'That would block the way in the room.';
     pushMoveFurniture(f, px - piece.x, py - piece.y, n); if (typeof refreshReach === 'function') refreshReach(); return true;
   }
@@ -131,7 +131,13 @@ function pushMoveProp(pr, dx, dy, by) {
   pr.fx = pr.x; pr.fy = pr.y; pr.x += dx; pr.y += dy; pr.st = by && by.player ? 0 : performance.now(); pr.follow = by && by.player ? by : null; pr.followW = by ? by.walked : 0; pr.moved = game.time; pr.by = by ? by.id : null;
   town.pblock[pr.y * W + pr.x] = 1; town.propAt.set(pr.y * W + pr.x, pr); town.lfPV = (town.lfPV || 0) + 1;
   pr.seen = []; for (const o of npcs) if (o !== by && !o.dead && !o.infant && o.pose !== 'sleep' && Math.abs(o.tx - pr.x) + Math.abs(o.ty - pr.y) <= 10) pr.seen.push(o.id);
+  pushTrample(pr.x, pr.y);
   if (pr.fur) pushMaybeRestore(pr);
+}
+/** a loose thing pushed over a field flattens whatever is there: the plot goes back to bare dirt (unploughed, nothing growing) */
+function pushTrample(x, y) {
+  if (grid[y][x] !== T.CROP) return; const c = (town.crops || []).find(q => q.x === x && q.y === y); if (!c || !(c.pl || c.st)) return;
+  c.pl = 0; c.st = 0; c.seed = null; c.byPlayer = false; c.claim = null;
 }
 /** a chair, bed or barrel that was pushed out of a house and has been pushed back inside goes back to being the house's furniture */
 function pushMaybeRestore(pr) {

@@ -191,7 +191,16 @@ function lfPlaceProps() {
     if (r.kind === 'privy') near(r.doorX + 2, fy, 'barrel');
   }
   const cx = town.cx, cy = town.cy;
+  lfPlayBoxes(free);
   for (const [dx, dy, k] of [[-8, 3, 'crate1'], [8, 3, 'crate'], [-4, -7, 'barrel'], [7, -5, 'crate'], [2, 9, 'stool']]) { const x = cx + dx, y = cy + dy; if (grid[y] && (grid[y][x] === T.PATH || grid[y][x] === T.GRASS) && roomAt[y][x] < 0 && walkable(x, y) && !lfPropAt(x, y) && !town.siteAt[y * W + x] && !lfNearDoor(x, y)) lfAddProp(k, x, y); }
+}
+/** extra boxes about the square and the lanes, to push about and build with: three lines of three (for pushing several at once) and a scatter of singles */
+function lfPlayBoxes(free0) {
+  const R = rng(town.seed + 777), cx = town.cx, cy = town.cy, kinds = ['crate', 'crate1', 'barrel', 'stool', 'crate'];
+  const free = (x, y) => x > 2 && y > 2 && x < W - 3 && y < H - 3 && (grid[y][x] === T.GRASS || grid[y][x] === T.PATH) && roomAt[y][x] < 0 && !lfNearDoor(x, y) && !town.siteAt[y * W + x] && !town.nodeMap.has(y * W + x) && !lfPropAt(x, y) && walkable(x, y) && !noStep(x, y) && Math.hypot(x - cx, y - cy) > 2.5;   // (on the paved square too)
+  const spot = (r0, r1) => { for (let t = 0; t < 500; t++) { const a = R() * 6.283, r = r0 + R() * (r1 - r0), x = Math.round(cx + Math.cos(a) * r), y = Math.round(cy + Math.sin(a) * r); if (free(x, y)) return { x, y }; } return null; };
+  for (let k = 0; k < 3; k++) for (let t = 0; t < 80; t++) { const s = spot(4, 10); if (s && [0, 1, 2, 3].every(i => free(s.x + i, s.y))) { ['crate', 'barrel', 'crate', 'crate1'].forEach((kd, i) => lfAddProp(kd, s.x + i, s.y)); break; } }
+  for (let k = 0; k < 12; k++) { const s = spot(3, 14); if (s) lfAddProp(kinds[Math.floor(R() * kinds.length)], s.x, s.y); }
 }
 /* the game opens with you on your own doorstep, looking at the village, not in the dark of a bedroom */
 function lifeStepOutside(n) {

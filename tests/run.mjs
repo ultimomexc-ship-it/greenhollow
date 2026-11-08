@@ -173,28 +173,28 @@ test('controls: a barrel or crate is pushed in Push mode and searched in Search 
   return `Talk: stays ("${talk.msg}"); Push: ${s.kind} ${s.x + 1} -> ${pushed.pr}; Search: ${searched.act}`;
 }));
 
-test('push: things move at exactly your pace, in lines of up to three, and a line moves only if its last piece can', await controlScene('chain', 41, async page => {
+test('push: things move at exactly your pace, in lines of up to five, and a line moves only if its last piece can', await controlScene('chain', 41, async page => {
   const s = await page.evaluate(() => {
-    const [x, y] = __find((x, y) => [0, 1, 2, 3, 4, 5, 6, 7, 8].every(i => __free(x + i, y)) && ![0, 1, 2, 3, 4, 5, 6, 7, 8].some(i => lfNearDoor(x + i, y)));
-    window.__ps = town.props.slice(0, 4); const put = (pr, tx) => { town.pblock[pr.y * W + pr.x] = 0; town.propAt.delete(pr.y * W + pr.x); pr.x = tx; pr.y = y; town.pblock[y * W + tx] = 1; town.propAt.set(y * W + tx, pr); };
-    window.__put = put; window.__ps.slice(0, 3).forEach((pr, i) => put(pr, x + 1 + i)); __place(game.player, x, y, { dx: 1, dy: 0 }); return { x, y };
+    const row = Array.from({ length: 14 }, (_, i) => i), [x, y] = __find((x, y) => row.every(i => __free(x + i, y)) && !row.some(i => lfNearDoor(x + i, y)));
+    window.__ps = town.props.slice(0, 6); window.__put = (pr, tx) => { town.pblock[pr.y * W + pr.x] = 0; town.propAt.delete(pr.y * W + pr.x); pr.x = tx; pr.y = y; town.pblock[y * W + tx] = 1; town.propAt.set(y * W + tx, pr); };
+    window.__ps.slice(0, 5).forEach((pr, i) => window.__put(pr, x + 1 + i)); __place(game.player, x, y, { dx: 1, dy: 0 }); return { x, y };
   });
   await page.keyboard.press('q');   // Talk -> Push
   await page.keyboard.down('d'); const gaps = [];
-  for (let i = 0; i < 10; i++) { await simulate(page, 0.4); gaps.push(await page.evaluate(() => { const P = game.player, now = performance.now(); return window.__ps.slice(0, 3).map((pr, k) => +(lfPropPos(pr, now)[0] - P.x - 1 - k).toFixed(3)); })); }
+  for (let i = 0; i < 10; i++) { await simulate(page, 0.4); gaps.push(await page.evaluate(() => { const P = game.player, now = performance.now(); return window.__ps.slice(0, 5).map((pr, k) => +(lfPropPos(pr, now)[0] - P.x - 1 - k).toFixed(3)); })); }
   await page.keyboard.up('d'); await simulate(page, 2);
-  const flat = gaps.flat(); check(flat.every(g => Math.abs(g) < 0.02), 'every piece should stay exactly one tile apart from you and each other while you push: gaps ' + JSON.stringify(gaps.slice(0, 3)));
-  const after = await page.evaluate(() => ({ xs: window.__ps.slice(0, 3).map(pr => pr.x), me: game.player.tx }));
-  check(after.xs[0] > s.x + 1 && after.xs[1] === after.xs[0] + 1 && after.xs[2] === after.xs[1] + 1, 'all three should have been pushed along together: ' + JSON.stringify(after));
-  const four = await page.evaluate(() => { const y = window.__ps[0].y, x0 = window.__ps[0].x - 1; __place(game.player, x0, y, { dx: 1, dy: 0 }); window.__put(window.__ps[3], window.__ps[2].x + 1); const xs = window.__ps.map(pr => pr.x); const r = lf2PushLine(game.player, window.__ps[0].x, y, 1, 0); return { r, same: window.__ps.every((pr, i) => pr.x === xs[i]) }; });
-  check(four.r === 'Too much to push at once.' && four.same, 'four in a row is too much, and nothing moves: ' + JSON.stringify(four));
+  check(gaps.flat().every(g => Math.abs(g) < 0.02), 'every piece should stay exactly one tile apart from you and each other while you push: gaps ' + JSON.stringify(gaps.slice(0, 3)));
+  const after = await page.evaluate(() => ({ xs: window.__ps.slice(0, 5).map(pr => pr.x) }));
+  check(after.xs[0] > s.x + 1 && after.xs.every((v, i) => i === 0 || v === after.xs[i - 1] + 1), 'all five should have been pushed along together: ' + JSON.stringify(after));
+  const six = await page.evaluate(() => { const y = window.__ps[0].y, x0 = window.__ps[0].x - 1; __place(game.player, x0, y, { dx: 1, dy: 0 }); window.__put(window.__ps[5], window.__ps[4].x + 1); const xs = window.__ps.map(pr => pr.x); const r = lf2PushLine(game.player, window.__ps[0].x, y, 1, 0); return { r, same: window.__ps.every((pr, i) => pr.x === xs[i]) }; });
+  check(six.r === 'Too much to push at once.' && six.same, 'six in a row is too much, and nothing moves: ' + JSON.stringify(six));
   const swap = await page.evaluate(() => {
-    const ps = window.__ps.slice(0, 3), y = ps[0].y, x0 = ps[0].x - 1; window.__put(window.__ps[3], x0 - 4); ps.forEach((pr, i) => window.__put(pr, x0 + 1 + i)); const wall = x0 + 4; setT(wall, y, T.WALL); const P = game.player; __place(P, x0, y, { dx: 1, dy: 0 }); const seq = [];
-    for (let i = 0; i < 4; i++) { const front = lfPropAt(P.tx + 1, y), res = lf2PushLine(P, P.tx + 1, y, 1, 0); seq.push(res === true ? 'swap' : res); if (res === true) { P.tx = P.x = P.tx + 1; rebuildOcc(); } else break; }
+    const ps = window.__ps.slice(0, 5), y = ps[0].y, x0 = ps[0].x - 1; window.__put(window.__ps[5], x0 - 6); ps.forEach((pr, i) => window.__put(pr, x0 + 1 + i)); const wall = x0 + 6; setT(wall, y, T.WALL); const P = game.player; __place(P, x0, y, { dx: 1, dy: 0 }); const seq = [];
+    for (let i = 0; i < 6; i++) { const res = lf2PushLine(P, P.tx + 1, y, 1, 0); seq.push(res === true ? 'swap' : res); if (res === true) { P.tx = P.x = P.tx + 1; rebuildOcc(); } else break; }
     const out = { seq, props: ps.map(pr => pr.x - x0), me: P.tx - x0 }; setT(wall, y, T.GRASS); return out;
   });
-  check(swap.seq.slice(0, 3).every(r => r === 'swap') && swap.me === 3 && swap.props.join() === '0,1,2', 'a line against a wall should swap you through it one piece at a time until you reach the wall: ' + JSON.stringify(swap));
-  return `three pieces moved together ${after.xs[0] - s.x - 1} tiles at your pace (gaps within 0.02); four refused; against a wall you swap through all three`;
+  check(swap.seq.slice(0, 5).every(r => r === 'swap') && swap.me === 5 && swap.props.join() === '0,1,2,3,4', 'a line against a wall should swap you through it one piece at a time until you reach the wall: ' + JSON.stringify(swap));
+  return `five pieces moved together ${after.xs[0] - s.x - 1} tiles at your pace (gaps within 0.02); six refused; against a wall you swap through all five`;
 }));
 
 test('push: rocks can be pushed (and chained) and become loose rocks you can build with; the hammer breaks one', await controlScene('rocks', 41, async page => {
@@ -291,6 +291,36 @@ test('push: open ground in the square never acts like a wall (nothing invisible 
   check(r.open >= 4, 'there should be open ground round the yard to test: ' + JSON.stringify(r));
   check(!r.blocked.length, 'open ground should take a pushed box, but these tiles refuse it: ' + r.blocked.join(' '));
   return `${r.open} open tiles round the stockpile yard and the stalls all take a box`;
+}));
+
+test('push: things go over a field (the plot goes back to bare dirt), and standing in a doorway you swap with a bed that cannot move', await controlScene('fieldbed', 41, async page => {
+  const r = await page.evaluate(() => {
+    const P = game.player, res = {}, crate = town.props[0]; P.mode = 'push'; P.sel = 0;
+    const c = town.crops.find(q => town.crops.some(o => o.x === q.x + 1 && o.y === q.y) && town.crops.some(o => o.x === q.x + 2 && o.y === q.y) && __free(q.x - 1, q.y)); if (!c) throw new Error('no field row');
+    const row = [c, town.crops.find(o => o.x === c.x + 1 && o.y === c.y), town.crops.find(o => o.x === c.x + 2 && o.y === c.y)]; row.forEach(q => { q.pl = 1; q.st = 1; q.t0 = game.time; q.seed = 'barley'; });
+    town.pblock[crate.y * W + crate.x] = 0; town.propAt.delete(crate.y * W + crate.x); crate.x = c.x; crate.y = c.y; town.pblock[c.y * W + c.x] = 1; town.propAt.set(c.y * W + c.x, crate); crate.fur = null;
+    __place(P, c.x - 1, c.y, { dx: 1, dy: 0 }); res.p1 = lf2PushLine(P, c.x, c.y, 1, 0); res.after1 = row.map(q => [q.pl, q.st]); res.crateAt = crate.x - c.x;
+    __place(P, c.x, c.y, { dx: 1, dy: 0 }); res.p2 = lf2PushLine(P, c.x + 1, c.y, 1, 0); res.after2 = row.map(q => [q.pl, q.st]); res.crateAt2 = crate.x - c.x;
+    // the bed: you stand in the doorway, the bed is just inside, something solid behind it
+    const hs = rooms.find(q => !q.dead && q.kind === 'house' && q.beds.length && q.side === 'b'), bed = hs.beds[0], din = { x: hs.doorX, y: hs.doorY - 1 };
+    setT(bed.x, bed.y, T.FLOOR); bed.x = din.x; bed.y = din.y; setT(din.x, din.y, T.BED); const behind = grid[din.y - 1][din.x], behindProp = lfPropAt(din.x, din.y - 1); setT(din.x, din.y - 1, T.TABLE);
+    __place(P, hs.doorX, hs.doorY, { dx: 0, dy: -1 }); res.bed = lf2PushLine(P, din.x, din.y, 0, -1); const prop = lfPropAt(hs.doorX, hs.doorY);
+    res.bedInDoor = !!prop && prop.kind === 'bed' && bed.out === true && grid[din.y][din.x] === T.FLOOR; setT(din.x, din.y - 1, behind);
+    return res;
+  });
+  check(r.p1 === true && r.crateAt === 1 && r.after1[1][0] === 0 && r.after1[1][1] === 0 && r.after1[0][1] === 1 && r.after1[2][1] === 1, 'a box pushed onto a plot should flatten it back to bare dirt (and only that plot): ' + JSON.stringify(r));
+  check(r.p2 === true && r.crateAt2 === 2 && r.after2[2][0] === 0 && r.after2[2][1] === 0 && r.after2[0][1] === 1, 'and on over the next one: ' + JSON.stringify(r));
+  check(r.bed === true && r.bedInDoor, 'standing in the doorway, a bed that cannot move should swap: you go in and it takes the doorway: ' + JSON.stringify(r));
+  return 'a box crossed two plots and left bare dirt; in the doorway you swapped with a bed that had a table behind it';
+}));
+
+test('push: the villager you steer is not troubled by hunger, bladder or sleep (for now)', await itemScene(async page => {
+  await page.evaluate(() => { const P = game.player; P.hunger = 95; P.bladder = 95; P.energy = 5; P.starving = 30; });   // (midnight: the old rules would have sent you to bed)
+  await simulate(page, 30);
+  const r = await page.evaluate(() => { const P = game.player; return { hunger: Math.round(P.hunger), bladder: Math.round(P.bladder), energy: Math.round(P.energy), starving: P.starving, asleep: !!P.player.sleeping, autoBed: !!P.player.autoBed, dead: !!P.dead }; });
+  check(r.hunger <= 25 && r.bladder <= 20 && r.energy >= 85 && r.starving === 0, 'hunger, bladder and tiredness should not build up: ' + JSON.stringify(r));
+  check(!r.asleep && !r.autoBed && !r.dead, 'you should not be sent to bed at night: ' + JSON.stringify(r));
+  return `after half an hour at midnight: hunger ${r.hunger}, bladder ${r.bladder}, energy ${r.energy}, awake`;
 }));
 
 test('push: villagers leave things where they are (no tidying, shoving or hauling)', await controlScene('nomoves', 41, async page => {
