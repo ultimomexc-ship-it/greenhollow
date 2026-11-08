@@ -31,6 +31,28 @@ function bldHasDoor(cells: number[]) {
   for (const k of cells) { const x = k % W, y = (k / W) | 0; for (const [dx, dy] of BLD_D4) { const nx = x + dx, ny = y + dy, p = lfPropAt(nx, ny); if ((p && p.kind === 'bdoor' && !p.fixed) || (grid[ny][nx] === T.DOOR && doors.some(d => d.x === nx && d.y === ny && rooms[d.room] && rooms[d.room].free))) return true; } }
   return false;
 }
+/** can somebody inside this region walk out to the open world through doors? A door straight through to open country is an exit; a door into another region (a sealed room, or one of the `pending` regions made in the same step) lets the search carry on from there.
+    Every room must have a way out: no adjoining rooms with doors only to each other. */
+function bldExit(start: number[], pending: number[][]) {
+  const where = new Map<number, any>(); for (const g of pending) for (const k of g) where.set(k, g);
+  const groupOf = (k: number) => where.get(k) || (() => { const r = bldFreeRoom(k % W, (k / W) | 0); return r ? [...r.cells] : null; })();
+  const seenG = new Set<any>([start]), seenR = new Set<number>(), q: number[][] = [start];
+  while (q.length) {
+    const g = q.pop()!;
+    for (const k of g) { const x = k % W, y = (k / W) | 0;
+      for (const [dx, dy] of BLD_D4) {
+        const dxx = x + dx, dyy = y + dy, p = lfPropAt(dxx, dyy), isDoor = (p && p.kind === 'bdoor' && !p.fixed) || (grid[dyy][dxx] === T.DOOR && doors.some(d => d.x === dxx && d.y === dyy && rooms[d.room] && rooms[d.room].free));
+        if (!isDoor) continue;
+        const ox = dxx + dx, oy = dyy + dy; if (ox < 1 || oy < 1 || ox >= W - 1 || oy >= H - 1 || bldSolid(ox, oy)) continue;
+        const ok = ox + oy * W;
+        if (where.has(ok)) { const other = where.get(ok); if (!seenG.has(other)) { seenG.add(other); q.push(other); } continue; }
+        const fr = bldFreeRoom(ox, oy); if (fr) { if (!seenR.has(roomAt[oy][ox])) { seenR.add(roomAt[oy][ox]); q.push([...fr.cells]); } continue; }
+        if (roomAt[oy][ox] >= 0 && !(rooms[roomAt[oy][ox]] && rooms[roomAt[oy][ox]].dead)) continue;   // (into one of the village's own buildings: not the open world)
+        if (bldFlood(ox, oy).open) return true;
+      } }
+  }
+  return false;
+}
 /** make rooms of these region(s) (each a list of tiles): the loose blocks beside them become walls and doors, the ground gets a floor */
 function bldMake(regions: number[][], dissolve: any[]) {
   const oldRooms = new Set<any>(dissolve), blocks = new Set<any>(), bounds = { x0: 1e9, y0: 1e9, x1: -1, y1: -1 };
@@ -73,16 +95,22 @@ function bldEvaluate(spots: [number, number][]) {
       if (dissolve.has(inRoom)) continue;
       const seen2 = new Set<number>(), comps: number[][] = []; let ok = true;
       for (const k of inRoom.cells) { if (seen2.has(k) || bldSolid(k % W, (k / W) | 0)) continue; const c = bldFlood(k % W, (k / W) | 0); if (c.open || c.bad) { ok = false; break; } for (const q of c.cells) seen2.add(q); comps.push(c.cells); }
-      if (!ok || comps.length < 2 || !comps.every(bldHasDoor)) continue;
+      if (!ok || comps.length < 2 || !comps.every(c => bldExit(c, comps))) continue;
       dissolve.add(inRoom); for (const c of comps) regions.push(c); continue;
     }
     if (reg.bad) { hint = reg.bad; continue; }
     if (reg.cells.length < 1) continue;
     if (!bldHasDoor(reg.cells)) { hint = hint || 'door'; continue; }
+    if (!bldExit(reg.cells, [reg.cells])) { hint = hint || 'exit'; continue; }
     regions.push(reg.cells);
   }
   if (!regions.length) return { made: [], hint };
-  const made = bldMake(regions, [...dissolve]);
+  let made = bldMake(regions, [...dissolve]);
+  // rooms that were waiting for a way out may be joined to the new ones by a door: look again from every door of what has just been made
+  for (let round = 0; round < 6 && made.length; round++) {
+    const ds: [number, number][] = []; for (const m of made) for (const k of m.walls) { const x = k % W, y = (k / W) | 0; if (grid[y][x] === T.DOOR) ds.push([x, y]); }
+    const more = bldEvaluate(ds); if (!more.made.length) break; made = made.concat(more.made); if (more.made.length === 0) break;
+  }
   return { made, hint };
 }
 function bldTick() {
@@ -92,6 +120,7 @@ function bldTick() {
   if (!spots.length) return;
   const r = bldEvaluate(spots), pl = game.player;
   if (r.made.length) { const cells = r.made.reduce((s, m) => s + m.cells.size, 0); chron(`${pl ? pl.first : 'Somebody'} raised ${r.made.length > 1 ? r.made.length + ' rooms' : 'a room'} out of building blocks (${cells} tiles).`, 'build'); if (pl && pl.player) playerSay(pl, r.made.length > 1 ? 'The walls close: ' + r.made.length + ' rooms.' : 'The walls close. A room!'); }
+  else if (r.hint === 'exit') { const pl2 = game.player; if (pl2 && pl2.player && spots.some(s => Math.abs(s[0] - pl2.tx) + Math.abs(s[1] - pl2.ty) <= 6)) playerSay(pl2, 'Closed in, but there is no way out: a door has to lead to the outside.'); }
   else if (r.hint === 'door') { const pl2 = game.player; if (pl2 && pl2.player && spots.some(s => Math.abs(s[0] - pl2.tx) + Math.abs(s[1] - pl2.ty) <= 6)) playerSay(pl2, 'Closed in, but it needs a door.'); }
   else if (r.hint && pl && pl.player && spots.some(s => Math.abs(s[0] - pl.tx) + Math.abs(s[1] - pl.ty) <= 6)) playerSay(pl, 'Closed in, but ' + r.hint + ' is inside it.');
 }

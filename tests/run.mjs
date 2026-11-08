@@ -511,7 +511,7 @@ test('building: random wall layouts never seal a room that leaks (fuzz; 400 layo
       const dIdx = Math.floor(R() * placed.length); placed.forEach(([i, j], n) => lfAddProp(n === dIdx ? 'bdoor' : R() < 0.1 ? 'bwindow' : 'bwall', o.x + i, o.y + j));
       const order = placed.map(p => [o.x + p[0], o.y + p[1]]).sort(() => R() - 0.5);
       for (let k = 0; k < order.length; k += 1 + Math.floor(R() * 3)) { town.bldQ = order.slice(k, k + 1 + Math.floor(R() * 3)); bldTick(); }
-      for (const rm of rooms.filter(q => q.free && !q.dead)) { sealed++;
+      for (const rm of rooms.filter(q => q.free && !q.dead)) { sealed++; if (!bldExit([...rm.cells], [])) bad.push(t + ':noexit');
         for (const k of rm.cells) { const x = k % W, y = (k / W) | 0; for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const nx = x + dx, ny = y + dy, g = grid[ny][nx]; if (rm.cells.has(nx + ny * W) || g === T.WALL || g === T.DOOR) continue; bad.push(t + ':' + (x - o.x) + ',' + (y - o.y)); } } }
     }
     return { sealed, bad: bad.length, first: bad.slice(0, 3) };
@@ -519,6 +519,24 @@ test('building: random wall layouts never seal a room that leaks (fuzz; 400 layo
   check(r.bad === 0, 'a sealed room leaked: ' + JSON.stringify(r));
   check(r.sealed > 5, 'the fuzz should seal some rooms: ' + JSON.stringify(r));
   return `${r.sealed} rooms sealed out of 400 random layouts, none leaking`;
+}));
+
+test('building: every room needs a way out to the open world (two rooms with a door only between them never seal; an outside door seals both)', await controlScene('sealexit', 41, async page => {
+  const r = await page.evaluate(() => {
+    const o = { x: town.cx + 14, y: town.cy - 30 }, res = {};
+    for (let j = -2; j < 12; j++) for (let i = -2; i < 20; i++) { setT(o.x + i, o.y + j, T.GRASS); roomAt[o.y + j][o.x + i] = -1; const p = lfPropAt(o.x + i, o.y + j); if (p) { town.props = town.props.filter(q => q !== p); town.propAt.delete((o.y + j) * W + o.x + i); town.pblock[(o.y + j) * W + o.x + i] = 0; } }
+    // two rooms side by side (3 x 2 each) sharing the wall at x = 4; the only door is the one between them
+    const blocks = []; for (let i = 0; i <= 8; i++) for (let j = 0; j <= 3; j++) if (i === 0 || i === 4 || i === 8 || j === 0 || j === 3) blocks.push([i, j]);
+    const spots = []; for (const [i, j] of blocks) { lfAddProp(i === 4 && j === 1 ? 'bdoor' : 'bwall', o.x + i, o.y + j); spots.push([o.x + i, o.y + j]); }
+    town.bldQ = spots; bldTick(); res.none = rooms.filter(q => q.free && !q.dead).length;
+    // swap one outer wall block of the left room (bottom wall) for a door: both rooms close
+    const w = lfPropAt(o.x + 2, o.y + 3); town.props = town.props.filter(q => q !== w); town.propAt.delete((o.y + 3) * W + o.x + 2); town.pblock[(o.y + 3) * W + o.x + 2] = 0; lfAddProp('bdoor', o.x + 2, o.y + 3);
+    town.bldQ = [[o.x + 2, o.y + 3]]; bldTick(); const f = rooms.filter(q => q.free && !q.dead); res.both = f.length; res.exits = f.every(q => bldExit([...q.cells], []));
+    return res;
+  });
+  check(r.none === 0, 'two rooms joined only to each other have no way out and must not seal: ' + JSON.stringify(r));
+  check(r.both === 2 && r.exits, 'with a door to the outside both rooms close: ' + JSON.stringify(r));
+  return 'no exit: nothing sealed; outside door: both rooms sealed, each with a way out';
 }));
 
 test('push: a sleeper rides in the bed (and a sitter in the chair), out of the door into the world; they wake up outside; the bed stays theirs', await controlScene('rider', 41, async page => {
