@@ -14629,13 +14629,9 @@ function tickPlayer0(n, dt) {
     if (p.lock) continue;
     let tg = itGate(n, lifeAct(n, p, fx, fy, dx, dy) || targetAt(n, fx, fy), walkable(fx, fy));
     let occ = tileOwner.get(tkey(fx, fy)), pushed = false;
-    if (itHand(n, "push") && occ && occ !== n && !occ.infant && occ.pose !== "sleep") {
-      const r = lf2PushPerson(n, occ, dx, dy);
+    if (itHand(n, "push") && occ && occ !== n && !occ.infant) {
       pushed = true;
-      if (r === true) {
-        occ = null;
-        tg = null;
-      } else tg = { msg: r };
+      if (!tg) occ = null;
     }
     if (occ && occ !== n && !occ.infant && !pushed) {
       if (occ.pose === "sleep") tg = { msg: occ.first + " is asleep." };
@@ -18435,9 +18431,6 @@ function pushLooseOK(nx, ny, ignoreOwner) {
   const g = grid[ny][nx];
   if (g === T.SEAT || g === T.BED || g === T.PEW || g === T.CROP || g === T.PLOT || g === T.TENT) return false;
   if (town.siteAt[ny * W + nx] || noStep(nx, ny)) return false;
-  if ((town.stalls || []).some((s) => s.front.x === nx && s.front.y === ny)) return false;
-  const y = town.yard;
-  if (y && Math.abs(nx - y.x) <= 1 && ny >= y.y - 1 && ny <= y.y + 1) return false;
   const rm = pushRoomOf(nx, ny);
   if (rm && (rm.kind === "jail" || rm.kind === "church" || rm.kind === "privy")) return false;
   return true;
@@ -18497,31 +18490,24 @@ function pushLine(n, x, y, dx, dy) {
   for (let i = 0; i <= PUSH_MAX; i++) {
     const px = x + dx * i, py = y + dy * i;
     if (px < 0 || py < 0 || px >= W || py >= H) break;
-    const pr = lfPropAt(px, py), f = pr ? null : pushFurniture(px, py), rock = !pr && !f && grid[py][px] === T.ROCK;
+    const pr = lfPropAt(px, py), f = pr ? null : pushFurniture(px, py), rock = !pr && !f && grid[py][px] === T.ROCK, who = !pr && !f && !rock ? tileOwner.get(py * W + px) : null;
     if (pr) line.push({ kind: "prop", x: px, y: py, pr });
     else if (f) line.push({ kind: "furniture", x: px, y: py, f });
     else if (rock) line.push({ kind: "rock", x: px, y: py });
+    else if (who && who !== n && !who.dead && !who.infant) line.push({ kind: "person", x: px, y: py, who });
     else break;
   }
   return line.length ? line : null;
 }
-function pushShoveTarget(n, nx, ny, dx, dy) {
-  const who = tileOwner.get(ny * W + nx);
-  if (!who || who === n || who.dead || who.infant) return null;
-  if (who.pose === "sleep" || who.pose === "sit" || who.pose === "kneel") return (who.first || "Somebody") + " is in the way.";
-  for (const [ax, ay] of [[dx, dy], [dy, dx], [-dy, -dx]]) {
-    const x = nx + ax, y = ny + ay;
-    if (lf2PersonOK(x, y) && !tileOwner.get(y * W + x) && !lfPropAt(x, y)) return { who, x, y };
-  }
-  return (who.first || "Somebody") + " has nowhere to go.";
-}
+const pushSettled = (who) => who.pose === "sleep" || who.pose === "sit" || who.pose === "kneel";
+const pushWhy = (who) => (who.first || "Somebody") + (who.pose === "sleep" ? " is asleep." : " is settled in.");
+const pushPersonOK = (nx, ny) => nx >= 2 && ny >= 2 && nx < W - 2 && ny < H - 2 && lf2PersonOK(nx, ny) && !tileOwner.get(ny * W + nx) && !lfPropAt(nx, ny);
 function lf2PushLine(n, x, y, dx, dy) {
   const line = pushLine(n, x, y, dx, dy);
   if (!line) return null;
   const furn = line[0].kind === "furniture";
   if (line.some((p) => p.kind === "furniture" !== furn)) return pushSwap(n, line[0]);
   const last2 = line[line.length - 1], nx = last2.x + dx, ny = last2.y + dy;
-  let shove = null, name = "It";
   if (furn) {
     const r = line[0].f.r;
     if (line.some((p) => p.f.r !== r)) return pushSwap(n, line[0]);
@@ -18529,25 +18515,20 @@ function lf2PushLine(n, x, y, dx, dy) {
       const who = tileOwner.get(p.y * W + p.x);
       if (who && who !== n) return (who.first || "Somebody") + " is using it.";
     }
-    name = "The " + (line[0].f.type === "seat" ? "chair" : line[0].f.type);
     if (!pushFurnitureOK(last2.f, nx, ny, true)) return pushSwap(n, line[0]);
-    shove = pushShoveTarget(n, nx, ny, dx, dy);
-    if (typeof shove === "string") return shove;
-    const leaves = nx === r.doorX && ny === r.doorY || line.some((p) => p.x + dx === r.doorX && p.y + dy === r.doorY);
     if (!pushRoomConnected(r, line.map((p) => [p.x, p.y, p.x + dx, p.y + dy]))) return "That would block the way in the " + (r.kind === "house" ? "house" : "room") + ".";
   } else {
-    if (!pushLooseOK(nx, ny, true)) return pushSwap(n, line[0]);
-    shove = pushShoveTarget(n, nx, ny, dx, dy);
-    if (typeof shove === "string") return shove;
+    const stuck = line.some((p) => p.kind === "person" && pushSettled(p.who)), endOK = last2.kind === "person" ? pushPersonOK(nx, ny) : pushLooseOK(nx, ny);
+    if (stuck || !endOK) return pushSwap(n, line[0]);
   }
   if (line.length > PUSH_MAX) return "Too much to push at once.";
-  if (shove) {
-    lf2Relocate(shove.who, shove.x, shove.y);
-    if (Math.random() < 0.5) lfShout(shove.who, anyOf(["Oi!", "Hey! Watch it!", "Oh! Excuse me.", "Steady on!"]));
-  }
   const moved = [];
   for (let i = line.length - 1; i >= 0; i--) {
     const p = line[i];
+    if (p.kind === "person") {
+      pushMovePerson(n, p.who, p.x + dx, p.y + dy);
+      continue;
+    }
     if (p.kind === "rock") {
       const pr = pushRockToProp(p.x, p.y);
       if (!pr) return "It won't budge.";
@@ -18566,8 +18547,20 @@ function lf2PushLine(n, x, y, dx, dy) {
   for (const pr of moved) if (typeof lf2AfterPush === "function" && lfPropAt(pr.x, pr.y) === pr) lf2AfterPush(n, pr);
   return true;
 }
+function pushMovePerson(n, who, tx, ty) {
+  lf2Relocate(who, tx, ty);
+  cvSaw(n, who, "push");
+  if (!who.player && Math.random() < 0.3) lfShout(who, anyOf(PUSH_WORDS));
+}
 function pushSwap(n, piece) {
   const px = n.tx, py = n.ty;
+  if (piece.kind === "person") {
+    const who = piece.who;
+    if (pushSettled(who)) return pushWhy(who);
+    if (!lf2PersonOK(px, py)) return (who.first || "Somebody") + " won't budge.";
+    pushMovePerson(n, who, px, py);
+    return true;
+  }
   if (piece.kind === "furniture") {
     const f = piece.f;
     if (tileOwner.get(piece.y * W + piece.x) && tileOwner.get(piece.y * W + piece.x) !== n) return "It won't budge.";

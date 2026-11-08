@@ -254,28 +254,43 @@ test('push: chairs, beds and the family barrel can be moved inside a house, neve
   return `chair, bed and barrel moved; an occupied chair stays; the household of ${after.n} carried on for two days`;
 }));
 
-test('push: boxes shove people out of the way; and a pushed box never drifts sideways when you turn', await controlScene('shove', 41, async page => {
+test('push: people are pieces in the line just like boxes (pushed along, counted, swapped past at a wall); sleepers block; a box never drifts sideways when you turn', await controlScene('shove', 41, async page => {
   const r = await page.evaluate(() => {
-    const [x, y] = __find((x, y) => [0, 1, 2, 3, 4].every(i => __free(x + i, y)) && [0, 1, 2, 3, 4].every(i => __free(x + i, y + 1)) && ![0, 1, 2, 3, 4].some(i => lfNearDoor(x + i, y))), P = game.player, crate = town.props[0];
-    town.pblock[crate.y * W + crate.x] = 0; town.propAt.delete(crate.y * W + crate.x); crate.x = x + 1; crate.y = y; town.pblock[y * W + x + 1] = 1; town.propAt.set(y * W + x + 1, crate);
-    __place(P, x, y, { dx: 1, dy: 0 }); const o = __stand(__other(), x + 2, y); const res = lf2PushLine(P, x + 1, y, 1, 0);
-    const shoved = { res, crate: crate.x, who: [o.tx, o.ty], notOnCrate: !(o.tx === crate.x && o.ty === crate.y), moved: o.tx !== x + 2 || o.ty !== y };
-    // a sleeper is not shoved
-    __place(P, x + 1, y, { dx: 1, dy: 0 }); const s2 = __stand(__other() === o ? npcs.find(q => q !== o && q !== P && !q.dead && q.age >= 18) : __other(), x + 3, y, 'sleep'); const res2 = lf2PushLine(P, x + 2, y, 1, 0);
-    const sleeper = { res: res2, stayed: s2.tx === x + 3 && s2.ty === y, crate: crate.x };
-    // the sideways glitch: push, finish the step, start a step sideways in the same frame: the crate must stay where it is
-    s2.tx = s2.x = 3; s2.ty = s2.y = 3; s2.pose = 'stand'; __place(P, x, y, { dx: 1, dy: 0 }); o.tx = o.x = 3; o.ty = o.y = 4; rebuildOcc(); crate.x = x + 1; crate.y = y;
-    town.pblock.fill(0); town.propAt.clear(); town.pblock[y * W + x + 1] = 1; town.propAt.set(y * W + x + 1, crate);
-    const ok = lf2PushLine(P, x + 1, y, 1, 0); P.path = [{ x: x + 1, y }]; P.moving = true; P.t = 0; const startW = P.walked; const seen = [];
-    stepNpc(P, 1000);   // the step completes (and no frame is drawn before the next step begins: that is when the box used to follow the wrong step)
-    P.path = [{ x: P.tx, y: P.ty + 1 }]; P.moving = true; P.t = 0.5;                                  // ...and a sideways step begins before the next frame is drawn
-    seen.push(lfPropPos(crate, performance.now()).join()); const pos = [crate.x, crate.y].join();
-    return { shoved, sleeper, ok, walked: P.walked - startW, seen, pos };
+    const [x, y] = __find((x, y) => [0, 1, 2, 3, 4, 5].every(i => __free(x + i, y) && __free(x + i, y + 1)) && ![0, 1, 2, 3, 4, 5].some(i => lfNearDoor(x + i, y))), P = game.player, crate = town.props[0], o = __other();
+    const put = (pr, tx) => { town.pblock[pr.y * W + pr.x] = 0; town.propAt.delete(pr.y * W + pr.x); pr.x = tx; pr.y = y; town.pblock[y * W + tx] = 1; town.propAt.set(y * W + tx, pr); }, res = {};
+    // A. a box into a person: both move ahead together
+    put(crate, x + 1); __place(P, x, y, { dx: 1, dy: 0 }); __stand(o, x + 2, y); res.A = { r: lf2PushLine(P, x + 1, y, 1, 0), crate: crate.x - x, who: o.tx - x };
+    // B. a person first, a box behind them
+    put(crate, x + 2); __stand(o, x + 1, y); __place(P, x, y, { dx: 1, dy: 0 }); res.B = { r: lf2PushLine(P, x + 1, y, 1, 0), who: o.tx - x, crate: crate.x - x };
+    // C. a person against a wall: you swap places with them
+    __stand(o, x + 1, y); put(crate, x + 5); setT(x + 2, y, T.WALL); __place(P, x, y, { dx: 1, dy: 0 }); res.C = { r: lf2PushLine(P, x + 1, y, 1, 0), who: o.tx - x }; setT(x + 2, y, T.GRASS);
+    // D. a sleeper behind a box blocks the line: you swap past the box, the sleeper stays
+    __stand(o, x + 2, y, 'sleep'); put(crate, x + 1); __place(P, x, y, { dx: 1, dy: 0 }); res.D = { r: lf2PushLine(P, x + 1, y, 1, 0), crate: crate.x - x, sleeper: o.tx - x }; __stand(o, o.tx, o.ty, 'stand');
+    // E. a sleeper right in front: you are told, nothing moves
+    __stand(o, x + 1, y, 'sleep'); __place(P, x, y, { dx: 1, dy: 0 }); res.E = { r: lf2PushLine(P, x + 1, y, 1, 0), who: o.tx - x }; __stand(o, 3, 3, 'stand');
+    // F. the sideways glitch: push, finish the step, start a step sideways before a frame is drawn: the box must stay where it is
+    town.pblock.fill(0); town.propAt.clear(); put(crate, x + 1); __place(P, x, y, { dx: 1, dy: 0 }); const ok = lf2PushLine(P, x + 1, y, 1, 0); P.path = [{ x: x + 1, y }]; P.moving = true; P.t = 0; stepNpc(P, 1000);
+    P.path = [{ x: P.tx, y: P.ty + 1 }]; P.moving = true; P.t = 0.5; res.F = { ok, seen: lfPropPos(crate, performance.now()).join(), pos: [crate.x, crate.y].join() };
+    return res;
   });
-  check(r.shoved.res === true && r.shoved.crate === r.shoved.crate && r.shoved.moved && r.shoved.notOnCrate, 'a pushed box should shove a person out of the way: ' + JSON.stringify(r.shoved));
-  check(typeof r.sleeper.res === 'string' && r.sleeper.stayed, 'somebody asleep should not be shoved, and the box should not move: ' + JSON.stringify(r.sleeper));
-  check(r.seen.every(p => p === r.pos), 'after the push step the box must stay on its tile (it drifted: ' + r.seen.join(' | ') + ', tile ' + r.pos + ')');
-  return `shoved a person aside; a sleeper blocks it; the box stayed put when you turned (${r.pos})`;
+  check(r.A.r === true && r.A.crate === 2 && r.A.who === 3, 'a box into a person should push them along ahead of it: ' + JSON.stringify(r.A));
+  check(r.B.r === true && r.B.who === 2 && r.B.crate === 3, 'a person pushed first should carry the box behind them along: ' + JSON.stringify(r.B));
+  check(r.C.r === true && r.C.who === 0, 'a person against a wall should swap places with you: ' + JSON.stringify(r.C));
+  check(r.D.r === true && r.D.crate === 0 && r.D.sleeper === 2, 'a sleeper behind a box blocks the line, so you swap past the box and the sleeper stays: ' + JSON.stringify(r.D));
+  check(typeof r.E.r === 'string' && /asleep/.test(r.E.r) && r.E.who === 1, 'a sleeper in front is not pushed: ' + JSON.stringify(r.E));
+  check(r.F.seen === r.F.pos, 'after the push step the box must stay on its tile (it drifted: ' + r.F.seen + ', tile ' + r.F.pos + ')');
+  return 'people join the line like boxes; swap at a wall; sleepers block; the box stayed put when you turned';
+}));
+
+test('push: open ground in the square never acts like a wall (nothing invisible stops a push)', await controlScene('square', 41, async page => {
+  const r = await page.evaluate(() => {
+    const tiles = []; const yd = town.yard; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) tiles.push([yd.x + dx, yd.y + dy]); for (const st of town.stalls || []) tiles.push([st.front.x, st.front.y]);
+    const open = tiles.filter(([x, y]) => walkable(x, y) && !noStep(x, y) && !town.siteAt[y * W + x] && !lfPropAt(x, y) && !tileOwner.get(y * W + x) && roomAt[y][x] < 0 && [T.GRASS, T.PATH, T.SAND].includes(grid[y][x]) && town.crops.every(c => c.x !== x || c.y !== y));
+    return { tried: tiles.length, open: open.length, blocked: open.filter(([x, y]) => !pushLooseOK(x, y)).map(t => t.join(',')) };
+  });
+  check(r.open >= 4, 'there should be open ground round the yard to test: ' + JSON.stringify(r));
+  check(!r.blocked.length, 'open ground should take a pushed box, but these tiles refuse it: ' + r.blocked.join(' '));
+  return `${r.open} open tiles round the stockpile yard and the stalls all take a box`;
 }));
 
 test('push: villagers leave things where they are (no tidying, shoving or hauling)', await controlScene('nomoves', 41, async page => {

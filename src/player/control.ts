@@ -207,7 +207,7 @@ function tickPlayer0(n, dt) {
     let tg = itGate(n, lifeAct(n, p, fx, fy, dx, dy) || targetAt(n, fx, fy), walkable(fx, fy));   // the thing in your hand must fit the action (player/items.ts)
     let occ = tileOwner.get(tkey(fx, fy)), pushed = false;
     // Push mode: people are pushed like furniture (they move one tile, or you swap places); it is harmless, not a crime
-    if (itHand(n, 'push') && occ && occ !== n && !occ.infant && occ.pose !== 'sleep') { const r = lf2PushPerson(n, occ, dx, dy); pushed = true; if (r === true) { occ = null; tg = null; } else tg = { msg: r }; }
+    if (itHand(n, 'push') && occ && occ !== n && !occ.infant) { pushed = true; if (!tg) occ = null; }   // (a person is a piece in the line: lifeAct has pushed them, or said why not)
     if (occ && occ !== n && !occ.infant && !pushed) {
       if (occ.pose === 'sleep') tg = { msg: occ.first + ' is asleep.' };
       else if (!itTalking(n)) tg = { msg: occ.first + ': ' + itWant(n, 'talk') };

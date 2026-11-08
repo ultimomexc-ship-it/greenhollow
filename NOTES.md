@@ -211,3 +211,7 @@ Second pass on pushing: furniture goes out through the door and can come back; a
 aside; villagers no longer tidy, rescue or haul (flag `LF_NPC_MOVES_THINGS`, for now). The sideways box: a pushed box followed the player's *next* step if a new step
 began before a frame was drawn (the box drew itself with the wrong step's progress); it now follows only the step that pushed it. A regression test reproduces it.
 Open: a villager shut in by a box waits for the player (the chronicle says so); a bed pushed out of the house leaves its owner sleeping on the bare floor spot.
+
+Third push pass: people are ordinary pieces of the line (same rules as boxes: pushed along, counted toward the three, swapped past at a wall); a sleeper or sitter blocks a line.
+Invisible walls in the square: pushLooseOK refused the 3x3 patch round the stockpile yard and the tile in front of every market stall (nothing is drawn there; the yard is
+just the campfire, which noStep still covers). Removed; a test fails with them put back. Still refused: building sites (they are marked), fields, the campfire, ceremony tiles.
