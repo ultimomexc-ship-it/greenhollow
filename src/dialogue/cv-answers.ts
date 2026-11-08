@@ -309,6 +309,7 @@ const CV_PLACE: any = {
   macellum: { plain: ['All the sellers under one roof now. You get rained on less while you\'re being overcharged.', 'Busy. Loud. Everyone\'s in there, and everyone\'s haggling.', 'I like it. You can buy fish and a bowl and an argument, all in one place.'] },
   jail: { plain: ['I\'ve never been inside, and I mean to keep it that way.', 'Cold and damp, they say. The watch keeps it tidy, at least.'], mine: ['It\'s quiet, mostly. I\'d like it to stay that way.'] },
   church: { fan: ['I\'m there every morning. It\'s quiet. The Noodle doesn\'t ask much.', 'It\'s the one place I can think.'], plain: ['I go on feast days. Everyone does.', 'Quiet. Smells of candles and old barley.', '{who} keeps it. {He} takes the Noodle very seriously.'] },
+  mill: { plain: ['Sawdust everywhere. {who} saws logs into planks all day, and sings while {he} does it. Badly.', 'You can hear the saw from the well. Good planks, though.'], out: ['No planks today. {who} is waiting on logs.'] },
   privy: { plain: ['It\'s a privy. What do you want, poetry?', 'Somebody named it. That\'s the most I can say for it.', 'Clean, for once. Somebody\'s been at it with a bucket.'] },
 };
 /** who works in a room, if anybody */

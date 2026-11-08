@@ -151,7 +151,7 @@ function tsUpdate(now) {
   TSIGHT.poly = tsPolygon(eye[0], eye[1], R, G); TSIGHT.faces = tsFaces(eye[0], eye[1], TSIGHT.poly, G); TSIGHT.hits = tsWalls(eye[0], eye[1], R, G); TSIGHT.rect = R; TSIGHT.eye = eye; TSIGHT.key = key; TSIGHT.ms = performance.now() - t0;
 }
 /** public buildings keep their doors open during the day, so you can look in from the street */
-const TS_PUBLIC = new Set(['tavern', 'bakery', 'smithy', 'shop', 'thermopolium', 'baths', 'macellum', 'church']);
+const TS_PUBLIC = new Set(['tavern', 'bakery', 'smithy', 'shop', 'thermopolium', 'baths', 'macellum', 'church', 'mill']);
 function tsPropDoors() { const h = (game.time % 1440) / 60; for (const d of doors) { const r = rooms[d.room]; d.propped = !!(r && !r.dead && TS_PUBLIC.has(r.kind) && h >= 8 && h < 20); } }
 /** the darkness over everything the player cannot see (drawn in world coordinates after the world and the lighting) */
 function drawTrueSight(c, now) {

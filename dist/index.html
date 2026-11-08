@@ -9870,7 +9870,7 @@ function marketPrice(g) {
 }
 function cropStage(c) {
   if (!c.st) return 0;
-  const p = (game.time - c.t0) / GROW;
+  const p = (game.time - c.t0) / (typeof itGrow === "function" ? itGrow(c) : GROW);
   return p >= 1 ? 4 : p > 0.66 ? 3 : p > 0.3 ? 2 : 1;
 }
 const foodCount = (p) => FOODS.reduce((s, g) => s + (p[g] || 0), 0);
@@ -10599,7 +10599,7 @@ function barPlan(n, tod) {
   return [goS(c.spots.bar, "Opening the bar"), waitS(25, "work", "Pouring drinks", { tool: "wipe" })];
 }
 function farmPlan(n) {
-  const free = town.crops.filter((c) => !c.claim);
+  const free = town.crops.filter((c) => !c.claim && itFarmersPlot(c));
   let list, kind;
   list = free.filter((c) => c.st && cropStage(c) === 4);
   kind = "harvest";
@@ -10648,10 +10648,7 @@ function farmPlan(n) {
     prev = { x: c.x, y: c.y };
     steps.push(waitS(kind === "plow" ? 3 : kind === "harvest" ? 4 : 7, "work", txt, { tool: "hoe", onEnd(n2) {
       if (kind === "harvest") {
-        if (c.st && cropStage(c) === 4) {
-          n2.inv.grain = (n2.inv.grain || 0) + CROP_YIELD;
-          c.st = 0;
-        }
+        if (c.st && cropStage(c) === 4) itHarvest(n2, c);
       } else if (kind === "sow") {
         if (!c.st && c.pl && fieldPlowed(c)) {
           c.st = 1;
@@ -10797,6 +10794,7 @@ function stonePlan(n) {
       setT(tr2.x, tr2.y, T.GRASS);
       markDirty(tr2.x, tr2.y, 1, 1);
       n2.inv.stone = (n2.inv.stone || 0) + 1;
+      itRockOre(n2);
       town.treeDirty = true;
       town.stoneCache = null;
     }
@@ -10851,7 +10849,7 @@ function demandFor(g) {
 const CROP_YIELD = 3;
 const fieldPlowed = (c) => town.crops.every((o) => o.f !== c.f || o.pl);
 function farmWork() {
-  return town.crops.some((c) => !c.claim && (c.st && cropStage(c) === 4 || !c.pl || !c.st && c.pl && fieldPlowed(c)));
+  return town.crops.some((c) => !c.claim && itFarmersPlot(c) && (c.st && cropStage(c) === 4 || !c.pl || !c.st && c.pl && fieldPlowed(c)));
 }
 function foodDaysNow() {
   let t = 0;
@@ -14209,6 +14207,7 @@ function targetAt0(n, x, y) {
       setT(x, y, T.GRASS);
       markDirty(x, y, 1, 1);
       dropAt(x, y, "stone");
+      if (itRockOre(n2)) playerSay(n2, "Iron ore in the rock!");
       town.treeDirty = true;
       town.stoneCache = null;
     }
@@ -14241,9 +14240,8 @@ function targetAt0(n, x, y) {
     const st = c.st ? cropStage(c) : 0;
     if (c.st && st === 4) return { key: "crop" + x + "," + y + "h", min: 4, text: "Harvesting grain", tool: "hoe", walkOn: true, run(n2) {
       if (c.st && cropStage(c) === 4) {
-        n2.inv.grain = (n2.inv.grain || 0) + CROP_YIELD;
-        c.st = 0;
-        playerSay(n2, "+" + CROP_YIELD + " grain");
+        const h = itHarvest(n2, c);
+        playerSay(n2, "+" + h.q + " " + h.what + (h.back ? ", +" + h.back + " seed" : ""));
       }
     } };
     if (!c.pl) return { key: "crop" + x + "," + y + "p", min: 3, text: "Ploughing the field", tool: "hoe", walkOn: true, run(n2) {
@@ -14254,6 +14252,7 @@ function targetAt0(n, x, y) {
       if (!c.st) {
         c.st = 1;
         c.t0 = game.time;
+        c.byPlayer = true;
         playerSay(n2, "Sown");
       }
     } };
@@ -14261,6 +14260,14 @@ function targetAt0(n, x, y) {
   const s = siteAtTile(x, y);
   if (s && s.slots) {
     const q = slotAt(s, x, y);
+    if (q && !q.built && slotReady(s, q) && q.mat === "wood" && !(n.inv.wood > 0) && (n.inv.planks || 0) > 0) return { key: "wall" + s.id, min: 2, slot: q, text: "Putting up a plank wall", tool: "hammer", repeat: true, run(n2) {
+      n2.inv.planks--;
+      n2.inv.wood = (n2.inv.wood || 0) + 1;
+      if (!buildSlot(n2, s, q)) {
+        n2.inv.wood--;
+        n2.inv.planks++;
+      } else playerSay(n2, siteNeedText(s) ? "Still needs " + siteNeedText(s) : "Finished");
+    } };
     if (q && !q.built && slotReady(s, q) && (n.inv[q.mat] || 0) > 0) return { key: "wall" + s.id, min: 3, slot: q, text: "Putting up a " + (q.mat === "wood" ? "timber" : "stone") + " wall", tool: "hammer", repeat: true, run(n2) {
       if (buildSlot(n2, s, q)) playerSay(n2, siteNeedText(s) ? "Still needs " + siteNeedText(s) : "Finished");
     } };
@@ -14270,6 +14277,15 @@ function targetAt0(n, x, y) {
     return null;
   }
   if (s && s.got) {
+    if ((n.inv.planks || 0) > 0 && siteRem(s, "wood") > 0) return { key: "throw" + s.id + "planks", min: 1, text: "Laying planks on the site", tool: null, repeat: true, walkOn: s.kind === "road", run(n2) {
+      n2.inv.planks--;
+      n2.inv.wood = (n2.inv.wood || 0) + 1;
+      const q = throwOnSite(n2, s, "wood", 1);
+      if (!q) {
+        n2.inv.wood--;
+        n2.inv.planks++;
+      } else playerSay(n2, siteNeedText(s) ? "Still needs " + siteNeedText(s) : "Finished");
+    } };
     for (const k of (n.inv.stone || 0) >= (n.inv.wood || 0) ? ["stone", "wood"] : ["wood", "stone"]) {
       if ((n.inv[k] || 0) > 0 && siteRem(s, k) > 0) return { key: "throw" + s.id + k, min: 1, text: "Throwing " + KINDTXT[k] + " onto the site", tool: null, repeat: true, walkOn: s.kind === "road", run(n2) {
         const q = throwOnSite(n2, s, k, 1);
@@ -15911,7 +15927,7 @@ function tsUpdate(now) {
   TSIGHT.key = key;
   TSIGHT.ms = performance.now() - t0;
 }
-const TS_PUBLIC = /* @__PURE__ */ new Set(["tavern", "bakery", "smithy", "shop", "thermopolium", "baths", "macellum", "church"]);
+const TS_PUBLIC = /* @__PURE__ */ new Set(["tavern", "bakery", "smithy", "shop", "thermopolium", "baths", "macellum", "church", "mill"]);
 function tsPropDoors() {
   const h = game.time % 1440 / 60;
   for (const d of doors) {
@@ -18469,6 +18485,7 @@ function itGiveStack(n, key, q) {
   itBeltAdd(n, "s:" + key);
 }
 function itKit(n) {
+  if (typeof itGarden === "function") itGarden(n);
   for (const k of ["axe", "hammer", "hoe", "rod"]) if (!n.items.some((i) => i.kind === k)) itGiveTool(n, k);
   itGiveStack(n, "lockpick", 5);
   itGiveStack(n, "seed_barley", 20);
@@ -18497,6 +18514,7 @@ function itNeedOf(key) {
   if (/^crop.*[ph]$/.test(key)) return "hoe";
   if (/^crop.*s$/.test(key)) return "seed";
   if (/^(node|throw)/.test(key)) return "hand";
+  if (/^lockpick/.test(key)) return "lockpick";
   if (/^search/.test(key)) return "search";
   if (/^(talk|stall|trade)/.test(key)) return "talk";
   return null;
@@ -18522,6 +18540,7 @@ function itSlotFor(n, need) {
       if (ref.startsWith("s:seed_") && (n.bag[ref.slice(2)] || 0) > 0) return i + 1;
       continue;
     }
+    if (ref === "s:" + need && (n.bag[need] || 0) > 0) return i + 1;
     if (ref[0] === "i") {
       const it = itById(n, +ref.slice(1));
       if (it && it.kind === need) return i + 1;
@@ -18553,6 +18572,13 @@ function itGate(n, tg, walkOn) {
         }
       } });
     }
+    if (IT_WEAR[need] && tg.run) {
+      const run0 = tg.run;
+      return Object.assign({}, tg, { run(nn) {
+        run0(nn);
+        itWearHeld(nn);
+      } });
+    }
     return tg;
   }
   const what = (tg.key.match(/^(tree|rock|fish|wall|search|trade|stall)/) || [])[1], name = { tree: "Tree", rock: "Rock", fish: "Water", wall: "Wall", search: "Search", trade: "Counter", stall: "Counter" };
@@ -18566,6 +18592,10 @@ function itFacing(n) {
   if (pr) {
     const nm = cvCap(LF_NOUN[pr.kind]);
     return hand && mode === "search" ? { what: nm, verb: "Search", need: "search" } : { what: nm, verb: "Push", need: "push" };
+  }
+  if (g === T.DOOR && typeof lf2DoorRoom === "function" && LF2.on("nightlocks") && lf2Night()) {
+    const r = lf2DoorRoom(x, y);
+    if (r && r.kind === "house" && r !== n.homeRoom && r.unbarred !== dayN() + ":" + n.id && !lf2InRoom(n, r)) return { what: r.name + ", barred", verb: "Pick the lock", need: "lockpick" };
   }
   if (g === T.TREE) return { what: "Tree", verb: "Fell", need: "axe" };
   if (g === T.ROCK) return { what: "Rock", verb: "Break", need: "hammer" };
@@ -18820,6 +18850,10 @@ function lf2Furnish(kind, room, put, spot, seat, bed, w, h, doorU) {
     seat(w - 2, h - 3, -1, 0);
     seat(1, h - 2, 0, -1);
     seat(w - 2, h - 2, 0, -1);
+  } else if (kind === "mill") {
+    for (let u = 2; u <= w - 3; u++) put(u, 2, T.COUNTER);
+    spot("saw", 3, 1, 0, 1);
+    spot("front", 3, 3, 0, -1);
   } else if (kind === "macellum") {
     const us = [2, 4, 6, 8].filter((u) => u <= w - 2);
     us.forEach((u, i) => {
@@ -18901,7 +18935,7 @@ function lf2Prebuild() {
   }
   town.chron.length = before;
   for (let i = 0; i < 2; i++) lfBuild("field", 10, 5, {}) || lfBuild("field", 8, 4, {}) || lfBuild("field", 8, 4, { clear: true });
-  const tries = { bakery: [[7, 7], [7, 6]], smithy: [[8, 7], [8, 6]], shop: [[9, 8], [8, 7]], thermopolium: [[7, 6], [7, 5]], baths: [[11, 8], [11, 7], [10, 7]], jail: [[7, 6], [6, 5]], macellum: [[10, 6], [10, 7], [9, 6]] };
+  const tries = { bakery: [[7, 7], [7, 6]], smithy: [[8, 7], [8, 6]], shop: [[9, 8], [8, 7]], thermopolium: [[7, 6], [7, 5]], baths: [[11, 8], [11, 7], [10, 7]], jail: [[7, 6], [6, 5]], macellum: [[10, 6], [10, 7], [9, 6]], mill: [[7, 6], [7, 5], [6, 5]] };
   for (const k of Object.keys(tries)) {
     if (lf2Room(k)) continue;
     let ok = null;
@@ -19076,6 +19110,10 @@ function lf2WorkPlan(n, tod) {
     }
     const s = lf2Stock(r), R = J.recipe, out = Object.keys(R.out)[0];
     if (!Object.keys(R.in).every((g) => (s[g] || 0) >= R.in[g])) {
+      if (n.job === "Miller") {
+        const f = itMillerLogs(n, r);
+        if (f) return f;
+      }
       if (J.fetch && !npcs.some((o) => o.job === "Labourer" && !o.dead && o.lf2Haul === r.kind)) {
         const f = lf2FetchPlan(n, r, J.fetch);
         if (f) return f;
@@ -19203,7 +19241,7 @@ function lf2ShopPlan(n, tod) {
     const src = [lf2Room("smithy"), lf2Room("shop")].filter((r) => r && (lf2Stock(r).tools || 0) > 0 && n.coin >= lf2Price(r, "tools", n))[0];
     if (src) return go(src, "tools", 1, "Off to buy a new tool, the old one is worn out", (nn) => {
       nn.inv.tools--;
-      nn.toolQ = 100;
+      itNpcNewTool(nn);
       lfMod(nn, "newtool", "pleased with a new tool", 4, 400);
     });
     if ((n.lf2Grumble || 0) < game.time) {
@@ -19238,17 +19276,17 @@ function lf2TradeDialog(n, r) {
   }
   let menu = () => {
     const s = lf2Stock(r), goods = Object.keys(LF2_SELL[r.kind] || {});
-    const o = goods.map((g) => [`${lf2Cap(GOODS[g].name)}: ${s[g] > 0 ? lf2Price(r, g, n) + LF2_COIN + " (" + s[g] + " left)" : "sold out"}`, () => {
+    const o = goods.flatMap((g) => itOffers(n, r, g, menu) || [[`${lf2Cap(GOODS[g].name)}: ${s[g] > 0 ? lf2Price(r, g, n) + LF2_COIN + " (" + s[g] + " left)" : "sold out"}`, () => {
       if (!(s[g] > 0)) return { say: `We are out of ${GOODS[g].name}. ${g === "bread" ? "The oven has not caught up." : "Come back tomorrow."}`, opts: menu() };
       const p = lf2Price(r, g, n);
       if (n.coin < p) return { say: `That is ${p} denarii, and you have ${Math.floor(n.coin)}.`, opts: menu() };
       lf2Buy(n, r, g, 1);
       if (g === "tools") {
         n.inv.tools--;
-        n.toolQ = 100;
+        itNpcNewTool(n);
       }
       return { say: anyOf(["There you are.", "Enjoy it.", "Pleasure doing business."]) + (s[g] < 2 ? ` That was nearly the last of the ${GOODS[g].name}.` : ""), opts: menu() };
-    }]);
+    }]]).concat(itExtras(n, r, menu));
     return o;
   };
   const sc = Object.keys(LF2_SELL[r.kind]).filter((g) => (lf2Stock(r)[g] || 0) < 2);
@@ -19346,7 +19384,7 @@ function lf2Payday() {
   const fd = typeof foodDaysNow === "function" ? foodDaysNow() : 3;
   if (fd >= 0.5) lf2AssignJobs(false);
   if (fd < 0.3) {
-    const t = npcs.filter((n) => !n.dead && ["Labourer", "Weaver", "BathKeeper", "Builder"].includes(n.job))[0];
+    const t = npcs.filter((n) => !n.dead && ["Miller", "Labourer", "Weaver", "BathKeeper", "Builder"].includes(n.job))[0];
     if (t) {
       const old = LF2_JOBS[t.job].name;
       t.job = "Farmer";
@@ -22276,6 +22314,7 @@ const CV_PLACE = {
   macellum: { plain: ["All the sellers under one roof now. You get rained on less while you're being overcharged.", "Busy. Loud. Everyone's in there, and everyone's haggling.", "I like it. You can buy fish and a bowl and an argument, all in one place."] },
   jail: { plain: ["I've never been inside, and I mean to keep it that way.", "Cold and damp, they say. The watch keeps it tidy, at least."], mine: ["It's quiet, mostly. I'd like it to stay that way."] },
   church: { fan: ["I'm there every morning. It's quiet. The Noodle doesn't ask much.", "It's the one place I can think."], plain: ["I go on feast days. Everyone does.", "Quiet. Smells of candles and old barley.", "{who} keeps it. {He} takes the Noodle very seriously."] },
+  mill: { plain: ["Sawdust everywhere. {who} saws logs into planks all day, and sings while {he} does it. Badly.", "You can hear the saw from the well. Good planks, though."], out: ["No planks today. {who} is waiting on logs."] },
   privy: { plain: ["It's a privy. What do you want, poetry?", "Somebody named it. That's the most I can say for it.", "Clean, for once. Somebody's been at it with a bucket."] }
 };
 function cvRoomWho(r) {
@@ -24300,6 +24339,8 @@ function sbWorkLine(a) {
       return sbPick(["Somebody left a sandal in the hot pool. Just the one.", "The water's lovely today, if anyone ever came."]);
     case "Guard":
       return sbPick(["Quiet shift. I like a quiet shift.", "Somebody left a crate across a door again. Children, probably."]);
+    case "Miller":
+      return (st.planks || 0) <= 0 ? sbPick(["Not a plank left. Everyone's building at once."]) : sbPick(["Sawdust in my hair, my bread and my bed.", "Two logs, three planks. It never gets old. It does, actually."]);
     case "Weaver":
       return sbPick(["Six days on one cloth. It's nearly worth it.", "The loom ate a thread. It does that."]);
     case "Gatherer":
@@ -26333,6 +26374,227 @@ function drainEvents(now) {
   const fresh = town.eco.trades - tradeSeen;
   tradeSeen = town.eco.trades;
   if (chronSeen > town.chron.length) chronSeen = 0;
+}
+Object.assign(GOODS, { turnip: { base: 2, sat: 30, name: "turnips" }, beans: { base: 2, sat: 28, name: "beans" }, seeds: { base: 2, name: "seed" }, planks: { base: 3, name: "planks" } });
+FOODS.push("turnip", "beans");
+Object.assign(GICON, { turnip: "turnips", beans: "beans", planks: "planks", iron: "iron ore", stone: "stone" });
+Object.assign(LF2_BLD, { mill: "The Sawmill" });
+BUILDING.mill = 1;
+Object.assign(LF2_SELL, { mill: { planks: 10 } });
+LF2_SELL.shop.seeds = 8;
+Object.assign(LF2_JOBS, { Miller: { name: "Miller", room: "mill", spot: "saw", tool: "axe", text: "Sawing logs into planks", recipe: { in: { wood: 2 }, out: { planks: 3 }, min: 50 }, fetch: { wood: 6 }, fit: ["early bird", "brave"] } });
+LF2_JOBORDER.push("Miller");
+const IT_JOB_TOOL = { Woodcutter: "axe", Stonecutter: "hammer", Farmer: "hoe", Fisher: "rod", Builder: "hammer", Smith: "hammer", Labourer: "hammer", Miller: "axe" };
+const itWorkTool = (n) => IT_JOB_TOOL[n.job] || IT_JOB_TOOL[n.cur] || (n.role === "Worker" ? "hoe" : null);
+function itNpcTool(n) {
+  if (!n || n.dead || n.player || n.age < 16) return null;
+  itEnsure(n);
+  let it = n.items.find((i) => i.work);
+  const kind = itWorkTool(n);
+  if (!kind) return it || null;
+  if (!it) {
+    it = itNew(kind, n);
+    it.work = true;
+    it.wear = (n.toolQ == null ? 100 : n.toolQ) / 100;
+    n.items.push(it);
+  }
+  return it;
+}
+function itNpcNewTool(n) {
+  itEnsure(n);
+  n.items = n.items.filter((i) => !i.work);
+  const it = itNew(itWorkTool(n) || "hoe", n);
+  it.work = true;
+  n.items.push(it);
+  n.toolQ = 100;
+  return it;
+}
+LF2.tickers.push(() => {
+  if ((town.itT || 0) > game.time) return;
+  town.itT = game.time + 30;
+  for (const n of npcs) {
+    if (n.dead || n.player || n.age < 16 || n.toolQ == null) continue;
+    const it = itNpcTool(n);
+    if (it) it.wear = Math.max(0, Math.min(1, n.toolQ / 100));
+  }
+});
+const IT_WEAR = { axe: 0.03, hammer: 0.025, hoe: 0.015, rod: 0.02 };
+function itWearHeld(n) {
+  const h = itHeld(n);
+  if (!h.item || !IT_WEAR[h.kind]) return;
+  h.item.wear = Math.max(0, h.item.wear - IT_WEAR[h.kind]);
+  if (h.item.wear <= 0) {
+    n.items = n.items.filter((i2) => i2 !== h.item);
+    const i = n.belt.indexOf(h.ref);
+    if (i > 0) n.belt[i] = null;
+    n.sel = 0;
+    playerSay(n, `Your ${itName(h.kind).toLowerCase()} broke. The smith sells new ones.`);
+  } else if (h.item.wear < 0.15 && !h.item.warned) {
+    h.item.warned = true;
+    playerSay(n, `Your ${itName(h.kind).toLowerCase()} is nearly worn through.`);
+  }
+}
+const IT_ORE = 0.18;
+function itRockOre(n) {
+  if (Math.random() >= IT_ORE) return false;
+  if (n.player) {
+    n.inv.iron = (n.inv.iron || 0) + 1;
+    return true;
+  }
+  const sm = lf2Room("smithy");
+  if (sm) {
+    lf2Stock(sm).iron = (lf2Stock(sm).iron || 0) + 1;
+    sm.till = Math.max(0, (sm.till || 0) - 2);
+    n.coin = (n.coin || 0) + 2;
+  }
+  return true;
+}
+const IT_SEEDS = { barley: { grow: 1, yield: "grain", q: 3, word: "barley" }, turnip: { grow: 0.55, yield: "turnip", q: 3, word: "turnips" }, bean: { grow: 0.8, yield: "beans", q: 3, word: "beans" } };
+const itGrow = (c) => GROW * (IT_SEEDS[c.seed] || IT_SEEDS.barley).grow;
+function itHarvest(n, c) {
+  const S = IT_SEEDS[c.seed] || IT_SEEDS.barley;
+  n.inv[S.yield] = (n.inv[S.yield] || 0) + S.q;
+  c.st = 0;
+  let back = 0;
+  if (n.player) {
+    back = 1 + (Math.random() < 0.5 ? 1 : 0);
+    itGiveStack(n, "seed_" + (c.seed || "barley"), back);
+  }
+  c.seed = null;
+  return { q: S.q, what: GOODS[S.yield] ? GOODS[S.yield].name : S.yield, back };
+}
+const itFarmersPlot = (c) => !c.garden && (!c.seed || c.seed === "barley" || !c.byPlayer);
+function itGarden(n) {
+  if (!n || !n.homeRoom || town.crops.some((c) => c.garden === n.id)) return;
+  const r = n.homeRoom, cand = [], free = (x, y) => x > 2 && y > 2 && x < W - 3 && y < H - 3 && (grid[y][x] === T.GRASS || grid[y][x] === T.SAND) && roomAt[y][x] < 0 && !(town.siteAt && town.siteAt[y * W + x]) && !lfPropAt(x, y) && !town.crops.some((c) => c.x === x && c.y === y);
+  for (let d = 1; d < 8 && !cand.length; d++) for (let y = r.y - d - 1; y <= r.y + r.h + d; y++) for (let x = r.x - d - 2; x <= r.x + r.w + d; x++) {
+    let ok = true;
+    for (let j = 0; j < 2 && ok; j++) for (let i = 0; i < 3; i++) if (!free(x + i, y + j)) {
+      ok = false;
+      break;
+    }
+    if (ok) {
+      cand.push([x, y]);
+    }
+  }
+  if (!cand.length) return;
+  const [gx, gy] = cand[0], f = "garden" + n.id;
+  for (let j = 0; j < 2; j++) for (let i = 0; i < 3; i++) {
+    setT(gx + i, gy + j, T.CROP);
+    town.crops.push({ x: gx + i, y: gy + j, f, pl: 0, st: 0, t0: 0, garden: n.id });
+  }
+  markDirty(gx, gy, 3, 2);
+  if (typeof refreshReach === "function") refreshReach();
+  n.gardenAt = { x: gx, y: gy };
+}
+function itOffers(n, r, g, menu) {
+  if (!n.belt) return null;
+  const s = lf2Stock(r), k = lf2Server(r);
+  const sell = (label, price, give, stockKey, say2) => [`${label}: ${(s[stockKey] || 0) > 0 ? price + LF2_COIN : "sold out"}`, () => {
+    if (!((s[stockKey] || 0) > 0)) return { say: "We're out of those. Come back tomorrow.", opts: menu() };
+    if (n.coin < price) return { say: `That's ${price} denarii, and you have ${Math.floor(n.coin)}.`, opts: menu() };
+    n.coin -= price;
+    r.till = (r.till || 0) + price;
+    s[stockKey]--;
+    give();
+    return { say: say2 || anyOf(["There you are.", "Look after it.", "Pleasure doing business."]), opts: menu() };
+  }];
+  if (g === "tools") return ["axe", "hammer", "hoe", "rod"].map((t) => sell(itName(t), lf2Price(r, "tools", n) + (t === "rod" ? -4 : 0), () => itGiveTool(n, t), "tools", t === "rod" ? "A good rod. Mind the line." : null));
+  if (g === "seeds") return Object.keys(IT_SEEDS).map((sd) => sell(`${cvCap(IT_SEEDS[sd].word)} seed, a handful of 4`, lf2Price(r, "seeds", n), () => itGiveStack(n, "seed_" + sd, 4), "seeds", sd === "turnip" ? "Turnips come up quick. Don't let the goats see." : null));
+  return null;
+}
+function itExtras(n, r, menu) {
+  if (!n.belt || r.kind !== "smithy") return [];
+  const s = lf2Stock(r), k = lf2Server(r), out = [];
+  const ore = n.inv.iron || 0, pay2 = Math.max(2, Math.round(GOODS.iron.base * 0.8));
+  if (ore > 0) out.push([`Sell iron ore: ${pay2}${LF2_COIN} each (you have ${ore})`, () => {
+    n.inv.iron--;
+    n.coin += pay2;
+    s.iron = (s.iron || 0) + 1;
+    r.till = Math.max(0, (r.till || 0) - pay2);
+    return { say: anyOf(["Good ore, that. I can use it.", "Iron! Where did you find this? Never mind. Thank you."]), opts: menu() };
+  }]);
+  if (k && (k.aff[n.id] || 0) >= 25) out.push([`Lockpicks, quietly: 8${LF2_COIN} for two`, () => {
+    if ((s.iron || 0) < 1) return { say: "No iron to spare for those just now.", opts: menu() };
+    if (n.coin < 8) return { say: "Eight denarii. You haven't got it.", opts: menu() };
+    n.coin -= 8;
+    r.till = (r.till || 0) + 8;
+    s.iron--;
+    itGiveStack(n, "lockpick", 2);
+    return { say: anyOf(["You didn't get these from me.", "For your own door, I'm sure. Keep them out of sight."]), opts: menu() };
+  }]);
+  return out;
+}
+function itPickLock(n, r) {
+  const left = n.bag.lockpick || 0;
+  if (left <= 0) {
+    playerSay(n, "You have no lockpicks left.");
+    return;
+  }
+  const inside = npcs.filter((q) => !q.dead && lf2InRoom(q, r));
+  let heard = null;
+  for (const q of inside) if (Math.random() < (q.pose === "sleep" ? lf2Has(q, "anxious") ? 0.25 : 0.06 : 0.5)) heard = q;
+  if (Math.random() < 0.3) {
+    n.bag.lockpick = left - 1;
+    playerSay(n, "Snap. The lockpick broke in the lock." + (left - 1 > 0 ? "" : " That was the last one."));
+    return;
+  }
+  if (heard) {
+    if (heard.pose === "sleep") {
+      heard.pose = "stand";
+      abortPlan(heard);
+    }
+    lfShout(heard, anyOf(["Who's there?!", "I hear you! Get away from my door!", "Thieves! Wake up, everyone!"]));
+    lfEmit("breakin", { actor: n, target: heard, sev: 2, loud: true, tags: ["trespass", "crime"], text: `${n.first} tried to break into ${r.name} in the night` });
+    return;
+  }
+  if (Math.random() < 0.35) {
+    playerSay(n, "It won't give. Try again.");
+    return;
+  }
+  r.unbarred = dayN() + ":" + n.id;
+  playerSay(n, "Click. The bar lifts.");
+  lfEmit("breakin", { actor: n, target: lf2RoomHead(r), sev: 2, aware: false, tags: ["trespass", "crime"], chron: false, text: `${n.first} picked the lock of ${r.name} in the night` });
+}
+LF2.pre.unshift({ player(n, p, fx, fy) {
+  if (!n.belt || !LF2.on("nightlocks") || !lf2Night() || !grid[fy] || grid[fy][fx] !== T.DOOR) return null;
+  const r = lf2DoorRoom(fx, fy);
+  if (!r || r.kind !== "house" || r === n.homeRoom || r.unbarred === dayN() + ":" + n.id || lf2InRoom(n, r)) return null;
+  if (itHeld(n).kind !== "lockpick") {
+    const s = itSlotFor(n, "lockpick");
+    return { msg: `${r.name} is barred for the night.` + (s ? ` (A lockpick would open it: ${s}.)` : "") };
+  }
+  return { key: "lockpick" + r.id, min: 8, text: "Picking the lock", tool: "pick", run(nn) {
+    itPickLock(nn, r);
+  } };
+} });
+LF2.hourly.push((h) => {
+  if (h !== 21) return;
+  const mill = lf2Room("mill"), fd = typeof foodDaysNow === "function" ? foodDaysNow() : 3;
+  const spare = npcs.filter((n) => !n.dead && !n.player && n.role === "Worker" && n.age >= 18 && n.age < 60 && !LF2_JOBS[n.job] && !n.shop && !((n.lf2NoTrade || 0) > game.time));
+  if (mill && fd >= 0.45 && spare.length >= 4 && !npcs.some((n) => !n.dead && n.job === "Miller")) {
+    const c = spare.sort((a, b) => lf2Has(b, "early bird") + lf2Has(b, "brave") - (lf2Has(a, "early bird") + lf2Has(a, "brave")))[0];
+    if (c) lf2SetJob(c, "Miller", false);
+  }
+  const sh = lf2Room("shop");
+  if (sh) {
+    const s = lf2Stock(sh);
+    if ((s.seeds || 0) < 8) s.seeds = (s.seeds || 0) + 3;
+  }
+});
+function itMillerLogs(n, r) {
+  if (typeof woodPlan !== "function") return null;
+  const a = woodPlan(n);
+  if (!a) return null;
+  const b = handsMax(n) > 1 ? woodPlan(n) : null;
+  return a.concat(b || [], [goS(lf2Spot(r, "front") || lf2Spot(r, "saw"), "Carrying logs to the sawmill"), waitS(1, "stand", "Stacking the logs by the saw", { nopie: true, onEnd(nn) {
+    const q = nn.inv.wood || 0;
+    if (q > 0) {
+      const s = lf2Stock(r);
+      s.wood = (s.wood || 0) + q;
+      nn.inv.wood = 0;
+    }
+  } })]);
 }
 function setTab(t) {
   state.tab = t;

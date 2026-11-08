@@ -1,6 +1,6 @@
 /* ---------- work plans ---------- */
 function farmPlan(n) {
-  const free = town.crops.filter(c => !c.claim); let list, kind;
+  const free = town.crops.filter(c => !c.claim && itFarmersPlot(c)); let list, kind;   // (the player's garden and what the player sowed are left alone)
   list = free.filter(c => c.st && cropStage(c) === 4); kind = 'harvest';
   if (!list.length) { list = free.filter(c => !c.st && c.pl && fieldPlowed(c)); kind = 'sow'; }
   if (!list.length) { list = free.filter(c => !c.pl); kind = 'plow'; }
@@ -16,7 +16,7 @@ function farmPlan(n) {
     steps.push(goS({ x: st.x, y: st.y, face: { dx: Math.sign(c.x - st.x), dy: Math.sign(c.y - st.y) } }, i ? 'Moving along the rows' : 'Heading to the fields'));
     prev = { x: c.x, y: c.y };
     steps.push(waitS(kind === 'plow' ? 3 : kind === 'harvest' ? 4 : 7, 'work', txt, { tool: 'hoe', onEnd(n) {
-      if (kind === 'harvest') { if (c.st && cropStage(c) === 4) { n.inv.grain = (n.inv.grain || 0) + CROP_YIELD; c.st = 0; } }
+      if (kind === 'harvest') { if (c.st && cropStage(c) === 4) itHarvest(n, c); }
       else if (kind === 'sow') { if (!c.st && c.pl && fieldPlowed(c)) { c.st = 1; c.t0 = game.time; } }
       else c.pl = 1;
     } }));
@@ -89,7 +89,7 @@ function stonePlan(n) {
   const k = tr.y * W + tr.x; town.treeClaim.add(k);
   return [goS(tr.stand, 'Walking out to the rocks'), waitS(13, 'work', 'Breaking stone', { tool: 'hammer', onEnd(n) {
     town.treeClaim.delete(k);
-    if (grid[tr.y][tr.x] === T.ROCK) { workFx('split', tr.x, tr.y, n); setT(tr.x, tr.y, T.GRASS); markDirty(tr.x, tr.y, 1, 1); n.inv.stone = (n.inv.stone || 0) + 1; town.treeDirty = true; town.stoneCache = null; }
+    if (grid[tr.y][tr.x] === T.ROCK) { workFx('split', tr.x, tr.y, n); setT(tr.x, tr.y, T.GRASS); markDirty(tr.x, tr.y, 1, 1); n.inv.stone = (n.inv.stone || 0) + 1; itRockOre(n); town.treeDirty = true; town.stoneCache = null; }
   } })];
 }
 /* a free tile beside (x,y), facing it: people work what they face instead of standing on it */
@@ -120,7 +120,7 @@ function demandFor(g) {
 }
 const CROP_YIELD = 3;
 const fieldPlowed = c => town.crops.every(o => o.f !== c.f || o.pl);
-function farmWork() { return town.crops.some(c => !c.claim && ((c.st && cropStage(c) === 4) || !c.pl || (!c.st && c.pl && fieldPlowed(c)))); }
+function farmWork() { return town.crops.some(c => !c.claim && itFarmersPlot(c) && ((c.st && cropStage(c) === 4) || !c.pl || (!c.st && c.pl && fieldPlowed(c)))); }
 function foodDaysNow() {
   let t = 0; const seen = new Set(); const pop = Math.max(1, npcs.filter(n => !n.infant).length);
   npcs.forEach(n => { if (n.homeRoom && !seen.has(n.homeRoom)) { seen.add(n.homeRoom); t += foodSat(n.homeRoom.pantry || {}); } t += foodSat(n.inv); });

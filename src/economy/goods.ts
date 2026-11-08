@@ -17,7 +17,7 @@ const cap = (m, g) => Math.max(m.buys[g] || 0, m.sells[g] || 0);
 function sellPrice(m, g) { const f = Math.min(1, (m.stock[g] || 0) / cap(m, g)); return Math.max(1, Math.round(GOODS[g].base * (1.7 - 0.7 * f))); }
 function buyPrice(m, g) { const k = m.buys[g]; if (!k) return 0; const f = (m.stock[g] || 0) / k; if (f >= 1) return 0; return Math.max(1, Math.round(GOODS[g].base * (1.0 - 0.55 * f))); }
 function marketPrice(g) { const ps = merchants.filter(m => m.sells[g] && (m.stock[g] || 0) > 0).map(m => sellPrice(m, g)); if (!ps.length) return null; ps.sort((a, b) => a - b); return ps[ps.length >> 1]; }
-function cropStage(c) { if (!c.st) return 0; const p = (game.time - c.t0) / GROW; return p >= 1 ? 4 : p > .66 ? 3 : p > .3 ? 2 : 1; }
+function cropStage(c) { if (!c.st) return 0; const p = (game.time - c.t0) / (typeof itGrow === 'function' ? itGrow(c) : GROW); return p >= 1 ? 4 : p > .66 ? 3 : p > .3 ? 2 : 1; }
 const foodCount = p => FOODS.reduce((s, g) => s + (p[g] || 0), 0);
 const foodSat = p => FOODS.reduce((s, g) => s + (p[g] || 0) * GOODS[g].sat, 0);
 const hhOf = n => n.homeRoom ? npcs.filter(o => o.homeRoom === n.homeRoom) : [n];

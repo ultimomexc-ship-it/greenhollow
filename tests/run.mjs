@@ -445,6 +445,101 @@ test('longevity: a week of talking keeps bringing new things to hear, and no lin
 });
 
 /* ---------------------------------------------------------------------------------------------- */
+// Items in the economy (src/life2/items-trade.ts): real tools for everyone, wear, the smith and iron, seeds and the garden, lockpicks, the sawmill.
+async function itemScene(fn, days = 3) {
+  return async browser => {
+    const { page, errors } = await openGame(browser, GAME, { rng: 5, town: 'items' });
+    await simulate(page, days * DAY);
+    await page.evaluate(() => { if (!game.player) startPlaying(canControl(byId(game.steer)) ? byId(game.steer) : npcs.find(canControl)); });
+    const r = await fn(page);
+    check(errors.length === 0, 'page errors:\n    ' + errors.slice(0, 5).join('\n    '));
+    await page.close(); return r;
+  };
+}
+test('items: villagers own real work tools that wear as they work and are replaced when bought', await itemScene(async page => {
+  const r = await page.evaluate(() => {
+    const ws = npcs.filter(n => !n.dead && !n.player && n.age >= 16 && n.role === 'Worker' && n.toolQ != null), own = ws.filter(n => (n.items || []).some(i => i.work));
+    const off = own.filter(n => { const it = n.items.find(i => i.work); return Math.abs(it.wear * 100 - n.toolQ) > 3; }).map(n => n.first);
+    const n = own[0], old = n.items.find(i => i.work), oldId = old.id; n.toolQ = 8; const nu = itNpcNewTool(n);
+    return { workers: ws.length, own: own.length, off, kinds: [...new Set(own.map(n => n.items.find(i => i.work).kind))], replaced: nu.id !== oldId && nu.wear === 1 && n.toolQ === 100 && !n.items.some(i => i.id === oldId) };
+  });
+  check(r.own === r.workers, `every working villager should own a work tool: ${r.own} of ${r.workers}`);
+  check(!r.off.length, 'a tool\'s wear should follow its owner\'s: ' + r.off.join(', '));
+  check(r.replaced, 'buying a new tool should replace the worn one');
+  return `${r.own} of ${r.workers} workers own a tool (${r.kinds.join(', ')}); a bought tool replaces the worn one`;
+}));
+
+test('items: your tools wear and break; the smith sells each tool, buys iron ore, and sells lockpicks to friends; rocks sometimes hold iron', await itemScene(async page => {
+  const r = await page.evaluate(() => {
+    const P = game.player, axeRef = P.belt.find(x => x && x[0] === 'i' && itById(P, +x.slice(1)).kind === 'axe'), axe = itById(P, +axeRef.slice(1));
+    P.sel = P.belt.indexOf(axeRef); axe.wear = 0.02; itWearHeld(P); const broke = !P.items.includes(axe) && !P.belt.includes(axeRef) && P.sel === 0;
+    const sm = lf2Room('smithy'), smith = npcs.find(n => !n.dead && n.job === 'Smith'); const sp = sm.spots.work; smith.tx = smith.x = sp.x; smith.ty = smith.y = sp.y; smith.pose = 'stand'; rebuildOcc();
+    const s = lf2Stock(sm); s.tools = 3; s.iron = 2; const menu = () => [];
+    const offers = itOffers(P, sm, 'tools', menu), coin0 = P.coin; offers.find(o => /^Hoe/.test(o[0]))[1](); const boughtHoe = P.items.filter(i => i.kind === 'hoe').length === 2 && P.coin < coin0 && s.tools === 2;
+    P.inv.iron = 2; const sellLine = itExtras(P, sm, menu).find(o => /^Sell iron/.test(o[0])); const c1 = P.coin; sellLine[1](); const soldOre = P.inv.iron === 1 && P.coin > c1 && s.iron === 3;
+    smith.aff[P.id] = 10; const strangerPicks = itExtras(P, sm, menu).some(o => /Lockpick/.test(o[0]));
+    smith.aff[P.id] = 40; const pick = itExtras(P, sm, menu).find(o => /Lockpick/.test(o[0])), lp0 = P.bag.lockpick || 0; if (pick) pick[1](); const friendPicks = (P.bag.lockpick || 0) === lp0 + 2;
+    let ore = 0; P.inv.iron = 0; for (let i = 0; i < 300; i++) if (itRockOre(P)) ore++;
+    return { broke, offers: offers.map(o => o[0].split(':')[0]), boughtHoe, soldOre, strangerPicks, friendPicks, ore };
+  });
+  check(r.broke, 'a worn-out axe should break and leave your hand');
+  check(r.offers.join(',') === 'Axe,Hammer,Hoe,Fishing rod', 'the smith should offer each tool: ' + r.offers.join(', '));
+  check(r.boughtHoe, 'buying a hoe should give you a hoe and take your coin');
+  check(r.soldOre, 'selling iron ore to the smith should pay you and stock the smithy');
+  check(!r.strangerPicks && r.friendPicks, `lockpicks only for friends (stranger: ${r.strangerPicks}, friend: ${r.friendPicks})`);
+  check(r.ore > 25 && r.ore < 90, `about one rock in six should hold iron ore: ${r.ore} of 300`);
+  return `axe broke; smith offers ${r.offers.join(', ')}; ore bought; lockpicks for friends only; ${r.ore} of 300 rocks held ore`;
+}));
+
+test('items: seeds grow at their own pace and give their own food; a harvest gives seed back; the garden by home is yours; the Taberna sells seed', await itemScene(async page => {
+  const r = await page.evaluate(() => {
+    const P = game.player, g = town.crops.filter(c => c.garden === P.id), [a, b] = g;
+    a.pl = b.pl = 1; a.st = b.st = 1; a.seed = 'turnip'; b.seed = 'barley'; a.t0 = b.t0 = game.time - GROW * 0.6;
+    const stages = [cropStage(a), cropStage(b)], seeds0 = P.bag.seed_turnip || 0, h = itHarvest(P, a);
+    const sh = lf2Room('shop'); lf2Stock(sh).seeds = 4; const offers = itOffers(P, sh, 'seeds', () => []), bean0 = P.bag.seed_bean || 0; offers.find(o => /^Beans/.test(o[0]))[1]();
+    const others = g.slice(2).map(c => [c.pl, c.st]); window.__g = g; window.__gw = JSON.stringify(others);
+    return { garden: g.length, nearHome: g.every(c => Math.abs(c.x - P.homeRoom.x) + Math.abs(c.y - P.homeRoom.y) < 25), stages, food: h.what, q: h.q, back: (P.bag.seed_turnip || 0) - seeds0, beans: (P.bag.seed_bean || 0) - bean0, farmersSkip: g.every(c => !itFarmersPlot(c)) };
+  });
+  await simulate(page, DAY);
+  const left = await page.evaluate(() => JSON.stringify(window.__g.slice(2).map(c => [c.pl, c.st])) === window.__gw);
+  check(r.garden === 6 && r.nearHome, `you should have a 3 x 2 garden by home: ${r.garden} plots`);
+  check(r.stages[0] === 4 && r.stages[1] < 4, `turnips should ripen before barley sown at the same time: stages ${r.stages}`);
+  check(r.food === 'turnips' && r.q > 0 && r.back >= 1, `harvesting turnips should give turnips and a seed or two back: ${JSON.stringify(r)}`);
+  check(r.beans === 4, 'the Taberna should sell bean seed by the handful');
+  check(r.farmersSkip && left, 'the farmers should leave your garden alone');
+  return `garden of ${r.garden}; turnip stage ${r.stages[0]} vs barley ${r.stages[1]}; +${r.q} ${r.food}, +${r.back} seed; 4 bean seed bought; farmers leave it alone`;
+}));
+
+test('items: a lockpick opens a house barred for the night; picks snap, and somebody inside may hear', await itemScene(async page => {
+  const r = await page.evaluate(() => {
+    const P = game.player, houses = rooms.filter(q => !q.dead && q.kind === 'house' && q !== P.homeRoom); const out = { open: 0, snap: 0, heard: 0, tries: 0, ev: 0 };
+    const e0 = lfEmit; lfEmit = function (k) { if (k === 'breakin') out.ev++; return e0.apply(this, arguments); };
+    for (let i = 0; i < 40; i++) { const h = houses[i % houses.length]; h.unbarred = null; P.bag.lockpick = 5; const before = out.ev; itPickLock(P, h); out.tries++;
+      if (h.unbarred === dayN() + ':' + P.id) out.open++; else if (P.bag.lockpick === 4) out.snap++; else if (out.ev > before) out.heard++; }
+    lfEmit = e0; return out;
+  });
+  check(r.open > 0 && r.snap > 0, `over ${r.tries} tries some locks should open and some picks should snap: ${JSON.stringify(r)}`);
+  check(r.ev >= r.open, 'a picked lock should be a break-in others can hear about');
+  return `${r.tries} tries: ${r.open} opened, ${r.snap} picks snapped, ${r.heard} times somebody heard`;
+}));
+
+test('items: the sawmill saws logs into planks and sells them; planks count as timber on a building site', await itemScene(async page => {
+  const r = await page.evaluate(() => {
+    const mill = lf2Room('mill'), P = game.player, miller = npcs.find(n => !n.dead && n.job === 'Miller'), s = mill ? lf2Stock(mill) : {};
+    const planks = s.planks || 0; s.planks = Math.max(planks, 3); const coin0 = P.coin; P.inv.planks = 0; const got = lf2Buy(P, mill, 'planks', 2);
+    // a building site that still wants timber
+    let site = (town.sites || []).find(q => q.got && q.kind !== 'road' && siteRem(q, 'wood') > 0); let throwRes = null;
+    if (site) { const before = site.got.wood; P.inv.planks = 2; P.inv.wood = 0; P.belt && (P.sel = 0); const t = targetAt0(P, site.x, site.y); if (t && t.run) t.run(P); throwRes = { key: t && t.key, more: site.got.wood > before, planks: P.inv.planks }; }
+    return { mill: !!mill, miller: !!miller, planks, got, paid: P.coin < coin0, site: !!site, throwRes };
+  });
+  check(r.mill && r.miller, 'there should be a sawmill with a miller');
+  check(r.planks > 0, 'after a few days the miller should have sawn some planks');
+  check(r.got === 2 && r.paid, 'you should be able to buy planks at the sawmill');
+  if (r.site) check(r.throwRes && r.throwRes.more && r.throwRes.planks === 1, 'planks thrown on a site should count as timber: ' + JSON.stringify(r.throwRes));
+  return `${r.planks} planks sawn; bought 2${r.site ? '; a plank laid on a site counted as timber' : ' (no site wanting timber right now)'}`;
+}, 5));
+
+/* ---------------------------------------------------------------------------------------------- */
 // The dialogue lint (tools/lintalk.mjs): plays days of talk and listens to the village, then flags what reads wrong.
 import { lint } from '../tools/lintalk.mjs';
 test('dialogue lint: days of talk and overheard chatter, and nothing reads wrong', async () => {
