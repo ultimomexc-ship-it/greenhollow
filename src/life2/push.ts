@@ -24,15 +24,14 @@ function pushFurniture(x, y) {
 }
 /** the tile is inside the room, but not the one just inside the door (a house must never be sealed by its own furniture) */
 
-/** can a loose thing be pushed onto (nx, ny)? Loose things may cross a doorway and go into a house. */
+/** can a loose thing be pushed onto (nx, ny)? Only things you can see stop it: walls, water, trees, buildings' furniture, fields, the campfire, a building site, other loose things. Loose things may cross a doorway and go into a house. */
 function pushLooseOK(nx, ny, ignoreOwner?) {
   if (nx < 2 || ny < 2 || nx >= W - 2 || ny >= H - 2) return false;
   if (!walkable(nx, ny) || (!ignoreOwner && tileOwner.get(ny * W + nx))) return false;
   const g = grid[ny][nx];
   if (g === T.SEAT || g === T.BED || g === T.PEW || g === T.CROP || g === T.PLOT || g === T.TENT) return false;
   if (town.siteAt[ny * W + nx] || noStep(nx, ny)) return false;
-  if ((town.stalls || []).some(s => s.front.x === nx && s.front.y === ny)) return false;
-  const y = town.yard; if (y && Math.abs(nx - y.x) <= 1 && ny >= y.y - 1 && ny <= y.y + 1) return false;
+  // (the tiles reserved round the stockpile yard and in front of the stalls are not drawn, so they never stop a push; only the campfire, which noStep covers, does)
   const rm = pushRoomOf(nx, ny); if (rm && (rm.kind === 'jail' || rm.kind === 'church' || rm.kind === 'privy')) return false;
   return true;
 }
@@ -69,42 +68,38 @@ function pushLine(n, x, y, dx, dy) {
   const line: any[] = [];
   for (let i = 0; i <= PUSH_MAX; i++) {
     const px = x + dx * i, py = y + dy * i; if (px < 0 || py < 0 || px >= W || py >= H) break;
-    const pr = lfPropAt(px, py), f = pr ? null : pushFurniture(px, py), rock = !pr && !f && grid[py][px] === T.ROCK;
-    if (pr) line.push({ kind: 'prop', x: px, y: py, pr }); else if (f) line.push({ kind: 'furniture', x: px, y: py, f }); else if (rock) line.push({ kind: 'rock', x: px, y: py }); else break;
+    const pr = lfPropAt(px, py), f = pr ? null : pushFurniture(px, py), rock = !pr && !f && grid[py][px] === T.ROCK, who = !pr && !f && !rock ? tileOwner.get(py * W + px) : null;
+    if (pr) line.push({ kind: 'prop', x: px, y: py, pr }); else if (f) line.push({ kind: 'furniture', x: px, y: py, f }); else if (rock) line.push({ kind: 'rock', x: px, y: py }); else if (who && who !== n && !who.dead && !who.infant) line.push({ kind: 'person', x: px, y: py, who }); else break;
   }
   return line.length ? line : null;
 }
-/** a person where the last piece is going is shoved out of the way (ahead, else to a side); sleepers and people sitting down are not shoved. Returns the tile they go to, null (nobody there) or a reason. */
-function pushShoveTarget(n, nx, ny, dx, dy): any {
-  const who = tileOwner.get(ny * W + nx); if (!who || who === n || who.dead || who.infant) return null;
-  if (who.pose === 'sleep' || who.pose === 'sit' || who.pose === 'kneel') return (who.first || 'Somebody') + ' is in the way.';
-  for (const [ax, ay] of [[dx, dy], [dy, dx], [-dy, -dx]]) { const x = nx + ax, y = ny + ay; if (lf2PersonOK(x, y) && !tileOwner.get(y * W + x) && !lfPropAt(x, y)) return { who, x, y }; }
-  return (who.first || 'Somebody') + ' has nowhere to go.';
-}
-/** push the line one tile; returns true, or the reason it cannot be done (null: nothing to push). A line is all loose things or all furniture.
-    When the last piece cannot move (a wall, a corner) you swap places with the piece you are holding, and so on down the line: push on and you pass through it. */
+/** somebody who will not be pushed along: asleep, sitting down or kneeling */
+const pushSettled = who => who.pose === 'sleep' || who.pose === 'sit' || who.pose === 'kneel';
+const pushWhy = who => (who.first || 'Somebody') + (who.pose === 'sleep' ? ' is asleep.' : ' is settled in.');
+/** can a person be pushed onto (nx, ny)? (the same ground a villager can stand on) */
+const pushPersonOK = (nx, ny) => nx >= 2 && ny >= 2 && nx < W - 2 && ny < H - 2 && lf2PersonOK(nx, ny) && !tileOwner.get(ny * W + nx) && !lfPropAt(nx, ny);
+/** push the line one tile; returns true, or the reason it cannot be done (null: nothing to push).
+    A line is made of loose things (crates, barrels, stools, rocks) and people, in any order, or of furniture alone; people are pushed along just like boxes.
+    When the line cannot move (a wall, a corner, somebody asleep) you swap places with the piece you are holding, and so on down the line: push on and you pass through it. */
 function lf2PushLine(n, x, y, dx, dy): true | string | null {
   const line = pushLine(n, x, y, dx, dy); if (!line) return null;
   const furn = line[0].kind === 'furniture'; if (line.some(p => (p.kind === 'furniture') !== furn)) return pushSwap(n, line[0]);
-  const last = line[line.length - 1], nx = last.x + dx, ny = last.y + dy; let shove: any = null, name = 'It';
+  const last = line[line.length - 1], nx = last.x + dx, ny = last.y + dy;
   if (furn) {
     const r = line[0].f.r; if (line.some(p => p.f.r !== r)) return pushSwap(n, line[0]);
     for (const p of line) { const who = tileOwner.get(p.y * W + p.x); if (who && who !== n) return (who.first || 'Somebody') + ' is using it.'; }
-    name = 'The ' + (line[0].f.type === 'seat' ? 'chair' : line[0].f.type);
     if (!pushFurnitureOK(last.f, nx, ny, true)) return pushSwap(n, line[0]);
-    shove = pushShoveTarget(n, nx, ny, dx, dy); if (typeof shove === 'string') return shove;
-    const leaves = nx === r.doorX && ny === r.doorY || line.some(p => p.x + dx === r.doorX && p.y + dy === r.doorY);
     if (!pushRoomConnected(r, line.map(p => [p.x, p.y, p.x + dx, p.y + dy] as [number, number, number, number]))) return 'That would block the way in the ' + (r.kind === 'house' ? 'house' : 'room') + '.';
   } else {
-    if (!pushLooseOK(nx, ny, true)) return pushSwap(n, line[0]);
-    shove = pushShoveTarget(n, nx, ny, dx, dy); if (typeof shove === 'string') return shove;
+    const stuck = line.some(p => p.kind === 'person' && pushSettled(p.who)), endOK = last.kind === 'person' ? pushPersonOK(nx, ny) : pushLooseOK(nx, ny);
+    if (stuck || !endOK) return pushSwap(n, line[0]);
   }
   if (line.length > PUSH_MAX) return 'Too much to push at once.';
-  if (shove) { lf2Relocate(shove.who, shove.x, shove.y); if (Math.random() < 0.5) lfShout(shove.who, anyOf(['Oi!', 'Hey! Watch it!', 'Oh! Excuse me.', 'Steady on!'])); }
   // move from the front, so each piece lands on the tile the next one has just left
   const moved: any[] = [];
   for (let i = line.length - 1; i >= 0; i--) {
     const p = line[i];
+    if (p.kind === 'person') { pushMovePerson(n, p.who, p.x + dx, p.y + dy); continue; }
     if (p.kind === 'rock') { const pr = pushRockToProp(p.x, p.y); if (!pr) return 'It won\'t budge.'; p.pr = pr; p.kind = 'prop'; }
     if (p.kind === 'prop') { pushMoveProp(p.pr, dx, dy, n); moved.push(p.pr); } else { const pr = pushMoveFurniture(p.f, dx, dy, n); if (pr) moved.push(pr); }
   }
@@ -112,9 +107,14 @@ function lf2PushLine(n, x, y, dx, dy): true | string | null {
   for (const pr of moved) if (typeof lf2AfterPush === 'function' && lfPropAt(pr.x, pr.y) === pr) lf2AfterPush(n, pr);
   return true;
 }
+/** a person pushed along: they stumble one tile (harmless: no crime, no gossip beyond "you pushed somebody") */
+function pushMovePerson(n, who, tx, ty) {
+  lf2Relocate(who, tx, ty); cvSaw(n, who, 'push'); if (!who.player && Math.random() < 0.3) lfShout(who, anyOf(PUSH_WORDS));
+}
 /** swap places with the piece in front of you: it goes to the tile you stand on (the same step carries you into its tile, and it is drawn following your step) */
 function pushSwap(n, piece): true | string {
   const px = n.tx, py = n.ty;
+  if (piece.kind === 'person') { const who = piece.who; if (pushSettled(who)) return pushWhy(who); if (!lf2PersonOK(px, py)) return (who.first || 'Somebody') + ' won\'t budge.'; pushMovePerson(n, who, px, py); return true; }
   if (piece.kind === 'furniture') {
     const f = piece.f; if (tileOwner.get(piece.y * W + piece.x) && tileOwner.get(piece.y * W + piece.x) !== n) return 'It won\'t budge.';
     if (!pushFurnitureOK(f, px, py, true) || !(px !== f.r.doorX || py !== f.r.doorY)) return 'The ' + (f.type === 'seat' ? 'chair' : f.type) + ' won\'t budge.';

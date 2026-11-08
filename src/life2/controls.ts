@@ -4,7 +4,7 @@
    The verbs in lf2Verbs (steal, pick a lock, wreck, shove, give, wake, follow ...) are still registered in the hooks but nothing reaches them yet.   */
 /* ---------------- pushing people like furniture ---------------- */
 const lf2PersonOK = (x, y) => { const g = grid[y] && grid[y][x]; return walkable(x, y) && !(typeof noStep === 'function' && noStep(x, y)) && g !== T.SEAT && g !== T.BED && g !== T.PEW && g !== T.TENT && !lfPropAt(x, y); };
-const PUSH_WORDS = ['Oh! Excuse me.', 'Hm? Oh, right.', 'Mind how you go.', 'Oh, I will shift.', 'Right, right.'];
+const PUSH_WORDS: string[] = ['Oh! Excuse me.', 'Hm? Oh, right.', 'Mind how you go.', 'Oh, I will shift.', 'Right, right.'];
 /** Put o on tile (x, y) at once (it slides there on screen) and let them find their feet; no event, no rumour. */
 function lf2Relocate(o, x, y) {
   const fx = o.x, fy = o.y;
