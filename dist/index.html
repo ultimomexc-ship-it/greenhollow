@@ -18558,6 +18558,47 @@ function bldHasDoor(cells) {
   }
   return false;
 }
+function bldExit(start, pending) {
+  const where = /* @__PURE__ */ new Map();
+  for (const g of pending) for (const k of g) where.set(k, g);
+  const groupOf = (k) => where.get(k) || (() => {
+    const r = bldFreeRoom(k % W, k / W | 0);
+    return r ? [...r.cells] : null;
+  })();
+  const seenG = /* @__PURE__ */ new Set([start]), seenR = /* @__PURE__ */ new Set(), q = [start];
+  while (q.length) {
+    const g = q.pop();
+    for (const k of g) {
+      const x = k % W, y = k / W | 0;
+      for (const [dx, dy] of BLD_D4) {
+        const dxx = x + dx, dyy = y + dy, p = lfPropAt(dxx, dyy), isDoor = p && p.kind === "bdoor" && !p.fixed || grid[dyy][dxx] === T.DOOR && doors.some((d) => d.x === dxx && d.y === dyy && rooms[d.room] && rooms[d.room].free);
+        if (!isDoor) continue;
+        const ox = dxx + dx, oy = dyy + dy;
+        if (ox < 1 || oy < 1 || ox >= W - 1 || oy >= H - 1 || bldSolid(ox, oy)) continue;
+        const ok = ox + oy * W;
+        if (where.has(ok)) {
+          const other = where.get(ok);
+          if (!seenG.has(other)) {
+            seenG.add(other);
+            q.push(other);
+          }
+          continue;
+        }
+        const fr = bldFreeRoom(ox, oy);
+        if (fr) {
+          if (!seenR.has(roomAt[oy][ox])) {
+            seenR.add(roomAt[oy][ox]);
+            q.push([...fr.cells]);
+          }
+          continue;
+        }
+        if (roomAt[oy][ox] >= 0 && !(rooms[roomAt[oy][ox]] && rooms[roomAt[oy][ox]].dead)) continue;
+        if (bldFlood(ox, oy).open) return true;
+      }
+    }
+  }
+  return false;
+}
 function bldMake(regions, dissolve) {
   const oldRooms = new Set(dissolve), blocks = /* @__PURE__ */ new Set(), bounds = { x0: 1e9, y0: 1e9, x1: -1, y1: -1 };
   for (const R of regions) for (const k of R) {
@@ -18682,7 +18723,7 @@ function bldEvaluate(spots) {
         for (const q of c.cells) seen2.add(q);
         comps.push(c.cells);
       }
-      if (!ok || comps.length < 2 || !comps.every(bldHasDoor)) continue;
+      if (!ok || comps.length < 2 || !comps.every((c) => bldExit(c, comps))) continue;
       dissolve.add(inRoom);
       for (const c of comps) regions.push(c);
       continue;
@@ -18696,10 +18737,25 @@ function bldEvaluate(spots) {
       hint = hint || "door";
       continue;
     }
+    if (!bldExit(reg.cells, [reg.cells])) {
+      hint = hint || "exit";
+      continue;
+    }
     regions.push(reg.cells);
   }
   if (!regions.length) return { made: [], hint };
-  const made = bldMake(regions, [...dissolve]);
+  let made = bldMake(regions, [...dissolve]);
+  for (let round = 0; round < 6 && made.length; round++) {
+    const ds = [];
+    for (const m of made) for (const k of m.walls) {
+      const x = k % W, y = k / W | 0;
+      if (grid[y][x] === T.DOOR) ds.push([x, y]);
+    }
+    const more = bldEvaluate(ds);
+    if (!more.made.length) break;
+    made = made.concat(more.made);
+    if (more.made.length === 0) break;
+  }
   return { made, hint };
 }
 function bldTick() {
@@ -18713,6 +18769,9 @@ function bldTick() {
     const cells = r.made.reduce((s, m) => s + m.cells.size, 0);
     chron(`${pl ? pl.first : "Somebody"} raised ${r.made.length > 1 ? r.made.length + " rooms" : "a room"} out of building blocks (${cells} tiles).`, "build");
     if (pl && pl.player) playerSay(pl, r.made.length > 1 ? "The walls close: " + r.made.length + " rooms." : "The walls close. A room!");
+  } else if (r.hint === "exit") {
+    const pl2 = game.player;
+    if (pl2 && pl2.player && spots.some((s) => Math.abs(s[0] - pl2.tx) + Math.abs(s[1] - pl2.ty) <= 6)) playerSay(pl2, "Closed in, but there is no way out: a door has to lead to the outside.");
   } else if (r.hint === "door") {
     const pl2 = game.player;
     if (pl2 && pl2.player && spots.some((s) => Math.abs(s[0] - pl2.tx) + Math.abs(s[1] - pl2.ty) <= 6)) playerSay(pl2, "Closed in, but it needs a door.");
