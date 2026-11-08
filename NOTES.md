@@ -182,3 +182,11 @@ the TrueSight ground checks the four room corners.
 Also seen: on the build before the talk pass farmers ploughed 8 plots and sowed nothing in 10 days (the Market Hall recruited them as street traders; fixed in
 `staffMarkets`); now 127 plots ploughed and sown and harvested in cycles, though resowing lags a day or two when only one farmer is about. Worth a look: more farmers
 when the fields are big, and a farmer who is ill or asleep for a day shouldn't stall a whole field.
+
+## Items and the hotbar (Nov 2026)
+Decided with the owner: Minecraft / Eye of the Beholder style inventory; Shift and crouching removed; actions explicit (talk means talk; dynamic selection maybe later);
+villagers will own real items and work just like the player (for quests, stealing, deeper talk); iron comes occasionally from breaking rocks; the smith turns ore
+straight into tools; one tool per villager for their job to start; rocks regrowing is left for later; the player starts with the whole kit while testing.
+Order: 1 item model + 2 hotbar, hand modes, bag (done) -> 3 real tools for villagers with wear, the smith and iron (with safety valves: slow wear, bare hands
+work slower rather than not at all, everyone starts with their tool, the caravan can sell iron, a long starvation test with wear on) -> 4 seed types, a garden plot,
+a seed seller -> 5 locks and lockpicks -> 6 the mill and planks.

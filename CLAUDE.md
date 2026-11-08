@@ -26,14 +26,23 @@ crime and a town watch, drawn on a canvas. The owner is hands-off with GitHub: d
 - Types are loose for now (`strict: false`, many `: any` from the JS conversion). Tighten gradually: prefer
   adding real interfaces (Person, Town, Game) over more `any`.
 
-## Controls (src/life2/controls.ts)
-One key. Walk into something and the obvious thing happens; **Shift toggles crouching** (tap on, tap off, like Caps Lock) and crouching changes what the obvious thing is.
-- **Standing:** villager -> talk; seller at their counter -> buy; barrel, crate, stool -> push it along; tree, rock -> fell it; water -> fish; berries, herbs, crops -> gather.
-- **Crouching:** villager -> push past them (they move one tile, or you swap places; harmless: no crime, no gossip); barrel, crate -> search it; trees, rocks and water are left alone ("Stand up (Shift) to ...").
-- Nothing else has a key: no Space, E, R, C or Z. Pickpocketing is gone, and so is pulling crates. The other verbs in `lf2Verbs` (steal, pick a lock, wreck, shove, give, wake, follow, distract ...) are still
-  registered in the hooks but nothing reaches them; they wait for their own standing / crouching actions. A new action means a new standing and/or crouching case in `lifeAct` (props, world) or the movement code in `player/control.ts` (people).
-- Fields: walking into untilled ground ploughs that plot; walking into a ploughed plot sows it (any plot, the player need not wait for the whole field; farmers do); ripe wheat is harvested. After an action, keep holding to walk on, or let go and press again to act on the same plot. Plots are drawn as `crop_raw` (untilled, weedy), `crop_0` (ploughed, dark furrows) and `crop_1..4` (growing, over the ploughed earth); they are `kind: 'tile'` sprites so they join without seams.
-- `p.sneak` is the state (`lf2Crouching(p)`); the crouched player is drawn low and leaning (`drawPerson`); the hint line says what walking into the thing in front of you does right now. Touch: a Crouch / Stand button.
+## Controls (src/player/items.ts, src/life2/controls.ts)
+Explicit actions: **the thing in your hand decides what walking into something does**; nothing is picked for you. No Shift, no crouching.
+- **Hand** (belt slot 1) has three modes, cycled with **Q**: **Talk** (villager -> talk; seller -> buy), **Push** (barrel, crate, stool -> push it along;
+  villager -> push them one tile, or swap places against a wall; harmless: no crime, no gossip), **Search** (barrel, crate -> search it). The hand also gathers
+  berries and herbs and throws materials onto building sites; beds, tents and the food barrel work whatever you hold.
+- **Belt** (keys **1-9**): axe (fell trees), hammer (break rocks, put up walls), hoe (plough and harvest), rod (fish), lockpicks, seeds (sow a ploughed plot; any plot,
+  the player need not wait for the whole field; farmers do). **B** opens the bag (hands, belt, bag; click to put things on or take them off the belt).
+- With the wrong thing in hand you walk on over anything walkable (a field) and are told what to hold for anything solid ("Tree: hold the axe (2)."). The hotbar's
+  facing box always says what the next bump will do. After an action, keep holding to walk on, or let go and press again to act on the same thing.
+- The model: goods stay counts in `n.inv`; tools are single things with an owner and wear (`n.items`, `itGiveTool`); lockpicks and seeds are stacks in `n.bag`;
+  `n.belt` holds 'hand', 'i<id>' or 's:<key>'; `n.sel` is the slot in hand, `n.mode` the hand mode. `itGate(n, tg, walkOn)` checks an action against the hand
+  (`itNeedOf(key)`), `itFacing(n)` describes the thing in front. For testing (`IT.kit = 'test'`) whoever you steer starts with every tool, lockpicks, three kinds
+  of seed and 100 denarii. Villagers will own real tools the same way (next step: wear, the smith, iron from rocks).
+- Plots are drawn as `crop_raw` (untilled, weedy), `crop_0` (ploughed, dark furrows) and `crop_1..4` (growing, over the ploughed earth); they are `kind: 'tile'`
+  sprites so they join without seams. A sown plot remembers its seed (`c.seed`); seed types growing differently is a later step.
+- The verbs in `lf2Verbs` (steal, pick a lock, wreck, shove, give, wake, follow ...) are still registered in the hooks but nothing reaches them yet.
+  A new action means a key in `targetAt0` / `lifeAct` plus a line in `itNeedOf` saying what must be in hand.
 
 ## Conversation (src/dialogue/cv-*.ts)
 Talking is generated from the village, not from a menu. You say whole sentences; the attitude (a joke, sympathy, an insult, a probe,
@@ -87,9 +96,9 @@ The village lives without the player: the simulation owns the truth (events), ea
 - `tests/lib.mjs` loads `dist/index.html` deterministically: seeded `Math.random`, a fake clock, frame loop
   held, the harness steps the sim (`simulate(page, minutes)`) the way the frame loop does. Same seed, same result.
 - Current suite: load and run a day, render without errors, nobody starves in 12 days (three towns),
-  the controls (Shift toggles crouching and nothing else has a key; crouching pushes people and swaps against a wall, standing talks; barrels are pushed standing and searched crouching; sleepers), conversations (specific openers, long random talks without dead ends or repeats, insults and sympathy, unlocking layers, memory, witnesses, the arrest), sim speed under 3 s per game-day (about 0.7 s now),
+  the controls (Q cycles the hand modes, 1-9 the belt, Shift and old keys do nothing; Push pushes people and swaps against a wall, Talk talks; barrels pushed in Push and searched in Search; trees need the axe; the hoe ploughs and seeds sow; sleepers), conversations (specific openers, long random talks without dead ends or repeats, insults and sympathy, unlocking layers, memory, witnesses, the arrest), sim speed under 3 s per game-day (about 0.7 s now),
   the social simulation (the pre-simulation is deterministic, fast and leaves nobody a blank slate; news spreads gradually and changes; talk uses beliefs and you can contradict a version),
-  readability and a week of freshness, the dialogue lint, every follow-up answered and ask-about, overheard small talk from real lives (33 tests, about 3 minutes).
+  readability and a week of freshness, the dialogue lint, every follow-up answered and ask-about, overheard small talk from real lives (34 tests, about 3 minutes).
 - The random stream is shared, so any change shifts every later random draw: a test that suddenly fails in one town is often exposing a real
   weakness that luck was hiding (that is how children starving with dole grain in their pockets was found). Find the cause before changing the test.
 - When behaviour changes on purpose, tests may need new expectations; when it changes by accident, they catch it.
