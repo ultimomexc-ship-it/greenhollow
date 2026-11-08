@@ -93,12 +93,6 @@ function tileTip(x, y) {
   if (!town || x < 0 || y < 0 || x >= W || y >= H) return null;
   const g = grid[y][x];
   if (g === T.TENT) { const t = (town.tents || []).find(q => q.x === x && q.y === y); return '<b>Tent</b><br>' + (t && t.owner ? esc(t.owner.first) + ' is sleeping here' : 'Free. Anyone may use it.'); }
-  const s = town.sites.find(q => q.kind !== 'road' && q.kind !== 'demolish' && x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h);
-  if (s) {
-    const nm = { house: 'House', church: 'Chapel', tavern: 'Tavern', market: 'Village green', field: 'Field', graveyard: 'Churchyard' }[s.kind] || 'Site';
-    const nd = siteNeedText(s), need = s.got && siteReqT(s) ? '<br>Delivered ' + siteGot(s) + ' of ' + siteReqT(s) + ' blocks' + (nd ? '<br><b>Still needs ' + nd + '</b>' : '') : '';
-    return '<b>' + nm + ' site</b><br>Nobody can enter until it is finished.<br>' + Math.round(100 * siteFrac(s)) + '% built' + need;
-  }
   return null;
 }
 function endPtr(e) {
@@ -183,11 +177,10 @@ function updateHud(force) {
   el('dpad').hidden = !n;
   if (!n) { if (!h.hidden) { h.hidden = true; hudSig = ''; const mh = el('maphint'); if (mh) mh.style.bottom = ''; } return; }
   const p = n.player, full = Math.round(100 - n.hunger), tone = full < 25 ? 'bad' : full < 45 ? 'warn' : '';
-  const inv = Object.entries<number>(n.inv).filter(([g, q]) => q > 0).map(([g, q]) => '<span class="chip">' + q + ' ' + (GICON[g] || g) + '</span>').join('');
   const hint = p.sleeping ? 'Sleeping. Press a movement key to get up.' : p.act ? p.act.text + '…' : n.hunger >= 60 && !foodSat(n.inv) ? 'Hungry: pick berries or fish, you eat automatically' : n.bladder >= 70 ? 'Bursting! Find a privy: walk into the seat inside one' : 'WASD to move · walk into things to use them · Q hand mode (Talk, Push, Search) · 1-9 belt · B bag';
   const sig = [full, JSON.stringify(n.inv), hint, n.status, Math.round((n.bladder || 0) / 4), Math.round((n.mood || 0) / 6)].join('|');
   if (!force && sig === hudSig) return; hudSig = sig; h.hidden = false;
-  h.innerHTML = '<span><b>' + esc(nameOf(n)) + '</b></span><span>Fullness <span class="hbar ' + tone + '"><i style="width:' + Math.max(0, full) + '%"></i></span></span>' + lifeHud(n) + (inv || '<span class="chip dim">nothing carried</span>') + '<span class="hint">' + esc(hint) + '</span>';
+  h.innerHTML = '<span><b>' + esc(nameOf(n)) + '</b></span><span>Fullness <span class="hbar ' + tone + '"><i style="width:' + Math.max(0, full) + '%"></i></span></span>' + lifeHud(n) + '<span class="hint">' + esc(hint) + '</span>';
   { const mh = el('maphint'); if (mh) mh.style.bottom = (h.offsetHeight + 18) + 'px'; }
 }
 

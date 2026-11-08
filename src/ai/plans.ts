@@ -51,23 +51,10 @@ function sellStep(n, m, g, qty) {
   return [goS(m.front, 'Carrying spare ' + GOODS[g].name + ' to the larder'),
     waitS(2, 'stand', 'Leaving ' + GOODS[g].name + ' at the larder', { onEnd(n) { const got = doSell(n, m, g, qty); if (!got) { n.avoid[m.n.id] = game.time + 90; return false; } } })];
 }
-/* where a person stands to throw onto a site: a free tile beside the footprint (or beside the next unlaid road tile) */
-function throwSpot(s, n) {
-  const ok = (x, y) => walkable(x, y) && roomAt[y][x] < 0;
-  const cand = [];
-  if (s.kind === 'road') { const t = s.route[Math.min(s.laid || 0, s.route.length - 1)]; cand.push({ x: t.x, y: t.y }); for (const [dx, dy] of DIRS) cand.push({ x: t.x + dx, y: t.y + dy }); }
-  else { for (let k = 0; k < s.w; k++) cand.push({ x: s.x + k, y: s.y - 1 }, { x: s.x + k, y: s.y + s.h }); for (let k = 0; k < s.h; k++) cand.push({ x: s.x - 1, y: s.y + k }, { x: s.x + s.w, y: s.y + k }); }
-  let best = null, bd = 1e9;
-  for (const c of cand) { if (c.x < 1 || c.y < 1 || c.x >= W - 1 || c.y >= H - 1 || !ok(c.x, c.y)) continue; const occ = tileOwner.get(tkey(c.x, c.y)); const d = Math.hypot(c.x - n.tx, c.y - n.ty) + (occ && occ !== n ? 6 : 0); if (d < bd) { bd = d; best = c; } }
-  if (!best) return { x: s.x, y: s.y - 1, face: null };
-  const tg = s.kind === 'road' ? s.route[Math.min(s.laid || 0, s.route.length - 1)] : { x: s.x + (s.w - 1) / 2, y: s.y + (s.h - 1) / 2 };
-  return { x: best.x, y: best.y, face: { dx: Math.sign(tg.x - best.x), dy: Math.abs(tg.x - best.x) > Math.abs(tg.y - best.y) ? 0 : Math.sign(tg.y - best.y) } };
-}
 function haulPlan(n) {
   const steps = [];
   const foodHave = FOODS.some(g => (n.inv[g] || 0) > 0);
   if (foodHave && n.homeRoom && pantryDays(n) < 3.5) steps.push(goS(pantrySpot, 'Taking food home'), waitS(2, 'stand', 'Stocking the pantry', { onEnd: stash }));
-  { const dm = deliverMatsPlan(n); if (dm) steps.push(...dm); }
   let sold = 0;
   for (const g of SELLABLE) {
     const q = n.inv[g] || 0; if (q < 1) continue;
@@ -151,54 +138,7 @@ function needsPlan(n) {
   return null;
 }
 
-/* ---------- community plans: funerals, weddings, building ---------- */
-function assignCrews() {}
-const SITE_PRI = { church: 0, house: 1, market: 2, tavern: 3, graveyard: 4, field: 5, road: 6, demolish: 7 };
-const KINDTXT = { wood: 'timber', stone: 'stone' };
-function slotSpot(s, q, n) {
-  let best = null, bd = 1e9;
-  const inRect = (x, y) => x >= s.x && x < s.x + s.w && y >= s.y && y < s.y + s.h;
-  for (const [dx, dy] of DIRS) {
-    const x = q.x + dx, y = q.y + dy; if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1 || !walkable(x, y) || roomAt[y][x] >= 0) continue;
-    if (!findPath(n.tx, n.ty, x, y)) continue; // a pocket nobody can get into is no use
-    const occ = tileOwner.get(tkey(x, y)), sl = slotAt(s, x, y);
-    const d = Math.hypot(x - n.tx, y - n.ty) + (occ && occ !== n ? 6 : 0) + (inRect(x, y) ? 3 : 0) + (sl && !sl.built ? 8 : 0) + (reach[y * W + x] ? 0 : 40) + (findPath(n.tx, n.ty, x, y) ? 0 : 80);
-    if (d < bd) { bd = d; best = { x, y, face: { dx: -dx, dy: -dy } }; }
-  }
-  if (!best && (q.cleared || 0) < 3) { /* hemmed in: clear the trees and boulders around it so the wall can be reached */
-    q.cleared = (q.cleared || 0) + 1; let cut = 0;
-    for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) { const x = q.x + i, y = q.y + j; if (x > 0 && y > 0 && x < W - 1 && y < H - 1 && (grid[y][x] === T.TREE || grid[y][x] === T.ROCK) && roomAt[y][x] < 0) { setT(x, y, T.GRASS); markDirty(x, y, 1, 1); cut++; } }
-    if (cut) { town.treeDirty = true; town.treeCache = null; town.stoneCache = null; if (typeof refreshReach === 'function') refreshReach(); return slotSpot(s, q, n); }
-    for (const [dx, dy] of DIRS) { const x = q.x + dx, y = q.y + dy; if (x > 0 && y > 0 && x < W - 1 && y < H - 1 && grid[y][x] === T.TREE && roomAt[y][x] < 0) { setT(x, y, T.GRASS); markDirty(x, y, 1, 1); town.treeDirty = true; town.treeCache = null; return { x, y, face: { dx: -dx, dy: -dy } }; } }
-  }
-  if (!best) { // still boxed in (a corner tucked against water or rock): reach over from a diagonal or one tile further out
-    let bd2 = 1e9;
-    for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) { if (!i && !j) continue; const x = q.x + i, y = q.y + j; if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1 || !walkable(x, y) || roomAt[y][x] >= 0 || !findPath(n.tx, n.ty, x, y)) continue; const d = Math.hypot(i, j) * 4 + Math.hypot(x - n.tx, y - n.ty); if (d < bd2) { bd2 = d; best = { x, y, face: { dx: Math.sign(q.x - x), dy: Math.abs(q.x - x) >= Math.abs(q.y - y) ? 0 : Math.sign(q.y - y) } }; } }
-  }
-  return best || { x: q.x, y: q.y - 1, face: { dx: 0, dy: 1 } };
-}
-function deliverMatsPlan(n) {
-  for (const k of ((n.inv.stone || 0) >= (n.inv.wood || 0) ? ['stone', 'wood'] : ['wood', 'stone'])) {
-    if (!(n.inv[k] > 0)) continue;
-    const s = deliverSite(n, k) || (ensureSite(k) && deliverSite(n, k)); if (!s) continue;
-    if (s.slots) {
-      const steps = [], now = game.time;
-      const free = s.slots.filter(q => !q.built && q.mat === k && (!q.claim || q.claim < now) && slotReady(s, q));
-      if (!free.length) continue;
-      let cur = { x: n.tx, y: n.ty };
-      free.sort((a, c) => Math.hypot(a.x - cur.x, a.y - cur.y) - Math.hypot(c.x - cur.x, c.y - cur.y));
-      free.slice(0, Math.min(handsMax(n), n.inv[k])).forEach(q => {
-        q.claim = now + 40;
-        steps.push(goS(nn => slotSpot(s, q, nn), 'Carrying ' + KINDTXT[k] + ' to the ' + (s.kind === 'church' ? 'chapel' : s.kind)),
-          waitS(3, 'work', 'Putting up a ' + (k === 'wood' ? 'timber' : 'stone') + ' wall', { tool: 'hammer', slot: q, onEnd(n) { if (!buildSlot(n, s, q)) { q.claim = 0; return false; } } }));
-      });
-      return steps;
-    }
-    return [goS(nn => throwSpot(s, nn), 'Carrying ' + KINDTXT[k] + ' to the building site'),
-      waitS(Math.max(1.5, Math.min(handsMax(n), n.inv[k]) * 0.8), 'work', 'Throwing ' + KINDTXT[k] + ' onto the site', { onEnd(n) { if (!throwOnSite(n, s, k)) return false; } })];
-  }
-  return null;
-}
+/* ---------- community plans: the bar ---------- */
 function barPlan(n, tod) {
   const c = town.tavern; if (!c || !c.spots.bar) return null;
   const h = tod / 60; if (h < 16.5) return null;

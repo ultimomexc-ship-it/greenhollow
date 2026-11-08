@@ -93,7 +93,6 @@ function createSite(kind, w, h, o) {
     for (let yy = y - m; yy < y + h + m; yy++) for (let xx = x - m; xx < x + w + m; xx++) town.siteAt[yy * W + xx] = site.id;
     route.forEach(t => { town.siteAt[t.y * W + t.x] = site.id; });
     if (o.clear) for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) if (grid[yy][xx] === T.TREE) { setT(xx, yy, T.GRASS); markDirty(xx, yy, 1, 1); town.treeDirty = true; town.treeCache = null; }
-    if (BUILDING[kind]) site.slots = makeSlots(site);
     if (kind === 'market') { for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) town.block[yy * W + xx] = 1; ejectFrom(x, y, w, h, site); }
     town.sites.push(site); return site;
   }
@@ -153,7 +152,6 @@ function completeSite(site, instant) {
     staffMarkets();
     return mk;
   }
-  if (site.kind === 'road') { layRoad(site, 1e9); return null; }
   if (site.kind === 'field') {
     const fid = town.nextField = (town.nextField || 0) + 1;
     for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) { setT(i, j, T.CROP); town.crops.push({ x: i, y: j, f: fid, st: 0, t0: 0, pl: 0, claim: null }); }
@@ -168,8 +166,7 @@ function completeSite(site, instant) {
     const room = site.room; room.dead = true;
     for (let j = room.y; j < room.y + room.h; j++) for (let i = room.x; i < room.x + room.w; i++) { setT(i, j, T.GRASS); roomAt[j][i] = -1; }
     doors = doors.filter(d => rooms[d.room] !== room);
-    { let sal = Math.round(perim(room.w, room.h) * 0.6); for (const st of town.sites) { if (sal < 1) break; if (st.slots) { for (const sl of st.slots) { if (sal < 1) break; if (!sl.built && !sl.door && sl.mat === 'wood') { sl.built = true; st.got.wood++; town.block[sl.y * W + sl.x] = 1; sal--; } } } else { const q = Math.min(sal, siteRem(st, 'wood')); if (q > 0) { st.got.wood += q; sal -= q; } } } } markDirty(room.x - 1, room.y - 1, room.w + 2, room.h + 2);
-    chron(`${room.name} has been taken down. The good timber is left lying about.`, 'build');
+    chron(`${room.name} has been taken down. `, 'build');
   }
 }
 const kidsAt = p => npcs.filter(k => k.age < 16 && k.homeRoom === p.homeRoom && (k.fam.mother === p.id || k.fam.father === p.id));

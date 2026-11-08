@@ -134,7 +134,6 @@ let lastHr = 0;
 function hourly(hr) {
   const h = hr % 24;
   if (h === 15) caravan();
-  if (h === 5) assignCrews();
   if (h === 0) { npcs.forEach(n => { n.lastEarn = n.dayEarn; n.dayEarn = 0; }); town.pondInfo.fishedToday = 0; dailyLife(); }
   if (h % 8 === 0) town.nodes.forEach(nd => { if (nd.amt < nd.max) nd.amt++; });
   hourlyLife(); lifeHourly(hr); lf2Hourly(hr);

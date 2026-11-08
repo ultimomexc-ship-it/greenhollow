@@ -114,7 +114,7 @@ function merchPlan(n, tod) {
 }
 function demandFor(g) {
   let v = 0; merchants.forEach(m => { const p = buyPrice(m, g); if (p > 0) v += Math.min(m.buys[g] - (m.stock[g] || 0), 12) * p; });
-  if (g === 'wood') v += siteWoodNeed() * 4 + 30;
+  if (g === 'wood') v += 30;
   if (g === 'berries') v += 20;
   return v;
 }
@@ -131,21 +131,15 @@ function foodDaysNow() {
 function pickAgenda(n) {
   if (n.cur && game.time < n.curUntil) return n.cur;
   const cnt = {}; npcs.forEach(p => { if (p !== n && p.role === 'Worker' && p.cur) cnt[p.cur] = (cnt[p.cur] || 0) + 1; });
-  const fd = foodDaysNow(), need = Math.max(0, 3.5 - fd), sh0 = shortfall(), sc: any = {};
-  const sh = { wood: sh0.wood - npcs.reduce((a, p) => a + (p.inv.wood || 0), 0), stone: sh0.stone - npcs.reduce((a, p) => a + (p.inv.stone || 0), 0) };
+  const fd = foodDaysNow(), need = Math.max(0, 3.5 - fd), sc: any = {};
   if (shoreTiles.length && fishAvail()) sc.Fisher = 5 + need * 20;
   if (farmWork()) sc.Farmer = 5 + need * 18;
   if (town.nodes.some(x => x.amt >= 1 && reach[x.y * W + x.x])) sc.Gatherer = 5 + need * 16;
-  if (sh.wood > 0 && handsUsed(n) < handsMax(n) && treeList().length) sc.Woodcutter = Math.min(80, 14 + sh.wood * 2.2);
-  if (sh.stone > 0 && handsUsed(n) < handsMax(n) && stoneList().length) sc.Stonecutter = Math.min(80, 14 + sh.stone * 3);
   { const foodOK = fd >= 3.0;
     if (foodOK) { if (sc.Fisher) sc.Fisher = 3; if (sc.Gatherer) sc.Gatherer = 3;
       const pw = town.crops.some(c => !c.claim && (!c.pl || (!c.st && c.pl && fieldPlowed(c))));
       if (pw && sc.Farmer) sc.Farmer = Math.max(sc.Farmer, 55); }
     else { const k = Math.min(1.6, 1 + (3.0 - fd) * 0.4); if (sc.Fisher) sc.Fisher *= k; if (sc.Farmer) sc.Farmer *= k; if (sc.Gatherer) sc.Gatherer *= k; } }
-  { const nearDone = k => town.sites.some(q => q.slots && siteRem(q, k) > 0 && siteRem(q, k) <= 4 && q.slots.filter(o => !o.built).length <= 4);
-    if (nearDone('wood') && treeList().length && handsUsed(n) < handsMax(n)) sc.Woodcutter = Math.max(sc.Woodcutter || 0, 75);
-    if (nearDone('stone') && stoneList().length && handsUsed(n) < handsMax(n)) sc.Stonecutter = Math.max(sc.Stonecutter || 0, 75); }
   { const pop = npcs.length, tasks = town.crops.filter(c => !c.claim && ((c.st && cropStage(c) === 4) || !c.pl || (!c.st && fieldPlowed(c)))).length;
     const capF = { Fisher: Math.max(1, Math.ceil(pop / 7)), Gatherer: Math.max(1, Math.ceil(pop / 7)), Farmer: Math.max(1, Math.ceil(tasks / 6)) };
     if (fd >= 1.5) for (const r in capF) if (sc[r] && (cnt[r] || 0) >= capF[r]) sc[r] *= 0.15; }
@@ -158,8 +152,6 @@ function pickAgenda(n) {
   }
   n.cur = best; n.curUntil = game.time + 240; return best;
 }
-/* worth walking over to the site: hands full, or what is carried is all that is still wanted */
-const matsWorthHaul = n => { const mats = handsUsed(n); if (mats < 1) return false; if (mats >= handsMax(n)) return true; const d = demand(); return (n.inv.wood || 0) + (n.inv.stone || 0) >= Math.min((n.inv.wood ? d.wood : 1e9), (n.inv.stone ? d.stone : 1e9)); };
 function workPlan(n, tod) {
   if (n.shop) return merchPlan(n, tod);
   if (n.role === 'Priest') return priestPlan(n, tod);
@@ -167,9 +159,8 @@ function workPlan(n, tod) {
   const span = awakeSpan(n), left = span - awakeFor(n, tod);
   if (n.role === 'Worker') {
     const r = pickAgenda(n);
-    const mats = (n.inv.wood || 0) + (n.inv.stone || 0);
-    if (matsWorthHaul(n)) { const hp = haulPlan(n); if (hp && hp.length) return hp; }
-    const load = carried(n) - mats, thr = { Farmer: 12, Fisher: 6, Woodcutter: 99, Stonecutter: 99, Gatherer: 8 }[r] || 8;
+    const mats = 0;
+    const load = carried(n) - ((n.inv.wood || 0) + (n.inv.stone || 0)), thr = { Farmer: 12, Fisher: 6, Woodcutter: 99, Stonecutter: 99, Gatherer: 8 }[r] || 8;
     if (load >= thr || ((load > 0 || mats > 0) && left < 200)) { if (game.time >= n.sellCool || (n.inv.wood || 0) + (n.inv.stone || 0) > 0) { const hp = haulPlan(n); if (hp && hp.length) return hp; } }
     if (r === 'Farmer') return farmPlan(n) || (n.curUntil = 0, null);
     if (r === 'Fisher') return fishPlan(n) || (n.curUntil = 0, null);

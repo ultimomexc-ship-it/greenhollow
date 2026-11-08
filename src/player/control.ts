@@ -17,14 +17,6 @@ function releasePlayer() {
 function playerSay(n, text) { n.player.msg = cvSpeak(text); n.player.msgAt = clk(); }
 const nodeAt = (x, y) => { const k = y * W + x; return town.nodes.find(nd => nd.x === x && nd.y === y && nd.amt >= 1); };
 const cropAt = (x, y) => town.crops.find(c => c.x === x && c.y === y);
-function siteAtTile(x, y) {
-  for (const s of town.sites) {
-    if (s.kind === 'road') { for (let i = s.laid || 0; i < s.route.length; i++) if (s.route[i].x === x && s.route[i].y === y) return s; continue; }
-    if (s.kind === 'demolish') continue;
-    if (x >= s.x && x < s.x + s.w && y >= s.y && y < s.y + s.h) return s;
-  }
-  return null;
-}
 function stallTrade(n, x, y) {
   const m = merchants.filter(m => Math.abs(m.front.x - n.tx) + Math.abs(m.front.y - n.ty) <= 1.5 && Math.abs(m.post.x - x) + Math.abs(m.post.y - y) <= 3)[0] || merchants.filter(m => Math.abs(m.front.x - n.tx) + Math.abs(m.front.y - n.ty) <= 1.5)[0];
   return m || null;
@@ -37,10 +29,9 @@ function targetAt0(n, x, y) {
   { const r = (town.remains || []).find(r => r.x === x && r.y === y); if (r) { const f = town.funeral; return { msg: `${r.rec.first}... ${r.rec.age} years, and now just bones. ` + (f && f.rec.id === r.id ? `The funeral is ${f.at - game.time > 60 ? 'coming' : 'soon'}.` : `There will be a funeral.`) }; } }
   // the dark wood is scenery: its old pines are not for felling
   if (g === T.TREE && wildTile(x, y)) return { msg: 'The old pines grow too thick to cut through.' };
-  if (g === T.TREE) ensureSite('wood'); if (g === T.ROCK) ensureSite('stone');
-  const full = handsUsed(n) >= handsMax(n);
-  if (g === T.TREE) return { key: 'tree' + x + ',' + y, min: 10, text: full ? 'Clearing the way' : 'Felling a tree', tool: 'axe', run(n) { if (grid[y][x] === T.TREE) { workFx('fall', x, y, n); setT(x, y, T.GRASS); markDirty(x, y, 1, 1); dropAt(x, y, 'wood'); town.treeDirty = true; town.treeCache = null; } } };
-  if (g === T.ROCK) return { key: 'rock' + x + ',' + y, min: 13, text: full ? 'Clearing the way' : 'Breaking stone', tool: 'hammer', run(n) { if (grid[y][x] === T.ROCK) { workFx('split', x, y, n); setT(x, y, T.GRASS); markDirty(x, y, 1, 1); dropAt(x, y, 'stone'); if (itRockOre(n)) playerSay(n, 'Iron ore in the rock!'); town.treeDirty = true; town.stoneCache = null; } } };
+  const full = false;   // (no carrying limit: wood and stone go into the bag)
+  if (g === T.TREE) return { key: 'tree' + x + ',' + y, min: 10, text: full ? 'Clearing the way' : 'Felling a tree', tool: 'axe', run(n) { if (grid[y][x] === T.TREE) { workFx('fall', x, y, n); setT(x, y, T.GRASS); markDirty(x, y, 1, 1); bagGet(n, 'wood'); town.treeDirty = true; town.treeCache = null; } } };
+  if (g === T.ROCK) return { key: 'rock' + x + ',' + y, min: 13, text: full ? 'Clearing the way' : 'Breaking stone', tool: 'hammer', run(n) { if (grid[y][x] === T.ROCK) { workFx('split', x, y, n); setT(x, y, T.GRASS); markDirty(x, y, 1, 1); bagGet(n, 'stone'); if (itRockOre(n)) playerSay(n, 'Iron ore in the rock!'); town.treeDirty = true; town.stoneCache = null; } } };
   if (g === T.WATER) {
     const z = town.fishZones[(n.tx >> 3) + (n.ty >> 3) * 64];
     if (!z) return { msg: 'You need to stand on the shore to fish.' };
@@ -60,26 +51,6 @@ function targetAt0(n, x, y) {
     if (c.st && st === 4) return { key: 'crop' + x + ',' + y + 'h', min: 4, text: 'Harvesting grain', tool: 'hoe', walkOn: true, run(n) { if (c.st && cropStage(c) === 4) { const h = itHarvest(n, c); playerSay(n, '+' + h.q + ' ' + h.what + (h.back ? ', +' + h.back + ' seed' : '')); } } };
     if (!c.pl) return { key: 'crop' + x + ',' + y + 'p', min: 3, text: 'Ploughing the field', tool: 'hoe', walkOn: true, run(n) { c.pl = 1; playerSay(n, 'Ploughed. Let go, then walk into it again to sow.'); } };
     if (!c.st) return { key: 'crop' + x + ',' + y + 's', min: 7, text: 'Sowing seed', tool: 'hoe', walkOn: true, run(n) { if (!c.st) { c.st = 1; c.t0 = game.time; c.byPlayer = true; playerSay(n, 'Sown'); } } };   // any ploughed plot can be sown; only the farmers wait for the whole field
-  }
-  const s = siteAtTile(x, y);
-  if (s && s.slots) {
-    const q = slotAt(s, x, y);
-    if (q && !q.built && slotReady(s, q) && q.mat === 'wood' && !(n.inv.wood > 0) && (n.inv.planks || 0) > 0) return { key: 'wall' + s.id, min: 2, slot: q, text: 'Putting up a plank wall', tool: 'hammer', repeat: true, run(n) {
-      n.inv.planks--; n.inv.wood = (n.inv.wood || 0) + 1; if (!buildSlot(n, s, q)) { n.inv.wood--; n.inv.planks++; } else playerSay(n, siteNeedText(s) ? 'Still needs ' + siteNeedText(s) : 'Finished'); } };
-    if (q && !q.built && slotReady(s, q) && (n.inv[q.mat] || 0) > 0) return { key: 'wall' + s.id, min: 3, slot: q, text: 'Putting up a ' + (q.mat === 'wood' ? 'timber' : 'stone') + ' wall', tool: 'hammer', repeat: true, run(n) {
-      if (buildSlot(n, s, q)) playerSay(n, siteNeedText(s) ? 'Still needs ' + siteNeedText(s) : 'Finished'); } };
-    if (q && !q.built && !q.door) { if (clk() - (n.player.msgAt || -99) > 40) playerSay(n, 'This wall needs ' + (q.mat === 'wood' ? 'timber' : 'stone') + '. Carry it here and walk into the gap.'); }
-    return null;
-  }
-  if (s && s.got) {
-    if ((n.inv.planks || 0) > 0 && siteRem(s, 'wood') > 0) return { key: 'throw' + s.id + 'planks', min: 1, text: 'Laying planks on the site', tool: null, repeat: true, walkOn: s.kind === 'road', run(n) {
-      n.inv.planks--; n.inv.wood = (n.inv.wood || 0) + 1; const q = throwOnSite(n, s, 'wood', 1); if (!q) { n.inv.wood--; n.inv.planks++; } else playerSay(n, siteNeedText(s) ? 'Still needs ' + siteNeedText(s) : 'Finished'); } };   // planks count as timber
-    for (const k of (n.inv.stone || 0) >= (n.inv.wood || 0) ? ['stone', 'wood'] : ['wood', 'stone']) {
-      if ((n.inv[k] || 0) > 0 && siteRem(s, k) > 0) return { key: 'throw' + s.id + k, min: 1, text: 'Throwing ' + KINDTXT[k] + ' onto the site', tool: null, repeat: true, walkOn: s.kind === 'road', run(n) {
-        const q = throwOnSite(n, s, k, 1); if (q) playerSay(n, siteNeedText(s) ? 'Still needs ' + siteNeedText(s) : 'Finished');
-      } };
-    }
-    if (s.kind !== 'road') return { msg: 'This ' + ({ market: 'village green' }[s.kind] || 'site') + ' still needs ' + (siteNeedText(s) || 'materials') + '. Bring it and walk into the site.' };
   }
   if (g === T.STALL) {
     const m = stallTrade(n, x, y);
@@ -243,13 +214,14 @@ function targetAt(n, x, y): any {
   return t;
 }
 
-/* a felled tree leaves a log and a broken boulder leaves a stone on the ground: step onto it to pick it up */
+/** wood and stone go straight into the bag, without limit */
+function bagGet(n, k) { n.inv[k] = (n.inv[k] || 0) + 1; if (n.player) playerSay(n, k === 'wood' ? '+1 wood' : '+1 stone'); }
+/* (old) a felled tree leaves a log and a broken boulder leaves a stone on the ground: step onto it to pick it up */
 function dropAt(x, y, k) { (town.drops = town.drops || []).push({ x, y, k, rt: typeof performance !== 'undefined' ? performance.now() : 0 }); }
 function pickUpDrops(n) {
   const ds = town.drops; if (!ds || !ds.length) return;
   const i = ds.findIndex(d => d.x === n.tx && d.y === n.ty); if (i < 0) return;
   const p = n.player;
-  if (handsUsed(n) >= handsMax(n)) { if (p.fullAt !== i + ':' + n.tx + ',' + n.ty) { p.fullAt = i + ':' + n.tx + ',' + n.ty; playerSay(n, 'My hands are full.'); } return; }
   const d = ds.splice(i, 1)[0]; n.inv[d.k] = (n.inv[d.k] || 0) + 1; p.fullAt = null;
   playerSay(n, d.k === 'wood' ? '+1 wood' : '+1 stone');
 }

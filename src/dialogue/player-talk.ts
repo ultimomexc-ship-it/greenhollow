@@ -94,10 +94,9 @@ function jobTalk(n, p) {
   else if (n.role === 'Barkeep') s = `I pour the drinks at ${town.tavern ? town.tavern.name : 'the tavern'} and listen. Mostly I listen.`;
   else if (n.role === 'Elder') s = anyOf([`I am retired. My hands did their share.`, `These days I watch the young ones work and tell them they are doing it wrong.`]);
   else if (n.role === 'Worker') {
-    const r = n.cur, d = demand();
-    const site = town.sites.filter(q => q.slots && siteRem(q, r === 'Stonecutter' ? 'stone' : 'wood') > 0)[0];
-    s = { Woodcutter: site ? `I cut timber. ${siteName(site)} still needs ${siteRem(site, 'wood')} logs, so I keep at the trees.` : `I cut timber when the town needs it.`,
-      Stonecutter: site ? `Stone, mostly. ${siteName(site)} needs ${siteRem(site, 'stone')} more blocks.` : `I break stone out at the rocks.`,
+    const r = n.cur;
+    s = { Woodcutter: `I cut timber when the town needs it.`,
+      Stonecutter: `I break stone out at the rocks.`,
       Fisher: `I fish. ` + (town.pondInfo && town.pondInfo.stock < town.pondInfo.cap * 0.35 ? 'The water is getting fished out, though.' : 'Good water around here.'),
       Farmer: `I work the fields. Plough, sow, wait, harvest. The field never rests, so neither do I.`,
       Gatherer: `Berries and herbs, wherever they grow. I know every bush for a mile.` }[r] || `I go where the town needs hands. Timber, stone, fish, whatever is short.`;
@@ -168,8 +167,6 @@ function townTalk(n, p) {
   if (w && !w.done) out.push(`${w.a.first} and ${w.b.first} are getting married, ${dayLabel(w.at)}. I will be there.`);
   if (f && !f.done) out.push(`The funeral for ${f.rec.first} is ${dayLabel(f.at)}. Sad times.`);
   if (fe) out.push(`There is a bonfire on the square for ${fe.why}. Bring your dancing feet.`);
-  const s = town.sites.filter(q => q.slots && q.slots.some(x => !x.built))[0];
-  if (s) { const w2 = siteRem(s, 'wood'), st = siteRem(s, 'stone'); out.push(`${siteName(s).charAt(0).toUpperCase() + siteName(s).slice(1)} is going up. It still needs ${[w2 ? w2 + ' timber' : '', st ? st + ' stone' : ''].filter(Boolean).join(' and ')}.`); }
   const fd = foodDaysNow(); out.push(fd < 1.5 ? 'Food is short. People are worried, and so am I.' : fd > 6 ? 'The pantries are full, thank goodness.' : 'We have enough to eat, for now.');
   const news = (town.chron || []).filter(c => game.time - c.time < 1.5 * 1440 && ['life', 'love', 'death', 'family'].includes(c.kind)).slice(-1)[0];
   if (news && out.length < 4) out.push(`And did you hear? ${news.text}`);
