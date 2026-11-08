@@ -481,6 +481,46 @@ test('building: pushing the last wall block into the gap closes the room once yo
   return 'last block pushed into the gap: waits for the step, then the room closes';
 }));
 
+test('building: a ring with a gap far from the last block never closes (regression: leftovers of an open flood looked closed)', await controlScene('sealgap', 41, async page => {
+  const r = await page.evaluate(() => {
+    const o = { x: town.cx + 14, y: town.cy - 20 };
+    for (let j = -1; j < 14; j++) for (let i = -1; i < 22; i++) { setT(o.x + i, o.y + j, T.GRASS); roomAt[o.y + j][o.x + i] = -1; const p = lfPropAt(o.x + i, o.y + j); if (p) { town.props = town.props.filter(q => q !== p); town.propAt.delete((o.y + j) * W + o.x + i); town.pblock[(o.y + j) * W + o.x + i] = 0; } }
+    const res = {}; const ring = []; for (let i = 0; i <= 10; i++) for (let j = 0; j <= 8; j++) if (i === 0 || j === 0 || i === 10 || j === 8) ring.push([i, j]);
+    // the east wall has a gap of three tiles; every other block (including a door) is in place
+    for (const [i, j] of ring) { if (i === 10 && j >= 3 && j <= 5) continue; lfAddProp(i === 5 && j === 8 ? 'bdoor' : 'bwall', o.x + i, o.y + j); }
+    town.bldQ = [[o.x + 5, o.y], [o.x + 1, o.y + 8], [o.x + 10, o.y + 2], [o.x + 10, o.y + 6], [o.x, o.y + 4]]; bldTick(); res.gap = rooms.filter(q => q.free && !q.dead).length;
+    // with the gap filled it closes into one room of 9 x 7 tiles
+    for (let j = 3; j <= 5; j++) lfAddProp('bwall', o.x + 10, o.y + j); town.bldQ = [[o.x + 10, o.y + 3], [o.x + 10, o.y + 4], [o.x + 10, o.y + 5]]; bldTick(); const f = rooms.filter(q => q.free && !q.dead); res.closed = f.length; res.cells = f[0] && f[0].cells.size;
+    return res;
+  });
+  check(r.gap === 0, 'a ring with a gap must not close: ' + JSON.stringify(r));
+  check(r.closed === 1 && r.cells === 63, 'filling the gap closes one 9 x 7 room: ' + JSON.stringify(r));
+  return 'gap: nothing; filled: one room of 63 tiles';
+}));
+
+test('building: random wall layouts never seal a room that leaks (fuzz; 400 layouts, every sealed room must be walled all round, diagonals included)', await controlScene('sealfuzz', 41, async page => {
+  const r = await page.evaluate(() => {
+    let seed = 12345; const R = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+    const o = { x: town.cx + 14, y: town.cy - 40 }; const bad = []; let sealed = 0;
+    const clear = () => { for (let j = -2; j < 22; j++) for (let i = -2; i < 30; i++) { setT(o.x + i, o.y + j, T.GRASS); roomAt[o.y + j][o.x + i] = -1; const p = lfPropAt(o.x + i, o.y + j); if (p) { town.props = town.props.filter(q => q !== p); town.propAt.delete((o.y + j) * W + o.x + i); town.pblock[(o.y + j) * W + o.x + i] = 0; } } for (const q of rooms) if (q.free) q.dead = true; };
+    for (let t = 0; t < 400; t++) {
+      clear(); const w = 3 + Math.floor(R() * 8), h = 3 + Math.floor(R() * 6), pos = [];
+      for (let i = 0; i <= w; i++) for (let j = 0; j <= h; j++) if (i === 0 || j === 0 || i === w || j === h) pos.push([i, j]);
+      const keep = pos.filter(() => R() > 0.12); for (let k = 0; k < Math.floor(R() * 4); k++) keep.push([Math.floor(R() * (w + 4)) - 1, Math.floor(R() * (h + 4)) - 1]);
+      const seen = new Set(), placed = []; for (const [i, j] of keep) { const k = i + ',' + j; if (seen.has(k) || i < 0 || j < 0) continue; seen.add(k); placed.push([i, j]); }
+      const dIdx = Math.floor(R() * placed.length); placed.forEach(([i, j], n) => lfAddProp(n === dIdx ? 'bdoor' : R() < 0.1 ? 'bwindow' : 'bwall', o.x + i, o.y + j));
+      const order = placed.map(p => [o.x + p[0], o.y + p[1]]).sort(() => R() - 0.5);
+      for (let k = 0; k < order.length; k += 1 + Math.floor(R() * 3)) { town.bldQ = order.slice(k, k + 1 + Math.floor(R() * 3)); bldTick(); }
+      for (const rm of rooms.filter(q => q.free && !q.dead)) { sealed++;
+        for (const k of rm.cells) { const x = k % W, y = (k / W) | 0; for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const nx = x + dx, ny = y + dy, g = grid[ny][nx]; if (rm.cells.has(nx + ny * W) || g === T.WALL || g === T.DOOR) continue; bad.push(t + ':' + (x - o.x) + ',' + (y - o.y)); } } }
+    }
+    return { sealed, bad: bad.length, first: bad.slice(0, 3) };
+  });
+  check(r.bad === 0, 'a sealed room leaked: ' + JSON.stringify(r));
+  check(r.sealed > 5, 'the fuzz should seal some rooms: ' + JSON.stringify(r));
+  return `${r.sealed} rooms sealed out of 400 random layouts, none leaking`;
+}));
+
 test('push: a sleeper rides in the bed (and a sitter in the chair), out of the door into the world; they wake up outside; the bed stays theirs', await controlScene('rider', 41, async page => {
   const r = await page.evaluate(() => {
     const hs = rooms.find(q => !q.dead && q.kind === 'house' && q.seats.length && q.beds.length && q.barrel && q.side === 'b'), P = game.player; P.mode = 'push'; P.sel = 0;
