@@ -355,6 +355,26 @@ test('push: furniture can be pushed out of the door (it becomes a loose thing) a
   return 'chair: inside -> door (loose) -> outside -> back in (furniture again, the room\'s list restored)';
 }));
 
+test('push: a table can be pushed inside a house (never out of the door, never so the house is cut off)', await controlScene('table', 41, async page => {
+  const r = await page.evaluate(() => {
+    const P = game.player; P.mode = 'push'; P.sel = 0; const res = { tried: 0, moved: 0, bad: [] };
+    for (const hs of rooms.filter(q => !q.dead && q.kind === 'house')) for (let y = hs.y + 1; y < hs.y + hs.h - 1; y++) for (let x = hs.x + 1; x < hs.x + hs.w - 1; x++) {
+      if (grid[y][x] !== T.TABLE || res.moved >= 3) continue;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const f = pushFurniture(x, y); if (!f || f.type !== 'table' || !pushFurnitureOK(f, x + dx, y + dy)) continue;
+        __place(P, x - dx, y - dy, { dx, dy }); res.tried++; const out = lf2PushLine(P, x, y, dx, dy);
+        if (out === true) { res.moved++; if (!(grid[y + dy][x + dx] === T.TABLE && (grid[y][x] === T.FLOOR || grid[y][x] === T.RUG || grid[y][x] === T.TABLE))) res.bad.push('tile'); }
+        break;
+      }
+    }
+    const hs = rooms.find(q => !q.dead && q.kind === 'house'); const t = pushFurniture(hs.doorX, hs.doorY - 1); res.door = t && t.type === 'table' ? pushFurnitureOK(t, hs.doorX, hs.doorY) : 'n/a';
+    return res;
+  });
+  check(r.moved > 0 && r.bad.length === 0, 'a table should move one tile in a house: ' + JSON.stringify(r));
+  check(r.door === false || r.door === 'n/a', 'a table must not go out of the door');
+  return `${r.moved} tables pushed (${r.tried} tried)`;
+}));
+
 test('push: a sleeper rides in the bed (and a sitter in the chair), out of the door into the world; they wake up outside; the bed stays theirs', await controlScene('rider', 41, async page => {
   const r = await page.evaluate(() => {
     const hs = rooms.find(q => !q.dead && q.kind === 'house' && q.seats.length && q.beds.length && q.barrel && q.side === 'b'), P = game.player; P.mode = 'push'; P.sel = 0;

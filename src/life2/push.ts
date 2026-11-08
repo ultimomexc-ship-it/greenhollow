@@ -12,11 +12,12 @@ const LF_ROCK_ART = ['boulder_0', 'boulder_1', 'boulder_2', 'boulder_3'];
 Object.assign(LF_NOUN, { rock: 'rock' });
 /** how a loose thing is drawn (a chair or bed pushed out of a house keeps its look) */
 const lfPropArt = pr => pr.kind === 'rock' ? LF_ROCK_ART[(pr.v || 0) & 3] : pr.kind === 'chair' ? 'seat_down' : pr.kind === 'bed' ? 'bed_head_up_' + ((pr.v || 0) % 5) : (LF_ART[pr.kind] || 'crate');
-const PUSH_FURNITURE = new Set([T.SEAT, T.BED, T.BARREL]);
+const PUSH_FURNITURE = new Set([T.SEAT, T.BED, T.BARREL, T.TABLE]);
 const pushRoomOf = (x, y) => { const i = roomAt[y] && roomAt[y][x]; return i != null && i >= 0 ? rooms[i] : null; };
 /** the light furniture standing on this tile (a house or tavern chair, bed or the family barrel), or null */
 function pushFurniture(x, y) {
   const g = grid[y] && grid[y][x]; if (!PUSH_FURNITURE.has(g)) return null; const r = pushRoomOf(x, y); if (!r || r.dead || r.kind === 'privy' || r.kind === 'church' || r.kind === 'jail') return null;
+  if (g === T.TABLE) return r.kind === 'house' || r.kind === 'tavern' ? { type: 'table', t: g, r, o: { x, y } } : null;   // (a table has no record of its own: it is just its tile)
   if (g === T.SEAT) { const s = (r.seats || []).find(q => q.x === x && q.y === y && !q.out); return s ? { type: 'seat', t: g, r, o: s } : null; }
   if (g === T.BED) { const b = (r.beds || []).find(q => q.x === x && q.y === y && !q.out); return b ? { type: 'bed', t: g, r, o: b } : null; }
   if (r.barrel && !r.barrel.out && r.barrel.x === x && r.barrel.y === y) return { type: 'barrel', t: g, r, o: r.barrel };
@@ -38,7 +39,7 @@ function pushLooseOK(nx, ny, ignoreOwner?) {
 /** can this bit of furniture go to (nx, ny)? Within its room, onto bare floor or a rug; or onto the doorway, which takes it outside (it becomes a loose thing). */
 function pushFurnitureOK(f, nx, ny, ignoreOwner?) {
   const r = f.r;
-  if (nx === r.doorX && ny === r.doorY) return pushLooseOK(nx, ny, ignoreOwner);          // out of the door
+  if (nx === r.doorX && ny === r.doorY) return f.type !== 'table' && pushLooseOK(nx, ny, ignoreOwner);          // out of the door
   if (pushRoomOf(nx, ny) !== r || nx <= r.x || nx >= r.x + r.w - 1 || ny <= r.y || ny >= r.y + r.h - 1) return false;
   if (!ignoreOwner && tileOwner.get(ny * W + nx)) return false;
   const g = grid[ny][nx]; if (g !== T.FLOOR && g !== T.RUG) return false; if (lfPropAt(nx, ny)) return false;
@@ -47,6 +48,8 @@ function pushFurnitureOK(f, nx, ny, ignoreOwner?) {
 }
 /** after laying the furniture out like this, can every seat, bed and the pantry still be reached from the door? (only a barrel blocks; chairs and beds are walked over) */
 function pushRoomConnected(r, moves: [number, number, number, number][]) {
+  const tm = moves.filter(m => grid[m[1]][m[0]] === T.TABLE);   // tables are just tiles: lay them out in the grid for the check, then put them back
+  if (tm.length) { const cells = tm.flatMap(m => [[m[0], m[1]], [m[2], m[3]]]).map(([x, y]) => [x, y, grid[y][x]]); for (const m of tm) grid[m[1]][m[0]] = T.FLOOR; for (const m of tm) grid[m[3]][m[2]] = T.TABLE; const ok = pushRoomConnected(r, moves.filter(m => !tm.includes(m))); for (const [x, y, g] of cells.reverse()) grid[y][x] = g; return ok; }
   const inside = (x, y) => x > r.x && x < r.x + r.w - 1 && y > r.y && y < r.y + r.h - 1, b = r.barrel && !r.barrel.out ? r.barrel : null, mb = b && moves.find(m => m[0] === b.x && m[1] === b.y), leaving = m => !(m[2] > r.x && m[2] < r.x + r.w - 1 && m[3] > r.y && m[3] < r.y + r.h - 1);
   const barrel = b ? (mb && !leaving(mb) ? [mb[2], mb[3]] : mb ? null : [b.x, b.y]) : null, key = (x, y) => y * W + x;
   const blocked = (x, y) => (BLOCKED.has(grid[y][x]) && grid[y][x] !== T.BARREL) || (barrel && barrel[0] === x && barrel[1] === y) || (grid[y][x] === T.BARREL && !(b && b.x === x && b.y === y));
