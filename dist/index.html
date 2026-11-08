@@ -13738,17 +13738,14 @@ function targetAt0(n, x, y) {
       town.stoneCache = null;
     }
   } };
-  if (g === T.WALL && town.bldWall && town.bldWall.has(y * W + x)) return { key: "wall" + x + "," + y, min: 9, text: "Knocking out a wall block", tool: "hammer", run(n2) {
+  if (bldHammerWall(x, y)) return { key: "wall" + x + "," + y, min: 9, text: "Knocking out a wall block", tool: "hammer", run(n2) {
     bldBreak(x, y, n2);
-    playerSay(n2, "The block is gone.");
+    playerSay(n2, "Gone.");
   } };
-  if (g === T.WALL && roomAt[y][x] >= 0) {
-    const hr = rooms[roomAt[y][x]];
-    if (hr && !hr.free && !hr.dead && hr.kind === "house") return { key: "wall" + x + "," + y, min: 14, text: "Pulling down the house", tool: "hammer", run(n2) {
-      bldDemolishHouse(hr, n2);
-      playerSay(n2, "The house comes down.");
-    } };
-  }
+  if ((g === T.TABLE || g === T.BARREL || g === T.BED || g === T.SEAT) && typeof pushFurniture === "function" && typeof itHeld === "function" && itHeld(n).kind === "hammer" && pushFurniture(x, y)) return { key: "wallf" + x + "," + y, min: 6, text: "Smashing the furniture", tool: "hammer", run(n2) {
+    bldDeleteFurniture(x, y);
+    playerSay(n2, "Gone.");
+  } };
   if (g === T.WATER) {
     const z = town.fishZones[(n.tx >> 3) + (n.ty >> 3) * 64];
     if (!z) return { msg: "You need to stand on the shore to fish." };
@@ -17728,6 +17725,10 @@ function lifeAct(n, p, fx, fy, dx, dy) {
   if (pr && pr.kind === "rock" && itHeld(n).kind === "hammer") return { key: "rock" + pr.id + "p", min: 13, text: "Breaking stone", tool: "hammer", run(nn) {
     lf2BreakRock(nn, pr);
   } };
+  if (pr && !pr.fixed && pr.kind !== "rock" && itHeld(n).kind === "hammer") return { key: "wallp" + pr.id, min: 5, text: "Smashing the " + (LF_NOUN[pr.kind] || "thing"), tool: "hammer", run(nn) {
+    bldDeleteProp(pr);
+    playerSay(nn, "Gone.");
+  } };
   if (itHand(n, "push")) {
     const r = lf2PushLine(n, fx, fy, dx, dy);
     if (r === true) return null;
@@ -18832,7 +18833,7 @@ function bldDissolve(list) {
 }
 function bldBreak(x, y, by) {
   const k = x + y * W;
-  if (!town.bldWall || !town.bldWall.has(k)) return false;
+  town.bldWall = town.bldWall || /* @__PURE__ */ new Map();
   const aff = /* @__PURE__ */ new Set();
   for (const [dx, dy] of BLD_D8) {
     const r = bldFreeRoom(x + dx, y + dy);
@@ -18847,6 +18848,7 @@ function bldBreak(x, y, by) {
   town.bldWall.delete(k);
   if (town.win) town.win.delete(k);
   markDirty(x - 1, y - 1, 3, 3);
+  town.treeDirty = true;
   if (by) workFx("split", x, y, by);
   let spots = [[x, y]].concat(bldDissolve([...aff]));
   bldEvaluate(spots);
@@ -18864,57 +18866,58 @@ function bldBreak(x, y, by) {
   chron(`${by ? by.first : "Somebody"} knocked a block out of a wall${after < before ? before - after > 1 ? ", and " + (before - after) + " rooms fell apart" : ", and a room fell apart" : ""}.`, "build");
   return true;
 }
-function bldDemolishHouse(r, by) {
-  if (!r || r.dead || r.free || r.kind !== "house") return false;
-  const ri2 = rooms.indexOf(r);
-  r.dead = true;
-  const out = (x, y, kind, extra) => {
-    if (lfPropAt(x, y)) return null;
-    const p = lfAddProp(kind, x, y);
-    if (kind === "bed") p.v = Math.floor(Math.random() * 5);
-    if (extra) Object.assign(p, extra);
-    return p;
-  };
-  for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
-    if (roomAt[y][x] !== ri2) continue;
-    const t = grid[y][x];
-    if (t === T.WALL || t === T.DOOR) {
-      const win = t === T.WALL && y === r.y && x !== r.x && x !== r.x + r.w - 1 && x !== r.doorX && (x - r.x) % 3 === 2;
-      setT(x, y, T.GRASS);
-      roomAt[y][x] = -1;
-      out(x, y, t === T.DOOR ? "bdoor" : win ? "bwindow" : "bwall");
-      continue;
+function bldHammerWall(x, y) {
+  if (grid[y][x] !== T.WALL) return false;
+  if (town.bldWall && town.bldWall.has(x + y * W)) return true;
+  const i = roomAt[y][x], r = i >= 0 ? rooms[i] : null;
+  return !!r && !r.dead && !r.free && r.kind === "house";
+}
+function bldDeleteProp(pr) {
+  if (!pr || pr.fixed || !town.props.includes(pr)) return false;
+  town.pblock[pr.y * W + pr.x] = 0;
+  town.propAt.delete(pr.y * W + pr.x);
+  town.props = town.props.filter((q) => q !== pr);
+  town.lfPV = (town.lfPV || 0) + 1;
+  if (pr.rider) {
+    pr.rider = null;
+  }
+  if (pr.fur) {
+    const o = pr.fur.o;
+    if (o) o.gone = true;
+  }
+  if (pr.fur && pr.fur.r) {
+    const r = pr.fur.r;
+    r.beds = (r.beds || []).filter((b) => b !== pr.fur.o);
+    r.seats = (r.seats || []).filter((b) => b !== pr.fur.o);
+  }
+  if (typeof refreshReach === "function") refreshReach();
+  return true;
+}
+function bldDeleteFurniture(x, y) {
+  const f = typeof pushFurniture === "function" ? pushFurniture(x, y) : null;
+  if (!f) return false;
+  const r = f.r, o = f.o;
+  if (f.type === "bed") {
+    r.beds = r.beds.filter((b) => b !== o);
+    for (const n of npcs) if (n.bed === o) {
+      n.bed = { owner: null };
+      n.homeless = true;
+      abortPlan(n);
     }
-    setT(x, y, T.GRASS);
-    roomAt[y][x] = -1;
-    if (t === T.BED) {
-      const b = (r.beds || []).find((q) => q.x === x && q.y === y);
-      out(x, y, "bed", { ownerId: b && b.owner ? b.owner.id : null });
-    } else if (t === T.SEAT) out(x, y, "chair");
-    else if (t === T.TABLE) out(x, y, "table");
-    else if (t === T.BARREL) out(x, y, "barrel", { pantry: r.pantry });
+  } else if (f.type === "seat") {
+    r.seats = r.seats.filter((b) => b !== o);
+    for (const n of npcs) if (n.seat === o) n.seat = null;
+  } else if (f.type === "barrel") {
+    o.out = true;
+    o.gone = true;
   }
-  doors = doors.filter((d) => rooms[d.room] !== r);
-  for (const n of npcs) if (n.homeRoom === r) {
-    n.homeRoom = null;
-    n.bed = { owner: null };
-    n.seat = null;
-    n.homeless = true;
-    abortPlan(n);
-  }
-  town.props = town.props.filter((p) => !(p.fur && p.fur.r === r));
-  r.beds = [];
-  r.seats = [];
-  if (typeof syncTents === "function") {
-    town.tents = town.tents || [];
-    syncTents();
-  }
-  markDirty(r.x - 1, r.y - 1, r.w + 2, r.h + 2);
+  setT(x, y, T.FLOOR);
+  markDirty(x, y, 1, 1);
   town.gridV = (town.gridV || 0) + 1;
   town.lfPV = (town.lfPV || 0) + 1;
   if (typeof refreshReach === "function") refreshReach();
   rebuildOcc();
-  chron(`${by ? by.first : "Somebody"} pulled down ${r.name}.`, "build");
+  if (typeof syncTents === "function" && town.tents) syncTents();
   return true;
 }
 const lf2PersonOK = (x, y) => {
@@ -19126,6 +19129,8 @@ function itFacing(n) {
     return { what: (yi ? yi.name : "Stand") + " stand", verb: "Take one (free)", need: "talk" };
   }
   if (pr && pr.kind === "rock" && itHeld(n).kind === "hammer") return { what: "Loose rock", verb: "Break", need: "hammer" };
+  if (pr && !pr.fixed && pr.kind !== "rock" && itHeld(n).kind === "hammer") return { what: cvCap(LF_NOUN[pr.kind]), verb: "Smash", need: "hammer" };
+  if ((g === T.TABLE || g === T.BARREL || g === T.BED || g === T.SEAT) && itHeld(n).kind === "hammer" && typeof pushFurniture === "function" && pushFurniture(x, y)) return { what: cvCap(LF_NOUN[g === T.TABLE ? "table" : g === T.BARREL ? "barrel" : g === T.BED ? "bed" : "chair"]), verb: "Smash", need: "hammer" };
   if (pr) {
     const nm = cvCap(LF_NOUN[pr.kind]);
     return hand && mode === "search" ? { what: nm, verb: "Search", need: "search" } : { what: nm, verb: "Push", need: "push" };
@@ -19139,8 +19144,7 @@ function itFacing(n) {
     if (fu) return { what: cvCap(fu.type === "seat" ? "chair" : fu.type), verb: "Push", need: "push" };
   }
   if (g === T.ROCK && hand && mode === "push") return { what: "Rock", verb: "Push", need: "push" };
-  if (g === T.WALL && town.bldWall && town.bldWall.has(y * W + x)) return { what: "Wall block", verb: "Break", need: "hammer" };
-  if (g === T.WALL && roomAt[y][x] >= 0 && rooms[roomAt[y][x]] && !rooms[roomAt[y][x]].free && !rooms[roomAt[y][x]].dead && rooms[roomAt[y][x]].kind === "house") return { what: "House wall", verb: "Pull the house down", need: "hammer" };
+  if (g === T.WALL && bldHammerWall(x, y)) return { what: "Wall block", verb: "Break", need: "hammer" };
   if (g === T.TREE) return { what: "Tree", verb: "Fell", need: "axe" };
   if (g === T.ROCK) return { what: "Rock", verb: "Break", need: "hammer" };
   if (g === T.WATER) return { what: "Water", verb: "Fish", need: "rod" };
