@@ -197,3 +197,12 @@ least 0.45 days and four workers have no trade (the Miller fells his own logs; l
 Found on the way: barrels in the sawmill sealed off the saw bench whenever the door was on the top side; the furniture now leaves both ends clear.
 Next ideas: tools of the wrong kind for a villager's day task could slow them; steal tools from homes (Search in a house) and have owners notice;
 quests from the tool economy (a lost axe, iron for the smith); seeds for villagers' own gardens.
+
+## Sokoban pushing (Nov 2026)
+Asked for: pushed things move at the player's pace, chain pushing, pushable rocks to build with, pushing through doorways into houses, movable light furniture.
+Done in `life2/push.ts`: a pushed thing is drawn following the player's step (constant one-tile gap, measured to within 0.02 across a three-piece line); lines of up to
+three; rocks turn into loose rocks; loose things may cross a doorway; chairs, beds and the family barrel move inside their room with the room's lists, the bed owner's
+`n.bed` and the pantry spot moving with them, refused when somebody is using the piece or when it would cut a seat, bed or the pantry off from the door.
+Not done / ideas: tables are not movable; furniture cannot leave its room; loose rocks are not quarried by stonecutters; NPCs do not tidy rearranged furniture
+(they carry on, but a plan made before a move may walk to the old spot); a door with a crate on it is handled by the old trapped-villager rescue; pushing onto a
+site could count as delivering materials.

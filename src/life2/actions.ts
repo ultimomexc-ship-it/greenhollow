@@ -69,10 +69,15 @@ function lf2AfterPush(n, pr) {
 function lifeAct(n, p, fx, fy, dx, dy) {
   for (const f of LF2.pre) { const r = f.player && f.player(n, p, fx, fy, dx, dy); if (r) return r; }
   const pr = lfPropAt(fx, fy);
+  if (pr && pr.kind === 'rock' && itHeld(n).kind === 'hammer') return { key: 'rock' + pr.id + 'p', min: 13, text: 'Breaking stone', tool: 'hammer', run(nn) { lf2BreakRock(nn, pr); } };   // a loose rock: the hammer breaks it
+  if (itHand(n, 'push')) {   // Push: push it, or the line of things it heads (life2/push.ts); against a wall a lone crate swaps places with you
+    const r = lf2PushLine(n, fx, fy, dx, dy); if (r === true) return null;
+    if (r) { if (pr && !lfPropAt(fx + dx, fy + dy) && lf2Swap(n, pr)) return { msg: '' }; return { msg: r }; }
+  }
   if (pr) {
     const label = LF_NOUN[pr.kind];
     const mode = itHand(n) ? itMode(n) : null;
-    if (mode === 'push') { if (lfPush(pr, dx, dy, n)) { lf2AfterPush(n, pr); return null; } if (lf2Swap(n, pr)) return { msg: '' }; return { msg: 'The ' + label + ' won\'t budge.' }; }   // Push: push it
+    if (mode === 'push') return { msg: 'The ' + label + ' won\'t budge.' };
     if (mode === 'search') { if (pr.loot === null && (pr.lootDay || 0) >= Math.floor(game.time / 1440) - 1) return game.time - (pr.searchedT || -99) < 4 ? null : { msg: 'You\'ve already been through this ' + label + '.' };
       return { key: 'search' + pr.id, min: 5, text: 'Searching the ' + label, tool: 'pick', run(nn) { lf2Search(nn, pr); } }; }   // Search: search it
     return { msg: 'The ' + label + ': ' + itWant(n, 'push') };

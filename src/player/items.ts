@@ -76,8 +76,11 @@ function itFacing(n): { what: string; verb: string; need: string | null } | null
   const { x, y } = lf2Front(n); if (x < 0 || y < 0 || x >= W || y >= H) return null;
   const o = lf2Occ(x, y, n), pr = lfPropAt(x, y), g = grid[y][x], c = cropAt(x, y), mode = itMode(n), hand = itHeld(n).kind === 'hand';
   if (o) return o.pose === 'sleep' ? { what: o.first, verb: 'asleep', need: null } : hand && mode === 'push' ? { what: o.first, verb: 'Push past', need: 'push' } : { what: o.first, verb: 'Talk', need: 'talk' };
+  if (pr && pr.kind === 'rock' && itHeld(n).kind === 'hammer') return { what: 'Loose rock', verb: 'Break', need: 'hammer' };
   if (pr) { const nm = cvCap(LF_NOUN[pr.kind]); return hand && mode === 'search' ? { what: nm, verb: 'Search', need: 'search' } : { what: nm, verb: 'Push', need: 'push' }; }
   if (g === T.DOOR && typeof lf2DoorRoom === 'function' && LF2.on('nightlocks') && lf2Night()) { const r = lf2DoorRoom(x, y); if (r && r.kind === 'house' && r !== n.homeRoom && r.unbarred !== dayN() + ':' + n.id && !lf2InRoom(n, r)) return { what: r.name + ', barred', verb: 'Pick the lock', need: 'lockpick' }; }
+  if (hand && mode === 'push' && typeof pushFurniture === 'function') { const fu = pushFurniture(x, y); if (fu) return { what: cvCap(fu.type === 'seat' ? 'chair' : fu.type), verb: 'Push', need: 'push' }; }
+  if (g === T.ROCK && hand && mode === 'push') return { what: 'Rock', verb: 'Push', need: 'push' };
   if (g === T.TREE) return { what: 'Tree', verb: 'Fell', need: 'axe' }; if (g === T.ROCK) return { what: 'Rock', verb: 'Break', need: 'hammer' };
   if (g === T.WATER) return { what: 'Water', verb: 'Fish', need: 'rod' };
   if (c) { const st = c.st ? cropStage(c) : 0; return !c.pl ? { what: 'Field', verb: 'Plough', need: 'hoe' } : c.st && st === 4 ? { what: 'Ripe ' + (c.seed || 'wheat'), verb: 'Harvest', need: 'hoe' } : c.st ? { what: cvCap(c.seed || 'wheat'), verb: 'growing', need: null } : { what: 'Ploughed field', verb: 'Sow', need: 'seed' }; }
