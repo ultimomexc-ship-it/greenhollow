@@ -445,6 +445,9 @@ test('building: blocks close into rooms of any shape (L-shape, a door needed, no
     // 6. a partition across the room (and a door in it) splits it in two
     const part = [[1, 4], [2, 4], [3, 4]]; for (const [i, j] of part) lfAddProp(i === 2 ? 'bdoor' : 'bwall', o.x + i, o.y + j); run(part.map(c => [o.x + c[0], o.y + c[1]])); const live = rooms.filter(q => q.free && !q.dead);
     res.split = { rooms: rooms0() - 2, dead: A.dead, cells: live.filter(q => q.cells.has(o.x + 2 + (o.y + 2) * W) || q.cells.has(o.x + 2 + (o.y + 5) * W)).length };
+    // 6b. a berry bush inside a ring does not stop it closing; the bush is cleared away (it blocked the church ring in play)
+    const Bn = { x: o.x + 30, y: o.y }; const bring = ringOf([[1, 1], [2, 1], [3, 1]]); town.nodes.push({ x: Bn.x + 2, y: Bn.y + 1, kind: 'berry', amt: 3, max: 6 }); town.nodeMap.set((Bn.y + 1) * W + Bn.x + 2, town.nodes[town.nodes.length - 1]);
+    put(Bn.x, Bn.y, bring, '2,2'); run(bring.map(c => [Bn.x + c[0], Bn.y + c[1]])); res.bush = { rooms: rooms0() - 2 - 0, gone: !town.nodeMap.has((Bn.y + 1) * W + Bn.x + 2) };
     // 7. not on the yard's pad
     const pad = town.builder.pad; const pc = { x: pad.x + 1, y: pad.y }; res.pad = bldOnPad(pc.x, pc.y);
     return res;
@@ -454,6 +457,7 @@ test('building: blocks close into rooms of any shape (L-shape, a door needed, no
   check(r.noDoor === 0 && r.withDoor === 1 && r.win, 'a closed square needs a door; a window block in a straight wall becomes a window: ' + JSON.stringify([r.noDoor, r.withDoor, r.win]));
   check(r.diag === 0, 'walls meeting only at a corner must not close anything');
   check(r.tree === 0, 'a tree inside refuses to seal');
+  check(r.bush.gone, 'a berry bush inside is cleared when the room closes: ' + JSON.stringify(r.bush));
   check(r.lone.loose && r.lone.rooms === 0, 'a lone block inside a room stays loose: ' + JSON.stringify(r.lone));
   check(r.split.rooms === 1 && r.split.dead && r.split.cells === 2, 'a partition with a door splits the room in two: ' + JSON.stringify(r.split));
   check(r.pad, 'the delivery pad is off limits');
