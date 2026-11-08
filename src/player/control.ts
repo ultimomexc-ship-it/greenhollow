@@ -32,6 +32,7 @@ function targetAt0(n, x, y) {
   const full = false;   // (no carrying limit: wood and stone go into the bag)
   if (g === T.TREE) return { key: 'tree' + x + ',' + y, min: 10, text: full ? 'Clearing the way' : 'Felling a tree', tool: 'axe', run(n) { if (grid[y][x] === T.TREE) { workFx('fall', x, y, n); setT(x, y, T.GRASS); markDirty(x, y, 1, 1); bagGet(n, 'wood'); town.treeDirty = true; town.treeCache = null; } } };
   if (g === T.ROCK) return { key: 'rock' + x + ',' + y, min: 13, text: full ? 'Clearing the way' : 'Breaking stone', tool: 'hammer', run(n) { if (grid[y][x] === T.ROCK) { workFx('split', x, y, n); setT(x, y, T.GRASS); markDirty(x, y, 1, 1); bagGet(n, 'stone'); if (itRockOre(n)) playerSay(n, 'Iron ore in the rock!'); town.treeDirty = true; town.stoneCache = null; } } };
+  if (g === T.WALL && town.bldWall && town.bldWall.has(y * W + x)) return { key: 'wall' + x + ',' + y, min: 9, text: 'Knocking out a wall block', tool: 'hammer', run(n) { bldBreak(x, y, n); playerSay(n, 'The block is gone.'); } };   // (only walls built from blocks: the village's own are left alone for now)
   if (g === T.WATER) {
     const z = town.fishZones[(n.tx >> 3) + (n.ty >> 3) * 64];
     if (!z) return { msg: 'You need to stand on the shore to fish.' };

@@ -498,10 +498,10 @@ test('building: a ring with a gap far from the last block never closes (regressi
   return 'gap: nothing; filled: one room of 63 tiles';
 }));
 
-test('building: random wall layouts never seal a room that leaks (fuzz; 400 layouts, every sealed room must be walled all round, diagonals included)', await controlScene('sealfuzz', 41, async page => {
+test('building: random wall layouts never seal a room that leaks (fuzz; 400 layouts, blocks knocked out of them: every room left standing must be walled all round, diagonals included, and have a way out)', await controlScene('sealfuzz', 41, async page => {
   const r = await page.evaluate(() => {
     let seed = 12345; const R = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
-    const o = { x: town.cx + 14, y: town.cy - 40 }; const bad = []; let sealed = 0;
+    const o = { x: town.cx + 14, y: town.cy - 40 }; const bad = []; let sealed = 0, made = 0;
     const clear = () => { for (let j = -2; j < 22; j++) for (let i = -2; i < 30; i++) { setT(o.x + i, o.y + j, T.GRASS); roomAt[o.y + j][o.x + i] = -1; const p = lfPropAt(o.x + i, o.y + j); if (p) { town.props = town.props.filter(q => q !== p); town.propAt.delete((o.y + j) * W + o.x + i); town.pblock[(o.y + j) * W + o.x + i] = 0; } } for (const q of rooms) if (q.free) q.dead = true; };
     for (let t = 0; t < 400; t++) {
       clear(); const w = 3 + Math.floor(R() * 8), h = 3 + Math.floor(R() * 6), pos = [];
@@ -511,14 +511,16 @@ test('building: random wall layouts never seal a room that leaks (fuzz; 400 layo
       const dIdx = Math.floor(R() * placed.length); placed.forEach(([i, j], n) => lfAddProp(n === dIdx ? 'bdoor' : R() < 0.1 ? 'bwindow' : 'bwall', o.x + i, o.y + j));
       const order = placed.map(p => [o.x + p[0], o.y + p[1]]).sort(() => R() - 0.5);
       for (let k = 0; k < order.length; k += 1 + Math.floor(R() * 3)) { town.bldQ = order.slice(k, k + 1 + Math.floor(R() * 3)); bldTick(); }
+      made += rooms.filter(q => q.free && !q.dead).length;
+      for (let b = 0; b < 1 && town.bldWall && town.bldWall.size; b++) { const keys = [...town.bldWall.keys()]; const k = keys[Math.floor(R() * keys.length)]; bldBreak(k % W, (k / W) | 0); }   // (then knock a few blocks out: whatever stands must still be closed and have a way out)
       for (const rm of rooms.filter(q => q.free && !q.dead)) { sealed++; if (!bldExit([...rm.cells], [])) bad.push(t + ':noexit');
         for (const k of rm.cells) { const x = k % W, y = (k / W) | 0; for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const nx = x + dx, ny = y + dy, g = grid[ny][nx]; if (rm.cells.has(nx + ny * W) || g === T.WALL || g === T.DOOR) continue; bad.push(t + ':' + (x - o.x) + ',' + (y - o.y)); } } }
     }
-    return { sealed, bad: bad.length, first: bad.slice(0, 3) };
+    return { sealed, made, bad: bad.length, first: bad.slice(0, 3) };
   });
   check(r.bad === 0, 'a sealed room leaked: ' + JSON.stringify(r));
-  check(r.sealed > 5, 'the fuzz should seal some rooms: ' + JSON.stringify(r));
-  return `${r.sealed} rooms sealed out of 400 random layouts, none leaking`;
+  check(r.made > 5, 'the fuzz should seal some rooms: ' + JSON.stringify(r));
+  return `${r.made} rooms sealed out of 400 random layouts, blocks knocked out of them (${r.sealed} left standing), none leaking or stranded`;
 }));
 
 test('building: every room needs a way out to the open world (two rooms with a door only between them never seal; an outside door seals both)', await controlScene('sealexit', 41, async page => {
@@ -537,6 +539,34 @@ test('building: every room needs a way out to the open world (two rooms with a d
   check(r.none === 0, 'two rooms joined only to each other have no way out and must not seal: ' + JSON.stringify(r));
   check(r.both === 2 && r.exits, 'with a door to the outside both rooms close: ' + JSON.stringify(r));
   return 'no exit: nothing sealed; outside door: both rooms sealed, each with a way out';
+}));
+
+test('building: the hammer knocks out one built block; a closed room carries on (two rooms merge), an open one falls apart into loose blocks, and replacing the block closes it again', await controlScene('demolish', 41, async page => {
+  const r = await page.evaluate(() => {
+    const res = {}, O = { x: town.cx + 14, y: town.cy - 30 };
+    const clear = () => { for (let j = -2; j < 12; j++) for (let i = -2; i < 24; i++) { for (const q of rooms) if (q.free) q.dead = true; setT(O.x + i, O.y + j, T.GRASS); roomAt[O.y + j][O.x + i] = -1; const p = lfPropAt(O.x + i, O.y + j); if (p) { town.props = town.props.filter(q => q !== p); town.propAt.delete((O.y + j) * W + O.x + i); town.pblock[(O.y + j) * W + O.x + i] = 0; } } doors = doors.filter(d => !(rooms[d.room] && rooms[d.room].dead)); town.bldWall = new Map(); town.bldWas = new Map(); };
+    // two rooms of 3 x 2 sharing the wall at x = 4 (door between them at y = 1), and the way out at the bottom of the left one
+    const house = () => { clear(); const spots = []; for (let i = 0; i <= 8; i++) for (let j = 0; j <= 3; j++) if (i === 0 || i === 4 || i === 8 || j === 0 || j === 3) { lfAddProp((i === 4 && j === 1) || (i === 2 && j === 3) ? 'bdoor' : 'bwall', O.x + i, O.y + j); spots.push([O.x + i, O.y + j]); } town.bldQ = spots; bldTick(); };
+    const live = () => rooms.filter(q => q.free && !q.dead), loose = () => town.props.filter(p => ['bwall', 'bwindow', 'bdoor'].includes(p.kind) && p.x >= O.x - 1 && p.x <= O.x + 9 && p.y >= O.y - 1 && p.y <= O.y + 4).length;
+    // 1. the house stands: two rooms; knock out the shared wall block at (4,2): they become one room of 13 tiles
+    house(); res.start = live().length; bldBreak(O.x + 4, O.y + 2); res.merged = { rooms: live().length, cells: live()[0] && live()[0].cells.size, hole: grid[O.y + 2][O.x + 4] === T.FLOOR };
+    // 2. knock out an outside wall of the left room: it falls apart (the right room stays: its door now opens straight onto open ground)
+    house(); bldBreak(O.x + 1, O.y); res.apart = { rooms: live().length, loose: loose(), floor: grid[O.y + 1][O.x + 1] === T.GRASS, wall: grid[O.y][O.x] === T.GRASS && !!lfPropAt(O.x, O.y) };
+    // 2b. replace the missing block and the whole house closes again
+    lfAddProp('bwall', O.x + 1, O.y); town.bldQ = [[O.x + 1, O.y]]; bldTick(); res.again = live().length;
+    // 3. knock out an outside wall of the right room: only the right room falls apart; the shared wall stays (the left room still needs it)
+    house(); bldBreak(O.x + 7, O.y); res.right = { rooms: live().length, shared: grid[O.y + 2][O.x + 4] === T.WALL, sharedFixed: !lfPropAt(O.x + 4, O.y + 2), outer: !!lfPropAt(O.x + 8, O.y + 1) };
+    // 4. only built walls break: a village wall is left alone, and a plain wall is not a target
+    house(); const P = game.player, tg = targetAt0(P, O.x + 1, O.y); res.target = tg && { key: tg.key, tool: tg.tool }; const hall = rooms.find(q => !q.free && !q.dead && q.kind === 'house'); res.village = !targetAt0(P, hall.x, hall.y) || !/^wall/.test((targetAt0(P, hall.x, hall.y) || {}).key || '');
+    return res;
+  });
+  check(r.start === 2, 'the test house should have two rooms: ' + JSON.stringify(r));
+  check(r.merged.rooms === 1 && r.merged.cells === 13 && r.merged.hole, 'knocking out the shared wall makes one room of 13 tiles: ' + JSON.stringify(r.merged));
+  check(r.apart.rooms === 1 && r.apart.loose === 9 && r.apart.floor && r.apart.wall, 'knocking out an outside wall of the left room makes it fall apart into 9 loose blocks, floor back to ground; the right room stays (its door now opens to the open country): ' + JSON.stringify(r.apart));
+  check(r.again === 2, 'replacing the missing block closes the house again: ' + JSON.stringify(r));
+  check(r.right.rooms === 1 && r.right.shared && r.right.sharedFixed && r.right.outer, 'only the right room falls apart; the shared wall stays fixed: ' + JSON.stringify(r.right));
+  check(r.target && /^wall/.test(r.target.key) && r.target.tool === 'hammer' && r.village, 'a built wall is a hammer target, a village wall is not: ' + JSON.stringify([r.target, r.village]));
+  return 'merge on an inside break; fall apart on an outside break (blocks loose again); replace to rebuild; shared walls stay while a neighbour needs them';
 }));
 
 test('push: a sleeper rides in the bed (and a sitter in the chair), out of the door into the world; they wake up outside; the bed stays theirs', await controlScene('rider', 41, async page => {

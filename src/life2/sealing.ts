@@ -61,13 +61,14 @@ function bldMake(regions: number[][], dissolve: any[]) {
   doors = doors.filter(d => !oldRooms.has(rooms[d.room]));
   // fixed blocks first, so the floors know where the walls are
   const wall = new Map<number, string>();
-  for (const p of blocks) { wall.set(p.x + p.y * W, p.kind); town.pblock[p.y * W + p.x] = 0; town.propAt.delete(p.y * W + p.x); town.props = town.props.filter(q => q !== p); setT(p.x, p.y, p.kind === 'bdoor' ? T.DOOR : T.WALL); }
+  town.bldWas = town.bldWas || new Map<number, number>(); town.bldWall = town.bldWall || new Map<number, string>();   // what the ground was under a floor, and which fixed walls were built from blocks (the hammer can break only those)
+  for (const p of blocks) { wall.set(p.x + p.y * W, p.kind); town.bldWall.set(p.x + p.y * W, p.kind); town.pblock[p.y * W + p.x] = 0; town.propAt.delete(p.y * W + p.x); town.props = town.props.filter(q => q !== p); setT(p.x, p.y, p.kind === 'bdoor' ? T.DOOR : T.WALL); }
   town.win = town.win || new Set<number>(); for (const k of [...town.win]) if (grid[(k / W) | 0][k % W] !== T.WALL) town.win.delete(k);
   const made: any[] = [];
   for (const R of regions) {
     const idx = rooms.length, set = new Set<number>(R); let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
     for (const k of R) { const x = k % W, y = (k / W) | 0; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
-      if (grid[y][x] === T.CROP) town.crops = (town.crops || []).filter(c => !(c.x === x && c.y === y)); setT(x, y, T.FLOOR); roomAt[y][x] = idx; }
+      if (!town.bldWas.has(k)) town.bldWas.set(k, grid[y][x] === T.CROP ? T.GRASS : grid[y][x]); if (grid[y][x] === T.CROP) town.crops = (town.crops || []).filter(c => !(c.x === x && c.y === y)); setT(x, y, T.FLOOR); roomAt[y][x] = idx; }
     const edge = new Set<number>(); for (const k of R) { const x = k % W, y = (k / W) | 0; for (const [dx, dy] of BLD_D8) { const nx = x + dx, ny = y + dy, t = grid[ny][nx]; if (t === T.WALL || t === T.DOOR) edge.add(nx + ny * W); } }
     for (const k of edge) { const x = k % W, y = (k / W) | 0; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); const cur = roomAt[y][x]; if (cur < 0 || (rooms[cur] && rooms[cur].dead)) roomAt[y][x] = idx; }
     const room: any = { id: 'free' + (town.bldN = (town.bldN || 0) + 1), name: 'Room', kind: 'room', free: true, x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1, side: 'b', doorX: null, doorY: null, lit: 0, beds: [], seats: [], pews: [], spots: {}, floor: 'wood', pantry: {}, noWindows: true, cells: set, walls: edge, built: game.time };
@@ -125,3 +126,44 @@ function bldTick() {
   else if (r.hint && pl && pl.player && spots.some(s => Math.abs(s[0] - pl.tx) + Math.abs(s[1] - pl.ty) <= 6)) playerSay(pl, 'Closed in, but ' + r.hint + ' is inside it.');
 }
 LF2.tickers.push(bldTick);
+
+/* ---------------- breaking blocks: the hammer (phase 4) ---------------- */
+/** take rooms apart: the floor goes back to ground, and every wall that was built from a block and now borders no sealed room becomes a loose block again (pushable). Returns where the loose blocks are. */
+function bldDissolve(list: any[]): [number, number][] {
+  const spots: [number, number][] = [], dying = new Set<any>(list); town.bldWas = town.bldWas || new Map(); town.bldWall = town.bldWall || new Map(); town.win = town.win || new Set();
+  for (const r of list) r.dead = true;
+  const live = rooms.filter(q => q.free && !q.dead);
+  for (const r of list) {
+    const ri = rooms.indexOf(r);
+    for (const k of r.cells) { const x = k % W, y = (k / W) | 0; if (grid[y][x] === T.FLOOR && roomAt[y][x] === ri) { setT(x, y, town.bldWas.has(k) ? town.bldWas.get(k) : T.GRASS); town.bldWas.delete(k); roomAt[y][x] = -1; } }
+    markDirty(r.x - 1, r.y - 1, r.w + 2, r.h + 2);
+  }
+  const seen = new Set<number>();
+  for (const r of list) for (const k of r.walls) {
+    if (seen.has(k)) continue; seen.add(k); const x = k % W, y = (k / W) | 0, kind = town.bldWall.get(k); if (!kind) continue;
+    const holder = live.find(q => BLD_D8.some(([dx, dy]) => q.cells.has(x + dx + (y + dy) * W)));
+    if (holder) { if (roomAt[y][x] < 0 || (rooms[roomAt[y][x]] && rooms[roomAt[y][x]].dead)) roomAt[y][x] = rooms.indexOf(holder); if (grid[y][x] === T.DOOR) { const d = doors.find(q => q.x === x && q.y === y); if (d) d.room = rooms.indexOf(holder); else doors.push({ x, y, room: rooms.indexOf(holder), o: 0 }); } continue; }
+    doors = doors.filter(d => !(d.x === x && d.y === y)); setT(x, y, T.GRASS); roomAt[y][x] = -1; town.bldWall.delete(k); town.win.delete(k);
+    if (!lfPropAt(x, y)) lfAddProp(kind, x, y); spots.push([x, y]);
+  }
+  return spots;
+}
+/** a block of a built wall is broken (the hammer): it is gone, and every room it held up is looked at again. A room that is still closed carries on (two rooms may become one);
+    one that is not falls apart into loose blocks, and so does any room left with no way out. The missing block can be replaced to close it again. */
+function bldBreak(x: number, y: number, by?: any) {
+  const k = x + y * W; if (!town.bldWall || !town.bldWall.has(k)) return false;
+  const aff = new Set<any>(); for (const [dx, dy] of BLD_D8) { const r = bldFreeRoom(x + dx, y + dy); if (r) aff.add(r); } const own = roomAt[y][x] >= 0 ? rooms[roomAt[y][x]] : null; if (own && own.free && !own.dead) aff.add(own);
+  const before = rooms.filter(q => q.free && !q.dead).length;
+  doors = doors.filter(d => !(d.x === x && d.y === y)); setT(x, y, T.GRASS); roomAt[y][x] = -1; town.bldWall.delete(k); if (town.win) town.win.delete(k); markDirty(x - 1, y - 1, 3, 3);
+  if (by) workFx('split', x, y, by);
+  let spots: [number, number][] = ([[x, y]] as [number, number][]).concat(bldDissolve([...aff]));
+  bldEvaluate(spots);
+  for (let guard = 0; guard < 8; guard++) {   // a room whose only way out went through a room that fell apart goes too
+    const bad = rooms.filter(q => q.free && !q.dead && !bldExit([...q.cells], [])); if (!bad.length) break;
+    spots = bldDissolve(bad); bldEvaluate(spots);
+  }
+  town.gridV = (town.gridV || 0) + 1; town.lfPV = (town.lfPV || 0) + 1; if (typeof refreshReach === 'function') refreshReach(); rebuildOcc();
+  const after = rooms.filter(q => q.free && !q.dead).length;
+  chron(`${by ? by.first : 'Somebody'} knocked a block out of a wall${after < before ? (before - after > 1 ? ', and ' + (before - after) + ' rooms fell apart' : ', and a room fell apart') : ''}.`, 'build');
+  return true;
+}
