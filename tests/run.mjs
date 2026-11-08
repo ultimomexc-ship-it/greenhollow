@@ -569,25 +569,33 @@ test('building: the hammer knocks out one built block; a closed room carries on 
   return 'merge on an inside break; fall apart on an outside break (blocks loose again); replace to rebuild; shared walls stay while a neighbour needs them';
 }));
 
-test('building: a village house can be pulled down with the hammer (blocks and furniture loose, the family homeless but looked after)', await controlScene('pulldown', 41, async page => {
+test('building: the hammer is the delete button for what is built and pushed: loose things, built walls, a villager\'s house walls and furniture (but not the yard stands or the church)', await controlScene('smash', 41, async page => {
   const r = await page.evaluate(() => {
-    const hs = rooms.find(q => !q.free && !q.dead && q.kind === 'house' && npcs.some(n => n.homeRoom === q)), P = game.player, res = {}; if (P.homeRoom === hs) throw new Error('picked the player\'s own house');
-    const fam = npcs.filter(n => n.homeRoom === hs); res.fam = fam.length;
-    const wall = [hs.x, hs.y + 1]; const tg = targetAt0(P, wall[0], wall[1]); res.target = tg && tg.key; res.facing = (() => { const f = itFacing; return true; })();
-    const nWall = (() => { let c = 0; for (let y = hs.y; y < hs.y + hs.h; y++) for (let x = hs.x; x < hs.x + hs.w; x++) if (roomAt[y][x] === rooms.indexOf(hs) && (grid[y][x] === T.WALL || grid[y][x] === T.DOOR)) c++; return c; })();
-    const furn = hs.beds.length + hs.seats.length + 1;   // + the family barrel
-    tg.run(P); res.dead = hs.dead; res.nWall = nWall;
-    res.loose = town.props.filter(p => ['bwall', 'bwindow', 'bdoor'].includes(p.kind) && p.x >= hs.x && p.x < hs.x + hs.w && p.y >= hs.y && p.y < hs.y + hs.h).length;
-    res.furn = town.props.filter(p => ['bed', 'chair', 'table', 'barrel'].includes(p.kind) && p.x >= hs.x && p.x < hs.x + hs.w && p.y >= hs.y && p.y < hs.y + hs.h).length; res.furnWas = furn;
-    res.grass = grid[hs.y + 1][hs.x + 1] !== T.FLOOR && roomAt[hs.y + 1][hs.x + 1] < 0; res.homeless = fam.every(n => !n.homeRoom); window.__fam = fam.map(n => n.id);
+    const P = game.player, res = {}; const [x, y] = __find((x, y) => [0, 1, 2].every(i => __free(x + i, y))); __place(P, x - 1, y, { dx: 1, dy: 0 });
+    P.sel = P.belt.findIndex(q => q && q[0] === 'i' && itById(P, +q.slice(1)).kind === 'hammer');
+    // loose things: a crate and a block are deleted outright (a rock still breaks into stone; a yard stand stays)
+    const crate = lfAddProp('crate', x, y), blk = lfAddProp('bwall', x + 1, y); let a = lifeAct(P, P.player, x, y, 1, 0); res.crateKey = a && a.key; a.run(P); res.crateGone = !lfPropAt(x, y) && !town.props.includes(crate);
+    a = lifeAct(P, P.player, x + 1, y, 1, 0); a.run(P); res.blockGone = !lfPropAt(x + 1, y);
+    const st = town.props.find(p => p.fixed && p.dispense); res.stand = !(lifeAct(P, P.player, st.x, st.y, 0, -1) || {}).key || !/^wallp/.test(lifeAct(P, P.player, st.x, st.y, 0, -1).key);
+    // a villager's house: one wall tile is deleted (the hole is open ground), the house stays; its bed, chair, table and barrel are smashed one by one
+    const hs = rooms.find(q => !q.free && !q.dead && q.kind === 'house' && npcs.some(n => n.homeRoom === q) && q !== P.homeRoom), wx = hs.x, wy = hs.y + 1;
+    const tg = targetAt0(P, wx, wy); res.wallKey = tg && tg.key; tg.run(P); res.hole = grid[wy][wx] === T.GRASS && roomAt[wy][wx] < 0 && !hs.dead;
+    const bed = hs.beds[0], owner = npcs.find(n => n.bed === bed); const bt = targetAt0(P, bed.x, bed.y); res.bedKey = bt && bt.key; bt.run(P); res.bed = grid[bed.y][bed.x] === T.FLOOR && !hs.beds.includes(bed) && (!owner || !owner.bed || owner.bed.owner === null);
+    const seat = hs.seats[0]; targetAt0(P, seat.x, seat.y).run(P); res.seat = grid[seat.y][seat.x] === T.FLOOR && !hs.seats.includes(seat);
+    const tb = (() => { for (let yy = hs.y + 1; yy < hs.y + hs.h - 1; yy++) for (let xx = hs.x + 1; xx < hs.x + hs.w - 1; xx++) if (grid[yy][xx] === T.TABLE) return [xx, yy]; return null; })(); if (tb) { targetAt0(P, tb[0], tb[1]).run(P); res.table = grid[tb[1]][tb[0]] === T.FLOOR; } else res.table = true;
+    const bar = hs.barrel; targetAt0(P, bar.x, bar.y).run(P); res.barrel = grid[bar.y][bar.x] === T.FLOOR && bar.out === true;
+    // the church is left alone
+    const ch = town.church; res.church = !ch || !(() => { for (let xx = ch.x; xx < ch.x + ch.w; xx++) if (grid[ch.y][xx] === T.WALL && targetAt0(P, xx, ch.y) && /^wall/.test((targetAt0(P, xx, ch.y) || {}).key || '')) return true; return false; })();
     return res;
   });
-  check(r.target && /^wall/.test(r.target), 'a village house wall is a hammer target: ' + JSON.stringify(r));
-  check(r.dead && r.loose === r.nWall && r.furn >= 2 && r.grass && r.homeless, 'the house comes down into loose blocks and furniture, the floor is grass, the family is homeless: ' + JSON.stringify(r));
+  check(/^wallp/.test(r.crateKey) && r.crateGone && r.blockGone && r.stand, 'the hammer deletes loose things, not the yard stands: ' + JSON.stringify(r));
+  check(/^wall/.test(r.wallKey) && r.hole, 'a villager\'s house wall tile is deleted and the house stays: ' + JSON.stringify(r));
+  check(r.bed && r.seat && r.table && r.barrel, 'the bed, chair, table and barrel of a house can be smashed: ' + JSON.stringify(r));
+  check(r.church, 'the church is left alone');
   await simulate(page, 3 * 1440);
-  const after = await page.evaluate(() => { const fam = window.__fam.map(id => byId(id)); return { dead: npcs.filter(n => n.dead).length, housed: fam.filter(n => n.homeRoom && !n.homeRoom.dead || (n.bed && n.bed.x != null)).length, tents: (town.tents || []).length, n: fam.length }; });
-  check(after.dead === 0 && after.tents >= 1, 'three days later nobody has died and tents stand for the homeless: ' + JSON.stringify(after));
-  return `${r.fam} people lost their house: ${r.loose} loose blocks, ${r.furn} bits of furniture; three days later ${after.housed} of ${after.n} have a bed and ${after.tents} tents stand`;
+  const after = await page.evaluate(() => ({ dead: npcs.filter(n => n.dead).length }));
+  check(after.dead === 0, 'three days later nobody has died: ' + JSON.stringify(after));
+  return 'loose things, built walls, house walls and furniture are all deleted by the hammer; stands and church stay; three quiet days after';
 }));
 
 test('push: a sleeper rides in the bed (and a sitter in the chair), out of the door into the world; they wake up outside; the bed stays theirs', await controlScene('rider', 41, async page => {

@@ -81,12 +81,13 @@ function itFacing(n): { what: string; verb: string; need: string | null } | null
   if (o) return o.pose === 'sleep' ? { what: o.first, verb: 'asleep', need: null } : hand && mode === 'push' ? { what: o.first, verb: 'Push past', need: 'push' } : { what: o.first, verb: 'Talk', need: 'talk' };
   if (pr && pr.dispense) { const yi = YARD_ITEMS.find(q => q.kind === pr.dispense); return { what: (yi ? yi.name : 'Stand') + ' stand', verb: 'Take one (free)', need: 'talk' }; }
   if (pr && pr.kind === 'rock' && itHeld(n).kind === 'hammer') return { what: 'Loose rock', verb: 'Break', need: 'hammer' };
+  if (pr && !pr.fixed && pr.kind !== 'rock' && itHeld(n).kind === 'hammer') return { what: cvCap(LF_NOUN[pr.kind]), verb: 'Smash', need: 'hammer' };
+  if ((g === T.TABLE || g === T.BARREL || g === T.BED || g === T.SEAT) && itHeld(n).kind === 'hammer' && typeof pushFurniture === 'function' && pushFurniture(x, y)) return { what: cvCap(LF_NOUN[g === T.TABLE ? 'table' : g === T.BARREL ? 'barrel' : g === T.BED ? 'bed' : 'chair']), verb: 'Smash', need: 'hammer' };
   if (pr) { const nm = cvCap(LF_NOUN[pr.kind]); return hand && mode === 'search' ? { what: nm, verb: 'Search', need: 'search' } : { what: nm, verb: 'Push', need: 'push' }; }
   if (g === T.DOOR && typeof lf2DoorRoom === 'function' && LF2.on('nightlocks') && lf2Night()) { const r = lf2DoorRoom(x, y); if (r && r.kind === 'house' && r !== n.homeRoom && r.unbarred !== dayN() + ':' + n.id && !lf2InRoom(n, r)) return { what: r.name + ', barred', verb: 'Pick the lock', need: 'lockpick' }; }
   if (hand && mode === 'push' && typeof pushFurniture === 'function') { const fu = pushFurniture(x, y); if (fu) return { what: cvCap(fu.type === 'seat' ? 'chair' : fu.type), verb: 'Push', need: 'push' }; }
   if (g === T.ROCK && hand && mode === 'push') return { what: 'Rock', verb: 'Push', need: 'push' };
-  if (g === T.WALL && town.bldWall && town.bldWall.has(y * W + x)) return { what: 'Wall block', verb: 'Break', need: 'hammer' };
-  if (g === T.WALL && roomAt[y][x] >= 0 && rooms[roomAt[y][x]] && !rooms[roomAt[y][x]].free && !rooms[roomAt[y][x]].dead && rooms[roomAt[y][x]].kind === 'house') return { what: 'House wall', verb: 'Pull the house down', need: 'hammer' };
+  if (g === T.WALL && bldHammerWall(x, y)) return { what: 'Wall block', verb: 'Break', need: 'hammer' };
   if (g === T.TREE) return { what: 'Tree', verb: 'Fell', need: 'axe' }; if (g === T.ROCK) return { what: 'Rock', verb: 'Break', need: 'hammer' };
   if (g === T.WATER) return { what: 'Water', verb: 'Fish', need: 'rod' };
   if (c) { const st = c.st ? cropStage(c) : 0; return !c.pl ? { what: 'Field', verb: 'Plough', need: 'hoe' } : c.st && st === 4 ? { what: 'Ripe ' + (c.seed || 'wheat'), verb: 'Harvest', need: 'hoe' } : c.st ? { what: cvCap(c.seed || 'wheat'), verb: 'growing', need: null } : { what: 'Ploughed field', verb: 'Sow', need: 'seed' }; }
