@@ -112,11 +112,11 @@ function lf2Collar(g, a) {
   const fine = lf2Fine(a), what = lf2Charge(a);
   if (a.coin >= fine && !lf2Has(a, 'greedy') || a.coin >= fine * 2) {
     a.coin -= fine; town.treasury += fine; lf2Compensate(a, fine);
-    say(g, a, [[g, `${a.first}, you ${lf2CrimeText(a)}. That is a fine of ${fine} denarii.`], [a, anyOf(['Fine. Take it.', 'This is robbery.', 'It was worth it.'])]]);
+    say(g, a, [[g, `${a.first}, you ${cvSpeechOf(g, lf2CrimeText(a), a)}. That is a fine of ${fine} denarii.`], [a, anyOf(['Fine. Take it.', 'This is robbery.', 'It was worth it.'])]]);
     lfEmit('fined', { actor: a, sev: 1, tags: ['arrest'], chron: true, text: `The watch fined ${a.first} ${fine} denarii for ${what}` });
   } else {
     const mins = lf2Sentence(a); lf2Jail(a, mins, g);
-    say(g, a, [[g, `${a.first}, you are coming with me. You ${lf2CrimeText(a)}.`], [a, anyOf(['I did nothing!', 'All right, all right.', 'You will regret this.'])]]);
+    say(g, a, [[g, `${a.first}, you are coming with me. You ${cvSpeechOf(g, lf2CrimeText(a), a)}.`], [a, anyOf(['I did nothing!', 'All right, all right.', 'You will regret this.'])]]);
     lfEmit('arrest', { actor: a, sev: 2, loud: true, tags: ['arrest'], chron: true, text: `The watch arrested ${a.first} for ${what}` });
   }
   a.lf2Priors = (a.lf2Priors || 0) + 1; lf2Clear(a); lfMod(a, 'arrested', 'humiliated by the watch', -12, 900);

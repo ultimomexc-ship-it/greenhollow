@@ -6,6 +6,8 @@ const LF_ART = { crate: 'crate', crate1: 'crate_1', barrel: 'barrel_o', stool: '
 const LF_NOUN: any = { crate: 'crate', crate1: 'crate', barrel: 'barrel', stool: 'stool', chair: 'chair', bed: 'bed' };
 /** for now villagers never tidy, shove, rescue or haul anything: only the player moves things (a villager shut in by a blocked door waits to be let out) */
 const LF_NPC_MOVES_THINGS = false;
+/** the test boxes about the square (three lines of four and a dozen singles) are off now that there is a Builder's Yard to take things from */
+const LF_PLAY_BOXES = false;
 const LF_JOBN = { Fisher: 'fishing', Farmer: 'farming', Gatherer: 'foraging', Woodcutter: 'woodcutting', Stonecutter: 'stonecutting' };
 const lfR = n => (n && n.rand) ? n.rand() : Math.random();
 const lfDay = () => Math.floor(game.time / 1440);
@@ -191,7 +193,7 @@ function lfPlaceProps() {
     if (r.kind === 'privy') near(r.doorX + 2, fy, 'barrel');
   }
   const cx = town.cx, cy = town.cy;
-  lfPlayBoxes(free); if (typeof lfPlaceYard === 'function') lfPlaceYard();
+  if (LF_PLAY_BOXES) lfPlayBoxes(free); if (typeof lfPlaceYard === 'function') lfPlaceYard();
   for (const [dx, dy, k] of [[-8, 3, 'crate1'], [8, 3, 'crate'], [-4, -7, 'barrel'], [7, -5, 'crate'], [2, 9, 'stool']]) { const x = cx + dx, y = cy + dy; if (grid[y] && (grid[y][x] === T.PATH || grid[y][x] === T.GRASS) && roomAt[y][x] < 0 && walkable(x, y) && !lfPropAt(x, y) && !town.siteAt[y * W + x] && !lfNearDoor(x, y)) lfAddProp(k, x, y); }
 }
 /** extra boxes about the square and the lanes, to push about and build with: three lines of three (for pushing several at once) and a scatter of singles */

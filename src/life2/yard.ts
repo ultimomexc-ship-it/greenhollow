@@ -24,10 +24,22 @@ function lfPlaceYard() {
   for (let y = cy - 16; y <= cy + 16; y++) for (let x = cx - 20; x <= cx + 14; x++) { const mx = x + n / 2, my = y + 2, d = Math.hypot(mx - cx, (my - cy) * 1.4); if (d >= 6 && d <= 20) cand.push([d, x, y]); }
   cand.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]);
   for (const [, x0, y0] of cand) if (ok(x0, y0)) {
+    yardClear(x0, y0, n);
     YARD_ITEMS.forEach((it, i) => { const pr: any = lfAddProp('dispenser', x0 + i, y0); pr.fixed = true; pr.dispense = it.kind; pr.art = it.stand; });
     town.builder = { x0, y0, n, pad: { x: x0, y: y0 + 1, w: n, h: 3 }, cx: x0 + n / 2, cy: y0 + 2 }; return town.builder;
   }
   town.builder = null; return null;
+}
+/** room to build: trees, rocks and loose things round the yard (and a wide strip beyond the pad) are cleared away, so there is open ground on every side */
+function yardClear(x0, y0, n) {
+  const X0 = x0 - 6, X1 = x0 + n + 6, Y0 = y0 - 3, Y1 = y0 + 12; let changed = false;
+  for (let y = Y0; y <= Y1; y++) for (let x = X0; x <= X1; x++) {
+    if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3 || roomAt[y][x] >= 0 || town.siteAt[y * W + x]) continue;
+    const g = grid[y][x];
+    if (g === T.TREE || g === T.ROCK) { setT(x, y, T.GRASS); changed = true; if (town.treeClaim) town.treeClaim.delete(y * W + x); }
+    const p = lfPropAt(x, y); if (p && !p.fixed) { town.props = town.props.filter(q => q !== p); town.propAt.delete(y * W + x); town.pblock[y * W + x] = 0; }
+  }
+  if (changed) { town.treeDirty = true; town.stoneCache = null; markDirty(X0, Y0, X1 - X0 + 1, Y1 - Y0 + 1); }
 }
 /** the nearest free ground to the middle of the pad (spreading outwards), or null when the yard is full */
 function yardSpot() {

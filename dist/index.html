@@ -16701,6 +16701,7 @@ const LF = { seeThru: false };
 const LF_ART = { crate: "crate", crate1: "crate_1", barrel: "barrel_o", stool: "stool" };
 const LF_NOUN = { crate: "crate", crate1: "crate", barrel: "barrel", stool: "stool", chair: "chair", bed: "bed" };
 const LF_NPC_MOVES_THINGS = false;
+const LF_PLAY_BOXES = false;
 const LF_JOBN = { Fisher: "fishing", Farmer: "farming", Gatherer: "foraging", Woodcutter: "woodcutting", Stonecutter: "stonecutting" };
 const lfR = (n) => n && n.rand ? n.rand() : Math.random();
 const lfDay = () => Math.floor(game.time / 1440);
@@ -17008,7 +17009,7 @@ function lfPlaceProps() {
     if (r.kind === "privy") near(r.doorX + 2, fy, "barrel");
   }
   const cx = town.cx, cy = town.cy;
-  lfPlayBoxes(free);
+  if (LF_PLAY_BOXES) lfPlayBoxes(free);
   if (typeof lfPlaceYard === "function") lfPlaceYard();
   for (const [dx, dy, k] of [[-8, 3, "crate1"], [8, 3, "crate"], [-4, -7, "barrel"], [7, -5, "crate"], [2, 9, "stool"]]) {
     const x = cx + dx, y = cy + dy;
@@ -18910,6 +18911,7 @@ function lfPlaceYard() {
   }
   cand.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]);
   for (const [, x0, y0] of cand) if (ok(x0, y0)) {
+    yardClear(x0, y0, n);
     YARD_ITEMS.forEach((it, i) => {
       const pr = lfAddProp("dispenser", x0 + i, y0);
       pr.fixed = true;
@@ -18921,6 +18923,30 @@ function lfPlaceYard() {
   }
   town.builder = null;
   return null;
+}
+function yardClear(x0, y0, n) {
+  const X0 = x0 - 6, X1 = x0 + n + 6, Y0 = y0 - 3, Y1 = y0 + 12;
+  let changed = false;
+  for (let y = Y0; y <= Y1; y++) for (let x = X0; x <= X1; x++) {
+    if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3 || roomAt[y][x] >= 0 || town.siteAt[y * W + x]) continue;
+    const g = grid[y][x];
+    if (g === T.TREE || g === T.ROCK) {
+      setT(x, y, T.GRASS);
+      changed = true;
+      if (town.treeClaim) town.treeClaim.delete(y * W + x);
+    }
+    const p = lfPropAt(x, y);
+    if (p && !p.fixed) {
+      town.props = town.props.filter((q) => q !== p);
+      town.propAt.delete(y * W + x);
+      town.pblock[y * W + x] = 0;
+    }
+  }
+  if (changed) {
+    town.treeDirty = true;
+    town.stoneCache = null;
+    markDirty(X0, Y0, X1 - X0 + 1, Y1 - Y0 + 1);
+  }
 }
 function yardSpot() {
   const b = town.builder;
@@ -20590,12 +20616,12 @@ function lf2Collar(g, a) {
     a.coin -= fine;
     town.treasury += fine;
     lf2Compensate(a, fine);
-    say(g, a, [[g, `${a.first}, you ${lf2CrimeText(a)}. That is a fine of ${fine} denarii.`], [a, anyOf(["Fine. Take it.", "This is robbery.", "It was worth it."])]]);
+    say(g, a, [[g, `${a.first}, you ${cvSpeechOf(g, lf2CrimeText(a), a)}. That is a fine of ${fine} denarii.`], [a, anyOf(["Fine. Take it.", "This is robbery.", "It was worth it."])]]);
     lfEmit("fined", { actor: a, sev: 1, tags: ["arrest"], chron: true, text: `The watch fined ${a.first} ${fine} denarii for ${what}` });
   } else {
     const mins = lf2Sentence(a);
     lf2Jail(a, mins, g);
-    say(g, a, [[g, `${a.first}, you are coming with me. You ${lf2CrimeText(a)}.`], [a, anyOf(["I did nothing!", "All right, all right.", "You will regret this."])]]);
+    say(g, a, [[g, `${a.first}, you are coming with me. You ${cvSpeechOf(g, lf2CrimeText(a), a)}.`], [a, anyOf(["I did nothing!", "All right, all right.", "You will regret this."])]]);
     lfEmit("arrest", { actor: a, sev: 2, loud: true, tags: ["arrest"], chron: true, text: `The watch arrested ${a.first} for ${what}` });
   }
   a.lf2Priors = (a.lf2Priors || 0) + 1;

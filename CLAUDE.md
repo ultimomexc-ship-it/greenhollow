@@ -53,7 +53,7 @@ Explicit actions: **the thing in your hand decides what walking into something d
   the player need not wait for the whole field; farmers do). **B** opens the bag (hands, belt, bag; click to put things on or take them off the belt).
 - With the wrong thing in hand you walk on over anything walkable (a field) and are told what to hold for anything solid ("Tree: hold the axe (2)."). The hotbar's
   facing box always says what the next bump will do. After an action, keep holding to walk on, or let go and press again to act on the same thing.
-- **For now the villager you steer is not troubled by hunger, bladder or tiredness** (`PLAYER_NEEDS = false` in `player/items.ts`: the values are pinned each tick, no forced bedtime; you can still choose to sleep in a bed). `lfPlayBoxes` puts three lines of four and a dozen single boxes on and around the square.
+- **For now the villager you steer is not troubled by hunger, bladder or tiredness** (`PLAYER_NEEDS = false` in `player/items.ts`: the values are pinned each tick, no forced bedtime; you can still choose to sleep in a bed). The test boxes round the square are off (`LF_PLAY_BOXES = false`); the Builder's Yard clears trees, rocks and loose things round itself (`yardClear`).
 - The model: goods stay counts in `n.inv`; tools are single things with an owner and wear (`n.items`, `itGiveTool`); lockpicks and seeds are stacks in `n.bag`;
   `n.belt` holds 'hand', 'i<id>' or 's:<key>'; `n.sel` is the slot in hand, `n.mode` the hand mode. `itGate(n, tg, walkOn)` checks an action against the hand
   (`itNeedOf(key)`), `itFacing(n)` describes the thing in front. For testing (`IT.kit = 'test'`) whoever you steer starts with every tool, lockpicks, three kinds
