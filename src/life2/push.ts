@@ -74,8 +74,8 @@ function pushLine(n, x, y, dx, dy) {
   return line.length ? line : null;
 }
 /** somebody who will not be pushed along: asleep, sitting down or kneeling */
-const pushSettled = who => who.pose === 'sleep' || who.pose === 'sit' || who.pose === 'kneel';
-const pushWhy = who => (who.first || 'Somebody') + (who.pose === 'sleep' ? ' is asleep.' : ' is settled in.');
+const pushSettled = who => who.pose === 'sit' || who.pose === 'kneel';   // (somebody asleep on the ground, or in a bed or a chair that is pushed, is carried along: see pushCarry)
+const pushWhy = who => (who.first || 'Somebody') + ' is settled in.';
 /** can a person be pushed onto (nx, ny)? (the same ground a villager can stand on) */
 const pushPersonOK = (nx, ny) => nx >= 2 && ny >= 2 && nx < W - 2 && ny < H - 2 && lf2PersonOK(nx, ny) && !tileOwner.get(ny * W + nx) && !lfPropAt(nx, ny);
 /** push the line one tile; returns true, or the reason it cannot be done (null: nothing to push).
@@ -87,7 +87,7 @@ function lf2PushLine(n, x, y, dx, dy): true | string | null {
   const last = line[line.length - 1], nx = last.x + dx, ny = last.y + dy;
   if (furn) {
     const r = line[0].f.r; if (line.some(p => p.f.r !== r)) return pushSwap(n, line[0]);
-    for (const p of line) { const who = tileOwner.get(p.y * W + p.x); if (who && who !== n) return (who.first || 'Somebody') + ' is using it.'; }
+    const inWay = tileOwner.get(ny * W + nx); if (inWay && inWay !== n && !line.some(p => p.x === nx && p.y === ny)) return (inWay.first || 'Somebody') + ' is in the way.';
     if (!pushFurnitureOK(last.f, nx, ny, true)) return pushSwap(n, line[0]);
     if (!pushRoomConnected(r, line.map(p => [p.x, p.y, p.x + dx, p.y + dy] as [number, number, number, number]))) return 'That would block the way in the ' + (r.kind === 'house' ? 'house' : 'room') + '.';
   } else {
@@ -109,14 +109,38 @@ function lf2PushLine(n, x, y, dx, dy): true | string | null {
 }
 /** a person pushed along: they stumble one tile (harmless: no crime, no gossip beyond "you pushed somebody") */
 function pushMovePerson(n, who, tx, ty) {
-  lf2Relocate(who, tx, ty); cvSaw(n, who, 'push'); if (!who.player && Math.random() < 0.3) lfShout(who, anyOf(PUSH_WORDS));
+  if (who.pose === 'sleep') pushCarry(who, tx, ty, n); else lf2Relocate(who, tx, ty); cvSaw(n, who, 'push'); if (!who.player && Math.random() < 0.3) lfShout(who, anyOf(PUSH_WORDS));
 }
+/** move somebody one tile without waking or standing them: a sleeper in a bed, a sitter on a chair, a sleeper on the ground. Their plan carries on; they remember who did it and where they were. */
+function pushCarry(who, tx, ty, by?) {
+  const fx = who.x, fy = who.y;
+  if (tileOwner.get(tkey(who.tx, who.ty)) === who) tileOwner.delete(tkey(who.tx, who.ty));
+  who.tx = tx; who.ty = ty; who.x = tx; who.y = ty; who.moving = false; who.path = []; who.t = 0; tileOwner.set(tkey(tx, ty), who);
+  who.slide = by && by.player ? { fx, fy, st: performance.now(), by, w: by.walked } : { fx, fy, st: performance.now() };
+  if (!who.shoved) { const hr = roomAt[fy] && roomAt[fy][fx] >= 0 ? rooms[roomAt[fy][fx]] : null; who.shoved = { by: by ? by.id : null, room: hr, pose: who.pose, t: game.time }; }
+  if (by && by !== who) cvSaw(by, who, 'push');
+}
+/** somebody who was carried out of the house in their bed (or chair) comes to: a shout, a grudge, a line in the chronicle */
+LF2.tickers.push(() => {
+  for (const who of npcs) {
+    const sh = who.shoved; if (!sh) continue; if (who.dead) { who.shoved = null; continue; }
+    if (who.pose === 'sleep' || who.pose === 'sit') continue;
+    who.shoved = null; const ri = roomAt[who.ty] && roomAt[who.ty][who.tx], here = ri >= 0 ? rooms[ri] : null; if (here && here === sh.room) continue;   // (shifted about, but still at home)
+    let trees = 0; for (let yy = -3; yy <= 3; yy++) for (let xx = -3; xx <= 3; xx++) if (grid[who.ty + yy] && grid[who.ty + yy][who.tx + xx] === T.TREE) trees++;
+    const where = ri >= 0 ? 'in somebody else\'s house' : trees >= 6 ? 'in the middle of the forest' : grid[who.ty][who.tx] === T.PATH ? 'in the middle of the road' : trees >= 2 ? 'under a tree' : 'in a field';
+    const bad = sh.pose === 'sleep' ? ['WHAT?! Where am I?!', 'My bed! Where is my roof?', 'Is that... a tree? Who moved my bed?!', 'By Jupiter, I went to sleep indoors!'] : ['Who has carried off my chair?', 'How did I get out here?!', 'I was sitting down just now!'];
+    lfShout(who, anyOf(bad)); who.mood = Math.max(0, (who.mood == null ? 60 : who.mood) - 8);
+    const by = sh.by != null ? byId(sh.by) : null; if (by && !by.player) lfAff(who, by, -4, 'carried me out of my house');
+    else if (by && by.player) lfAff(who, by, -4, 'carried me out of my house');
+    chron(`${who.first} ${sh.pose === 'sleep' ? 'woke up' : 'got up'} ${where}, ${sh.pose === 'sleep' ? 'bed' : 'chair'} and all${by ? ' - ' + by.first + ' had pushed ' + (who.female ? 'her' : 'him') + ' out of the door' : ''}.`, 'life');
+  }
+});
 /** swap places with the piece in front of you: it goes to the tile you stand on (the same step carries you into its tile, and it is drawn following your step) */
 function pushSwap(n, piece): true | string {
   const px = n.tx, py = n.ty;
   if (piece.kind === 'person') { const who = piece.who; if (pushSettled(who)) return pushWhy(who); if (!lf2PersonOK(px, py)) return (who.first || 'Somebody') + ' won\'t budge.'; pushMovePerson(n, who, px, py); return true; }
   if (piece.kind === 'furniture') {
-    const f = piece.f; if (tileOwner.get(piece.y * W + piece.x) && tileOwner.get(piece.y * W + piece.x) !== n) return 'It won\'t budge.';
+    const f = piece.f;
     if (!pushFurnitureOK(f, px, py, true)) return 'The ' + (f.type === 'seat' ? 'chair' : f.type) + ' won\'t budge.';   // (standing in the doorway you can swap: the furniture takes the doorway, you go in)
     if (!pushRoomConnected(f.r, [[piece.x, piece.y, px, py]])) return 'That would block the way in the room.';
     pushMoveFurniture(f, px - piece.x, py - piece.y, n); if (typeof refreshReach === 'function') refreshReach(); return true;
@@ -130,6 +154,7 @@ function pushMoveProp(pr, dx, dy, by) {
   town.pblock[pr.y * W + pr.x] = 0; town.propAt.delete(pr.y * W + pr.x);
   pr.fx = pr.x; pr.fy = pr.y; pr.x += dx; pr.y += dy; pr.st = by && by.player ? 0 : performance.now(); pr.follow = by && by.player ? by : null; pr.followW = by ? by.walked : 0; pr.moved = game.time; pr.by = by ? by.id : null;
   town.pblock[pr.y * W + pr.x] = 1; town.propAt.set(pr.y * W + pr.x, pr); town.lfPV = (town.lfPV || 0) + 1;
+  if (pr.rider) { if (pr.rider.dead || (pr.rider.pose !== 'sleep' && pr.rider.pose !== 'sit')) pr.rider = null; else pushCarry(pr.rider, pr.x, pr.y, by); }
   pr.seen = []; for (const o of npcs) if (o !== by && !o.dead && !o.infant && o.pose !== 'sleep' && Math.abs(o.tx - pr.x) + Math.abs(o.ty - pr.y) <= 10) pr.seen.push(o.id);
   pushTrample(pr.x, pr.y);
   if (pr.fur) pushMaybeRestore(pr);
@@ -150,13 +175,14 @@ function pushMaybeRestore(pr) {
 }
 /** move a chair, bed or the family barrel one tile inside its room: the tile type, the room's lists and the pantry spot all move with it. Onto the doorway it goes outside and becomes a loose thing. */
 function pushMoveFurniture(f, dx, dy, by?) {
-  const o = f.o, fx = o.x, fy = o.y, tx = fx + dx, ty = fy + dy;
+  const o = f.o, fx = o.x, fy = o.y, tx = fx + dx, ty = fy + dy, rider = tileOwner.get(fy * W + fx), carry = rider && rider !== by && !rider.dead && (rider.pose === 'sleep' || rider.pose === 'sit') ? rider : null;
   if (tx === f.r.doorX && ty === f.r.doorY) {   // out of the door: a loose thing now (the room keeps its record, marked out, so it can come back)
     setT(fx, fy, T.FLOOR); o.out = true; const kind = f.type === 'seat' ? 'chair' : f.type, pr: any = lfAddProp(kind, tx, ty); pr.fur = f; pr.v = Math.floor(ART.h32(fx, fy, 61, 61) * 5);
     pr.fx = fx; pr.fy = fy; pr.st = by && by.player ? 0 : performance.now(); pr.follow = by && by.player ? by : null; pr.followW = by ? by.walked : 0; pr.moved = game.time; pr.by = by ? by.id : null; pr.seen = [];
+    if (carry) { pr.rider = carry; pushCarry(carry, tx, ty, by); }
     markDirty(Math.min(fx, tx), Math.min(fy, ty), Math.abs(dx) + 1, Math.abs(dy) + 1); town.gridV = (town.gridV || 0) + 1; return pr;
   }
-  setT(fx, fy, T.FLOOR); setT(tx, ty, f.t); o.x = tx; o.y = ty;
+  setT(fx, fy, T.FLOOR); setT(tx, ty, f.t); o.x = tx; o.y = ty; if (carry) pushCarry(carry, tx, ty, by);
   if (f.type === 'barrel') { const sp = f.r.spots && f.r.spots.pantry; if (sp) { sp.x += dx; sp.y += dy; } }
   if (f.type === 'seat') { // a chair turns to face the table beside it, if there is one
     for (const [ax, ay] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) if (grid[ty + ay] && grid[ty + ay][tx + ax] === T.TABLE) { o.face = { dx: ax, dy: ay }; break; } }

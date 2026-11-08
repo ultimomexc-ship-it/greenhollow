@@ -18522,8 +18522,8 @@ function pushLine(n, x, y, dx, dy) {
   }
   return line.length ? line : null;
 }
-const pushSettled = (who) => who.pose === "sleep" || who.pose === "sit" || who.pose === "kneel";
-const pushWhy = (who) => (who.first || "Somebody") + (who.pose === "sleep" ? " is asleep." : " is settled in.");
+const pushSettled = (who) => who.pose === "sit" || who.pose === "kneel";
+const pushWhy = (who) => (who.first || "Somebody") + " is settled in.";
 const pushPersonOK = (nx, ny) => nx >= 2 && ny >= 2 && nx < W - 2 && ny < H - 2 && lf2PersonOK(nx, ny) && !tileOwner.get(ny * W + nx) && !lfPropAt(nx, ny);
 function lf2PushLine(n, x, y, dx, dy) {
   const line = pushLine(n, x, y, dx, dy);
@@ -18534,10 +18534,8 @@ function lf2PushLine(n, x, y, dx, dy) {
   if (furn) {
     const r = line[0].f.r;
     if (line.some((p) => p.f.r !== r)) return pushSwap(n, line[0]);
-    for (const p of line) {
-      const who = tileOwner.get(p.y * W + p.x);
-      if (who && who !== n) return (who.first || "Somebody") + " is using it.";
-    }
+    const inWay = tileOwner.get(ny * W + nx);
+    if (inWay && inWay !== n && !line.some((p) => p.x === nx && p.y === ny)) return (inWay.first || "Somebody") + " is in the way.";
     if (!pushFurnitureOK(last2.f, nx, ny, true)) return pushSwap(n, line[0]);
     if (!pushRoomConnected(r, line.map((p) => [p.x, p.y, p.x + dx, p.y + dy]))) return "That would block the way in the " + (r.kind === "house" ? "house" : "room") + ".";
   } else {
@@ -18571,10 +18569,53 @@ function lf2PushLine(n, x, y, dx, dy) {
   return true;
 }
 function pushMovePerson(n, who, tx, ty) {
-  lf2Relocate(who, tx, ty);
+  if (who.pose === "sleep") pushCarry(who, tx, ty, n);
+  else lf2Relocate(who, tx, ty);
   cvSaw(n, who, "push");
   if (!who.player && Math.random() < 0.3) lfShout(who, anyOf(PUSH_WORDS));
 }
+function pushCarry(who, tx, ty, by) {
+  const fx = who.x, fy = who.y;
+  if (tileOwner.get(tkey(who.tx, who.ty)) === who) tileOwner.delete(tkey(who.tx, who.ty));
+  who.tx = tx;
+  who.ty = ty;
+  who.x = tx;
+  who.y = ty;
+  who.moving = false;
+  who.path = [];
+  who.t = 0;
+  tileOwner.set(tkey(tx, ty), who);
+  who.slide = by && by.player ? { fx, fy, st: performance.now(), by, w: by.walked } : { fx, fy, st: performance.now() };
+  if (!who.shoved) {
+    const hr = roomAt[fy] && roomAt[fy][fx] >= 0 ? rooms[roomAt[fy][fx]] : null;
+    who.shoved = { by: by ? by.id : null, room: hr, pose: who.pose, t: game.time };
+  }
+  if (by && by !== who) cvSaw(by, who, "push");
+}
+LF2.tickers.push(() => {
+  for (const who of npcs) {
+    const sh = who.shoved;
+    if (!sh) continue;
+    if (who.dead) {
+      who.shoved = null;
+      continue;
+    }
+    if (who.pose === "sleep" || who.pose === "sit") continue;
+    who.shoved = null;
+    const ri2 = roomAt[who.ty] && roomAt[who.ty][who.tx], here = ri2 >= 0 ? rooms[ri2] : null;
+    if (here && here === sh.room) continue;
+    let trees = 0;
+    for (let yy = -3; yy <= 3; yy++) for (let xx = -3; xx <= 3; xx++) if (grid[who.ty + yy] && grid[who.ty + yy][who.tx + xx] === T.TREE) trees++;
+    const where = ri2 >= 0 ? "in somebody else's house" : trees >= 6 ? "in the middle of the forest" : grid[who.ty][who.tx] === T.PATH ? "in the middle of the road" : trees >= 2 ? "under a tree" : "in a field";
+    const bad = sh.pose === "sleep" ? ["WHAT?! Where am I?!", "My bed! Where is my roof?", "Is that... a tree? Who moved my bed?!", "By Jupiter, I went to sleep indoors!"] : ["Who has carried off my chair?", "How did I get out here?!", "I was sitting down just now!"];
+    lfShout(who, anyOf(bad));
+    who.mood = Math.max(0, (who.mood == null ? 60 : who.mood) - 8);
+    const by = sh.by != null ? byId(sh.by) : null;
+    if (by && !by.player) lfAff(who, by, -4, "carried me out of my house");
+    else if (by && by.player) lfAff(who, by, -4, "carried me out of my house");
+    chron(`${who.first} ${sh.pose === "sleep" ? "woke up" : "got up"} ${where}, ${sh.pose === "sleep" ? "bed" : "chair"} and all${by ? " - " + by.first + " had pushed " + (who.female ? "her" : "him") + " out of the door" : ""}.`, "life");
+  }
+});
 function pushSwap(n, piece) {
   const px = n.tx, py = n.ty;
   if (piece.kind === "person") {
@@ -18586,7 +18627,6 @@ function pushSwap(n, piece) {
   }
   if (piece.kind === "furniture") {
     const f = piece.f;
-    if (tileOwner.get(piece.y * W + piece.x) && tileOwner.get(piece.y * W + piece.x) !== n) return "It won't budge.";
     if (!pushFurnitureOK(f, px, py, true)) return "The " + (f.type === "seat" ? "chair" : f.type) + " won't budge.";
     if (!pushRoomConnected(f.r, [[piece.x, piece.y, px, py]])) return "That would block the way in the room.";
     pushMoveFurniture(f, px - piece.x, py - piece.y, n);
@@ -18616,6 +18656,10 @@ function pushMoveProp(pr, dx, dy, by) {
   town.pblock[pr.y * W + pr.x] = 1;
   town.propAt.set(pr.y * W + pr.x, pr);
   town.lfPV = (town.lfPV || 0) + 1;
+  if (pr.rider) {
+    if (pr.rider.dead || pr.rider.pose !== "sleep" && pr.rider.pose !== "sit") pr.rider = null;
+    else pushCarry(pr.rider, pr.x, pr.y, by);
+  }
   pr.seen = [];
   for (const o of npcs) if (o !== by && !o.dead && !o.infant && o.pose !== "sleep" && Math.abs(o.tx - pr.x) + Math.abs(o.ty - pr.y) <= 10) pr.seen.push(o.id);
   pushTrample(pr.x, pr.y);
@@ -18659,7 +18703,7 @@ function pushMaybeRestore(pr) {
   town.gridV = (town.gridV || 0) + 1;
 }
 function pushMoveFurniture(f, dx, dy, by) {
-  const o = f.o, fx = o.x, fy = o.y, tx = fx + dx, ty = fy + dy;
+  const o = f.o, fx = o.x, fy = o.y, tx = fx + dx, ty = fy + dy, rider = tileOwner.get(fy * W + fx), carry = rider && rider !== by && !rider.dead && (rider.pose === "sleep" || rider.pose === "sit") ? rider : null;
   if (tx === f.r.doorX && ty === f.r.doorY) {
     setT(fx, fy, T.FLOOR);
     o.out = true;
@@ -18674,6 +18718,10 @@ function pushMoveFurniture(f, dx, dy, by) {
     pr.moved = game.time;
     pr.by = by ? by.id : null;
     pr.seen = [];
+    if (carry) {
+      pr.rider = carry;
+      pushCarry(carry, tx, ty, by);
+    }
     markDirty(Math.min(fx, tx), Math.min(fy, ty), Math.abs(dx) + 1, Math.abs(dy) + 1);
     town.gridV = (town.gridV || 0) + 1;
     return pr;
@@ -18682,6 +18730,7 @@ function pushMoveFurniture(f, dx, dy, by) {
   setT(tx, ty, f.t);
   o.x = tx;
   o.y = ty;
+  if (carry) pushCarry(carry, tx, ty, by);
   if (f.type === "barrel") {
     const sp = f.r.spots && f.r.spots.pantry;
     if (sp) {
@@ -18753,11 +18802,11 @@ function lf2Relocate(o, x, y) {
 }
 function lf2PushPerson(n, o, dx, dy) {
   if (!lf2Adj(n, o)) return "Too far to push.";
-  if (o.pose === "sleep") return o.first + " is asleep.";
   if (o.pose === "sit" || o.pose === "kneel") return o.first + " is settled in.";
   const bx = o.tx + dx, by = o.ty + dy, ox = o.tx, oy = o.ty;
-  if (lf2PersonOK(bx, by) && !tileOwner.get(tkey(bx, by))) lf2Relocate(o, bx, by);
-  else if (lf2PersonOK(n.tx, n.ty)) lf2Relocate(o, n.tx, n.ty);
+  const move = o.pose === "sleep" ? (x, y) => pushCarry(o, x, y, n) : (x, y) => lf2Relocate(o, x, y);
+  if (lf2PersonOK(bx, by) && !tileOwner.get(tkey(bx, by))) move(bx, by);
+  else if (lf2PersonOK(n.tx, n.ty)) move(n.tx, n.ty);
   else return "There is no room to push " + o.first + ".";
   cvSaw(n, o, "push");
   if (!o.player && Math.random() < 0.3) lfShout(o, anyOf(PUSH_WORDS));
@@ -18766,6 +18815,15 @@ function lf2PushPerson(n, o, dx, dy) {
 function gaSlide(n, now) {
   const s = n.slide;
   if (!s) return [n.x, n.y];
+  if (s.by) {
+    const f = s.by;
+    if (f.moving && f.path && f.path.length && f.walked === s.w) {
+      const t2 = Math.max(0, Math.min(1, f.t || 0));
+      return [s.fx + (n.x - s.fx) * t2, s.fy + (n.y - s.fy) * t2];
+    }
+    n.slide = null;
+    return [n.x, n.y];
+  }
   const t = (now - s.st) / 170;
   if (!(t < 1)) {
     n.slide = null;
