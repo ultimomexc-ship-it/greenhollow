@@ -1823,7 +1823,6 @@ function drawDoll(g, sp, x, y, k, T = 0) {
   if (flip) { g.translate(x + 12 * k, 0); g.scale(-1, 1); g.translate(-(x + 12 * k), 0); }
   g.fillStyle = 'rgba(40,30,80,.24)'; g.beginPath(); g.ellipse(x + 12 * k, y + (DBY - DO + 0.3) * k, (isAdultKit(kit) ? 5.4 : kit === 'child' ? 3.9 : 3.1) * k, (isAdultKit(kit) ? 1.9 : 1.4) * k, 0, 0, TAU); g.fill();
   g.save(); { const fx = x + 12 * k, fy = y + (DBY - DO) * k; g.translate(fx, fy); g.scale(LK.ht * LK.bw, LK.ht); g.translate(-fx, -fy); }   // this person's height and build
-  if (sp.inv) { g.save(); g.translate(X0, Y0); g.scale(k, k); if (sp.inv.wood) propDraw(g, 'wood', 28, 30); if (sp.inv.stone) propDraw(g, 'stone', 30, 36); g.restore(); }
   if (!robe) put(lay(`legs_${gp}`, sp.pants, () => legsL(kit, dir, legPose, fr, false)));
   put(lay(`shoes_${gp}`, null, () => shoesL(kit, dir, legPose, fr, robe)));
   const armsOf = wp ? wp.arms : armRig(kit, dir, pose0 === 'walk' ? 'walk' : sit ? pose0 : 'stand', fr);

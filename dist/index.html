@@ -6761,14 +6761,6 @@ const ART = (function() {
       g.scale(LK.ht * LK.bw, LK.ht);
       g.translate(-fx, -fy);
     }
-    if (sp.inv) {
-      g.save();
-      g.translate(X0, Y0);
-      g.scale(k, k);
-      if (sp.inv.wood) propDraw(g, "wood", 28, 30);
-      if (sp.inv.stone) propDraw(g, "stone", 30, 36);
-      g.restore();
-    }
     if (!robe) put(lay(`legs_${gp}`, sp.pants, () => legsL(kit, dir, legPose, fr, false)));
     put(lay(`shoes_${gp}`, null, () => shoesL(kit, dir, legPose, fr, robe)));
     const armsOf = wp ? wp.arms : armRig(kit, dir, pose0 === "walk" ? "walk" : sit ? pose0 : "stand", fr);
@@ -25154,7 +25146,6 @@ function gaSpec(n, now) {
   sp.dress = dress;
   sp.mourning = !!(n.mourning && !n.moving);
   sp.wave = !!(n.waveUntil > game.time && n.pose !== "sleep");
-  sp.inv = n.inv;
   sp.status = n.status;
   const bath = n.age >= 6 && !dress ? bathState(n) : null;
   n._bath = bath;
