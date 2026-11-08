@@ -1,6 +1,5 @@
 /* ================= life2 / actions: what you can do to the thing in front of you =================
-   The verbs live here and in the town / law / daily-life hooks; controls.ts decides which held key picks which verb:
-   walk into it = the obvious thing, Space = push, Shift = sneak, E = help, R = rough, C = follow, Z = rest.           */
+   The verbs live here and in the town / law / daily-life hooks; what is in your hand (player/items.ts) picks which one happens.               */
 const LF2_COIN = 'd';
 const lf2Front = n => { const f = n.face || { dx: 0, dy: 1 }, dx = Math.sign(f.dx || 0), dy = dx ? 0 : Math.sign(f.dy || 0) || 1; return { x: n.tx + dx, y: n.ty + dy }; };
 const lf2Occ = (x, y, n) => { const o = tileOwner.get(tkey(x, y)); return o && o !== n && !o.dead && !o.infant ? o : null; };
@@ -72,14 +71,16 @@ function lifeAct(n, p, fx, fy, dx, dy) {
   const pr = lfPropAt(fx, fy);
   if (pr) {
     const label = LF_NOUN[pr.kind];
-    if (!lf2Crouching(p)) { if (lfPush(pr, dx, dy, n)) { lf2AfterPush(n, pr); return null; } if (lf2Swap(n, pr)) return { msg: '' }; return { msg: 'The ' + label + ' will not budge.' }; }   // standing: push it
-    if (pr.loot === null && (pr.lootDay || 0) >= Math.floor(game.time / 1440) - 1) return game.time - (pr.searchedT || -99) < 4 ? null : { msg: 'You have already been through this ' + label + '. (Stand up with Shift to push it.)' };   // crouching: search it
-    return { key: 'search' + pr.id, min: 5, text: 'Searching the ' + label, tool: 'pick', run(nn) { lf2Search(nn, pr); } };
+    const mode = itHand(n) ? itMode(n) : null;
+    if (mode === 'push') { if (lfPush(pr, dx, dy, n)) { lf2AfterPush(n, pr); return null; } if (lf2Swap(n, pr)) return { msg: '' }; return { msg: 'The ' + label + ' won\'t budge.' }; }   // Push: push it
+    if (mode === 'search') { if (pr.loot === null && (pr.lootDay || 0) >= Math.floor(game.time / 1440) - 1) return game.time - (pr.searchedT || -99) < 4 ? null : { msg: 'You\'ve already been through this ' + label + '.' };
+      return { key: 'search' + pr.id, min: 5, text: 'Searching the ' + label, tool: 'pick', run(nn) { lf2Search(nn, pr); } }; }   // Search: search it
+    return { msg: 'The ' + label + ': ' + itWant(n, 'push') };
   }
   if (grid[fy] && grid[fy][fx] === T.BARREL) { const r = rooms[roomAt[fy][fx]]; if (r && r.kind === 'house' && r !== n.homeRoom) return { msg: `The ${lf2Family(r)} family's food barrel. ` }; }
   return null;
 }
-/* walking into a person (crouching pushes them aside instead: see lf2PushPerson in controls.ts) */
+/* walking into a person (in Push mode they are pushed aside instead: see lf2PushPerson in controls.ts) */
 function lf2PersonAct(n, p, o, tg) {
   for (const f of LF2.pre) { const r = f.person && f.person(n, p, o, tg); if (r) return r; }
   return null;

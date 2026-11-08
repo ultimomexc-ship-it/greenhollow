@@ -7,7 +7,7 @@ function takeControl(n) {
   abortPlan(n); release(n); n.carry = null;
   n.player = { keys: {}, act: null, lock: false, sleeping: false, msg: '', msgAt: -1e9, fx: 0, fy: 1, lastKey: typeof performance !== 'undefined' ? performance.now() : 0 }; game.steer = n.id;
   n.face = n.face || { dx: 0, dy: 1 }; n.pose = 'stand'; n.tool = null; n.hold = null; n.status = 'Under your control';
-  game.player = n; return true;
+  game.player = n; itEnsure(n, true); return true;
 }
 function releasePlayer() {
   const n = game.player; if (!n) return;
@@ -200,17 +200,17 @@ function tickPlayer0(n, dt) {
       else { g.t += step; n.pose = 'stand'; n.tool = null; n.hold = null; if (g.t < g.max) continue; p.grace = null; p.act = null; if (g.talk) p.lock = true; else p.skip = { x: fx, y: fy }; }
     }
     if (p.lock) continue;
-    let tg = lifeAct(n, p, fx, fy, dx, dy) || targetAt(n, fx, fy);
-    if (lf2Crouching(p) && tg && tg.key && /^(tree|rock|fish)/.test(tg.key)) tg = { msg: 'Stand up (Shift) to ' + (/^fish/.test(tg.key) ? 'fish.' : /^tree/.test(tg.key) ? 'fell it.' : 'break it.') };
-    let occ = tileOwner.get(tkey(fx, fy));
-    // crouching (Shift): people are pushed like furniture (they move one tile, or you swap places); it is harmless, not a crime
-    if (lf2Crouching(p) && occ && occ !== n && !occ.infant && occ.pose !== 'sleep') { const r = lf2PushPerson(n, occ, dx, dy); if (r === true) { occ = null; tg = null; } else tg = { msg: r }; }
-    if (occ && occ !== n && !occ.infant) {
+    let tg = itGate(n, lifeAct(n, p, fx, fy, dx, dy) || targetAt(n, fx, fy), walkable(fx, fy));   // the thing in your hand must fit the action (player/items.ts)
+    let occ = tileOwner.get(tkey(fx, fy)), pushed = false;
+    // Push mode: people are pushed like furniture (they move one tile, or you swap places); it is harmless, not a crime
+    if (itHand(n, 'push') && occ && occ !== n && !occ.infant && occ.pose !== 'sleep') { const r = lf2PushPerson(n, occ, dx, dy); pushed = true; if (r === true) { occ = null; tg = null; } else tg = { msg: r }; }
+    if (occ && occ !== n && !occ.infant && !pushed) {
       if (occ.pose === 'sleep') tg = { msg: occ.first + ' is asleep.' };
+      else if (!itTalking(n)) tg = { msg: occ.first + ': ' + itWant(n, 'talk') };
       else if (occ.shop && occ.shop.serving && Math.abs(occ.shop.front.x - n.tx) + Math.abs(occ.shop.front.y - n.ty) <= 1.5) tg = { key: 'stall' + occ.id, min: 0.8, text: 'Stepping up to the larder', tool: null, run(n) { if (typeof openShop === 'function') openShop(occ.shop); } };
       else tg = { key: 'talk' + occ.id, min: 2, text: 'Talking to ' + occ.first, tool: null, run(n) { if (typeof openTalk === 'function' && occ.age >= 3) openTalk(occ); else if (!bumpTalk(n, occ, true)) playerSay(n, occ.first + ' nods and carries on.'); } };
     }
-    if (occ && occ !== n && !occ.infant) tg = lf2PersonAct(n, p, occ, tg) || tg;
+    if (occ && occ !== n && !occ.infant && !pushed && itTalking(n)) tg = lf2PersonAct(n, p, occ, tg) || tg;
     if (p.skip && (p.skip.x !== fx || p.skip.y !== fy)) p.skip = null;
     if (p.skip && tg && tg.key && !occ) tg = null;
     if (tg && tg.key) {

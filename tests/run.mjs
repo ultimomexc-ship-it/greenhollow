@@ -90,7 +90,7 @@ test('speed: one game-day of simulation stays fast', async browser => {
 
 /* ---------------------------------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------------------------------- */
-// Controls: hold a key to change what walking into something does (see src/life2/controls.ts).
+// Controls: the thing in your hand decides what walking into something does (see src/player/items.ts).
 // The harness takes control of a villager, drops them on open ground next to another villager or a crate,
 // and presses real keys; the sim is stepped by hand.
 
@@ -116,19 +116,20 @@ async function controlScene(name, rng, fn) {
 }
 const held = async (page, keys, minutes, dirKey = 'd') => { for (const k of keys) await page.keyboard.down(k); await page.keyboard.down(dirKey); await simulate(page, minutes); await page.keyboard.up(dirKey); for (const k of keys.slice().reverse()) await page.keyboard.up(k); };
 
-test('controls: crouching (Shift) pushes a person along like a barrel, with no crime or gossip', await controlScene('push', 41, async page => {
+test('controls: in Push mode walking into a person pushes them along like a barrel, with no crime or gossip', await controlScene('push', 41, async page => {
   const s = await page.evaluate(() => { const [x, y] = __find((x, y) => [0, 1, 2, 3, 4, 5].every(i => __free(x + i, y))); __place(game.player, x, y, { dx: 1, dy: 0 }); window.__o = __stand(__other(), x + 1, y); return { x, y, ox: x + 1 }; });
-  await page.keyboard.press('Shift'); await held(page, [], 3);
-  const e = await page.evaluate(() => ({ me: game.player.tx, them: window.__o.tx, emitted: window.__emitted.slice() }));
+  await page.keyboard.press('q'); await held(page, [], 3);   // Talk -> Push
+  const e = await page.evaluate(() => ({ me: game.player.tx, them: window.__o.tx, emitted: window.__emitted.slice(), mode: game.player.mode }));
+  check(e.mode === 'push', 'Q should switch the hand to Push, got ' + e.mode);
   check(e.emitted.length === 0, 'pushing someone must not create events, got: ' + e.emitted.join(', '));
   check(e.me > s.x + 1, `the player should have walked on behind them (x ${s.x} -> ${e.me})`);
   check(e.them > s.ox, `they should have been pushed east of x=${s.ox}, now ${e.them}`);
   return `player ${s.x} -> ${e.me}, villager ${s.ox} -> ${e.them}, no events`;
 }));
 
-test('controls: crouching against a wall swaps places instead of getting stuck', await controlScene('swap', 41, async page => {
+test('controls: in Push mode against a wall you swap places instead of getting stuck', await controlScene('swap', 41, async page => {
   const s = await page.evaluate(() => { const [x, y] = __find((x, y) => __free(x, y) && __free(x + 1, y) && !walkable(x + 2, y) && grid[y][x + 2] !== T.TREE); const n = game.player; __place(n, x, y, { dx: 1, dy: 0 }); __stand(__other(), x + 1, y); return { x, y }; });
-  await page.keyboard.press('Shift'); await held(page, [], 2);
+  await page.keyboard.press('q'); await held(page, [], 2);
   const e = await page.evaluate(() => ({ me: game.player.tx, emitted: window.__emitted.slice(), them: npcs.filter(q => q !== game.player && q.tx === game.player.tx - 1 && q.ty === game.player.ty).length }));
   check(e.me === s.x + 1, `the player should have changed places (x ${s.x} -> ${e.me})`);
   check(e.them === 1, 'the villager should now stand where the player was');
@@ -136,7 +137,7 @@ test('controls: crouching against a wall swaps places instead of getting stuck',
   return 'changed places, no events';
 }));
 
-test('controls: standing, walking into someone talks (and does not push them)', await controlScene('talk', 41, async page => {
+test('controls: in Talk mode walking into someone talks (and does not push them)', await controlScene('talk', 41, async page => {
   await page.evaluate(() => { const [x, y] = __find((x, y) => [0, 1, 2].every(i => __free(x + i, y))); __place(game.player, x, y, { dx: 1, dy: 0 }); __stand(__other(), x + 1, y); });
   await held(page, [], 1);
   const act = await page.evaluate(() => game.player.player.act && game.player.player.act.text);
@@ -144,45 +145,65 @@ test('controls: standing, walking into someone talks (and does not push them)', 
   return act;
 }));
 
-test('controls: Shift toggles crouching like Caps Lock; no other key does anything', await controlScene('toggle', 41, async page => {
+test('controls: Q cycles Talk, Push, Search; 1-9 pick from the belt; Shift and the old keys do nothing; with a tool in hand you do not talk', await controlScene('keys', 41, async page => {
   await page.evaluate(() => { const [x, y] = __find((x, y) => [0, 1, 2].every(i => __free(x + i, y))); __place(game.player, x, y, { dx: 1, dy: 0 }); __stand(__other(), x + 1, y); window.__emitted.length = 0; });
-  const st = () => page.evaluate(() => ({ sneak: !!game.player.player.sneak, act: game.player.player.act && game.player.player.act.text, ev: window.__emitted.slice() }));
-  const a = await st(); await page.keyboard.press('Shift'); const b = await st(); await simulate(page, 5); const c = await st();   // released, and still crouching: it is a toggle
-  await page.keyboard.press('Shift'); const d = await st();
-  check(!a.sneak && b.sneak && c.sneak && !d.sneak, `Shift should toggle: ${[a, b, c, d].map(x => x.sneak).join(' -> ')} (want false -> true -> true -> false)`);
-  await page.evaluate(() => { game.player.player.act = null; });
-  for (const k of ['Space', 'e', 'r', 'c', 'z']) { await page.keyboard.press(k); }
-  const e = await st(); check(!e.sneak && e.ev.length === 0, 'Space, E, R, C and Z should do nothing: ' + JSON.stringify(e));
-  return 'Shift: off -> on -> (still on after release) -> off; Space, E, R, C, Z do nothing';
+  const st = () => page.evaluate(() => { const n = game.player; return { mode: n.mode, sel: n.sel, held: itHeld(n).kind, sneak: !!n.player.sneak, act: n.player.act && n.player.act.text, msg: n.player.msg, ev: window.__emitted.slice() }; });
+  const seen = [(await st()).mode]; for (let i = 0; i < 3; i++) { await page.keyboard.press('q'); seen.push((await st()).mode); }
+  check(seen.join(',') === 'talk,push,search,talk', 'Q should cycle Talk -> Push -> Search -> Talk, got ' + seen.join(' -> '));
+  await page.keyboard.press('2'); const axe = await st(); check(axe.sel === 1 && axe.held === 'axe', 'key 2 should put the axe in hand: ' + JSON.stringify(axe));
+  for (const k of ['Shift', 'Space', 'e', 'r', 'c', 'z']) await page.keyboard.press(k);
+  const after = await st(); check(!after.sneak && after.ev.length === 0 && after.held === 'axe', 'Shift, Space, E, R, C and Z should do nothing: ' + JSON.stringify(after));
+  await held(page, [], 1); const bump = await st();
+  check(!/^Talking/.test(bump.act || '') && /press 1/.test(bump.msg || ''), 'with the axe in hand walking into someone should not talk, and should say how to: ' + JSON.stringify(bump));
+  await page.keyboard.press('q'); const back = await st(); check(back.sel === 0 && back.held === 'hand', 'Q with a tool in hand should put the hand back: ' + JSON.stringify(back));
+  return `Q: ${seen.join(' -> ')}; 2 = axe; old keys do nothing; "${bump.msg}"`;
 }));
 
-test('controls: a barrel or crate is pushed when standing and searched when crouching', await controlScene('props', 41, async page => {
+test('controls: a barrel or crate is pushed in Push mode and searched in Search mode', await controlScene('props', 41, async page => {
   const setup = () => page.evaluate(() => { const [x, y] = __find((x, y) => [-1, 0, 1, 2, 3, 4].every(i => __free(x + i, y))); const pr = town.props.find(Boolean); town.pblock[pr.y * W + pr.x] = 0; town.propAt.delete(pr.y * W + pr.x); pr.x = x + 1; pr.y = y; town.pblock[y * W + x + 1] = 1; town.propAt.set(y * W + x + 1, pr); pr.loot = undefined; pr.lootDay = -9; __place(game.player, x, y, { dx: 1, dy: 0 }); game.player.player.act = null; game.player.player.lock = false; window.__pr = pr; return { x, y, kind: pr.kind }; });
-  const s = await setup(); await held(page, [], 2);
+  const s0 = await setup(); await held(page, [], 1); const talk = await page.evaluate(() => ({ pr: window.__pr.x, msg: game.player.player.msg }));
+  check(talk.pr === s0.x + 1, 'in Talk mode a crate must not move');
+  await page.keyboard.press('q'); const s = await setup(); await held(page, [], 2);
   const pushed = await page.evaluate(() => ({ pr: window.__pr.x, act: game.player.player.act && game.player.player.act.text }));
-  check(pushed.pr > s.x + 1, `standing, the ${s.kind} should have been pushed east (x ${s.x + 1} -> ${pushed.pr})`);
-  await page.keyboard.press('Shift'); const s2 = await setup(); await held(page, [], 1);
+  check(pushed.pr > s.x + 1, `in Push mode the ${s.kind} should have been pushed east (x ${s.x + 1} -> ${pushed.pr})`);
+  await page.keyboard.press('q'); const s2 = await setup(); await held(page, [], 1);
   const searched = await page.evaluate(() => ({ pr: window.__pr.x, act: game.player.player.act && game.player.player.act.text }));
-  check(/^Searching/.test(searched.act || ''), 'crouching, walking into it should search it, got ' + JSON.stringify(searched.act));
-  check(searched.pr === s2.x + 1, 'a crouching player must not move it');
-  return `standing: ${s.kind} ${s.x + 1} -> ${pushed.pr}; crouching: ${searched.act}`;
+  check(/^Searching/.test(searched.act || ''), 'in Search mode walking into it should search it, got ' + JSON.stringify(searched.act));
+  check(searched.pr === s2.x + 1, 'searching must not move it');
+  return `Talk: stays ("${talk.msg}"); Push: ${s.kind} ${s.x + 1} -> ${pushed.pr}; Search: ${searched.act}`;
 }));
 
-test('controls: walking into a field ploughs a plot, then sows it, and each stage looks different', await controlScene('field', 41, async page => {
+test('controls: a tree needs the axe in hand: with the hand you are told, with the axe you fell it', await controlScene('tree', 41, async page => {
+  const s = await page.evaluate(() => { const [x, y] = __find((x, y) => __free(x, y) && grid[y][x + 1] === T.TREE && !wildTile(x + 1, y)); __place(game.player, x, y, { dx: 1, dy: 0 }); return { x, y }; });
+  await held(page, [], 1); const hand = await page.evaluate(() => ({ act: game.player.player.act && game.player.player.act.text, msg: game.player.player.msg }));
+  check(!hand.act && /axe/.test(hand.msg || ''), 'with an empty hand a tree should not be felled, and you should be told to hold the axe: ' + JSON.stringify(hand));
+  await page.evaluate(() => { __place(game.player, game.player.tx, game.player.ty, { dx: 1, dy: 0 }); }); await page.keyboard.press('2'); await held(page, [], 1);
+  const axe = await page.evaluate(() => ({ act: game.player.player.act && game.player.player.act.text }));
+  check(/Felling|Clearing/.test(axe.act || ''), 'with the axe in hand walking into a tree should fell it, got ' + JSON.stringify(axe));
+  return `hand: "${hand.msg}"; axe: ${axe.act}`;
+}));
+
+test('controls: the hoe ploughs a plot, seeds sow it, and each stage looks different', await controlScene('field', 41, async page => {
   const s = await page.evaluate(() => {
     const c = town.crops.find(c => !town.crops.some(o => o.x === c.x - 1 && o.y === c.y) && __free(c.x - 1, c.y)); if (!c) throw new Error('no field edge with free ground beside it'); c.pl = 0; c.st = 0;   // (reset: villagers may have got to it already)
-    __place(game.player, c.x - 1, c.y, { dx: 1, dy: 0 }); window.__c = c; for (const o of town.crops) { o.claim = null; } rebuildOcc(); return { x: c.x, y: c.y, fieldTiles: town.crops.filter(o => o.f === c.f).length, plowed: town.crops.filter(o => o.f === c.f && o.pl).length };
+    __place(game.player, c.x - 1, c.y, { dx: 1, dy: 0 }); window.__c = c; for (const o of town.crops) { o.claim = null; } rebuildOcc();
+    const slot = k => game.player.belt.findIndex(r => r && (r === 's:' + k || (r[0] === 'i' && itById(game.player, +r.slice(1)).kind === k))) + 1;
+    return { x: c.x, y: c.y, hoe: slot('hoe'), seed: slot('seed_barley'), seeds: game.player.bag.seed_barley };
   });
   const art = () => page.evaluate(() => { const c = window.__c; return ART.BYID[!c.pl ? 'crop_raw' : c.st ? 'crop_1' : 'crop_0'].id; });
-  const before = await art(); await held(page, [], 4);
+  const before = await art(); await held(page, [], 2);
+  const handOnly = await page.evaluate(() => ({ pl: window.__c.pl }));
+  check(!handOnly.pl, 'with an empty hand walking onto a field should not plough it');
+  await page.evaluate(() => { __place(game.player, window.__c.x - 1, window.__c.y, { dx: 1, dy: 0 }); }); await page.keyboard.press(String(s.hoe)); await held(page, [], 4);
   const ploughed = await page.evaluate(() => ({ pl: window.__c.pl, st: window.__c.st })); const mid = await art();
-  await page.evaluate(() => { __place(game.player, window.__c.x - 1, window.__c.y, { dx: 1, dy: 0 }); }); await simulate(page, 1);   // (let go of the key for a beat: holding it after an action walks you on)
+  await page.evaluate(() => { __place(game.player, window.__c.x - 1, window.__c.y, { dx: 1, dy: 0 }); }); await page.keyboard.press(String(s.seed)); await simulate(page, 1);   // (let go of the key for a beat: holding it after an action walks you on)
   await held(page, [], 12);
-  const sown = await page.evaluate(() => { const P = game.player, c = window.__c; return { pl: c.pl, st: c.st, at: P.tx + ',' + P.ty, plot: c.x + ',' + c.y, act: P.player.act && P.player.act.text, msg: P.player.msg, sneak: !!P.sneak }; }); const after = await art();
-  check(ploughed.pl && !ploughed.st, 'walking into untilled ground should plough that plot: ' + JSON.stringify(ploughed));
-  check(sown.pl && sown.st, 'walking into a ploughed plot should sow it even while the rest of the field is not ploughed: ' + JSON.stringify(sown));
+  const sown = await page.evaluate(() => { const c = window.__c; return { pl: c.pl, st: c.st, seed: c.seed, left: game.player.bag.seed_barley }; }); const after = await art();
+  check(ploughed.pl && !ploughed.st, 'with the hoe, walking into untilled ground should plough that plot: ' + JSON.stringify(ploughed));
+  check(sown.pl && sown.st && sown.seed === 'barley', 'with barley seed in hand, walking into a ploughed plot should sow barley: ' + JSON.stringify(sown));
+  check(sown.left === s.seeds - 1, `sowing should use one seed (${s.seeds} -> ${sown.left})`);
   check(new Set([before, mid, after]).size === 3, `untilled, ploughed and sown plots should be drawn differently: ${before}, ${mid}, ${after}`);
-  return `plot ${s.x},${s.y} of a ${s.fieldTiles}-plot field (${s.plowed} ploughed): ${before} -> ${mid} -> ${after}`;
+  return `hoe (${s.hoe}) ploughs, barley (${s.seed}) sows, ${s.seeds} -> ${sown.left} seeds: ${before} -> ${mid} -> ${after}`;
 }));
 
 test('controls: a sleeping person is not pushed around', await controlScene('sleeper', 41, async page => {

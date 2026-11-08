@@ -289,6 +289,6 @@ function lifeHowAre(n, out) {
   if (n.mood < 30) out.push(anyOf(['Rotten, honestly.', 'Low. Everything feels like too much today.']) + (m ? ' I keep thinking about how I ' + m.text + '.' : ''));
   else if (n.mood > 80) out.push(anyOf(['Wonderful, actually!', 'Better than I have been in ages.']) + (m && m.v > 0 ? ' I ' + m.text + '.' : ''));
 }
-/* the hold-a-key controls (Space, Shift, E, R, C, Z) are in life2/controls.ts */
-function lfBtnSync() { if (typeof lf2SyncModeBtn === 'function') lf2SyncModeBtn(); }
+/* the controls (what is in your hand decides what walking into something does) are in life2/controls.ts and player/items.ts */
+function lfBtnSync() { if (typeof itSync === 'function') itSync(true); }
 
