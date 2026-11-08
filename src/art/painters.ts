@@ -908,7 +908,7 @@ function cap24(g, side) { /* the top of a side or front wall, seen from above: w
       for (let q = 0; q < 3; q++) dab(g, x + 0.6 + R() * 10, y + 0.8 + R() * 4.4, 0.25 + R() * 0.3, 0.15 + R() * 0.15, R(), R() < 0.5 ? 'rgba(150,130,90,.3)' : 'rgba(255,252,236,.5)'); }
     g.fillStyle = 'rgba(120,104,70,.45)'; g.fillRect(0, y + 5.7, 24, 0.5); }
   const ink = 'rgba(42,35,50,.9)', sh = 'rgba(60,45,100,.26)', corner = side.length === 2;   // a corner tile (WS, ES, WN, EN) is where two walls meet: no inner shading, only the outline
-  if (corner && side.includes('S')) { g.fillStyle = ink; g.fillRect(side.includes('W') ? 0 : 22.7, 0, 1.3, 24); g.fillRect(0, 22.7, 24, 1.3); return; }
+  if (corner && side.includes('S') && (side.includes('W') || side.includes('E'))) { g.fillStyle = ink; g.fillRect(side.includes('W') ? 0 : 22.7, 0, 1.3, 24); g.fillRect(0, 22.7, 24, 1.3); return; }
   if (side.includes('W')) { g.fillStyle = sh; g.fillRect(21, 0, 3, 24); g.fillStyle = ink; g.fillRect(0, 0, 1.3, 24); g.fillStyle = IN2.capLt; g.fillRect(1.3, 0, 0.7, 24); }
   if (side.includes('E')) { g.fillStyle = sh; g.fillRect(0, 0, 3, 24); g.fillStyle = ink; g.fillRect(22.7, 0, 1.3, 24); g.fillStyle = IN2.capLt; g.fillRect(22, 0, 0.7, 24); }
   if (side.includes('S')) { g.fillStyle = sh; g.fillRect(0, 0, 24, 3); g.fillStyle = ink; g.fillRect(0, 22.7, 24, 1.3); }
@@ -1971,6 +1971,8 @@ const WALLX = ['N', 'W', 'E', 'S', 'WS', 'ES', 'WN', 'EN'];
 function T24(id, group, label, fn, o: any = {}) { return A(id, group, label, 24, 24, o.frames || 1, fn, Object.assign({ kind: 'furniture', under: 'wood' }, o)); }
 T24('wall_face', 'walls', 'Back wall', g => wallFace24(g, false), { kind: 'tile', under: null }); T24('wall_window', 'walls', 'Back wall, window', g => wallFace24(g, true), { kind: 'tile', under: null });
 for (const s of ['W', 'E', 'S', 'WS', 'ES', 'WN', 'EN']) T24('cap_' + s, 'walls', 'Wall top ' + s, g => cap24(g, s), { kind: 'tile', under: null }); T24('cap_plain', 'walls', 'Wall top, inner', g => cap24(g, ''), { kind: 'tile', under: null });
+/* every other combination of open edges, for free-form walls (letters in the order W, E, N, S) */
+for (let m = 1; m < 16; m++) { const k = (m & 1 ? 'W' : '') + (m & 2 ? 'E' : '') + (m & 4 ? 'N' : '') + (m & 8 ? 'S' : ''); if (!['W', 'E', 'S', 'WS', 'ES', 'WN', 'EN'].includes(k)) T24('cap_' + k, 'walls', 'Wall top ' + k, g => cap24(g, k), { kind: 'tile', under: null }); }
 T24('door_back_closed', 'walls', 'Wooden door, shut (north wall)', g => doorN24(g, false), { kind: 'tile', under: null }); T24('door_back_open', 'walls', 'Wooden door, open (north wall)', g => doorN24(g, true), { kind: 'tile', under: null });
 T24('door_mat_closed', 'walls', 'Wooden door, shut (south wall, from above)', g => doorS24(g, false), { kind: 'furniture' }); T24('door_mat_open', 'walls', 'Wooden door, open (south wall, from above)', g => doorS24(g, true), { kind: 'furniture' });
 for (const [i, c] of BLANKET.entries()) { T24(`bed_head_up_${i}`, 'furniture', `Bed, head up, ${['blue', 'red', 'green', 'violet', 'gold'][i]}`, g => bed24(g, c, true)); T24(`bed_head_down_${i}`, 'furniture', `Bed, head down, ${['blue', 'red', 'green', 'violet', 'gold'][i]}`, g => bed24(g, c, false)); }

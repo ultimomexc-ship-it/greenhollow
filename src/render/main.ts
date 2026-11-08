@@ -137,7 +137,7 @@ function drawLabels(c) {
   const label = (txt, x, y, col) => { c.save(); c.font = 'italic 600 13px "IBM Plex Sans", system-ui, sans-serif'; c.fillStyle = 'rgba(0,0,0,.45)'; c.fillText(txt, x + .8, y + .8); c.fillStyle = col; c.fillText(txt, x, y); c.restore(); };
   { const rg = town.region; if (rg && rg.found && rg.ent) label(rg.name.toUpperCase(), (rg.ent.x - 4) * TS, (rg.ent.y - 2) * TS, 'rgba(220,235,200,.85)'); }
   for (const r of rooms) {
-    if (r.dead) continue;
+    if (r.dead || r.free) continue;
     c.fillStyle = 'rgba(0,0,0,.45)'; c.fillText(r.name, (r.x + r.w / 2) * TS + 0.6, (r.side === 'b' ? r.y : r.y + r.h - 1) * TS + 12.6);
     c.fillStyle = 'rgba(255,248,226,.9)'; c.fillText(r.name, (r.x + r.w / 2) * TS, (r.side === 'b' ? r.y : r.y + r.h - 1) * TS + 12);
   }
@@ -191,7 +191,7 @@ function render(now, dtSec, hourOfDay) {
 
   // night overlay
   const d = daylight(hourOfDay), night = 1 - d, warmth = 0;
-  for (const rm of rooms) { if (rm.dead) continue; const occupied = npcs.some(n => n.pose !== 'sleep' && n.x > rm.x && n.x < rm.x + rm.w - 1 && n.y > rm.y && n.y < rm.y + rm.h - 1); const tavernOpen = rm.kind === 'tavern' && hourOfDay >= 17 && hourOfDay < 23.5; rm.lit += ((occupied || tavernOpen ? 1 : 0) - rm.lit) * Math.min(1, dtSec * 3); }
+  for (const rm of rooms) { if (rm.dead || rm.free) continue; const occupied = npcs.some(n => n.pose !== 'sleep' && n.x > rm.x && n.x < rm.x + rm.w - 1 && n.y > rm.y && n.y < rm.y + rm.h - 1); const tavernOpen = rm.kind === 'tavern' && hourOfDay >= 17 && hourOfDay < 23.5; rm.lit += ((occupied || tavernOpen ? 1 : 0) - rm.lit) * Math.min(1, dtSec * 3); }
   if (STYLE.light) drawLighting(c, hourOfDay, now);
   drawTrueSight(c, now);   // what you cannot see from where you stand (visibility, not light)
   if (!STYLE.light && night > 0.01) {

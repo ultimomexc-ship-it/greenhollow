@@ -3141,7 +3141,7 @@ const ART = (function() {
       g.fillRect(0, y + 5.7, 24, 0.5);
     }
     const ink = "rgba(42,35,50,.9)", sh = "rgba(60,45,100,.26)", corner = side.length === 2;
-    if (corner && side.includes("S")) {
+    if (corner && side.includes("S") && (side.includes("W") || side.includes("E"))) {
       g.fillStyle = ink;
       g.fillRect(side.includes("W") ? 0 : 22.7, 0, 1.3, 24);
       g.fillRect(0, 22.7, 24, 1.3);
@@ -7086,6 +7086,10 @@ const ART = (function() {
   T24("wall_window", "walls", "Back wall, window", (g) => wallFace24(g, true), { kind: "tile", under: null });
   for (const s of ["W", "E", "S", "WS", "ES", "WN", "EN"]) T24("cap_" + s, "walls", "Wall top " + s, (g) => cap24(g, s), { kind: "tile", under: null });
   T24("cap_plain", "walls", "Wall top, inner", (g) => cap24(g, ""), { kind: "tile", under: null });
+  for (let m = 1; m < 16; m++) {
+    const k = (m & 1 ? "W" : "") + (m & 2 ? "E" : "") + (m & 4 ? "N" : "") + (m & 8 ? "S" : "");
+    if (!["W", "E", "S", "WS", "ES", "WN", "EN"].includes(k)) T24("cap_" + k, "walls", "Wall top " + k, (g) => cap24(g, k), { kind: "tile", under: null });
+  }
   T24("door_back_closed", "walls", "Wooden door, shut (north wall)", (g) => doorN24(g, false), { kind: "tile", under: null });
   T24("door_back_open", "walls", "Wooden door, open (north wall)", (g) => doorN24(g, true), { kind: "tile", under: null });
   T24("door_mat_closed", "walls", "Wooden door, shut (south wall, from above)", (g) => doorS24(g, false), { kind: "furniture" });
@@ -15728,6 +15732,7 @@ function boulderShape(x, y) {
 }
 const TSIGHT = { on: true, poly: null, hits: null, key: "", rect: null, eye: null, ms: 0, cv: null, geo: null, geoKey: "" };
 function tsWindow(x, y) {
+  if (town.win && town.win.has(y * W + x)) return true;
   const ri2 = roomAt[y] && roomAt[y][x];
   if (ri2 == null || ri2 < 0) return false;
   const r = rooms[ri2];
@@ -16225,6 +16230,10 @@ function gaRoomTile(g, x, y) {
     const it = ART.BYID[id];
     if (it) g.drawImage(ART.frameOf(it, 0), X, Y, TS, TS);
   };
+  if (r.free) {
+    gaFreeTile(g, r, x, y, t, X, Y, v, fk, P);
+    return;
+  }
   if (t === T.WALL || t === T.DOOR) {
     if (t === T.DOOR) {
       g.drawImage(ART.terr(fk, v), X, Y, TS, TS);
@@ -16246,7 +16255,27 @@ function gaRoomTile(g, x, y) {
   const f = gaFurniture(r, x, y, t);
   if (f) P(f);
 }
+const gaSolidW = (x, y) => x >= 0 && y >= 0 && x < W && y < H && (grid[y][x] === T.WALL || grid[y][x] === T.DOOR);
+const gaInside = (x, y) => x >= 0 && y >= 0 && x < W && y < H && grid[y][x] === T.FLOOR && roomAt[y][x] >= 0 && !!rooms[roomAt[y][x]] && !!rooms[roomAt[y][x]].free;
+function gaFreeTile(g, r, x, y, t, X, Y, v, fk, P) {
+  if (t === T.DOOR) {
+    g.drawImage(ART.terr(fk, v), X, Y, TS, TS);
+    if (gaInside(x, y + 1)) P("wall_face");
+    return;
+  }
+  if (t === T.WALL) {
+    if (gaInside(x, y + 1)) {
+      P(town.win && town.win.has(y * W + x) ? "wall_window" : "wall_face");
+      return;
+    }
+    const k = (!gaSolidW(x - 1, y) ? "W" : "") + (!gaSolidW(x + 1, y) ? "E" : "") + (!gaSolidW(x, y - 1) && !gaInside(x, y - 1) ? "N" : "") + (!gaSolidW(x, y + 1) ? "S" : "");
+    P(k === "" ? "cap_plain" : "cap_" + k);
+    return;
+  }
+  g.drawImage(ART.terr(fk, v), X, Y, TS, TS);
+}
 function gaRoomShade(g, r, k) {
+  if (r.free) return;
   g.save();
   g.beginPath();
   g.rect((r.x + 1) * TS, (r.y + 1) * TS, (r.w - 2) * TS, (r.h - 2) * TS);
@@ -16342,6 +16371,7 @@ function gaPaintRect(g, x0, y0, w, h, k, wt) {
   for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (roomAt[y][x] >= 0) gaRoomTile(g, x, y);
   for (const r of near) {
     gaRoomShade(g, r, k);
+    if (r.free) continue;
     const ri2 = rooms.indexOf(r);
     g.save();
     ART.roomDress(g, r, ri2, doors.filter((d) => d.room === ri2).map((d) => d.x), GA.seed);
@@ -16541,7 +16571,7 @@ function drawDoors(c, dt) {
     if (!r) continue;
     const op = d.o > 0.5, fk = r.floor === "stone" ? "stone" : "wood";
     c.drawImage(ART.terr(fk, ART.h32(d.x, d.y, 5, 5) * 2 | 0), d.x * TS, d.y * TS, TS, TS);
-    gaDraw(c, d.y === r.y ? op ? "door_back_open" : "door_back_closed" : op ? "door_mat_open" : "door_mat_closed", d.x * TS, d.y * TS, 0, 0);
+    gaDraw(c, (r.free ? gaInside(d.x, d.y + 1) : d.y === r.y) ? op ? "door_back_open" : "door_back_closed" : op ? "door_mat_open" : "door_mat_closed", d.x * TS, d.y * TS, 0, 0);
   }
 }
 function drawCrops(c, now) {
@@ -18735,6 +18765,7 @@ function pushMoveProp(pr, dx, dy, by) {
   pr.seen = [];
   for (const o of npcs) if (o !== by && !o.dead && !o.infant && o.pose !== "sleep" && Math.abs(o.tx - pr.x) + Math.abs(o.ty - pr.y) <= 10) pr.seen.push(o.id);
   pushTrample(pr.x, pr.y);
+  if (typeof bldBlock === "function" && bldBlock(pr)) (town.bldQ = town.bldQ || []).push([pr.x, pr.y]);
   if (pr.fur) pushMaybeRestore(pr);
 }
 function pushTrample(x, y) {
@@ -18924,7 +18955,34 @@ function yardTake(n, pr) {
 YSORT.push(function(c, now) {
   const b = town.builder;
   if (!b || !gaOnScreen(b.cx, b.y0, b.n + 2)) return [];
-  return [{ k: b.y0 - 1.2, f: () => {
+  return [{ k: b.y0 - 6, f: () => {
+    const p = b.pad, x = p.x * TS, y = p.y * TS, w = p.w * TS, h = p.h * TS;
+    c.save();
+    c.fillStyle = "rgba(232,192,74,.22)";
+    c.fillRect(x, y, w, h);
+    c.beginPath();
+    c.rect(x, y, w, h);
+    c.clip();
+    c.strokeStyle = "rgba(232,192,74,.45)";
+    c.lineWidth = 2;
+    for (let i = -h; i < w; i += 12) {
+      c.beginPath();
+      c.moveTo(x + i, y + h);
+      c.lineTo(x + i + h, y);
+      c.stroke();
+    }
+    c.restore();
+    c.strokeStyle = "rgba(232,192,74,.95)";
+    c.lineWidth = 2;
+    c.setLineDash([6, 4]);
+    c.strokeRect(x + 1, y + 1, w - 2, h - 2);
+    c.setLineDash([]);
+    c.fillStyle = "rgba(255,234,168,.8)";
+    c.font = 'bold 8px "IBM Plex Sans", sans-serif';
+    c.textAlign = "center";
+    c.fillText("DELIVERY PAD \xB7 DO NOT BUILD HERE", x + w / 2, y + h - 3);
+    c.textAlign = "left";
+  } }, { k: b.y0 - 1.2, f: () => {
     const x0 = b.x0 * TS, w = b.n * TS, y = (b.y0 - 1.55) * TS, sway = Math.sin(now / 700) * 1.2;
     c.fillStyle = "#5a3a1e";
     c.fillRect(x0 + 2, y - 4, 3, TS * 1.9);
@@ -18986,6 +19044,223 @@ lfDrawThoughts = function(c, now) {
   _yardThoughts(c, now);
   yardArrow(c, now);
 };
+const BLD_KINDS = ["bwall", "bwindow", "bdoor"];
+const BLD_MAX = 260;
+const bldBlock = (pr) => !!pr && BLD_KINDS.includes(pr.kind) && !pr.fixed;
+const bldSolid = (x, y) => {
+  const g = grid[y][x];
+  return g === T.WALL || g === T.DOOR || bldBlock(lfPropAt(x, y));
+};
+const bldFreeRoom = (x, y) => {
+  const i = roomAt[y][x];
+  const r = i >= 0 ? rooms[i] : null;
+  return r && r.free && !r.dead ? r : null;
+};
+const bldOKTile = (x, y) => {
+  const g = grid[y][x];
+  if (g !== T.GRASS && g !== T.PATH && g !== T.FLOOR && g !== T.CROP && g !== T.SAND) return false;
+  if (town.siteAt[y * W + x] || town.nodeMap && town.nodeMap.has(y * W + x)) return false;
+  const p = lfPropAt(x, y);
+  if (p && p.fixed) return false;
+  if (roomAt[y][x] >= 0 && !bldFreeRoom(x, y)) return false;
+  return !bldOnPad(x, y);
+};
+const bldOnPad = (x, y) => {
+  const b = town.builder;
+  return !!b && x >= b.pad.x - 1 && x < b.pad.x + b.pad.w + 1 && y >= b.pad.y - 1 && y < b.pad.y + b.pad.h + 1;
+};
+const BLD_D8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]], BLD_D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+function bldFlood(sx, sy, seen) {
+  const cells = [], q = [sx + sy * W];
+  seen.add(q[0]);
+  let open = false, bad = "";
+  while (q.length) {
+    const k = q.pop(), x = k % W, y = k / W | 0;
+    cells.push(k);
+    if (cells.length > BLD_MAX) open = true;
+    if (x < 4 || y < 4 || x >= W - 4 || y >= H - 4) open = true;
+    if (!bad && !bldOKTile(x, y)) bad = bldOnPad(x, y) ? "the yard's pad" : grid[y][x] === T.TREE ? "a tree" : grid[y][x] === T.ROCK || grid[y][x] === T.MOUNTAIN ? "a rock" : grid[y][x] === T.WATER ? "water" : "something";
+    if (open) return { cells, open: true, bad };
+    for (const [dx, dy] of BLD_D8) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      const nk = nx + ny * W;
+      if (seen.has(nk) || bldSolid(nx, ny)) continue;
+      seen.add(nk);
+      q.push(nk);
+    }
+  }
+  return { cells, open, bad };
+}
+function bldHasDoor(cells) {
+  for (const k of cells) {
+    const x = k % W, y = k / W | 0;
+    for (const [dx, dy] of BLD_D4) {
+      const nx = x + dx, ny = y + dy, p = lfPropAt(nx, ny);
+      if (p && p.kind === "bdoor" && !p.fixed || grid[ny][nx] === T.DOOR && doors.some((d) => d.x === nx && d.y === ny && rooms[d.room] && rooms[d.room].free)) return true;
+    }
+  }
+  return false;
+}
+function bldMake(regions, dissolve) {
+  const oldRooms = new Set(dissolve), blocks = /* @__PURE__ */ new Set(), bounds = { x0: 1e9, y0: 1e9, x1: -1, y1: -1 };
+  for (const R of regions) for (const k of R) {
+    const x = k % W, y = k / W | 0;
+    for (const [dx, dy] of BLD_D8) {
+      const p = lfPropAt(x + dx, y + dy);
+      if (bldBlock(p)) blocks.add(p);
+    }
+  }
+  for (const r of oldRooms) {
+    for (const k of r.cells) {
+      const x = k % W, y = k / W | 0;
+      for (const [dx, dy] of BLD_D8) {
+        const p = lfPropAt(x + dx, y + dy);
+        if (bldBlock(p)) blocks.add(p);
+      }
+    }
+    r.dead = true;
+  }
+  doors = doors.filter((d) => !oldRooms.has(rooms[d.room]));
+  const wall = /* @__PURE__ */ new Map();
+  for (const p of blocks) {
+    wall.set(p.x + p.y * W, p.kind);
+    town.pblock[p.y * W + p.x] = 0;
+    town.propAt.delete(p.y * W + p.x);
+    town.props = town.props.filter((q) => q !== p);
+    setT(p.x, p.y, p.kind === "bdoor" ? T.DOOR : T.WALL);
+  }
+  town.win = town.win || /* @__PURE__ */ new Set();
+  for (const k of [...town.win]) if (grid[k / W | 0][k % W] !== T.WALL) town.win.delete(k);
+  const made = [];
+  for (const R of regions) {
+    const idx = rooms.length, set = new Set(R);
+    let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+    for (const k of R) {
+      const x = k % W, y = k / W | 0;
+      x0 = Math.min(x0, x);
+      x1 = Math.max(x1, x);
+      y0 = Math.min(y0, y);
+      y1 = Math.max(y1, y);
+      if (grid[y][x] === T.CROP) town.crops = (town.crops || []).filter((c) => !(c.x === x && c.y === y));
+      setT(x, y, T.FLOOR);
+      roomAt[y][x] = idx;
+    }
+    const edge = /* @__PURE__ */ new Set();
+    for (const k of R) {
+      const x = k % W, y = k / W | 0;
+      for (const [dx, dy] of BLD_D8) {
+        const nx = x + dx, ny = y + dy, t = grid[ny][nx];
+        if (t === T.WALL || t === T.DOOR) edge.add(nx + ny * W);
+      }
+    }
+    for (const k of edge) {
+      const x = k % W, y = k / W | 0;
+      x0 = Math.min(x0, x);
+      x1 = Math.max(x1, x);
+      y0 = Math.min(y0, y);
+      y1 = Math.max(y1, y);
+      const cur = roomAt[y][x];
+      if (cur < 0 || rooms[cur] && rooms[cur].dead) roomAt[y][x] = idx;
+    }
+    const room = { id: "free" + (town.bldN = (town.bldN || 0) + 1), name: "Room", kind: "room", free: true, x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1, side: "b", doorX: null, doorY: null, lit: 0, beds: [], seats: [], pews: [], spots: {}, floor: "wood", pantry: {}, noWindows: true, cells: set, walls: edge, built: game.time };
+    rooms.push(room);
+    made.push(room);
+    for (const k of edge) {
+      const x = k % W, y = k / W | 0;
+      if (grid[y][x] !== T.DOOR) continue;
+      if (!BLD_D4.some(([dx, dy]) => set.has(x + dx + (y + dy) * W))) continue;
+      if (!doors.some((d) => d.x === x && d.y === y)) doors.push({ x, y, room: idx, o: 0 });
+      if (room.doorX == null) {
+        room.doorX = x;
+        room.doorY = y;
+        room.side = set.has(x + (y - 1) * W) ? "b" : "t";
+      }
+    }
+    bounds.x0 = Math.min(bounds.x0, x0);
+    bounds.y0 = Math.min(bounds.y0, y0);
+    bounds.x1 = Math.max(bounds.x1, x1);
+    bounds.y1 = Math.max(bounds.y1, y1);
+    for (const k of edge) {
+      const x = k % W, y = k / W | 0;
+      if (wall.get(k) === "bwindow" && grid[y][x] === T.WALL && grid[y][x - 1] !== void 0 && (grid[y][x - 1] === T.WALL || grid[y][x - 1] === T.DOOR) && (grid[y][x + 1] === T.WALL || grid[y][x + 1] === T.DOOR) && set.has(x + (y + 1) * W)) town.win.add(k);
+    }
+  }
+  for (const room of made) {
+    const idx = rooms.indexOf(room);
+    for (const k of room.walls) {
+      const x = k % W, y = k / W | 0;
+      if (grid[y][x] === T.DOOR && !doors.some((d) => d.x === x && d.y === y)) doors.push({ x, y, room: idx, o: 0 });
+    }
+  }
+  if (bounds.x1 >= 0) {
+    markDirty(bounds.x0 - 1, bounds.y0 - 1, bounds.x1 - bounds.x0 + 3, bounds.y1 - bounds.y0 + 3);
+  }
+  town.gridV = (town.gridV || 0) + 1;
+  town.lfPV = (town.lfPV || 0) + 1;
+  if (typeof refreshReach === "function") refreshReach();
+  rebuildOcc();
+  return made;
+}
+function bldEvaluate(spots) {
+  const seen = /* @__PURE__ */ new Set(), regions = [], dissolve = /* @__PURE__ */ new Set();
+  let hint = "";
+  for (const [bx, by] of spots) for (const [dx, dy] of BLD_D8) {
+    const x = bx + dx, y = by + dy;
+    if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1 || seen.has(x + y * W) || bldSolid(x, y)) continue;
+    const reg = bldFlood(x, y, seen);
+    if (reg.open) continue;
+    const inRoom = bldFreeRoom(x, y);
+    if (inRoom) {
+      if (dissolve.has(inRoom)) continue;
+      const seen2 = /* @__PURE__ */ new Set(), comps = [];
+      let ok = true;
+      for (const k of inRoom.cells) {
+        if (seen2.has(k) || bldSolid(k % W, k / W | 0)) continue;
+        const c = bldFlood(k % W, k / W | 0, seen2);
+        if (c.open || c.bad) {
+          ok = false;
+          break;
+        }
+        comps.push(c.cells);
+      }
+      if (!ok || comps.length < 2 || !comps.every(bldHasDoor)) continue;
+      dissolve.add(inRoom);
+      for (const c of comps) regions.push(c);
+      continue;
+    }
+    if (reg.bad) {
+      hint = reg.bad;
+      continue;
+    }
+    if (reg.cells.length < 1) continue;
+    if (!bldHasDoor(reg.cells)) {
+      hint = hint || "door";
+      continue;
+    }
+    regions.push(reg.cells);
+  }
+  if (!regions.length) return { made: [], hint };
+  const made = bldMake(regions, [...dissolve]);
+  return { made, hint };
+}
+function bldTick() {
+  const q = town.bldQ;
+  if (!q || !q.length) return;
+  if (town.props.some((p) => bldBlock(p) && p.follow)) return;
+  const spots = q.splice(0).filter((p) => bldBlock(lfPropAt(p[0], p[1])));
+  if (!spots.length) return;
+  const r = bldEvaluate(spots), pl = game.player;
+  if (r.made.length) {
+    const cells = r.made.reduce((s, m) => s + m.cells.size, 0);
+    chron(`${pl ? pl.first : "Somebody"} raised ${r.made.length > 1 ? r.made.length + " rooms" : "a room"} out of building blocks (${cells} tiles).`, "build");
+    if (pl && pl.player) playerSay(pl, r.made.length > 1 ? "The walls close: " + r.made.length + " rooms." : "The walls close. A room!");
+  } else if (r.hint === "door") {
+    const pl2 = game.player;
+    if (pl2 && pl2.player && spots.some((s) => Math.abs(s[0] - pl2.tx) + Math.abs(s[1] - pl2.ty) <= 6)) playerSay(pl2, "Closed in, but it needs a door.");
+  } else if (r.hint && pl && pl.player && spots.some((s) => Math.abs(s[0] - pl.tx) + Math.abs(s[1] - pl.ty) <= 6)) playerSay(pl, "Closed in, but " + r.hint + " is inside it.");
+}
+LF2.tickers.push(bldTick);
 const lf2PersonOK = (x, y) => {
   const g = grid[y] && grid[y][x];
   return walkable(x, y) && !(typeof noStep === "function" && noStep(x, y)) && g !== T.SEAT && g !== T.BED && g !== T.PEW && g !== T.TENT && !lfPropAt(x, y);
@@ -25601,7 +25876,7 @@ function drawLabels(c) {
     if (rg && rg.found && rg.ent) label(rg.name.toUpperCase(), (rg.ent.x - 4) * TS, (rg.ent.y - 2) * TS, "rgba(220,235,200,.85)");
   }
   for (const r of rooms) {
-    if (r.dead) continue;
+    if (r.dead || r.free) continue;
     c.fillStyle = "rgba(0,0,0,.45)";
     c.fillText(r.name, (r.x + r.w / 2) * TS + 0.6, (r.side === "b" ? r.y : r.y + r.h - 1) * TS + 12.6);
     c.fillStyle = "rgba(255,248,226,.9)";
@@ -25705,7 +25980,7 @@ function render(now, dtSec, hourOfDay) {
   }
   const d = daylight(hourOfDay), night = 1 - d, warmth = 0;
   for (const rm of rooms) {
-    if (rm.dead) continue;
+    if (rm.dead || rm.free) continue;
     const occupied = npcs.some((n) => n.pose !== "sleep" && n.x > rm.x && n.x < rm.x + rm.w - 1 && n.y > rm.y && n.y < rm.y + rm.h - 1);
     const tavernOpen = rm.kind === "tavern" && hourOfDay >= 17 && hourOfDay < 23.5;
     rm.lit += ((occupied || tavernOpen ? 1 : 0) - rm.lit) * Math.min(1, dtSec * 3);

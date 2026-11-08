@@ -417,6 +417,70 @@ test('builder\'s yard: blocks are loose things (a wall block chains with a crate
   return 'wall + door + crate chained; art and names set';
 }));
 
+test('building: blocks close into rooms of any shape (L-shape, a door needed, no diagonal seals, nothing inside, not on the pad); a partition splits a room; a lone block inside stays loose', await controlScene('seal', 41, async page => {
+  const r = await page.evaluate(() => {
+    const res = {}, o = { x: town.cx + 14, y: town.cy - 40 };
+    const clear = (x0, y0, w, h) => { for (let j = y0 - 1; j <= y0 + h; j++) for (let i = x0 - 1; i <= x0 + w; i++) { setT(i, j, T.GRASS); roomAt[j][i] = -1; const p = lfPropAt(i, j); if (p) { town.props = town.props.filter(q => q !== p); town.propAt.delete(j * W + i); town.pblock[j * W + i] = 0; } } };
+    const ringOf = cells => { const cs = new Set(cells.map(c => c.join())), ring = new Set(); for (const [i, j] of cells) for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const k = (i + dx) + ',' + (j + dy); if (!cs.has(k)) ring.add(k); } return [...ring].map(k => k.split(',').map(Number)); };
+    const put = (ox, oy, ring, door, skip) => { const placed = []; for (const [i, j] of ring) { const k = i + ',' + j; if (skip && k === skip) continue; lfAddProp(door && k === door ? 'bdoor' : 'bwall', ox + i, oy + j); placed.push([ox + i, oy + j]); } return placed; };
+    const rooms0 = () => rooms.filter(q => q.free && !q.dead).length, run = placed => { town.bldQ = placed; bldTick(); };
+    clear(o.x, o.y, 40, 10);
+    // 1. an L-shaped room (24 tiles) with a door: all the blocks but the last do nothing, the last closes it
+    const L = []; for (let j = 1; j <= 3; j++) for (let i = 1; i <= 6; i++) L.push([i, j]); for (let j = 4; j <= 5; j++) for (let i = 1; i <= 3; i++) L.push([i, j]);
+    let ring = ringOf(L); const lastK = '2,6'; const before = put(o.x, o.y, ring, lastK, lastK); run(before); res.notYet = rooms0();
+    lfAddProp('bdoor', o.x + 2, o.y + 6); run([[o.x + 2, o.y + 6]]); const A = rooms.filter(q => q.free && !q.dead)[0];
+    res.L = { rooms: rooms0(), cells: A && A.cells.size, floor: grid[o.y + 2][o.x + 2] === T.FLOOR, wall: grid[o.y][o.x] === T.WALL, door: grid[o.y + 6][o.x + 2] === T.DOOR, loose: town.props.filter(p => BLD_KINDS.includes(p.kind) && p.x < o.x + 8 && p.y < o.y + 8).length, at: roomAt[o.y + 2][o.x + 2] === rooms.indexOf(A) };
+    // you can walk in through the door and the way in is a real path
+    const pth = findPath(o.x + 2, o.y + 8, o.x + 4, o.y + 2); res.path = !!pth && pth.length > 0;
+    // 2. a closed square with no door: nothing; add a door block and it seals (a window block in the back wall becomes a window)
+    const sq = []; for (let j = 1; j <= 3; j++) for (let i = 1; i <= 3; i++) sq.push([i, j]); ring = ringOf(sq); const S = { x: o.x + 10, y: o.y }; put(S.x, S.y, ring); run(ring.map(c => [S.x + c[0], S.y + c[1]])); res.noDoor = rooms0() - 1;
+    const dp = lfPropAt(S.x + 2, S.y + 4); dp && (town.props = town.props.filter(q => q !== dp), town.propAt.delete((S.y + 4) * W + S.x + 2), town.pblock[(S.y + 4) * W + S.x + 2] = 0); lfAddProp('bdoor', S.x + 2, S.y + 4); const wp = lfPropAt(S.x + 2, S.y); wp.kind = 'bwindow'; run([[S.x + 2, S.y + 4]]); res.withDoor = rooms0() - 1; res.win = town.win && town.win.has(S.y * W + S.x + 2);
+    // 3. walls that meet only at a corner never close anything
+    const D = { x: o.x + 16, y: o.y }; const dsq = []; for (let i = 0; i <= 4; i++) for (let j = 0; j <= 4; j++) if ((i === 0 || j === 0 || i === 4 || j === 4) && !(i === 0 && j === 4)) dsq.push([i, j]); for (const [i, j] of dsq) lfAddProp(i === 2 && j === 4 ? 'bdoor' : 'bwall', D.x + i, D.y + j); run(dsq.map(c => [D.x + c[0], D.y + c[1]])); res.diag = rooms0() - 2;
+    // 4. a tree inside refuses to seal
+    const Tr = { x: o.x + 22, y: o.y }; put(Tr.x, Tr.y, ringOf([[1, 1], [2, 1], [3, 1]]), '2,2'); setT(Tr.x + 2, Tr.y + 1, T.TREE); run(ringOf([[1, 1], [2, 1], [3, 1]]).map(c => [Tr.x + c[0], Tr.y + c[1]])); res.tree = rooms0() - 2; setT(Tr.x + 2, Tr.y + 1, T.GRASS);
+    // 5. a loose block pushed about inside the sealed room stays loose
+    const lb = lfAddProp('bwall', o.x + 4, o.y + 2); run([[o.x + 4, o.y + 2]]); res.lone = { loose: !!lfPropAt(o.x + 4, o.y + 2) && grid[o.y + 2][o.x + 4] === T.FLOOR, rooms: rooms0() - 2 };
+    town.props = town.props.filter(q => q !== lb); town.propAt.delete((o.y + 2) * W + o.x + 4); town.pblock[(o.y + 2) * W + o.x + 4] = 0;
+    // 6. a partition across the room (and a door in it) splits it in two
+    const part = [[1, 4], [2, 4], [3, 4]]; for (const [i, j] of part) lfAddProp(i === 2 ? 'bdoor' : 'bwall', o.x + i, o.y + j); run(part.map(c => [o.x + c[0], o.y + c[1]])); const live = rooms.filter(q => q.free && !q.dead);
+    res.split = { rooms: rooms0() - 2, dead: A.dead, cells: live.filter(q => q.cells.has(o.x + 2 + (o.y + 2) * W) || q.cells.has(o.x + 2 + (o.y + 5) * W)).length };
+    // 7. not on the yard's pad
+    const pad = town.builder.pad; const pc = { x: pad.x + 1, y: pad.y }; res.pad = bldOnPad(pc.x, pc.y);
+    return res;
+  });
+  check(r.notYet === 0 && r.L.rooms === 1 && r.L.cells === 24 && r.L.floor && r.L.wall && r.L.door && r.L.loose === 0 && r.L.at, 'an L-shaped ring closes into one 24-tile room with fixed walls, a door and a floor: ' + JSON.stringify(r));
+  check(r.path, 'you can walk in through the new door');
+  check(r.noDoor === 0 && r.withDoor === 1 && r.win, 'a closed square needs a door; a window block in a straight wall becomes a window: ' + JSON.stringify([r.noDoor, r.withDoor, r.win]));
+  check(r.diag === 0, 'walls meeting only at a corner must not close anything');
+  check(r.tree === 0, 'a tree inside refuses to seal');
+  check(r.lone.loose && r.lone.rooms === 0, 'a lone block inside a room stays loose: ' + JSON.stringify(r.lone));
+  check(r.split.rooms === 1 && r.split.dead && r.split.cells === 2, 'a partition with a door splits the room in two: ' + JSON.stringify(r.split));
+  check(r.pad, 'the delivery pad is off limits');
+  await simulate(page, 2 * 1440);
+  const after = await page.evaluate(() => ({ dead: npcs.filter(n => n.dead).length, free: rooms.filter(q => q.free && !q.dead).length }));
+  check(after.dead === 0, 'two days later nobody has died: ' + JSON.stringify(after));
+  return 'L-shape sealed (24 tiles, door, floor), needs a door, no diagonal seal, tree refuses, partition splits, pad off limits; ' + after.free + ' rooms after two days';
+}));
+
+test('building: pushing the last wall block into the gap closes the room once your step is over', await controlScene('sealpush', 41, async page => {
+  const r = await page.evaluate(() => {
+    const o = { x: town.cx + 14, y: town.cy - 30 }, P = game.player; P.mode = 'push'; P.sel = 0;
+    for (let j = -1; j < 8; j++) for (let i = -1; i < 12; i++) { setT(o.x + i, o.y + j, T.GRASS); roomAt[o.y + j][o.x + i] = -1; const p = lfPropAt(o.x + i, o.y + j); if (p) { town.props = town.props.filter(q => q !== p); town.propAt.delete((o.y + j) * W + o.x + i); town.pblock[(o.y + j) * W + o.x + i] = 0; } }
+    // a 2 x 1 room: walls round tiles (1,1) and (2,1); the gap is the top middle-left (1,0); the last block waits at (1,-1)... pushed down from (1,-1)? it starts at (1,-2) above the gap
+    const ring = []; for (let i = 0; i <= 3; i++) for (let j = 0; j <= 2; j++) if (!(j === 1 && (i === 1 || i === 2))) ring.push([i, j]);
+    for (const [i, j] of ring) { if (i === 1 && j === 0) continue; lfAddProp(i === 2 && j === 2 ? 'bdoor' : 'bwall', o.x + i, o.y + j); }
+    const blk = lfAddProp('bwall', o.x + 1, o.y - 1); __place(P, o.x + 1, o.y - 2, { dx: 0, dy: 1 });
+    const res = { before: rooms.filter(q => q.free && !q.dead).length }; res.push = lf2PushLine(P, o.x + 1, o.y - 1, 0, 1); res.queued = (town.bldQ || []).length; res.waits = (bldTick(), rooms.filter(q => q.free && !q.dead).length);
+    lfPropPos(blk, performance.now()); P.moving = false; blk.follow = null; bldTick(); res.after = rooms.filter(q => q.free && !q.dead).length; res.wall = grid[o.y][o.x + 1] === T.WALL && !lfPropAt(o.x + 1, o.y);
+    return res;
+  });
+  check(r.push === true && r.queued >= 1, 'the push should queue a look at the ground: ' + JSON.stringify(r));
+  check(r.waits === r.before, 'nothing seals while the pushing step is still being drawn: ' + JSON.stringify(r));
+  check(r.after === r.before + 1 && r.wall, 'once the step is over the room closes and the block is a fixed wall: ' + JSON.stringify(r));
+  return 'last block pushed into the gap: waits for the step, then the room closes';
+}));
+
 test('push: a sleeper rides in the bed (and a sitter in the chair), out of the door into the world; they wake up outside; the bed stays theirs', await controlScene('rider', 41, async page => {
   const r = await page.evaluate(() => {
     const hs = rooms.find(q => !q.dead && q.kind === 'house' && q.seats.length && q.beds.length && q.barrel && q.side === 'b'), P = game.player; P.mode = 'push'; P.sel = 0;
