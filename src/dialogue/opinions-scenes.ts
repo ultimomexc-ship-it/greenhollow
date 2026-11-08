@@ -88,8 +88,6 @@ const believes = n => { lore(); n.believe = n.believe === undefined ? (tr(n, 'an
 /* ---------- helpers ---------- */
 const like = (n, p, v) => bumpAff(n, p, v, 4);
 const recently = (t, days) => t !== undefined && t !== null && game.time - t < days * 1440;
-const houseSiteOf = o => town.sites.find(s => s.kind === 'house' && (s.owners || []).includes(o.id) && s.slots && s.slots.some(q => !q.built));
-const logsLeft = s => siteRem(s, 'wood') + siteRem(s, 'stone');
 const kidsOf = n => (n.fam.kids || []).map(byId).filter(k => k && !k.dead);
 const Mum = (kid, par) => par.female ? 'Mum' : 'Dad';
 const recentDeathOf = n => (town.dead || []).filter(r => recently(r.died, 2) && r.person && (kinWord(n, r.person) && kinWord(n, r.person) !== 'friend' && kinWord(n, r.person) !== 'rival' || (n.aff[r.id] || 0) >= 70) && !(n.grieved || {})[r.id]).sort((a, b) => b.died - a.died)[0];
@@ -129,16 +127,8 @@ const SCENES = [
     when: (n, p) => { const h = n.helpedBy && n.helpedBy[p.id]; return h && recently(h.t, 3) && n.homeRoom ? { h } : null; },
     lines: (n, p, c) => `${p.first}! I counted. ${c.h.n} of the logs in our walls came from your hands. I lay in bed last night and touched the wall and thought, ${p.first} carried that one.`,
     opts: (n, p) => [['It was nothing', () => { like(n, p, 6); addMem(n, 'home', `how ${p.first} helped build our house`, 'when you helped build our house', p.id); return 'It was not nothing. Come for supper. That is not a question.'; }], ['You would have done the same', () => { like(n, p, 6); return 'I would. And now I owe you, so I will have to.'; }]] },
-  { id: 'house_wait', pri: 72, cool: 900,
-    when: (n, p) => { const s = houseSiteOf(n); return s ? { s, left: logsLeft(s) } : null; },
-    lines: (n, p, c) => c.left <= 4 ? `${c.left} more! Only ${c.left}. I can almost smell the hearth. Tomorrow we sleep under our own roof, I can feel it.` : n.age < 16 ? `We are getting a house! A real one! It needs ${c.left} more logs. I counted them. Twice.` : anyOf([`Every morning I walk past our site and count the logs. ${c.left} still to go. The children ask every day. I say soon.`, `${c.left} more logs and we have a roof. I know it is only wood. It does not feel like only wood.`]),
-    opts: (n, p, c) => [['I will bring timber', () => { like(n, p, 3); n.promised = n.promised || {}; n.promised[p.id] = game.time; return anyOf(['Would you? Every log counts. Throw it on the wall, anywhere it fits.', 'Truly? Then I will save you a seat by the fire.']); }], ['It will be done soon', () => anyOf(['From your lips.', 'Everyone keeps saying that.'])]] },
-  { id: 'your_house', pri: 70, cool: 1200,
-    when: (n, p) => { const s = houseSiteOf(p); return s && (n.know[p.id] || 0) >= 15 && !(s.owners || []).includes(n.id) ? { s, left: logsLeft(s) } : null; },
-    lines: (n, p, c) => c.left <= 5 ? `Your walls are nearly up, ${p.first}! ${c.left} more and you are in. You will have us all round for supper, I hope.` : anyOf([`I walked past your site this morning. ${c.left} still to go. It is a good spot. Morning sun.`, `${c.left} logs till your house is done. If I find a spare one, it is yours.`]),
-    opts: (n, p, c) => [['I cannot wait', () => tr(n, 'generous') ? (() => { if (handsUsed(n) > 0 && (n.inv.wood || 0) > 0) { n.inv.wood--; p.inv.wood = (p.inv.wood || 0) + 1; return 'Here. Take this one. For your wall.'; } return 'I will carry one over myself when I can.'; })() : 'Nor can I. Someone has to host the next bonfire.'], ['It is slow going', () => 'Everything good is.']] },
   { id: 'tent', pri: 60, cool: 1440,
-    when: (n, p) => !n.homeRoom && n.age >= 3 && !houseSiteOf(n) ? {} : null,
+    when: (n, p) => !n.homeRoom && n.age >= 3 ? {} : null,
     lines: (n, p) => n.age < 16 ? `I sleep in a tent! It is like an adventure. Except when it rains. And a hedgehog comes every night!` : anyOf([`Another night under canvas. The ground has learned the shape of my back. At least the hedgehog keeps me company.`, `One day I will have walls. For now I have a tent, and a very nosy hedgehog.`]),
     opts: (n, p) => [['Things will turn around', () => anyOf(['They had better.', 'Hope is free. I have plenty of it.'])], ['A hedgehog?', () => `He comes every night. I call him ${anyOf(['Bristle', 'Sir Prickles', 'Old Tom'])}. Do not tell anyone.`]] },
 
@@ -197,10 +187,6 @@ const SCENES = [
     when: (n, p) => { const m = (n.mem || []).find(m => m.kind === 'feast' && recently(m.t, 0.8)); return m ? { m } : null; },
     lines: (n, p) => anyOf([`My feet. My poor feet. Was it a good night or was I just tired? It was a good night.`, `Did you see ${(npcs.find(o => o !== n && o !== p && o.age >= 16 && (o.traits.includes('jovial') || o.traits.includes('sociable'))) || n).first} dancing? I will never unsee it. Never.`]),
     opts: (n, p) => [['Best night in ages', () => { like(n, p, 2); return 'It was, was it not? We should have more of them.'; }], ['I left early', () => 'You missed the best part! There was a goose.']] },
-  { id: 'need_timber', pri: 56, cool: 900,
-    when: (n, p) => { const s = town.sites.find(s => s.slots && s.slots.some(q => !q.built)); return s && (p.inv.wood || p.inv.stone) && !(s.owners || []).includes(n.id) ? { s, k: p.inv.wood ? 'wood' : 'stone' } : null; },
-    lines: (n, p, c) => `Is that ${c.k === 'wood' ? 'timber' : 'stone'} for ${siteName(c.s)}? Good. They are ${siteRem(c.s, c.k)} short${c.s.kind === 'house' ? ' and nobody can sleep in half a house' : c.s.kind === 'church' ? ' and the chapel will not build itself' : ''}.`,
-    opts: (n, p) => [['That is the plan', () => { like(n, p, 2); return 'Good. Throw it on the walls, anywhere it fits.'; }], ['Just carrying it about', () => tr(n, 'grumpy') ? 'Hmph. Carry it somewhere useful.' : 'Ha. Each to their own.']] },
   { id: 'food_short', pri: 54, cool: 1440,
     when: (n, p) => foodDaysNow() < 1.4 && n.age >= 14 ? {} : null,
     lines: (n, p) => tr(n, 'anxious') ? `Have you looked in the pantries? I have. Everyone's. We have a day of food, maybe two. I have not slept.` : anyOf([`Food is thin. If the fields do not come in soon, we will be eating bark soup.`, `Remember ${lore().hard}? I do. I do not want another one.`]),

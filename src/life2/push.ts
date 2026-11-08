@@ -205,5 +205,5 @@ function lfPropPos(pr, now): [number, number] {
 function lf2BreakRock(n, pr) {
   if (lfPropAt(pr.x, pr.y) !== pr) return; workFx('split', pr.x, pr.y, n);
   town.pblock[pr.y * W + pr.x] = 0; town.propAt.delete(pr.y * W + pr.x); town.props = town.props.filter(q => q !== pr); town.lfPV = (town.lfPV || 0) + 1;
-  dropAt(pr.x, pr.y, 'stone'); if (typeof itRockOre === 'function' && itRockOre(n)) playerSay(n, 'Iron ore in the rock!');
+  bagGet(n, 'stone'); if (typeof itRockOre === 'function' && itRockOre(n)) playerSay(n, 'Iron ore in the rock!');
 }

@@ -8502,169 +8502,18 @@ function nearTiles(list, n, slack, ok) {
 const homeOK = (n) => n.homeRoom && !n.homeRoom.dead && n.bed;
 const perim = (w, h) => 2 * (w + h) - 4;
 const BUILDING = { house: 1, church: 1, tavern: 1, privy: 1 };
-function costOf(kind, w, h) {
-  if (kind === "house" || kind === "tavern") return { wood: perim(w, h) };
-  if (kind === "church") return { stone: perim(w, h) - 1, wood: 1 };
-  if (kind === "market") return { wood: 12 };
-  return {};
-}
-const HANDS = 3;
-function handsMax(n) {
-  return n.age < 16 || n.age >= 60 || n.role === "Child" || n.role === "Elder" ? 1 : HANDS;
-}
-function handsUsed(n) {
-  return (n.inv.wood || 0) + (n.inv.stone || 0);
-}
-const costTotal = (c) => (c.wood || 0) + (c.stone || 0) + (c.any || 0);
-function siteExplicit(s, k) {
-  return Math.max(0, ((s.cost || {})[k] || 0) - (s.got ? s.got[k] : 0));
-}
-function siteAnyRem(s) {
-  const c = s.cost || {}, g = s.got || { wood: 0, stone: 0 };
-  return Math.max(0, (c.any || 0) - Math.max(0, g.wood - (c.wood || 0)) - Math.max(0, g.stone - (c.stone || 0)));
-}
-const siteRem = (s, k) => s.slots ? s.slots.filter((q) => !q.built && q.mat === k).length : s.got ? siteExplicit(s, k) + siteAnyRem(s) : 0;
-const siteReqT = (s) => s.slots ? s.slots.length : costTotal(s.cost || {});
-const siteGot = (s) => s.slots ? s.slots.filter((q) => q.built).length : s.got ? s.got.wood + s.got.stone : 0;
-const siteFrac = (s) => {
-  const t = siteReqT(s);
-  return t ? Math.min(1, siteGot(s) / t) : 0;
-};
-function demand() {
-  let wood = 0, stone = 0;
-  for (const s of town.sites) if (s.slots) {
-    wood += siteRem(s, "wood");
-    stone += siteRem(s, "stone");
-  } else if (s.got) {
-    wood += siteExplicit(s, "wood") + siteAnyRem(s);
-    stone += siteExplicit(s, "stone");
-  }
-  return { wood, stone };
-}
-const shortfall = demand;
-function siteNeedText(s) {
-  if (!s.got) return "";
-  const w = siteRem(s, "wood"), st = siteRem(s, "stone");
-  return [w ? w + " timber" : "", st ? st + " stone" : ""].filter(Boolean).join(" \xB7 ");
-}
-function deliverSite(n, k) {
-  let best = null, bs = 1e9;
-  for (const s of town.sites) {
-    if (!s.got || siteRem(s, k) < 1) continue;
-    const sc = (SITE_PRI[s.kind] || 5) * 12 + Math.hypot(s.x - n.tx, s.y - n.ty);
-    if (sc < bs) {
-      bs = sc;
-      best = s;
-    }
-  }
-  return best;
-}
-function ensureSite(kind) {
-  if (demand()[kind] > 0) return true;
-  if (kind === "stone") {
-    if (!town.church && !town.sites.some((s) => s.kind === "church")) {
-      churchProject(true);
-    }
-    return demand().stone > 0;
-  }
-  if (kind === "wood") {
-    const spareBeds = houseRooms().reduce((s, h) => s + bedsFree(h), 0), homeless = npcs.filter((p) => !p.infant && !(p.bed && p.bed.x != null)).length;
-    if ((spareBeds < 3 || homeless > 0) && !town.sites.some((s) => s.kind === "house" && s.owners.length === 0)) startProject("house", 8, 6, { beds: 3, owners: [], surname: "" }, "house:spare", "A spare house for newcomers");
-    return demand().wood > 0;
-  }
-  return false;
-}
-function startProject(kind, w, h, o, key, text) {
-  key = key || kind;
-  const cost = costOf(kind, w, h), d = demand();
-  const wait = (extra) => {
-    const old = town.wants[key];
-    town.wants[key] = Object.assign({ kind, cost, text: text || kind, since: old ? old.since : game.time }, extra || {});
-    return null;
-  };
-  if ((cost.wood || 0) + (cost.any || 0) > 0 && d.wood > 24 || (cost.stone || 0) > 0 && d.stone > 30) return wait({ queued: true });
-  const s = createSite(kind, w, h, o);
-  if (s) {
-    s.cost = cost;
-    s.got = { wood: 0, stone: 0 };
-    delete town.wants[key];
-    return s;
-  }
-  return wait({ noRoom: true });
-}
+const handsMax = (n) => 1e9;
+const handsUsed = (n) => 0;
 function queueRoad(route) {
-  const tiles = (route || []).filter((t) => (grid[t.y][t.x] === T.GRASS || grid[t.y][t.x] === T.SAND) && roomAt[t.y][t.x] < 0);
-  if (!tiles.length) return null;
-  const site = { id: town.nextSite++, kind: "road", x: tiles[0].x, y: tiles[0].y, w: 1, h: 1, side: null, route: tiles, done: 0, laid: 0, labor: 0, crew: [], created: game.time, owners: [], beds: 0, woodNeed: 0, wood: 0, cost: { stone: tiles.length }, got: { wood: 0, stone: 0 } };
-  tiles.forEach((t) => {
-    town.siteAt[t.y * W + t.x] = site.id;
-  });
-  town.sites.push(site);
-  return site;
-}
-function layRoad(s, q) {
-  let n = 0;
-  while (s.laid < s.route.length && n < q) {
-    const t = s.route[s.laid++];
-    n++;
+  (route || []).forEach((t) => {
     if (grid[t.y][t.x] === T.GRASS || grid[t.y][t.x] === T.SAND) {
-      setT(t.x, t.y, T.PATH);
-      markDirty(t.x, t.y, 1, 1);
+      if (roomAt[t.y][t.x] < 0) {
+        setT(t.x, t.y, T.PATH);
+        markDirty(t.x, t.y, 1, 1);
+      }
     }
-  }
-}
-function throwOnSite(n, s, k, max) {
-  if (!town.sites.includes(s)) return 0;
-  const q = Math.min(n.inv[k] || 0, siteRem(s, k), max || 99);
-  if (q < 1) return 0;
-  s.got[k] += q;
-  n.inv[k] -= q;
-  if (n.player) {
-    s.helped = s.helped || {};
-    s.helped[n.id] = (s.helped[n.id] || 0) + q;
-  }
-  if (s.kind === "road") layRoad(s, q);
-  const pay2 = Math.min(town.treasury, q * (k === "wood" ? 2 : 3));
-  town.treasury -= pay2;
-  n.coin += pay2;
-  n.earned += pay2;
-  n.dayEarn += pay2;
-  s.done = siteGot(s);
-  if (siteReqT(s) - siteGot(s) <= 0) completeSite(s, false);
-  return q;
-}
-function makeSlots(site) {
-  const { x, y, w, h, door } = site, ring = [];
-  for (let i = 0; i < w; i++) ring.push([x + i, y]);
-  for (let j = 1; j < h; j++) ring.push([x + w - 1, y + j]);
-  for (let i = w - 2; i >= 0; i--) ring.push([x + i, y + h - 1]);
-  for (let j = h - 2; j >= 1; j--) ring.push([x, y + j]);
-  const di = ring.findIndex((p) => p[0] === door.x && p[1] === door.y), rot = di < 0 ? ring : ring.slice(di + 1).concat(ring.slice(0, di + 1));
-  return rot.map((p) => ({ x: p[0], y: p[1], mat: site.kind === "church" && p[0] === door.x && p[1] === door.y ? "wood" : site.kind === "church" ? "stone" : "wood", built: false, claim: 0, door: p[0] === door.x && p[1] === door.y }));
-}
-const slotAt = (s, x, y) => s.slots && s.slots.find((q) => q.x === x && q.y === y);
-const slotReady = (s, q) => !q.built && (!q.door || s.slots.every((o) => o.built || o === q));
-function buildSlot(n, s, q) {
-  if (!town.sites.includes(s) || q.built || !(n.inv[q.mat] > 0) || !slotReady(s, q)) return 0;
-  const oc = tileOwner.get(q.y * W + q.x);
-  if (oc && oc !== n) return 0;
-  q.built = true;
-  q.claim = 0;
-  s.got[q.mat]++;
-  n.inv[q.mat]--;
-  town.block[q.y * W + q.x] = 1;
-  if (n.player) {
-    s.helped = s.helped || {};
-    s.helped[n.id] = (s.helped[n.id] || 0) + 1;
-  }
-  const pay2 = Math.min(town.treasury, q.mat === "wood" ? 2 : 3);
-  town.treasury -= pay2;
-  n.coin += pay2;
-  n.earned += pay2;
-  n.dayEarn += pay2;
-  markDirty(q.x, q.y, 1, 1);
-  if (s.slots.every((o) => o.built)) completeSite(s, false);
-  return 1;
+  });
+  return null;
 }
 function ejectFrom(x, y, w, h, site) {
   const out = (xx, yy) => (xx < x || xx >= x + w || yy < y || yy >= y + h) && walkable(xx, yy) && roomAt[yy][xx] < 0;
@@ -8844,7 +8693,6 @@ function createSite(kind, w, h, o) {
         town.treeCache = null;
       }
     }
-    if (BUILDING[kind]) site.slots = makeSlots(site);
     if (kind === "market") {
       for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) town.block[yy * W + xx] = 1;
       ejectFrom(x, y, w, h, site);
@@ -8951,10 +8799,6 @@ function completeSite(site, instant) {
     staffMarkets();
     return mk;
   }
-  if (site.kind === "road") {
-    layRoad(site, 1e9);
-    return null;
-  }
   if (site.kind === "field") {
     const fid = town.nextField = (town.nextField || 0) + 1;
     for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) {
@@ -8984,31 +8828,7 @@ function completeSite(site, instant) {
       roomAt[j][i] = -1;
     }
     doors = doors.filter((d) => rooms[d.room] !== room);
-    {
-      let sal = Math.round(perim(room.w, room.h) * 0.6);
-      for (const st of town.sites) {
-        if (sal < 1) break;
-        if (st.slots) {
-          for (const sl of st.slots) {
-            if (sal < 1) break;
-            if (!sl.built && !sl.door && sl.mat === "wood") {
-              sl.built = true;
-              st.got.wood++;
-              town.block[sl.y * W + sl.x] = 1;
-              sal--;
-            }
-          }
-        } else {
-          const q = Math.min(sal, siteRem(st, "wood"));
-          if (q > 0) {
-            st.got.wood += q;
-            sal -= q;
-          }
-        }
-      }
-    }
-    markDirty(room.x - 1, room.y - 1, room.w + 2, room.h + 2);
-    chron(`${room.name} has been taken down. The good timber is left lying about.`, "build");
+    chron(`${room.name} has been taken down. `, "build");
   }
 }
 const kidsAt = (p) => npcs.filter((k) => k.age < 16 && k.homeRoom === p.homeRoom && (k.fam.mother === p.id || k.fam.father === p.id));
@@ -9042,56 +8862,6 @@ function housingTick() {
       }
     }
   });
-  Object.keys(town.wants).forEach((k) => {
-    if (k.startsWith("house:")) delete town.wants[k];
-  });
-  const still = npcs.filter((n) => n.age >= 3 && (!homeOK(n) || n.bed.owner !== n));
-  const activeH = town.sites.filter((s) => s.kind === "house");
-  const seen = /* @__PURE__ */ new Set();
-  still.filter((n) => n.age >= 16).forEach((adult) => {
-    if (seen.has(adult.id)) return;
-    const fam = /* @__PURE__ */ new Set([adult]);
-    let ch = true;
-    const rel = (p, q) => q.fam.spouse === p.id || p.fam.spouse === q.id || q.fam.kids.includes(p.id) || p.fam.kids.includes(q.id) || q.fam.mother === p.id || q.fam.father === p.id || p.fam.mother === q.id || p.fam.father === q.id;
-    while (ch) {
-      ch = false;
-      still.forEach((p) => {
-        if (!fam.has(p) && [...fam].some((q) => rel(p, q))) {
-          fam.add(p);
-          ch = true;
-        }
-      });
-    }
-    const group = [...fam];
-    group.forEach((p) => seen.add(p.id));
-    if (activeH.some((s2) => s2.owners.some((id) => group.some((p) => p.id === id)))) return;
-    if (activeH.length >= 2) return;
-    const beds = Math.min(6, group.filter((n) => n.age >= 3).length + 1), d = houseDims(beds);
-    const s = startProject("house", d.w, d.h, { beds, owners: group.slice(0, 6), surname: adult.surname }, "house:" + adult.id, "House for the " + adult.surname + " family");
-    if (s) {
-      activeH.push(s);
-      chron(`${adult.first} ${adult.surname} and family will have a house. The site is marked out and waits for timber.`, "build");
-    }
-  });
-  homes.forEach((r) => {
-    if (occupants(r).length) {
-      r.vacantSince = null;
-      return;
-    }
-    if (r.vacantSince === null || r.vacantSince === void 0) {
-      r.vacantSince = game.time;
-      return;
-    }
-    const reserved = town.sites.some((s) => s.owners.some((id) => {
-      const p = byId(id);
-      return p && !p.dead && p.homeRoom === r;
-    }));
-    const spare = homes.reduce((s, h) => s + (h !== r ? bedsFree(h) : 0), 0);
-    if (!reserved && game.time - r.vacantSince > YEAR * (spare >= 8 ? 0.7 : 2.5) && spare >= 5 && !town.sites.some((s) => s.kind === "demolish" && s.room === r)) {
-      const site = { id: 0, kind: "demolish", room: r, x: r.x, y: r.y, w: r.w, h: r.h, side: r.side, route: [], done: 0, labor: 0 };
-      completeSite(site, true);
-    }
-  });
 }
 function nearbyHomes(r, rad) {
   return houseRooms().filter((o) => Math.hypot(o.x - r.x, o.y - r.y) <= rad);
@@ -9118,52 +8888,6 @@ function recycleGraves() {
       break;
     }
   }
-}
-function marketProject() {
-  if (town.sites.some((s2) => s2.kind === "market")) return;
-  if (!town.markets.some((m) => m.stalls.length)) {
-    if (houseRooms().length < 1) return;
-    const st = startProject("market", 9, 7, { first: true }, "market", "A village green with a larder");
-    if (st) chron("The settlers will lay out a village green near the camp, with a shared larder where anyone can leave what they gathered and take what they need.", "build");
-    return;
-  }
-  if (npcs.length < 18) return;
-  const far = houseRooms().filter((r) => marketDist(r.x + r.w / 2, r.y + r.h / 2) >= 22);
-  if (far.length < 3) return;
-  let best = null, bc = 0;
-  far.forEach((r) => {
-    const c = far.filter((o) => Math.hypot(o.x - r.x, o.y - r.y) <= 13);
-    if (c.length > bc) {
-      bc = c.length;
-      best = c;
-    }
-  });
-  if (bc < 3) return;
-  const near = { x: best.reduce((s2, r) => s2 + r.x + r.w / 2, 0) / best.length, y: best.reduce((s2, r) => s2 + r.y + r.h / 2, 0) / best.length };
-  const s = startProject("market", 9, 7, { near }, "market", "A second green for the outlying families");
-  if (s) chron(`The families out past the old green want a larder nearer home. A second green will be laid out.`, "build");
-}
-function churchProject(force) {
-  if (town.church || town.sites.some((s2) => s2.kind === "church")) return;
-  if (!force && houseRooms().length < 2) return;
-  let s = null;
-  for (const [w, h, tight, clear] of [[15, 11], [15, 11, false, true], [14, 10, false, true], [13, 9, false, true], [13, 9, true, true], [12, 9, true, true], [11, 8], [11, 8, true], [11, 8, true, true]]) {
-    s = startProject("church", w, h, { tight: !!tight, clear: !!clear }, "church", "A chapel, built of stone");
-    if (s) break;
-    if (!town.wants.church || !town.wants.church.noRoom) break;
-    delete town.wants.church.noRoom;
-  }
-  if (!s && town.wants.church) town.wants.church.noRoom = true;
-  if (s) chron("The settlers have gathered enough stone to start a chapel. There can be no weddings or funerals until it stands.", "build");
-}
-function tavernProject() {
-  if (town.tavern || !town.church || npcs.length < 18 || town.sites.some((s2) => s2.kind === "tavern") || !town.markets.some((m) => m.stalls.length)) return;
-  let s = null;
-  for (const [w, h, tight] of [[10, 7], [9, 6], [9, 6, true]]) {
-    s = startProject("tavern", w, h, { tight: !!tight }, "tavern", "A tavern");
-    if (s || !(town.wants.tavern && town.wants.tavern.noRoom)) break;
-  }
-  if (s) chron("A tavern will be raised near the square.", "build");
 }
 function staffMarkets() {
   town.markets.forEach((mk) => {
@@ -9197,9 +8921,6 @@ function staffSpecialists() {
 const marketDist2 = (n, mk) => Math.hypot((n.homeRoom ? n.homeRoom.x : n.x) - mk.x, (n.homeRoom ? n.homeRoom.y : n.y) - mk.y);
 function growthProjects() {
   recycleGraves();
-  churchProject();
-  marketProject();
-  tavernProject();
   const pop = npcs.length;
   if (pop >= 10 && town.fields < Math.floor(pop / 6) && !town.sites.some((s) => s.kind === "field")) {
     const s = createSite("field", 10, 5, {});
@@ -9223,12 +8944,6 @@ function growthProjects() {
       if (s) completeSite(s, true);
     }
   }
-}
-function siteWoodNeed() {
-  return 0;
-}
-function siteBuildable(s) {
-  return true;
 }
 function spawnNodes(n) {
   for (let t = 0; t < n * 14 && n > 0; t++) {
@@ -10167,7 +9882,6 @@ let lastHr = 0;
 function hourly(hr) {
   const h = hr % 24;
   if (h === 15) caravan();
-  if (h === 5) assignCrews();
   if (h === 0) {
     npcs.forEach((n) => {
       n.lastEarn = n.dayEarn;
@@ -10370,39 +10084,10 @@ function sellStep(n, m, g, qty) {
     } })
   ];
 }
-function throwSpot(s, n) {
-  const ok = (x, y) => walkable(x, y) && roomAt[y][x] < 0;
-  const cand = [];
-  if (s.kind === "road") {
-    const t = s.route[Math.min(s.laid || 0, s.route.length - 1)];
-    cand.push({ x: t.x, y: t.y });
-    for (const [dx, dy] of DIRS) cand.push({ x: t.x + dx, y: t.y + dy });
-  } else {
-    for (let k = 0; k < s.w; k++) cand.push({ x: s.x + k, y: s.y - 1 }, { x: s.x + k, y: s.y + s.h });
-    for (let k = 0; k < s.h; k++) cand.push({ x: s.x - 1, y: s.y + k }, { x: s.x + s.w, y: s.y + k });
-  }
-  let best = null, bd = 1e9;
-  for (const c of cand) {
-    if (c.x < 1 || c.y < 1 || c.x >= W - 1 || c.y >= H - 1 || !ok(c.x, c.y)) continue;
-    const occ = tileOwner.get(tkey(c.x, c.y));
-    const d = Math.hypot(c.x - n.tx, c.y - n.ty) + (occ && occ !== n ? 6 : 0);
-    if (d < bd) {
-      bd = d;
-      best = c;
-    }
-  }
-  if (!best) return { x: s.x, y: s.y - 1, face: null };
-  const tg = s.kind === "road" ? s.route[Math.min(s.laid || 0, s.route.length - 1)] : { x: s.x + (s.w - 1) / 2, y: s.y + (s.h - 1) / 2 };
-  return { x: best.x, y: best.y, face: { dx: Math.sign(tg.x - best.x), dy: Math.abs(tg.x - best.x) > Math.abs(tg.y - best.y) ? 0 : Math.sign(tg.y - best.y) } };
-}
 function haulPlan(n) {
   const steps = [];
   const foodHave = FOODS.some((g) => (n.inv[g] || 0) > 0);
   if (foodHave && n.homeRoom && pantryDays(n) < 3.5) steps.push(goS(pantrySpot, "Taking food home"), waitS(2, "stand", "Stocking the pantry", { onEnd: stash }));
-  {
-    const dm = deliverMatsPlan(n);
-    if (dm) steps.push(...dm);
-  }
   let sold = 0;
   for (const g of SELLABLE) {
     const q = n.inv[g] || 0;
@@ -10554,102 +10239,6 @@ function needsPlan(n) {
   if (n.health < 40) {
     const m = findSeller(n, "herbs");
     if (m) return buyStep(n, m, "herbs", 1);
-  }
-  return null;
-}
-function assignCrews() {
-}
-const SITE_PRI = { church: 0, house: 1, market: 2, tavern: 3, graveyard: 4, field: 5, road: 6, demolish: 7 };
-const KINDTXT = { wood: "timber", stone: "stone" };
-function slotSpot(s, q, n) {
-  let best = null, bd = 1e9;
-  const inRect = (x, y) => x >= s.x && x < s.x + s.w && y >= s.y && y < s.y + s.h;
-  for (const [dx, dy] of DIRS) {
-    const x = q.x + dx, y = q.y + dy;
-    if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1 || !walkable(x, y) || roomAt[y][x] >= 0) continue;
-    if (!findPath(n.tx, n.ty, x, y)) continue;
-    const occ = tileOwner.get(tkey(x, y)), sl = slotAt(s, x, y);
-    const d = Math.hypot(x - n.tx, y - n.ty) + (occ && occ !== n ? 6 : 0) + (inRect(x, y) ? 3 : 0) + (sl && !sl.built ? 8 : 0) + (reach[y * W + x] ? 0 : 40) + (findPath(n.tx, n.ty, x, y) ? 0 : 80);
-    if (d < bd) {
-      bd = d;
-      best = { x, y, face: { dx: -dx, dy: -dy } };
-    }
-  }
-  if (!best && (q.cleared || 0) < 3) {
-    q.cleared = (q.cleared || 0) + 1;
-    let cut = 0;
-    for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) {
-      const x = q.x + i, y = q.y + j;
-      if (x > 0 && y > 0 && x < W - 1 && y < H - 1 && (grid[y][x] === T.TREE || grid[y][x] === T.ROCK) && roomAt[y][x] < 0) {
-        setT(x, y, T.GRASS);
-        markDirty(x, y, 1, 1);
-        cut++;
-      }
-    }
-    if (cut) {
-      town.treeDirty = true;
-      town.treeCache = null;
-      town.stoneCache = null;
-      if (typeof refreshReach === "function") refreshReach();
-      return slotSpot(s, q, n);
-    }
-    for (const [dx, dy] of DIRS) {
-      const x = q.x + dx, y = q.y + dy;
-      if (x > 0 && y > 0 && x < W - 1 && y < H - 1 && grid[y][x] === T.TREE && roomAt[y][x] < 0) {
-        setT(x, y, T.GRASS);
-        markDirty(x, y, 1, 1);
-        town.treeDirty = true;
-        town.treeCache = null;
-        return { x, y, face: { dx: -dx, dy: -dy } };
-      }
-    }
-  }
-  if (!best) {
-    let bd2 = 1e9;
-    for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) {
-      if (!i && !j) continue;
-      const x = q.x + i, y = q.y + j;
-      if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1 || !walkable(x, y) || roomAt[y][x] >= 0 || !findPath(n.tx, n.ty, x, y)) continue;
-      const d = Math.hypot(i, j) * 4 + Math.hypot(x - n.tx, y - n.ty);
-      if (d < bd2) {
-        bd2 = d;
-        best = { x, y, face: { dx: Math.sign(q.x - x), dy: Math.abs(q.x - x) >= Math.abs(q.y - y) ? 0 : Math.sign(q.y - y) } };
-      }
-    }
-  }
-  return best || { x: q.x, y: q.y - 1, face: { dx: 0, dy: 1 } };
-}
-function deliverMatsPlan(n) {
-  for (const k of (n.inv.stone || 0) >= (n.inv.wood || 0) ? ["stone", "wood"] : ["wood", "stone"]) {
-    if (!(n.inv[k] > 0)) continue;
-    const s = deliverSite(n, k) || ensureSite(k) && deliverSite(n, k);
-    if (!s) continue;
-    if (s.slots) {
-      const steps = [], now = game.time;
-      const free = s.slots.filter((q) => !q.built && q.mat === k && (!q.claim || q.claim < now) && slotReady(s, q));
-      if (!free.length) continue;
-      let cur = { x: n.tx, y: n.ty };
-      free.sort((a, c) => Math.hypot(a.x - cur.x, a.y - cur.y) - Math.hypot(c.x - cur.x, c.y - cur.y));
-      free.slice(0, Math.min(handsMax(n), n.inv[k])).forEach((q) => {
-        q.claim = now + 40;
-        steps.push(
-          goS((nn) => slotSpot(s, q, nn), "Carrying " + KINDTXT[k] + " to the " + (s.kind === "church" ? "chapel" : s.kind)),
-          waitS(3, "work", "Putting up a " + (k === "wood" ? "timber" : "stone") + " wall", { tool: "hammer", slot: q, onEnd(n2) {
-            if (!buildSlot(n2, s, q)) {
-              q.claim = 0;
-              return false;
-            }
-          } })
-        );
-      });
-      return steps;
-    }
-    return [
-      goS((nn) => throwSpot(s, nn), "Carrying " + KINDTXT[k] + " to the building site"),
-      waitS(Math.max(1.5, Math.min(handsMax(n), n.inv[k]) * 0.8), "work", "Throwing " + KINDTXT[k] + " onto the site", { onEnd(n2) {
-        if (!throwOnSite(n2, s, k)) return false;
-      } })
-    ];
   }
   return null;
 }
@@ -10904,7 +10493,7 @@ function demandFor(g) {
     const p = buyPrice(m, g);
     if (p > 0) v += Math.min(m.buys[g] - (m.stock[g] || 0), 12) * p;
   });
-  if (g === "wood") v += siteWoodNeed() * 4 + 30;
+  if (g === "wood") v += 30;
   if (g === "berries") v += 20;
   return v;
 }
@@ -10936,13 +10525,10 @@ function pickAgenda(n) {
   npcs.forEach((p) => {
     if (p !== n && p.role === "Worker" && p.cur) cnt[p.cur] = (cnt[p.cur] || 0) + 1;
   });
-  const fd = foodDaysNow(), need = Math.max(0, 3.5 - fd), sh0 = shortfall(), sc = {};
-  const sh = { wood: sh0.wood - npcs.reduce((a, p) => a + (p.inv.wood || 0), 0), stone: sh0.stone - npcs.reduce((a, p) => a + (p.inv.stone || 0), 0) };
+  const fd = foodDaysNow(), need = Math.max(0, 3.5 - fd), sc = {};
   if (shoreTiles.length && fishAvail()) sc.Fisher = 5 + need * 20;
   if (farmWork()) sc.Farmer = 5 + need * 18;
   if (town.nodes.some((x) => x.amt >= 1 && reach[x.y * W + x.x])) sc.Gatherer = 5 + need * 16;
-  if (sh.wood > 0 && handsUsed(n) < handsMax(n) && treeList().length) sc.Woodcutter = Math.min(80, 14 + sh.wood * 2.2);
-  if (sh.stone > 0 && handsUsed(n) < handsMax(n) && stoneList().length) sc.Stonecutter = Math.min(80, 14 + sh.stone * 3);
   {
     const foodOK = fd >= 3;
     if (foodOK) {
@@ -10956,11 +10542,6 @@ function pickAgenda(n) {
       if (sc.Farmer) sc.Farmer *= k;
       if (sc.Gatherer) sc.Gatherer *= k;
     }
-  }
-  {
-    const nearDone = (k) => town.sites.some((q) => q.slots && siteRem(q, k) > 0 && siteRem(q, k) <= 4 && q.slots.filter((o) => !o.built).length <= 4);
-    if (nearDone("wood") && treeList().length && handsUsed(n) < handsMax(n)) sc.Woodcutter = Math.max(sc.Woodcutter || 0, 75);
-    if (nearDone("stone") && stoneList().length && handsUsed(n) < handsMax(n)) sc.Stonecutter = Math.max(sc.Stonecutter || 0, 75);
   }
   {
     const pop = npcs.length, tasks = town.crops.filter((c) => !c.claim && (c.st && cropStage(c) === 4 || !c.pl || !c.st && fieldPlowed(c))).length;
@@ -10983,13 +10564,6 @@ function pickAgenda(n) {
   n.curUntil = game.time + 240;
   return best;
 }
-const matsWorthHaul = (n) => {
-  const mats = handsUsed(n);
-  if (mats < 1) return false;
-  if (mats >= handsMax(n)) return true;
-  const d = demand();
-  return (n.inv.wood || 0) + (n.inv.stone || 0) >= Math.min(n.inv.wood ? d.wood : 1e9, n.inv.stone ? d.stone : 1e9);
-};
 function workPlan(n, tod) {
   if (n.shop) return merchPlan(n, tod);
   if (n.role === "Priest") return priestPlan(n, tod);
@@ -10997,12 +10571,8 @@ function workPlan(n, tod) {
   const span = awakeSpan(n), left = span - awakeFor(n, tod);
   if (n.role === "Worker") {
     const r = pickAgenda(n);
-    const mats = (n.inv.wood || 0) + (n.inv.stone || 0);
-    if (matsWorthHaul(n)) {
-      const hp = haulPlan(n);
-      if (hp && hp.length) return hp;
-    }
-    const load = carried(n) - mats, thr = { Farmer: 12, Fisher: 6, Woodcutter: 99, Stonecutter: 99, Gatherer: 8 }[r] || 8;
+    const mats = 0;
+    const load = carried(n) - ((n.inv.wood || 0) + (n.inv.stone || 0)), thr = { Farmer: 12, Fisher: 6, Woodcutter: 99, Stonecutter: 99, Gatherer: 8 }[r] || 8;
     if (load >= thr || (load > 0 || mats > 0) && left < 200) {
       if (game.time >= n.sellCool || (n.inv.wood || 0) + (n.inv.stone || 0) > 0) {
         const hp = haulPlan(n);
@@ -12282,11 +11852,10 @@ function jobTalk(n, p) {
   else if (n.role === "Barkeep") s = `I pour the drinks at ${town.tavern ? town.tavern.name : "the tavern"} and listen. Mostly I listen.`;
   else if (n.role === "Elder") s = anyOf([`I am retired. My hands did their share.`, `These days I watch the young ones work and tell them they are doing it wrong.`]);
   else if (n.role === "Worker") {
-    const r = n.cur, d = demand();
-    const site = town.sites.filter((q) => q.slots && siteRem(q, r === "Stonecutter" ? "stone" : "wood") > 0)[0];
+    const r = n.cur;
     s = {
-      Woodcutter: site ? `I cut timber. ${siteName(site)} still needs ${siteRem(site, "wood")} logs, so I keep at the trees.` : `I cut timber when the town needs it.`,
-      Stonecutter: site ? `Stone, mostly. ${siteName(site)} needs ${siteRem(site, "stone")} more blocks.` : `I break stone out at the rocks.`,
+      Woodcutter: `I cut timber when the town needs it.`,
+      Stonecutter: `I break stone out at the rocks.`,
       Fisher: `I fish. ` + (town.pondInfo && town.pondInfo.stock < town.pondInfo.cap * 0.35 ? "The water is getting fished out, though." : "Good water around here."),
       Farmer: `I work the fields. Plough, sow, wait, harvest. The field never rests, so neither do I.`,
       Gatherer: `Berries and herbs, wherever they grow. I know every bush for a mile.`
@@ -12380,11 +11949,6 @@ function townTalk(n, p) {
   if (w && !w.done) out.push(`${w.a.first} and ${w.b.first} are getting married, ${dayLabel(w.at)}. I will be there.`);
   if (f && !f.done) out.push(`The funeral for ${f.rec.first} is ${dayLabel(f.at)}. Sad times.`);
   if (fe) out.push(`There is a bonfire on the square for ${fe.why}. Bring your dancing feet.`);
-  const s = town.sites.filter((q) => q.slots && q.slots.some((x) => !x.built))[0];
-  if (s) {
-    const w2 = siteRem(s, "wood"), st = siteRem(s, "stone");
-    out.push(`${siteName(s).charAt(0).toUpperCase() + siteName(s).slice(1)} is going up. It still needs ${[w2 ? w2 + " timber" : "", st ? st + " stone" : ""].filter(Boolean).join(" and ")}.`);
-  }
   const fd = foodDaysNow();
   out.push(fd < 1.5 ? "Food is short. People are worried, and so am I." : fd > 6 ? "The pantries are full, thank goodness." : "We have enough to eat, for now.");
   const news = (town.chron || []).filter((c) => game.time - c.time < 1.5 * 1440 && ["life", "love", "death", "family"].includes(c.kind)).slice(-1)[0];
@@ -12609,8 +12173,6 @@ const believes = (n) => {
 };
 const like = (n, p, v) => bumpAff(n, p, v, 4);
 const recently = (t, days) => t !== void 0 && t !== null && game.time - t < days * 1440;
-const houseSiteOf = (o) => town.sites.find((s) => s.kind === "house" && (s.owners || []).includes(o.id) && s.slots && s.slots.some((q) => !q.built));
-const logsLeft = (s) => siteRem(s, "wood") + siteRem(s, "stone");
 const kidsOf = (n) => (n.fam.kids || []).map(byId).filter((k) => k && !k.dead);
 const Mum = (kid, par) => par.female ? "Mum" : "Dad";
 const recentDeathOf = (n) => (town.dead || []).filter((r) => recently(r.died, 2) && r.person && (kinWord(n, r.person) && kinWord(n, r.person) !== "friend" && kinWord(n, r.person) !== "rival" || (n.aff[r.id] || 0) >= 70) && !(n.grieved || {})[r.id]).sort((a, b) => b.died - a.died)[0];
@@ -12720,44 +12282,10 @@ const SCENES = [
     }]]
   },
   {
-    id: "house_wait",
-    pri: 72,
-    cool: 900,
-    when: (n, p) => {
-      const s = houseSiteOf(n);
-      return s ? { s, left: logsLeft(s) } : null;
-    },
-    lines: (n, p, c) => c.left <= 4 ? `${c.left} more! Only ${c.left}. I can almost smell the hearth. Tomorrow we sleep under our own roof, I can feel it.` : n.age < 16 ? `We are getting a house! A real one! It needs ${c.left} more logs. I counted them. Twice.` : anyOf([`Every morning I walk past our site and count the logs. ${c.left} still to go. The children ask every day. I say soon.`, `${c.left} more logs and we have a roof. I know it is only wood. It does not feel like only wood.`]),
-    opts: (n, p, c) => [["I will bring timber", () => {
-      like(n, p, 3);
-      n.promised = n.promised || {};
-      n.promised[p.id] = game.time;
-      return anyOf(["Would you? Every log counts. Throw it on the wall, anywhere it fits.", "Truly? Then I will save you a seat by the fire."]);
-    }], ["It will be done soon", () => anyOf(["From your lips.", "Everyone keeps saying that."])]]
-  },
-  {
-    id: "your_house",
-    pri: 70,
-    cool: 1200,
-    when: (n, p) => {
-      const s = houseSiteOf(p);
-      return s && (n.know[p.id] || 0) >= 15 && !(s.owners || []).includes(n.id) ? { s, left: logsLeft(s) } : null;
-    },
-    lines: (n, p, c) => c.left <= 5 ? `Your walls are nearly up, ${p.first}! ${c.left} more and you are in. You will have us all round for supper, I hope.` : anyOf([`I walked past your site this morning. ${c.left} still to go. It is a good spot. Morning sun.`, `${c.left} logs till your house is done. If I find a spare one, it is yours.`]),
-    opts: (n, p, c) => [["I cannot wait", () => tr(n, "generous") ? (() => {
-      if (handsUsed(n) > 0 && (n.inv.wood || 0) > 0) {
-        n.inv.wood--;
-        p.inv.wood = (p.inv.wood || 0) + 1;
-        return "Here. Take this one. For your wall.";
-      }
-      return "I will carry one over myself when I can.";
-    })() : "Nor can I. Someone has to host the next bonfire."], ["It is slow going", () => "Everything good is."]]
-  },
-  {
     id: "tent",
     pri: 60,
     cool: 1440,
-    when: (n, p) => !n.homeRoom && n.age >= 3 && !houseSiteOf(n) ? {} : null,
+    when: (n, p) => !n.homeRoom && n.age >= 3 ? {} : null,
     lines: (n, p) => n.age < 16 ? `I sleep in a tent! It is like an adventure. Except when it rains. And a hedgehog comes every night!` : anyOf([`Another night under canvas. The ground has learned the shape of my back. At least the hedgehog keeps me company.`, `One day I will have walls. For now I have a tent, and a very nosy hedgehog.`]),
     opts: (n, p) => [["Things will turn around", () => anyOf(["They had better.", "Hope is free. I have plenty of it."])], ["A hedgehog?", () => `He comes every night. I call him ${anyOf(["Bristle", "Sir Prickles", "Old Tom"])}. Do not tell anyone.`]]
   },
@@ -12959,20 +12487,6 @@ const SCENES = [
       like(n, p, 2);
       return "It was, was it not? We should have more of them.";
     }], ["I left early", () => "You missed the best part! There was a goose."]]
-  },
-  {
-    id: "need_timber",
-    pri: 56,
-    cool: 900,
-    when: (n, p) => {
-      const s = town.sites.find((s2) => s2.slots && s2.slots.some((q) => !q.built));
-      return s && (p.inv.wood || p.inv.stone) && !(s.owners || []).includes(n.id) ? { s, k: p.inv.wood ? "wood" : "stone" } : null;
-    },
-    lines: (n, p, c) => `Is that ${c.k === "wood" ? "timber" : "stone"} for ${siteName(c.s)}? Good. They are ${siteRem(c.s, c.k)} short${c.s.kind === "house" ? " and nobody can sleep in half a house" : c.s.kind === "church" ? " and the chapel will not build itself" : ""}.`,
-    opts: (n, p) => [["That is the plan", () => {
-      like(n, p, 2);
-      return "Good. Throw it on the walls, anywhere it fits.";
-    }], ["Just carrying it about", () => tr(n, "grumpy") ? "Hmph. Carry it somewhere useful." : "Ha. Each to their own."]]
   },
   {
     id: "food_short",
@@ -13224,30 +12738,8 @@ const FAMILY_BITS = {
     }]] }
   ]
 };
-const siteStage = (s) => {
-  const tot = s.slots ? s.slots.length : 1, left = logsLeft(s), built = tot - left;
-  return left <= 3 ? 2 : built / tot >= 0.45 ? 1 : 0;
-};
 (function tune() {
   const S = (id) => SCENES.find((x) => x.id === id);
-  const hw = S("house_wait");
-  if (hw) {
-    hw.cool = 0;
-    hw.key = (n, p, c) => c.s.id + ":" + siteStage(c.s);
-    hw.topic = (n, p, c) => "site" + c.s.id + ":" + siteStage(c.s);
-  }
-  const yh = S("your_house");
-  if (yh) {
-    yh.cool = 0;
-    yh.key = (n, p, c) => c.s.id + ":" + siteStage(c.s);
-    yh.topic = (n, p, c) => "site" + c.s.id + ":" + siteStage(c.s);
-  }
-  const nt = S("need_timber");
-  if (nt) {
-    nt.cool = 0;
-    nt.key = (n, p, c) => c.s.id;
-    nt.topic = (n, p, c) => "site" + c.s.id + ":" + siteStage(c.s);
-  }
   const te = S("tent");
   if (te) te.cool = 0;
   const fs = S("food_short");
@@ -13363,13 +12855,6 @@ function topicalBark(n, p) {
   if (n.role === "Priest") {
     if (Math.random() < 0.7) return anyOf([`May you be touched by His Noodly Appendage, ${p.first}.`, `Come by the fire in the mornings. I pray there till half ten. Bring a colander if you have one.`, `How is your family keeping, ${p.first}? Eating enough pasta?`, `Did you know the Flying Spaghetti Monster made the mountains? Then had a few drinks and made the rest of it.`, `Rest day is holy, ${p.first}. Every Friday, in fact. The Monster insists.`, `R'amen.`, `Fewer pirates, warmer winters. It is all in the scriptures. Probably.`, `If anything weighs on you, you know where to find me in the mornings.`, `Arr. Sorry. Holy word.`]);
   }
-  const s = houseSiteOf(n);
-  if (s) {
-    const l = logsLeft(s);
-    out.push(l <= 3 ? `${l} more! Only ${l}!` : anyOf([`${l} logs to go. Not that I am counting.`, `Still counting logs. ${l}.`]));
-  }
-  const ys = houseSiteOf(p);
-  if (ys && (n.know[p.id] || 0) >= 15) out.push(anyOf([`Your walls are coming on!`, `${logsLeft(ys)} more for your place, I heard.`]));
   if (town.feast && game.time < town.feast.at) out.push(anyOf(["Bonfire tonight!", "See you at the fire!"]));
   if (n.preg) out.push(anyOf(["*pats belly* Any day now.", "The little one is kicking!"]));
   if (n.fam.partner && !n.fam.spouse) {
@@ -14220,17 +13705,6 @@ const nodeAt = (x, y) => {
   return town.nodes.find((nd) => nd.x === x && nd.y === y && nd.amt >= 1);
 };
 const cropAt = (x, y) => town.crops.find((c) => c.x === x && c.y === y);
-function siteAtTile(x, y) {
-  for (const s of town.sites) {
-    if (s.kind === "road") {
-      for (let i = s.laid || 0; i < s.route.length; i++) if (s.route[i].x === x && s.route[i].y === y) return s;
-      continue;
-    }
-    if (s.kind === "demolish") continue;
-    if (x >= s.x && x < s.x + s.w && y >= s.y && y < s.y + s.h) return s;
-  }
-  return null;
-}
 function stallTrade(n, x, y) {
   const m = merchants.filter((m2) => Math.abs(m2.front.x - n.tx) + Math.abs(m2.front.y - n.ty) <= 1.5 && Math.abs(m2.post.x - x) + Math.abs(m2.post.y - y) <= 3)[0] || merchants.filter((m2) => Math.abs(m2.front.x - n.tx) + Math.abs(m2.front.y - n.ty) <= 1.5)[0];
   return m || null;
@@ -14250,15 +13724,13 @@ function targetAt0(n, x, y) {
     }
   }
   if (g === T.TREE && wildTile(x, y)) return { msg: "The old pines grow too thick to cut through." };
-  if (g === T.TREE) ensureSite("wood");
-  if (g === T.ROCK) ensureSite("stone");
-  const full = handsUsed(n) >= handsMax(n);
+  const full = false;
   if (g === T.TREE) return { key: "tree" + x + "," + y, min: 10, text: full ? "Clearing the way" : "Felling a tree", tool: "axe", run(n2) {
     if (grid[y][x] === T.TREE) {
       workFx("fall", x, y, n2);
       setT(x, y, T.GRASS);
       markDirty(x, y, 1, 1);
-      dropAt(x, y, "wood");
+      bagGet(n2, "wood");
       town.treeDirty = true;
       town.treeCache = null;
     }
@@ -14268,7 +13740,7 @@ function targetAt0(n, x, y) {
       workFx("split", x, y, n2);
       setT(x, y, T.GRASS);
       markDirty(x, y, 1, 1);
-      dropAt(x, y, "stone");
+      bagGet(n2, "stone");
       if (itRockOre(n2)) playerSay(n2, "Iron ore in the rock!");
       town.treeDirty = true;
       town.stoneCache = null;
@@ -14318,43 +13790,6 @@ function targetAt0(n, x, y) {
         playerSay(n2, "Sown");
       }
     } };
-  }
-  const s = siteAtTile(x, y);
-  if (s && s.slots) {
-    const q = slotAt(s, x, y);
-    if (q && !q.built && slotReady(s, q) && q.mat === "wood" && !(n.inv.wood > 0) && (n.inv.planks || 0) > 0) return { key: "wall" + s.id, min: 2, slot: q, text: "Putting up a plank wall", tool: "hammer", repeat: true, run(n2) {
-      n2.inv.planks--;
-      n2.inv.wood = (n2.inv.wood || 0) + 1;
-      if (!buildSlot(n2, s, q)) {
-        n2.inv.wood--;
-        n2.inv.planks++;
-      } else playerSay(n2, siteNeedText(s) ? "Still needs " + siteNeedText(s) : "Finished");
-    } };
-    if (q && !q.built && slotReady(s, q) && (n.inv[q.mat] || 0) > 0) return { key: "wall" + s.id, min: 3, slot: q, text: "Putting up a " + (q.mat === "wood" ? "timber" : "stone") + " wall", tool: "hammer", repeat: true, run(n2) {
-      if (buildSlot(n2, s, q)) playerSay(n2, siteNeedText(s) ? "Still needs " + siteNeedText(s) : "Finished");
-    } };
-    if (q && !q.built && !q.door) {
-      if (clk() - (n.player.msgAt || -99) > 40) playerSay(n, "This wall needs " + (q.mat === "wood" ? "timber" : "stone") + ". Carry it here and walk into the gap.");
-    }
-    return null;
-  }
-  if (s && s.got) {
-    if ((n.inv.planks || 0) > 0 && siteRem(s, "wood") > 0) return { key: "throw" + s.id + "planks", min: 1, text: "Laying planks on the site", tool: null, repeat: true, walkOn: s.kind === "road", run(n2) {
-      n2.inv.planks--;
-      n2.inv.wood = (n2.inv.wood || 0) + 1;
-      const q = throwOnSite(n2, s, "wood", 1);
-      if (!q) {
-        n2.inv.wood--;
-        n2.inv.planks++;
-      } else playerSay(n2, siteNeedText(s) ? "Still needs " + siteNeedText(s) : "Finished");
-    } };
-    for (const k of (n.inv.stone || 0) >= (n.inv.wood || 0) ? ["stone", "wood"] : ["wood", "stone"]) {
-      if ((n.inv[k] || 0) > 0 && siteRem(s, k) > 0) return { key: "throw" + s.id + k, min: 1, text: "Throwing " + KINDTXT[k] + " onto the site", tool: null, repeat: true, walkOn: s.kind === "road", run(n2) {
-        const q = throwOnSite(n2, s, k, 1);
-        if (q) playerSay(n2, siteNeedText(s) ? "Still needs " + siteNeedText(s) : "Finished");
-      } };
-    }
-    if (s.kind !== "road") return { msg: "This " + ({ market: "village green" }[s.kind] || "site") + " still needs " + (siteNeedText(s) || "materials") + ". Bring it and walk into the site." };
   }
   if (g === T.STALL) {
     const m = stallTrade(n, x, y);
@@ -14773,6 +14208,10 @@ function targetAt(n, x, y) {
   if (t && t.key && /^(tree|rock|crop|wall|throw)/.test(t.key) && isRestDay() && game.time % 1440 >= 720) return { msg: REST_NO[Math.floor(game.time / 30) % REST_NO.length] };
   return t;
 }
+function bagGet(n, k) {
+  n.inv[k] = (n.inv[k] || 0) + 1;
+  if (n.player) playerSay(n, k === "wood" ? "+1 wood" : "+1 stone");
+}
 function dropAt(x, y, k) {
   (town.drops = town.drops || []).push({ x, y, k, rt: typeof performance !== "undefined" ? performance.now() : 0 });
 }
@@ -14782,13 +14221,6 @@ function pickUpDrops(n) {
   const i = ds.findIndex((d2) => d2.x === n.tx && d2.y === n.ty);
   if (i < 0) return;
   const p = n.player;
-  if (handsUsed(n) >= handsMax(n)) {
-    if (p.fullAt !== i + ":" + n.tx + "," + n.ty) {
-      p.fullAt = i + ":" + n.tx + "," + n.ty;
-      playerSay(n, "My hands are full.");
-    }
-    return;
-  }
   const d = ds.splice(i, 1)[0];
   n.inv[d.k] = (n.inv[d.k] || 0) + 1;
   p.fullAt = null;
@@ -17531,8 +16963,6 @@ function lfJobOptions() {
   if (shoreTiles.length && fishAvail()) o.push("Fisher");
   if (town.crops.length) o.push("Farmer");
   if (town.nodes.some((x) => x.amt >= 1 && reach[x.y * W + x.x])) o.push("Gatherer");
-  if (treeList().length) o.push("Woodcutter");
-  if (stoneList().length) o.push("Stonecutter");
   return o;
 }
 function lfJobsDaily() {
@@ -18879,7 +18309,7 @@ function lf2BreakRock(n, pr) {
   town.propAt.delete(pr.y * W + pr.x);
   town.props = town.props.filter((q) => q !== pr);
   town.lfPV = (town.lfPV || 0) + 1;
-  dropAt(pr.x, pr.y, "stone");
+  bagGet(n, "stone");
   if (typeof itRockOre === "function" && itRockOre(n)) playerSay(n, "Iron ore in the rock!");
 }
 const YARD_ITEMS = [
@@ -26087,7 +25517,6 @@ function render(now, dtSec, hourOfDay) {
   drawCeremonyFire(c, now);
   drawOverlay(c, now);
   drawTalkMarks(c, now);
-  drawSiteTags(c);
   drawActivityBars(c);
   drawPlayerFx(c, now);
   drawBubbles(c, now);
@@ -26302,31 +25731,6 @@ function drawPlayerFx(c, now) {
       c.fillText(p.msg, s.x, yy);
       c.globalAlpha = 1;
     }
-  }
-}
-function drawSiteTags(c) {
-  return;
-  c.textAlign = "center";
-  c.textBaseline = "middle";
-  c.font = '600 10.5px "IBM Plex Sans", sans-serif';
-  for (const s of town.sites) {
-    if (s.kind === "demolish" || s.kind === "field" || s.kind === "graveyard") continue;
-    const nm = { house: "House", church: "Chapel", tavern: "Tavern", market: "Village green", road: "Path" }[s.kind] || "Site";
-    const need = siteNeedText(s), pct = Math.round(100 * siteFrac(s));
-    const line = need ? "Needs " + need : pct + "% built";
-    const rt = s.kind === "road" ? s.route[Math.min(s.laid || 0, s.route.length - 1)] : null;
-    if (rt && cam.z < cam.fit * 1.2) continue;
-    const sc = rt ? toScreen((rt.x + 0.5) * TS, rt.y * TS) : toScreen((s.x + s.w / 2) * TS, s.y * TS);
-    if (sc.x < -120 || sc.x > cam.cw + 120 || sc.y < -40 || sc.y > cam.ch + 80) continue;
-    const t1 = nm + " \xB7 " + line, tw = c.measureText(t1).width + 14, x = sc.x, y = Math.max(14, sc.y - 12);
-    c.fillStyle = "rgba(14,18,20,.9)";
-    c.fillRect(x - tw / 2, y - 10, tw, 20);
-    c.fillStyle = "#2f3a3f";
-    c.fillRect(x - tw / 2 + 4, y + 5, tw - 8, 3);
-    c.fillStyle = need ? "#e0a93f" : "#7fae5f";
-    c.fillRect(x - tw / 2 + 4, y + 5, (tw - 8) * siteFrac(s), 3);
-    c.fillStyle = need ? "#ffe0a0" : "#e8e4d8";
-    c.fillText(t1, x, y - 2);
   }
 }
 function drawTalkMarks(c, now) {
@@ -27146,15 +26550,8 @@ function popChart() {
   return '<svg viewBox="0 0 300 62" width="100%" height="62" aria-label="Population over time"><polyline fill="none" stroke="#7fae5f" stroke-width="1.8" points="' + pts + '"/></svg><div class="sub" style="display:flex;justify-content:space-between;margin:0"><span>' + mn + " lowest</span><span>" + mx + " highest</span></div>";
 }
 let townSig = "";
-const costTxt = (c) => [c.stone ? c.stone + " stone" : "", c.wood ? c.wood + " wood" : "", c.any ? c.any + " wood or stone" : ""].filter(Boolean).join(" + ");
-function waitingHtml() {
-  const w = Object.keys(town.wants || {}).map((k) => town.wants[k]);
-  if (!w.length) return "";
-  return '<h2 class="gap">Waiting to start</h2><ul class="plain">' + w.map((x) => "<li>" + esc(x.text || x.kind) + ' <span class="dim">' + costTxt(x.cost) + (x.noRoom ? " \xB7 no room yet" : x.queued ? " \xB7 queued behind other work" : "") + "</span></li>").join("") + "</ul>";
-}
 function updateResBar() {
-  const ws = Object.keys(town.wants || {}).map((k) => town.wants[k]), d = demand(), fd = foodDaysNow(), w0 = ws[0];
-  const html = "<span>Timber still needed <b>" + d.wood + "</b></span><span>Stone still needed <b>" + d.stone + "</b></span><span>Food <b>" + fd.toFixed(1) + "</b> days</span>" + (w0 ? '<span class="wait">Next: ' + esc(w0.text || w0.kind) + (w0.noRoom ? " (no room yet)" : w0.queued ? " (queued)" : "") + (ws.length > 1 ? " +" + (ws.length - 1) + " more" : "") + "</span>" : "");
+  const html = "<span>Food <b>" + foodDaysNow().toFixed(1) + "</b> days</span>";
   if (html !== resSig) {
     resSig = html;
     el("resbar").innerHTML = html;
@@ -27173,9 +26570,8 @@ function buildTown(force) {
   const plural = (r, c) => c === 1 ? r.toLowerCase() : r === "Child" ? "children" : r.toLowerCase() + "s";
   const people = Object.entries(counts).map(([r, c]) => c + " " + plural(r, c)).join(", ");
   const houses = rooms.filter((r) => r.kind === "house" && !r.dead).length;
-  const sites = t.sites.map((s) => "<li>" + ({ house: "House", church: "Church", tavern: "Tavern", market: "Village green", road: "Road", field: "Field", graveyard: "Churchyard plot", demolish: "Demolition" }[s.kind] || s.kind) + (s.kind === "house" ? " for " + esc(s.surname || "a family") : "") + " \xB7 " + Math.round(100 * siteFrac(s)) + "%" + (siteNeedText(s) ? ' <span class="dim">needs ' + siteNeedText(s) + "</span>" : "") + "</li>").join("");
   const dead = t.dead.slice(-25).reverse().map((d) => "<li>" + esc(d.name) + ' <span class="dim">' + d.age + " \xB7 " + esc((d.label || d.role).toLowerCase()) + " \xB7 " + stamp(d.died) + "</span></li>").join("");
-  el("townPanel").innerHTML = "<h2>The town</h2><h3>" + esc(t.name) + '</h3><p class="sub">' + npcs.length + " villagers \xB7 " + houses + " homes \xB7 year " + yearOf(game.time) + '</p><p class="bio">' + esc(t.founding) + '</p><h2 class="gap">Population</h2>' + popChart() + '<dl class="kv" style="margin-top:8px"><dt>Born</dt><dd>' + t.births + "</dd><dt>Married</dt><dd>" + t.weddings + "</dd><dt>Died</dt><dd>" + t.deaths + '</dd></dl><h2 class="gap">Buildings</h2><dl class="kv"><dt>Timber still needed</dt><dd>' + demand().wood + "</dd><dt>Stone still needed</dt><dd>" + demand().stone + "</dd><dt>Church</dt><dd>" + (t.church ? "built" : t.sites.some((s) => s.kind === "church") ? "being built" : "not yet") + "</dd><dt>Tavern</dt><dd>" + (t.tavern ? "built" : t.sites.some((s) => s.kind === "tavern") ? "being built" : "not yet") + "</dd></dl>" + waitingHtml() + '<h2 class="gap">Greens and larders</h2><ul class="plain">' + t.markets.map((m) => "<li>" + esc(m.name) + ' <span class="dim">' + (m.stalls.some((s) => s.owner) ? m.stalls.filter((s) => s.owner).map((s) => esc(s.owner.first)).join(", ") : "no larder-keeper yet") + "</span></li>").join("") + '</ul><h2 class="gap">People</h2><p class="bio">' + esc(people) + ".</p>" + (sites ? '<h2 class="gap">Being built</h2><ul class="plain">' + sites + "</ul>" : "") + '<h2 class="gap">Churchyard</h2>' + (dead ? '<ul class="plain">' + dead + "</ul>" : '<p class="sub">No graves yet.</p>');
+  el("townPanel").innerHTML = "<h2>The town</h2><h3>" + esc(t.name) + '</h3><p class="sub">' + npcs.length + " villagers \xB7 " + houses + " homes \xB7 year " + yearOf(game.time) + '</p><p class="bio">' + esc(t.founding) + '</p><h2 class="gap">Population</h2>' + popChart() + '<dl class="kv" style="margin-top:8px"><dt>Born</dt><dd>' + t.births + "</dd><dt>Married</dt><dd>" + t.weddings + "</dd><dt>Died</dt><dd>" + t.deaths + '</dd></dl><h2 class="gap">Buildings</h2><dl class="kv"><dt>Church</dt><dd>' + (t.church ? "built" : "none") + "</dd><dt>Tavern</dt><dd>" + (t.tavern ? "built" : "none") + '</dd></dl><h2 class="gap">Greens and larders</h2><ul class="plain">' + t.markets.map((m) => "<li>" + esc(m.name) + ' <span class="dim">' + (m.stalls.some((s) => s.owner) ? m.stalls.filter((s) => s.owner).map((s) => esc(s.owner.first)).join(", ") : "no larder-keeper yet") + "</span></li>").join("") + '</ul><h2 class="gap">People</h2><p class="bio">' + esc(people) + '.</p><h2 class="gap">Churchyard</h2>' + (dead ? '<ul class="plain">' + dead + "</ul>" : '<p class="sub">No graves yet.</p>');
   el("townName").textContent = t.name;
   el("townSub").textContent = npcs.length + " villagers \xB7 " + houses + " homes";
 }
@@ -27721,12 +27117,6 @@ function tileTip(x, y) {
     const t = (town.tents || []).find((q) => q.x === x && q.y === y);
     return "<b>Tent</b><br>" + (t && t.owner ? esc(t.owner.first) + " is sleeping here" : "Free. Anyone may use it.");
   }
-  const s = town.sites.find((q) => q.kind !== "road" && q.kind !== "demolish" && x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h);
-  if (s) {
-    const nm = { house: "House", church: "Chapel", tavern: "Tavern", market: "Village green", field: "Field", graveyard: "Churchyard" }[s.kind] || "Site";
-    const nd = siteNeedText(s), need = s.got && siteReqT(s) ? "<br>Delivered " + siteGot(s) + " of " + siteReqT(s) + " blocks" + (nd ? "<br><b>Still needs " + nd + "</b>" : "") : "";
-    return "<b>" + nm + " site</b><br>Nobody can enter until it is finished.<br>" + Math.round(100 * siteFrac(s)) + "% built" + need;
-  }
   return null;
 }
 function endPtr(e) {
@@ -27958,13 +27348,12 @@ function updateHud(force) {
     return;
   }
   const p = n.player, full = Math.round(100 - n.hunger), tone = full < 25 ? "bad" : full < 45 ? "warn" : "";
-  const inv = Object.entries(n.inv).filter(([g, q]) => q > 0).map(([g, q]) => '<span class="chip">' + q + " " + (GICON[g] || g) + "</span>").join("");
   const hint = p.sleeping ? "Sleeping. Press a movement key to get up." : p.act ? p.act.text + "\u2026" : n.hunger >= 60 && !foodSat(n.inv) ? "Hungry: pick berries or fish, you eat automatically" : n.bladder >= 70 ? "Bursting! Find a privy: walk into the seat inside one" : "WASD to move \xB7 walk into things to use them \xB7 Q hand mode (Talk, Push, Search) \xB7 1-9 belt \xB7 B bag";
   const sig = [full, JSON.stringify(n.inv), hint, n.status, Math.round((n.bladder || 0) / 4), Math.round((n.mood || 0) / 6)].join("|");
   if (!force && sig === hudSig) return;
   hudSig = sig;
   h.hidden = false;
-  h.innerHTML = "<span><b>" + esc(nameOf(n)) + '</b></span><span>Fullness <span class="hbar ' + tone + '"><i style="width:' + Math.max(0, full) + '%"></i></span></span>' + lifeHud(n) + (inv || '<span class="chip dim">nothing carried</span>') + '<span class="hint">' + esc(hint) + "</span>";
+  h.innerHTML = "<span><b>" + esc(nameOf(n)) + '</b></span><span>Fullness <span class="hbar ' + tone + '"><i style="width:' + Math.max(0, full) + '%"></i></span></span>' + lifeHud(n) + '<span class="hint">' + esc(hint) + "</span>";
   {
     const mh = el("maphint");
     if (mh) mh.style.bottom = h.offsetHeight + 18 + "px";

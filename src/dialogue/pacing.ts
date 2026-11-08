@@ -1,11 +1,7 @@
 /* ================= Pacing: say things once, when they change; bubbles for the rest ================= */
-const siteStage = s => { const tot = s.slots ? s.slots.length : 1, left = logsLeft(s), built = tot - left; return left <= 3 ? 2 : built / tot >= 0.45 ? 1 : 0; };
 // milestones and topics for the scenes that used to repeat
 (function tune() {
   const S = id => SCENES.find(x => x.id === id);
-  const hw: any = S('house_wait'); if (hw) { hw.cool = 0; hw.key = (n, p, c) => c.s.id + ':' + siteStage(c.s); hw.topic = (n, p, c) => 'site' + c.s.id + ':' + siteStage(c.s); }
-  const yh: any = S('your_house'); if (yh) { yh.cool = 0; yh.key = (n, p, c) => c.s.id + ':' + siteStage(c.s); yh.topic = (n, p, c) => 'site' + c.s.id + ':' + siteStage(c.s); }
-  const nt: any = S('need_timber'); if (nt) { nt.cool = 0; nt.key = (n, p, c) => c.s.id; nt.topic = (n, p, c) => 'site' + c.s.id + ':' + siteStage(c.s); }
   const te = S('tent'); if (te) te.cool = 0;
   const fs: any = S('food_short'); if (fs) { fs.cool = 0; fs.key = () => Math.floor(game.time / (3 * 1440)); fs.topic = () => 'food' + Math.floor(game.time / (3 * 1440)); }
   const bs: any = S('bonfire_soon'); if (bs) bs.topic = (n, p, c) => 'feast' + c.f.at;
@@ -71,8 +67,6 @@ function topicalBark(n, p) {
   if (n.role === 'Priest') {
     if (Math.random() < 0.7) return anyOf([`May you be touched by His Noodly Appendage, ${p.first}.`, `Come by the fire in the mornings. I pray there till half ten. Bring a colander if you have one.`, `How is your family keeping, ${p.first}? Eating enough pasta?`, `Did you know the Flying Spaghetti Monster made the mountains? Then had a few drinks and made the rest of it.`, `Rest day is holy, ${p.first}. Every Friday, in fact. The Monster insists.`, `R'amen.`, `Fewer pirates, warmer winters. It is all in the scriptures. Probably.`, `If anything weighs on you, you know where to find me in the mornings.`, `Arr. Sorry. Holy word.`]);
   }
-  const s = houseSiteOf(n); if (s) { const l = logsLeft(s); out.push(l <= 3 ? `${l} more! Only ${l}!` : anyOf([`${l} logs to go. Not that I am counting.`, `Still counting logs. ${l}.`])); }
-  const ys = houseSiteOf(p); if (ys && (n.know[p.id] || 0) >= 15) out.push(anyOf([`Your walls are coming on!`, `${logsLeft(ys)} more for your place, I heard.`]));
   if (town.feast && game.time < town.feast.at) out.push(anyOf(['Bonfire tonight!', 'See you at the fire!']));
   if (n.preg) out.push(anyOf(['*pats belly* Any day now.', 'The little one is kicking!']));
   if (n.fam.partner && !n.fam.spouse) { const o = byId(n.fam.partner); if (o) out.push(`Have you seen ${o.first}? ...No reason.`); }

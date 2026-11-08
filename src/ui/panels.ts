@@ -171,16 +171,8 @@ function popChart() {
   return '<svg viewBox="0 0 300 62" width="100%" height="62" aria-label="Population over time"><polyline fill="none" stroke="#7fae5f" stroke-width="1.8" points="' + pts + '"/></svg><div class="sub" style="display:flex;justify-content:space-between;margin:0"><span>' + mn + ' lowest</span><span>' + mx + ' highest</span></div>';
 }
 let townSig = '';
-const costTxt = c => [c.stone ? c.stone + ' stone' : '', c.wood ? c.wood + ' wood' : '', c.any ? c.any + ' wood or stone' : ''].filter(Boolean).join(' + ');
-function waitingHtml() {
-  const w = Object.keys(town.wants || {}).map(k => town.wants[k]);
-  if (!w.length) return '';
-  return '<h2 class="gap">Waiting to start</h2><ul class="plain">' + w.map(x => '<li>' + esc(x.text || x.kind) + ' <span class="dim">' + costTxt(x.cost) + (x.noRoom ? ' · no room yet' : x.queued ? ' · queued behind other work' : '') + '</span></li>').join('') + '</ul>';
-}
-function updateResBar() {
-  const ws = Object.keys(town.wants || {}).map(k => town.wants[k]), d = demand(), fd = foodDaysNow(), w0 = ws[0];
-  const html = '<span>Timber still needed <b>' + d.wood + '</b></span><span>Stone still needed <b>' + d.stone + '</b></span><span>Food <b>' + fd.toFixed(1) + '</b> days</span>' +
-    (w0 ? '<span class="wait">Next: ' + esc(w0.text || w0.kind) + (w0.noRoom ? ' (no room yet)' : w0.queued ? ' (queued)' : '') + (ws.length > 1 ? ' +' + (ws.length - 1) + ' more' : '') + '</span>' : '');
+function updateResBar() {   // the status bar shows food only: nothing is waiting to be built any more
+  const html = '<span>Food <b>' + foodDaysNow().toFixed(1) + '</b> days</span>';
   if (html !== resSig) { resSig = html; el('resbar').innerHTML = html; }
 }
 let resSig = '';
@@ -191,14 +183,12 @@ function buildTown(force) {
   const plural = (r, c) => c === 1 ? r.toLowerCase() : (r === 'Child' ? 'children' : r.toLowerCase() + 's');
   const people = Object.entries(counts).map(([r, c]) => c + ' ' + plural(r, c)).join(', ');
   const houses = rooms.filter(r => r.kind === 'house' && !r.dead).length;
-  const sites = t.sites.map(s => '<li>' + ({ house: 'House', church: 'Church', tavern: 'Tavern', market: 'Village green', road: 'Road', field: 'Field', graveyard: 'Churchyard plot', demolish: 'Demolition' }[s.kind] || s.kind) + (s.kind === 'house' ? ' for ' + esc(s.surname || 'a family') : '') + ' · ' + Math.round(100 * siteFrac(s)) + '%' + (siteNeedText(s) ? ' <span class="dim">needs ' + siteNeedText(s) + '</span>' : '') + '</li>').join('');
   const dead = t.dead.slice(-25).reverse().map(d => '<li>' + esc(d.name) + ' <span class="dim">' + d.age + ' · ' + esc((d.label || d.role).toLowerCase()) + ' · ' + stamp(d.died) + '</span></li>').join('');
   el('townPanel').innerHTML = '<h2>The town</h2><h3>' + esc(t.name) + '</h3><p class="sub">' + npcs.length + ' villagers · ' + houses + ' homes · year ' + yearOf(game.time) + '</p>' +
     '<p class="bio">' + esc(t.founding) + '</p><h2 class="gap">Population</h2>' + popChart() +
     '<dl class="kv" style="margin-top:8px"><dt>Born</dt><dd>' + t.births + '</dd><dt>Married</dt><dd>' + t.weddings + '</dd><dt>Died</dt><dd>' + t.deaths + '</dd></dl>' +
-    '<h2 class="gap">Buildings</h2><dl class="kv"><dt>Timber still needed</dt><dd>' + demand().wood + '</dd><dt>Stone still needed</dt><dd>' + demand().stone + '</dd><dt>Church</dt><dd>' + (t.church ? 'built' : t.sites.some(s => s.kind === 'church') ? 'being built' : 'not yet') + '</dd><dt>Tavern</dt><dd>' + (t.tavern ? 'built' : t.sites.some(s => s.kind === 'tavern') ? 'being built' : 'not yet') + '</dd></dl>' + waitingHtml() + '<h2 class="gap">Greens and larders</h2><ul class="plain">' + t.markets.map(m => '<li>' + esc(m.name) + ' <span class="dim">' + (m.stalls.some(s => s.owner) ? m.stalls.filter(s => s.owner).map(s => esc(s.owner.first)).join(', ') : 'no larder-keeper yet') + '</span></li>').join('') + '</ul>' +
+    '<h2 class="gap">Buildings</h2><dl class="kv"><dt>Church</dt><dd>' + (t.church ? 'built' : 'none') + '</dd><dt>Tavern</dt><dd>' + (t.tavern ? 'built' : 'none') + '</dd></dl>' + '<h2 class="gap">Greens and larders</h2><ul class="plain">' + t.markets.map(m => '<li>' + esc(m.name) + ' <span class="dim">' + (m.stalls.some(s => s.owner) ? m.stalls.filter(s => s.owner).map(s => esc(s.owner.first)).join(', ') : 'no larder-keeper yet') + '</span></li>').join('') + '</ul>' +
     '<h2 class="gap">People</h2><p class="bio">' + esc(people) + '.</p>' +
-    (sites ? '<h2 class="gap">Being built</h2><ul class="plain">' + sites + '</ul>' : '') +
     '<h2 class="gap">Churchyard</h2>' + (dead ? '<ul class="plain">' + dead + '</ul>' : '<p class="sub">No graves yet.</p>');
   el('townName').textContent = t.name;
   el('townSub').textContent = npcs.length + ' villagers · ' + houses + ' homes';

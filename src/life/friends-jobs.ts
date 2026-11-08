@@ -157,7 +157,7 @@ function lfJobBias(n, sc) {
 function lfJobOptions() {
   const o = [];
   if (shoreTiles.length && fishAvail()) o.push('Fisher'); if (town.crops.length) o.push('Farmer'); if (town.nodes.some(x => x.amt >= 1 && reach[x.y * W + x.x])) o.push('Gatherer');
-  if (treeList().length) o.push('Woodcutter'); if (stoneList().length) o.push('Stonecutter'); return o;
+  return o;   // (no woodcutters or stonecutters: nothing is built by villagers any more, so nobody needs the timber)
 }
 function lfJobsDaily() {
   const fd = foodDaysNow(), opts = lfJobOptions(), food = ['Fisher', 'Farmer', 'Gatherer'];

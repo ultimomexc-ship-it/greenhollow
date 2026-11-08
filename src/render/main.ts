@@ -240,7 +240,7 @@ function render(now, dtSec, hourOfDay) {
 
   // screen-space overlays: stays readable at any zoom
   c.setTransform(cam.dpr, 0, 0, cam.dpr, 0, 0); c.imageSmoothingEnabled = true;
-  drawFeast(c, now); drawCeremonyFire(c, now); drawOverlay(c, now); drawTalkMarks(c, now); drawSiteTags(c); drawActivityBars(c); drawPlayerFx(c, now); drawBubbles(c, now); lfDrawThoughts(c, now);
+  drawFeast(c, now); drawCeremonyFire(c, now); drawOverlay(c, now); drawTalkMarks(c, now); drawActivityBars(c); drawPlayerFx(c, now); drawBubbles(c, now); lfDrawThoughts(c, now);
 }
 
 function npcAt(wx, wy) {
@@ -351,22 +351,6 @@ function drawPlayerFx(c, now) {
   }
 }
 
-function drawSiteTags(c) {
-  return;
-  c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = '600 10.5px "IBM Plex Sans", sans-serif';
-  for (const s of town.sites) {
-    if (s.kind === 'demolish' || s.kind === 'field' || s.kind === 'graveyard') continue;
-    const nm = { house: 'House', church: 'Chapel', tavern: 'Tavern', market: 'Village green', road: 'Path' }[s.kind] || 'Site';
-    const need = siteNeedText(s), pct = Math.round(100 * siteFrac(s));
-    const line = need ? 'Needs ' + need : pct + '% built';
-    const rt = s.kind === 'road' ? s.route[Math.min(s.laid || 0, s.route.length - 1)] : null; if (rt && cam.z < cam.fit * 1.2) continue; const sc = rt ? toScreen((rt.x + .5) * TS, rt.y * TS) : toScreen((s.x + s.w / 2) * TS, s.y * TS); if (sc.x < -120 || sc.x > cam.cw + 120 || sc.y < -40 || sc.y > cam.ch + 80) continue;
-    const t1 = nm + ' · ' + line, tw = c.measureText(t1).width + 14, x = sc.x, y = Math.max(14, sc.y - 12);
-    c.fillStyle = 'rgba(14,18,20,.9)'; c.fillRect(x - tw / 2, y - 10, tw, 20);
-    c.fillStyle = '#2f3a3f'; c.fillRect(x - tw / 2 + 4, y + 5, tw - 8, 3);
-    c.fillStyle = need ? '#e0a93f' : '#7fae5f'; c.fillRect(x - tw / 2 + 4, y + 5, (tw - 8) * siteFrac(s), 3);
-    c.fillStyle = need ? '#ffe0a0' : '#e8e4d8'; c.fillText(t1, x, y - 2);
-  }
-}
 
 function drawTalkMarks(c, now) {
   const p = game.player; if (!p || typeof talkMarks !== 'function') return;

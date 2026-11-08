@@ -128,7 +128,7 @@ test('controls: in Push mode walking into a person pushes them along like a barr
 }));
 
 test('controls: in Push mode against a wall you swap places instead of getting stuck', await controlScene('swap', 41, async page => {
-  const s = await page.evaluate(() => { const [x, y] = __find((x, y) => __free(x, y) && __free(x + 1, y) && !walkable(x + 2, y) && grid[y][x + 2] !== T.TREE); const n = game.player; __place(n, x, y, { dx: 1, dy: 0 }); __stand(__other(), x + 1, y); return { x, y }; });
+  const s = await page.evaluate(() => { const [x, y] = __find((x, y) => __free(x, y) && __free(x + 1, y) && !walkable(x + 2, y) && grid[y][x + 2] !== T.TREE && grid[y][x + 2] !== T.ROCK); /* (a rock is pushable now, so it is no wall) */ const n = game.player; __place(n, x, y, { dx: 1, dy: 0 }); __stand(__other(), x + 1, y); window.__other().talkUntil = game.time + 1e6; /* (keeps the villager from sitting down by the water) */ return { x, y }; });
   await page.keyboard.press('q'); await held(page, [], 2);
   const e = await page.evaluate(() => ({ me: game.player.tx, emitted: window.__emitted.slice(), them: npcs.filter(q => q !== game.player && q.tx === game.player.tx - 1 && q.ty === game.player.ty).length }));
   check(e.me === s.x + 1, `the player should have changed places (x ${s.x} -> ${e.me})`);
@@ -204,14 +204,14 @@ test('push: rocks can be pushed (and chained) and become loose rocks you can bui
     const res = lf2PushLine(P, x, y, 1, 0), pr = lfPropAt(x + 1, y), tile = grid[y][x];
     const loose = pr && pr.kind === 'rock' && tile === T.GRASS && town.pblock[y * W + x + 1] === 1, art = pr && lfPropArt(pr);
     __place(P, x, y, { dx: 1, dy: 0 }); const again = lf2PushLine(P, x + 1, y, 1, 0), moved = pr && pr.x === x + 2;
-    P.sel = P.belt.findIndex(q => q && q[0] === 'i' && itById(P, +q.slice(1)).kind === 'hammer'); const act = lifeAct(P, P.player, pr.x, pr.y, 1, 0); const stone0 = (town.drops || []).length; act.run(P);
-    return { res, loose, art, again, moved, hammer: act.key, gone: !lfPropAt(pr.x, pr.y) && !town.props.includes(pr), dropped: (town.drops || []).length > stone0 };
+    P.sel = P.belt.findIndex(q => q && q[0] === 'i' && itById(P, +q.slice(1)).kind === 'hammer'); const act = lifeAct(P, P.player, pr.x, pr.y, 1, 0); const stone0 = P.inv.stone || 0; act.run(P);
+    return { res, loose, art, again, moved, hammer: act.key, gone: !lfPropAt(pr.x, pr.y) && !town.props.includes(pr), dropped: (P.inv.stone || 0) > stone0 };
   });
   check(r.res === true && r.loose, 'pushing a rock should turn it into a loose rock one tile along: ' + JSON.stringify(r));
   check(/^boulder_/.test(r.art), 'a loose rock should be drawn as a boulder: ' + r.art);
   check(r.again === true && r.moved, 'a loose rock should push like a crate');
   check(/^rock/.test(r.hammer) && r.gone && r.dropped, 'the hammer should break a loose rock and leave stone: ' + JSON.stringify(r));
-  return 'rock -> loose rock (pushed twice) -> broken with the hammer, stone dropped';
+  return 'rock -> loose rock (pushed twice) -> broken with the hammer, stone straight into the bag';
 }));
 
 test('push: loose things can be pushed through a doorway and into a house', await controlScene('doorway', 41, async page => {
