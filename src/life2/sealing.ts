@@ -167,3 +167,24 @@ function bldBreak(x: number, y: number, by?: any) {
   chron(`${by ? by.first : 'Somebody'} knocked a block out of a wall${after < before ? (before - after > 1 ? ', and ' + (before - after) + ' rooms fell apart' : ', and a room fell apart') : ''}.`, 'build');
   return true;
 }
+
+/** a village house is pulled down (the hammer on one of its walls): every wall, window and door becomes a loose block, the furniture becomes loose things (a barrel keeps the household's food), the floor goes back to grass,
+    and whoever lived there is homeless (the housing manager finds them a free bed, or they sleep in a tent). No other consequences yet. */
+function bldDemolishHouse(r: any, by?: any) {
+  if (!r || r.dead || r.free || r.kind !== 'house') return false;
+  const ri = rooms.indexOf(r); r.dead = true;
+  const out = (x, y, kind, extra?) => { if (lfPropAt(x, y)) return null; const p: any = lfAddProp(kind, x, y); if (kind === 'bed') p.v = Math.floor(Math.random() * 5); if (extra) Object.assign(p, extra); return p; };
+  for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+    if (roomAt[y][x] !== ri) continue; const t = grid[y][x];
+    if (t === T.WALL || t === T.DOOR) { const win = t === T.WALL && y === r.y && x !== r.x && x !== r.x + r.w - 1 && x !== r.doorX && (x - r.x) % 3 === 2; setT(x, y, T.GRASS); roomAt[y][x] = -1; out(x, y, t === T.DOOR ? 'bdoor' : win ? 'bwindow' : 'bwall'); continue; }
+    setT(x, y, T.GRASS); roomAt[y][x] = -1;
+    if (t === T.BED) { const b = (r.beds || []).find(q => q.x === x && q.y === y); out(x, y, 'bed', { ownerId: b && b.owner ? b.owner.id : null }); }
+    else if (t === T.SEAT) out(x, y, 'chair'); else if (t === T.TABLE) out(x, y, 'table'); else if (t === T.BARREL) out(x, y, 'barrel', { pantry: r.pantry });
+  }
+  doors = doors.filter(d => rooms[d.room] !== r);
+  for (const n of npcs) if (n.homeRoom === r) { n.homeRoom = null; n.bed = { owner: null }; n.seat = null; n.homeless = true; abortPlan(n); }
+  town.props = town.props.filter(p => !(p.fur && p.fur.r === r)); r.beds = []; r.seats = [];
+  if (typeof syncTents === 'function') { town.tents = town.tents || []; syncTents(); }   // (a tent goes up for each person with no bed)
+  markDirty(r.x - 1, r.y - 1, r.w + 2, r.h + 2); town.gridV = (town.gridV || 0) + 1; town.lfPV = (town.lfPV || 0) + 1; if (typeof refreshReach === 'function') refreshReach(); rebuildOcc();
+  chron(`${by ? by.first : 'Somebody'} pulled down ${r.name}.`, 'build'); return true;
+}
