@@ -556,8 +556,8 @@ test('building: the hammer knocks out one built block; a closed room carries on 
     lfAddProp('bwall', O.x + 1, O.y); town.bldQ = [[O.x + 1, O.y]]; bldTick(); res.again = live().length;
     // 3. knock out an outside wall of the right room: only the right room falls apart; the shared wall stays (the left room still needs it)
     house(); bldBreak(O.x + 7, O.y); res.right = { rooms: live().length, shared: grid[O.y + 2][O.x + 4] === T.WALL, sharedFixed: !lfPropAt(O.x + 4, O.y + 2), outer: !!lfPropAt(O.x + 8, O.y + 1) };
-    // 4. only built walls break: a village wall is left alone, and a plain wall is not a target
-    house(); const P = game.player, tg = targetAt0(P, O.x + 1, O.y); res.target = tg && { key: tg.key, tool: tg.tool }; const hall = rooms.find(q => !q.free && !q.dead && q.kind === 'house'); res.village = !targetAt0(P, hall.x, hall.y) || !/^wall/.test((targetAt0(P, hall.x, hall.y) || {}).key || '');
+    // 4. a built wall is a hammer target; the walls of the church and tavern are not (houses are: see the pulled-down test)
+    house(); const P = game.player, tg = targetAt0(P, O.x + 1, O.y); res.target = tg && { key: tg.key, tool: tg.tool }; const hall = rooms.find(q => !q.free && !q.dead && (q.kind === 'tavern' || q.kind === 'church')); res.village = !targetAt0(P, hall.x, hall.y) || !/^wall/.test((targetAt0(P, hall.x, hall.y) || {}).key || '');
     return res;
   });
   check(r.start === 2, 'the test house should have two rooms: ' + JSON.stringify(r));
@@ -565,8 +565,29 @@ test('building: the hammer knocks out one built block; a closed room carries on 
   check(r.apart.rooms === 1 && r.apart.loose === 9 && r.apart.floor && r.apart.wall, 'knocking out an outside wall of the left room makes it fall apart into 9 loose blocks, floor back to ground; the right room stays (its door now opens to the open country): ' + JSON.stringify(r.apart));
   check(r.again === 2, 'replacing the missing block closes the house again: ' + JSON.stringify(r));
   check(r.right.rooms === 1 && r.right.shared && r.right.sharedFixed && r.right.outer, 'only the right room falls apart; the shared wall stays fixed: ' + JSON.stringify(r.right));
-  check(r.target && /^wall/.test(r.target.key) && r.target.tool === 'hammer' && r.village, 'a built wall is a hammer target, a village wall is not: ' + JSON.stringify([r.target, r.village]));
+  check(r.target && /^wall/.test(r.target.key) && r.target.tool === 'hammer' && r.village, 'a built wall is a hammer target, the church and tavern walls are not: ' + JSON.stringify([r.target, r.village]));
   return 'merge on an inside break; fall apart on an outside break (blocks loose again); replace to rebuild; shared walls stay while a neighbour needs them';
+}));
+
+test('building: a village house can be pulled down with the hammer (blocks and furniture loose, the family homeless but looked after)', await controlScene('pulldown', 41, async page => {
+  const r = await page.evaluate(() => {
+    const hs = rooms.find(q => !q.free && !q.dead && q.kind === 'house' && npcs.some(n => n.homeRoom === q)), P = game.player, res = {}; if (P.homeRoom === hs) throw new Error('picked the player\'s own house');
+    const fam = npcs.filter(n => n.homeRoom === hs); res.fam = fam.length;
+    const wall = [hs.x, hs.y + 1]; const tg = targetAt0(P, wall[0], wall[1]); res.target = tg && tg.key; res.facing = (() => { const f = itFacing; return true; })();
+    const nWall = (() => { let c = 0; for (let y = hs.y; y < hs.y + hs.h; y++) for (let x = hs.x; x < hs.x + hs.w; x++) if (roomAt[y][x] === rooms.indexOf(hs) && (grid[y][x] === T.WALL || grid[y][x] === T.DOOR)) c++; return c; })();
+    const furn = hs.beds.length + hs.seats.length + 1;   // + the family barrel
+    tg.run(P); res.dead = hs.dead; res.nWall = nWall;
+    res.loose = town.props.filter(p => ['bwall', 'bwindow', 'bdoor'].includes(p.kind) && p.x >= hs.x && p.x < hs.x + hs.w && p.y >= hs.y && p.y < hs.y + hs.h).length;
+    res.furn = town.props.filter(p => ['bed', 'chair', 'table', 'barrel'].includes(p.kind) && p.x >= hs.x && p.x < hs.x + hs.w && p.y >= hs.y && p.y < hs.y + hs.h).length; res.furnWas = furn;
+    res.grass = grid[hs.y + 1][hs.x + 1] !== T.FLOOR && roomAt[hs.y + 1][hs.x + 1] < 0; res.homeless = fam.every(n => !n.homeRoom); window.__fam = fam.map(n => n.id);
+    return res;
+  });
+  check(r.target && /^wall/.test(r.target), 'a village house wall is a hammer target: ' + JSON.stringify(r));
+  check(r.dead && r.loose === r.nWall && r.furn >= 2 && r.grass && r.homeless, 'the house comes down into loose blocks and furniture, the floor is grass, the family is homeless: ' + JSON.stringify(r));
+  await simulate(page, 3 * 1440);
+  const after = await page.evaluate(() => { const fam = window.__fam.map(id => byId(id)); return { dead: npcs.filter(n => n.dead).length, housed: fam.filter(n => n.homeRoom && !n.homeRoom.dead || (n.bed && n.bed.x != null)).length, tents: (town.tents || []).length, n: fam.length }; });
+  check(after.dead === 0 && after.tents >= 1, 'three days later nobody has died and tents stand for the homeless: ' + JSON.stringify(after));
+  return `${r.fam} people lost their house: ${r.loose} loose blocks, ${r.furn} bits of furniture; three days later ${after.housed} of ${after.n} have a bed and ${after.tents} tents stand`;
 }));
 
 test('push: a sleeper rides in the bed (and a sitter in the chair), out of the door into the world; they wake up outside; the bed stays theirs', await controlScene('rider', 41, async page => {

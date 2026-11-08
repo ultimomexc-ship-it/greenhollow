@@ -86,6 +86,7 @@ function itFacing(n): { what: string; verb: string; need: string | null } | null
   if (hand && mode === 'push' && typeof pushFurniture === 'function') { const fu = pushFurniture(x, y); if (fu) return { what: cvCap(fu.type === 'seat' ? 'chair' : fu.type), verb: 'Push', need: 'push' }; }
   if (g === T.ROCK && hand && mode === 'push') return { what: 'Rock', verb: 'Push', need: 'push' };
   if (g === T.WALL && town.bldWall && town.bldWall.has(y * W + x)) return { what: 'Wall block', verb: 'Break', need: 'hammer' };
+  if (g === T.WALL && roomAt[y][x] >= 0 && rooms[roomAt[y][x]] && !rooms[roomAt[y][x]].free && !rooms[roomAt[y][x]].dead && rooms[roomAt[y][x]].kind === 'house') return { what: 'House wall', verb: 'Pull the house down', need: 'hammer' };
   if (g === T.TREE) return { what: 'Tree', verb: 'Fell', need: 'axe' }; if (g === T.ROCK) return { what: 'Rock', verb: 'Break', need: 'hammer' };
   if (g === T.WATER) return { what: 'Water', verb: 'Fish', need: 'rod' };
   if (c) { const st = c.st ? cropStage(c) : 0; return !c.pl ? { what: 'Field', verb: 'Plough', need: 'hoe' } : c.st && st === 4 ? { what: 'Ripe ' + (c.seed || 'wheat'), verb: 'Harvest', need: 'hoe' } : c.st ? { what: cvCap(c.seed || 'wheat'), verb: 'growing', need: null } : { what: 'Ploughed field', verb: 'Sow', need: 'seed' }; }
