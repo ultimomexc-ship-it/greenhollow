@@ -56,6 +56,7 @@
   "render/work-marks.ts",
   "world/tidal-bay.ts",
   "ui/panels.ts",
+  "life2/items-trade.ts",
   "ui/controls-camera.ts",
   "ui/loop.ts",
   "ui/menus-hud.ts"

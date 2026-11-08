@@ -23,7 +23,7 @@ function itBeltAdd(n, ref: string) { if (!n.belt || n.belt.includes(ref)) return
 function itGiveTool(n, kind: string) { itEnsure(n); const it = itNew(kind, n); n.items.push(it); itBeltAdd(n, 'i' + it.id); return it; }
 function itGiveStack(n, key: string, q: number) { itEnsure(n); n.bag[key] = (n.bag[key] || 0) + q; itBeltAdd(n, 's:' + key); }
 /** the testing kit: every tool, lockpicks, each kind of seed, some coins */
-function itKit(n) { for (const k of ['axe', 'hammer', 'hoe', 'rod']) if (!n.items.some(i => i.kind === k)) itGiveTool(n, k); itGiveStack(n, 'lockpick', 5); itGiveStack(n, 'seed_barley', 20); itGiveStack(n, 'seed_turnip', 12); itGiveStack(n, 'seed_bean', 12); n.coin = (n.coin || 0) + 100; }
+function itKit(n) { if (typeof itGarden === 'function') itGarden(n); for (const k of ['axe', 'hammer', 'hoe', 'rod']) if (!n.items.some(i => i.kind === k)) itGiveTool(n, k); itGiveStack(n, 'lockpick', 5); itGiveStack(n, 'seed_barley', 20); itGiveStack(n, 'seed_turnip', 12); itGiveStack(n, 'seed_bean', 12); n.coin = (n.coin || 0) + 100; }
 const itById = (n, id) => (n.items || []).find(i => i.id === id) || null;
 /** what is in your hand: { ref, kind ('hand', a tool kind or a stack key), item, count } */
 function itHeld(n): any {
@@ -40,7 +40,7 @@ const itTalking = n => !n || !n.belt || itHand(n, 'talk');   // (villagers and a
 function itNeedOf(key: string): string | null {
   if (/^tree/.test(key)) return 'axe'; if (/^rock/.test(key) || /^wall/.test(key)) return 'hammer'; if (/^fish/.test(key)) return 'rod';
   if (/^crop.*[ph]$/.test(key)) return 'hoe'; if (/^crop.*s$/.test(key)) return 'seed';
-  if (/^(node|throw)/.test(key)) return 'hand'; if (/^search/.test(key)) return 'search'; if (/^(talk|stall|trade)/.test(key)) return 'talk';
+  if (/^(node|throw)/.test(key)) return 'hand'; if (/^lockpick/.test(key)) return 'lockpick'; if (/^search/.test(key)) return 'search'; if (/^(talk|stall|trade)/.test(key)) return 'talk';
   return null;
 }
 function itFits(n, need: string | null) {
@@ -51,7 +51,7 @@ function itFits(n, need: string | null) {
 }
 /** the belt slot (1-9) holding something that fits, or 0 */
 function itSlotFor(n, need: string) { if (!n.belt) return 0; for (let i = 0; i < 9; i++) { const ref = n.belt[i]; if (!ref) continue; if (IT_MODES.includes(need) || need === 'hand') { if (ref === 'hand') return i + 1; continue; }
-  if (need === 'seed') { if (ref.startsWith('s:seed_') && (n.bag[ref.slice(2)] || 0) > 0) return i + 1; continue; } if (ref[0] === 'i') { const it = itById(n, +ref.slice(1)); if (it && it.kind === need) return i + 1; } } return 0; }
+  if (need === 'seed') { if (ref.startsWith('s:seed_') && (n.bag[ref.slice(2)] || 0) > 0) return i + 1; continue; } if (ref === 's:' + need && (n.bag[need] || 0) > 0) return i + 1; if (ref[0] === 'i') { const it = itById(n, +ref.slice(1)); if (it && it.kind === need) return i + 1; } } return 0; }
 const IT_NEED_NAME: any = { axe: 'the axe', hammer: 'the hammer', hoe: 'the hoe', rod: 'the fishing rod', seed: 'some seed', hand: 'an empty hand' };
 /** what to do to get the right thing in hand, in a few words */
 function itWant(n, need: string, verb?: string) {
@@ -64,6 +64,7 @@ function itGate(n, tg, walkOn: boolean) {
   if (itFits(n, need)) {
     if (need === 'seed') { const h = itHeld(n), m = tg.key.match(/^crop(\d+),(\d+)s$/), c = m && cropAt(+m[1], +m[2]), run0 = tg.run, seed = IT_STACKS[h.kind].seed;
       return Object.assign({}, tg, { key: tg.key + ':' + seed, text: 'Sowing ' + seed, run(nn) { const was = c && c.st; run0(nn); if (c && c.st && !was) { c.seed = seed; nn.bag[h.kind] = Math.max(0, (nn.bag[h.kind] || 0) - 1); } } }); }
+    if (IT_WEAR[need] && tg.run) { const run0 = tg.run; return Object.assign({}, tg, { run(nn) { run0(nn); itWearHeld(nn); } }); }   // tools wear as they are used (life2/items-trade.ts)
     return tg;
   }
   const what = (tg.key.match(/^(tree|rock|fish|wall|search|trade|stall)/) || [])[1], name: any = { tree: 'Tree', rock: 'Rock', fish: 'Water', wall: 'Wall', search: 'Search', trade: 'Counter', stall: 'Counter' };
@@ -76,6 +77,7 @@ function itFacing(n): { what: string; verb: string; need: string | null } | null
   const o = lf2Occ(x, y, n), pr = lfPropAt(x, y), g = grid[y][x], c = cropAt(x, y), mode = itMode(n), hand = itHeld(n).kind === 'hand';
   if (o) return o.pose === 'sleep' ? { what: o.first, verb: 'asleep', need: null } : hand && mode === 'push' ? { what: o.first, verb: 'Push past', need: 'push' } : { what: o.first, verb: 'Talk', need: 'talk' };
   if (pr) { const nm = cvCap(LF_NOUN[pr.kind]); return hand && mode === 'search' ? { what: nm, verb: 'Search', need: 'search' } : { what: nm, verb: 'Push', need: 'push' }; }
+  if (g === T.DOOR && typeof lf2DoorRoom === 'function' && LF2.on('nightlocks') && lf2Night()) { const r = lf2DoorRoom(x, y); if (r && r.kind === 'house' && r !== n.homeRoom && r.unbarred !== dayN() + ':' + n.id && !lf2InRoom(n, r)) return { what: r.name + ', barred', verb: 'Pick the lock', need: 'lockpick' }; }
   if (g === T.TREE) return { what: 'Tree', verb: 'Fell', need: 'axe' }; if (g === T.ROCK) return { what: 'Rock', verb: 'Break', need: 'hammer' };
   if (g === T.WATER) return { what: 'Water', verb: 'Fish', need: 'rod' };
   if (c) { const st = c.st ? cropStage(c) : 0; return !c.pl ? { what: 'Field', verb: 'Plough', need: 'hoe' } : c.st && st === 4 ? { what: 'Ripe ' + (c.seed || 'wheat'), verb: 'Harvest', need: 'hoe' } : c.st ? { what: cvCap(c.seed || 'wheat'), verb: 'growing', need: null } : { what: 'Ploughed field', verb: 'Sow', need: 'seed' }; }

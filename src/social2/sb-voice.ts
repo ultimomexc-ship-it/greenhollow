@@ -97,6 +97,7 @@ function sbWorkLine(a): string | null {
     case 'Shopkeeper': return sbPick(['Everyone wants credit. Nobody wants to pay.', 'Sold six bowls this morning. Six!']);
     case 'BathKeeper': return sbPick(['Somebody left a sandal in the hot pool. Just the one.', 'The water\'s lovely today, if anyone ever came.']);
     case 'Guard': return sbPick(['Quiet shift. I like a quiet shift.', 'Somebody left a crate across a door again. Children, probably.']);
+    case 'Miller': return (st.planks || 0) <= 0 ? sbPick(['Not a plank left. Everyone\'s building at once.']) : sbPick(['Sawdust in my hair, my bread and my bed.', 'Two logs, three planks. It never gets old. It does, actually.']);
     case 'Weaver': return sbPick(['Six days on one cloth. It\'s nearly worth it.', 'The loom ate a thread. It does that.']);
     case 'Gatherer': return sbPick(['The bushes grow back, but only if you leave some.', 'Found a patch of berries past the old stump.', 'Don\'t eat the red ones. Just don\'t.']);
   }

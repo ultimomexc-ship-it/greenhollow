@@ -31,6 +31,10 @@ function lf2Furnish(kind, room, put, spot, seat, bed, w, h, doorU) {
     put(w - 2, 1, T.OVEN); for (let u = 2; u <= w - 3; u++) put(u, 2, T.COUNTER);
     spot('cook', 3, 1, 0, 1); spot('front', 3, 3, 0, -1);
     seat(1, h - 3, 1, 0); seat(w - 2, h - 3, -1, 0); seat(1, h - 2, 0, -1); seat(w - 2, h - 2, 0, -1);
+  } else if (kind === 'mill') {
+    // the sawmill: a saw bench along the back
+    for (let u = 2; u <= w - 3; u++) put(u, 2, T.COUNTER);   // (no barrels: both ends of the bench must stay clear to reach the saw, whichever side the door is on)
+    spot('saw', 3, 1, 0, 1); spot('front', 3, 3, 0, -1);
   } else if (kind === 'macellum') {
     // the market hall: a counter for each seller along the back, with room to stand behind it and a place for customers in front
     const us = [2, 4, 6, 8].filter(u => u <= w - 2); us.forEach((u, i) => { put(u, 2, T.COUNTER); spot('post' + i, u, 1, 0, 1); spot('front' + i, u, 3, 0, -1); });
@@ -70,7 +74,7 @@ function lf2Prebuild() {
   town.chron.length = before;
   // more land under the plough to feed the newcomers
   for (let i = 0; i < 2; i++) lfBuild('field', 10, 5, {}) || lfBuild('field', 8, 4, {}) || lfBuild('field', 8, 4, { clear: true });
-  const tries = { bakery: [[7, 7], [7, 6]], smithy: [[8, 7], [8, 6]], shop: [[9, 8], [8, 7]], thermopolium: [[7, 6], [7, 5]], baths: [[11, 8], [11, 7], [10, 7]], jail: [[7, 6], [6, 5]], macellum: [[10, 6], [10, 7], [9, 6]] };
+  const tries = { bakery: [[7, 7], [7, 6]], smithy: [[8, 7], [8, 6]], shop: [[9, 8], [8, 7]], thermopolium: [[7, 6], [7, 5]], baths: [[11, 8], [11, 7], [10, 7]], jail: [[7, 6], [6, 5]], macellum: [[10, 6], [10, 7], [9, 6]], mill: [[7, 6], [7, 5], [6, 5]] };
   for (const k of Object.keys(tries)) {
     if (lf2Room(k)) continue;
     let ok = null; for (const [w, h] of tries[k]) { for (const o of [{}, { tight: true }, { clear: true }, { tight: true, clear: true }]) { ok = lfBuild(k, w, h, Object.assign({}, o)); if (ok) break; } if (ok) break; }
@@ -154,6 +158,7 @@ function lf2WorkPlan(n, tod) {
     if (r.broken) { if (Math.random() < 0.3) lfShout(n, anyOf([`Who broke my ${r.broken.what}?!`, `I cannot work like this. The ${r.broken.what} is ruined.`])); return lf2GoWork(r, J.spot, `Waiting for someone to mend the ${r.broken.what}`, 25, 'stand'); }
     const s = lf2Stock(r), R = J.recipe, out = Object.keys(R.out)[0];
     if (!Object.keys(R.in).every(g => (s[g] || 0) >= R.in[g])) {
+      if (n.job === 'Miller') { const f = itMillerLogs(n, r); if (f) return f; }   // (life2/items-trade.ts)
       if (J.fetch && !npcs.some(o => o.job === 'Labourer' && !o.dead && o.lf2Haul === r.kind)) { const f = lf2FetchPlan(n, r, J.fetch); if (f) return f; }
       return lf2GoWork(r, J.spot, `Out of ${Object.keys(R.in).join(' and ')}. Waiting for more`, 20, 'stand');
     }
@@ -216,7 +221,7 @@ function lf2ShopPlan(n, tod) {
   // a new tool when the old one is worn out
   if (n.toolQ != null && n.toolQ < 25 && n.role === 'Worker' && !LF2_JOBS[n.job]) {
     const src = [lf2Room('smithy'), lf2Room('shop')].filter(r => r && (lf2Stock(r).tools || 0) > 0 && n.coin >= lf2Price(r, 'tools', n))[0];
-    if (src) return go(src, 'tools', 1, 'Off to buy a new tool, the old one is worn out', (nn) => { nn.inv.tools--; nn.toolQ = 100; lfMod(nn, 'newtool', 'pleased with a new tool', 4, 400); });
+    if (src) return go(src, 'tools', 1, 'Off to buy a new tool, the old one is worn out', (nn) => { nn.inv.tools--; itNpcNewTool(nn); lfMod(nn, 'newtool', 'pleased with a new tool', 4, 400); });
     if ((n.lf2Grumble || 0) < game.time) { n.lf2Grumble = game.time + 600; lfMod(n, 'blunt', 'struggling with a worn-out tool', -5, 700); }
   }
   // new clothes, now and then, for those doing well
@@ -233,12 +238,12 @@ function lf2TradeDialog(n, r) {
   if ((k.aff[n.id] || 0) < -55 && LF2.on('gossip')) { lf2Dialog(k, anyOf([`I do not serve your kind. Out.`, `After what you did? Get out of my shop.`]), []); return; }
   let menu = () => {
     const s = lf2Stock(r), goods = Object.keys(LF2_SELL[r.kind] || {});
-    const o = goods.map(g => [`${lf2Cap(GOODS[g].name)}: ${s[g] > 0 ? lf2Price(r, g, n) + LF2_COIN + ' (' + s[g] + ' left)' : 'sold out'}`, () => {
+    const o = goods.flatMap(g => itOffers(n, r, g, menu) || [[`${lf2Cap(GOODS[g].name)}: ${s[g] > 0 ? lf2Price(r, g, n) + LF2_COIN + ' (' + s[g] + ' left)' : 'sold out'}`, () => {
       if (!(s[g] > 0)) return { say: `We are out of ${GOODS[g].name}. ${g === 'bread' ? 'The oven has not caught up.' : 'Come back tomorrow.'}`, opts: menu() };
       const p = lf2Price(r, g, n); if (n.coin < p) return { say: `That is ${p} denarii, and you have ${Math.floor(n.coin)}.`, opts: menu() };
-      lf2Buy(n, r, g, 1); if (g === 'tools') { n.inv.tools--; n.toolQ = 100; }
+      lf2Buy(n, r, g, 1); if (g === 'tools') { n.inv.tools--; itNpcNewTool(n); }
       return { say: anyOf(['There you are.', 'Enjoy it.', 'Pleasure doing business.']) + (s[g] < 2 ? ` That was nearly the last of the ${GOODS[g].name}.` : ''), opts: menu() };
-    }]);
+    }]]).concat(itExtras(n, r, menu));
     return o;
   };
   const sc = Object.keys(LF2_SELL[r.kind]).filter(g => (lf2Stock(r)[g] || 0) < 2);
@@ -290,7 +295,7 @@ function lf2Payday() {
   if (npcs.some(n => !n.dead && n.toolQ != null)) npcs.forEach(n => { if (!n.dead && n.toolQ == null && n.age >= 16) n.toolQ = 100; });
   const fd = typeof foodDaysNow === 'function' ? foodDaysNow() : 3;
   if (fd >= 0.5) lf2AssignJobs(false);
-  if (fd < 0.3) { const t = npcs.filter(n => !n.dead && ['Labourer', 'Weaver', 'BathKeeper', 'Builder'].includes(n.job))[0]; if (t) { const old = LF2_JOBS[t.job].name; t.job = 'Farmer'; t.lf2NoTrade = game.time + 3 * 1440; chron(`Food is short, so ${nameOf(t)} put down the work of a ${old.toLowerCase()} and went to the fields.`, 'life'); } }
+  if (fd < 0.3) { const t = npcs.filter(n => !n.dead && ['Miller', 'Labourer', 'Weaver', 'BathKeeper', 'Builder'].includes(n.job))[0]; if (t) { const old = LF2_JOBS[t.job].name; t.job = 'Farmer'; t.lf2NoTrade = game.time + 3 * 1440; chron(`Food is short, so ${nameOf(t)} put down the work of a ${old.toLowerCase()} and went to the fields.`, 'life'); } }
 }
 LF2.hourly.push(h => { if (h === 21) lf2Payday(); if (h === 15) lf2GrainShip(); moveSellersIndoors(); });
 /* the grain dole: when the larder runs low, the council buys grain off a ship (if it can afford it) */

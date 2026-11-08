@@ -190,3 +190,10 @@ straight into tools; one tool per villager for their job to start; rocks regrowi
 Order: 1 item model + 2 hotbar, hand modes, bag (done) -> 3 real tools for villagers with wear, the smith and iron (with safety valves: slow wear, bare hands
 work slower rather than not at all, everyone starts with their tool, the caravan can sell iron, a long starvation test with wear on) -> 4 seed types, a garden plot,
 a seed seller -> 5 locks and lockpicks -> 6 the mill and planks.
+Steps 3-6 done: villagers' tools are real (wear in step with toolQ, replaced when bought); the player's tools wear and break; iron ore from about one rock
+in five; the smith sells each tool, buys ore and sells lockpicks to friends; barley, turnips and beans with their own pace and food; a garden by home that farmers
+leave alone; the Taberna sells seed; lockpicks open houses barred at night (they snap ~30%, sleepers may hear); the Sawmill with a Miller hired when food is at
+least 0.45 days and four workers have no trade (the Miller fells his own logs; logs never pass through the larder). Starvation tests still pass.
+Found on the way: barrels in the sawmill sealed off the saw bench whenever the door was on the top side; the furniture now leaves both ends clear.
+Next ideas: tools of the wrong kind for a villager's day task could slow them; steal tools from homes (Search in a house) and have owners notice;
+quests from the tool economy (a lost axe, iron for the smith); seeds for villagers' own gardens.

@@ -38,10 +38,17 @@ Explicit actions: **the thing in your hand decides what walking into something d
 - The model: goods stay counts in `n.inv`; tools are single things with an owner and wear (`n.items`, `itGiveTool`); lockpicks and seeds are stacks in `n.bag`;
   `n.belt` holds 'hand', 'i<id>' or 's:<key>'; `n.sel` is the slot in hand, `n.mode` the hand mode. `itGate(n, tg, walkOn)` checks an action against the hand
   (`itNeedOf(key)`), `itFacing(n)` describes the thing in front. For testing (`IT.kit = 'test'`) whoever you steer starts with every tool, lockpicks, three kinds
-  of seed and 100 denarii. Villagers will own real tools the same way (next step: wear, the smith, iron from rocks).
+  of seed and 100 denarii, plus a 3 x 2 garden by home.
 - Plots are drawn as `crop_raw` (untilled, weedy), `crop_0` (ploughed, dark furrows) and `crop_1..4` (growing, over the ploughed earth); they are `kind: 'tile'`
   sprites so they join without seams. A sown plot remembers its seed (`c.seed`); seed types growing differently is a later step.
-- The verbs in `lf2Verbs` (steal, pick a lock, wreck, shove, give, wake, follow ...) are still registered in the hooks but nothing reaches them yet.
+- **Items in the economy** (`life2/items-trade.ts`): every working villager owns the tool for their work (`itNpcTool`; `n.toolQ` is its wear and is kept in step);
+  a worn-out one is replaced at the smith or the Taberna (`itNpcNewTool`). Your tools wear with each use (`IT_WEAR`) and break. Breaking a rock sometimes gives
+  iron ore (`itRockOre`: yours to sell to the smith; a stonecutter's goes to the smithy); the caravan still brings a little iron daily (a safety valve).
+  The smith's counter offers each tool, buys ore, and sells lockpicks to friends (`itOffers`, `itExtras`). Seeds (`IT_SEEDS`): barley (staple), turnips (quick),
+  beans; each gives its own food and a seed or two back (`itHarvest`); the Taberna sells seed; farmers leave the player's garden and sowings alone (`itFarmersPlot`).
+  A lockpick in hand opens a house barred for the night (`itPickLock`: it may snap, somebody may hear; a break-in event). The Sawmill: a Miller (hired when food
+  allows, sent to the fields when it is short) fells logs and saws them into planks (2 -> 3); planks are sold there and count as timber on a site or a wall.
+- The other verbs in `lf2Verbs` (steal, wreck, shove, give, wake, follow ...) are still registered in the hooks but nothing reaches them yet.
   A new action means a key in `targetAt0` / `lifeAct` plus a line in `itNeedOf` saying what must be in hand.
 
 ## Conversation (src/dialogue/cv-*.ts)
@@ -98,7 +105,7 @@ The village lives without the player: the simulation owns the truth (events), ea
 - Current suite: load and run a day, render without errors, nobody starves in 12 days (three towns),
   the controls (Q cycles the hand modes, 1-9 the belt, Shift and old keys do nothing; Push pushes people and swaps against a wall, Talk talks; barrels pushed in Push and searched in Search; trees need the axe; the hoe ploughs and seeds sow; sleepers), conversations (specific openers, long random talks without dead ends or repeats, insults and sympathy, unlocking layers, memory, witnesses, the arrest), sim speed under 3 s per game-day (about 0.7 s now),
   the social simulation (the pre-simulation is deterministic, fast and leaves nobody a blank slate; news spreads gradually and changes; talk uses beliefs and you can contradict a version),
-  readability and a week of freshness, the dialogue lint, every follow-up answered and ask-about, overheard small talk from real lives (34 tests, about 3 minutes).
+  readability and a week of freshness, items in the economy (villager tools, wear and the smith, iron, seeds and the garden, lockpicks, the sawmill), the dialogue lint, every follow-up answered and ask-about, overheard small talk from real lives (39 tests, about 4 minutes).
 - The random stream is shared, so any change shifts every later random draw: a test that suddenly fails in one town is often exposing a real
   weakness that luck was hiding (that is how children starving with dole grain in their pockets was found). Find the cause before changing the test.
 - When behaviour changes on purpose, tests may need new expectations; when it changes by accident, they catch it.

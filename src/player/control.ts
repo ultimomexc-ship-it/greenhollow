@@ -40,7 +40,7 @@ function targetAt0(n, x, y) {
   if (g === T.TREE) ensureSite('wood'); if (g === T.ROCK) ensureSite('stone');
   const full = handsUsed(n) >= handsMax(n);
   if (g === T.TREE) return { key: 'tree' + x + ',' + y, min: 10, text: full ? 'Clearing the way' : 'Felling a tree', tool: 'axe', run(n) { if (grid[y][x] === T.TREE) { workFx('fall', x, y, n); setT(x, y, T.GRASS); markDirty(x, y, 1, 1); dropAt(x, y, 'wood'); town.treeDirty = true; town.treeCache = null; } } };
-  if (g === T.ROCK) return { key: 'rock' + x + ',' + y, min: 13, text: full ? 'Clearing the way' : 'Breaking stone', tool: 'hammer', run(n) { if (grid[y][x] === T.ROCK) { workFx('split', x, y, n); setT(x, y, T.GRASS); markDirty(x, y, 1, 1); dropAt(x, y, 'stone'); town.treeDirty = true; town.stoneCache = null; } } };
+  if (g === T.ROCK) return { key: 'rock' + x + ',' + y, min: 13, text: full ? 'Clearing the way' : 'Breaking stone', tool: 'hammer', run(n) { if (grid[y][x] === T.ROCK) { workFx('split', x, y, n); setT(x, y, T.GRASS); markDirty(x, y, 1, 1); dropAt(x, y, 'stone'); if (itRockOre(n)) playerSay(n, 'Iron ore in the rock!'); town.treeDirty = true; town.stoneCache = null; } } };
   if (g === T.WATER) {
     const z = town.fishZones[(n.tx >> 3) + (n.ty >> 3) * 64];
     if (!z) return { msg: 'You need to stand on the shore to fish.' };
@@ -57,19 +57,23 @@ function targetAt0(n, x, y) {
   const c = cropAt(x, y);
   if (c) {
     const st = c.st ? cropStage(c) : 0;
-    if (c.st && st === 4) return { key: 'crop' + x + ',' + y + 'h', min: 4, text: 'Harvesting grain', tool: 'hoe', walkOn: true, run(n) { if (c.st && cropStage(c) === 4) { n.inv.grain = (n.inv.grain || 0) + CROP_YIELD; c.st = 0; playerSay(n, '+' + CROP_YIELD + ' grain'); } } };
+    if (c.st && st === 4) return { key: 'crop' + x + ',' + y + 'h', min: 4, text: 'Harvesting grain', tool: 'hoe', walkOn: true, run(n) { if (c.st && cropStage(c) === 4) { const h = itHarvest(n, c); playerSay(n, '+' + h.q + ' ' + h.what + (h.back ? ', +' + h.back + ' seed' : '')); } } };
     if (!c.pl) return { key: 'crop' + x + ',' + y + 'p', min: 3, text: 'Ploughing the field', tool: 'hoe', walkOn: true, run(n) { c.pl = 1; playerSay(n, 'Ploughed. Let go, then walk into it again to sow.'); } };
-    if (!c.st) return { key: 'crop' + x + ',' + y + 's', min: 7, text: 'Sowing seed', tool: 'hoe', walkOn: true, run(n) { if (!c.st) { c.st = 1; c.t0 = game.time; playerSay(n, 'Sown'); } } };   // any ploughed plot can be sown; only the farmers wait for the whole field
+    if (!c.st) return { key: 'crop' + x + ',' + y + 's', min: 7, text: 'Sowing seed', tool: 'hoe', walkOn: true, run(n) { if (!c.st) { c.st = 1; c.t0 = game.time; c.byPlayer = true; playerSay(n, 'Sown'); } } };   // any ploughed plot can be sown; only the farmers wait for the whole field
   }
   const s = siteAtTile(x, y);
   if (s && s.slots) {
     const q = slotAt(s, x, y);
+    if (q && !q.built && slotReady(s, q) && q.mat === 'wood' && !(n.inv.wood > 0) && (n.inv.planks || 0) > 0) return { key: 'wall' + s.id, min: 2, slot: q, text: 'Putting up a plank wall', tool: 'hammer', repeat: true, run(n) {
+      n.inv.planks--; n.inv.wood = (n.inv.wood || 0) + 1; if (!buildSlot(n, s, q)) { n.inv.wood--; n.inv.planks++; } else playerSay(n, siteNeedText(s) ? 'Still needs ' + siteNeedText(s) : 'Finished'); } };
     if (q && !q.built && slotReady(s, q) && (n.inv[q.mat] || 0) > 0) return { key: 'wall' + s.id, min: 3, slot: q, text: 'Putting up a ' + (q.mat === 'wood' ? 'timber' : 'stone') + ' wall', tool: 'hammer', repeat: true, run(n) {
       if (buildSlot(n, s, q)) playerSay(n, siteNeedText(s) ? 'Still needs ' + siteNeedText(s) : 'Finished'); } };
     if (q && !q.built && !q.door) { if (clk() - (n.player.msgAt || -99) > 40) playerSay(n, 'This wall needs ' + (q.mat === 'wood' ? 'timber' : 'stone') + '. Carry it here and walk into the gap.'); }
     return null;
   }
   if (s && s.got) {
+    if ((n.inv.planks || 0) > 0 && siteRem(s, 'wood') > 0) return { key: 'throw' + s.id + 'planks', min: 1, text: 'Laying planks on the site', tool: null, repeat: true, walkOn: s.kind === 'road', run(n) {
+      n.inv.planks--; n.inv.wood = (n.inv.wood || 0) + 1; const q = throwOnSite(n, s, 'wood', 1); if (!q) { n.inv.wood--; n.inv.planks++; } else playerSay(n, siteNeedText(s) ? 'Still needs ' + siteNeedText(s) : 'Finished'); } };   // planks count as timber
     for (const k of (n.inv.stone || 0) >= (n.inv.wood || 0) ? ['stone', 'wood'] : ['wood', 'stone']) {
       if ((n.inv[k] || 0) > 0 && siteRem(s, k) > 0) return { key: 'throw' + s.id + k, min: 1, text: 'Throwing ' + KINDTXT[k] + ' onto the site', tool: null, repeat: true, walkOn: s.kind === 'road', run(n) {
         const q = throwOnSite(n, s, k, 1); if (q) playerSay(n, siteNeedText(s) ? 'Still needs ' + siteNeedText(s) : 'Finished');
