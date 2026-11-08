@@ -19070,8 +19070,8 @@ const bldOnPad = (x, y) => {
   return !!b && x >= b.pad.x - 1 && x < b.pad.x + b.pad.w + 1 && y >= b.pad.y - 1 && y < b.pad.y + b.pad.h + 1;
 };
 const BLD_D8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]], BLD_D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-function bldFlood(sx, sy, seen) {
-  const cells = [], q = [sx + sy * W];
+function bldFlood(sx, sy) {
+  const seen = /* @__PURE__ */ new Set(), cells = [], q = [sx + sy * W];
   seen.add(q[0]);
   let open = false, bad = "";
   while (q.length) {
@@ -19208,8 +19208,9 @@ function bldEvaluate(spots) {
   for (const [bx, by] of spots) for (const [dx, dy] of BLD_D8) {
     const x = bx + dx, y = by + dy;
     if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1 || seen.has(x + y * W) || bldSolid(x, y)) continue;
-    const reg = bldFlood(x, y, seen);
+    const reg = bldFlood(x, y);
     if (reg.open) continue;
+    for (const k of reg.cells) seen.add(k);
     const inRoom = bldFreeRoom(x, y);
     if (inRoom) {
       if (dissolve.has(inRoom)) continue;
@@ -19217,11 +19218,12 @@ function bldEvaluate(spots) {
       let ok = true;
       for (const k of inRoom.cells) {
         if (seen2.has(k) || bldSolid(k % W, k / W | 0)) continue;
-        const c = bldFlood(k % W, k / W | 0, seen2);
+        const c = bldFlood(k % W, k / W | 0);
         if (c.open || c.bad) {
           ok = false;
           break;
         }
+        for (const q of c.cells) seen2.add(q);
         comps.push(c.cells);
       }
       if (!ok || comps.length < 2 || !comps.every(bldHasDoor)) continue;

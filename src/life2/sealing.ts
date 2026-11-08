@@ -14,8 +14,8 @@ const bldOnPad = (x, y) => { const b = town.builder; return !!b && x >= b.pad.x 
 const BLD_D8: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]], BLD_D4: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
 /** the open tiles joined to (sx, sy) without crossing a wall, door or block; diagonal steps count, so walls that meet only at a corner do not close anything */
-function bldFlood(sx, sy, seen) {
-  const cells: number[] = [], q = [sx + sy * W]; seen.add(q[0]); let open = false, bad = '';
+function bldFlood(sx, sy) {
+  const seen = new Set<number>(), cells: number[] = [], q = [sx + sy * W]; seen.add(q[0]); let open = false, bad = '';
   while (q.length) {
     const k = q.pop(), x = k % W, y = (k / W) | 0; cells.push(k);
     if (cells.length > BLD_MAX) open = true;
@@ -63,15 +63,16 @@ function bldMake(regions: number[][], dissolve: any[]) {
 }
 /** look round the blocks that have just landed, and seal whatever they close */
 function bldEvaluate(spots: [number, number][]) {
-  const seen = new Set<number>(), regions: number[][] = [], dissolve = new Set<any>(); let hint = '';
+  const seen = new Set<number>(), regions: number[][] = [], dissolve = new Set<any>(); let hint = '';   // (`seen`: tiles of regions already found closed; an open flood is never shared, or its leftovers would look closed)
   for (const [bx, by] of spots) for (const [dx, dy] of BLD_D8) {
     const x = bx + dx, y = by + dy; if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1 || seen.has(x + y * W) || bldSolid(x, y)) continue;
-    const reg = bldFlood(x, y, seen); if (reg.open) continue;
+    const reg = bldFlood(x, y); if (reg.open) continue;
+    for (const k of reg.cells) seen.add(k);
     const inRoom = bldFreeRoom(x, y);
     if (inRoom) {   // inside a sealed room: only a partition that really splits it counts (a lone block just stands there)
       if (dissolve.has(inRoom)) continue;
       const seen2 = new Set<number>(), comps: number[][] = []; let ok = true;
-      for (const k of inRoom.cells) { if (seen2.has(k) || bldSolid(k % W, (k / W) | 0)) continue; const c = bldFlood(k % W, (k / W) | 0, seen2); if (c.open || c.bad) { ok = false; break; } comps.push(c.cells); }
+      for (const k of inRoom.cells) { if (seen2.has(k) || bldSolid(k % W, (k / W) | 0)) continue; const c = bldFlood(k % W, (k / W) | 0); if (c.open || c.bad) { ok = false; break; } for (const q of c.cells) seen2.add(q); comps.push(c.cells); }
       if (!ok || comps.length < 2 || !comps.every(bldHasDoor)) continue;
       dissolve.add(inRoom); for (const c of comps) regions.push(c); continue;
     }
