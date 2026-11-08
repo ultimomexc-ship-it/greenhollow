@@ -11,7 +11,7 @@ const PUSH_MAX = 5;   // the player is strong: five things at once
 const LF_ROCK_ART = ['boulder_0', 'boulder_1', 'boulder_2', 'boulder_3'];
 Object.assign(LF_NOUN, { rock: 'rock' });
 /** how a loose thing is drawn (a chair or bed pushed out of a house keeps its look) */
-const lfPropArt = pr => pr.kind === 'rock' ? LF_ROCK_ART[(pr.v || 0) & 3] : pr.kind === 'chair' ? 'seat_down' : pr.kind === 'bed' ? 'bed_head_up_' + ((pr.v || 0) % 5) : (LF_ART[pr.kind] || 'crate');
+const lfPropArt = pr => pr.art ? pr.art : pr.kind === 'rock' ? LF_ROCK_ART[(pr.v || 0) & 3] : pr.kind === 'chair' ? 'seat_down' : pr.kind === 'bed' ? 'bed_head_up_' + ((pr.v || 0) % 5) : (LF_ART[pr.kind] || 'crate');
 const PUSH_FURNITURE = new Set([T.SEAT, T.BED, T.BARREL, T.TABLE]);
 const pushRoomOf = (x, y) => { const i = roomAt[y] && roomAt[y][x]; return i != null && i >= 0 ? rooms[i] : null; };
 /** the light furniture standing on this tile (a house or tavern chair, bed or the family barrel), or null */
@@ -71,7 +71,8 @@ function pushLine(n, x, y, dx, dy) {
   const line: any[] = [];
   for (let i = 0; i <= PUSH_MAX; i++) {
     const px = x + dx * i, py = y + dy * i; if (px < 0 || py < 0 || px >= W || py >= H) break;
-    const pr = lfPropAt(px, py), f = pr ? null : pushFurniture(px, py), rock = !pr && !f && grid[py][px] === T.ROCK, who = !pr && !f && !rock ? tileOwner.get(py * W + px) : null;
+    const pr0 = lfPropAt(px, py); if (pr0 && pr0.fixed) break;   // (a stand in the yard never moves)
+    const pr = pr0, f = pr ? null : pushFurniture(px, py), rock = !pr && !f && grid[py][px] === T.ROCK, who = !pr && !f && !rock ? tileOwner.get(py * W + px) : null;
     if (pr) line.push({ kind: 'prop', x: px, y: py, pr }); else if (f) line.push({ kind: 'furniture', x: px, y: py, f }); else if (rock) line.push({ kind: 'rock', x: px, y: py }); else if (who && who !== n && !who.dead && !who.infant) line.push({ kind: 'person', x: px, y: py, who }); else break;
   }
   return line.length ? line : null;

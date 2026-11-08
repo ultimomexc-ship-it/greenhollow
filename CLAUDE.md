@@ -40,6 +40,10 @@ Explicit actions: **the thing in your hand decides what walking into something d
   you swap with furniture that cannot move (it takes the doorway, you go in); furniture pushed onto the doorway becomes a loose thing (`pr.fur`, the room's record marked `out`) and is furniture
   again when pushed back onto the floor inside. A line is all loose things or all furniture. **Villagers move nothing for now** (`LF_NPC_MOVES_THINGS = false`: no
   tidying, rescuing or hauling; a villager shut in by a blocked door waits, and the chronicle says so after an hour).
+- **The Builder's Yard** (`life2/yard.ts`, phase 1 of the building system; design and staging in NOTES.md "Building"): a banner and a row of seven sample stands (wall, window wall, door, bed, chair, table, barrel)
+  on the edge of the square (`town.builder`; a gold arrow with the distance points at it from the screen's edge when it is out of sight). In Talk mode, walking into a stand hands you one of the thing, free for now, and it appears on the
+  delivery pad in front (`yardSpot`; at most `YARD_CAP` delivered things stand about it). Stands are fixed props (`pr.fixed`, never pushed, `pr.dispense`, drawn with `pr.art`). Blocks are ordinary loose props (`bwall`, `bwindow`, `bdoor`, plus
+  bed, chair, table, barrel) and push, chain and swap like crates. Sealing blocks into rooms is the next phase.
 - **Belt** (keys **1-9**): axe (fell trees), hammer (break rocks, put up walls), hoe (plough and harvest), rod (fish), lockpicks, seeds (sow a ploughed plot; any plot,
   the player need not wait for the whole field; farmers do). **B** opens the bag (hands, belt, bag; click to put things on or take them off the belt).
 - With the wrong thing in hand you walk on over anything walkable (a field) and are told what to hold for anything solid ("Tree: hold the axe (2)."). The hotbar's
@@ -115,7 +119,7 @@ The village lives without the player: the simulation owns the truth (events), ea
 - Current suite: load and run a day, render without errors, nobody starves in 12 days (three towns),
   the controls (Q cycles the hand modes, 1-9 the belt, Shift and old keys do nothing; Push pushes people and swaps against a wall, Talk talks; crates pushed in Push (Sokoban: at your pace, in lines of three, swapping at a wall, people as pieces of the line, no invisible walls, over fields, through doors; furniture out and back in; villagers move nothing) and searched in Search; rocks pushed and broken; chairs, beds and the barrel moved; trees need the axe; the hoe ploughs and seeds sow; sleepers), conversations (specific openers, long random talks without dead ends or repeats, insults and sympathy, unlocking layers, memory, witnesses, the arrest), sim speed under 3 s per game-day (about 0.7 s now),
   the social simulation (the pre-simulation is deterministic, fast and leaves nobody a blank slate; news spreads gradually and changes; talk uses beliefs and you can contradict a version),
-  readability and a week of freshness, items in the economy (villager tools, wear and the smith, iron, seeds and the garden, lockpicks, the sawmill), the dialogue lint, every follow-up answered and ask-about, overheard small talk from real lives (51 tests, about 4 minutes).
+  readability and a week of freshness, items in the economy (villager tools, wear and the smith, iron, seeds and the garden, lockpicks, the sawmill), the dialogue lint, every follow-up answered and ask-about, overheard small talk from real lives (53 tests, about 4 minutes).
 - The random stream is shared, so any change shifts every later random draw: a test that suddenly fails in one town is often exposing a real
   weakness that luck was hiding (that is how children starving with dole grain in their pockets was found). Find the cause before changing the test.
 - When behaviour changes on purpose, tests may need new expectations; when it changes by accident, they catch it.
