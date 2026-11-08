@@ -161,6 +161,7 @@ function pushMoveProp(pr, dx, dy, by) {
   if (pr.rider) { if (pr.rider.dead || (pr.rider.pose !== 'sleep' && pr.rider.pose !== 'sit')) pr.rider = null; else pushCarry(pr.rider, pr.x, pr.y, by); }
   pr.seen = []; for (const o of npcs) if (o !== by && !o.dead && !o.infant && o.pose !== 'sleep' && Math.abs(o.tx - pr.x) + Math.abs(o.ty - pr.y) <= 10) pr.seen.push(o.id);
   pushTrample(pr.x, pr.y);
+  if (typeof bldBlock === 'function' && bldBlock(pr)) (town.bldQ = town.bldQ || []).push([pr.x, pr.y]);   // (life2/sealing.ts looks for a closed room once the step is over)
   if (pr.fur) pushMaybeRestore(pr);
 }
 /** a loose thing pushed over a field flattens whatever is there: the plot goes back to bare dirt (unploughed, nothing growing) */

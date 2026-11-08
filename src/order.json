@@ -33,6 +33,7 @@
   "life2/actions.ts",
   "life2/push.ts",
   "life2/yard.ts",
+  "life2/sealing.ts",
   "life2/controls.ts",
   "player/items.ts",
   "life2/town.ts",

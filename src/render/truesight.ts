@@ -13,6 +13,7 @@
 const TSIGHT: any = { on: true, poly: null, hits: null, key: '', rect: null, eye: null, ms: 0, cv: null, geo: null, geoKey: '' };
 /** is this back-wall tile a window (see room drawing in render/village.ts) */
 function tsWindow(x, y) {
+  if (town.win && town.win.has(y * W + x)) return true;   // (a window block in a free-form wall)
   const ri = roomAt[y] && roomAt[y][x]; if (ri == null || ri < 0) return false; const r = rooms[ri]; if (!r || r.dead || r.noWindows) return false;
   return y === r.y && x !== r.x && x !== r.x + r.w - 1 && x !== r.doorX && (x - r.x) % 3 === 2;
 }

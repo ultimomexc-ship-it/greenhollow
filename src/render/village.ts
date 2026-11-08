@@ -55,6 +55,7 @@ function gaFurniture(r, x, y, t) {
 function gaRoomTile(g, x, y) {
   const r = rooms[roomAt[y][x]], t = grid[y][x], X = x * TS, Y = y * TS, v = (ART.h32(x, y, 5, 5) * 2) | 0, fk = r.floor === 'stone' ? 'stone' : 'wood';
   const P = id => { const it = ART.BYID[id]; if (it) g.drawImage(ART.frameOf(it, 0), X, Y, TS, TS); };
+  if (r.free) { gaFreeTile(g, r, x, y, t, X, Y, v, fk, P); return; }
   if (t === T.WALL || t === T.DOOR) {
     if (t === T.DOOR) { g.drawImage(ART.terr(fk, v), X, Y, TS, TS); if (y === r.y) P('wall_face'); return; }
     if (y === r.y && x !== r.x && x !== r.x + r.w - 1) { P(x !== r.doorX && (x - r.x) % 3 === 2 ? 'wall_window' : 'wall_face'); return; }
@@ -64,7 +65,20 @@ function gaRoomTile(g, x, y) {
   if (t === T.POOL) { lf2DrawPool(g, x, y); return; }
   const f = gaFurniture(r, x, y, t); if (f) P(f);
 }
+/** a tile of a free-form room: the walls are chosen by their neighbours (a face where the floor lies just below, otherwise a cap with an outline on each open side) */
+const gaSolidW = (x, y) => x >= 0 && y >= 0 && x < W && y < H && (grid[y][x] === T.WALL || grid[y][x] === T.DOOR);
+const gaInside = (x, y) => x >= 0 && y >= 0 && x < W && y < H && grid[y][x] === T.FLOOR && roomAt[y][x] >= 0 && !!rooms[roomAt[y][x]] && !!rooms[roomAt[y][x]].free;
+function gaFreeTile(g, r, x, y, t, X, Y, v, fk, P) {
+  if (t === T.DOOR) { g.drawImage(ART.terr(fk, v), X, Y, TS, TS); if (gaInside(x, y + 1)) P('wall_face'); return; }
+  if (t === T.WALL) {
+    if (gaInside(x, y + 1)) { P(town.win && town.win.has(y * W + x) ? 'wall_window' : 'wall_face'); return; }
+    const k = (!gaSolidW(x - 1, y) ? 'W' : '') + (!gaSolidW(x + 1, y) ? 'E' : '') + (!gaSolidW(x, y - 1) && !gaInside(x, y - 1) ? 'N' : '') + (!gaSolidW(x, y + 1) ? 'S' : '');
+    P(k === '' ? 'cap_plain' : 'cap_' + k); return;
+  }
+  g.drawImage(ART.terr(fk, v), X, Y, TS, TS);
+}
 function gaRoomShade(g, r, k) {                      // the walls hold their own shade inside, and the furniture sits on the floor
+  if (r.free) return;
   g.save(); g.beginPath(); g.rect((r.x + 1) * TS, (r.y + 1) * TS, (r.w - 2) * TS, (r.h - 2) * TS); g.clip();
   const X0 = (r.x + 1) * TS, Y0 = (r.y + 1) * TS, X1 = (r.x + r.w - 1) * TS, Y1 = (r.y + r.h - 1) * TS;
   const strip = (x0, y0, x1, y1, a) => { const gr = g.createLinearGradient(x0, y0, x1, y1); gr.addColorStop(0, `rgba(54,40,74,${a})`); gr.addColorStop(1, 'rgba(54,40,74,0)'); g.fillStyle = gr; };
@@ -109,7 +123,7 @@ function gaPaintRect(g, x0, y0, w, h, k, wt) {
     for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (grid[y][x] === T.TREE) { any = true; const cx = (x + 0.5) * TS, cy = (y + 0.86) * TS, rx = TS * 0.32, ry = TS * 0.104; g.moveTo(cx + rx, cy); g.ellipse(cx, cy, rx, ry, 0, 0, 6.2832); }
     if (any) g.fill(); g.restore(); }
   for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (roomAt[y][x] >= 0) gaRoomTile(g, x, y);
-  for (const r of near) { gaRoomShade(g, r, k); const ri = rooms.indexOf(r); g.save(); ART.roomDress(g, r, ri, doors.filter(d => d.room === ri).map(d => d.x), GA.seed); g.restore(); }
+  for (const r of near) { gaRoomShade(g, r, k); if (r.free) continue; const ri = rooms.indexOf(r); g.save(); ART.roomDress(g, r, ri, doors.filter(d => d.room === ri).map(d => d.x), GA.seed); g.restore(); }
   for (let y = y0; y <= Math.min(H - 1, y1); y++) for (let x = x0; x < x1; x++) { if (roomAt[y][x] >= 0) continue; const t = grid[y][x]; if (t === T.TREE || t === T.ROCK || t === T.MOUNTAIN || t === T.TENT || t === T.STALL || t === T.GRAVE) gaStand(g, x, y, t); }
   const wl = town.well; if (wl && wl.x + 2 > x0 && wl.x < x1 && wl.y + 2 > y0 && wl.y < y1) gaWell(g);
   g.restore();
@@ -203,7 +217,7 @@ function drawDoors(c, dt) {
     if (!gaOnScreen(d.x, d.y, 1)) continue;
     const r = rooms[d.room]; if (!r) continue; const op = d.o > 0.5, fk = r.floor === 'stone' ? 'stone' : 'wood';
     c.drawImage(ART.terr(fk, (ART.h32(d.x, d.y, 5, 5) * 2) | 0), d.x * TS, d.y * TS, TS, TS);
-    gaDraw(c, d.y === r.y ? (op ? 'door_back_open' : 'door_back_closed') : (op ? 'door_mat_open' : 'door_mat_closed'), d.x * TS, d.y * TS, 0, 0);
+    gaDraw(c, (r.free ? gaInside(d.x, d.y + 1) : d.y === r.y) ? (op ? 'door_back_open' : 'door_back_closed') : (op ? 'door_mat_open' : 'door_mat_closed'), d.x * TS, d.y * TS, 0, 0);
   }
 }
 function drawCrops(c, now) {

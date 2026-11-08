@@ -53,7 +53,13 @@ function yardTake(n, pr): any {
 /** how the yard looks: a banner over the stands that can be seen from afar, and a gold arrow at the screen's edge when it is out of sight */
 YSORT.push(function (c, now) {
   const b = town.builder; if (!b || !gaOnScreen(b.cx, b.y0, b.n + 2)) return [];
-  return [{ k: b.y0 - 1.2, f: () => {
+  return [{ k: b.y0 - 6, f: () => {   // the delivery pad: a gold hatched square on the ground, so nobody builds on it by mistake
+    const p = b.pad, x = p.x * TS, y = p.y * TS, w = p.w * TS, h = p.h * TS;
+    c.save(); c.fillStyle = 'rgba(232,192,74,.22)'; c.fillRect(x, y, w, h); c.beginPath(); c.rect(x, y, w, h); c.clip(); c.strokeStyle = 'rgba(232,192,74,.45)'; c.lineWidth = 2;
+    for (let i = -h; i < w; i += 12) { c.beginPath(); c.moveTo(x + i, y + h); c.lineTo(x + i + h, y); c.stroke(); } c.restore();
+    c.strokeStyle = 'rgba(232,192,74,.95)'; c.lineWidth = 2; c.setLineDash([6, 4]); c.strokeRect(x + 1, y + 1, w - 2, h - 2); c.setLineDash([]);
+    c.fillStyle = 'rgba(255,234,168,.8)'; c.font = 'bold 8px "IBM Plex Sans", sans-serif'; c.textAlign = 'center'; c.fillText('DELIVERY PAD · DO NOT BUILD HERE', x + w / 2, y + h - 3); c.textAlign = 'left';
+  } }, { k: b.y0 - 1.2, f: () => {
     const x0 = b.x0 * TS, w = b.n * TS, y = (b.y0 - 1.55) * TS, sway = Math.sin(now / 700) * 1.2;
     c.fillStyle = '#5a3a1e'; c.fillRect(x0 + 2, y - 4, 3, TS * 1.9); c.fillRect(x0 + w - 5, y - 4, 3, TS * 1.9);
     c.fillStyle = '#c0432f'; c.beginPath(); c.moveTo(x0 + 5, y - 2); c.lineTo(x0 + w - 5, y - 2); c.lineTo(x0 + w - 5, y + 15 + sway); c.lineTo(x0 + w / 2, y + 11 + sway); c.lineTo(x0 + 5, y + 15 - sway); c.closePath(); c.fill();
