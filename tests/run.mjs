@@ -1200,6 +1200,27 @@ test('build: the last block put down in a wall closes the room, thick walls incl
   return 'a block put down in the last gap seals the room';
 });
 
+test('building: a hut gets no kitchen oven, and nothing blocked is left where a built room comes down', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('oven-test', 'blank'); if (!town.props) lfInitProps(); town.bldQ = town.bldQ || []; startPlaying(npcs[0]);
+    const cx = Math.round(npcs[0].tx) + 4, cy = Math.round(npcs[0].ty) - 8, n = 6;
+    for (let j = -3; j < 12; j++) for (let i = -4; i < 12; i++) { setT(cx + i, cy + j, T.GRASS); roomAt[cy + j][cx + i] = -1; const p = lfPropAt(cx + i, cy + j); if (p) { town.props = town.props.filter(q => q !== p); town.propAt.delete((cy + j) * W + cx + i); town.pblock[(cy + j) * W + cx + i] = 0; } }
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { if (!(i === 0 || j === 0 || i === n - 1 || j === n - 1)) continue; lfAddProp(i === 2 && j === n - 1 ? 'bdoor' : 'bwall', cx + i, cy + j); }
+    lfAddProp('bed', cx + 2, cy + 2); town.bldQ.push([cx, cy]); bldTick(); visHomes(); housingTick();
+    const room = rooms.find(q => q.free && !q.dead); lf2PlaceHearth(room);
+    let ovens = 0; for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) if (grid[cy + j][cx + i] === T.OVEN) ovens++;
+    // an old save: a stray oven tile inside the hut, then the hut comes down
+    setT(cx + 4, cy + 4, T.OVEN); bldBreak(cx, cy + 1, game.player);
+    let left = 0; for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) if (BLOCKED.has(grid[cy + j][cx + i]) && grid[cy + j][cx + i] !== T.OVEN) left++;
+    return { ovens, ovenLeft: grid[cy + 4][cx + 4] === T.OVEN, wallsLeft: left };
+  });
+  check(r.ovens === 0, 'a hut should get no kitchen oven: ' + r.ovens);
+  check(!r.ovenLeft, 'a tile inside a room that comes down goes back to ground, ovens too');
+  check(!errors.length, errors.slice(0, 2).join(' | '));
+  return 'no oven in a hut; nothing blocked stays behind';
+});
+
 const browser = await launch();
 let failed = 0;
 const chosen = tests.filter(t => t.name.includes(filter));

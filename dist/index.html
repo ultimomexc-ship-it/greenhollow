@@ -18981,12 +18981,15 @@ function bldDissolve(list) {
     const ri2 = rooms.indexOf(r);
     for (const k of r.cells) {
       const x = k % W, y = k / W | 0;
-      if (grid[y][x] === T.FLOOR && roomAt[y][x] === ri2) {
+      if (roomAt[y][x] === ri2 && grid[y][x] !== T.WALL && grid[y][x] !== T.DOOR) {
         setT(x, y, town.bldWas.has(k) ? town.bldWas.get(k) : T.GRASS);
         town.bldWas.delete(k);
         roomAt[y][x] = -1;
       }
     }
+    r.hearth = null;
+    r.toilet = null;
+    r.beds = r.beds || [];
     markDirty(r.x - 1, r.y - 1, r.w + 2, r.h + 2);
   }
   const seen = /* @__PURE__ */ new Set();
@@ -19229,6 +19232,7 @@ function visHomes() {
       r.name = "Hut";
       r.pantry = r.pantry || {};
       r.hut = true;
+      if (!r.hearth) r.hearth = { none: true };
     }
     visToilet(r);
     if (r.kind !== "house" || !r.hut) continue;
@@ -19325,6 +19329,10 @@ function visArrive() {
 function visitorTick() {
   if (!town) return;
   visHomes();
+  if (game.time - (town.ovenSweep || -1e9) > 1440) {
+    town.ovenSweep = game.time;
+    clearOrphanOvens();
+  }
   if (town.scenario !== "blank") return;
   const v = town.vis = town.vis || { next: null, n: 0 };
   const day = game.time / 1440;
@@ -19447,6 +19455,31 @@ function visIntroTick() {
   }
 }
 LF2.tickers.push(visIntroTick);
+function clearOrphanOvens() {
+  const bak = new Set((town.ovens || []).map((o) => o.x + o.y * W));
+  let k = 0;
+  for (const r of rooms) if (!r.dead && r.free && r.hut && r.hearth && r.hearth.x != null && grid[r.hearth.y][r.hearth.x] === T.OVEN) {
+    setT(r.hearth.x, r.hearth.y, T.FLOOR);
+    markDirty(r.hearth.x, r.hearth.y, 1, 1);
+    r.hearth = { none: true };
+    r.spots = r.spots || {};
+    delete r.spots.cook;
+    k++;
+  }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (grid[y][x] !== T.OVEN || bak.has(x + y * W)) continue;
+    const ri2 = roomAt[y][x], r = ri2 >= 0 ? rooms[ri2] : null;
+    if (r && !r.dead) continue;
+    setT(x, y, T.GRASS);
+    markDirty(x, y, 1, 1);
+    k++;
+  }
+  if (k) {
+    town.gridV = (town.gridV || 0) + 1;
+    if (typeof refreshReach === "function") refreshReach();
+  }
+  return k;
+}
 const lf2PersonOK = (x, y) => {
   const g = grid[y] && grid[y][x];
   return walkable(x, y) && !(typeof noStep === "function" && noStep(x, y)) && g !== T.SEAT && g !== T.BED && g !== T.PEW && g !== T.TENT && !lfPropAt(x, y);
@@ -28678,6 +28711,7 @@ function isleRestore(text) {
     p.st = 0;
   }
   if (typeof clearTentTiles === "function") clearTentTiles();
+  if (typeof clearOrphanOvens === "function") clearOrphanOvens();
   rebuildOcc();
   refreshReach();
   refreshShore();

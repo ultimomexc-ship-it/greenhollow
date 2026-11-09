@@ -27,7 +27,7 @@ function visHomes() {
   for (const r of rooms) {
     if (r.dead || !r.free || !r.cells) continue;
     const inside = visBedProps().filter(p => r.cells.has(p.x + p.y * W));
-    if (r.kind === 'room' && inside.length && r.doorX != null) { r.kind = 'house'; r.name = 'Hut'; r.pantry = r.pantry || {}; r.hut = true; }
+    if (r.kind === 'room' && inside.length && r.doorX != null) { r.kind = 'house'; r.name = 'Hut'; r.pantry = r.pantry || {}; r.hut = true; if (!r.hearth) r.hearth = { none: true }; }   // (a hut has no kitchen: the village's "hearth in every house" would drop an oven tile in it, which stays behind as a blocked tile when the hut comes down)
     visToilet(r);
     if (r.kind !== 'house' || !r.hut) continue;
     for (const b of r.beds) if (!inside.includes(b) && b.owner) { const o = b.owner; if (o && o.bed === b) { o.bed = { owner: null }; o.homeless = true; o.homeRoom = null; } b.owner = null; }
@@ -66,7 +66,8 @@ function visArrive() {
 }
 function visitorTick() {
   if (!town) return;
-  visHomes();
+  visHomes(); if (game.time - (town.ovenSweep || -1e9) > 1440) { town.ovenSweep = game.time; clearOrphanOvens(); }   // (a day at a time: leftovers of huts that came down)
+
   if (town.scenario !== 'blank') return;
   const v = town.vis = town.vis || { next: null, n: 0 };
   const day = game.time / 1440;
@@ -143,3 +144,12 @@ function visIntroTick() {
   }
 }
 LF2.tickers.push(visIntroTick);
+
+/** old saves: an oven tile left standing where a built hut used to be (no live room owns it, and it is not one of the bakery's ovens) goes back to grass */
+function clearOrphanOvens() {
+  const bak = new Set((town.ovens || []).map(o => o.x + o.y * W)); let k = 0;
+  for (const r of rooms) if (!r.dead && r.free && r.hut && r.hearth && r.hearth.x != null && grid[r.hearth.y][r.hearth.x] === T.OVEN) { setT(r.hearth.x, r.hearth.y, T.FLOOR); markDirty(r.hearth.x, r.hearth.y, 1, 1); r.hearth = { none: true }; r.spots = r.spots || {}; delete r.spots.cook; k++; }   // (huts got a kitchen oven by mistake)
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { if (grid[y][x] !== T.OVEN || bak.has(x + y * W)) continue; const ri = roomAt[y][x], r = ri >= 0 ? rooms[ri] : null; if (r && !r.dead) continue; setT(x, y, T.GRASS); markDirty(x, y, 1, 1); k++; }
+  if (k) { town.gridV = (town.gridV || 0) + 1; if (typeof refreshReach === 'function') refreshReach(); }
+  return k;
+}
