@@ -239,7 +239,8 @@ function lateNight() {
 /* the player can't walk through the fire, the cake or an open grave */
 function noStep(x, y) {
   const t = game.time, f = town.feast, pt = typeof activeParty === 'function' && activeParty(), fu = town.funeral;
-  if (((f && t >= f.at - 10 && t < f.end) || town.yard) && x === town.cx && y === town.cy + 1) return true;
+  if (((f && t >= f.at - 10 && t < f.end) || (town.yard && !town.fireGone)) && x === town.cx && y === town.cy + 1) return true;
+  if (typeof fireList === 'function' && fireList().some(q => !q.home && q.x === x && q.y === y)) return true;
   if (pt && t >= pt.at - 10) { const c = cakeTile(); if (x === c.x && y === c.y) return true; }
   if (fu && !fu.done && t >= fu.at - 45 && x === fu.slot.x && y === fu.slot.y) return true;
   if ((town.remains || []).some(r => r.x === x && r.y === y)) return true;

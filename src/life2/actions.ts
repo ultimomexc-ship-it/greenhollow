@@ -79,7 +79,8 @@ function lifeAct(n, p, fx, fy, dx, dy) {
   }
   if (pr) {
     const label = LF_NOUN[pr.kind];
-    const mode = itHand(n) ? itMode(n) : null;
+    const mode = IT_AUTO && !itBuildOn(n) ? (['crate', 'crate1', 'barrel', 'stool'].includes(pr.kind) ? 'search' : 'fixed') : itHand(n) ? itMode(n) : null;   // (auto: a bump searches a crate or barrel; the rest wait for build mode)
+    if (mode === 'fixed') return { msg: 'The ' + label + ': press B for build mode to move it.' };
     if (mode === 'push') return { msg: 'The ' + label + ' won\'t budge.' };
     if (mode === 'search') { if (pr.loot === null && (pr.lootDay || 0) >= Math.floor(game.time / 1440) - 1) return game.time - (pr.searchedT || -99) < 4 ? null : { msg: 'You\'ve already been through this ' + label + '.' };
       return { key: 'search' + pr.id, min: 5, text: 'Searching the ' + label, tool: 'pick', run(nn) { lf2Search(nn, pr); } }; }   // Search: search it

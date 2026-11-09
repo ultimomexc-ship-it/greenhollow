@@ -13415,7 +13415,8 @@ function lateNight() {
 }
 function noStep(x, y) {
   const t = game.time, f = town.feast, pt = typeof activeParty === "function" && activeParty(), fu = town.funeral;
-  if ((f && t >= f.at - 10 && t < f.end || town.yard) && x === town.cx && y === town.cy + 1) return true;
+  if ((f && t >= f.at - 10 && t < f.end || town.yard && !town.fireGone) && x === town.cx && y === town.cy + 1) return true;
+  if (typeof fireList === "function" && fireList().some((q) => !q.home && q.x === x && q.y === y)) return true;
   if (pt && t >= pt.at - 10) {
     const c = cakeTile();
     if (x === c.x && y === c.y) return true;
@@ -13733,6 +13734,16 @@ function targetAt0(n, x, y) {
       town.treeCache = null;
     }
   } };
+  if (g === T.MOUNTAIN && itBuildOn(n) && n.build.sel === 1) return { key: "wallm" + x + "," + y, min: 12, text: "Breaking up the crag", tool: "hammer", run(n2) {
+    if (grid[y][x] === T.MOUNTAIN) {
+      workFx("split", x, y, n2);
+      setT(x, y, T.GRASS);
+      markDirty(x, y, 1, 1);
+      bagGet(n2, "stone");
+      town.treeDirty = true;
+      town.stoneCache = null;
+    }
+  } };
   if (itBuildOn(n) && n.build.sel === 2 && itBuildCanRotate(x, y)) return { key: "rott" + x + "," + y, min: 1.2, text: "Turning it", tool: null, run(nn) {
     bldRotate(x, y);
   } };
@@ -13818,8 +13829,23 @@ function targetAt0(n, x, y) {
       if (typeof openShop === "function") openShop(m);
     } };
   }
-  if ((g === T.TENT || g === T.BED && n.bed && n.bed.x === x && n.bed.y === y) && awakeFor(n, game.time % 1440) < 180) return { msg: "You have only just got up. Not tired yet." };
-  if (g === T.TENT) {
+  if (itBuildOn(n) && n.build.sel === 1) {
+    if (g === T.LAMP) return { key: "wallL" + x + "," + y, min: 6, text: "Smashing the lamp post", tool: "hammer", run(nn) {
+      bldDeleteLamp(x, y);
+      playerSay(nn, "Gone.");
+    } };
+    if (g === T.TENT) return { key: "wallT" + x + "," + y, min: 6, text: "Taking down the tent", tool: "hammer", run(nn) {
+      bldDeleteTent(x, y);
+      playerSay(nn, "Gone.");
+    } };
+    const fire = fireList().find((f) => f.x === x && f.y === y);
+    if (fire) return { key: "wallF" + x + "," + y, min: 5, text: "Putting out the fire", tool: "hammer", run(nn) {
+      bldDeleteFire(fire);
+      playerSay(nn, "Gone.");
+    } };
+  }
+  if (!itBuildOn(n) && (g === T.TENT || g === T.BED && n.bed && n.bed.x === x && n.bed.y === y) && awakeFor(n, game.time % 1440) < 180) return { msg: "You have only just got up. Not tired yet." };
+  if (g === T.TENT && !itBuildOn(n)) {
     const t = (town.tents || []).find((t2) => t2.x === x && t2.y === y);
     if (t && t.owner && t.owner !== n) return { msg: t.owner.first + " is sleeping in this tent." };
     if (n.homeRoom && n.bed && n.bed.x != null) return { msg: "You have a bed of your own now." };
@@ -13853,7 +13879,7 @@ function targetAt0(n, x, y) {
     return { msg: "The family barrel is empty." };
   }
   if (g === T.SEAT && roomAt[y][x] >= 0 && rooms[roomAt[y][x]].kind === "privy") return lifePrivyAct(n, x, y);
-  if (g === T.BED && n.bed && n.bed.x === x && n.bed.y === y) return { key: "rest", min: 4, text: "Going to bed", tool: null, sleep: true };
+  if (!itBuildOn(n) && g === T.BED && n.bed && n.bed.x === x && n.bed.y === y) return { key: "rest", min: 4, text: "Going to bed", tool: null, sleep: true };
   if (g === T.TABLE && n.homeRoom && rooms[roomAt[y][x]] === n.homeRoom) return { key: "table", min: 6, text: "Eating at the table", tool: null, hold: "plate", run(n2) {
     stash(n2);
     const p = pantryOf(n2);
@@ -14118,6 +14144,7 @@ function tickPlayer0(n, dt) {
       n.status = "Under your control";
       continue;
     }
+    if ((p.idle || 0) >= 0.25) p.fresh = true;
     p.idle = 0;
     const [dx, dy] = DIRV[d];
     const pf = n.face || { dx: 0, dy: 1 };
@@ -14144,6 +14171,7 @@ function tickPlayer0(n, dt) {
     }
     if (p.lock) continue;
     let tg = itGate(n, lifeAct(n, p, fx, fy, dx, dy) || targetAt(n, fx, fy), walkable(fx, fy));
+    if (IT_AUTO && !itBuildOn(n) && tg && tg.key && /^crop/.test(tg.key) && !p.fresh) tg = null;
     let occ = tileOwner.get(tkey(fx, fy)), pushed = false;
     if (itHand(n, "push") && occ && occ !== n && !occ.infant) {
       pushed = true;
@@ -14197,6 +14225,7 @@ function tickPlayer0(n, dt) {
       continue;
     }
     if (walkable(fx, fy) && !(typeof noStep === "function" && noStep(fx, fy))) {
+      if (grid[fy][fx] !== T.CROP) p.fresh = false;
       p.skip = null;
       n.path = [{ x: fx, y: fy }];
       n.moving = true;
@@ -14838,8 +14867,9 @@ function seeThrough(x0, y0, x1, y1) {
 function lightSources(hour) {
   const out = [], night = 1 - daylight(hour), gp = game.player;
   if (night < 0.05) return out;
-  for (const l of lamps) out.push({ x: l.x, y: l.y, r: 8, s: 1 });
-  if (town.yard) {
+  for (const l of allLamps()) out.push({ x: l.x, y: l.y, r: 8, s: 1 });
+  for (const f of allFires()) if (!f.home) out.push({ x: f.x, y: f.y, r: 6.5, s: 0.95 });
+  if (town.yard && !town.fireGone) {
     const w = town.wedding, pt = typeof activeParty === "function" && activeParty();
     out.push({ x: town.cx, y: town.cy + 1, r: 6.5, s: w && !w.done && game.time >= w.at - 40 || pt ? 0.7 : 0.95 });
   }
@@ -16113,7 +16143,7 @@ function drawYard(c, now) {
     const w = town.wedding, pt = typeof activeParty === "function" && activeParty();
     if (w && !w.done && !(w.place && w.place.church) && game.time >= w.at - 40 || pt && game.time >= pt.at - 10) return;
   }
-  gaDraw(c, "campfire", town.cx * TS, (town.cy + 1) * TS, now, 0);
+  if (!town.fireGone) gaDraw(c, "campfire", town.cx * TS, (town.cy + 1) * TS, now, 0);
 }
 YSORT.push(function(c, now) {
   const out = [], lit = daylight(GA.hour) < 0.55;
@@ -17761,7 +17791,8 @@ function lifeAct(n, p, fx, fy, dx, dy) {
   }
   if (pr) {
     const label = LF_NOUN[pr.kind];
-    const mode = itHand(n) ? itMode(n) : null;
+    const mode = IT_AUTO && !itBuildOn(n) ? ["crate", "crate1", "barrel", "stool"].includes(pr.kind) ? "search" : "fixed" : itHand(n) ? itMode(n) : null;
+    if (mode === "fixed") return { msg: "The " + label + ": press B for build mode to move it." };
     if (mode === "push") return { msg: "The " + label + " won't budge." };
     if (mode === "search") {
       if (pr.loot === null && (pr.lootDay || 0) >= Math.floor(game.time / 1440) - 1) return game.time - (pr.searchedT || -99) < 4 ? null : { msg: "You've already been through this " + label + "." };
@@ -17976,8 +18007,8 @@ function lf2Follow(n, p) {
 const PUSH_MAX = 5;
 const LF_ROCK_ART = ["boulder_0", "boulder_1", "boulder_2", "boulder_3"];
 Object.assign(LF_NOUN, { rock: "rock" });
-const lfPropArt = (pr) => pr.art ? pr.art : pr.kind === "rock" ? LF_ROCK_ART[(pr.v || 0) & 3] : pr.kind === "chair" ? "seat_" + ["down", "left", "up", "right"][(pr.rot || 0) & 3] : pr.kind === "bed" ? "bed_head_" + ((pr.rot || 0) & 1 ? "down" : "up") + "_" + (pr.v || 0) % 5 : LF_ART[pr.kind] || "crate";
-const PUSH_STATION = { [T.TABLE]: "table", [T.COUNTER]: "counter", [T.FORGE]: "forge", [T.ANVIL]: "anvil", [T.LOOM]: "loom", [T.OVEN]: "oven", [T.SHELF]: "shelf" };
+const lfPropArt = (pr) => pr.art ? pr.art : pr.kind === "lamp" ? daylight(GA.hour) < 0.55 ? "lamp_lit" : "lamp_unlit" : pr.kind === "tent" ? "tent_" + (pr.v || 0) % 4 : pr.kind === "rock" ? LF_ROCK_ART[(pr.v || 0) & 3] : pr.kind === "chair" ? "seat_" + ["down", "left", "up", "right"][(pr.rot || 0) & 3] : pr.kind === "bed" ? "bed_head_" + ((pr.rot || 0) & 1 ? "down" : "up") + "_" + (pr.v || 0) % 5 : LF_ART[pr.kind] || "crate";
+const PUSH_STATION = { [T.TABLE]: "table", [T.COUNTER]: "counter", [T.FORGE]: "forge", [T.ANVIL]: "anvil", [T.LOOM]: "loom", [T.OVEN]: "oven", [T.SHELF]: "shelf", [T.ALTAR]: "altar", [T.PEW]: "pew" };
 const PUSH_FURNITURE = /* @__PURE__ */ new Set([T.SEAT, T.BED, T.BARREL, ...Object.keys(PUSH_STATION).map(Number)]);
 const pushRoomOf = (x, y) => {
   const i = roomAt[y] && roomAt[y][x];
@@ -17987,7 +18018,7 @@ function pushFurniture(x, y) {
   const g = grid[y] && grid[y][x];
   if (!PUSH_FURNITURE.has(g)) return null;
   const r = pushRoomOf(x, y);
-  if (!r || r.dead || r.kind === "privy" || r.kind === "church" || r.kind === "jail") return null;
+  if (!r || r.dead) return null;
   if (PUSH_STATION[g]) return { type: PUSH_STATION[g], t: g, r, o: { x, y } };
   if (g === T.SEAT) {
     const s = (r.seats || []).find((q) => q.x === x && q.y === y && !q.out);
@@ -18355,7 +18386,12 @@ const YARD_ITEMS = [
   { kind: "forge", stand: "yd_forge", art: "forge", noun: "forge", name: "Forge" },
   { kind: "anvil", stand: "yd_anvil", art: "anvil", noun: "anvil", name: "Anvil" },
   { kind: "loom", stand: "yd_loom", art: "loom", noun: "loom", name: "Loom" },
-  { kind: "shelf", stand: "yd_shelf", art: "shelf_0", noun: "shelf", name: "Shelf" }
+  { kind: "shelf", stand: "yd_shelf", art: "shelf_0", noun: "shelf", name: "Shelf" },
+  { kind: "altar", stand: "", art: "altar_0", noun: "altar", name: "Altar" },
+  { kind: "pew", stand: "", art: "pew", noun: "pew", name: "Pew" },
+  { kind: "lamp", stand: "", art: "lamp_unlit", noun: "lamp post", name: "Lamp post" },
+  { kind: "tent", stand: "", art: "tent_0", noun: "tent", name: "Tent" },
+  { kind: "campfire", stand: "", art: "campfire", noun: "campfire", name: "Campfire" }
 ];
 const YARD_COLS = 7;
 const YARD_CAP = 16;
@@ -19090,13 +19126,14 @@ LF2.tickers.push(() => {
 });
 const IT_TOOLS = { axe: { name: "Axe", verb: "fell trees" }, hammer: { name: "Hammer", verb: "break rocks, build walls" }, hoe: { name: "Hoe", verb: "plough and harvest" }, rod: { name: "Fishing rod", verb: "fish" } };
 const IT_STACKS = { lockpick: { name: "Lockpick", verb: "pick a lock (they snap)" }, seed_barley: { name: "Barley seed", seed: "barley", col: "#c9a96a" }, seed_turnip: { name: "Turnip seed", seed: "turnip", col: "#b58ac4" }, seed_bean: { name: "Bean seed", seed: "bean", col: "#8fb07a" } };
+const IT_AUTO = true;
 const IT_MODES = ["talk", "push", "search"], IT_MODE_NAME = { talk: "Talk", push: "Push", search: "Search" };
 function itEnsure(n, steering) {
   if (!n) return;
   if (!n.items) n.items = [];
   if (!n.bag) n.bag = {};
   if (steering && !n.belt) {
-    n.belt = ["hand", null, null, null, null, null, null, null, null];
+    n.belt = IT_AUTO ? [null, null, null, null, null, null, null, null, null, null] : ["hand", null, null, null, null, null, null, null, null];
     n.sel = 0;
     n.mode = "talk";
     if (IT.kit === "test") itKit(n);
@@ -19108,8 +19145,9 @@ function itNew(kind, owner) {
 }
 function itBeltAdd(n, ref) {
   if (!n.belt || n.belt.includes(ref)) return;
+  if (IT_AUTO && ref[0] === "i") return;
   const i = n.belt.indexOf(null);
-  if (i > 0) n.belt[i] = ref;
+  if (i > (IT_AUTO ? -1 : 0)) n.belt[i] = ref;
 }
 function itGiveTool(n, kind) {
   itEnsure(n);
@@ -19141,6 +19179,12 @@ function itHeld(n) {
     }
     return { ref: "hand", kind: "hand" };
   }
+  if (IT_AUTO && n && n.belt) {
+    const r = n.belt[n.sel >= 0 ? n.sel : 99];
+    if (!r || r[0] === "i") return { ref: "hand", kind: "hand" };
+    const k2 = r.slice(2);
+    return { ref: r, kind: k2, count: n.bag && n.bag[k2] || 0 };
+  }
   const ref = n && n.belt ? n.belt[n.sel || 0] : "hand";
   if (!ref || ref === "hand") return { ref: "hand", kind: "hand" };
   if (ref[0] === "i") {
@@ -19152,7 +19196,7 @@ function itHeld(n) {
 }
 const itMode = (n) => n && n.build && n.build.on ? "push" : n && n.mode || "talk";
 const itHand = (n, mode) => itHeld(n).kind === "hand" && (!mode || itMode(n) === mode);
-const itTalking = (n) => !n || !n.belt || itHand(n, "talk");
+const itTalking = (n) => !n || !n.belt || (IT_AUTO ? !itBuildOn(n) : itHand(n, "talk"));
 function itNeedOf(key) {
   if (/^tree/.test(key)) return "axe";
   if (/^rock/.test(key) || /^wall/.test(key)) return "hammer";
@@ -19165,8 +19209,29 @@ function itNeedOf(key) {
   if (/^(talk|stall|trade)/.test(key)) return "talk";
   return null;
 }
+const itHasTool = (n, kind) => (n.items || []).some((i) => i.kind === kind);
+function itActiveSeed(n) {
+  const h = itHeld(n);
+  if (IT_STACKS[h.kind] && IT_STACKS[h.kind].seed && h.count > 0) return h.kind;
+  let best = null, bq = 0;
+  for (const k of Object.keys(IT_STACKS)) if (IT_STACKS[k].seed && (n.bag[k] || 0) > bq) {
+    bq = n.bag[k];
+    best = k;
+  }
+  return best;
+}
 function itFits(n, need) {
   if (!need || !n.belt) return true;
+  if (IT_AUTO && !itBuildOn(n)) {
+    if (need === "talk" || need === "search" || need === "hand") return true;
+    if (need === "push") return false;
+    if (need === "seed") return !!itActiveSeed(n);
+    if (need === "lockpick") {
+      const hh = itHeld(n);
+      return hh.kind === "lockpick" && hh.count > 0;
+    }
+    return itHasTool(n, need);
+  }
   const h = itHeld(n);
   if (need === "hand") return h.kind === "hand";
   if (IT_MODES.includes(need)) return h.kind === "hand" && itMode(n) === need;
@@ -19196,6 +19261,7 @@ function itSlotFor(n, need) {
 }
 const IT_NEED_NAME = { axe: "the axe", hammer: "the hammer", hoe: "the hoe", rod: "the fishing rod", seed: "some seed", hand: "an empty hand" };
 function itWant(n, need, verb) {
+  if (IT_AUTO && need === "push") return (verb ? verb + ": " : "") + "press B for build mode.";
   if (IT_MODES.includes(need)) {
     const s2 = itSlotFor(n, "hand") || 1, onHand = itHeld(n).kind === "hand", same = itMode(n) === need;
     return (verb ? verb + ": " : "") + (onHand ? "press Q for " + IT_MODE_NAME[need] : same ? "press " + s2 + " (hand)" : "press " + s2 + ", then Q for " + IT_MODE_NAME[need]) + ".";
@@ -19208,13 +19274,13 @@ function itGate(n, tg, walkOn) {
   const need = itNeedOf(tg.key);
   if (itFits(n, need)) {
     if (need === "seed") {
-      const h = itHeld(n), m = tg.key.match(/^crop(\d+),(\d+)s$/), c = m && cropAt(+m[1], +m[2]), run0 = tg.run, seed = IT_STACKS[h.kind].seed;
+      const hk = IT_AUTO && !itBuildOn(n) ? itActiveSeed(n) : itHeld(n).kind, m = tg.key.match(/^crop(\d+),(\d+)s$/), c = m && cropAt(+m[1], +m[2]), run0 = tg.run, seed = IT_STACKS[hk].seed;
       return Object.assign({}, tg, { key: tg.key + ":" + seed, text: "Sowing " + seed, run(nn) {
         const was = c && c.st;
         run0(nn);
         if (c && c.st && !was) {
           c.seed = seed;
-          nn.bag[h.kind] = Math.max(0, (nn.bag[h.kind] || 0) - 1);
+          nn.bag[hk] = Math.max(0, (nn.bag[hk] || 0) - 1);
         }
       } });
     }
@@ -19222,7 +19288,8 @@ function itGate(n, tg, walkOn) {
       const run0 = tg.run;
       return Object.assign({}, tg, { run(nn) {
         run0(nn);
-        itWearHeld(nn);
+        if (IT_AUTO && !itBuildOn(nn)) itWearTool(nn, need);
+        else itWearHeld(nn);
       } });
     }
     return tg;
@@ -19249,6 +19316,7 @@ function itFacing(n) {
   }
   if (pr) {
     const nm = cvCap(LF_NOUN[pr.kind]);
+    if (IT_AUTO && !itBuildOn(n)) return ["crate", "crate1", "barrel", "stool"].includes(pr.kind) ? { what: nm, verb: "Search", need: "search" } : { what: nm, verb: "Build mode (B) to move it", need: null };
     return hand && mode === "search" ? { what: nm, verb: "Search", need: "search" } : { what: nm, verb: "Push", need: "push" };
   }
   if (g === T.DOOR && typeof lf2DoorRoom === "function" && LF2.on("nightlocks") && lf2Night()) {
@@ -19273,8 +19341,8 @@ function itFacing(n) {
   return null;
 }
 function itSelect(n, i) {
-  if (!n.belt || i < 0 || i > 8 || !n.belt[i]) return;
-  n.sel = i;
+  if (!n.belt || i < 0 || i >= n.belt.length || !n.belt[i]) return;
+  n.sel = IT_AUTO && n.sel === i ? -1 : i;
   const p = n.player;
   if (p) {
     p.act = null;
@@ -19318,17 +19386,17 @@ window.addEventListener("keydown", (e) => {
     return;
   }
   if (itBuildOn(n)) {
-    if (/^[1-9]$/.test(k)) {
-      itBuildSelect(n, +k - 1);
+    if (/^[0-9]$/.test(k)) {
+      itBuildSelect(n, k === "0" ? 9 : +k - 1);
       e.preventDefault();
     }
     return;
   }
-  if (k === "q") {
+  if (k === "q" && !IT_AUTO) {
     itCycleMode(n);
     e.preventDefault();
-  } else if (/^[1-9]$/.test(k)) {
-    itSelect(n, +k - 1);
+  } else if (/^[0-9]$/.test(k)) {
+    itSelect(n, k === "0" ? 9 : +k - 1);
     e.preventDefault();
   }
 });
@@ -19367,7 +19435,7 @@ function itSlotHTML(n, i, cls = "hbslot") {
     count = "<u>" + (n.bag[k] || 0) + "</u>";
     title = itName(k);
   }
-  return `<button type="button" class="${cls}${(n.sel || 0) === i ? " on" : ""}" data-slot="${i}" title="${esc(title)}"><em>${i + 1}</em>${body}${count}${wear}</button>`;
+  return `<button type="button" class="${cls}${(IT_AUTO ? n.sel : n.sel || 0) === i ? " on" : ""}" data-slot="${i}" title="${esc(title)}"${IT_AUTO && ref ? ' draggable="true" data-bagref="' + ref + '"' : ""}><em>${(i + 1) % 10}</em>${body}${count}${wear}</button>`;
 }
 let itSig = "";
 function itSync(force) {
@@ -19397,6 +19465,16 @@ function itSync(force) {
     return;
   }
   hb.className = "hotbar";
+  if (IT_AUTO) {
+    const need = f && f.need, using = need === "rod" || need === "axe" || need === "hammer" || need === "hoe" ? need : null;
+    const tools = ["axe", "hammer", "hoe", "rod"].map((k) => {
+      const it = (n.items || []).filter((i) => i.kind === k).sort((a, b) => b.wear - a.wear)[0];
+      return `<div class="hbtool${using === k ? " on" : ""}${it ? "" : " none"}" title="${esc(itName(k))}${it ? "" : " (none: the smith sells one)"}">${itIcon(k, 24)}<i class="hbwear"><b style="width:${it ? Math.round(it.wear * 100) : 0}%"></b></i></div>`;
+    }).join("");
+    hb.innerHTML = `<div class="hbtools" title="Tools (picked for you)">${tools}</div><div class="hbslots">${n.belt.map((_, i) => itSlotHTML(n, i)).join("")}</div><div class="hbface">${face || '<span class="dim">Walk into things to use them \xB7 1-0 hotbar \xB7 I bag \xB7 B build</span>'}</div>`;
+    if (itBagOpen()) itBagDraw();
+    return;
+  }
   const mode = itMode(n), onHand = (n.sel || 0) === 0;
   hb.innerHTML = `<div class="hbmodes" title="Hand modes (Q)">${IT_MODES.map((m) => `<button type="button" class="hbmode${onHand && mode === m ? " on" : ""}" data-mode="${m}"><svg width="22" height="22" viewBox="0 0 34 34" aria-hidden="true">${IT_SVG[m]}</svg><span>${IT_MODE_NAME[m]}</span></button>`).join("")}</div><div class="hbslots">${n.belt.map((_, i) => itSlotHTML(n, i)).join("")}</div><div class="hbface">${face || '<span class="dim">Q hand mode \xB7 1-9 belt \xB7 I bag \xB7 B build</span>'}</div>`;
   if (itBagOpen()) itBagDraw();
@@ -19415,6 +19493,24 @@ function itBag(open) {
 function itBagDraw() {
   const b = document.getElementById("bagbox"), n = game.player;
   if (!b || !n || !n.belt) return;
+  if (itBuildOn(n)) {
+    b.innerHTML = `<div class="bgwrap"><div class="bghead"><b>${esc(nameOf(n))} \xB7 Build menu (I)</b><span class="coin">${Math.floor(n.coin || 0)} denarii</span><button type="button" class="bgx" data-close="1" title="Close (I)">\xD7</button></div>` + itBuildBagHTML(n) + `</div>`;
+    return;
+  }
+  if (IT_AUTO) {
+    const goods2 = Object.entries(n.inv || {}).filter(([g, q]) => q > 0).map(([g, q]) => `<div class="bgcell"><span class="bgname">${esc(GOODS[g] && GOODS[g].name || GICON[g] || g)}</span><u>${q}</u></div>`);
+    const stacks2 = Object.entries(n.bag || {}).filter(([k, q]) => q > 0).map(([k, q]) => `<button type="button" class="bgcell${n.belt.includes("s:" + k) ? " worn" : ""}" data-add="s:${k}" draggable="true" data-bagref="s:${k}">${itIcon(k, 28)}<span class="bgname">${esc(itName(k))}</span><u>${q}</u></button>`);
+    const tools2 = ["axe", "hammer", "hoe", "rod"].map((k) => {
+      const it = (n.items || []).filter((i) => i.kind === k).sort((a, b2) => b2.wear - a.wear)[0];
+      return `<div class="bgcell${it ? "" : " empty"}">${itIcon(k, 28)}<span class="bgname">${esc(itName(k))}${it ? "" : " (none)"}</span>${it ? `<i class="hbwear"><b style="width:${Math.round(it.wear * 100)}%"></b></i>` : ""}</div>`;
+    });
+    const pad = (a) => {
+      while (a.length < 6) a.push('<div class="bgcell empty"></div>');
+      return a.join("");
+    };
+    b.innerHTML = `<div class="bgwrap"><div class="bghead"><b>${esc(nameOf(n))} \xB7 Inventory (I)</b><span class="coin">${Math.floor(n.coin || 0)} denarii</span><button type="button" class="bgx" data-close="1" title="Close (I)">\xD7</button></div><div class="bglab">Hotbar \xB7 1-0 \xB7 drag seeds or lockpicks here \xB7 click a slot to empty it</div><div class="bgbelt">${n.belt.map((_, i) => itSlotHTML(n, i, "hbslot big")).join("")}</div><div class="bglab">Tools \xB7 picked for you when you use them</div><div class="bggrid">${pad(tools2)}</div><div class="bglab">Seeds and lockpicks \xB7 drag onto the hotbar</div><div class="bggrid">${pad(stacks2)}</div><div class="bglab">Goods</div><div class="bggrid">${pad(goods2)}</div></div>`;
+    return;
+  }
   const goods = Object.entries(n.inv || {}).filter(([g, q]) => q > 0).map(([g, q]) => `<div class="bgcell"><span class="bgname">${esc(GOODS[g] && GOODS[g].name || GICON[g] || g)}</span><u>${q}</u></div>`);
   const stacks = Object.entries(n.bag || {}).filter(([k, q]) => q > 0).map(([k, q]) => `<button type="button" class="bgcell${n.belt.includes("s:" + k) ? " worn" : ""}" data-add="s:${k}">${itIcon(k, 28)}<span class="bgname">${esc(itName(k))}</span><u>${q}</u></button>`);
   const tools = (n.items || []).map((it) => `<button type="button" class="bgcell${n.belt.includes("i" + it.id) ? " worn" : ""}" data-add="i${it.id}">${itIcon(it.kind, 28)}<span class="bgname">${esc(itName(it.kind))}</span><i class="hbwear"><b style="width:${Math.round(it.wear * 100)}%"></b></i></button>`);
@@ -19474,7 +19570,7 @@ function itBagDraw() {
     }
     if (s) {
       const i = +s.dataset.slot;
-      if (i > 0 && n.belt[i]) {
+      if (i > (IT_AUTO ? -1 : 0) && n.belt[i]) {
         n.belt[i] = null;
         if (n.sel === i) n.sel = 0;
         itBagDraw();
@@ -19529,8 +19625,8 @@ function itBuildSelect(n, i) {
   const b = itBuildState(n);
   if (!b.on) return;
   const p = n.player;
-  if (i === 0 || i === 1) {
-    b.sel = b.sel === i + 1 ? 0 : i + 1;
+  if (i <= 2) {
+    b.sel = i === 0 ? 0 : b.sel === i ? 0 : i;
     if (p) {
       p.act = null;
       p.lock = false;
@@ -19540,7 +19636,7 @@ function itBuildSelect(n, i) {
     itSync(true);
     return;
   }
-  const kind = b.bar[i - 2];
+  const kind = b.bar[i - 3];
   if (kind) bldPlaceFront(n, kind);
 }
 const itBuildName = (k) => {
@@ -19617,14 +19713,14 @@ const IT_ROTATE_SVG = '<path d="M28 18a10 10 0 1 1-4-8" fill="none" stroke="#a8e
 function itBuildBarHTML(n, face) {
   const b = itBuildState(n);
   const tool = (i, svg, name, on) => `<button type="button" class="hbslot${on ? " on" : ""}" data-bslot="${i}" title="${name}"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${svg}</svg><span class="hbcap">${name}</span></button>`;
-  const slots = b.bar.map((k, j) => `<button type="button" class="hbslot item" data-bslot="${j + 2}" title="${k ? esc(itBuildName(k)) : "Empty: drag one here in the bag (I)"}"><em>${j + 3}</em>${k ? itBuildIcon(k) : ""}${k ? "<u>\u221E</u>" : ""}<span class="hbcap">${k ? esc(itBuildName(k)) : ""}</span></button>`).join("");
-  return `<div class="hbbadge" title="Build mode (B)"><b>BUILD</b><span>B to leave</span></div><div class="hbslots">${tool(0, IT_SVG.hammer, "Smash", b.sel === 1)}${tool(1, IT_ROTATE_SVG, "Turn", b.sel === 2)}<i class="hbsep"></i>${slots}</div><div class="hbface">${face || '<span class="dim">Walk to push \xB7 1 smash \xB7 2 turn \xB7 3-9 place \xB7 I bag</span>'}</div>`;
+  const slots = b.bar.map((k, j) => `<button type="button" class="hbslot item" data-bslot="${j + 3}" title="${k ? esc(itBuildName(k)) : "Empty: drag one here in the build menu (I)"}"><em>${(j + 4) % 10}</em>${k ? itBuildIcon(k) : ""}${k ? "<u>\u221E</u>" : ""}<span class="hbcap">${k ? esc(itBuildName(k)) : ""}</span></button>`).join("");
+  return `<div class="hbbadge" title="Build mode (B)"><b>BUILD</b><span>B to leave</span></div><div class="hbslots">${tool(0, IT_SVG.push, "Push", b.sel === 0)}${tool(1, IT_SVG.hammer, "Destroy", b.sel === 1)}${tool(2, IT_ROTATE_SVG, "Turn", b.sel === 2)}<i class="hbsep"></i>${slots}</div><div class="hbface">${face || '<span class="dim">Walk to push \xB7 2 destroy \xB7 3 turn \xB7 4-0 put an item down \xB7 I menu</span>'}</div>`;
 }
 function itBuildBagHTML(n) {
   const b = itBuildState(n), sel = n._bpick || "";
   const items = YARD_ITEMS.map((it) => `<button type="button" class="bgcell bi${sel === it.kind ? " worn" : ""}" draggable="true" data-bkind="${it.kind}" title="Drag onto a build slot">${itBuildIcon(it.kind, 34)}<span class="bgname">${esc(it.name)}</span></button>`).join("");
-  const slots = b.bar.map((k, j) => `<button type="button" class="hbslot big item" data-bdrop="${j}" title="Build slot ${j + 3}"><em>${j + 3}</em>${k ? itBuildIcon(k, 38) : ""}</button>`).join("");
-  return `<div class="bglab">Build items \xB7 drag one onto a build slot (or click an item, then a slot)</div><div class="bgbuild">${items}</div><div class="bglab">Build hotbar \xB7 slots 3-9 (1 is the hammer, 2 turns things) \xB7 click a slot while an item is picked to fill it, right-click to empty it</div><div class="bgbelt">${slots}</div>`;
+  const slots = b.bar.map((k, j) => `<button type="button" class="hbslot big item" data-bdrop="${j}" title="Build slot ${(j + 4) % 10}"><em>${(j + 4) % 10}</em>${k ? itBuildIcon(k, 38) : ""}</button>`).join("");
+  return `<div class="bglab">Build menu \xB7 drag an item onto a build slot (or click an item, then a slot)</div><div class="bgbuild">${items}</div><div class="bglab">Build hotbar \xB7 slots 4-0 (1 pushes, 2 destroys, 3 turns things) \xB7 click a slot while an item is picked to fill it, right-click to empty it</div><div class="bgbelt">${slots}</div>`;
 }
 function itBuildAssign(n, j, kind) {
   const b = itBuildState(n);
@@ -19637,7 +19733,7 @@ function itBuildAssign(n, j, kind) {
   const bb = document.getElementById("bagbox"), hb = document.getElementById("hotbar");
   if (!bb || !hb) return;
   const css = document.createElement("style");
-  css.textContent = ".hbbadge{display:flex;flex-direction:column;justify-content:center;align-items:center;background:#1d2a14;border:2px solid #6aa83e;border-radius:7px;padding:2px 10px;color:#cfe9a8}.hbbadge b{letter-spacing:.14em;font-size:13px}.hbbadge span{font-size:9px;color:#8fb468}.hbcap{position:absolute;left:0;right:0;bottom:-15px;text-align:center;font-size:9px;color:#8d8570;white-space:nowrap;overflow:hidden;pointer-events:none}.hbsep{width:8px}.hbslot.item img{image-rendering:auto}.hotbar.build{border-color:#5a8a38;padding-bottom:20px}.bgbuild{display:grid;grid-template-columns:repeat(7,74px);gap:5px}.bgcell.bi{height:62px;cursor:grab}.bgcell.bi:active{cursor:grabbing}.hbslot.item.drop{border-color:#6aa83e;background:#1d2a14}";
+  css.textContent = ".hbbadge{display:flex;flex-direction:column;justify-content:center;align-items:center;background:#1d2a14;border:2px solid #6aa83e;border-radius:7px;padding:2px 10px;color:#cfe9a8}.hbbadge b{letter-spacing:.14em;font-size:13px}.hbbadge span{font-size:9px;color:#8fb468}.hbcap{position:absolute;left:0;right:0;bottom:-15px;text-align:center;font-size:9px;color:#8d8570;white-space:nowrap;overflow:hidden;pointer-events:none}.hbsep{width:8px}.hbslot.item img{image-rendering:auto}.hotbar.build{border-color:#5a8a38;padding-bottom:20px}.hbtools{display:flex;gap:4px;align-items:center}.hbtool{position:relative;width:34px;height:44px;background:#171b20;border:2px solid #3a3226;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#9a927c}.hbtool.on{border-color:#a8e07a;background:#1d2a14;box-shadow:0 0 10px #a8e07a44}.hbtool.none{opacity:.35}.hbtool .hbwear{bottom:2px}.bgbuild{display:grid;grid-template-columns:repeat(7,74px);gap:5px}.bgcell.bi{height:62px;cursor:grab}.bgcell.bi:active{cursor:grabbing}.hbslot.item.drop{border-color:#6aa83e;background:#1d2a14}";
   document.head.appendChild(css);
   hb.addEventListener("pointerdown", (e) => {
     const n = game.player;
@@ -19651,20 +19747,36 @@ function itBuildAssign(n, j, kind) {
     }
   }, true);
   bb.addEventListener("dragstart", (e) => {
-    const c = e.target.closest("[data-bkind]");
+    const c = e.target.closest("[data-bkind]"), r = e.target.closest("[data-bagref]");
     if (c) {
       e.dataTransfer.setData("text/plain", c.dataset.bkind);
+      e.dataTransfer.effectAllowed = "copy";
+    } else if (r) {
+      e.dataTransfer.setData("text/plain", "bag:" + r.dataset.bagref);
       e.dataTransfer.effectAllowed = "copy";
     }
   });
   bb.addEventListener("dragover", (e) => {
-    if (e.target.closest("[data-bdrop]")) {
+    if (e.target.closest("[data-bdrop]") || e.target.closest(".bgbelt [data-slot]")) {
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
     }
   });
   bb.addEventListener("drop", (e) => {
-    const d = e.target.closest("[data-bdrop]"), n = game.player;
+    const n = game.player, hs = e.target.closest(".bgbelt [data-slot]");
+    if (hs && n && n.belt) {
+      const t = e.dataTransfer.getData("text/plain");
+      if (t.startsWith("bag:")) {
+        e.preventDefault();
+        const ref = t.slice(4), i = +hs.dataset.slot;
+        for (let q = 0; q < n.belt.length; q++) if (n.belt[q] === ref) n.belt[q] = null;
+        n.belt[i] = ref;
+        itBagDraw();
+        itSync(true);
+      }
+      return;
+    }
+    const d = e.target.closest("[data-bdrop]");
     if (!d || !n) return;
     e.preventDefault();
     const k = e.dataTransfer.getData("text/plain");
@@ -19689,6 +19801,43 @@ function itBuildAssign(n, j, kind) {
     }
   });
 })();
+function fireList() {
+  if (!town.fires) town.fires = town.yard && !town.fireGone ? [{ x: town.cx, y: town.cy + 1, home: true }] : [];
+  return town.fires;
+}
+const allLamps = () => lamps.concat((town.props || []).filter((p) => p.kind === "lamp"));
+const allFires = () => fireList().concat((town.props || []).filter((p) => p.kind === "campfire"));
+function bldGroundUnder(x, y) {
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (grid[y + dy] && grid[y + dy][x + dx] === T.PATH) return T.PATH;
+  return T.GRASS;
+}
+function bldDeleteLamp(x, y) {
+  const i = lamps.findIndex((l) => l.x === x && l.y === y);
+  if (i >= 0) lamps.splice(i, 1);
+  if (grid[y][x] === T.LAMP) setT(x, y, bldGroundUnder(x, y));
+  markDirty(x, y, 1, 1);
+  town.gridV = (town.gridV || 0) + 1;
+  if (typeof refreshReach === "function") refreshReach();
+  return true;
+}
+function bldDeleteTent(x, y) {
+  const t = (town.tents || []).find((q) => q.x === x && q.y === y);
+  if (t) {
+    town.tents = town.tents.filter((q) => q !== t);
+    if (t.owner) {
+      t.owner.tent = null;
+    }
+  }
+  if (grid[y][x] === T.TENT) setT(x, y, t && t.under || T.GRASS);
+  markDirty(x, y, 1, 1);
+  town.gridV = (town.gridV || 0) + 1;
+  return true;
+}
+function bldDeleteFire(f) {
+  town.fires = fireList().filter((q) => q !== f);
+  if (f.home) town.fireGone = true;
+  return true;
+}
 Object.assign(GOODS, {
   bread: { base: 2, sat: 34, name: "bread" },
   stew: { base: 4, sat: 46, name: "stew" },
@@ -26004,9 +26153,13 @@ function render(now, dtSec, hourOfDay) {
       dctx.arc(x, y, rad, 0, 6.3);
       dctx.fill();
     };
-    for (const l of lamps) {
+    for (const l of allLamps()) {
       const m = mid(l.x, l.y);
       hole(m.x, m.y, TS * 5.2, 0.95);
+    }
+    for (const f of allFires()) {
+      const m = mid(f.x, f.y);
+      hole(m.x, m.y, TS * 5.6, 0.95);
     }
     for (const dr of doors) {
       const m = mid(dr.x, dr.y);
@@ -26037,9 +26190,13 @@ function render(now, dtSec, hourOfDay) {
       c.arc(x, y, rad, 0, 6.3);
       c.fill();
     };
-    for (const l of lamps) {
+    for (const l of allLamps()) {
       const m = mid(l.x, l.y);
       glow2(m.x, m.y - 6, TS * 2.6, 0.32);
+    }
+    for (const f of allFires()) {
+      const m = mid(f.x, f.y);
+      glow2(m.x, m.y - 4, TS * 3.2, 0.45);
     }
     for (const rm of rooms) {
       if (rm.dead || rm.lit < 0.05) continue;
@@ -27270,6 +27427,18 @@ LF2.tickers.push(() => {
   }
 });
 const IT_WEAR = { axe: 0.03, hammer: 0.025, hoe: 0.015, rod: 0.02 };
+function itWearTool(n, kind) {
+  const it = (n.items || []).filter((i) => i.kind === kind).sort((a, b) => b.wear - a.wear)[0];
+  if (!it || !IT_WEAR[kind]) return;
+  it.wear = Math.max(0, it.wear - IT_WEAR[kind]);
+  if (it.wear <= 0) {
+    n.items = n.items.filter((i) => i !== it);
+    playerSay(n, `Your ${itName(kind).toLowerCase()} broke. The smith sells new ones.`);
+  } else if (it.wear < 0.15 && !it.warned) {
+    it.warned = true;
+    playerSay(n, `Your ${itName(kind).toLowerCase()} is nearly worn through.`);
+  }
+}
 function itWearHeld(n) {
   const h = itHeld(n);
   if (!h.item || !IT_WEAR[h.kind]) return;
@@ -27889,7 +28058,7 @@ function updateHud(force) {
     return;
   }
   const p = n.player, full = Math.round(100 - n.hunger), tone = full < 25 ? "bad" : full < 45 ? "warn" : "";
-  const hint = p.sleeping ? "Sleeping. Press a movement key to get up." : p.act ? p.act.text + "\u2026" : n.hunger >= 60 && !foodSat(n.inv) ? "Hungry: pick berries or fish, you eat automatically" : n.bladder >= 70 ? "Bursting! Find a privy: walk into the seat inside one" : typeof itBuildOn === "function" && itBuildOn(n) ? "BUILD: walk to push \xB7 1 smash \xB7 2 turn \xB7 3-9 put an item down \xB7 I bag \xB7 B leave" : "WASD to move \xB7 walk into things to use them \xB7 Q hand mode (Talk, Push, Search) \xB7 1-9 belt \xB7 I bag \xB7 B build";
+  const hint = p.sleeping ? "Sleeping. Press a movement key to get up." : p.act ? p.act.text + "\u2026" : n.hunger >= 60 && !foodSat(n.inv) ? "Hungry: pick berries or fish, you eat automatically" : n.bladder >= 70 ? "Bursting! Find a privy: walk into the seat inside one" : typeof itBuildOn === "function" && itBuildOn(n) ? "BUILD: walk to push \xB7 2 destroy \xB7 3 turn \xB7 4-0 put an item down \xB7 I menu \xB7 B leave" : typeof IT_AUTO !== "undefined" && IT_AUTO ? "WASD to move \xB7 walk into things to use them \xB7 1-0 hotbar \xB7 I inventory \xB7 B build" : "WASD to move \xB7 walk into things to use them \xB7 Q hand mode (Talk, Push, Search) \xB7 1-9 belt \xB7 I bag \xB7 B build";
   const sig = [full, JSON.stringify(n.inv), hint, n.status, Math.round((n.bladder || 0) / 4), Math.round((n.mood || 0) / 6)].join("|");
   if (!force && sig === hudSig) return;
   hudSig = sig;

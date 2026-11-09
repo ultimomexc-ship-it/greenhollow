@@ -11,13 +11,13 @@ const PUSH_MAX = 5;   // the player is strong: five things at once
 const LF_ROCK_ART = ['boulder_0', 'boulder_1', 'boulder_2', 'boulder_3'];
 Object.assign(LF_NOUN, { rock: 'rock' });
 /** how a loose thing is drawn (a chair or bed pushed out of a house keeps its look) */
-const lfPropArt = pr => pr.art ? pr.art : pr.kind === 'rock' ? LF_ROCK_ART[(pr.v || 0) & 3] : pr.kind === 'chair' ? 'seat_' + ['down', 'left', 'up', 'right'][(pr.rot || 0) & 3] : pr.kind === 'bed' ? 'bed_head_' + ((pr.rot || 0) & 1 ? 'down' : 'up') + '_' + ((pr.v || 0) % 5) : (LF_ART[pr.kind] || 'crate');
-const PUSH_STATION: Record<number, string> = { [T.TABLE]: 'table', [T.COUNTER]: 'counter', [T.FORGE]: 'forge', [T.ANVIL]: 'anvil', [T.LOOM]: 'loom', [T.OVEN]: 'oven', [T.SHELF]: 'shelf' };   // furniture that is just its tile (no record of its own)
+const lfPropArt = pr => pr.art ? pr.art : pr.kind === 'lamp' ? (daylight(GA.hour) < 0.55 ? 'lamp_lit' : 'lamp_unlit') : pr.kind === 'tent' ? 'tent_' + ((pr.v || 0) % 4) : pr.kind === 'rock' ? LF_ROCK_ART[(pr.v || 0) & 3] : pr.kind === 'chair' ? 'seat_' + ['down', 'left', 'up', 'right'][(pr.rot || 0) & 3] : pr.kind === 'bed' ? 'bed_head_' + ((pr.rot || 0) & 1 ? 'down' : 'up') + '_' + ((pr.v || 0) % 5) : (LF_ART[pr.kind] || 'crate');
+const PUSH_STATION: Record<number, string> = { [T.TABLE]: 'table', [T.COUNTER]: 'counter', [T.FORGE]: 'forge', [T.ANVIL]: 'anvil', [T.LOOM]: 'loom', [T.OVEN]: 'oven', [T.SHELF]: 'shelf', [T.ALTAR]: 'altar', [T.PEW]: 'pew' };   // furniture that is just its tile (no record of its own)
 const PUSH_FURNITURE = new Set([T.SEAT, T.BED, T.BARREL, ...Object.keys(PUSH_STATION).map(Number)]);
 const pushRoomOf = (x, y) => { const i = roomAt[y] && roomAt[y][x]; return i != null && i >= 0 ? rooms[i] : null; };
 /** the light furniture standing on this tile (a house or tavern chair, bed or the family barrel), or null */
 function pushFurniture(x, y) {
-  const g = grid[y] && grid[y][x]; if (!PUSH_FURNITURE.has(g)) return null; const r = pushRoomOf(x, y); if (!r || r.dead || r.kind === 'privy' || r.kind === 'church' || r.kind === 'jail') return null;
+  const g = grid[y] && grid[y][x]; if (!PUSH_FURNITURE.has(g)) return null; const r = pushRoomOf(x, y); if (!r || r.dead) return null;   // (every room: the church, the jail and the privies too)
   if (PUSH_STATION[g]) return { type: PUSH_STATION[g], t: g, r, o: { x, y } };   // (tables, counters, ovens, forges, anvils, looms and shelves have no record of their own: they are just their tile; every one can be pushed out of the door and back in)
   if (g === T.SEAT) { const s = (r.seats || []).find(q => q.x === x && q.y === y && !q.out); return s ? { type: 'seat', t: g, r, o: s } : null; }
   if (g === T.BED) { const b = (r.beds || []).find(q => q.x === x && q.y === y && !q.out); return b ? { type: 'bed', t: g, r, o: b } : null; }
