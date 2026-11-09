@@ -200,6 +200,15 @@ body.fs #c { height: 100vh !important; height: 100dvh !important; }
 .talk .th .lv:hover, .talk .th .lv:focus-visible { color: var(--fg); border-color: var(--amber); }
 .talk .ta { white-space: pre-line; }
 
+/* islands panel */
+.bgwrap.isl{min-width:min(560px,94%)}.islrow{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:8px 10px;margin:4px 0;background:#101317;border:1px solid #2c2820;border-radius:8px}.islrow .dim,.islnew .dim{color:#8d8570;font-size:11.5px}
+.islbtns{display:flex;gap:6px}.islnew{display:flex;flex-direction:column;gap:8px;margin-top:4px}.islnew label{cursor:pointer}.islseed{display:flex;gap:10px;align-items:center;margin-top:4px}.islseed input{background:#101317;border:1px solid #3a3226;color:#d9d2c0;border-radius:6px;padding:5px 8px}
+.islname{margin-left:10px;color:#a8a08c;font-size:12.5px}
+.chico{font-size:11px;opacity:.7}
+.bgwrap.isl .sub{margin:6px 0;position:static;height:auto}.bgwrap.isl .bglab{margin-top:12px}.bgwrap.isl .bghead{position:static}
+#islands{position:fixed;inset:0;z-index:50}#islands .bgwrap{max-height:90vh}
+#islands{line-height:1.4}
+
 </style>
 </head>
 <body>
@@ -224,9 +233,8 @@ body.fs #c { height: 100vh !important; height: 100dvh !important; }
   </header>
   <div class="resbar" id="resbar" aria-live="off"></div>
   <div class="genbar">
-    <button type="button" class="btn primary" id="newTown">Generate new town</button>
+    <button type="button" class="btn primary" id="newTown">Islands</button><span id="islandName" class="islname"></span>
     <form id="seedForm" class="seedform"><label for="seed">Seed</label><input id="seed" type="text" autocomplete="off" spellcheck="false" value=""><button type="submit" class="btn">Load seed</button></form>
-    <div class="sizes"><span id="sizeLbl">Map size</span><div class="seg" role="group" aria-labelledby="sizeLbl"><button type="button" data-size="S" aria-pressed="false">Small</button><button type="button" data-size="M" aria-pressed="false">Medium</button><button type="button" data-size="L" aria-pressed="true">Large</button></div></div>
     <label class="opt" for="routes"><input type="checkbox" id="routes"> Show every route</label>
   </div>
   <div class="stripwrap">
@@ -11159,7 +11167,7 @@ function fmtTime(m) {
   m = Math.floor(m % 1440);
   return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
 }
-function loadTown(seed, size) {
+function loadTown(seed, size, scenario) {
   game.player = null;
   game.time = 5 * 60 + 30;
   game.ft = game.time;
@@ -11169,7 +11177,7 @@ function loadTown(seed, size) {
   let ok = false;
   for (let k = 0; k < 12 && !ok; k++) {
     try {
-      generateTown(seed + k * 7919 >>> 0, size);
+      generateTown(seed + k * 7919 >>> 0, "L");
       ok = true;
     } catch (e) {
       if (!/no site/.test(e.message)) throw e;
@@ -11178,10 +11186,36 @@ function loadTown(seed, size) {
   if (!ok) throw new Error("town generation failed");
   initEconomy();
   makeTownIndex2();
-  prebuildVillage();
-  housingTick();
-  growthProjects();
+  if (scenario === "blank") blankStart();
+  else {
+    prebuildVillage();
+    housingTick();
+    growthProjects();
+  }
+  town.scenario = scenario === "blank" ? "blank" : "village";
   return town;
+}
+function blankStart() {
+  const keep = npcs.filter((n) => canControl(n) && n.age >= 20 && n.age <= 36)[0] || npcs.find(canControl);
+  if (!keep) throw new Error("no settler for the blank island");
+  npcs = [keep];
+  town.byId = /* @__PURE__ */ new Map([[keep.id, keep]]);
+  town.founders = 1;
+  town.tippingId = keep.id;
+  for (const k of Object.keys(keep.fam || {})) keep.fam[k] = Array.isArray(keep.fam[k]) ? [] : null;
+  keep.rel = {};
+  keep.know = {};
+  keep.aff = {};
+  keep.homeRoom = null;
+  keep.bed = { owner: null };
+  keep.seat = null;
+  town.tents = [];
+  addTent();
+  town.crops = [];
+  town.fields = 0;
+  town.chron = [];
+  town.dead = [];
+  chron("You have reached the island alone, with a few tools. There is a camp ground and a tent.", "note");
 }
 function makeTownIndex2() {
   npcs.forEach((n) => {
@@ -19612,6 +19646,7 @@ function itBuildToggle(n, on) {
       n.sel = b.prev.sel;
       n.mode = b.prev.mode;
     }
+    if (typeof isleSave === "function") isleSave();
   }
   if (p) {
     p.act = null;
@@ -26956,7 +26991,7 @@ function openShop(m) {
   updateHud(true);
 }
 const el = (id) => document.getElementById(id);
-const state = { speed: 2, rate: 2, tab: "people", size: "L" };
+const state = { speed: 2, rate: 2, tab: "people" };
 const rows = /* @__PURE__ */ new Map();
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const cap1 = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -27308,7 +27343,7 @@ function updateMarket(force) {
 function addChatter(ev) {
   const ul = el("chat");
   const li = document.createElement("li");
-  li.innerHTML = '<div class="meta">' + fmtTime(ev.time) + " \xB7 Day " + (Math.floor(ev.time / 1440) + 1) + " \xB7 " + esc(cap1(ev.place)) + "</div>" + ev.lines.map((l) => '<div class="ln"><b style="color:' + l.who.shirt + '">' + esc(l.who.first) + "</b> " + esc(l.text) + "</div>").join("");
+  li.innerHTML = '<div class="meta"><span class="chico" title="chatter">\u{1F4AC}</span> ' + fmtTime(ev.time) + " \xB7 Day " + (Math.floor(ev.time / 1440) + 1) + " \xB7 " + esc(cap1(ev.place)) + "</div>" + ev.lines.map((l) => '<div class="ln"><b style="color:' + l.who.shirt + '">' + esc(l.who.first) + "</b> " + esc(l.text) + "</div>").join("");
   li.addEventListener("click", () => {
     select(ev.a);
     centerOn(ev.a.x, ev.a.y);
@@ -27368,7 +27403,8 @@ function drainEvents(now) {
     if (!ev.quiet) addChatter(ev);
     if (ev.a.player || ev.b.player) {
       for (let i = bubbles.length - 1; i >= 0; i--) if (bubbles[i].n === ev.a || bubbles[i].n === ev.b) bubbles.splice(i, 1);
-    } else if (ev.a.bubbleUntil > now || ev.b.bubbleUntil > now) continue;
+    } else if (!ev.self && !ev.focus) continue;
+    else if (ev.a.bubbleUntil > now || ev.b.bubbleUntil > now) continue;
     let at = now;
     ev.lines.forEach((l) => {
       for (const part of splitSpeech(l.text)) {
@@ -27645,11 +27681,6 @@ document.querySelectorAll("[data-speed]").forEach((b) => b.addEventListener("cli
   state.speed = +b.dataset.speed;
   document.querySelectorAll("[data-speed]").forEach((x) => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
 }));
-document.querySelectorAll("[data-size]").forEach((b) => b.addEventListener("click", () => {
-  state.size = b.dataset.size;
-  document.querySelectorAll("[data-size]").forEach((x) => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
-  newTown(String(Math.floor(Math.random() * 1e6)));
-}));
 const dayNo = () => Math.floor(game.time / 1440);
 function skipTo(min) {
   fastForward(min);
@@ -27706,10 +27737,10 @@ function seedFrom(text) {
   if (!t) return Math.floor(Math.random() * 1e6);
   return /^\d+$/.test(t) ? +t >>> 0 : hashStr(t);
 }
-function newTown(seedText) {
+function newTown(seedText, scenario) {
   const raw = seedText === void 0 ? String(Math.floor(Math.random() * 1e6)) : seedText;
   el("seed").value = raw;
-  loadTown(seedFrom(raw), state.size);
+  loadTown(seedFrom(raw), "L", scenario);
   bubbles.length = 0;
   pops.length = 0;
   tradeSeen = 0;
@@ -27738,7 +27769,7 @@ function newTown(seedText) {
   if (typeof sbPresim === "function") {
     SB.count = {};
     SB.pair = /* @__PURE__ */ new Map();
-    sbPresim();
+    if (scenario !== "blank") sbPresim();
   }
   {
     const pn = chooseTipping();
@@ -27747,7 +27778,7 @@ function newTown(seedText) {
       startPlaying(pn);
     }
   }
-  el("legend").textContent = W + "\xD7" + H + " \xB7 " + { S: "small", M: "medium", L: "large" }[state.size];
+  el("legend").textContent = (scenario === "blank" ? "blank island" : "ready village") + " \xB7 " + W + "\xD7" + H;
 }
 el("newTown").addEventListener("click", () => newTown(String(Math.floor(Math.random() * 1e6))));
 el("seedForm").addEventListener("submit", (e) => {
@@ -28084,6 +28115,415 @@ function idleRelease(now) {
     game.playerNote = nm + " carries on alone. Press W A S D to steer again.";
   }
 }
+const SAVE_VERSION = 1;
+const SAVE_SKIP = /* @__PURE__ */ new Set(["plan", "act", "events", "follow", "slide", "talkUI", "run", "onEnd", "spot"]);
+function ghB64(bytes) {
+  let s = "";
+  for (let i = 0; i < bytes.length; i += 32768) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 32768));
+  return btoa(s);
+}
+function ghUnB64(t) {
+  const s = atob(t), b = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i);
+  return b;
+}
+const GH_TYPED = { Uint8Array, Int8Array, Uint16Array, Int16Array, Uint32Array, Int32Array, Float32Array, Float64Array };
+function ghEncode(root) {
+  const refs = /* @__PURE__ */ new Map(), stack = [root];
+  const kids = (o) => o instanceof Map ? [...o.keys(), ...o.values()] : o instanceof Set ? [...o] : Array.isArray(o) ? o : Object.keys(o).filter((k) => !SAVE_SKIP.has(k)).map((k) => o[k]);
+  const walkable2 = (v) => v && typeof v === "object" && !(v instanceof Node) && !ArrayBuffer.isView(v);
+  while (stack.length) {
+    const o = stack.pop();
+    if (!walkable2(o)) continue;
+    const c = refs.get(o);
+    refs.set(o, (c || 0) + 1);
+    if (c) continue;
+    for (const v of kids(o)) stack.push(v);
+  }
+  const ids = /* @__PURE__ */ new Map();
+  let nid = 0;
+  const enc = (v) => {
+    if (v === null) return null;
+    const t = typeof v;
+    if (t === "number") return Number.isFinite(v) ? v : null;
+    if (t === "string" || t === "boolean") return v;
+    if (t === "function" || t === "undefined" || t === "symbol") return void 0;
+    if (v instanceof Node) return void 0;
+    if (ArrayBuffer.isView(v)) {
+      const name = v.constructor.name;
+      if (!GH_TYPED[name]) return void 0;
+      const u8 = new Uint8Array(v.buffer, v.byteOffset, v.byteLength);
+      return { $t: name, b: ghB64(u8) };
+    }
+    if (ids.has(v)) return { $r: ids.get(v) };
+    const shared = (refs.get(v) || 0) > 1, id = shared ? nid++ : -1;
+    if (shared) ids.set(v, id);
+    const tag = (o2) => {
+      if (shared) o2.$id = id;
+      return o2;
+    };
+    if (v instanceof Map) return tag({ $m: [...v.entries()].map(([k, x]) => [enc(k), enc(x)]) });
+    if (v instanceof Set) return tag({ $s: [...v].map(enc) });
+    if (Array.isArray(v)) {
+      if (v.length >= 16 && v.every((x) => Number.isInteger(x) && x >= -32768 && x <= 32767)) return tag({ $i: ghB64(new Uint8Array(new Int16Array(v).buffer)) });
+      return tag({ $a: v.map((x) => {
+        const e = enc(x);
+        return e === void 0 ? null : e;
+      }) });
+    }
+    const o = {};
+    for (const k of Object.keys(v)) {
+      if (SAVE_SKIP.has(k)) continue;
+      const e = enc(v[k]);
+      if (e !== void 0) o[k] = e;
+    }
+    return tag({ $o: o });
+  };
+  return JSON.stringify(enc(root));
+}
+function ghDecode(text) {
+  const byId2 = /* @__PURE__ */ new Map();
+  const dec = (e) => {
+    if (e === null || typeof e !== "object") return e;
+    if (e.$r !== void 0) return byId2.get(e.$r);
+    if (e.$t) {
+      const b = ghUnB64(e.b);
+      return new GH_TYPED[e.$t](b.buffer, b.byteOffset, b.byteLength / GH_TYPED[e.$t].BYTES_PER_ELEMENT);
+    }
+    let out;
+    if (e.$m) {
+      out = /* @__PURE__ */ new Map();
+      if (e.$id !== void 0) byId2.set(e.$id, out);
+      for (const [k, v] of e.$m) out.set(dec(k), dec(v));
+      return out;
+    }
+    if (e.$s) {
+      out = /* @__PURE__ */ new Set();
+      if (e.$id !== void 0) byId2.set(e.$id, out);
+      for (const v of e.$s) out.add(dec(v));
+      return out;
+    }
+    if (e.$i !== void 0) {
+      const b = ghUnB64(e.$i);
+      out = Array.from(new Int16Array(b.buffer, b.byteOffset, b.byteLength / 2));
+      if (e.$id !== void 0) byId2.set(e.$id, out);
+      return out;
+    }
+    if (e.$a) {
+      out = [];
+      if (e.$id !== void 0) byId2.set(e.$id, out);
+      for (const v of e.$a) out.push(dec(v));
+      return out;
+    }
+    out = {};
+    if (e.$id !== void 0) byId2.set(e.$id, out);
+    for (const k of Object.keys(e.$o || {})) out[k] = dec(e.$o[k]);
+    return out;
+  };
+  return dec(JSON.parse(text));
+}
+function isleCapture() {
+  return ghEncode({ v: SAVE_VERSION, game: Object.assign({}, game, { events: [] }), town, npcs, rooms, doors, lamps, grid, roomAt, merchants, plazaTiles, shoreTiles, W, H, NEXT_ID, sb: { count: SB.count, pair: SB.pair, presim: SB.presim } });
+}
+function isleRestore(text) {
+  const o = ghDecode(text);
+  W = o.W;
+  H = o.H;
+  sizeKey = "L";
+  grid = o.grid;
+  roomAt = o.roomAt;
+  rooms = o.rooms;
+  doors = o.doors;
+  lamps = o.lamps;
+  town = o.town;
+  npcs = o.npcs;
+  merchants = o.merchants || [];
+  plazaTiles = o.plazaTiles || [];
+  shoreTiles = o.shoreTiles || [];
+  NEXT_ID = o.NEXT_ID || 1;
+  for (const k of Object.keys(game)) delete game[k];
+  Object.assign(game, o.game, { events: [] });
+  SB.count = o.sb && o.sb.count || {};
+  SB.pair = o.sb && o.sb.pair || /* @__PURE__ */ new Map();
+  SB.presim = !!(o.sb && o.sb.presim);
+  reach = new Uint8Array(W * H);
+  tileOwner = /* @__PURE__ */ new Map();
+  pairCool.clear();
+  for (const n of npcs) {
+    n.plan = null;
+    n.si = 0;
+    n.stepStarted = false;
+    n.moving = false;
+    n.path = [];
+    n.x = n.tx;
+    n.y = n.ty;
+    n.t = 0;
+    n.slide = null;
+    n.rand = rng(town.seed + n.id * 977);
+    n.talkUntil = 0;
+    if (n.pose !== "sleep" && n.pose !== "sit") n.pose = "stand";
+    n.roaming = false;
+    if (n.player) {
+      n.player.keys = {};
+      n.player.act = null;
+      n.player.lock = false;
+      n.player.grace = null;
+      n.player.skip = null;
+    }
+  }
+  town.treeCache = null;
+  town.stoneCache = null;
+  town.gridV = (town.gridV || 0) + 1;
+  town.lfPV = (town.lfPV || 0) + 1;
+  town.bldQ = [];
+  for (const p of town.props || []) {
+    p.follow = null;
+    p.st = 0;
+  }
+  rebuildOcc();
+  refreshReach();
+  refreshShore();
+  return o;
+}
+const ISLE = { db: null, id: null, last: 0, busy: false };
+const isleOK = () => !window.GH_NOSAVE && typeof indexedDB !== "undefined";
+function isleOpenDB() {
+  if (ISLE.db) return Promise.resolve(ISLE.db);
+  return new Promise((res, rej) => {
+    const rq = indexedDB.open("greenhollow", 1);
+    rq.onupgradeneeded = () => {
+      const d = rq.result;
+      d.createObjectStore("meta", { keyPath: "id" });
+      d.createObjectStore("data", { keyPath: "id" });
+    };
+    rq.onsuccess = () => {
+      ISLE.db = rq.result;
+      res(rq.result);
+    };
+    rq.onerror = () => rej(rq.error);
+  });
+}
+const isleReq = (rq) => new Promise((res, rej) => {
+  rq.onsuccess = () => res(rq.result);
+  rq.onerror = () => rej(rq.error);
+});
+async function isleList() {
+  const d = await isleOpenDB();
+  const all = await isleReq(d.transaction("meta").objectStore("meta").getAll());
+  return all.sort((a, b) => b.savedAt - a.savedAt);
+}
+async function isleDelete(id) {
+  const d = await isleOpenDB();
+  const tx = d.transaction(["meta", "data"], "readwrite");
+  tx.objectStore("meta").delete(id);
+  tx.objectStore("data").delete(id);
+  await new Promise((r) => {
+    tx.oncomplete = r;
+    tx.onerror = r;
+  });
+  if (ISLE.id === id) ISLE.id = null;
+  try {
+    if (localStorage.getItem("gh.last") === id) localStorage.removeItem("gh.last");
+  } catch (e) {
+  }
+}
+async function isleSave() {
+  if (!isleOK() || !ISLE.id || !town || ISLE.busy) return false;
+  ISLE.busy = true;
+  try {
+    const json = isleCapture(), d = await isleOpenDB(), pl = game.player, meta = { id: ISLE.id, name: town.name, seed: town.seed, scenario: town.scenario || "village", day: Math.floor(game.time / 1440) + 1, pop: npcs.filter((n) => !n.dead).length, savedAt: Date.now(), version: SAVE_VERSION, created: ISLE.created || Date.now(), you: pl ? pl.first : "" };
+    const tx = d.transaction(["meta", "data"], "readwrite");
+    tx.objectStore("data").put({ id: ISLE.id, json });
+    tx.objectStore("meta").put(meta);
+    await new Promise((r, j) => {
+      tx.oncomplete = r;
+      tx.onerror = () => j(tx.error);
+    });
+    ISLE.last = Date.now();
+    isleLabel();
+    return true;
+  } catch (e) {
+    console.warn("save failed", e);
+    return false;
+  } finally {
+    ISLE.busy = false;
+  }
+}
+function isleNew(seedText, scenario) {
+  newTown(seedText, scenario);
+  ISLE.id = "i" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
+  ISLE.created = Date.now();
+  try {
+    localStorage.setItem("gh.last", ISLE.id);
+  } catch (e) {
+  }
+  isleLabel();
+  isleSave();
+}
+async function isleLoad(id) {
+  try {
+    const d = await isleOpenDB(), rec = await isleReq(d.transaction("data").objectStore("data").get(id)), meta = await isleReq(d.transaction("meta").objectStore("meta").get(id));
+    if (!rec) return false;
+    isleRestore(rec.json);
+    ISLE.id = id;
+    ISLE.created = meta && meta.created;
+    ISLE.busy = false;
+    try {
+      localStorage.setItem("gh.last", id);
+    } catch (e) {
+    }
+    bubbles.length = 0;
+    pops.length = 0;
+    tradeSeen = 0;
+    chronSeen = 0;
+    cardSig = "";
+    mktSig = "";
+    chronSig = "";
+    townSig = "";
+    hudSig = "";
+    el("chat").innerHTML = "";
+    el("chatEmpty").hidden = false;
+    el("seed").value = String(town.seed);
+    view.hover = null;
+    view.selected = null;
+    cam.follow = false;
+    el("zfol").setAttribute("aria-pressed", "false");
+    if (typeof TSIGHT !== "undefined") {
+      TSIGHT.geoKey = "";
+      TSIGHT.geo = null;
+    }
+    buildStatic();
+    sizeCanvas();
+    fitCam();
+    cam.z = Math.max(cam.fit, 1.15);
+    const pn = game.player;
+    game.player = null;
+    if (pn) pn.player = null;
+    if (pn) centerOn(pn.tx, pn.ty);
+    else centerOn(town.cx, town.cy);
+    clampCam();
+    buildRoster();
+    buildTown(true);
+    select(pn || npcs[0]);
+    updateUI(true);
+    updateMarket(true);
+    el("legend").textContent = (town.scenario === "blank" ? "blank island" : "ready village") + " \xB7 " + W + "\xD7" + H;
+    if (pn && canControl(pn)) startPlaying(pn);
+    isleLabel();
+    return true;
+  } catch (e) {
+    console.error("load failed", e);
+    return false;
+  }
+}
+function isleLabel() {
+  const e = document.getElementById("islandName");
+  if (e) e.textContent = ISLE.id && town ? town.name + " \xB7 day " + (Math.floor(game.time / 1440) + 1) : "";
+}
+function isleAgo(t) {
+  const m = Math.max(0, Math.round((Date.now() - t) / 6e4));
+  return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " days ago";
+}
+async function isleShow(first) {
+  let box = document.getElementById("islands");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "islands";
+    box.className = "bagbox";
+    canvas.parentNode.appendChild(box);
+  }
+  box.hidden = false;
+  box.innerHTML = '<div class="bgwrap isl"><div class="bghead"><b>Islands</b></div><p class="sub">Loading\u2026</p></div>';
+  let list = [];
+  let err = "";
+  try {
+    list = await isleList();
+  } catch (e) {
+    err = "Saving is not available in this browser, so islands cannot be kept.";
+  }
+  const rows2 = list.map((m) => `<div class="islrow"><div><b>${esc(m.name)}</b> <span class="dim">${m.scenario === "blank" ? "blank island" : "ready village"}</span><br><span class="dim">day ${m.day} \xB7 ${m.pop} ${m.pop === 1 ? "person" : "people"}${m.you ? " \xB7 you: " + esc(m.you) : ""} \xB7 ${isleAgo(m.savedAt)}</span></div><div class="islbtns"><button type="button" class="btn primary" data-icont="${m.id}">${m.id === ISLE.id ? "Resume" : "Continue"}</button><button type="button" class="btn" data-idel="${m.id}">Delete</button></div></div>`).join("");
+  box.innerHTML = `<div class="bgwrap isl"><div class="bghead"><b>Islands</b>${ISLE.id || !first ? '<button type="button" class="bgx" data-iclose="1" title="Close">\xD7</button>' : ""}</div>` + (err ? `<p class="sub">${esc(err)}</p>` : "") + (rows2 ? `<div class="bglab">Your islands \xB7 each one is saved automatically</div>${rows2}` : '<p class="sub">No islands yet. Start one below.</p>') + `<div class="bglab">New island</div><div class="islnew"><label><input type="radio" name="isc" value="blank" checked> <b>Blank island</b> <span class="dim">you alone, an empty island: build it up</span></label><label><input type="radio" name="isc" value="village"> <b>Ready village</b> <span class="dim">a built village with people (for trying things)</span></label><div class="islseed"><label>Seed <input id="islseed" type="text" autocomplete="off" spellcheck="false" placeholder="random"></label><button type="button" class="btn primary" data-inew="1">Start</button></div></div></div>`;
+}
+function isleHide() {
+  const b = document.getElementById("islands");
+  if (b) b.hidden = true;
+  canvas.focus({ preventScroll: true });
+}
+document.addEventListener("click", async (e) => {
+  const t = e.target;
+  if (!t || !t.closest) return;
+  const c = t.closest("[data-icont]"), d = t.closest("[data-idel]"), n = t.closest("[data-inew]"), x = t.closest("[data-iclose]");
+  if (x) {
+    isleHide();
+    return;
+  }
+  if (c) {
+    const id = c.dataset.icont;
+    if (id === ISLE.id) {
+      isleHide();
+      return;
+    }
+    c.disabled = true;
+    if (ISLE.id) await isleSave();
+    const ok = await isleLoad(id);
+    if (ok) isleHide();
+    else {
+      alert("This island could not be loaded. It may be from an older version: you can delete it.");
+      isleShow();
+    }
+    return;
+  }
+  if (d) {
+    if (confirm("Delete this island for good?")) {
+      await isleDelete(d.dataset.idel);
+      isleShow(!ISLE.id);
+    }
+    return;
+  }
+  if (n) {
+    const sc = document.querySelector('input[name="isc"]:checked').value, sd = document.getElementById("islseed").value;
+    if (ISLE.id) await isleSave();
+    isleNew(sd.trim() || void 0, sc);
+    isleHide();
+    return;
+  }
+  if (t.closest("#newTown")) {
+    isleShow();
+    return;
+  }
+});
+async function isleBoot() {
+  if (!isleOK()) {
+    newTown();
+    return;
+  }
+  let last2 = null;
+  try {
+    last2 = localStorage.getItem("gh.last");
+  } catch (e) {
+  }
+  try {
+    const list = await isleList();
+    if (last2 && list.some((m) => m.id === last2) && await isleLoad(last2)) return;
+    if (!list.length) {
+      isleShow(true);
+      return;
+    }
+  } catch (e) {
+    newTown();
+    return;
+  }
+  isleShow(true);
+}
+setInterval(() => {
+  if (isleOK() && ISLE.id && typeof skipping !== "undefined" && !skipping && Date.now() - ISLE.last > 25e3) isleSave();
+}, 5e3);
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) isleSave();
+});
+window.addEventListener("pagehide", () => {
+  isleSave();
+});
 let last = performance.now();
 function eventSlow() {
   const n = game.player;
@@ -28095,6 +28535,10 @@ function eventSlow() {
   return on ? Math.min(1, 1 / (state.rate * state.speed)) : 1;
 }
 function frame(now) {
+  if (!town) {
+    requestAnimationFrame(frame);
+    return;
+  }
   const dt = Math.min(100, now - last) / 1e3;
   last = now;
   {
@@ -28155,7 +28599,8 @@ if (window.ResizeObserver) new ResizeObserver(() => {
 else window.addEventListener("resize", () => {
   if (town) sizeCanvas();
 });
-newTown();
+if (typeof isleBoot === "function") isleBoot();
+else newTown();
 requestAnimationFrame(frame);
 const GNAME = (g) => GOODS[g] && GOODS[g].name || g;
 const talkUI = { o: null, say: "", q: "", prev: "2", opts: [], dy: 0 };

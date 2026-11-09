@@ -1091,6 +1091,34 @@ test('overheard: villagers talk from their own lives, in contractions, and child
   return `${r.n} lines of small talk, ${r.distinct} distinct, ${r.named} naming a villager; contractions right`;
 }));
 
+test('islands: an island saves and restores exactly, and the village carries on afterwards', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await simulate(page, 2 * 1440);
+  const r = await page.evaluate(() => {
+    if (!game.player) startPlaying(canControl(byId(game.steer)) ? byId(game.steer) : npcs.find(canControl));
+    const P = game.player; itBuildToggle(P, true); for (const k of ['bwall', 'bed', 'chair']) bldPlaceFront(P, k); itBuildToggle(P, false);
+    const hash = () => { let h = 0; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) h = (h * 31 + grid[y][x] + 7 * (roomAt[y][x] + 1)) | 0; return h; };
+    const snap = () => JSON.stringify([npcs.length, rooms.filter(r => !r.dead).length, town.props.length, town.chron.length, hash(), game.time, game.player && game.player.coin]);
+    const a = snap(); isleRestore(isleCapture()); return { a, b: snap() };
+  });
+  check(r.a === r.b, 'restored island differs: ' + r.a + ' vs ' + r.b);
+  await simulate(page, 3 * 1440);
+  const s = await page.evaluate(() => ({ dead: npcs.filter(n => n.dead).length }));
+  check(!errors.length, 'errors after restore: ' + errors.slice(0, 2).join(' | '));
+  check(s.dead === 0, 'deaths after restore');
+  return 'capture and restore agree, then 3 more days ran clean';
+});
+
+test('islands: a blank island has one settler, a tent and nothing built, and runs', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => { newTown('blank-test', 'blank'); return { n: npcs.length, rooms: rooms.filter(r => !r.dead).length, tents: town.tents.length }; });
+  check(r.n === 1, 'blank island should start with one settler, got ' + r.n);
+  check(r.tents >= 1, 'blank island needs a tent');
+  await simulate(page, 2 * 1440);
+  check(!errors.length, 'errors on a blank island: ' + errors.slice(0, 2).join(' | '));
+  return `${r.n} settler, ${r.rooms} rooms, ${r.tents} tent; two days ran clean`;
+});
+
 const browser = await launch();
 let failed = 0;
 const chosen = tests.filter(t => t.name.includes(filter));

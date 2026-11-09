@@ -15,11 +15,6 @@ document.querySelectorAll('[data-speed]').forEach((b: any) => b.addEventListener
   state.speed = +b.dataset.speed;
   document.querySelectorAll('[data-speed]').forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
 }));
-document.querySelectorAll('[data-size]').forEach((b: any) => b.addEventListener('click', () => {
-  state.size = b.dataset.size;
-  document.querySelectorAll('[data-size]').forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
-  newTown(String(Math.floor(Math.random() * 1000000)));
-}));
 const dayNo = () => Math.floor(game.time / 1440);
 function skipTo(min) { fastForward(min); bubbles.length = 0; updateUI(true); updateMarket(true); }
 el('strip').addEventListener('click', e => {
@@ -43,18 +38,18 @@ document.querySelectorAll('.skip').forEach((b: any) => b.addEventListener('click
 }));
 el('routes').addEventListener('change', e => { view.showRoutes = (e.target as any).checked; });
 function seedFrom(text) { const t = String(text).trim(); if (!t) return Math.floor(Math.random() * 1e6); return /^\d+$/.test(t) ? (+t) >>> 0 : hashStr(t); }
-function newTown(seedText?) {
+function newTown(seedText?, scenario?) {
   const raw = seedText === undefined ? String(Math.floor(Math.random() * 1000000)) : seedText;
   (el('seed') as any).value = raw;
-  loadTown(seedFrom(raw), state.size);
+  loadTown(seedFrom(raw), 'L', scenario);
   bubbles.length = 0; pops.length = 0; tradeSeen = 0; chronSeen = 0; cardSig = ''; mktSig = ''; chronSig = ''; townSig = '';
   el('chat').innerHTML = ''; el('chatEmpty').hidden = false;
   view.hover = null; view.selected = null; cam.follow = false; el('zfol').setAttribute('aria-pressed', 'false');
   buildStatic(); sizeCanvas(); fitCam(); cam.z = Math.max(cam.fit, 1.15); centerOn(town.cx, town.cy); clampCam();
   buildRoster(); buildTown(true); select(npcs.find(n => n.adult) || npcs[0]); updateUI(true); updateMarket(true);
-  if (typeof sbPresim === 'function') { SB.count = {}; SB.pair = new Map(); sbPresim(); }      // the village's life before the player arrives
+  if (typeof sbPresim === 'function') { SB.count = {}; SB.pair = new Map(); if (scenario !== 'blank') sbPresim(); }      // the village's life before the player arrives
   { const pn = chooseTipping(); if (pn) { lifeStepOutside(pn); startPlaying(pn); } }
-  el('legend').textContent = W + '×' + H + ' · ' + { S: 'small', M: 'medium', L: 'large' }[state.size];
+  el('legend').textContent = (scenario === 'blank' ? 'blank island' : 'ready village') + ' · ' + W + '×' + H;
 }
 el('newTown').addEventListener('click', () => newTown(String(Math.floor(Math.random() * 1000000))));
 el('seedForm').addEventListener('submit', e => { e.preventDefault(); newTown((el('seed') as any).value); });

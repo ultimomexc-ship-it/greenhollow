@@ -225,15 +225,24 @@ function fastForward(target) {
 }
 function fmtTime(m) { m = Math.floor(m % 1440); return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); }
 
-function loadTown(seed, size) {
+function loadTown(seed, size, scenario?) {
   game.player = null;
   game.time = 5 * 60 + 30; game.ft = game.time; game.failures = 0; game.events.length = 0; pairCool.clear();
-  let ok=false; for(let k=0;k<12&&!ok;k++){ try{ generateTown((seed+k*7919)>>>0, size); ok=true; }catch(e){ if(!/no site/.test(e.message)) throw e; } }
+  let ok=false; for(let k=0;k<12&&!ok;k++){ try{ generateTown((seed+k*7919)>>>0, 'L'); ok=true; }catch(e){ if(!/no site/.test(e.message)) throw e; } }
   if(!ok) throw new Error('town generation failed');
   initEconomy();
   makeTownIndex2();
-  prebuildVillage();
-  housingTick(); growthProjects();
+  if (scenario === 'blank') blankStart(); else { prebuildVillage(); housingTick(); growthProjects(); }
+  town.scenario = scenario === 'blank' ? 'blank' : 'village';
   return town;
+}
+/** the blank island: you alone, with a tent in the empty camp; nobody else yet (visitors come later) */
+function blankStart() {
+  const keep = npcs.filter(n => canControl(n) && n.age >= 20 && n.age <= 36)[0] || npcs.find(canControl); if (!keep) throw new Error('no settler for the blank island');
+  npcs = [keep]; town.byId = new Map([[keep.id, keep]]); town.founders = 1; town.tippingId = keep.id;
+  for (const k of Object.keys(keep.fam || {})) keep.fam[k] = Array.isArray(keep.fam[k]) ? [] : null;
+  keep.rel = {}; keep.know = {}; keep.aff = {}; keep.homeRoom = null; keep.bed = { owner: null }; keep.seat = null;
+  town.tents = []; addTent(); town.crops = []; town.fields = 0; town.chron = []; town.dead = [];
+  chron('You have reached the island alone, with a few tools. There is a camp ground and a tent.', 'note');
 }
 function makeTownIndex2() { npcs.forEach(n => { town.byId.set(n.id, n); }); }

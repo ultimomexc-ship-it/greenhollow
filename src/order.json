@@ -62,6 +62,7 @@
   "ui/panels.ts",
   "life2/items-trade.ts",
   "ui/controls-camera.ts",
+  "ui/saves.ts",
   "ui/loop.ts",
   "ui/menus-hud.ts"
 ]

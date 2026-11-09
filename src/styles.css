@@ -189,3 +189,12 @@ body.fs #c { height: 100vh !important; height: 100dvh !important; }
 .talk .th .lv i { font: 500 10px var(--font-mono); font-style: normal; opacity: .7; margin-left: 4px; }
 .talk .th .lv:hover, .talk .th .lv:focus-visible { color: var(--fg); border-color: var(--amber); }
 .talk .ta { white-space: pre-line; }
+
+/* islands panel */
+.bgwrap.isl{min-width:min(560px,94%)}.islrow{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:8px 10px;margin:4px 0;background:#101317;border:1px solid #2c2820;border-radius:8px}.islrow .dim,.islnew .dim{color:#8d8570;font-size:11.5px}
+.islbtns{display:flex;gap:6px}.islnew{display:flex;flex-direction:column;gap:8px;margin-top:4px}.islnew label{cursor:pointer}.islseed{display:flex;gap:10px;align-items:center;margin-top:4px}.islseed input{background:#101317;border:1px solid #3a3226;color:#d9d2c0;border-radius:6px;padding:5px 8px}
+.islname{margin-left:10px;color:#a8a08c;font-size:12.5px}
+.chico{font-size:11px;opacity:.7}
+.bgwrap.isl .sub{margin:6px 0;position:static;height:auto}.bgwrap.isl .bglab{margin-top:12px}.bgwrap.isl .bghead{position:static}
+#islands{position:fixed;inset:0;z-index:50}#islands .bgwrap{max-height:90vh}
+#islands{line-height:1.4}

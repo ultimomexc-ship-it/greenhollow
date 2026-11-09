@@ -13,6 +13,7 @@ function eventSlow() {
   return on ? Math.min(1, 1 / (state.rate * state.speed)) : 1;
 }
 function frame(now) {
+  if (!town) { requestAnimationFrame(frame); return; }   // (an island is still being loaded)
   const dt = Math.min(100, now - last) / 1000; last = now;
   { const sl = game.player && game.player.player && game.player.player.sleeping;
     if (sl && state.sleepFast == null && state.speed > 0) { state.sleepFast = String(state.speed); const b: any = document.querySelector('[data-speed="100"]'); if (b) b.click(); }
@@ -29,7 +30,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 if (window.ResizeObserver) new ResizeObserver(() => { if (town) sizeCanvas(); }).observe(canvas); else window.addEventListener('resize', () => { if (town) sizeCanvas(); });
-newTown(); requestAnimationFrame(frame);
+if (typeof isleBoot === 'function') isleBoot(); else newTown(); requestAnimationFrame(frame);
 
 const GNAME = g => (GOODS[g] && GOODS[g].name) || g;
 

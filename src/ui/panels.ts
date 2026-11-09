@@ -1,6 +1,6 @@
 /* ================= UI and main loop ================= */
 const el = id => document.getElementById(id);
-const state: any = { speed: 2, rate: 2, tab: 'people', size: 'L' };
+const state: any = { speed: 2, rate: 2, tab: 'people' };
 const rows = new Map();
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const cap1 = s => s.charAt(0).toUpperCase() + s.slice(1);
@@ -226,7 +226,7 @@ function updateMarket(force) {
 
 function addChatter(ev) {
   const ul = el('chat'); const li = document.createElement('li');
-  li.innerHTML = '<div class="meta">' + fmtTime(ev.time) + ' · Day ' + (Math.floor(ev.time / 1440) + 1) + ' · ' + esc(cap1(ev.place)) + '</div>' +
+  li.innerHTML = '<div class="meta"><span class="chico" title="chatter">\u{1F4AC}</span> ' + fmtTime(ev.time) + ' · Day ' + (Math.floor(ev.time / 1440) + 1) + ' · ' + esc(cap1(ev.place)) + '</div>' +
     ev.lines.map(l => '<div class="ln"><b style="color:' + l.who.shirt + '">' + esc(l.who.first) + '</b> ' + esc(l.text) + '</div>').join('');
   li.addEventListener('click', () => { select(ev.a); centerOn(ev.a.x, ev.a.y); });
   ul.insertBefore(li, ul.firstChild);
@@ -260,6 +260,7 @@ function drainEvents(now) {
     if (ev.focus || (ev.a.player || ev.b.player)) { for (let i = bubbles.length - 1; i >= 0; i--) if (bubbles[i].n !== ev.a && bubbles[i].n !== ev.b) bubbles.splice(i, 1); }
     if (!ev.quiet) addChatter(ev);
     if (ev.a.player || ev.b.player) { for (let i = bubbles.length - 1; i >= 0; i--) if (bubbles[i].n === ev.a || bubbles[i].n === ev.b) bubbles.splice(i, 1); }
+    else if (!ev.self && !ev.focus) continue;   // ambient chatter between villagers lives in the Chatter tab, not over their heads
     else if (ev.a.bubbleUntil > now || ev.b.bubbleUntil > now) continue;
     let at = now; ev.lines.forEach(l => { for (const part of splitSpeech(l.text)) { const d = lineMs(part); bubbles.push({ n: l.who, text: part, from: at, until: at + d - 150 }); at += d; } });
     ev.a.bubbleUntil = ev.b.bubbleUntil = at;
