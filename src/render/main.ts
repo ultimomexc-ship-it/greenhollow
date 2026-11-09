@@ -165,7 +165,7 @@ function render(now, dtSec, hourOfDay) {
   drawDoors(c, dtSec);
   if (typeof drawTide === 'function') drawTide(c, now);
 
-  drawNodes(c, now); drawSites(c, now); drawEventsFx(c, now); drawWorkFx(c, now); stepWild(now); drawWild(c, now); if (typeof stepSea === 'function') { stepSea(now); drawSea(c, now); }
+  drawNodes(c, now); if (typeof drawShrooms === 'function') drawShrooms(c, now); drawSites(c, now); drawEventsFx(c, now); drawWorkFx(c, now); stepWild(now); drawWild(c, now); if (typeof stepSea === 'function') { stepSea(now); drawSea(c, now); }
   drawLabels(c);
 
   // people, the forest sprites, the statue... and any tall tile standing in front of them: all in order of who is
@@ -243,6 +243,7 @@ function render(now, dtSec, hourOfDay) {
   // screen-space overlays: stays readable at any zoom
   c.setTransform(cam.dpr, 0, 0, cam.dpr, 0, 0); c.imageSmoothingEnabled = true;
   drawFeast(c, now); drawCeremonyFire(c, now); drawOverlay(c, now); drawTalkMarks(c, now); drawActivityBars(c); drawPlayerFx(c, now); drawBubbles(c, now); lfDrawThoughts(c, now);
+  if (typeof psyPost === 'function') psyPost(now);   // (a trip bends the whole finished frame)
 }
 
 function npcAt(wx, wy) {

@@ -1323,6 +1323,25 @@ test('function rooms: furniture you place makes a room a bakery, smithy, tavern 
   return 'bakery, smithy, tavern and chapel made by furniture; workers hired; undone when the furniture goes';
 });
 
+test('magic mushrooms: scattered about, walking into one eats it and starts a trip that rises, bends the picture for a few hours and ends; new ones grow', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('shroom-test', 'blank'); startPlaying(npcs[0]); const P = game.player; const n0 = town.shrooms.length;
+    const s = town.shrooms.slice().sort((a, b) => Math.hypot(a.x - P.tx, a.y - P.ty) - Math.hypot(b.x - P.tx, b.y - P.ty))[0];
+    P.tx = P.x = s.x - 1; P.ty = P.y = s.y; P.face = { dx: 1, dy: 0 }; rebuildOcc();
+    const t = lifeAct(P, P.player, s.x, s.y, 1, 0) || targetAt0(P, s.x, s.y); const key = t && t.key; if (t && t.run) t.run(P);
+    const sober = psyLevel(); game.time += 40; const mid = psyLevel(); for (let i = 0; i < 4; i++) render(performance.now() + i * 40, 0.016, 12);
+    game.time += 300; const after = psyLevel(); const before = town.shrooms.length; for (let i = 0; i < 40; i++) { shroomGrow(); } 
+    return { n0, key, left: before, sober, mid, after, grew: town.shrooms.length > before };
+  });
+  check(r.n0 >= 20, 'mushrooms should be scattered about the island: ' + r.n0);
+  check(/^shroom/.test(r.key) && r.left === r.n0 - 1, 'walking into one eats it: ' + JSON.stringify(r));
+  check(r.mid > 0.5 && r.after === 0, 'the trip should rise and then wear off: ' + JSON.stringify(r));
+  check(r.grew, 'new mushrooms should grow');
+  check(!errors.length, errors.slice(0, 3).join(' | '));
+  return `${r.n0} mushrooms; eating one starts a trip that rises (${r.mid.toFixed(2)}) and wears off`;
+});
+
 const browser = await launch();
 let failed = 0;
 const chosen = tests.filter(t => t.name.includes(filter));

@@ -243,7 +243,7 @@ function loadTown(seed, size, scenario?) {
   initEconomy();
   makeTownIndex2();
   if (scenario === 'blank') blankStart(); else { prebuildVillage(); housingTick(); growthProjects(); }
-  town.scenario = scenario === 'blank' ? 'blank' : 'village';
+  town.scenario = scenario === 'blank' ? 'blank' : 'village'; shroomScatter();
   return town;
 }
 /** the blank island: you alone, with a tent in the empty camp; nobody else yet (visitors come later) */

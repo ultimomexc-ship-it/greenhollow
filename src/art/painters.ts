@@ -1930,6 +1930,17 @@ for (const v of R3(2)) A(`decal_pebbles_${v}`, 'decals', 'Pebbles ' + (v + 1), 2
 for (const v of R3(2)) A(`decal_leaves_${v}`, 'decals', 'Fallen leaves ' + (v + 1), 24, 24, 1, g => decal24(g, 'leaves', v), { ground: true });
 for (const v of R3(2)) A(`decal_fern_${v}`, 'decals', 'Fern ' + (v + 1), 24, 24, 1, g => decal24(g, 'fern', v));
 for (const v of R3(2)) A(`stump_${v}`, 'trees', 'Tree stump ' + (v + 1), 24, 24, 1, g => stump24(g, v));
+/* magic mushrooms: a small cluster with violet spotted caps and a faint glow */
+function magicShroom24(g, t) { shadowE(g, 12, 20.2, 8, 2);
+  const rg = g.createRadialGradient(12, 15, 1, 12, 15, 11); rg.addColorStop(0, 'rgba(190,120,255,0.35)'); rg.addColorStop(1, 'rgba(190,120,255,0)'); g.fillStyle = rg; g.fillRect(0, 3, 24, 20);
+  const sw = tw(t, 1, 3) * 0.35;
+  for (const [x, y, k] of [[8.4, 17.6, 0.9], [14, 16.2, 1.25], [18, 18.2, 0.75]]) {
+    const cx = x + sw * k;
+    dab(g, x, y + 1.4 * k, 1.25 * k, 3.2 * k, 0, INK); dab(g, x, y + 1.4 * k, 0.95 * k, 2.9 * k, 0, '#f1e6cf');   // the stem
+    dab(g, cx, y - 1.4 * k, 4.2 * k, 3.1 * k, 0, INK); dab(g, cx, y - 1.4 * k, 3.8 * k, 2.8 * k, 0, '#9a4fe0'); dab(g, cx - 0.5 * k, y - 2.2 * k, 2.6 * k, 1.5 * k, 0, '#b97af2');
+    for (const [dx, dy] of [[-1.7, -0.9], [0.4, -2.2], [1.8, -0.7]]) dab(g, cx + dx * k, y + dy * k, 0.55 * k, 0.45 * k, 0, '#fff3c0');
+  } }
+A('magic_shroom', 'plants', 'Magic mushrooms', 24, 24, FR, (g, t) => magicShroom24(g, t));
 for (const s of R3(3)) A(`herb_${s}`, 'plants', ['Herb patch, bare', 'Herb patch, some', 'Herb patch, in flower'][s], 24, 24, FR, (g, t) => herb24(g, t, 0, s));
 for (const s of [1, 2, 3, 4]) A(`crop_${s}`, 'plants', ['Seedlings', 'Young wheat', 'Green wheat', 'Ripe wheat'][s - 1], 24, 24, FR, (g, t) => plants24(g, t, s), { under: 'soil' });
 A('crop_raw', 'plants', 'Field plot, untilled', 24, 24, 1, g => field24(g, true), { kind: 'tile', under: null });

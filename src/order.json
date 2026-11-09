@@ -37,6 +37,7 @@
   "life2/visitors.ts",
   "life2/functions.ts",
   "life2/needs.ts",
+  "life2/shrooms.ts",
   "life2/controls.ts",
   "player/items.ts",
   "player/build-mode.ts",

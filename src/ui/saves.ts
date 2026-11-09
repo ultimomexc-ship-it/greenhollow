@@ -61,7 +61,7 @@ function isleRestore(text: string) {
   SB.count = (o.sb && o.sb.count) || {}; SB.pair = (o.sb && o.sb.pair) || new Map(); SB.presim = !!(o.sb && o.sb.presim);
   reach = new Uint8Array(W * H); tileOwner = new Map(); pairCool.clear();
   for (const n of npcs) { n.plan = null; n.si = 0; n.stepStarted = false; n.moving = false; n.path = []; n.x = n.tx; n.y = n.ty; n.t = 0; n.slide = null; n.rand = rng(town.seed + n.id * 977); n.talkUntil = 0; if (n.pose !== 'sleep' && n.pose !== 'sit') n.pose = 'stand'; n.roaming = false; if (n.player) { n.player.keys = {}; n.player.act = null; n.player.lock = false; n.player.grace = null; n.player.skip = null; } }
-  town.treeCache = null; town.stoneCache = null; town.gridV = (town.gridV || 0) + 1; town.lfPV = (town.lfPV || 0) + 1; town.bldQ = []; for (const p of town.props || []) { p.follow = null; p.st = 0; } if (typeof clearTentTiles === 'function') clearTentTiles(); if (typeof clearOrphanOvens === 'function') clearOrphanOvens();
+  town.treeCache = null; town.stoneCache = null; town.gridV = (town.gridV || 0) + 1; town.lfPV = (town.lfPV || 0) + 1; town.bldQ = []; for (const p of town.props || []) { p.follow = null; p.st = 0; } if (typeof clearTentTiles === 'function') clearTentTiles(); if (typeof clearOrphanOvens === 'function') clearOrphanOvens(); if (!town.shrooms && typeof shroomScatter === 'function') shroomScatter();
   rebuildOcc(); refreshReach(); refreshShore();
   return o;
 }
