@@ -75,7 +75,7 @@ canvas.addEventListener('pointermove', e => {
       const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
       if (pinch0 > 0) zoomAt(d / pinch0, (a.x + b.x) / 2, (a.y + b.y) / 2); pinch0 = d; dragMoved = 99; hideHint();
     }
-  } else { const w = worldTile(p); view.hover = npcAt(w.x, w.y); canvas.style.cursor = view.hover ? 'pointer' : ''; showTip(p, view.hover || (tsActive() && !tsSees(Math.floor(w.x), Math.floor(w.y)) && !(TSIGHT.hits && TSIGHT.hits.has(Math.floor(w.x) + ',' + Math.floor(w.y)))) ? null : tileTip(Math.floor(w.x), Math.floor(w.y))); }   // no tips about what you cannot see
+  } else { const w = worldTile(p); view.hover = npcAt(w.x, w.y); canvas.style.cursor = view.hover ? 'pointer' : ''; showTip(p, (view.hover && typeof itBuildOn === 'function' && game.player && itBuildOn(game.player) && typeof npcDebug === 'function') ? npcDebug(view.hover) : view.hover || (tsActive() && !tsSees(Math.floor(w.x), Math.floor(w.y)) && !(TSIGHT.hits && TSIGHT.hits.has(Math.floor(w.x) + ',' + Math.floor(w.y)))) ? null : tileTip(Math.floor(w.x), Math.floor(w.y))); }   // no tips about what you cannot see
 });
 canvas.addEventListener('pointerleave', () => showTip(null, null));
 function showTip(p, html) {
@@ -91,7 +91,9 @@ function tileTip(x, y) {
     const k = y * W + x, name = Object.keys(T).find(q => T[q] === g) || String(g), ri = roomAt[y][x], r = ri >= 0 ? rooms[ri] : null, pr = lfPropAt(x, y), why: string[] = [];
     if (BLOCKED.has(g)) why.push('tile type ' + name); if (town.block && town.block[k]) why.push('town.block'); if (town.hgt && town.hgt[k] >= 0) why.push('height map'); if (town.fmask && town.fmask[k]) why.push('field mask'); if (town.pblock && town.pblock[k]) why.push('a prop'); if (tileOwner.get(k)) why.push('somebody stands here');
     const wall = town.bldWall && town.bldWall.get(k);
-    return `<b>${x}, ${y}</b> ${name}<br>` + (r ? `room: ${esc(r.name || r.kind)} (${r.kind}${r.free ? ', built' : ''}${r.dead ? ', DEAD' : ''})<br>` : 'no room<br>') + (pr ? `prop: ${pr.kind}${pr.fixed ? ' (fixed)' : ''}<br>` : '') + (wall ? `built wall: ${wall}<br>` : '') + (walkable(x, y) ? 'walkable' : '<b>blocked by: ' + (why.join(', ') || 'unknown') + '</b>');
+    const bedP = pr && pr.kind === 'bed' ? pr : null, bedR = g === T.BED && r ? (r.beds || []).find(q => q.x === x && q.y === y) : null, bd = bedP || bedR;
+    const bedLine = bd ? `<b>Bed</b>: ${bd.owner && !bd.owner.dead ? 'belongs to ' + esc(bd.owner.first) : 'nobody\'s (free)'}${r ? ' · in ' + esc(r.name || r.kind) : ' · outside'}<br>` : '';
+    return `<b>${x}, ${y}</b> ${name}<br>` + bedLine + (r ? `room: ${esc(r.name || r.kind)} (${r.kind}${r.free ? ', built' : ''}${r.dead ? ', DEAD' : ''})<br>` : 'no room<br>') + (pr ? `prop: ${pr.kind}${pr.fixed ? ' (fixed)' : ''}<br>` : '') + (wall ? `built wall: ${wall}<br>` : '') + (walkable(x, y) ? 'walkable' : '<b>blocked by: ' + (why.join(', ') || 'unknown') + '</b>');
   }
   if (g === T.TENT) { const t = (town.tents || []).find(q => q.x === x && q.y === y); return '<b>Tent</b><br>' + (t && t.owner ? esc(t.owner.first) + ' is sleeping here' : 'Free. Anyone may use it.'); }
   return null;

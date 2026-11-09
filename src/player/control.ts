@@ -50,8 +50,9 @@ function targetAt0(n, x, y) {
   if (nd) return { key: 'node' + x + ',' + y, min: 7, text: nd.kind === 'berry' ? 'Picking berries' : 'Gathering herbs', tool: 'pick', repeat: true, run(n) {
     const t = Math.min(nd.amt, nd.kind === 'berry' ? 3 : 2); nd.amt -= t; const gd = nd.kind === 'berry' ? 'berries' : 'herbs'; n.inv[gd] = (n.inv[gd] || 0) + t; playerSay(n, '+' + t + ' ' + gd);
   } };
+  if (itBuildOn(n) && n.build.sel === 1 && g === T.CROP) return { key: 'wallC' + x + ',' + y, min: 2, text: 'Digging the plot back to grass', tool: 'hammer', run(nn) { town.crops = town.crops.filter(c => !(c.x === x && c.y === y)); setT(x, y, T.GRASS); markDirty(x, y, 1, 1); town.gridV = (town.gridV || 0) + 1; if (typeof refreshReach === 'function') refreshReach(); playerSay(nn, 'Gone.'); } };
   const c = cropAt(x, y);
-  if (c) {
+  if (c && !itBuildOn(n)) {
     const st = c.st ? cropStage(c) : 0;
     if (c.st && st === 4) return { key: 'crop' + x + ',' + y + 'h', min: 4, text: 'Harvesting grain', tool: 'hoe', walkOn: true, run(n) { if (c.st && cropStage(c) === 4) { const h = itHarvest(n, c); playerSay(n, '+' + h.q + ' ' + h.what + (h.back ? ', +' + h.back + ' seed' : '')); } } };
     if (!c.pl) return { key: 'crop' + x + ',' + y + 'p', min: 3, text: 'Ploughing the field', tool: 'hoe', walkOn: true, run(n) { c.pl = 1; playerSay(n, 'Ploughed. Let go, then walk into it again to sow.'); } };

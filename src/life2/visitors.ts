@@ -153,3 +153,17 @@ function clearOrphanOvens() {
   if (k) { town.gridV = (town.gridV || 0) + 1; if (typeof refreshReach === 'function') refreshReach(); }
   return k;
 }
+
+/** build mode, hovering a villager: who they are, where they live, what they have and what they need next (a debugging view) */
+function npcDebug(n) {
+  const r = n.homeRoom && !n.homeRoom.dead ? n.homeRoom : null, bed = n.bed && n.bed.owner === n ? n.bed : null;
+  const food = FOODS.reduce((s, g) => s + (n.inv[g] || 0), 0) + (r && r.pantry ? FOODS.reduce((s, g) => s + (r.pantry[g] || 0), 0) : 0);
+  const need: string[] = [];
+  if (!r || !bed) need.push('a bed'); else if (!lfPrivies().length && n.bladder > 40) need.push('a privy'); if (n.hunger > 55 && food < 1) need.push('food');
+  if (n.energy != null && n.energy < 30) need.push('rest'); if (n.social != null && n.social < 25) need.push('company');
+  const pct = v => Math.round(v == null ? 0 : v) + '%';
+  return `<b>${esc(n.first)}</b> · ${n.age} · ${esc(n.role || '')}${n.job ? ' / ' + esc(n.job) : ''}${n.player ? ' (you)' : ''}<br>` +
+    `home: ${r ? esc(r.name || r.kind) : '<b>none</b>'} · bed: ${bed ? (bed.x - (r ? r.x : 0)) + ', ' + (bed.y - (r ? r.y : 0)) + ' (theirs)' : '<b>none</b>'}<br>` +
+    `hunger ${pct(n.hunger)} · bladder ${pct(n.bladder)} · energy ${pct(n.energy)} · company ${pct(n.social)}<br>` +
+    `doing: ${esc(n.status || n.pose || '')}<br><b>${need.length ? 'needs next: ' + need.join(', ') : 'needs nothing right now'}</b>`;
+}

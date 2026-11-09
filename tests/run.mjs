@@ -400,7 +400,7 @@ test('build mode (B): 1 push, 2 destroy, 3 turn, 4-0 put an item down in front o
     return res;
   });
   check(r.on && r.mode === 'push' && r.hand === 'hand', 'build mode: the hand always pushes: ' + JSON.stringify(r));
-  check(r.placed === 7 && r.more === 6, 'slots 3-9 put one item down in front of you; the rest through the function: ' + JSON.stringify(r));
+  check(r.placed === 6 && r.more === 6, 'slots 3-8 put one item down in front of you (slot 9 is the field brush); the rest through the function: ' + JSON.stringify(r));
   check(r.hammer === 'hammer' && r.smash && r.gone && r.tree && r.cleared, 'slot 1 is the hammer: smashes blocks and clears trees: ' + JSON.stringify(r));
   check(r.turner && r.turned && r.roomTurn, 'slot 2 turns chairs and beds, loose or standing in a room: ' + JSON.stringify(r));
   check(r.assigned && r.off, 'the bag assigns slots and leaving build mode restores your hand: ' + JSON.stringify(r));
@@ -1240,6 +1240,43 @@ test('beds: you get the first bed the moment you leave build mode, and a visitor
   check(r.pose === 'sleep' && r.at.join() === r.bed.join(), 'at two in the morning the visitor should be asleep in their bed: ' + JSON.stringify(r));
   check(!errors.length, errors.slice(0, 2).join(' | '));
   return 'first bed is yours at once; the visitor sleeps in theirs';
+});
+
+test('fields: the build-mode field brush marks plots under your feet, the hoe works them, the hammer digs them back to grass', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('field-test', 'blank'); if (!town.props) lfInitProps(); startPlaying(npcs[0]); const P = game.player; itBuildToggle(P, true);
+    const cx = P.tx + 6, cy = P.ty - 6; for (let j = -2; j < 8; j++) for (let i = -2; i < 12; i++) { setT(cx + i, cy + j, T.GRASS); roomAt[cy + j][cx + i] = -1; const q = lfPropAt(cx + i, cy + j); if (q) { town.props = town.props.filter(z => z !== q); town.propAt.delete((cy + j) * W + cx + i); town.pblock[(cy + j) * W + cx + i] = 0; } }
+    const slot = P.build.bar.indexOf('field'); itBuildSelect(P, slot + 3); const on = P.build.brush === 'field';
+    for (let i = 0; i < 4; i++) { P.tx = P.x = cx + i; P.ty = P.y = cy; bldBrushStep(P); }
+    const plots = town.crops.filter(c => c.garden === P.id).length, tiles = [0, 1, 2, 3].every(i => grid[cy][cx + i] === T.CROP);
+    itBuildSelect(P, slot + 3); const off = !P.build.brush; P.tx = P.x = cx + 5; P.ty = P.y = cy; bldBrushStep(P); const notAfter = grid[cy][cx + 5] === T.GRASS;
+    itBuildSelect(P, 1);   // destroy
+    const t = targetAt0(P, cx + 1, cy); t.run(P); const dug = grid[cy][cx + 1] === T.GRASS && !town.crops.some(c => c.x === cx + 1 && c.y === cy);
+    // not on a path, floor, water or through a prop
+    return { on, plots, tiles, off, notAfter, dug, farmers: itFarmersPlot(town.crops[0]) };
+  });
+  check(r.on, 'the field slot should switch the brush on'); check(r.plots === 4 && r.tiles, 'four steps lay four plots: ' + JSON.stringify(r));
+  check(r.off && r.notAfter, 'the brush stops when switched off'); check(r.dug, 'the hammer digs a plot back to grass'); check(r.farmers === false, 'village farmers leave your field alone');
+  check(!errors.length, errors.slice(0, 2).join(' | '));
+  return 'brush lays plots as you walk; hammer removes them; farmers leave them be';
+});
+
+test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('hover-test', 'blank'); if (!town.props) lfInitProps(); town.bldQ = town.bldQ || []; startPlaying(npcs[0]); const P = game.player; itBuildToggle(P, true);
+    const cx = P.tx + 4, cy = P.ty - 8, n = 6;
+    for (let j = -3; j < 12; j++) for (let i = -4; i < 12; i++) { setT(cx + i, cy + j, T.GRASS); roomAt[cy + j][cx + i] = -1; const p = lfPropAt(cx + i, cy + j); if (p) { town.props = town.props.filter(q => q !== p); town.propAt.delete((cy + j) * W + cx + i); town.pblock[(cy + j) * W + cx + i] = 0; } }
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { if (!(i === 0 || j === 0 || i === n - 1 || j === n - 1)) continue; lfAddProp(i === 2 && j === n - 1 ? 'bdoor' : 'bwall', cx + i, cy + j); }
+    lfAddProp('bed', cx + 2, cy + 2); lfAddProp('bed', cx + 4, cy + 2); town.bldQ.push([cx, cy]); bldTick(); visHomes(); housingTick();
+    return { mine: tileTip(cx + 2, cy + 2), free: tileTip(cx + 4, cy + 2), me: npcDebug(P) };
+  });
+  check(/belongs to/.test(r.mine) || /nobody/.test(r.mine), 'a bed tooltip should say whose it is: ' + r.mine);
+  check(/free/.test(r.free) || /belongs to/.test(r.free), 'the second bed should be described too: ' + r.free);
+  check(/needs/.test(r.me) && /home:/.test(r.me), 'a villager tooltip should show home and needs: ' + r.me);
+  check(!errors.length, errors.slice(0, 2).join(' | '));
+  return 'bed owner and villager needs are shown in build mode';
 });
 
 const browser = await launch();

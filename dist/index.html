@@ -11160,6 +11160,7 @@ function updateFrozen(dt) {
   tickPlayer(n, dt);
   game.time = t;
   game.ft = ft;
+  if (typeof bldBrushStep === "function") bldBrushStep(n);
   if (typeof bldTick === "function") bldTick();
 }
 function updateSim(dt) {
@@ -13877,8 +13878,16 @@ function targetAt0(n, x, y) {
     n2.inv[gd] = (n2.inv[gd] || 0) + t;
     playerSay(n2, "+" + t + " " + gd);
   } };
+  if (itBuildOn(n) && n.build.sel === 1 && g === T.CROP) return { key: "wallC" + x + "," + y, min: 2, text: "Digging the plot back to grass", tool: "hammer", run(nn) {
+    town.crops = town.crops.filter((c2) => !(c2.x === x && c2.y === y));
+    setT(x, y, T.GRASS);
+    markDirty(x, y, 1, 1);
+    town.gridV = (town.gridV || 0) + 1;
+    if (typeof refreshReach === "function") refreshReach();
+    playerSay(nn, "Gone.");
+  } };
   const c = cropAt(x, y);
-  if (c) {
+  if (c && !itBuildOn(n)) {
     const st = c.st ? cropStage(c) : 0;
     if (c.st && st === 4) return { key: "crop" + x + "," + y + "h", min: 4, text: "Harvesting grain", tool: "hoe", walkOn: true, run(n2) {
       if (c.st && cropStage(c) === 4) {
@@ -18462,6 +18471,7 @@ const YARD_ITEMS = [
   { kind: "forge", stand: "yd_forge", art: "forge", noun: "forge", name: "Forge" },
   { kind: "anvil", stand: "yd_anvil", art: "anvil", noun: "anvil", name: "Anvil" },
   { kind: "toilet", stand: "", art: "toilet", noun: "privy seat", name: "Privy" },
+  { kind: "field", stand: "", art: "crop_raw", noun: "field plot", name: "Field" },
   { kind: "loom", stand: "yd_loom", art: "loom", noun: "loom", name: "Loom" },
   { kind: "shelf", stand: "yd_shelf", art: "shelf_0", noun: "shelf", name: "Shelf" },
   { kind: "altar", stand: "", art: "altar_0", noun: "altar", name: "Altar" },
@@ -19484,6 +19494,18 @@ function clearOrphanOvens() {
   }
   return k;
 }
+function npcDebug(n) {
+  const r = n.homeRoom && !n.homeRoom.dead ? n.homeRoom : null, bed = n.bed && n.bed.owner === n ? n.bed : null;
+  const food = FOODS.reduce((s, g) => s + (n.inv[g] || 0), 0) + (r && r.pantry ? FOODS.reduce((s, g) => s + (r.pantry[g] || 0), 0) : 0);
+  const need = [];
+  if (!r || !bed) need.push("a bed");
+  else if (!lfPrivies().length && n.bladder > 40) need.push("a privy");
+  if (n.hunger > 55 && food < 1) need.push("food");
+  if (n.energy != null && n.energy < 30) need.push("rest");
+  if (n.social != null && n.social < 25) need.push("company");
+  const pct = (v) => Math.round(v == null ? 0 : v) + "%";
+  return `<b>${esc(n.first)}</b> \xB7 ${n.age} \xB7 ${esc(n.role || "")}${n.job ? " / " + esc(n.job) : ""}${n.player ? " (you)" : ""}<br>home: ${r ? esc(r.name || r.kind) : "<b>none</b>"} \xB7 bed: ${bed ? bed.x - (r ? r.x : 0) + ", " + (bed.y - (r ? r.y : 0)) + " (theirs)" : "<b>none</b>"}<br>hunger ${pct(n.hunger)} \xB7 bladder ${pct(n.bladder)} \xB7 energy ${pct(n.energy)} \xB7 company ${pct(n.social)}<br>doing: ${esc(n.status || n.pose || "")}<br><b>${need.length ? "needs next: " + need.join(", ") : "needs nothing right now"}</b>`;
+}
 const lf2PersonOK = (x, y) => {
   const g = grid[y] && grid[y][x];
   return walkable(x, y) && !(typeof noStep === "function" && noStep(x, y)) && g !== T.SEAT && g !== T.BED && g !== T.PEW && g !== T.TENT && !lfPropAt(x, y);
@@ -20011,7 +20033,7 @@ function itBagDraw() {
   setInterval(() => itSync(false), 200);
 })();
 const BUILD_ICON = { bed: "bed_head_up_1", chair: "seat_down" };
-const BUILD_DEFAULT = ["bwall", "bwindow", "bdoor", "bed", "chair", "table", "barrel"];
+const BUILD_DEFAULT = ["bwall", "bwindow", "bdoor", "bed", "chair", "table", "field"];
 const BUILD_CAP = 400;
 function itBuildState(n) {
   if (!n.build) n.build = { on: false, sel: 0, bar: BUILD_DEFAULT.slice(), prev: null };
@@ -20033,6 +20055,7 @@ function itBuildToggle(n, on) {
   } else {
     b.on = false;
     b.sel = 0;
+    b.brush = null;
     if (b.prev) {
       n.sel = b.prev.sel;
       n.mode = b.prev.mode;
@@ -20056,6 +20079,7 @@ function itBuildSelect(n, i) {
   if (!b.on) return;
   const p = n.player;
   if (i <= 2) {
+    b.brush = null;
     b.sel = i === 0 ? 0 : b.sel === i ? 0 : i;
     if (p) {
       p.act = null;
@@ -20067,7 +20091,30 @@ function itBuildSelect(n, i) {
     return;
   }
   const kind = b.bar[i - 3];
+  if (kind === "field") {
+    b.brush = b.brush === "field" ? null : "field";
+    b.sel = 0;
+    b.lastT = null;
+    if (p) playerSay(n, b.brush ? "Field brush: walk over grass to mark a field. Press it again to stop." : "Field brush put away.");
+    itSync(true);
+    return;
+  }
+  b.brush = null;
   if (kind) bldPlaceFront(n, kind);
+}
+function bldBrushStep(n) {
+  const b = n.build;
+  if (!b || !b.on || b.brush !== "field") return;
+  const key = n.tx + "," + n.ty;
+  if (b.lastT === key) return;
+  b.lastT = key;
+  const x = n.tx, y = n.ty;
+  if (grid[y][x] !== T.GRASS || roomAt[y][x] >= 0 || lfPropAt(x, y) || town.siteAt && town.siteAt[y * W + x] || town.nodeMap && town.nodeMap.has(y * W + x) || x < 3 || y < 3 || x >= W - 3 || y >= H - 3) return;
+  setT(x, y, T.CROP);
+  town.crops.push({ x, y, f: "garden" + n.id, pl: 0, st: 0, t0: 0, garden: n.id });
+  markDirty(x, y, 1, 1);
+  town.gridV = (town.gridV || 0) + 1;
+  if (typeof refreshReach === "function") refreshReach();
 }
 const itBuildName = (k) => {
   const it = YARD_ITEMS.find((q) => q.kind === k);
@@ -20166,7 +20213,7 @@ const IT_ROTATE_SVG = '<path d="M28 18a10 10 0 1 1-4-8" fill="none" stroke="#a8e
 function itBuildBarHTML(n, face) {
   const b = itBuildState(n);
   const tool = (i, svg, name, on) => `<button type="button" class="hbslot${on ? " on" : ""}" data-bslot="${i}" title="${name}"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${svg}</svg><span class="hbcap">${name}</span></button>`;
-  const slots = b.bar.map((k, j) => `<button type="button" class="hbslot item" data-bslot="${j + 3}" title="${k ? esc(itBuildName(k)) : "Empty: drag one here in the build menu (I)"}"><em>${(j + 4) % 10}</em>${k ? itBuildIcon(k) : ""}${k ? "<u>\u221E</u>" : ""}<span class="hbcap">${k ? esc(itBuildName(k)) : ""}</span></button>`).join("");
+  const slots = b.bar.map((k, j) => `<button type="button" class="hbslot item${k && k === b.brush ? " on" : ""}" data-bslot="${j + 3}" title="${k ? esc(itBuildName(k)) : "Empty: drag one here in the build menu (I)"}"><em>${(j + 4) % 10}</em>${k ? itBuildIcon(k) : ""}${k ? "<u>\u221E</u>" : ""}<span class="hbcap">${k ? esc(itBuildName(k)) : ""}</span></button>`).join("");
   return `<div class="hbbadge" title="Build mode (B)"><b>BUILD</b><span>B to leave</span></div><div class="hbslots">${tool(0, IT_SVG.push, "Push", b.sel === 0)}${tool(1, IT_SVG.hammer, "Destroy", b.sel === 1)}${tool(2, IT_ROTATE_SVG, "Turn", b.sel === 2)}<i class="hbsep"></i>${slots}</div><div class="hbface">${face || '<span class="dim">Walk to push \xB7 2 destroy \xB7 3 turn \xB7 4-0 put an item down \xB7 I menu</span>'}</div>`;
 }
 function itBuildBagHTML(n) {
@@ -28260,7 +28307,7 @@ canvas.addEventListener("pointermove", (e) => {
     const w = worldTile(p);
     view.hover = npcAt(w.x, w.y);
     canvas.style.cursor = view.hover ? "pointer" : "";
-    showTip(p, view.hover || tsActive() && !tsSees(Math.floor(w.x), Math.floor(w.y)) && !(TSIGHT.hits && TSIGHT.hits.has(Math.floor(w.x) + "," + Math.floor(w.y))) ? null : tileTip(Math.floor(w.x), Math.floor(w.y)));
+    showTip(p, view.hover && typeof itBuildOn === "function" && game.player && itBuildOn(game.player) && typeof npcDebug === "function" ? npcDebug(view.hover) : view.hover || tsActive() && !tsSees(Math.floor(w.x), Math.floor(w.y)) && !(TSIGHT.hits && TSIGHT.hits.has(Math.floor(w.x) + "," + Math.floor(w.y))) ? null : tileTip(Math.floor(w.x), Math.floor(w.y)));
   }
 });
 canvas.addEventListener("pointerleave", () => showTip(null, null));
@@ -28288,7 +28335,9 @@ function tileTip(x, y) {
     if (town.pblock && town.pblock[k]) why.push("a prop");
     if (tileOwner.get(k)) why.push("somebody stands here");
     const wall = town.bldWall && town.bldWall.get(k);
-    return `<b>${x}, ${y}</b> ${name}<br>` + (r ? `room: ${esc(r.name || r.kind)} (${r.kind}${r.free ? ", built" : ""}${r.dead ? ", DEAD" : ""})<br>` : "no room<br>") + (pr ? `prop: ${pr.kind}${pr.fixed ? " (fixed)" : ""}<br>` : "") + (wall ? `built wall: ${wall}<br>` : "") + (walkable(x, y) ? "walkable" : "<b>blocked by: " + (why.join(", ") || "unknown") + "</b>");
+    const bedP = pr && pr.kind === "bed" ? pr : null, bedR = g === T.BED && r ? (r.beds || []).find((q) => q.x === x && q.y === y) : null, bd = bedP || bedR;
+    const bedLine = bd ? `<b>Bed</b>: ${bd.owner && !bd.owner.dead ? "belongs to " + esc(bd.owner.first) : "nobody's (free)"}${r ? " \xB7 in " + esc(r.name || r.kind) : " \xB7 outside"}<br>` : "";
+    return `<b>${x}, ${y}</b> ${name}<br>` + bedLine + (r ? `room: ${esc(r.name || r.kind)} (${r.kind}${r.free ? ", built" : ""}${r.dead ? ", DEAD" : ""})<br>` : "no room<br>") + (pr ? `prop: ${pr.kind}${pr.fixed ? " (fixed)" : ""}<br>` : "") + (wall ? `built wall: ${wall}<br>` : "") + (walkable(x, y) ? "walkable" : "<b>blocked by: " + (why.join(", ") || "unknown") + "</b>");
   }
   if (g === T.TENT) {
     const t = (town.tents || []).find((q) => q.x === x && q.y === y);

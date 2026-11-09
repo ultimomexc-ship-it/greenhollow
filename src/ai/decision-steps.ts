@@ -208,6 +208,7 @@ function updateFrozen(dt) {
   const n = game.player, t = game.time, ft = game.ft;
   rebuildOcc(); tickPlayer(n, dt);
   game.time = t; game.ft = ft;
+  if (typeof bldBrushStep === 'function') bldBrushStep(n);
   if (typeof bldTick === 'function') bldTick();
 }
 function updateSim(dt) {

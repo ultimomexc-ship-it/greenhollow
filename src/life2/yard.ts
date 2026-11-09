@@ -15,6 +15,7 @@ const YARD_ITEMS: { kind: string; stand: string; art: string; noun: string; name
   { kind: 'forge', stand: 'yd_forge', art: 'forge', noun: 'forge', name: 'Forge' },
   { kind: 'anvil', stand: 'yd_anvil', art: 'anvil', noun: 'anvil', name: 'Anvil' },
   { kind: 'toilet', stand: '', art: 'toilet', noun: 'privy seat', name: 'Privy' },
+  { kind: 'field', stand: '', art: 'crop_raw', noun: 'field plot', name: 'Field' },
   { kind: 'loom', stand: 'yd_loom', art: 'loom', noun: 'loom', name: 'Loom' },
   { kind: 'shelf', stand: 'yd_shelf', art: 'shelf_0', noun: 'shelf', name: 'Shelf' },
   { kind: 'altar', stand: '', art: 'altar_0', noun: 'altar', name: 'Altar' },
