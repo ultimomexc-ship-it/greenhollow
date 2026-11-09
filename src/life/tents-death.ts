@@ -16,8 +16,10 @@ function addTent() {
   if (typeof dirtyList !== 'undefined' && dirtyList) markDirty(p.x, p.y, 1, 1);
   return t;
 }
+const LF_TENTS = false;   // no camp tents: people without a bed bed down by the square until they get one
 function syncTents() {
   if (!town.tents) return;
+  if (!LF_TENTS) { for (const t of town.tents.splice(0)) { if (grid[t.y][t.x] === T.TENT) { setT(t.x, t.y, t.under || T.GRASS); markDirty(t.x, t.y, 1, 1); } if (t.owner && t.owner.tent === t) t.owner.tent = null; } return; }
   const homeless = npcs.filter(n => !n.infant && !n.dead && !n.inShip && n.age >= 3 && !(n.bed && n.bed.x != null)).length;   /* a tent goes up for each person once they are off the ship */
   while (town.tents.length < homeless) if (!addTent()) break;
   let extra = town.tents.length - homeless;

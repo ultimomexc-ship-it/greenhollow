@@ -54,12 +54,13 @@ function visArrive() {
   for (const n of grp) {
     n.adult = true; n.infant = false; n.age = ageNow(n); updateLook(n); n.rand = rng(town.seed + n.id * 977); n.jit = 0; n.bornHere = false;
     n.homeRoom = null; n.bed = { owner: null }; routine(R, n); town.byId.set(n.id, n); initNpcSim(n);
-    setRole(n, 'Worker'); n.coin = 10; n.inv = n.inv || {}; n.inv.grain = (n.inv.grain || 0) + 6; n.seat = null; n.x = n.tx = p.x; n.y = n.ty = p.y; n.back = pick(R, VIS_BACK); npcs.push(n);
+    setRole(n, 'Worker'); n.coin = 10; n.inv = n.inv || {}; n.inv.grain = (n.inv.grain || 0) + 6; n.seat = null; n.x = n.tx = p.x; n.y = n.ty = p.y; n.back = pick(R, VIS_BACK); n.newcomer = { t0: game.time, met: [], next: game.time + 20 }; npcs.push(n);
     npcs.forEach(o => { if (o !== n && !n.know[o.id]) { n.know[o.id] = 4; o.know[n.id] = 4; n.aff[o.id] = 8; o.aff[n.id] = 8; } });
   }
   const a = grp[0]; chron(grp.length > 1 ? `${nameOf(a)} and ${nameOf(grp[1])} came ashore and asked for a place to stay. ${a.first} ${a.back}.` : `${nameOf(a)} came ashore and asked for a place to stay. ${a.first} ${a.back}.`, 'life');
   housingTick();
   for (const n of grp) { if (!n.homeRoom) n.homeless = true; }
+  lfShout(a, anyOf(['Land at last!', 'Solid ground. Thank the gods.', 'Is anybody here?']));
   const pl = game.player; if (pl && pl.player) playerSay(pl, `Somebody has come ashore: ${a.first}.`);
   return grp;
 }
@@ -105,6 +106,40 @@ function visNeeds() {
     if (!lfPrivies().length && n.bladder > 45) { once('privy', anyOf(["Is there a privy anywhere? I'm tired of the bushes.", 'We need a privy. A seat in a closed room would do.'])); continue; }
     if (n.hunger > 65 && food < 1) { once('food', anyOf(["I'm hungry and I've nothing to eat. Could we grow something?", 'There is no food. A field, a net, anything.'])); continue; }
     if (n.energy < 25 && homeless) once('tired', 'I can hardly keep my eyes open.');
+    else if (n.newcomer && game.time - (said.isle || -1e9) > 180) { said.isle = game.time; lfShout(n, pick(Math.random, VIS_ISLE)); }
   }
 }
 LF2.hourly.push(() => visNeeds());
+
+/* a newcomer introduces themselves around the place and talks about the island for the first couple of days */
+const VIS_ISLE = [
+  'The soil here looks good. Somebody could grow barley on that slope.', 'I heard seals on the north shore last night. Or it was the wind.', 'So this is the place. Quieter than I thought.',
+  'Fresh water is the first thing. Has anybody found a spring?', 'The tide leaves a lot of driftwood. That is a lot of building wood, if you know how.', 'I like it here already. The air is different.',
+  'It is strange, starting over with nothing. It is a good strange.', 'Where do people fish from? I saw fish in the shallows.', 'I could stay a long time if there is a bed and a bit of work.',
+];
+const VIS_HELLO = ["Hello! I'm {me}. I came ashore this morning.", "Good day. {me}, newly arrived. I hope I'm not in the way.", "I don't think we've met. I'm {me}, from over the water.", "{me}. I've just landed. Is it always this peaceful?"];
+const VIS_WELCOME = ['Welcome, {me}. I am {you}. There is room for one more.', "{you}. Glad of the company, {me}. Ask if you need anything.", 'Well met, {me}. I am {you}. You have picked a quiet corner of the world.'];
+function visNearTile(t) { for (const [dx, dy] of [[0, 1], [1, 0], [-1, 0], [0, -1], [1, 1], [-1, 1]]) { const x = t.tx + dx, y = t.ty + dy; if (walkable(x, y) && !lfPropAt(x, y) && !npcs.some(o => o !== t && o.tx === x && o.ty === y)) return { x, y, face: { dx: -dx, dy: -dy } }; } return null; }
+function visFill(s, me, you?) { return s.replace(/\{me\}/g, me).replace(/\{you\}/g, you || ''); }
+function visIntroTick() {
+  if (!town || !game.player) return;
+  for (const n of npcs) {
+    const nc = n.newcomer; if (!nc || n.player || n.dead || n.pose === 'sleep' || n.moving) continue;
+    if (game.time - nc.t0 > 2 * 1440) { n.newcomer = null; continue; }
+    if (game.time < (nc.next || 0)) continue;
+    if (!isAwake(n, game.time % 1440)) continue;
+    const others = npcs.filter(o => o !== n && !o.dead && !o.infant && !nc.met.includes(o.id) && o.pose !== 'sleep').sort((a, b) => (b.player ? 1e3 : 0) - (a.player ? 1e3 : 0) || Math.hypot(a.tx - n.tx, a.ty - n.ty) - Math.hypot(b.tx - n.tx, b.ty - n.ty));
+    const t = others[0]; if (!t) { nc.next = game.time + 120; continue; }
+    nc.next = game.time + 40; nc.met.push(t.id);
+    abortPlan(n);
+    n.plan = [goS(() => visNearTile(t) || { x: t.tx, y: t.ty, face: null }, 'Going to say hello to ' + t.first),
+      waitS(5, 'stand', 'Introducing themselves to ' + t.first, { onEnd(nn) {
+        const hi = visFill(pick(Math.random, VIS_HELLO), nn.first);
+        if (t.player || t.dead) { say(nn, t, [[nn, hi + ' ' + (nn.back ? nn.first + ' ' + nn.back + '.' : '')]]); return; }
+        say(nn, t, [[nn, hi], [t, visFill(pick(Math.random, VIS_WELCOME), nn.first, t.first)], [nn, pick(Math.random, VIS_ISLE)]]);
+        lfAff(nn, t, 3, 'welcomed me'); lfAff(t, nn, 2, 'introduced themselves');
+      } })];
+    n.si = 0; n.stepStarted = false;
+  }
+}
+LF2.tickers.push(visIntroTick);

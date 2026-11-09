@@ -43,7 +43,7 @@ function gaCap(r, x, y) { const N = y === r.y, Sx = y === r.y + r.h - 1, Wl = x 
 function gaFurniture(r, x, y, t) {
   const hh = n => ART.h32(x, y, n, n);
   switch (t) {
-    case T.BED: { const b = (r.beds || []).find(q => q.x === x && q.y === y); return `bed_head_${(r.side === 'b') !== !!(b && b.flip) ? 'up' : 'down'}_${(hh(60) * 5) | 0}`; }
+    case T.BED: { const b = (r.beds || []).find(q => q.x === x && q.y === y); return `bed_head_${(r.side === 'b') !== !!(b && b.flip) ? 'up' : 'down'}_${b && !(b.owner && !b.owner.dead) ? 5 : (hh(60) * 5) | 0}`; }
     case T.SEAT: { if (r.kind === 'privy') return 'toilet'; const s = (r.seats || []).find(q => q.x === x && q.y === y), f = s && s.face ? s.face : { dx: 0, dy: 1 }; return 'seat_' + (f.dy > 0 ? 'down' : f.dy < 0 ? 'up' : f.dx > 0 ? 'right' : 'left'); }
     case T.TABLE: { const l = grid[y][x - 1] === T.TABLE, rr = grid[y][x + 1] === T.TABLE, part = l && rr ? 'mid' : l ? 'right' : rr ? 'left' : 'single', d = hh(71); return `table_${part}_${d < 0.35 ? 'plate' : d < 0.5 ? 'vase' : 'plain'}`; }
     case T.BARREL: return 'barrel'; case T.SHELF: return 'shelf_' + ((x + y) & 1); case T.RUG: return ['rug', 'rug_1', 'rug_2'][Math.floor(hh(72) * 3)];

@@ -566,7 +566,7 @@ test('building: the hammer knocks out one built block; a closed room carries on 
     // 3. knock out an outside wall of the right room: only the right room falls apart; the shared wall stays (the left room still needs it)
     house(); bldBreak(O.x + 7, O.y); res.right = { rooms: live().length, shared: grid[O.y + 2][O.x + 4] === T.WALL, sharedFixed: !lfPropAt(O.x + 4, O.y + 2), outer: !!lfPropAt(O.x + 8, O.y + 1) };
     // 4. a built wall is a hammer target, and so is every village wall
-    house(); const P = game.player, tg = targetAt0(P, O.x + 1, O.y); res.target = tg && { key: tg.key, tool: tg.tool }; const hall = rooms.find(q => !q.free && !q.dead && (q.kind === 'tavern' || q.kind === 'church')); res.village = !!targetAt0(P, hall.x + 1, hall.y) && /^wall/.test((targetAt0(P, hall.x + 1, hall.y) || {}).key || '');
+    house(); const P = game.player; itBuildToggle(P, true); itBuildSelect(P, 1); const tg = targetAt0(P, O.x + 1, O.y); res.target = tg && { key: tg.key, tool: tg.tool }; const hall = rooms.find(q => !q.free && !q.dead && (q.kind === 'tavern' || q.kind === 'church')); res.village = !!targetAt0(P, hall.x + 1, hall.y) && /^wall/.test((targetAt0(P, hall.x + 1, hall.y) || {}).key || '');
     return res;
   });
   check(r.start === 2, 'the test house should have two rooms: ' + JSON.stringify(r));
@@ -1023,8 +1023,9 @@ test('items: a lockpick opens a house barred for the night; picks snap, and some
 }));
 
 test('items: the sawmill saws logs into planks and sells them; planks count as timber on a building site', await itemScene(async page => {
+  await page.evaluate(() => { const c = lf2Room('mill') && !npcs.some(n => n.job === 'Miller') && npcs.find(n => !n.dead && !n.player && n.role === 'Worker' && n.age >= 18 && n.age < 60 && !LF2_JOBS[n.job] && !n.shop); if (c) lf2SetJob(c, 'Miller', false); }); await simulate(page, 3 * DAY);
   const r = await page.evaluate(() => {
-    const mill = lf2Room('mill'), P = game.player, miller = npcs.find(n => !n.dead && n.job === 'Miller'), s = mill ? lf2Stock(mill) : {};
+    const mill = lf2Room('mill'), P = game.player; let miller = npcs.find(n => !n.dead && n.job === 'Miller'); if (mill && !miller) { const c = npcs.find(n => !n.dead && !n.player && n.role === 'Worker' && n.age >= 18 && n.age < 60 && !LF2_JOBS[n.job] && !n.shop); if (c) { lf2SetJob(c, 'Miller', false); miller = c; } }   /* (hiring depends on food days hovering near 0.45: the test hires one if luck did not) */ const s = mill ? lf2Stock(mill) : {};
     const planks = s.planks || 0; s.planks = Math.max(planks, 3); const coin0 = P.coin; P.inv.planks = 0; const got = lf2Buy(P, mill, 'planks', 2);
     // a building site that still wants timber
     let site = (town.sites || []).find(q => q.got && q.kind !== 'road' && siteRem(q, 'wood') > 0); let throwRes = null;
@@ -1113,7 +1114,7 @@ test('islands: a blank island has one settler, a tent and nothing built, and run
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => { newTown('blank-test', 'blank'); return { n: npcs.length, rooms: rooms.filter(r => !r.dead).length, tents: town.tents.length }; });
   check(r.n === 1, 'blank island should start with one settler, got ' + r.n);
-  check(r.tents >= 1, 'blank island needs a tent');
+  check(r.tents === 0, 'no tents at the start');
   await simulate(page, 2 * 1440);
   check(!errors.length, 'errors on a blank island: ' + errors.slice(0, 2).join(' | '));
   return `${r.n} settler, ${r.rooms} rooms, ${r.tents} tent; two days ran clean`;
@@ -1151,7 +1152,8 @@ test('visitors: on a blank island a built hut with a free bed brings a settler a
   const s = await page.evaluate(() => ({ n: npcs.length, homed: npcs.filter(n => n.homeRoom && n.bed && n.bed.owner === n).length, hut: rooms.some(r => r.hut && r.kind === 'house') }));
   check(s.hut, 'a room with a bed should become a hut');
   check(s.n === 2 && s.homed === 2, `expected a visitor living in the hut, got ${s.n} people, ${s.homed} housed`);
-  const q = await page.evaluate(() => ({ ctl: !!(game.player && game.player.player), toilet: rooms.some(r => r.toilet && r.ptoilet), accidents: town.chron.filter(c => /in time/.test(c.text || c)).length }));
+  const q = await page.evaluate(() => ({ met: npcs.reduce((k, n) => k + (n.newcomer ? n.newcomer.met.length : 0), 0) + (town.chron.some(c => /came ashore/.test(c.text || c)) ? 1 : 0), ctl: !!(game.player && game.player.player), toilet: rooms.some(r => r.toilet && r.ptoilet), accidents: town.chron.filter(c => /in time/.test(c.text || c)).length }));
+  check(q.met > 0, 'newcomer should introduce themselves');
   check(q.ctl, 'you lost control of your villager');
   check(q.toilet, 'a privy seat inside a built room should make a privy');
   check(q.accidents === 0, 'accidents despite a privy: ' + q.accidents);

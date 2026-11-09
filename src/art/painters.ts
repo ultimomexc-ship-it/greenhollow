@@ -866,7 +866,7 @@ const spl0 = pts => pts;
 
 /* ================= cutaway rooms: wall face, caps, doors, furniture (all 24 px geometry, drawn at 4x) ================= */
 const IN2 = { cap: '#d9cba7', capDk: '#bdae88', capLt: '#efe4c6', trim: '#94603a', trimDk: '#6a4024', stone: '#7f8c9c', stoneLt: '#9aa8b8', mortar: '#566170', base: '#d9cba7' };
-const WOODL = pal('#a8703f', '#e8b87c', '#c48a52'), WOODD = pal('#7a4a2a', '#c08a58', null), BLANKET = ['#4a6fa5', '#a54a4a', '#4a8f6a', '#8a5aa5', '#c0953a'];
+const WOODL = pal('#a8703f', '#e8b87c', '#c48a52'), WOODD = pal('#7a4a2a', '#c08a58', null), BLANKET = ['#4a6fa5', '#a54a4a', '#4a8f6a', '#8a5aa5', '#c0953a', '#8d9096'];   // (the last, grey, is a bed nobody owns)
 const STONEP = pal('#8d949c', '#e4e6de', '#b4bac0'), IRON = pal('#4b5058', '#a4acb8', '#7b828c');
 function floorUnder(g, kind, v = 0) { g.drawImage(terr(kind, v), 0, 0, 24, 24); }
 
@@ -1974,7 +1974,7 @@ for (const s of ['W', 'E', 'S', 'WS', 'ES', 'WN', 'EN']) T24('cap_' + s, 'walls'
 for (let m = 1; m < 16; m++) { const k = (m & 1 ? 'W' : '') + (m & 2 ? 'E' : '') + (m & 4 ? 'N' : '') + (m & 8 ? 'S' : ''); if (!['W', 'E', 'S', 'WS', 'ES', 'WN', 'EN'].includes(k)) T24('cap_' + k, 'walls', 'Wall top ' + k, g => cap24(g, k), { kind: 'tile', under: null }); }
 T24('door_back_closed', 'walls', 'Wooden door, shut (north wall)', g => doorN24(g, false), { kind: 'tile', under: null }); T24('door_back_open', 'walls', 'Wooden door, open (north wall)', g => doorN24(g, true), { kind: 'tile', under: null });
 T24('door_mat_closed', 'walls', 'Wooden door, shut (south wall, from above)', g => doorS24(g, false), { kind: 'furniture' }); T24('door_mat_open', 'walls', 'Wooden door, open (south wall, from above)', g => doorS24(g, true), { kind: 'furniture' });
-for (const [i, c] of BLANKET.entries()) { T24(`bed_head_up_${i}`, 'furniture', `Bed, head up, ${['blue', 'red', 'green', 'violet', 'gold'][i]}`, g => bed24(g, c, true)); T24(`bed_head_down_${i}`, 'furniture', `Bed, head down, ${['blue', 'red', 'green', 'violet', 'gold'][i]}`, g => bed24(g, c, false)); }
+for (const [i, c] of BLANKET.entries()) { T24(`bed_head_up_${i}`, 'furniture', `Bed, head up, ${['blue', 'red', 'green', 'violet', 'gold', 'grey'][i]}`, g => bed24(g, c, true)); T24(`bed_head_down_${i}`, 'furniture', `Bed, head down, ${['blue', 'red', 'green', 'violet', 'gold', 'grey'][i]}`, g => bed24(g, c, false)); }
 for (const f of ['down', 'up', 'left', 'right']) T24(`seat_${f}`, 'furniture', `Chair facing ${f}`, g => seat24(g, f));
 
 /* loose building blocks (pushed about, bought at the builder's yard) and the yard's sample stands */

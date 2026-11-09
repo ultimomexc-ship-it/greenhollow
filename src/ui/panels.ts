@@ -260,10 +260,10 @@ function drainEvents(now) {
     if (ev.focus || (ev.a.player || ev.b.player)) { for (let i = bubbles.length - 1; i >= 0; i--) if (bubbles[i].n !== ev.a && bubbles[i].n !== ev.b) bubbles.splice(i, 1); }
     if (!ev.quiet) addChatter(ev);
     if (ev.a.player || ev.b.player) { for (let i = bubbles.length - 1; i >= 0; i--) if (bubbles[i].n === ev.a || bubbles[i].n === ev.b) bubbles.splice(i, 1); }
-    else if (!ev.self && !ev.focus) continue;   // ambient chatter between villagers lives in the Chatter tab, not over their heads
     else if (ev.a.bubbleUntil > now || ev.b.bubbleUntil > now) continue;
     let at = now; ev.lines.forEach(l => { for (const part of splitSpeech(l.text)) { const d = lineMs(part); bubbles.push({ n: l.who, text: part, from: at, until: at + d - 150 }); at += d; } });
     ev.a.bubbleUntil = ev.b.bubbleUntil = at;
+    if (!ev.self && ev.a !== ev.b && !ev.a.player && !ev.b.player) { const hold = (at - now) / 1000 * gmPerSec(); for (const q of [ev.a, ev.b]) { q.talkUntil = Math.max(q.talkUntil || 0, game.time + hold); if (q.moving) q.pose = 'stand'; } }   // (people stand still while they talk, so their bubbles stay with them)
   }
   const fresh = town.eco.trades - tradeSeen; tradeSeen = town.eco.trades;
   if (chronSeen > town.chron.length) chronSeen = 0;
