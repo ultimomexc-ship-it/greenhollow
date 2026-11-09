@@ -51,7 +51,7 @@ function newTown(seedText?, scenario?) {
   { const pn = chooseTipping(); if (pn) { lifeStepOutside(pn); startPlaying(pn); } }
   el('legend').textContent = (scenario === 'blank' ? 'blank island' : 'ready village') + ' · ' + W + '×' + H;
 }
-el('newTown').addEventListener('click', () => newTown(String(Math.floor(Math.random() * 1000000))));
+/* (the Islands button is handled in ui/saves.ts: it used to make a new random village here, and the autosave then overwrote your island with it) */
 el('seedForm').addEventListener('submit', e => { e.preventDefault(); const v = (el('seed') as any).value; if (typeof isleNew === 'function' && typeof isleOK === 'function' && isleOK()) isleNew(v, (town && town.scenario) || 'village'); else newTown(v); });   // (a new seed is a new island in a new save slot: it never overwrites the one you were on)
 
 /* ---------- camera: drag, wheel, pinch, keys, buttons ---------- */

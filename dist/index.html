@@ -208,6 +208,7 @@ body.fs #c { height: 100vh !important; height: 100dvh !important; }
 .bgwrap.isl .sub{margin:6px 0;position:static;height:auto}.bgwrap.isl .bglab{margin-top:12px}.bgwrap.isl .bghead{position:static}
 #islands{position:fixed;inset:0;z-index:50}#islands .bgwrap{max-height:90vh}
 #islands{line-height:1.4}
+.islpen{background:none;border:0;color:#8d8570;font-size:11px;cursor:pointer;text-decoration:underline;padding:0 4px}.islren{background:#101317;border:1px solid #3a3226;color:#d9d2c0;border-radius:6px;padding:3px 6px}.btn.danger{background:#7a2e2a;color:#fff;border-color:#a0443e}#islname{width:220px}.bgwrap.isl .islseed input{background:#101317;border:1px solid #3a3226;color:#d9d2c0;border-radius:6px;padding:5px 8px}
 
 </style>
 </head>
@@ -28088,7 +28089,6 @@ function newTown(seedText, scenario) {
   }
   el("legend").textContent = (scenario === "blank" ? "blank island" : "ready village") + " \xB7 " + W + "\xD7" + H;
 }
-el("newTown").addEventListener("click", () => newTown(String(Math.floor(Math.random() * 1e6))));
 el("seedForm").addEventListener("submit", (e) => {
   e.preventDefault();
   const v = el("seed").value;
@@ -28639,11 +28639,27 @@ async function isleDelete(id) {
   } catch (e) {
   }
 }
+async function isleRename(id, name) {
+  const d = await isleOpenDB(), meta = await isleReq(d.transaction("meta").objectStore("meta").get(id));
+  if (!meta) return;
+  meta.name = name || (id === ISLE.id && town ? town.name : meta.name);
+  meta.named = !!name;
+  const tx = d.transaction("meta", "readwrite");
+  tx.objectStore("meta").put(meta);
+  await new Promise((r) => {
+    tx.oncomplete = r;
+    tx.onerror = r;
+  });
+  if (id === ISLE.id) {
+    ISLE.label = name;
+    isleLabel();
+  }
+}
 async function isleSave() {
   if (!isleOK() || !ISLE.id || !town || ISLE.busy) return false;
   ISLE.busy = true;
   try {
-    const json = isleCapture(), d = await isleOpenDB(), pl = game.player, meta = { id: ISLE.id, name: town.name, seed: town.seed, scenario: town.scenario || "village", day: Math.floor(game.time / 1440) + 1, pop: npcs.filter((n) => !n.dead).length, savedAt: Date.now(), version: SAVE_VERSION, created: ISLE.created || Date.now(), you: pl ? pl.first : "" };
+    const json = isleCapture(), d = await isleOpenDB(), pl = game.player, meta = { id: ISLE.id, name: ISLE.label || town.name, named: !!ISLE.label, seed: town.seed, scenario: town.scenario || "village", day: Math.floor(game.time / 1440) + 1, pop: npcs.filter((n) => !n.dead).length, savedAt: Date.now(), version: SAVE_VERSION, created: ISLE.created || Date.now(), you: pl ? pl.first : "" };
     const tx = d.transaction(["meta", "data"], "readwrite");
     tx.objectStore("data").put({ id: ISLE.id, json });
     tx.objectStore("meta").put(meta);
@@ -28664,8 +28680,9 @@ async function isleSave() {
     ISLE.busy = false;
   }
 }
-function isleNew(seedText, scenario) {
+function isleNew(seedText, scenario, label) {
   newTown(seedText, scenario);
+  ISLE.label = (label || "").trim().slice(0, 40);
   ISLE.id = "i" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
   ISLE.created = Date.now();
   try {
@@ -28682,6 +28699,7 @@ async function isleLoad(id) {
     isleRestore(rec.json);
     ISLE.id = id;
     ISLE.created = meta && meta.created;
+    ISLE.label = meta && meta.named ? meta.name : "";
     ISLE.busy = false;
     try {
       localStorage.setItem("gh.last", id);
@@ -28740,7 +28758,7 @@ function isleLabel() {
   }
   const d = new Date(ISLE.last || 0), hm = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
   const st = !isleOK() ? " \xB7 NOT SAVING (this browser blocks storage)" : !ISLE.id ? " \xB7 not saved" : ISLE.err ? " \xB7 SAVE FAILED" : ISLE.last ? " \xB7 saved " + hm : "";
-  e.textContent = town.name + " \xB7 day " + (Math.floor(game.time / 1440) + 1) + st;
+  e.textContent = (ISLE.label || town.name) + " \xB7 day " + (Math.floor(game.time / 1440) + 1) + st;
   e.title = ISLE.err || "Autosaved every 30 seconds and when you leave build mode. Click to save now.";
   e.style.cursor = "pointer";
   e.onclick = () => {
@@ -28768,8 +28786,12 @@ async function isleShow(first) {
   } catch (e) {
     err = "Saving is not available in this browser, so islands cannot be kept.";
   }
-  const rows2 = list.map((m) => `<div class="islrow"><div><b>${esc(m.name)}</b> <span class="dim">${m.scenario === "blank" ? "blank island" : "ready village"}</span><br><span class="dim">day ${m.day} \xB7 ${m.pop} ${m.pop === 1 ? "person" : "people"}${m.you ? " \xB7 you: " + esc(m.you) : ""} \xB7 ${isleAgo(m.savedAt)}</span></div><div class="islbtns"><button type="button" class="btn primary" data-icont="${m.id}">${m.id === ISLE.id ? "Resume" : "Continue"}</button><button type="button" class="btn" data-idel="${m.id}">Delete</button></div></div>`).join("");
-  box.innerHTML = `<div class="bgwrap isl"><div class="bghead"><b>Islands</b>${ISLE.id || !first ? '<button type="button" class="bgx" data-iclose="1" title="Close">\xD7</button>' : ""}</div>` + (err ? `<p class="sub">${esc(err)}</p>` : "") + (rows2 ? `<div class="bglab">Your islands \xB7 each one is saved automatically</div>${rows2}` : '<p class="sub">No islands yet. Start one below.</p>') + `<div class="bglab">New island</div><div class="islnew"><label><input type="radio" name="isc" value="blank" checked> <b>Blank island</b> <span class="dim">you alone, an empty island: build it up</span></label><label><input type="radio" name="isc" value="village"> <b>Ready village</b> <span class="dim">a built village with people (for trying things)</span></label><div class="islseed"><label>Seed <input id="islseed" type="text" autocomplete="off" spellcheck="false" placeholder="random"></label><button type="button" class="btn primary" data-inew="1">Start</button></div></div></div>`;
+  const rows2 = list.map((m) => {
+    const nm = ISLE.renaming === m.id ? `<input class="islren" data-irentxt="${m.id}" value="${esc(m.name)}" maxlength="40" spellcheck="false"> <button type="button" class="btn primary" data-irenok="${m.id}">Save name</button>` : `<b>${esc(m.name)}</b> <button type="button" class="islpen" data-iren="${m.id}" title="Rename">rename</button>`;
+    const btns = ISLE.confirmDel === m.id ? `<button type="button" class="btn danger" data-idelyes="${m.id}">Yes, delete</button><button type="button" class="btn" data-idelno="1">Keep</button>` : `<button type="button" class="btn primary" data-icont="${m.id}">${m.id === ISLE.id ? "Resume" : "Continue"}</button><button type="button" class="btn" data-idel="${m.id}">Delete</button>`;
+    return `<div class="islrow"><div>${nm} <span class="dim">${m.scenario === "blank" ? "blank island" : "ready village"}</span><br><span class="dim">day ${m.day} \xB7 ${m.pop} ${m.pop === 1 ? "person" : "people"}${m.you ? " \xB7 you: " + esc(m.you) : ""} \xB7 ${isleAgo(m.savedAt)}</span></div><div class="islbtns">${btns}</div></div>`;
+  }).join("");
+  box.innerHTML = `<div class="bgwrap isl"><div class="bghead"><b>Islands</b>${ISLE.id || !first ? '<button type="button" class="bgx" data-iclose="1" title="Close">\xD7</button>' : ""}</div>` + (err ? `<p class="sub">${esc(err)}</p>` : "") + (rows2 ? `<div class="bglab">Your islands \xB7 each one is saved automatically</div>${rows2}` : '<p class="sub">No islands yet. Start one below.</p>') + `<div class="bglab">New island</div><div class="islnew"><label><input type="radio" name="isc" value="blank" checked> <b>Blank island</b> <span class="dim">you alone, an empty island: build it up</span></label><label><input type="radio" name="isc" value="village"> <b>Ready village</b> <span class="dim">a built village with people (for trying things)</span></label><div class="islseed"><label>Name <input id="islname" type="text" autocomplete="off" spellcheck="false" maxlength="40" placeholder="your island's name"></label></div><div class="islseed"><label>Seed <input id="islseed" type="text" autocomplete="off" spellcheck="false" placeholder="random"></label><button type="button" class="btn primary" data-inew="1">Start</button></div></div></div>`;
 }
 function isleHide() {
   const b = document.getElementById("islands");
@@ -28801,16 +28823,51 @@ document.addEventListener("click", async (e) => {
     return;
   }
   if (d) {
-    if (confirm("Delete this island for good?")) {
-      await isleDelete(d.dataset.idel);
-      isleShow(!ISLE.id);
-    }
+    ISLE.confirmDel = d.dataset.idel;
+    isleShow(!ISLE.id);
     return;
+  }
+  if (t.closest("[data-idelno]")) {
+    ISLE.confirmDel = null;
+    isleShow(!ISLE.id);
+    return;
+  }
+  {
+    const y = t.closest("[data-idelyes]");
+    if (y) {
+      ISLE.confirmDel = null;
+      await isleDelete(y.dataset.idelyes);
+      isleShow(!ISLE.id);
+      return;
+    }
+  }
+  {
+    const r = t.closest("[data-iren]");
+    if (r) {
+      ISLE.renaming = r.dataset.iren;
+      await isleShow(!ISLE.id);
+      const inp = document.querySelector("[data-irentxt]");
+      if (inp) {
+        inp.focus();
+        inp.select();
+      }
+      return;
+    }
+  }
+  {
+    const k = t.closest("[data-irenok]");
+    if (k) {
+      const id = k.dataset.irenok, inp = document.querySelector("[data-irentxt]"), nm = (inp && inp.value || "").trim().slice(0, 40);
+      await isleRename(id, nm);
+      ISLE.renaming = null;
+      isleShow(!ISLE.id);
+      return;
+    }
   }
   if (n) {
     const sc = document.querySelector('input[name="isc"]:checked').value, sd = document.getElementById("islseed").value;
     if (ISLE.id) await isleSave();
-    isleNew(sd.trim() || void 0, sc);
+    isleNew(sd.trim() || void 0, sc, (document.getElementById("islname") || { value: "" }).value);
     isleHide();
     return;
   }

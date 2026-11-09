@@ -76,25 +76,32 @@ function isleOpenDB(): Promise<IDBDatabase> {
 const isleReq = (rq: IDBRequest) => new Promise<any>((res, rej) => { rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error); });
 async function isleList(): Promise<any[]> { const d = await isleOpenDB(); const all = await isleReq(d.transaction('meta').objectStore('meta').getAll()); return all.sort((a: any, b: any) => b.savedAt - a.savedAt); }
 async function isleDelete(id: string) { const d = await isleOpenDB(); const tx = d.transaction(['meta', 'data'], 'readwrite'); tx.objectStore('meta').delete(id); tx.objectStore('data').delete(id); await new Promise(r => { tx.oncomplete = r; tx.onerror = r; }); if (ISLE.id === id) ISLE.id = null; try { if (localStorage.getItem('gh.last') === id) localStorage.removeItem('gh.last'); } catch (e) {} }
+/** give an island your own name (works for any saved island, not only the open one) */
+async function isleRename(id: string, name: string) {
+  const d = await isleOpenDB(), meta = await isleReq(d.transaction('meta').objectStore('meta').get(id)); if (!meta) return;
+  meta.name = name || (id === ISLE.id && town ? town.name : meta.name); meta.named = !!name;
+  const tx = d.transaction('meta', 'readwrite'); tx.objectStore('meta').put(meta); await new Promise(r => { tx.oncomplete = r; tx.onerror = r; });
+  if (id === ISLE.id) { ISLE.label = name; isleLabel(); }
+}
 /** write the current island (it must have an id) */
 async function isleSave() {
   if (!isleOK() || !ISLE.id || !town || ISLE.busy) return false; ISLE.busy = true;
   try {
-    const json = isleCapture(), d = await isleOpenDB(), pl = game.player, meta = { id: ISLE.id, name: town.name, seed: town.seed, scenario: town.scenario || 'village', day: Math.floor(game.time / 1440) + 1, pop: npcs.filter(n => !n.dead).length, savedAt: Date.now(), version: SAVE_VERSION, created: ISLE.created || Date.now(), you: pl ? pl.first : '' };
+    const json = isleCapture(), d = await isleOpenDB(), pl = game.player, meta = { id: ISLE.id, name: ISLE.label || town.name, named: !!ISLE.label, seed: town.seed, scenario: town.scenario || 'village', day: Math.floor(game.time / 1440) + 1, pop: npcs.filter(n => !n.dead).length, savedAt: Date.now(), version: SAVE_VERSION, created: ISLE.created || Date.now(), you: pl ? pl.first : '' };
     const tx = d.transaction(['meta', 'data'], 'readwrite'); tx.objectStore('data').put({ id: ISLE.id, json }); tx.objectStore('meta').put(meta);
     await new Promise((r, j) => { tx.oncomplete = r; tx.onerror = () => j(tx.error); }); ISLE.last = Date.now(); ISLE.err = ''; isleLabel(); return true;
   } catch (e) { console.warn('save failed', e); ISLE.err = String((e && e.message) || e); isleLabel(); return false; } finally { ISLE.busy = false; }
 }
 /** start a new island in a new slot */
-function isleNew(seedText: string | undefined, scenario: string) {
-  newTown(seedText, scenario); ISLE.id = 'i' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36); ISLE.created = Date.now();
+function isleNew(seedText: string | undefined, scenario: string, label?: string) {
+  newTown(seedText, scenario); ISLE.label = (label || '').trim().slice(0, 40); ISLE.id = 'i' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36); ISLE.created = Date.now();
   try { localStorage.setItem('gh.last', ISLE.id); } catch (e) {} isleLabel(); isleSave();
 }
 /** continue a saved island; resolves false when it cannot be loaded */
 async function isleLoad(id: string): Promise<boolean> {
   try {
     const d = await isleOpenDB(), rec = await isleReq(d.transaction('data').objectStore('data').get(id)), meta = await isleReq(d.transaction('meta').objectStore('meta').get(id)); if (!rec) return false;
-    isleRestore(rec.json); ISLE.id = id; ISLE.created = meta && meta.created; ISLE.busy = false;
+    isleRestore(rec.json); ISLE.id = id; ISLE.created = meta && meta.created; ISLE.label = meta && meta.named ? meta.name : ''; ISLE.busy = false;
     try { localStorage.setItem('gh.last', id); } catch (e) {}
     // the screen: the same set-up as a new island
     bubbles.length = 0; pops.length = 0; tradeSeen = 0; chronSeen = 0; cardSig = ''; mktSig = ''; chronSig = ''; townSig = ''; hudSig = '';
@@ -115,7 +122,7 @@ function isleLabel() {
   if (!town) { e.textContent = ''; return; }
   const d = new Date(ISLE.last || 0), hm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
   const st = !isleOK() ? ' · NOT SAVING (this browser blocks storage)' : !ISLE.id ? ' · not saved' : ISLE.err ? ' · SAVE FAILED' : ISLE.last ? ' · saved ' + hm : '';
-  e.textContent = town.name + ' · day ' + (Math.floor(game.time / 1440) + 1) + st; e.title = ISLE.err || 'Autosaved every 30 seconds and when you leave build mode. Click to save now.';
+  e.textContent = (ISLE.label || town.name) + ' · day ' + (Math.floor(game.time / 1440) + 1) + st; e.title = ISLE.err || 'Autosaved every 30 seconds and when you leave build mode. Click to save now.';
   e.style.cursor = 'pointer'; e.onclick = () => { isleSave(); };
 }
 
@@ -125,12 +132,17 @@ async function isleShow(first?: boolean) {
   let box = document.getElementById('islands'); if (!box) { box = document.createElement('div'); box.id = 'islands'; box.className = 'bagbox'; (canvas.parentNode as any).appendChild(box); }
   box.hidden = false; box.innerHTML = '<div class="bgwrap isl"><div class="bghead"><b>Islands</b></div><p class="sub">Loading…</p></div>';
   let list: any[] = []; let err = ''; try { list = await isleList(); } catch (e) { err = 'Saving is not available in this browser, so islands cannot be kept.'; }
-  const rows = list.map(m => `<div class="islrow"><div><b>${esc(m.name)}</b> <span class="dim">${m.scenario === 'blank' ? 'blank island' : 'ready village'}</span><br><span class="dim">day ${m.day} · ${m.pop} ${m.pop === 1 ? 'person' : 'people'}${m.you ? ' · you: ' + esc(m.you) : ''} · ${isleAgo(m.savedAt)}</span></div><div class="islbtns"><button type="button" class="btn primary" data-icont="${m.id}">${m.id === ISLE.id ? 'Resume' : 'Continue'}</button><button type="button" class="btn" data-idel="${m.id}">Delete</button></div></div>`).join('');
+  const rows = list.map(m => {
+    const nm = ISLE.renaming === m.id ? `<input class="islren" data-irentxt="${m.id}" value="${esc(m.name)}" maxlength="40" spellcheck="false"> <button type="button" class="btn primary" data-irenok="${m.id}">Save name</button>` : `<b>${esc(m.name)}</b> <button type="button" class="islpen" data-iren="${m.id}" title="Rename">rename</button>`;
+    const btns = ISLE.confirmDel === m.id ? `<button type="button" class="btn danger" data-idelyes="${m.id}">Yes, delete</button><button type="button" class="btn" data-idelno="1">Keep</button>`
+      : `<button type="button" class="btn primary" data-icont="${m.id}">${m.id === ISLE.id ? 'Resume' : 'Continue'}</button><button type="button" class="btn" data-idel="${m.id}">Delete</button>`;
+    return `<div class="islrow"><div>${nm} <span class="dim">${m.scenario === 'blank' ? 'blank island' : 'ready village'}</span><br><span class="dim">day ${m.day} · ${m.pop} ${m.pop === 1 ? 'person' : 'people'}${m.you ? ' · you: ' + esc(m.you) : ''} · ${isleAgo(m.savedAt)}</span></div><div class="islbtns">${btns}</div></div>`;
+  }).join('');
   box.innerHTML = `<div class="bgwrap isl"><div class="bghead"><b>Islands</b>${ISLE.id || !first ? '<button type="button" class="bgx" data-iclose="1" title="Close">×</button>' : ''}</div>`
     + (err ? `<p class="sub">${esc(err)}</p>` : '')
     + (rows ? `<div class="bglab">Your islands · each one is saved automatically</div>${rows}` : '<p class="sub">No islands yet. Start one below.</p>')
     + `<div class="bglab">New island</div><div class="islnew"><label><input type="radio" name="isc" value="blank" checked> <b>Blank island</b> <span class="dim">you alone, an empty island: build it up</span></label><label><input type="radio" name="isc" value="village"> <b>Ready village</b> <span class="dim">a built village with people (for trying things)</span></label>`
-    + `<div class="islseed"><label>Seed <input id="islseed" type="text" autocomplete="off" spellcheck="false" placeholder="random"></label><button type="button" class="btn primary" data-inew="1">Start</button></div></div></div>`;
+    + `<div class="islseed"><label>Name <input id="islname" type="text" autocomplete="off" spellcheck="false" maxlength="40" placeholder="your island's name"></label></div><div class="islseed"><label>Seed <input id="islseed" type="text" autocomplete="off" spellcheck="false" placeholder="random"></label><button type="button" class="btn primary" data-inew="1">Start</button></div></div></div>`;
 }
 function isleHide() { const b = document.getElementById('islands'); if (b) b.hidden = true; canvas.focus({ preventScroll: true }); }
 document.addEventListener('click', async (e: any) => {
@@ -138,8 +150,12 @@ document.addEventListener('click', async (e: any) => {
   const c = t.closest('[data-icont]'), d = t.closest('[data-idel]'), n = t.closest('[data-inew]'), x = t.closest('[data-iclose]');
   if (x) { isleHide(); return; }
   if (c) { const id = c.dataset.icont; if (id === ISLE.id) { isleHide(); return; } c.disabled = true; if (ISLE.id) await isleSave(); const ok = await isleLoad(id); if (ok) isleHide(); else { alert('This island could not be loaded. It may be from an older version: you can delete it.'); isleShow(); } return; }
-  if (d) { if (confirm('Delete this island for good?')) { await isleDelete(d.dataset.idel); isleShow(!ISLE.id); } return; }
-  if (n) { const sc = (document.querySelector('input[name="isc"]:checked') as any).value, sd = (document.getElementById('islseed') as any).value; if (ISLE.id) await isleSave(); isleNew(sd.trim() || undefined, sc); isleHide(); return; }
+  if (d) { ISLE.confirmDel = d.dataset.idel; isleShow(!ISLE.id); return; }
+  if (t.closest('[data-idelno]')) { ISLE.confirmDel = null; isleShow(!ISLE.id); return; }
+  { const y = t.closest('[data-idelyes]'); if (y) { ISLE.confirmDel = null; await isleDelete(y.dataset.idelyes); isleShow(!ISLE.id); return; } }
+  { const r = t.closest('[data-iren]'); if (r) { ISLE.renaming = r.dataset.iren; await isleShow(!ISLE.id); const inp: any = document.querySelector('[data-irentxt]'); if (inp) { inp.focus(); inp.select(); } return; } }
+  { const k = t.closest('[data-irenok]'); if (k) { const id = k.dataset.irenok, inp: any = document.querySelector('[data-irentxt]'), nm = ((inp && inp.value) || '').trim().slice(0, 40); await isleRename(id, nm); ISLE.renaming = null; isleShow(!ISLE.id); return; } }
+  if (n) { const sc = (document.querySelector('input[name="isc"]:checked') as any).value, sd = (document.getElementById('islseed') as any).value; if (ISLE.id) await isleSave(); isleNew(sd.trim() || undefined, sc, ((document.getElementById('islname') as any) || { value: '' }).value); isleHide(); return; }
   if (t.closest('#newTown')) { isleShow(); return; }
 });
 /** on page load: carry on with the island you left, or choose one */

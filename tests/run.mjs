@@ -1161,6 +1161,14 @@ test('visitors: on a blank island a built hut with a free bed brings a settler a
   return 'hut made, visitor came ashore and took the free bed, privy used, control kept';
 });
 
+test('islands: the Islands button only opens the list, it never replaces the island you are on', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => { const seed = town.seed, n = npcs.length; document.getElementById('newTown').click(); return { same: town.seed === seed && npcs.length === n }; });
+  check(r.same, 'clicking Islands generated a new island');
+  check(!errors.length, errors.slice(0, 2).join(' | '));
+  return 'the island stays';
+});
+
 const browser = await launch();
 let failed = 0;
 const chosen = tests.filter(t => t.name.includes(filter));
