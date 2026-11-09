@@ -1119,6 +1119,24 @@ test('islands: a blank island has one settler, a tent and nothing built, and run
   return `${r.n} settler, ${r.rooms} rooms, ${r.tents} tent; two days ran clean`;
 });
 
+test('build mode: the clock and the villagers stand still while you build', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await simulate(page, 600);
+  const r = await page.evaluate(async () => {
+    if (!game.player) startPlaying(canControl(byId(game.steer)) ? byId(game.steer) : npcs.find(canControl));
+    const P = game.player; itBuildToggle(P, true);
+    const t0 = game.time, pos = npcs.filter(n => !n.player).map(n => n.tx + ',' + n.ty).join('|');
+    for (let i = 0; i < 60; i++) updateSim(1);
+    const same = game.time === t0 && npcs.filter(n => !n.player).map(n => n.tx + ',' + n.ty).join('|') === pos;
+    itBuildToggle(P, false); for (let i = 0; i < 10; i++) updateSim(1);
+    return { same, moved: game.time > t0 };
+  });
+  check(r.same, 'time or villagers moved in build mode');
+  check(r.moved, 'time did not resume after leaving build mode');
+  check(!errors.length, errors.slice(0, 2).join(' | '));
+  return 'clock and villagers frozen in build mode, running again after';
+});
+
 const browser = await launch();
 let failed = 0;
 const chosen = tests.filter(t => t.name.includes(filter));

@@ -202,7 +202,16 @@ function carryIcon(n) {
 }
 // the player's own clock: always runs, even when the calendar stands still
 const clk = () => (game.ft == null ? game.time : Math.max(game.ft, game.time));
+/** build mode stops the world: only you (walking, pushing, hammering) and the blocks move; the clock, villagers and economy wait */
+function buildFrozen() { const n = game.player; return !!(n && n.player && itBuildOn(n) && !n.player.sleeping); }
+function updateFrozen(dt) {
+  const n = game.player, t = game.time, ft = game.ft;
+  rebuildOcc(); tickPlayer(n, dt);
+  game.time = t; game.ft = ft;
+  if (typeof bldTick === 'function') bldTick();
+}
 function updateSim(dt) {
+  if (buildFrozen()) { updateFrozen(dt); return; }
   game.ft = clk() + dt;
   game.time += dt;
   if (typeof holdForPlayer === 'function') holdForPlayer(dt);

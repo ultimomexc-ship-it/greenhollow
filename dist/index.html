@@ -11122,7 +11122,23 @@ function carryIcon(n) {
   return null;
 }
 const clk = () => game.ft == null ? game.time : Math.max(game.ft, game.time);
+function buildFrozen() {
+  const n = game.player;
+  return !!(n && n.player && itBuildOn(n) && !n.player.sleeping);
+}
+function updateFrozen(dt) {
+  const n = game.player, t = game.time, ft = game.ft;
+  rebuildOcc();
+  tickPlayer(n, dt);
+  game.time = t;
+  game.ft = ft;
+  if (typeof bldTick === "function") bldTick();
+}
 function updateSim(dt) {
+  if (buildFrozen()) {
+    updateFrozen(dt);
+    return;
+  }
   game.ft = clk() + dt;
   game.time += dt;
   if (typeof holdForPlayer === "function") holdForPlayer(dt);
@@ -18238,10 +18254,8 @@ LF2.tickers.push(() => {
     const bad = sh.pose === "sleep" ? ["WHAT?! Where am I?!", "My bed! Where is my roof?", "Is that... a tree? Who moved my bed?!", "By Jupiter, I went to sleep indoors!"] : ["Who has carried off my chair?", "How did I get out here?!", "I was sitting down just now!"];
     lfShout(who, anyOf(bad));
     who.mood = Math.max(0, (who.mood == null ? 60 : who.mood) - 8);
-    const by = sh.by != null ? byId(sh.by) : null;
-    if (by && !by.player) lfAff(who, by, -4, "carried me out of my house");
-    else if (by && by.player) lfAff(who, by, -4, "carried me out of my house");
-    chron(`${who.first} ${sh.pose === "sleep" ? "woke up" : "got up"} ${where}, ${sh.pose === "sleep" ? "bed" : "chair"} and all${by ? " - " + by.first + " had pushed " + (who.female ? "her" : "him") + " out of the door" : ""}.`, "life");
+    const by = null;
+    chron(`${who.first} ${sh.pose === "sleep" ? "woke up" : "got up"} ${where}, ${sh.pose === "sleep" ? "bed" : "chair"} and all.`, "life");
   }
 });
 function pushSwap(n, piece) {
@@ -19639,6 +19653,7 @@ function itBuildToggle(n, on) {
     b.sel = 0;
     n.sel = 0;
     if (typeof itBag === "function") itBag(false);
+    if (p && typeof playerSay === "function") playerSay(n, "Build mode. Time stands still while you build.");
   } else {
     b.on = false;
     b.sel = 0;

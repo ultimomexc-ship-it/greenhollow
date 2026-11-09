@@ -135,9 +135,8 @@ LF2.tickers.push(() => {
     const where = ri >= 0 ? 'in somebody else\'s house' : trees >= 6 ? 'in the middle of the forest' : grid[who.ty][who.tx] === T.PATH ? 'in the middle of the road' : trees >= 2 ? 'under a tree' : 'in a field';
     const bad = sh.pose === 'sleep' ? ['WHAT?! Where am I?!', 'My bed! Where is my roof?', 'Is that... a tree? Who moved my bed?!', 'By Jupiter, I went to sleep indoors!'] : ['Who has carried off my chair?', 'How did I get out here?!', 'I was sitting down just now!'];
     lfShout(who, anyOf(bad)); who.mood = Math.max(0, (who.mood == null ? 60 : who.mood) - 8);
-    const by = sh.by != null ? byId(sh.by) : null; if (by && !by.player) lfAff(who, by, -4, 'carried me out of my house');
-    else if (by && by.player) lfAff(who, by, -4, 'carried me out of my house');
-    chron(`${who.first} ${sh.pose === 'sleep' ? 'woke up' : 'got up'} ${where}, ${sh.pose === 'sleep' ? 'bed' : 'chair'} and all${by ? ' - ' + by.first + ' had pushed ' + (who.female ? 'her' : 'him') + ' out of the door' : ''}.`, 'life');
+    const by = null;   // nobody knows who did it, only that it happened
+    chron(`${who.first} ${sh.pose === 'sleep' ? 'woke up' : 'got up'} ${where}, ${sh.pose === 'sleep' ? 'bed' : 'chair'} and all.`, 'life');
   }
 });
 /** swap places with the piece in front of you: it goes to the tile you stand on (the same step carries you into its tile, and it is drawn following your step) */
