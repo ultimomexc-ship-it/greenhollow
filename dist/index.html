@@ -7148,6 +7148,12 @@ const ART = (function() {
   T24("yd_chair", "furniture", "Yard stand, chair", (g) => stand24(g, (q) => seat24(q, "down")), { under: null });
   T24("yd_table", "furniture", "Yard stand, table", (g) => stand24(g, (q) => table24(q, "single", null, 0)), { under: null });
   T24("yd_barrel", "furniture", "Yard stand, barrel", (g) => stand24(g, (q) => barrel24(q)), { under: null });
+  T24("yd_counter", "furniture", "Yard stand, counter", (g) => stand24(g, (q) => counter24(q, false)), { under: null });
+  T24("yd_oven", "furniture", "Yard stand, oven", (g) => stand24(g, (q) => oven24(q, 0)), { under: null });
+  T24("yd_forge", "furniture", "Yard stand, forge", (g) => stand24(g, (q) => forge24(q, 0)), { under: null });
+  T24("yd_anvil", "furniture", "Yard stand, anvil", (g) => stand24(g, (q) => anvil24(q)), { under: null });
+  T24("yd_loom", "furniture", "Yard stand, loom", (g) => stand24(g, (q) => loom24(q, 0)), { under: null });
+  T24("yd_shelf", "furniture", "Yard stand, shelf", (g) => stand24(g, (q) => shelf24(q, 0)), { under: null });
   T24("table_loose", "furniture", "Table, loose", (g) => table24(g, "single", null, 0), { under: null });
   for (const p of ["single", "left", "mid", "right"]) for (const d of ["plain", "plate", "vase"]) T24(`table_${p}_${d}`, "furniture", `Table ${p}${d === "plain" ? "" : ", " + d}`, (g) => table24(g, p, d, 0));
   T24("barrel", "furniture", "Barrel", (g) => barrel24(g));
@@ -13742,7 +13748,7 @@ function targetAt0(n, x, y) {
     bldBreak(x, y, n2);
     playerSay(n2, "Gone.");
   } };
-  if ((g === T.TABLE || g === T.BARREL || g === T.BED || g === T.SEAT) && typeof pushFurniture === "function" && typeof itHeld === "function" && itHeld(n).kind === "hammer" && pushFurniture(x, y)) return { key: "wallf" + x + "," + y, min: 6, text: "Smashing the furniture", tool: "hammer", run(n2) {
+  if (PUSH_FURNITURE.has(g) && typeof pushFurniture === "function" && typeof itHeld === "function" && itHeld(n).kind === "hammer" && pushFurniture(x, y)) return { key: "wallf" + x + "," + y, min: 6, text: "Smashing the furniture", tool: "hammer", run(n2) {
     bldDeleteFurniture(x, y);
     playerSay(n2, "Gone.");
   } };
@@ -17952,7 +17958,8 @@ const PUSH_MAX = 5;
 const LF_ROCK_ART = ["boulder_0", "boulder_1", "boulder_2", "boulder_3"];
 Object.assign(LF_NOUN, { rock: "rock" });
 const lfPropArt = (pr) => pr.art ? pr.art : pr.kind === "rock" ? LF_ROCK_ART[(pr.v || 0) & 3] : pr.kind === "chair" ? "seat_down" : pr.kind === "bed" ? "bed_head_up_" + (pr.v || 0) % 5 : LF_ART[pr.kind] || "crate";
-const PUSH_FURNITURE = /* @__PURE__ */ new Set([T.SEAT, T.BED, T.BARREL, T.TABLE]);
+const PUSH_STATION = { [T.TABLE]: "table", [T.COUNTER]: "counter", [T.FORGE]: "forge", [T.ANVIL]: "anvil", [T.LOOM]: "loom", [T.OVEN]: "oven", [T.SHELF]: "shelf" };
+const PUSH_FURNITURE = /* @__PURE__ */ new Set([T.SEAT, T.BED, T.BARREL, ...Object.keys(PUSH_STATION).map(Number)]);
 const pushRoomOf = (x, y) => {
   const i = roomAt[y] && roomAt[y][x];
   return i != null && i >= 0 ? rooms[i] : null;
@@ -17962,7 +17969,7 @@ function pushFurniture(x, y) {
   if (!PUSH_FURNITURE.has(g)) return null;
   const r = pushRoomOf(x, y);
   if (!r || r.dead || r.kind === "privy" || r.kind === "church" || r.kind === "jail") return null;
-  if (g === T.TABLE) return r.kind === "house" || r.kind === "tavern" ? { type: "table", t: g, r, o: { x, y } } : null;
+  if (PUSH_STATION[g]) return { type: PUSH_STATION[g], t: g, r, o: { x, y } };
   if (g === T.SEAT) {
     const s = (r.seats || []).find((q) => q.x === x && q.y === y && !q.out);
     return s ? { type: "seat", t: g, r, o: s } : null;
@@ -17986,7 +17993,7 @@ function pushLooseOK(nx, ny, ignoreOwner) {
 }
 function pushFurnitureOK(f, nx, ny, ignoreOwner) {
   const r = f.r;
-  if (nx === r.doorX && ny === r.doorY) return f.type !== "table" && pushLooseOK(nx, ny, ignoreOwner);
+  if (nx === r.doorX && ny === r.doorY) return pushLooseOK(nx, ny, ignoreOwner);
   if (pushRoomOf(nx, ny) !== r || nx <= r.x || nx >= r.x + r.w - 1 || ny <= r.y || ny >= r.y + r.h - 1) return false;
   if (!ignoreOwner && tileOwner.get(ny * W + nx)) return false;
   const g = grid[ny][nx];
@@ -18002,11 +18009,11 @@ function pushFurnitureOK(f, nx, ny, ignoreOwner) {
   return true;
 }
 function pushRoomConnected(r, moves) {
-  const tm = moves.filter((m) => grid[m[1]][m[0]] === T.TABLE);
+  const tm = moves.filter((m) => PUSH_STATION[grid[m[1]][m[0]]]);
   if (tm.length) {
     const cells = tm.flatMap((m) => [[m[0], m[1]], [m[2], m[3]]]).map(([x, y]) => [x, y, grid[y][x]]);
     for (const m of tm) grid[m[1]][m[0]] = T.FLOOR;
-    for (const m of tm) grid[m[3]][m[2]] = T.TABLE;
+    for (const m of tm) if (m[2] > r.x && m[2] < r.x + r.w - 1 && m[3] > r.y && m[3] < r.y + r.h - 1) grid[m[3]][m[2]] = T.TABLE;
     const ok = pushRoomConnected(r, moves.filter((m) => !tm.includes(m)));
     for (const [x, y, g] of cells.reverse()) grid[y][x] = g;
     return ok;
@@ -18323,8 +18330,15 @@ const YARD_ITEMS = [
   { kind: "bed", stand: "yd_bed", art: "bed", noun: "bed", name: "Bed" },
   { kind: "chair", stand: "yd_chair", art: "seat_down", noun: "chair", name: "Chair" },
   { kind: "table", stand: "yd_table", art: "table_loose", noun: "table", name: "Table" },
-  { kind: "barrel", stand: "yd_barrel", art: "barrel_o", noun: "barrel", name: "Barrel" }
+  { kind: "barrel", stand: "yd_barrel", art: "barrel_o", noun: "barrel", name: "Barrel" },
+  { kind: "counter", stand: "yd_counter", art: "counter_1", noun: "counter", name: "Counter" },
+  { kind: "oven", stand: "yd_oven", art: "oven", noun: "oven", name: "Oven" },
+  { kind: "forge", stand: "yd_forge", art: "forge", noun: "forge", name: "Forge" },
+  { kind: "anvil", stand: "yd_anvil", art: "anvil", noun: "anvil", name: "Anvil" },
+  { kind: "loom", stand: "yd_loom", art: "loom", noun: "loom", name: "Loom" },
+  { kind: "shelf", stand: "yd_shelf", art: "shelf_0", noun: "shelf", name: "Shelf" }
 ];
+const YARD_COLS = 7;
 const YARD_CAP = 16;
 for (const it of YARD_ITEMS) {
   if (!LF_ART[it.kind]) LF_ART[it.kind] = it.art;
@@ -18332,27 +18346,27 @@ for (const it of YARD_ITEMS) {
 }
 LF_NOUN.dispenser = "stand";
 function lfPlaceYard() {
-  const n = YARD_ITEMS.length, cx = town.cx, cy = town.cy;
+  const n = YARD_COLS, rows2 = Math.ceil(YARD_ITEMS.length / n), cx = town.cx, cy = town.cy;
   const free = (x, y) => x > 3 && y > 3 && x < W - 4 && y < H - 4 && (grid[y][x] === T.GRASS || grid[y][x] === T.PATH) && roomAt[y][x] < 0 && !lfNearDoor(x, y) && !town.siteAt[y * W + x] && !town.nodeMap.has(y * W + x) && !lfPropAt(x, y) && walkable(x, y);
   const ok = (x0, y0) => {
-    for (let dy = 0; dy <= 3; dy++) for (let dx = 0; dx < n; dx++) if (!free(x0 + dx, y0 + dy)) return false;
+    for (let dy = 0; dy <= rows2 + 2; dy++) for (let dx = 0; dx < n; dx++) if (!free(x0 + dx, y0 + dy)) return false;
     return true;
   };
   const cand = [];
   for (let y = cy - 16; y <= cy + 16; y++) for (let x = cx - 20; x <= cx + 14; x++) {
-    const mx = x + n / 2, my = y + 2, d = Math.hypot(mx - cx, (my - cy) * 1.4);
+    const mx = x + n / 2, my = y + rows2 + 1, d = Math.hypot(mx - cx, (my - cy) * 1.4);
     if (d >= 6 && d <= 20) cand.push([d, x, y]);
   }
   cand.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]);
   for (const [, x0, y0] of cand) if (ok(x0, y0)) {
     yardClear(x0, y0, n);
     YARD_ITEMS.forEach((it, i) => {
-      const pr = lfAddProp("dispenser", x0 + i, y0);
+      const pr = lfAddProp("dispenser", x0 + i % n, y0 + Math.floor(i / n));
       pr.fixed = true;
       pr.dispense = it.kind;
       pr.art = it.stand;
     });
-    town.builder = { x0, y0, n, pad: { x: x0, y: y0 + 1, w: n, h: 3 }, cx: x0 + n / 2, cy: y0 + 2 };
+    town.builder = { x0, y0, n, rows: rows2, pad: { x: x0, y: y0 + rows2, w: n, h: 3 }, cx: x0 + n / 2, cy: y0 + rows2 + 1 };
     return town.builder;
   }
   town.builder = null;
@@ -19201,7 +19215,10 @@ function itFacing(n) {
   }
   if (pr && pr.kind === "rock" && itHeld(n).kind === "hammer") return { what: "Loose rock", verb: "Break", need: "hammer" };
   if (pr && !pr.fixed && pr.kind !== "rock" && itHeld(n).kind === "hammer") return { what: cvCap(LF_NOUN[pr.kind]), verb: "Smash", need: "hammer" };
-  if ((g === T.TABLE || g === T.BARREL || g === T.BED || g === T.SEAT) && itHeld(n).kind === "hammer" && typeof pushFurniture === "function" && pushFurniture(x, y)) return { what: cvCap(LF_NOUN[g === T.TABLE ? "table" : g === T.BARREL ? "barrel" : g === T.BED ? "bed" : "chair"]), verb: "Smash", need: "hammer" };
+  if (PUSH_FURNITURE.has(g) && itHeld(n).kind === "hammer" && typeof pushFurniture === "function") {
+    const fu = pushFurniture(x, y);
+    if (fu) return { what: cvCap(fu.type === "seat" ? "chair" : fu.type), verb: "Smash", need: "hammer" };
+  }
   if (pr) {
     const nm = cvCap(LF_NOUN[pr.kind]);
     return hand && mode === "search" ? { what: nm, verb: "Search", need: "search" } : { what: nm, verb: "Push", need: "push" };

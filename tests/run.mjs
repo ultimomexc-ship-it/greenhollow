@@ -396,8 +396,8 @@ test('builder\'s yard: stands on the edge of the square hand out building blocks
     res.full = /full/.test(said); res.total = town.props.filter(p => p.yard).length;
     return res;
   });
-  check(r.yard && r.stands === 7, 'the yard should have 7 stands: ' + JSON.stringify(r));
-  check(!/NOT refused|MOVABLE|STAND MOVED|count/.test(r.log) && r.made.split(',').length === 7, 'each stand refuses a push, stays put, and gives one thing in Talk mode: ' + r.log + ' / ' + r.made);
+  check(r.yard && r.stands === 13, 'the yard should have 13 stands: ' + JSON.stringify(r));
+  check(!/NOT refused|MOVABLE|STAND MOVED|count/.test(r.log) && r.made.split(',').length === 13, 'each stand refuses a push, stays put, and gives one thing in Talk mode: ' + r.log + ' / ' + r.made);
   check(r.onPad, 'what you take should appear on the pad: ' + JSON.stringify(r));
   check(r.full && r.total <= 17, 'the pad should fill up and say so: ' + JSON.stringify(r));
   return `${r.stands} stands; one of each taken onto the pad; stands fixed; pad full at ${r.total}`;
@@ -619,6 +619,28 @@ test('building: every building can be destroyed (church, tavern, shops, workshop
   const after = await page.evaluate(() => ({ dead: npcs.filter(n => n.dead).length, pop: npcs.length }));
   check(after.dead === 0, 'three days after everything is torn down nobody has died: ' + JSON.stringify(after));
   return `${r.kinds.length} buildings torn down (${[...new Set(r.kinds)].join(', ')}); three days later the village is still there`;
+}));
+
+test('push: every station (counter, oven, forge, anvil, loom, shelf, table) can be pushed inside a room, out of the door as a loose thing and back in', await controlScene('stations', 41, async page => {
+  const r = await page.evaluate(() => {
+    const o = { x: town.cx + 14, y: town.cy - 40 }, P = game.player, res = {}; P.mode = 'push'; P.sel = 0;
+    for (let j = -2; j < 12; j++) for (let i = -2; i < 12; i++) { setT(o.x + i, o.y + j, T.GRASS); roomAt[o.y + j][o.x + i] = -1; const p = lfPropAt(o.x + i, o.y + j); if (p) { town.props = town.props.filter(q => q !== p); town.propAt.delete((o.y + j) * W + o.x + i); town.pblock[(o.y + j) * W + o.x + i] = 0; } }
+    const spots = []; for (let i = 0; i <= 6; i++) for (let j = 0; j <= 4; j++) if (i === 0 || i === 6 || j === 0 || j === 4) { lfAddProp(i === 3 && j === 4 ? 'bdoor' : 'bwall', o.x + i, o.y + j); spots.push([o.x + i, o.y + j]); } town.bldQ = spots; bldTick();
+    const hs = rooms.find(q => q.free && !q.dead); res.room = !!hs; if (!hs) return res;
+    const din = { x: o.x + 3, y: o.y + 3 }, door = { x: o.x + 3, y: o.y + 4 }; res.kinds = [];
+    for (const [t, kind] of [[T.COUNTER, 'counter'], [T.OVEN, 'oven'], [T.FORGE, 'forge'], [T.ANVIL, 'anvil'], [T.LOOM, 'loom'], [T.SHELF, 'shelf'], [T.TABLE, 'table']]) {
+      setT(din.x, din.y, t); const f = pushFurniture(din.x, din.y); if (!f || f.type !== kind) { res.kinds.push(kind + ':not furniture'); continue; }
+      __place(P, din.x, din.y - 1, { dx: 0, dy: 1 }); const a = lf2PushLine(P, din.x, din.y, 0, 1); const prop = lfPropAt(door.x, door.y);
+      const out = a === true && !!prop && prop.kind === kind && grid[din.y][din.x] === T.FLOOR;
+      __place(P, din.x, din.y, { dx: 0, dy: 1 }); const b = lf2PushLine(P, door.x, door.y, 0, 1); __place(P, door.x, door.y + 2, { dx: 0, dy: -1 }); prop.follow = null; const c = lf2PushLine(P, prop.x, prop.y, 0, -1); __place(P, door.x, door.y + 1, { dx: 0, dy: -1 }); const d = lf2PushLine(P, prop.x, prop.y, 0, -1);
+      const back = c === true && d === true && grid[din.y][din.x] === t && !lfPropAt(din.x, din.y) && !town.props.includes(prop);
+      res.kinds.push(kind + ':' + (out && b === true && back ? 'ok' : JSON.stringify([a, b, c, d, out, back]))); setT(din.x, din.y, T.FLOOR);
+    }
+    return res;
+  });
+  check(r.room, 'the test room should seal');
+  check(r.kinds.length === 7 && r.kinds.every(k => /:ok$/.test(k)), 'every station should go out of the door and back in: ' + JSON.stringify(r.kinds));
+  return r.kinds.join(', ');
 }));
 
 test('push: a sleeper rides in the bed (and a sitter in the chair), out of the door into the world; they wake up outside; the bed stays theirs', await controlScene('rider', 41, async page => {
