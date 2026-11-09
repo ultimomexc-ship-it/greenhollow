@@ -18078,7 +18078,7 @@ function lf2Follow(n, p) {
   }
   return true;
 }
-const PUSH_MAX = 5;
+const PUSH_MAX = 1e6;
 const LF_ROCK_ART = ["boulder_0", "boulder_1", "boulder_2", "boulder_3"];
 Object.assign(LF_NOUN, { rock: "rock" });
 const lfPropArt = (pr) => pr.art ? pr.art : pr.kind === "lamp" ? daylight(GA.hour) < 0.55 ? "lamp_lit" : "lamp_unlit" : pr.kind === "tent" ? "tent_" + (pr.v || 0) % 4 : pr.kind === "rock" ? LF_ROCK_ART[(pr.v || 0) & 3] : pr.kind === "chair" ? "seat_" + ["down", "left", "up", "right"][(pr.rot || 0) & 3] : pr.kind === "bed" ? "bed_head_" + ((pr.rot || 0) & 1 ? "down" : "up") + "_" + (pr.owner && !pr.owner.dead ? (pr.v || 0) % 5 : 5) : LF_ART[pr.kind] || "crate";
@@ -20000,6 +20000,24 @@ function bldPlaceFront(n, kind) {
     return null;
   }
   const f = lf2Front(n), cand = [];
+  const ok = (x, y) => x >= 3 && y >= 3 && x < W - 3 && y < H - 3 && walkable(x, y) && !lfPropAt(x, y) && !tileOwner.get(y * W + x) && !(x === n.tx && y === n.ty) && !town.siteAt[y * W + x] && ![T.DOOR, T.PLOT, T.TENT, T.PEW].includes(grid[y][x]);
+  {
+    const dx = Math.sign(f.x - n.tx), dy = Math.sign(f.y - n.ty);
+    if ((dx || dy) && lfPropAt(f.x, f.y)) {
+      let x = f.x, y = f.y;
+      for (let i = 0; i < 400 && lfPropAt(x, y); i++) {
+        x += dx;
+        y += dy;
+      }
+      if (ok(x, y)) {
+        const p = lfAddProp(kind, x, y);
+        p.v = Math.floor(Math.random() * 5);
+        p.rot = 0;
+        playerSay(n, "A " + (LF_NOUN[kind] || kind) + ".");
+        return p;
+      }
+    }
+  }
   for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
     const x = f.x + dx, y = f.y + dy;
     if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) continue;

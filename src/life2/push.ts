@@ -7,7 +7,7 @@
    Loose things can be pushed through a doorway and into a house (they stay loose things; the neighbours still drag one away if it traps somebody behind a door).
    Furniture stays in its room, never onto the doorstep inside, never onto somebody, and never so that it cuts a seat, bed or the pantry off from the door.
    Villagers shoving things about (lfPush) work as before.                                                                                                      */
-const PUSH_MAX = 5;   // the player is strong: five things at once
+const PUSH_MAX = 1e6;   // the player is strong: there is no limit to the line (it ends at the edge of the island)
 const LF_ROCK_ART = ['boulder_0', 'boulder_1', 'boulder_2', 'boulder_3'];
 Object.assign(LF_NOUN, { rock: 'rock' });
 /** how a loose thing is drawn (a chair or bed pushed out of a house keeps its look) */

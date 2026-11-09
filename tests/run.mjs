@@ -171,7 +171,7 @@ test('controls: a bump searches a barrel or crate (once); build mode pushes it',
   return `search on a bump (${talk.act}); build mode: ${s.kind} ${s.x + 1} -> ${pushed.pr}`;
 }));
 
-test('push: things move at exactly your pace, in lines of up to five, and a line moves only if its last piece can', await controlScene('chain', 41, async page => {
+test('push: things move at exactly your pace, in lines of any length, and a line moves only if its last piece can', await controlScene('chain', 41, async page => {
   const s = await page.evaluate(() => {
     const row = Array.from({ length: 14 }, (_, i) => i), [x, y] = __find((x, y) => row.every(i => __free(x + i, y)) && !row.some(i => lfNearDoor(x + i, y)));
     window.__ps = town.props.slice(0, 6); window.__put = (pr, tx) => { town.pblock[pr.y * W + pr.x] = 0; town.propAt.delete(pr.y * W + pr.x); pr.x = tx; pr.y = y; town.pblock[y * W + tx] = 1; town.propAt.set(y * W + tx, pr); };
@@ -184,15 +184,15 @@ test('push: things move at exactly your pace, in lines of up to five, and a line
   check(gaps.flat().every(g => Math.abs(g) < 0.02), 'every piece should stay exactly one tile apart from you and each other while you push: gaps ' + JSON.stringify(gaps.slice(0, 3)));
   const after = await page.evaluate(() => ({ xs: window.__ps.slice(0, 5).map(pr => pr.x) }));
   check(after.xs[0] > s.x + 1 && after.xs.every((v, i) => i === 0 || v === after.xs[i - 1] + 1), 'all five should have been pushed along together: ' + JSON.stringify(after));
-  const six = await page.evaluate(() => { const y = window.__ps[0].y, x0 = window.__ps[0].x - 1; __place(game.player, x0, y, { dx: 1, dy: 0 }); window.__put(window.__ps[5], window.__ps[4].x + 1); const xs = window.__ps.map(pr => pr.x); const r = lf2PushLine(game.player, window.__ps[0].x, y, 1, 0); return { r, same: window.__ps.every((pr, i) => pr.x === xs[i]) }; });
-  check(six.r === 'Too much to push at once.' && six.same, 'six in a row is too much, and nothing moves: ' + JSON.stringify(six));
+  const six = await page.evaluate(() => { const y = window.__ps[0].y, x0 = window.__ps[0].x - 1; __place(game.player, x0, y, { dx: 1, dy: 0 }); window.__put(window.__ps[5], window.__ps[4].x + 1); const xs = window.__ps.map(pr => pr.x); const r = lf2PushLine(game.player, window.__ps[0].x, y, 1, 0); return { r, moved: window.__ps.every((pr, i) => pr.x === xs[i] + 1) }; });
+  check(six.r === true && six.moved, 'there is no limit: six in a row all move: ' + JSON.stringify(six));
   const swap = await page.evaluate(() => {
     const ps = window.__ps.slice(0, 5), y = ps[0].y, x0 = ps[0].x - 1; window.__put(window.__ps[5], x0 - 6); ps.forEach((pr, i) => window.__put(pr, x0 + 1 + i)); const wall = x0 + 6; setT(wall, y, T.WALL); const P = game.player; __place(P, x0, y, { dx: 1, dy: 0 }); const seq = [];
     for (let i = 0; i < 6; i++) { const res = lf2PushLine(P, P.tx + 1, y, 1, 0); seq.push(res === true ? 'swap' : res); if (res === true) { P.tx = P.x = P.tx + 1; rebuildOcc(); } else break; }
     const out = { seq, props: ps.map(pr => pr.x - x0), me: P.tx - x0 }; setT(wall, y, T.GRASS); return out;
   });
   check(swap.seq.slice(0, 5).every(r => r === 'swap') && swap.me === 5 && swap.props.join() === '0,1,2,3,4', 'a line against a wall should swap you through it one piece at a time until you reach the wall: ' + JSON.stringify(swap));
-  return `five pieces moved together ${after.xs[0] - s.x - 1} tiles at your pace (gaps within 0.02); six refused; against a wall you swap through all five`;
+  return `five pieces moved together ${after.xs[0] - s.x - 1} tiles at your pace (gaps within 0.02); six move too (no limit); against a wall you swap through all five`;
 }));
 
 test('push: rocks can be pushed (and chained) and become loose rocks you can build with; the hammer breaks one', await controlScene('rocks', 41, async page => {
@@ -1167,6 +1167,18 @@ test('islands: the Islands button only opens the list, it never replaces the isl
   check(r.same, 'clicking Islands generated a new island');
   check(!errors.length, errors.slice(0, 2).join(' | '));
   return 'the island stays';
+});
+
+test('build: a thing placed on a taken tile goes on the next tile in front, so a row can be pushed', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('row-test', 'blank'); if (!town.props) lfInitProps(); startPlaying(npcs[0]); const P = game.player; itBuildToggle(P, true);
+    P.face = { dx: 1, dy: 0 }; const got = []; for (let i = 0; i < 8; i++) { const p = bldPlaceFront(P, 'bwall'); got.push(p ? p.x - P.tx : null); }
+    return { got };
+  });
+  check(r.got.join() === '1,2,3,4,5,6,7,8', 'eight placed in a row in front: ' + JSON.stringify(r.got));
+  check(!errors.length, errors.slice(0, 2).join(' | '));
+  return 'items line up in front of you, one tile after another';
 });
 
 const browser = await launch();

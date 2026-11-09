@@ -23,6 +23,11 @@ const itBuildName = (k: string) => { const it = YARD_ITEMS.find(q => q.kind === 
 function bldPlaceFront(n, kind: string) {
   if (town.props.length >= BUILD_CAP) { playerSay(n, 'The island is full of loose things. Smash some first.'); return null; }
   const f = lf2Front(n), cand: [number, number, number][] = [];
+  const ok = (x, y) => x >= 3 && y >= 3 && x < W - 3 && y < H - 3 && walkable(x, y) && !lfPropAt(x, y) && !tileOwner.get(y * W + x) && !(x === n.tx && y === n.ty) && !town.siteAt[y * W + x] && ![T.DOOR, T.PLOT, T.TENT, T.PEW].includes(grid[y][x]);
+  { /* the tile in front is taken by a loose thing: the new one goes on the next tile in front, so a row of them can be pushed along together */
+    const dx = Math.sign(f.x - n.tx), dy = Math.sign(f.y - n.ty);
+    if ((dx || dy) && lfPropAt(f.x, f.y)) { let x = f.x, y = f.y; for (let i = 0; i < 400 && lfPropAt(x, y); i++) { x += dx; y += dy; } if (ok(x, y)) { const p: any = lfAddProp(kind, x, y); p.v = Math.floor(Math.random() * 5); p.rot = 0; playerSay(n, 'A ' + (LF_NOUN[kind] || kind) + '.'); return p; } }
+  }
   for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const x = f.x + dx, y = f.y + dy; if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) continue; cand.push([Math.abs(dx) + Math.abs(dy) * 1.01, x, y]); }
   cand.sort((a, b) => a[0] - b[0]);
   for (const [, x, y] of cand) {
