@@ -118,9 +118,9 @@ const held = async (page, keys, minutes, dirKey = 'd') => { for (const k of keys
 
 test('controls: in Push mode walking into a person pushes them along like a barrel, with no crime or gossip', await controlScene('push', 41, async page => {
   const s = await page.evaluate(() => { const [x, y] = __find((x, y) => [0, 1, 2, 3, 4, 5].every(i => __free(x + i, y))); __place(game.player, x, y, { dx: 1, dy: 0 }); window.__o = __stand(__other(), x + 1, y); return { x, y, ox: x + 1 }; });
-  await page.keyboard.press('q'); await held(page, [], 3);   // Talk -> Push
-  const e = await page.evaluate(() => ({ me: game.player.tx, them: window.__o.tx, emitted: window.__emitted.slice(), mode: game.player.mode }));
-  check(e.mode === 'push', 'Q should switch the hand to Push, got ' + e.mode);
+  await page.keyboard.press('b'); await held(page, [], 3);   // build mode: the hand pushes
+  const e = await page.evaluate(() => ({ me: game.player.tx, them: window.__o.tx, emitted: window.__emitted.slice(), mode: itBuildOn(game.player) ? 'push' : game.player.mode }));
+  check(e.mode === 'push', 'B should put you in build mode (the hand pushes), got ' + e.mode);
   check(e.emitted.length === 0, 'pushing someone must not create events, got: ' + e.emitted.join(', '));
   check(e.me > s.x + 1, `the player should have walked on behind them (x ${s.x} -> ${e.me})`);
   check(e.them > s.ox, `they should have been pushed east of x=${s.ox}, now ${e.them}`);
@@ -129,7 +129,7 @@ test('controls: in Push mode walking into a person pushes them along like a barr
 
 test('controls: in Push mode against a wall you swap places instead of getting stuck', await controlScene('swap', 41, async page => {
   const s = await page.evaluate(() => { const [x, y] = __find((x, y) => __free(x, y) && __free(x + 1, y) && !walkable(x + 2, y) && grid[y][x + 2] !== T.TREE && grid[y][x + 2] !== T.ROCK); /* (a rock is pushable now, so it is no wall) */ const n = game.player; __place(n, x, y, { dx: 1, dy: 0 }); __stand(__other(), x + 1, y); window.__other().talkUntil = game.time + 1e6; /* (keeps the villager from sitting down by the water) */ return { x, y }; });
-  await page.keyboard.press('q'); await held(page, [], 2);
+  await page.keyboard.press('b'); await held(page, [], 2);
   const e = await page.evaluate(() => ({ me: game.player.tx, emitted: window.__emitted.slice(), them: npcs.filter(q => q !== game.player && q.tx === game.player.tx - 1 && q.ty === game.player.ty).length }));
   check(e.me === s.x + 1, `the player should have changed places (x ${s.x} -> ${e.me})`);
   check(e.them === 1, 'the villager should now stand where the player was');
@@ -145,32 +145,30 @@ test('controls: in Talk mode walking into someone talks (and does not push them)
   return act;
 }));
 
-test('controls: Q cycles Talk, Push, Search; 1-9 pick from the belt; Shift and the old keys do nothing; with a tool in hand you do not talk', await controlScene('keys', 41, async page => {
+test('controls: B toggles build mode, I the inventory, 1-0 the hotbar; Q, Shift and the old keys do nothing; with something in hand you still talk', await controlScene('keys', 41, async page => {
   await page.evaluate(() => { const [x, y] = __find((x, y) => [0, 1, 2].every(i => __free(x + i, y))); __place(game.player, x, y, { dx: 1, dy: 0 }); __stand(__other(), x + 1, y); window.__emitted.length = 0; });
-  const st = () => page.evaluate(() => { const n = game.player; return { mode: n.mode, sel: n.sel, held: itHeld(n).kind, sneak: !!n.player.sneak, act: n.player.act && n.player.act.text, msg: n.player.msg, ev: window.__emitted.slice() }; });
-  const seen = [(await st()).mode]; for (let i = 0; i < 3; i++) { await page.keyboard.press('q'); seen.push((await st()).mode); }
-  check(seen.join(',') === 'talk,push,search,talk', 'Q should cycle Talk -> Push -> Search -> Talk, got ' + seen.join(' -> '));
-  await page.keyboard.press('2'); const axe = await st(); check(axe.sel === 1 && axe.held === 'axe', 'key 2 should put the axe in hand: ' + JSON.stringify(axe));
+  const st = () => page.evaluate(() => { const n = game.player; return { build: itBuildOn(n), sel: n.sel, held: itHeld(n).kind, sneak: !!n.player.sneak, act: n.player.act && n.player.act.text, msg: n.player.msg, ev: window.__emitted.slice(), bag: itBagOpen(), slots: n.belt.length }; });
+  const s0 = await st(); check(!s0.build && s0.slots === 10, 'the hotbar has ten slots and you start outside build mode: ' + JSON.stringify(s0));
+  await page.keyboard.press('q'); await page.keyboard.press('q'); const q = await st(); check(!q.build && q.held === s0.held, 'Q does nothing now: ' + JSON.stringify(q));
+  await page.keyboard.press('b'); const b1 = await st(); await page.keyboard.press('b'); const b2 = await st(); check(b1.build && !b2.build, 'B should toggle build mode: ' + JSON.stringify([b1.build, b2.build]));
+  await page.keyboard.press('i'); const i1 = await st(); await page.keyboard.press('i'); const i2 = await st(); check(i1.bag && !i2.bag, 'I should open and close the inventory');
+  check(/^(seed_|lockpick)/.test(s0.held), 'slot 1 starts selected, holding the first hotbar item: ' + JSON.stringify(s0));
+  await page.keyboard.press('1'); const k0 = await st(); check(k0.held === 'hand', 'pressing the held slot puts it away: ' + JSON.stringify(k0)); await page.keyboard.press('1'); const k1 = await st(); check(k1.held === s0.held, 'pressing it again holds it: ' + JSON.stringify(k1));
   for (const k of ['Shift', 'Space', 'e', 'r', 'c', 'z']) await page.keyboard.press(k);
-  const after = await st(); check(!after.sneak && after.ev.length === 0 && after.held === 'axe', 'Shift, Space, E, R, C and Z should do nothing: ' + JSON.stringify(after));
+  const after = await st(); check(!after.sneak && after.ev.length === 0, 'Shift, Space, E, R, C and Z should do nothing: ' + JSON.stringify(after));
   await held(page, [], 1); const bump = await st();
-  check(!/^Talking/.test(bump.act || '') && /press 1/.test(bump.msg || ''), 'with the axe in hand walking into someone should not talk, and should say how to: ' + JSON.stringify(bump));
-  await page.keyboard.press('q'); const back = await st(); check(back.sel === 0 && back.held === 'hand', 'Q with a tool in hand should put the hand back: ' + JSON.stringify(back));
-  return `Q: ${seen.join(' -> ')}; 2 = axe; old keys do nothing; "${bump.msg}"`;
+  check(/^Talking/.test(bump.act || ''), 'with something in hand walking into someone still talks: ' + JSON.stringify(bump));
+  return `ten slots; B build, I inventory; Q and the old keys do nothing; slot 1 = ${k1.held}; a bump still talks`;
 }));
 
-test('controls: a barrel or crate is pushed in Push mode and searched in Search mode', await controlScene('props', 41, async page => {
-  const setup = () => page.evaluate(() => { const [x, y] = __find((x, y) => [-1, 0, 1, 2, 3, 4].every(i => __free(x + i, y))); const pr = town.props.find(Boolean); town.pblock[pr.y * W + pr.x] = 0; town.propAt.delete(pr.y * W + pr.x); pr.x = x + 1; pr.y = y; town.pblock[y * W + x + 1] = 1; town.propAt.set(y * W + x + 1, pr); pr.loot = undefined; pr.lootDay = -9; __place(game.player, x, y, { dx: 1, dy: 0 }); game.player.player.act = null; game.player.player.lock = false; window.__pr = pr; return { x, y, kind: pr.kind }; });
-  const s0 = await setup(); await held(page, [], 1); const talk = await page.evaluate(() => ({ pr: window.__pr.x, msg: game.player.player.msg }));
-  check(talk.pr === s0.x + 1, 'in Talk mode a crate must not move');
-  await page.keyboard.press('q'); const s = await setup(); await held(page, [], 2);
-  const pushed = await page.evaluate(() => ({ pr: window.__pr.x, act: game.player.player.act && game.player.player.act.text }));
-  check(pushed.pr > s.x + 1, `in Push mode the ${s.kind} should have been pushed east (x ${s.x + 1} -> ${pushed.pr})`);
-  await page.keyboard.press('q'); const s2 = await setup(); await held(page, [], 1);
-  const searched = await page.evaluate(() => ({ pr: window.__pr.x, act: game.player.player.act && game.player.player.act.text }));
-  check(/^Searching/.test(searched.act || ''), 'in Search mode walking into it should search it, got ' + JSON.stringify(searched.act));
-  check(searched.pr === s2.x + 1, 'searching must not move it');
-  return `Talk: stays ("${talk.msg}"); Push: ${s.kind} ${s.x + 1} -> ${pushed.pr}; Search: ${searched.act}`;
+test('controls: a bump searches a barrel or crate (once); build mode pushes it', await controlScene('props', 41, async page => {
+  const setup = () => page.evaluate(() => { const [x, y] = __find((x, y) => [-1, 0, 1, 2, 3, 4].every(i => __free(x + i, y))); const pr = town.props.find(p => ['crate', 'crate1', 'barrel', 'stool'].includes(p.kind)); town.pblock[pr.y * W + pr.x] = 0; town.propAt.delete(pr.y * W + pr.x); pr.x = x + 1; pr.y = y; town.pblock[y * W + x + 1] = 1; town.propAt.set(y * W + x + 1, pr); pr.loot = undefined; pr.lootDay = undefined; pr.searchedT = undefined; window.__pr = pr; __place(game.player, x, y, { dx: 1, dy: 0 }); return { x, y, kind: pr.kind }; });
+  const s0 = await setup(); await held(page, [], 1); const talk = await page.evaluate(() => ({ pr: window.__pr.x, act: game.player.player.act && game.player.player.act.text }));
+  check(/^Searching/.test(talk.act || ''), 'a plain bump should search the crate, got ' + JSON.stringify(talk.act)); check(talk.pr === s0.x + 1, 'searching must not move it');
+  await page.keyboard.press('b'); const s = await setup(); await held(page, [], 2);
+  const pushed = await page.evaluate(() => ({ pr: window.__pr.x }));
+  check(pushed.pr > s.x + 1, `in build mode the ${s.kind} should have been pushed east (x ${s.x + 1} -> ${pushed.pr})`);
+  return `search on a bump (${talk.act}); build mode: ${s.kind} ${s.x + 1} -> ${pushed.pr}`;
 }));
 
 test('push: things move at exactly your pace, in lines of up to five, and a line moves only if its last piece can', await controlScene('chain', 41, async page => {
@@ -179,7 +177,7 @@ test('push: things move at exactly your pace, in lines of up to five, and a line
     window.__ps = town.props.slice(0, 6); window.__put = (pr, tx) => { town.pblock[pr.y * W + pr.x] = 0; town.propAt.delete(pr.y * W + pr.x); pr.x = tx; pr.y = y; town.pblock[y * W + tx] = 1; town.propAt.set(y * W + tx, pr); };
     window.__ps.slice(0, 5).forEach((pr, i) => window.__put(pr, x + 1 + i)); __place(game.player, x, y, { dx: 1, dy: 0 }); return { x, y };
   });
-  await page.keyboard.press('q');   // Talk -> Push
+  await page.keyboard.press('b');   // build mode: the hand pushes
   await page.keyboard.down('d'); const gaps = [];
   for (let i = 0; i < 10; i++) { await simulate(page, 0.4); gaps.push(await page.evaluate(() => { const P = game.player, now = performance.now(); return window.__ps.slice(0, 5).map((pr, k) => +(lfPropPos(pr, now)[0] - P.x - 1 - k).toFixed(3)); })); }
   await page.keyboard.up('d'); await simulate(page, 2);
@@ -200,11 +198,11 @@ test('push: things move at exactly your pace, in lines of up to five, and a line
 test('push: rocks can be pushed (and chained) and become loose rocks you can build with; the hammer breaks one', await controlScene('rocks', 41, async page => {
   const r = await page.evaluate(() => {
     let rk = null; for (let y = 4; y < H - 4 && !rk; y++) for (let x = 4; x < W - 6; x++) if (grid[y][x] === T.ROCK && __free(x - 1, y) && __free(x + 1, y) && __free(x + 2, y) && !town.nodeMap.has(y * W + x + 1)) { rk = [x, y]; break; }
-    if (!rk) throw new Error('no free rock'); const [x, y] = rk, P = game.player; __place(P, x - 1, y, { dx: 1, dy: 0 }); P.mode = 'push'; P.sel = 0;
+    if (!rk) throw new Error('no free rock'); const [x, y] = rk, P = game.player; __place(P, x - 1, y, { dx: 1, dy: 0 }); itBuildToggle(P, true);
     const res = lf2PushLine(P, x, y, 1, 0), pr = lfPropAt(x + 1, y), tile = grid[y][x];
     const loose = pr && pr.kind === 'rock' && tile === T.GRASS && town.pblock[y * W + x + 1] === 1, art = pr && lfPropArt(pr);
     __place(P, x, y, { dx: 1, dy: 0 }); const again = lf2PushLine(P, x + 1, y, 1, 0), moved = pr && pr.x === x + 2;
-    P.sel = P.belt.findIndex(q => q && q[0] === 'i' && itById(P, +q.slice(1)).kind === 'hammer'); const act = lifeAct(P, P.player, pr.x, pr.y, 1, 0); const stone0 = P.inv.stone || 0; act.run(P);
+    itBuildToggle(P, true); itBuildSelect(P, 1); const act = lifeAct(P, P.player, pr.x, pr.y, 1, 0); const stone0 = P.inv.stone || 0; act.run(P);
     return { res, loose, art, again, moved, hammer: act.key, gone: !lfPropAt(pr.x, pr.y) && !town.props.includes(pr), dropped: (P.inv.stone || 0) > stone0 };
   });
   check(r.res === true && r.loose, 'pushing a rock should turn it into a loose rock one tile along: ' + JSON.stringify(r));
@@ -217,7 +215,7 @@ test('push: rocks can be pushed (and chained) and become loose rocks you can bui
 test('push: loose things can be pushed through a doorway and into a house', await controlScene('doorway', 41, async page => {
   const r = await page.evaluate(() => {
     const house = rooms.find(q => !q.dead && q.kind === 'house' && q.side === 'b'), crate = town.props[0], P = game.player, trail = [];
-    town.pblock[crate.y * W + crate.x] = 0; town.propAt.delete(crate.y * W + crate.x); crate.x = house.doorX; crate.y = house.doorY + 1; town.pblock[crate.y * W + crate.x] = 1; town.propAt.set(crate.y * W + crate.x, crate); P.mode = 'push'; P.sel = 0;
+    town.pblock[crate.y * W + crate.x] = 0; town.propAt.delete(crate.y * W + crate.x); crate.x = house.doorX; crate.y = house.doorY + 1; town.pblock[crate.y * W + crate.x] = 1; town.propAt.set(crate.y * W + crate.x, crate); itBuildToggle(P, true);
     __place(P, house.doorX, house.doorY + 2, { dx: 0, dy: -1 });
     for (let i = 0; i < 3; i++) { const res = lf2PushLine(P, crate.x, crate.y, 0, -1); trail.push({ res, y: crate.y, inside: roomAt[crate.y][crate.x] === rooms.indexOf(house) }); if (res !== true) break; __place(P, crate.x, crate.y + 1, { dx: 0, dy: -1 }); }
     return { trail, doorY: house.doorY };
@@ -229,7 +227,7 @@ test('push: loose things can be pushed through a doorway and into a house', awai
 
 test('push: chairs, beds and the family barrel can be moved inside a house, never so the house is cut off, and the household carries on', await controlScene('furniture', 41, async page => {
   const r = await page.evaluate(() => {
-    const hs = rooms.find(q => !q.dead && q.kind === 'house' && q.seats.length && q.beds.length && q.barrel), P = game.player; P.mode = 'push'; P.sel = 0;
+    const hs = rooms.find(q => !q.dead && q.kind === 'house' && q.seats.length && q.beds.length && q.barrel), P = game.player; itBuildToggle(P, true);
     const chair = hs.seats[0], bed = hs.beds[0], dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]], res = {};
     const go = (o, dx, dy) => { const f = pushFurniture(o.x, o.y); if (!f) return 'not furniture'; if (!pushFurnitureOK(f, o.x + dx, o.y + dy)) return 'no'; __place(P, o.x - dx, o.y - dy, { dx, dy }); P.tx = P.x = o.x - dx; P.ty = P.y = o.y - dy; return lf2PushLine(P, o.x, o.y, dx, dy); };
     const cd = dirs.find(([dx, dy]) => { const f = pushFurniture(chair.x, chair.y); return f && pushFurnitureOK(f, chair.x + dx, chair.y + dy); }); const c0 = [chair.x, chair.y];
@@ -297,7 +295,7 @@ test('push: open ground in the square never acts like a wall (nothing invisible 
 
 test('push: things go over a field (the plot goes back to bare dirt), and standing in a doorway you swap with a bed that cannot move', await controlScene('fieldbed', 41, async page => {
   const r = await page.evaluate(() => {
-    const P = game.player, res = {}, crate = town.props[0]; P.mode = 'push'; P.sel = 0;
+    const P = game.player, res = {}, crate = town.props[0]; itBuildToggle(P, true);
     const c = town.crops.find(q => town.crops.some(o => o.x === q.x + 1 && o.y === q.y) && town.crops.some(o => o.x === q.x + 2 && o.y === q.y) && __free(q.x - 1, q.y)); if (!c) throw new Error('no field row');
     const row = [c, town.crops.find(o => o.x === c.x + 1 && o.y === c.y), town.crops.find(o => o.x === c.x + 2 && o.y === c.y)]; row.forEach(q => { q.pl = 1; q.st = 1; q.t0 = game.time; q.seed = 'barley'; });
     town.pblock[crate.y * W + crate.x] = 0; town.propAt.delete(crate.y * W + crate.x); crate.x = c.x; crate.y = c.y; town.pblock[c.y * W + c.x] = 1; town.propAt.set(c.y * W + c.x, crate); crate.fur = null;
@@ -337,7 +335,7 @@ test('push: villagers leave things where they are (no tidying, shoving or haulin
 
 test('push: furniture can be pushed out of the door (it becomes a loose thing) and back in (it is furniture again)', await controlScene('outdoor', 41, async page => {
   const r = await page.evaluate(() => {
-    const hs = rooms.find(q => !q.dead && q.kind === 'house' && q.seats.length && q.beds.length && q.barrel && q.side === 'b'), P = game.player; P.mode = 'push'; P.sel = 0;
+    const hs = rooms.find(q => !q.dead && q.kind === 'house' && q.seats.length && q.beds.length && q.barrel && q.side === 'b'), P = game.player; itBuildToggle(P, true);
     const seat = hs.seats[0], din = { x: hs.doorX, y: hs.doorY - 1 }, res = {}; const t0 = [seat.x, seat.y];
     setT(seat.x, seat.y, T.FLOOR); seat.x = din.x; seat.y = din.y; setT(din.x, din.y, T.SEAT); rebuildOcc();            // stand the chair just inside the door
     __place(P, din.x, din.y - 1, { dx: 0, dy: 1 }); res.out1 = lf2PushLine(P, din.x, din.y, 0, 1);
@@ -357,7 +355,7 @@ test('push: furniture can be pushed out of the door (it becomes a loose thing) a
 
 test('push: a table can be pushed inside a house (never out of the door, never so the house is cut off)', await controlScene('table', 41, async page => {
   const r = await page.evaluate(() => {
-    const P = game.player; P.mode = 'push'; P.sel = 0; const res = { tried: 0, moved: 0, bad: [] };
+    const P = game.player; itBuildToggle(P, true); const res = { tried: 0, moved: 0, bad: [] };
     for (const hs of rooms.filter(q => !q.dead && q.kind === 'house')) for (let y = hs.y + 1; y < hs.y + hs.h - 1; y++) for (let x = hs.x + 1; x < hs.x + hs.w - 1; x++) {
       if (grid[y][x] !== T.TABLE || res.moved >= 3) continue;
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
@@ -375,23 +373,29 @@ test('push: a table can be pushed inside a house (never out of the door, never s
   return `${r.moved} tables pushed (${r.tried} tried)`;
 }));
 
-test('build mode (B): a build hotbar replaces the hand modes: 1 smash, 2 turn, 3-9 put an item down in front of you; trees are cleared with the hammer; the bag (I) fills the slots', await controlScene('buildmode', 41, async page => {
+test('build mode (B): 1 push, 2 destroy, 3 turn, 4-0 put an item down in front of you; trees are cleared with the hammer; the build menu (I) fills the slots; lamp posts, fires and tents can be destroyed and built; no sleeping in a tent', await controlScene('buildmode', 41, async page => {
   const r = await page.evaluate(() => {
     const P = game.player, res = {}; const [x, y] = __find((x, y) => [-1, 0, 1, 2, 3].every(i => __free(x + i, y)) && __free(x, y - 1) && __free(x, y + 1)); __place(P, x, y, { dx: 1, dy: 0 });
     const was = { sel: P.sel, mode: P.mode }; itBuildToggle(P, true); res.on = itBuildOn(P); res.mode = itMode(P); res.hand = itHeld(P).kind;
     // 3-9: one of each item appears in front of you
-    const n0 = town.props.length; for (let i = 2; i <= 8; i++) itBuildSelect(P, i); res.placed = town.props.length - n0; res.kinds = town.props.slice(n0).map(p => p.kind).join();
+    const n0 = town.props.length; for (let i = 3; i <= 9; i++) itBuildSelect(P, i); res.placed = town.props.length - n0; res.kinds = town.props.slice(n0).map(p => p.kind).join();
     // every other kind through the function (cleared away again)
     const fresh = []; for (const k of ['counter', 'oven', 'forge', 'anvil', 'loom', 'shelf']) fresh.push(bldPlaceFront(P, k)); res.more = fresh.filter(Boolean).length;
     // 1: the hammer smashes a block; the walls and doors of buildings too; a tree is cleared into wood
-    itBuildSelect(P, 0); res.hammer = itHeld(P).kind; const blk = town.props.find(p => p.kind === 'bwall'); __place(P, blk.x - 1, blk.y, { dx: 1, dy: 0 }); const a = lifeAct(P, P.player, blk.x, blk.y, 1, 0); res.smash = a && /^wallp/.test(a.key); a.run(P); res.gone = !lfPropAt(blk.x, blk.y);
+    itBuildSelect(P, 1); res.hammer = itHeld(P).kind; const blk = town.props.find(p => p.kind === 'bwall'); __place(P, blk.x - 1, blk.y, { dx: 1, dy: 0 }); const a = lifeAct(P, P.player, blk.x, blk.y, 1, 0); res.smash = a && /^wallp/.test(a.key); a.run(P); res.gone = !lfPropAt(blk.x, blk.y);
     const [tx, ty] = __find((x, y) => __free(x, y) && __free(x - 1, y) && grid[y][x + 1] !== T.TREE); setT(tx + 1, ty, T.TREE); __place(P, tx, ty, { dx: 1, dy: 0 }); const wood0 = P.inv.wood || 0; const t = targetAt0(P, tx + 1, ty); res.tree = t && /^wallt/.test(t.key) && t.tool === 'hammer'; t.run(P); res.cleared = grid[ty][tx + 1] === T.GRASS && (P.inv.wood || 0) === wood0 + 1;
     // 2: the turner turns a chair and a bed
-    itBuildSelect(P, 1); res.turner = P.build.sel === 2; const ch = town.props.find(p => p.kind === 'chair'), bd = town.props.find(p => p.kind === 'bed'); const arts = [lfPropArt(ch), lfPropArt(bd)]; bldRotate(ch.x, ch.y); bldRotate(bd.x, bd.y); res.turned = lfPropArt(ch) !== arts[0] && lfPropArt(bd) !== arts[1];
+    itBuildSelect(P, 2); res.turner = P.build.sel === 2; const ch = town.props.find(p => p.kind === 'chair'), bd = town.props.find(p => p.kind === 'bed'); const arts = [lfPropArt(ch), lfPropArt(bd)]; bldRotate(ch.x, ch.y); bldRotate(bd.x, bd.y); res.turned = lfPropArt(ch) !== arts[0] && lfPropArt(bd) !== arts[1];
     // furniture standing in a house turns too
     const hs = rooms.find(q => !q.free && !q.dead && q.kind === 'house' && q.seats.length && q.beds.length), seat = hs.seats[0], face0 = JSON.stringify(seat.face); bldRotate(seat.x, seat.y); const bed = hs.beds[0]; bldRotate(bed.x, bed.y); res.roomTurn = JSON.stringify(seat.face) !== face0 && bed.flip === true;
     // the bag fills the slots
     itBuildAssign(P, 0, 'oven'); res.assigned = P.build.bar[0] === 'oven';
+    // lamp posts, tents and fires: destroy them with the hammer, and build them from the menu
+    itBuildSelect(P, 1);
+    const lp = lamps[0], lamp0 = lamps.length; { const tg = targetAt0(P, lp.x, lp.y); if (tg) tg.run(P); } res.lamp = lamps.length === lamp0 - 1 && grid[lp.y][lp.x] !== T.LAMP && !!bldPlaceFront(P, 'lamp') && allLamps().length === lamp0;
+    town.tents = town.tents || []; const [tx2, ty2] = __find((x, y) => __free(x, y)); setT(tx2, ty2, T.TENT); town.tents.push({ x: tx2, y: ty2, owner: null, under: T.GRASS }); { const tg = targetAt0(P, tx2, ty2); res.tentKey = tg && tg.key; if (tg) tg.run(P); } res.tent = grid[ty2][tx2] === T.GRASS && !town.tents.some(q => q.x === tx2 && q.y === ty2) && !!bldPlaceFront(P, 'tent');
+    const fires0 = fireList().length; const home = fireList().find(f => f.home); { const tg = home && targetAt0(P, home.x, home.y); if (tg) tg.run(P); } res.fire = fireList().length === fires0 - 1 && !noStep(town.cx, town.cy + 1) && !!bldPlaceFront(P, 'campfire') && allFires().length === fires0;
+    itBuildSelect(P, 1); setT(tx2, ty2, T.TENT); town.tents.push({ x: tx2, y: ty2, owner: null, under: T.GRASS }); itBuildSelect(P, 1); { const tg = targetAt0(P, tx2, ty2); res.noSleep = !tg || tg.key !== 'rest'; } itBuildSelect(P, 0); { const tg = targetAt0(P, tx2, ty2); res.noSleep = res.noSleep && (!tg || tg.key !== 'rest'); } setT(tx2, ty2, T.GRASS); town.tents = town.tents.filter(q => q.x !== tx2);
     itBuildToggle(P, false); res.off = !itBuildOn(P) && P.sel === was.sel && P.mode === was.mode;
     return res;
   });
@@ -400,12 +404,13 @@ test('build mode (B): a build hotbar replaces the hand modes: 1 smash, 2 turn, 3
   check(r.hammer === 'hammer' && r.smash && r.gone && r.tree && r.cleared, 'slot 1 is the hammer: smashes blocks and clears trees: ' + JSON.stringify(r));
   check(r.turner && r.turned && r.roomTurn, 'slot 2 turns chairs and beds, loose or standing in a room: ' + JSON.stringify(r));
   check(r.assigned && r.off, 'the bag assigns slots and leaving build mode restores your hand: ' + JSON.stringify(r));
+  check(r.lamp && r.tent && r.fire && r.noSleep, 'lamp posts, tents and fires can be destroyed (and built), and a tent is not slept in during build mode: ' + JSON.stringify([r.lamp, r.tent, r.fire, r.noSleep]));
   return 'B toggles; 1 smash / clears trees, 2 turn, 3-9 place; bag assigns; leaving restores the hand';
 }));
 
 test('builder\'s yard: blocks are loose things (a wall block chains with a crate)', await controlScene('blocks', 41, async page => {
   const r = await page.evaluate(() => {
-    const P = game.player; P.mode = 'push'; P.sel = 0; const res = {};
+    const P = game.player; itBuildToggle(P, true); const res = {};
     const [x, y] = __find((x, y) => [0, 1, 2, 3, 4, 5].every(i => __free(x + i, y))); __place(P, x, y, { dx: 1, dy: 0 });
     const a = lfAddProp('bwall', x + 1, y), b = lfAddProp('bdoor', x + 2, y), c = lfAddProp('crate', x + 3, y);
     res.r1 = lf2PushLine(P, x + 1, y, 1, 0); res.pos = [a.x - x, b.x - x, c.x - x].join();
@@ -469,7 +474,7 @@ test('building: blocks close into rooms of any shape (L-shape, a door needed, no
 
 test('building: pushing the last wall block into the gap closes the room once your step is over', await controlScene('sealpush', 41, async page => {
   const r = await page.evaluate(() => {
-    const o = { x: town.cx + 14, y: town.cy - 30 }, P = game.player; P.mode = 'push'; P.sel = 0;
+    const o = { x: town.cx + 14, y: town.cy - 30 }, P = game.player; itBuildToggle(P, true);
     for (let j = -1; j < 8; j++) for (let i = -1; i < 12; i++) { setT(o.x + i, o.y + j, T.GRASS); roomAt[o.y + j][o.x + i] = -1; const p = lfPropAt(o.x + i, o.y + j); if (p) { town.props = town.props.filter(q => q !== p); town.propAt.delete((o.y + j) * W + o.x + i); town.pblock[(o.y + j) * W + o.x + i] = 0; } }
     // a 2 x 1 room: walls round tiles (1,1) and (2,1); the gap is the top middle-left (1,0); the last block waits at (1,-1)... pushed down from (1,-1)? it starts at (1,-2) above the gap
     const ring = []; for (let i = 0; i <= 3; i++) for (let j = 0; j <= 2; j++) if (!(j === 1 && (i === 1 || i === 2))) ring.push([i, j]);
@@ -576,7 +581,7 @@ test('building: the hammer knocks out one built block; a closed room carries on 
 test('building: the hammer is the delete button: loose things, house furniture, any wall or door; the building falls apart into loose pushable pieces', await controlScene('smash', 41, async page => {
   const r = await page.evaluate(() => {
     const P = game.player, res = {}; const [x, y] = __find((x, y) => [0, 1, 2].every(i => __free(x + i, y))); __place(P, x - 1, y, { dx: 1, dy: 0 });
-    P.sel = P.belt.findIndex(q => q && q[0] === 'i' && itById(P, +q.slice(1)).kind === 'hammer');
+    itBuildToggle(P, true); itBuildSelect(P, 1);
     // loose things: a crate and a block are deleted outright (a rock still breaks into stone; a yard stand stays)
     const crate = lfAddProp('crate', x, y), blk = lfAddProp('bwall', x + 1, y); let a = lifeAct(P, P.player, x, y, 1, 0); res.crateKey = a && a.key; a.run(P); res.crateGone = !lfPropAt(x, y) && !town.props.includes(crate);
     a = lifeAct(P, P.player, x + 1, y, 1, 0); a.run(P); res.blockGone = !lfPropAt(x + 1, y);
@@ -592,7 +597,7 @@ test('building: the hammer is the delete button: loose things, house furniture, 
     res.loose = town.props.filter(p => ['bwall', 'bwindow', 'bdoor'].includes(p.kind) && inside(p)).length; res.walls = walls; res.furn = town.props.filter(p => ['bed', 'chair', 'table', 'barrel'].includes(p.kind) && inside(p)).length;
     res.floor = grid[hs.y + 1][hs.x + 1] !== T.FLOOR && roomAt[hs.y + 1][hs.x + 1] < 0; res.homeless = fam.every(n => !n.homeRoom);
     // and the loose pieces really push
-    const piece = town.props.find(p => p.kind === 'bwall' && inside(p)); res.pushable = !!piece && (() => { for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (pushLooseOK(piece.x + dx, piece.y + dy)) { __place(P, piece.x - dx, piece.y - dy, { dx, dy }); P.mode = 'push'; P.sel = 0; return lf2PushLine(P, piece.x, piece.y, dx, dy) === true; } return false; })();
+    const piece = town.props.find(p => p.kind === 'bwall' && inside(p)); res.pushable = !!piece && (() => { for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (pushLooseOK(piece.x + dx, piece.y + dy)) { __place(P, piece.x - dx, piece.y - dy, { dx, dy }); itBuildToggle(P, true); return lf2PushLine(P, piece.x, piece.y, dx, dy) === true; } return false; })();
     // a door can be hammered too (with the hammer in hand you cannot walk through it)
     const free2 = (() => { const door = town.props.find(p => p.kind === 'bdoor' && inside(p)); return door; })(); res.doorLoose = !!free2;
     return res;
@@ -610,7 +615,7 @@ test('building: the hammer is the delete button: loose things, house furniture, 
 test('building: every building can be destroyed (church, tavern, shops, workshops, privies, the jail ...) and the village carries on', await controlScene('destroyall', 41, async page => {
   const r = await page.evaluate(() => {
     const P = game.player, res = { kinds: [] }; const live = () => rooms.filter(q => !q.free && !q.dead && q !== P.homeRoom);
-    for (const rm of live()) { if (rm.dead) continue; res.kinds.push(rm.kind); let tx = rm.doorX, ty = rm.doorY; const g = targetAt0; P.sel = P.belt.findIndex(q => q && q[0] === 'i' && itById(P, +q.slice(1)).kind === 'hammer'); const t = targetAt0(P, tx, ty); if (!t) { bldBreak(tx, ty, P); } else t.run(P); }
+    for (const rm of live()) { if (rm.dead) continue; res.kinds.push(rm.kind); let tx = rm.doorX, ty = rm.doorY; const g = targetAt0; itBuildToggle(P, true); itBuildSelect(P, 1); const t = targetAt0(P, tx, ty); if (!t) { bldBreak(tx, ty, P); } else t.run(P); }
     res.left = live().length; res.churchGone = !town.church; return res;
   });
   check(r.left === 0 && r.kinds.length >= 5, 'every building should come down: ' + JSON.stringify(r));
@@ -622,7 +627,7 @@ test('building: every building can be destroyed (church, tavern, shops, workshop
 
 test('push: every station (counter, oven, forge, anvil, loom, shelf, table) can be pushed inside a room, out of the door as a loose thing and back in', await controlScene('stations', 41, async page => {
   const r = await page.evaluate(() => {
-    const o = { x: town.cx + 14, y: town.cy - 40 }, P = game.player, res = {}; P.mode = 'push'; P.sel = 0;
+    const o = { x: town.cx + 14, y: town.cy - 40 }, P = game.player, res = {}; itBuildToggle(P, true);
     for (let j = -2; j < 12; j++) for (let i = -2; i < 12; i++) { setT(o.x + i, o.y + j, T.GRASS); roomAt[o.y + j][o.x + i] = -1; const p = lfPropAt(o.x + i, o.y + j); if (p) { town.props = town.props.filter(q => q !== p); town.propAt.delete((o.y + j) * W + o.x + i); town.pblock[(o.y + j) * W + o.x + i] = 0; } }
     const spots = []; for (let i = 0; i <= 6; i++) for (let j = 0; j <= 4; j++) if (i === 0 || i === 6 || j === 0 || j === 4) { lfAddProp(i === 3 && j === 4 ? 'bdoor' : 'bwall', o.x + i, o.y + j); spots.push([o.x + i, o.y + j]); } town.bldQ = spots; bldTick();
     const hs = rooms.find(q => q.free && !q.dead); res.room = !!hs; if (!hs) return res;
@@ -644,7 +649,7 @@ test('push: every station (counter, oven, forge, anvil, loom, shelf, table) can 
 
 test('push: a sleeper rides in the bed (and a sitter in the chair), out of the door into the world; they wake up outside; the bed stays theirs', await controlScene('rider', 41, async page => {
   const r = await page.evaluate(() => {
-    const hs = rooms.find(q => !q.dead && q.kind === 'house' && q.seats.length && q.beds.length && q.barrel && q.side === 'b'), P = game.player; P.mode = 'push'; P.sel = 0;
+    const hs = rooms.find(q => !q.dead && q.kind === 'house' && q.seats.length && q.beds.length && q.barrel && q.side === 'b'), P = game.player; itBuildToggle(P, true);
     const bed = hs.beds[0], din = { x: hs.doorX, y: hs.doorY - 1 }, res = {};
     const who = npcs.find(n => !n.dead && !n.player && !n.infant && n.age >= 16 && n !== P); who.bed = bed;
     setT(bed.x, bed.y, T.FLOOR); bed.x = din.x; bed.y = din.y; setT(din.x, din.y, T.BED);
@@ -667,37 +672,37 @@ test('push: a sleeper rides in the bed (and a sitter in the chair), out of the d
   return 'sleeper carried out of the door in the bed, woke up outside (' + r.chron + '), carried back in';
 }));
 
-test('controls: a tree needs the axe in hand: with the hand you are told, with the axe you fell it', await controlScene('tree', 41, async page => {
-  const s = await page.evaluate(() => { const [x, y] = __find((x, y) => __free(x, y) && grid[y][x + 1] === T.TREE && !wildTile(x + 1, y)); __place(game.player, x, y, { dx: 1, dy: 0 }); return { x, y }; });
-  await held(page, [], 1); const hand = await page.evaluate(() => ({ act: game.player.player.act && game.player.player.act.text, msg: game.player.player.msg }));
-  check(!hand.act && /axe/.test(hand.msg || ''), 'with an empty hand a tree should not be felled, and you should be told to hold the axe: ' + JSON.stringify(hand));
-  await page.evaluate(() => { __place(game.player, game.player.tx, game.player.ty, { dx: 1, dy: 0 }); }); await page.keyboard.press('2'); await held(page, [], 1);
-  const axe = await page.evaluate(() => ({ act: game.player.player.act && game.player.player.act.text }));
-  check(/Felling|Clearing/.test(axe.act || ''), 'with the axe in hand walking into a tree should fell it, got ' + JSON.stringify(axe));
-  return `hand: "${hand.msg}"; axe: ${axe.act}`;
+test('controls: a tree is felled with the axe that is picked for you; without an axe you are told', await controlScene('tree', 41, async page => {
+  const s = await page.evaluate(() => { const [x, y] = __find((x, y) => __free(x, y) && grid[y][x + 1] === T.TREE && !wildTile(x + 1, y)); __place(game.player, x, y, { dx: 1, dy: 0 }); window.__axes = game.player.items.filter(i => i.kind === 'axe'); game.player.items = game.player.items.filter(i => i.kind !== 'axe'); return { x, y }; });
+  await held(page, [], 1); const none = await page.evaluate(() => ({ act: game.player.player.act && game.player.player.act.text, msg: game.player.player.msg }));
+  check(!none.act && /no axe/.test(none.msg || ''), 'with no axe a tree should not be felled, and you should be told: ' + JSON.stringify(none));
+  await page.evaluate(() => { game.player.items.push(...window.__axes); __place(game.player, game.player.tx, game.player.ty, { dx: 1, dy: 0 }); }); await held(page, [], 1);
+  const axe = await page.evaluate(() => ({ act: game.player.player.act && game.player.player.act.text, tool: game.player.player.act && game.player.player.act.tool }));
+  check(/Felling|Clearing/.test(axe.act || '') && axe.tool === 'axe', 'walking into a tree should fell it with the axe, nothing to select: ' + JSON.stringify(axe));
+  return `no axe: "${none.msg}"; axe picked for you: ${axe.act}`;
 }));
 
-test('controls: the hoe ploughs a plot, seeds sow it, and each stage looks different', await controlScene('field', 41, async page => {
+test('controls: a plot is worked (hoe and seed picked for you) when you start from rest beside it, never when you walk over a field on your way somewhere', await controlScene('field', 41, async page => {
   const s = await page.evaluate(() => {
-    const c = town.crops.find(c => !town.crops.some(o => o.x === c.x - 1 && o.y === c.y) && __free(c.x - 1, c.y)); if (!c) throw new Error('no field edge with free ground beside it'); c.pl = 0; c.st = 0;   // (reset: villagers may have got to it already)
-    __place(game.player, c.x - 1, c.y, { dx: 1, dy: 0 }); window.__c = c; for (const o of town.crops) { o.claim = null; } rebuildOcc();
-    const slot = k => game.player.belt.findIndex(r => r && (r === 's:' + k || (r[0] === 'i' && itById(game.player, +r.slice(1)).kind === k))) + 1;
-    return { x: c.x, y: c.y, hoe: slot('hoe'), seed: slot('seed_barley'), seeds: game.player.bag.seed_barley };
+    const c = town.crops.find(c => !town.crops.some(o => o.x === c.x - 1 && o.y === c.y) && [1, 2, 3].every(i => __free(c.x - i, c.y))); if (!c) throw new Error('no field edge with free ground beside it'); c.pl = 0; c.st = 0;   // (reset: villagers may have got to it already)
+    for (const o of town.crops) { o.claim = null; } window.__c = c; rebuildOcc(); window.__bag0 = game.player.bag.seed_barley;
+    return { x: c.x, y: c.y, seeds: game.player.bag.seed_barley };
   });
   const art = () => page.evaluate(() => { const c = window.__c; return ART.BYID[!c.pl ? 'crop_raw' : c.st ? 'crop_1' : 'crop_0'].id; });
-  const before = await art(); await held(page, [], 2);
-  const handOnly = await page.evaluate(() => ({ pl: window.__c.pl }));
-  check(!handOnly.pl, 'with an empty hand walking onto a field should not plough it');
-  await page.evaluate(() => { __place(game.player, window.__c.x - 1, window.__c.y, { dx: 1, dy: 0 }); }); await page.keyboard.press(String(s.hoe)); await held(page, [], 4);
+  const before = await art();
+  // walking over from a few tiles away (a continuous press) leaves the plot alone
+  await page.evaluate(() => { __place(game.player, window.__c.x - 3, window.__c.y, { dx: 1, dy: 0 }); }); await held(page, [], 4);
+  const crossed = await page.evaluate(() => ({ pl: window.__c.pl, x: game.player.tx })); check(!crossed.pl && crossed.x >= s.x, 'walking onto a field from a distance must not plough it: ' + JSON.stringify(crossed));
+  // standing at rest beside the plot and pressing toward it ploughs it
+  await page.evaluate(() => { game.player.player.keys = {}; __place(game.player, window.__c.x - 1, window.__c.y, { dx: 1, dy: 0 }); }); await simulate(page, 2); await held(page, [], 4);
   const ploughed = await page.evaluate(() => ({ pl: window.__c.pl, st: window.__c.st })); const mid = await art();
-  await page.evaluate(() => { __place(game.player, window.__c.x - 1, window.__c.y, { dx: 1, dy: 0 }); }); await page.keyboard.press(String(s.seed)); await simulate(page, 1);   // (let go of the key for a beat: holding it after an action walks you on)
-  await held(page, [], 12);
+  check(ploughed.pl && !ploughed.st, 'starting from rest beside it, a plot needing work should be ploughed with the hoe: ' + JSON.stringify(ploughed));
+  await page.evaluate(() => { __place(game.player, window.__c.x - 1, window.__c.y, { dx: 1, dy: 0 }); }); await simulate(page, 2); await held(page, [], 12);
   const sown = await page.evaluate(() => { const c = window.__c; return { pl: c.pl, st: c.st, seed: c.seed, left: game.player.bag.seed_barley }; }); const after = await art();
-  check(ploughed.pl && !ploughed.st, 'with the hoe, walking into untilled ground should plough that plot: ' + JSON.stringify(ploughed));
-  check(sown.pl && sown.st && sown.seed === 'barley', 'with barley seed in hand, walking into a ploughed plot should sow barley: ' + JSON.stringify(sown));
+  check(sown.pl && sown.st && sown.seed === 'barley', 'a ploughed plot should be sown with the seed you have most of (barley): ' + JSON.stringify(sown));
   check(sown.left === s.seeds - 1, `sowing should use one seed (${s.seeds} -> ${sown.left})`);
   check(new Set([before, mid, after]).size === 3, `untilled, ploughed and sown plots should be drawn differently: ${before}, ${mid}, ${after}`);
-  return `hoe (${s.hoe}) ploughs, barley (${s.seed}) sows, ${s.seeds} -> ${sown.left} seeds: ${before} -> ${mid} -> ${after}`;
+  return `crossed without ploughing; ploughed from rest; sown barley (${s.seeds} -> ${sown.left} seeds): ${before} -> ${mid} -> ${after}`;
 }));
 
 test('controls: a sleeping person on the ground is pushed along, still asleep', await controlScene('sleeper', 41, async page => {
@@ -965,8 +970,8 @@ test('items: villagers own real work tools that wear as they work and are replac
 
 test('items: your tools wear and break; the smith sells each tool, buys iron ore, and sells lockpicks to friends; rocks sometimes hold iron', await itemScene(async page => {
   const r = await page.evaluate(() => {
-    const P = game.player, axeRef = P.belt.find(x => x && x[0] === 'i' && itById(P, +x.slice(1)).kind === 'axe'), axe = itById(P, +axeRef.slice(1));
-    P.sel = P.belt.indexOf(axeRef); axe.wear = 0.02; itWearHeld(P); const broke = !P.items.includes(axe) && !P.belt.includes(axeRef) && P.sel === 0;
+    const P = game.player, axe = P.items.find(i => i.kind === 'axe');
+    axe.wear = 0.02; itWearTool(P, 'axe'); const broke = !P.items.includes(axe);
     const sm = lf2Room('smithy'), smith = npcs.find(n => !n.dead && n.job === 'Smith'); const sp = sm.spots.work; smith.tx = smith.x = sp.x; smith.ty = smith.y = sp.y; smith.pose = 'stand'; rebuildOcc();
     const s = lf2Stock(sm); s.tools = 3; s.iron = 2; const menu = () => [];
     const offers = itOffers(P, sm, 'tools', menu), coin0 = P.coin; offers.find(o => /^Hoe/.test(o[0]))[1](); const boughtHoe = P.items.filter(i => i.kind === 'hoe').length === 2 && P.coin < coin0 && s.tools === 2;
@@ -976,7 +981,7 @@ test('items: your tools wear and break; the smith sells each tool, buys iron ore
     let ore = 0; P.inv.iron = 0; for (let i = 0; i < 300; i++) if (itRockOre(P)) ore++;
     return { broke, offers: offers.map(o => o[0].split(':')[0]), boughtHoe, soldOre, strangerPicks, friendPicks, ore };
   });
-  check(r.broke, 'a worn-out axe should break and leave your hand');
+  check(r.broke, 'a worn-out axe should break');
   check(r.offers.join(',') === 'Axe,Hammer,Hoe,Fishing rod', 'the smith should offer each tool: ' + r.offers.join(', '));
   check(r.boughtHoe, 'buying a hoe should give you a hoe and take your coin');
   check(r.soldOre, 'selling iron ore to the smith should pay you and stock the smithy');

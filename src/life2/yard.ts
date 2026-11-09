@@ -16,8 +16,13 @@ const YARD_ITEMS: { kind: string; stand: string; art: string; noun: string; name
   { kind: 'anvil', stand: 'yd_anvil', art: 'anvil', noun: 'anvil', name: 'Anvil' },
   { kind: 'loom', stand: 'yd_loom', art: 'loom', noun: 'loom', name: 'Loom' },
   { kind: 'shelf', stand: 'yd_shelf', art: 'shelf_0', noun: 'shelf', name: 'Shelf' },
+  { kind: 'altar', stand: '', art: 'altar_0', noun: 'altar', name: 'Altar' },
+  { kind: 'pew', stand: '', art: 'pew', noun: 'pew', name: 'Pew' },
+  { kind: 'lamp', stand: '', art: 'lamp_unlit', noun: 'lamp post', name: 'Lamp post' },
+  { kind: 'tent', stand: '', art: 'tent_0', noun: 'tent', name: 'Tent' },
+  { kind: 'campfire', stand: '', art: 'campfire', noun: 'campfire', name: 'Campfire' },
 ];
-const YARD_COLS = 7;   // two rows of stands
+const YARD_COLS = 7;   // two rows of stands (the yard is gone; the list is what the build menu offers)
 const YARD_CAP = 16;       // how many delivered things may stand about the pad before the yard says it is full
 for (const it of YARD_ITEMS) { if (!LF_ART[it.kind]) LF_ART[it.kind] = it.art; if (!LF_NOUN[it.kind]) LF_NOUN[it.kind] = it.noun; }
 LF_NOUN.dispenser = 'stand';

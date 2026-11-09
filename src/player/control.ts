@@ -31,6 +31,7 @@ function targetAt0(n, x, y) {
   if (g === T.TREE && wildTile(x, y)) return { msg: 'The old pines grow too thick to cut through.' };
   const full = false;   // (no carrying limit: wood and stone go into the bag)
   if (g === T.TREE && itBuildOn(n) && n.build.sel === 1) return { key: 'wallt' + x + ',' + y, min: 7, text: 'Clearing the tree', tool: 'hammer', run(n) { if (grid[y][x] === T.TREE) { workFx('fall', x, y, n); setT(x, y, T.GRASS); markDirty(x, y, 1, 1); bagGet(n, 'wood'); town.treeDirty = true; town.treeCache = null; } } };   // (build mode: the hammer clears land)
+  if (g === T.MOUNTAIN && itBuildOn(n) && n.build.sel === 1) return { key: 'wallm' + x + ',' + y, min: 12, text: 'Breaking up the crag', tool: 'hammer', run(n) { if (grid[y][x] === T.MOUNTAIN) { workFx('split', x, y, n); setT(x, y, T.GRASS); markDirty(x, y, 1, 1); bagGet(n, 'stone'); town.treeDirty = true; town.stoneCache = null; } } };
   if (itBuildOn(n) && n.build.sel === 2 && itBuildCanRotate(x, y)) return { key: 'rott' + x + ',' + y, min: 1.2, text: 'Turning it', tool: null, run(nn) { bldRotate(x, y); } };
   if (g === T.TREE) return { key: 'tree' + x + ',' + y, min: 10, text: full ? 'Clearing the way' : 'Felling a tree', tool: 'axe', run(n) { if (grid[y][x] === T.TREE) { workFx('fall', x, y, n); setT(x, y, T.GRASS); markDirty(x, y, 1, 1); bagGet(n, 'wood'); town.treeDirty = true; town.treeCache = null; } } };
   if (g === T.ROCK) return { key: 'rock' + x + ',' + y, min: 13, text: full ? 'Clearing the way' : 'Breaking stone', tool: 'hammer', run(n) { if (grid[y][x] === T.ROCK) { workFx('split', x, y, n); setT(x, y, T.GRASS); markDirty(x, y, 1, 1); bagGet(n, 'stone'); if (itRockOre(n)) playerSay(n, 'Iron ore in the rock!'); town.treeDirty = true; town.stoneCache = null; } } };
@@ -62,8 +63,13 @@ function targetAt0(n, x, y) {
     if (!m.serving) return { msg: 'The stall is closed right now.' };
     return { key: 'stall' + m.n.id, min: 0.8, text: 'Stepping up to the larder', tool: null, run(n) { if (typeof openShop === 'function') openShop(m); } };
   }
-  if ((g === T.TENT || (g === T.BED && n.bed && n.bed.x === x && n.bed.y === y)) && awakeFor(n, game.time % 1440) < 180) return { msg: 'You have only just got up. Not tired yet.' };
-  if (g === T.TENT) {
+  if (itBuildOn(n) && n.build.sel === 1) {   // (build mode, destroy: lamp posts, fires and tents go too)
+    if (g === T.LAMP) return { key: 'wallL' + x + ',' + y, min: 6, text: 'Smashing the lamp post', tool: 'hammer', run(nn) { bldDeleteLamp(x, y); playerSay(nn, 'Gone.'); } };
+    if (g === T.TENT) return { key: 'wallT' + x + ',' + y, min: 6, text: 'Taking down the tent', tool: 'hammer', run(nn) { bldDeleteTent(x, y); playerSay(nn, 'Gone.'); } };
+    const fire = fireList().find(f => f.x === x && f.y === y); if (fire) return { key: 'wallF' + x + ',' + y, min: 5, text: 'Putting out the fire', tool: 'hammer', run(nn) { bldDeleteFire(fire); playerSay(nn, 'Gone.'); } };
+  }
+  if (!itBuildOn(n) && (g === T.TENT || (g === T.BED && n.bed && n.bed.x === x && n.bed.y === y)) && awakeFor(n, game.time % 1440) < 180) return { msg: 'You have only just got up. Not tired yet.' };
+  if (g === T.TENT && !itBuildOn(n)) {   // (never sleeps in build mode)
     const t = (town.tents || []).find(t => t.x === x && t.y === y);
     if (t && t.owner && t.owner !== n) return { msg: t.owner.first + ' is sleeping in this tent.' };
     if (n.homeRoom && n.bed && n.bed.x != null) return { msg: 'You have a bed of your own now.' };
@@ -78,7 +84,7 @@ function targetAt0(n, x, y) {
     return { msg: 'The family barrel is empty.' };
   }
   if (g === T.SEAT && roomAt[y][x] >= 0 && rooms[roomAt[y][x]].kind === 'privy') return lifePrivyAct(n, x, y);
-  if (g === T.BED && n.bed && n.bed.x === x && n.bed.y === y) return { key: 'rest', min: 4, text: 'Going to bed', tool: null, sleep: true };
+  if (!itBuildOn(n) && g === T.BED && n.bed && n.bed.x === x && n.bed.y === y) return { key: 'rest', min: 4, text: 'Going to bed', tool: null, sleep: true };
   if (g === T.TABLE && n.homeRoom && rooms[roomAt[y][x]] === n.homeRoom) return { key: 'table', min: 6, text: 'Eating at the table', tool: null, hold: 'plate', run(n) {
     stash(n); const p = pantryOf(n); if (!foodCount(p)) { playerSay(n, 'The pantry is empty.'); return; }
     const a = eatSat(n, p); playerSay(n, a ? 'Ate ' + a + ' meal' + (a > 1 ? 's' : '') : 'Not hungry. Food stored in the pantry.');
@@ -170,6 +176,7 @@ function tickPlayer0(n, dt) {
     if (p.act && p.act.auto) { p.act.t += step; applyPlayerAct(n, p.act); if (p.act.t >= p.act.min) { const a = p.act; p.act = null; a.run(n); n.hold = null; n.pose = 'stand'; } continue; }
     if (!d && lf2Follow(n, p)) continue;
     if (!d) { p.idle = (p.idle || 0) + step;  if (p.act) { p.act = null; } p.grace = null; p.lock = false; p.skip = null; n.pose = 'stand'; n.tool = null; n.hold = null; n.status = 'Under your control'; continue; }
+    if ((p.idle || 0) >= 0.25) p.fresh = true;   // (a press that starts from rest: this is how you ask to work a plot)
     p.idle = 0;
     const [dx, dy] = DIRV[d]; const pf = n.face || { dx: 0, dy: 1 }; n.face = { dx, dy };
     const fx = n.tx + dx, fy = n.ty + dy; p.fx = fx; p.fy = fy;
@@ -179,7 +186,9 @@ function tickPlayer0(n, dt) {
       else { g.t += step; n.pose = 'stand'; n.tool = null; n.hold = null; if (g.t < g.max) continue; p.grace = null; p.act = null; if (g.talk) p.lock = true; else p.skip = { x: fx, y: fy }; }
     }
     if (p.lock) continue;
-    let tg = itGate(n, lifeAct(n, p, fx, fy, dx, dy) || targetAt(n, fx, fy), walkable(fx, fy));   // the thing in your hand must fit the action (player/items.ts)
+    let tg = itGate(n, lifeAct(n, p, fx, fy, dx, dy) || targetAt(n, fx, fy), walkable(fx, fy));
+    // auto tools: a plot that needs work is worked only when you start from rest beside it (or keep going inside a field); walking over a field on your way somewhere never ploughs it
+    if (IT_AUTO && !itBuildOn(n) && tg && tg.key && /^crop/.test(tg.key) && !p.fresh) tg = null;   // the thing in your hand must fit the action (player/items.ts)
     let occ = tileOwner.get(tkey(fx, fy)), pushed = false;
     // Push mode: people are pushed like furniture (they move one tile, or you swap places); it is harmless, not a crime
     if (itHand(n, 'push') && occ && occ !== n && !occ.infant) { pushed = true; if (!tg) occ = null; }   // (a person is a piece in the line: lifeAct has pushed them, or said why not)
@@ -203,7 +212,7 @@ function tickPlayer0(n, dt) {
     }
     if (p.act) p.act = null;
     if (tg && tg.msg) { if (clk() - p.msgAt > 40 || p.msg !== tg.msg) playerSay(n, tg.msg); p.lock = true; n.pose = 'stand'; continue; }
-    if (walkable(fx, fy) && !(typeof noStep === 'function' && noStep(fx, fy))) { p.skip = null; n.path = [{ x: fx, y: fy }]; n.moving = true; n.t = 0; n.pose = 'walk'; n.tool = null; n.hold = null; n.status = 'Walking'; stepNpc(n, step); }
+    if (walkable(fx, fy) && !(typeof noStep === 'function' && noStep(fx, fy))) { if (grid[fy][fx] !== T.CROP) p.fresh = false; p.skip = null; n.path = [{ x: fx, y: fy }]; n.moving = true; n.t = 0; n.pose = 'walk'; n.tool = null; n.hold = null; n.status = 'Walking'; stepNpc(n, step); }
     else { n.pose = 'stand'; n.tool = null; }
   }
 }

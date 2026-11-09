@@ -267,7 +267,7 @@ function drawDrops(c) {
 function drawYard(c, now) {
   if (!town.yard) return;
   { const w = town.wedding, pt = typeof activeParty === 'function' && activeParty(); if ((w && !w.done && !(w.place && w.place.church) && game.time >= w.at - 40) || (pt && game.time >= pt.at - 10)) return; }
-  gaDraw(c, 'campfire', town.cx * TS, (town.cy + 1) * TS, now, 0);
+  if (!town.fireGone) gaDraw(c, 'campfire', town.cx * TS, (town.cy + 1) * TS, now, 0);
 }
 /* standing things that share the y-sorted pass with the people: lamps, crosses, the cake, the feast fire */
 YSORT.push(function (c, now) {

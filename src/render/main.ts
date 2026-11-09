@@ -207,7 +207,8 @@ function render(now, dtSec, hourOfDay) {
       gr.addColorStop(0, `rgba(0,0,0,${a})`); gr.addColorStop(0.55, `rgba(0,0,0,${a * 0.6})`); gr.addColorStop(1, 'rgba(0,0,0,0)');
       dctx.fillStyle = gr; dctx.beginPath(); dctx.arc(x, y, rad, 0, 6.3); dctx.fill();
     };
-    for (const l of lamps) { const m = mid(l.x, l.y); hole(m.x, m.y, TS * 5.2, 0.95); }
+    for (const l of allLamps()) { const m = mid(l.x, l.y); hole(m.x, m.y, TS * 5.2, 0.95); }
+    for (const f of allFires()) { const m = mid(f.x, f.y); hole(m.x, m.y, TS * 5.6, 0.95); }
     for (const dr of doors) { const m = mid(dr.x, dr.y); hole(m.x, m.y + (rooms[dr.room].side === 'b' ? TS * 0.8 : -TS * 0.8), TS * 2.6, 0.7); }
     const fn = town.funeral; if (fn && fn.slot && game.time > fn.at - 20 && !fn.done) hole((fn.slot.x + .5) * TS, (fn.slot.y + .5) * TS, TS * 3.2, 0.6);
     for (const rm of rooms) {
@@ -226,7 +227,8 @@ function render(now, dtSec, hourOfDay) {
       gr.addColorStop(0, `rgba(255,170,70,${a * night})`); gr.addColorStop(1, 'rgba(255,170,70,0)');
       c.fillStyle = gr; c.beginPath(); c.arc(x, y, rad, 0, 6.3); c.fill();
     };
-    for (const l of lamps) { const m = mid(l.x, l.y); glow(m.x, m.y - 6, TS * 2.6, 0.32); }
+    for (const l of allLamps()) { const m = mid(l.x, l.y); glow(m.x, m.y - 6, TS * 2.6, 0.32); }
+    for (const f of allFires()) { const m = mid(f.x, f.y); glow(m.x, m.y - 4, TS * 3.2, 0.45); }
     for (const rm of rooms) {
       if (rm.dead || rm.lit < 0.05) continue;
       for (const wx of [rm.x, rm.x + rm.w - 1]) {

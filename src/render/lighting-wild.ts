@@ -21,8 +21,9 @@ function seeThrough(x0, y0, x1, y1) {
 function lightSources(hour) {
   const out = [], night = 1 - daylight(hour), gp = game.player;
   if (night < 0.05) return out;
-  for (const l of lamps) out.push({ x: l.x, y: l.y, r: 8, s: 1 });
-  if (town.yard) { const w = town.wedding, pt = typeof activeParty === 'function' && activeParty(); out.push({ x: town.cx, y: town.cy + 1, r: 6.5, s: (w && !w.done && game.time >= w.at - 40) || pt ? 0.7 : 0.95 }); }
+  for (const l of allLamps()) out.push({ x: l.x, y: l.y, r: 8, s: 1 });
+  for (const f of allFires()) if (!f.home) out.push({ x: f.x, y: f.y, r: 6.5, s: 0.95 });
+  if (town.yard && !town.fireGone) { const w = town.wedding, pt = typeof activeParty === 'function' && activeParty(); out.push({ x: town.cx, y: town.cy + 1, r: 6.5, s: (w && !w.done && game.time >= w.at - 40) || pt ? 0.7 : 0.95 }); }
   for (const rm of rooms) { if (rm.dead || rm.lit < 0.05) continue; out.push({ x: Math.floor(rm.x + rm.w / 2), y: Math.floor(rm.y + rm.h / 2), r: Math.hypot(rm.w, rm.h) * 0.62, s: rm.lit, room: rm }); }
   const fn = town.funeral; if (fn && fn.slot && !fn.done && game.time > fn.at - 20) out.push({ x: fn.slot.x, y: fn.slot.y, r: 3.5, s: 0.7 });
   const p = game.player; if (p && !p.dead) out.push({ x: p.tx, y: p.ty, r: 2.4, s: 0.5 });
