@@ -17906,6 +17906,25 @@ function lifeAct(n, p, fx, fy, dx, dy) {
     if (typeof awakeFor === "function" && awakeFor(n, game.time % 1440) < 180) return { msg: "You have only just got up. Not tired yet." };
     return { key: "rest", min: 4, text: "Going to bed", tool: null, sleep: true };
   }
+  if (pr && pr.kind === "counter" && !itBuildOn(n)) {
+    const ri2 = roomAt[fy] && roomAt[fy][fx] >= 0 ? roomAt[fy][fx] : -1, r = ri2 >= 0 ? rooms[ri2] : rooms.find((q) => !q.dead && q.fn === "bakery" && Math.abs(q.x + q.w / 2 - fx) < q.w) || null;
+    if (r && r.kind === "bakery") {
+      const grain = n.inv.grain || 0, s = lf2Stock(r), price = Math.max(1, Math.round(GOODS.grain.base * 0.7));
+      if (grain > 0) return { key: "sellgrain" + pr.id, min: 1.5, text: "Selling grain to the baker", tool: null, run(nn) {
+        const q = nn.inv.grain || 0;
+        nn.inv.grain = 0;
+        s.grain = (s.grain || 0) + q;
+        nn.coin += q * price;
+        r.till = (r.till || 0) - q * price;
+        playerSay(nn, "The baker takes " + q + " grain: " + q * price + " denarii.");
+      } };
+      if ((s.bread || 0) > 0) return { key: "buybread" + pr.id, min: 1, text: "Buying bread", tool: null, run(nn) {
+        const got = lf2Buy(nn, r, "bread", 1);
+        playerSay(nn, got ? "A loaf of bread." : "You cannot afford the bread.");
+      } };
+      return { msg: "The bakery has no bread yet. Bring grain and the baker will make some." };
+    }
+  }
   if (pr && pr.kind === "bed" && !itBuildOn(n)) return { msg: pr.owner && !pr.owner.dead ? pr.owner === n ? "Your bed." : pr.owner.first + "'s bed." : "A free bed. Somebody will take it." };
   if (pr) {
     const label = LF_NOUN[pr.kind];
@@ -20977,7 +20996,7 @@ const lf2FoodStock = () => {
 function lf2FetchPlan(n, r, need) {
   const spare = (m2, g) => Math.floor((m2.stock[g] || 0) - lf2Reserve(g));
   const m = merchants.filter((m2) => Object.keys(need).some((g) => spare(m2, g) >= 2))[0];
-  if (!m) return null;
+  if (!m) return lf2PantryFetch(n, r, need);
   return [
     goS(m.front, `Fetching ${Object.keys(need).join(" and ")} from the larder`),
     waitS(2, "stand", "Loading up at the larder", { nopie: true, onEnd(nn) {
@@ -20998,6 +21017,35 @@ function lf2FetchPlan(n, r, need) {
           s[g] = (s[g] || 0) + q;
           nn.inv[g] = 0;
         }
+      }
+    } })
+  ];
+}
+function lf2PantryFetch(n, r, need) {
+  const g = Object.keys(need)[0];
+  if (!g) return null;
+  const spare = (h) => (h.pantry && h.pantry[g] || 0) - 3 * Math.max(1, occupants(h).length);
+  const home = rooms.filter((h) => !h.dead && h !== r && h.kind === "house" && h.pantry && spare(h) >= 2).sort((a, b) => spare(b) - spare(a))[0];
+  if (!home) return null;
+  const door = typeof besideTile === "function" ? besideTile(home.doorX, home.side === "b" ? home.doorY + 1 : home.doorY - 1, null) : null;
+  if (!door) return null;
+  const back = lf2Spot(r, "front") || lf2Spot(r, LF2_JOBS[n.job] ? LF2_JOBS[n.job].spot : "front");
+  if (!back) return null;
+  return [
+    goS({ x: door.x, y: door.y, face: null }, `Asking ${home.name} for ${GOODS[g].name}`),
+    waitS(2, "stand", "Loading up", { nopie: true, onEnd(nn) {
+      const q = Math.min(need[g], Math.max(0, spare(home)));
+      if (q > 0) {
+        home.pantry[g] -= q;
+        nn.inv[g] = (nn.inv[g] || 0) + q;
+      }
+    } }),
+    goS(back, `Carrying it back to ${r.name}`),
+    waitS(1, "stand", "Unloading", { nopie: true, onEnd(nn) {
+      const s2 = lf2Stock(r), q = nn.inv[g] || 0;
+      if (q > 0) {
+        s2[g] = (s2[g] || 0) + q;
+        nn.inv[g] = 0;
       }
     } })
   ];
@@ -21136,7 +21184,7 @@ function lf2ShopPlan(n, tod) {
     } })].concat(after && after.eat ? [] : []);
   };
   const bk = lf2Room("bakery");
-  if (bk && h >= 6.5 && h < 10.5 && n.homeRoom && n.coin >= 4 && (n.homeRoom.breadDay || -1) !== dayN() && (hhOf(n).filter((o) => o.age >= 16 && !LF2_JOBS[o.job])[0] || hhOf(n).filter((o) => o.age >= 16)[0]) === n) {
+  if (bk && h >= 6.5 && h < 10.5 && n.homeRoom && n.coin >= 4 && (n.homeRoom.breadDay || -1) !== dayN() && (hhOf(n).filter((o) => o.age >= 16 && !LF2_JOBS[o.job] && !o.player)[0] || hhOf(n).filter((o) => o.age >= 16 && !o.player)[0]) === n) {
     n.homeRoom.breadDay = dayN();
     const k = Math.min(hhOf(n).length, 4);
     return go(bk, "bread", k, "Off to the bakery for the morning bread");

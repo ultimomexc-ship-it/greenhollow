@@ -134,10 +134,20 @@ const lf2Reserve = g => Math.ceil(npcs.filter(o => !o.dead).length * (g === 'gra
 const lf2FoodStock = () => { let t = 0; for (const r of rooms) if (!r.dead && r.stock) for (const g of FOODS) t += (r.stock[g] || 0) * GOODS[g].sat; return t; };
 function lf2FetchPlan(n, r, need) {
   const spare = (m, g) => Math.floor((m.stock[g] || 0) - lf2Reserve(g));
-  const m = merchants.filter(m => Object.keys(need).some(g => spare(m, g) >= 2))[0]; if (!m) return null;
+  const m = merchants.filter(m => Object.keys(need).some(g => spare(m, g) >= 2))[0]; if (!m) return lf2PantryFetch(n, r, need);
   return [goS(m.front, `Fetching ${Object.keys(need).join(' and ')} from the larder`), waitS(2, 'stand', 'Loading up at the larder', { nopie: true, onEnd(nn) {
     for (const g in need) { const q = Math.min(need[g], spare(m, g)); if (q > 0) { m.stock[g] -= q; nn.inv[g] = (nn.inv[g] || 0) + q; } } } }),
     goS(lf2Spot(r, 'front') || lf2Spot(r, LF2_JOBS[n.job] ? LF2_JOBS[n.job].spot : 'front'), 'Carrying it back to ' + r.name), waitS(1, 'stand', 'Unloading', { nopie: true, onEnd(nn) { const s = lf2Stock(r); for (const g in need) { const q = nn.inv[g] || 0; if (q > 0) { s[g] = (s[g] || 0) + q; nn.inv[g] = 0; } } } })];
+}
+/** no larder merchants (a built bakery on a blank island): the baker collects what the households can spare from their pantries, more than three portions a head */
+function lf2PantryFetch(n, r, need) {
+  const g = Object.keys(need)[0]; if (!g) return null;
+  const spare = h => (h.pantry && h.pantry[g] || 0) - 3 * Math.max(1, occupants(h).length);
+  const home = rooms.filter(h => !h.dead && h !== r && h.kind === 'house' && h.pantry && spare(h) >= 2).sort((a, b) => spare(b) - spare(a))[0]; if (!home) return null;
+  const door = typeof besideTile === 'function' ? besideTile(home.doorX, home.side === 'b' ? home.doorY + 1 : home.doorY - 1, null) : null; if (!door) return null;
+  const back = lf2Spot(r, 'front') || lf2Spot(r, LF2_JOBS[n.job] ? LF2_JOBS[n.job].spot : 'front'); if (!back) return null;
+  return [goS({ x: door.x, y: door.y, face: null }, `Asking ${home.name} for ${GOODS[g].name}`), waitS(2, 'stand', 'Loading up', { nopie: true, onEnd(nn) { const q = Math.min(need[g], Math.max(0, spare(home))); if (q > 0) { home.pantry[g] -= q; nn.inv[g] = (nn.inv[g] || 0) + q; } } }),
+    goS(back, `Carrying it back to ${r.name}`), waitS(1, 'stand', 'Unloading', { nopie: true, onEnd(nn) { const s2 = lf2Stock(r), q = nn.inv[g] || 0; if (q > 0) { s2[g] = (s2[g] || 0) + q; nn.inv[g] = 0; } } })];
 }
 function lf2Craft(n, r, J) {
   const s = lf2Stock(r), R = J.recipe;
@@ -210,7 +220,7 @@ function lf2ShopPlan(n, tod) {
     const got = lf2Buy(nn, r, g, q); if (got && after) after(nn, got); } })].concat(after && after.eat ? [] : []); };
   // bread for the household, once a morning
   const bk = lf2Room('bakery');
-  if (bk && h >= 6.5 && h < 10.5 && n.homeRoom && n.coin >= 4 && (n.homeRoom.breadDay || -1) !== dayN() && (hhOf(n).filter(o => o.age >= 16 && !LF2_JOBS[o.job])[0] || hhOf(n).filter(o => o.age >= 16)[0]) === n) { n.homeRoom.breadDay = dayN(); const k = Math.min(hhOf(n).length, 4); return go(bk, 'bread', k, 'Off to the bakery for the morning bread'); }
+  if (bk && h >= 6.5 && h < 10.5 && n.homeRoom && n.coin >= 4 && (n.homeRoom.breadDay || -1) !== dayN() && (hhOf(n).filter(o => o.age >= 16 && !LF2_JOBS[o.job] && !o.player)[0] || hhOf(n).filter(o => o.age >= 16 && !o.player)[0]) === n) { n.homeRoom.breadDay = dayN(); const k = Math.min(hhOf(n).length, 4); return go(bk, 'bread', k, 'Off to the bakery for the morning bread'); }
   // lunch out, for those with coins to spare
   const th = lf2Room('thermopolium');
   if (th && h >= 11.5 && h < 13.5 && n.hunger >= 35 && n.coin >= 8 && (n.lunchDay || -1) !== dayN() && Math.random() < 0.5) {

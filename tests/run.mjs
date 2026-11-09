@@ -103,7 +103,7 @@ async function controlScene(name, rng, fn) {
       window.__emitted = []; const e0 = lfEmit; lfEmit = function (kind) { window.__emitted.push(kind); return e0.apply(this, arguments); };
       // helpers used by the scenes below
       window.__place = (n, x, y, face) => { n.tx = x; n.ty = y; n.x = x; n.y = y; n.path = []; n.moving = false; if (face) n.face = face; if (n.player) { n.player.keys = {}; n.player.act = null; n.player.lock = false; n.player.sleeping = false; } };
-      window.__free = (x, y) => walkable(x, y) && !(town.siteAt && town.siteAt[y * W + x]) && !tileOwner.get(tkey(x, y))   /* (not on a building site: finishing one moves people off it) */ && !lfPropAt(x, y) && grid[y][x] !== T.DOOR && roomAt[y][x] < 0 && grid[y][x] !== T.CROP;
+      window.__free = (x, y) => walkable(x, y) && !(town.siteAt && town.siteAt[y * W + x]) && !tileOwner.get(tkey(x, y))   /* (not on a building site: finishing one moves people off it) */ && !lfPropAt(x, y) && grid[y][x] !== T.DOOR && roomAt[y][x] < 0 && grid[y][x] !== T.CROP && !shroomAt(x, y);
       window.__find = pred => { for (let t = 0; t < 20000; t++) { const x = 6 + Math.floor(Math.random() * (W - 12)), y = 6 + Math.floor(Math.random() * (H - 12)); if (pred(x, y)) return [x, y]; } throw new Error('no suitable ground'); };
       window.__other = () => npcs.find(q => q !== game.player && !q.dead && !q.infant && q.age >= 18 && !q.player);
       window.__stand = (o, x, y, pose = 'stand') => { window.__place(o, x, y); o.pose = pose; o.plan = null; o.si = 0; rebuildOcc(); return o; };
@@ -685,7 +685,7 @@ test('controls: a tree is felled with the axe that is picked for you; without an
 test('controls: a plot is worked (hoe and seed picked for you) when you start from rest beside it, never when you walk over a field on your way somewhere', await controlScene('field', 41, async page => {
   const s = await page.evaluate(() => {
     const c = town.crops.find(c => !town.crops.some(o => o.x === c.x - 1 && o.y === c.y) && [1, 2, 3].every(i => __free(c.x - i, c.y))); if (!c) throw new Error('no field edge with free ground beside it'); c.pl = 0; c.st = 0;   // (reset: villagers may have got to it already)
-    for (const o of town.crops) { o.claim = null; } window.__c = c; rebuildOcc(); window.__bag0 = game.player.bag.seed_barley;
+    for (const o of town.crops) { o.claim = null; } window.__c = c; for (const o of npcs) if (!o.player && !o.dead && o.ty === c.y && o.tx >= c.x - 4 && o.tx <= c.x + 1) { o.plan = null; o.si = 0; o.moving = false; o.path = []; o.tx = o.x = c.x - 8; o.ty = o.y = c.y - 4; }   /* (nobody standing in the way of the walk) */ for (const o of npcs) if (!o.player) o.talkUntil = game.time + 600; rebuildOcc(); window.__bag0 = game.player.bag.seed_barley;
     return { x: c.x, y: c.y, seeds: game.player.bag.seed_barley };
   });
   const art = () => page.evaluate(() => { const c = window.__c; return ART.BYID[!c.pl ? 'crop_raw' : c.st ? 'crop_1' : 'crop_0'].id; });
@@ -1340,6 +1340,30 @@ test('magic mushrooms: scattered about, walking into one eats it and starts a tr
   check(r.grew, 'new mushrooms should grow');
   check(!errors.length, errors.slice(0, 3).join(' | '));
   return `${r.n0} mushrooms; eating one starts a trip that rises (${r.mid.toFixed(2)}) and wears off`;
+});
+
+test('bakery: on a blank island the baker collects spare grain from the huts and bakes, villagers buy the bread, and you can sell grain or buy bread at the counter', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await page.evaluate(() => {
+    newTown('bk-test', 'blank'); if (!town.props) lfInitProps(); town.bldQ = town.bldQ || []; startPlaying(npcs[0]); const P = game.player; itBuildToggle(P, true);
+    const cx = P.tx + 4, cy = P.ty - 8, n = 6; window.__c = [cx, cy];
+    for (let j = -3; j < 12; j++) for (let i = -4; i < 20; i++) { setT(cx + i, cy + j, T.GRASS); roomAt[cy + j][cx + i] = -1; const p = lfPropAt(cx + i, cy + j); if (p) { town.props = town.props.filter(q => q !== p); town.propAt.delete((cy + j) * W + cx + i); town.pblock[(cy + j) * W + cx + i] = 0; } }
+    const room = (ox, items) => { for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { if (!(i === 0 || j === 0 || i === n - 1 || j === n - 1)) continue; lfAddProp(i === 2 && j === n - 1 ? 'bdoor' : 'bwall', ox + i, cy + j); } for (const [k, x, y] of items) lfAddProp(k, ox + x, cy + y); town.bldQ.push([ox, cy]); };
+    room(cx, [['bed', 1, 1], ['bed', 3, 1], ['bed', 4, 1]]); room(cx + 7, [['oven', 1, 1], ['counter', 3, 1]]);
+    bldTick(); itBuildToggle(P, false); for (let i = 0; i < 3; i++) visArrive(); rooms.find(r => r.hut).pantry.grain = 24;
+  });
+  await simulate(page, 3 * 1440);
+  const r = await page.evaluate(() => {
+    const bk = lf2Room('bakery'), P = game.player, st = lf2Stock(bk), [cx, cy] = window.__c, ctr = (town.props || []).find(p => p.kind === 'counter');
+    const bread = st.bread || 0; const coin0 = P.coin; P.inv.grain = 5; P.tx = P.x = ctr.x; P.ty = P.y = ctr.y + 1; rebuildOcc();
+    const t1 = lifeAct(P, P.player, ctr.x, ctr.y, 0, -1); if (t1 && t1.run) t1.run(P); const sold = { k: t1 && t1.key, grain: P.inv.grain, paid: P.coin > coin0 };
+    const t2 = lifeAct(P, P.player, ctr.x, ctr.y, 0, -1); const c2 = P.coin; if (t2 && t2.run) t2.run(P); return { bread, sold, buy: t2 && t2.key, bought: (P.inv.bread || 0) >= 1 && P.coin < c2 };
+  });
+  check(r.bread > 0, 'the bakery should have baked bread from grain the huts could spare: ' + JSON.stringify(r));
+  check(r.sold.k && /^sellgrain/.test(r.sold.k) && r.sold.grain === 0 && r.sold.paid, 'selling grain at the counter: ' + JSON.stringify(r.sold));
+  check(/^buybread/.test(r.buy || '') && r.bought, 'buying bread at the counter: ' + JSON.stringify(r));
+  check(!errors.length, errors.slice(0, 3).join(' | '));
+  return `${r.bread} loaves baked; you sold grain and bought bread at the counter`;
 });
 
 const browser = await launch();

@@ -81,6 +81,15 @@ function lifeAct(n, p, fx, fy, dx, dy) {
     if (typeof awakeFor === 'function' && awakeFor(n, game.time % 1440) < 180) return { msg: 'You have only just got up. Not tired yet.' };
     return { key: 'rest', min: 4, text: 'Going to bed', tool: null, sleep: true };
   }
+  if (pr && pr.kind === 'counter' && !itBuildOn(n)) {   // the counter of a bakery you built: sell it your grain, or buy bread
+    const ri = roomAt[fy] && roomAt[fy][fx] >= 0 ? roomAt[fy][fx] : -1, r = ri >= 0 ? rooms[ri] : (rooms.find(q => !q.dead && q.fn === 'bakery' && Math.abs(q.x + q.w / 2 - fx) < q.w) || null);
+    if (r && r.kind === 'bakery') {
+      const grain = n.inv.grain || 0, s = lf2Stock(r), price = Math.max(1, Math.round(GOODS.grain.base * 0.7));
+      if (grain > 0) return { key: 'sellgrain' + pr.id, min: 1.5, text: 'Selling grain to the baker', tool: null, run(nn) { const q = nn.inv.grain || 0; nn.inv.grain = 0; s.grain = (s.grain || 0) + q; nn.coin += q * price; r.till = (r.till || 0) - q * price; playerSay(nn, 'The baker takes ' + q + ' grain: ' + q * price + ' denarii.'); } };
+      if ((s.bread || 0) > 0) return { key: 'buybread' + pr.id, min: 1, text: 'Buying bread', tool: null, run(nn) { const got = lf2Buy(nn, r, 'bread', 1); playerSay(nn, got ? 'A loaf of bread.' : 'You cannot afford the bread.'); } };
+      return { msg: 'The bakery has no bread yet. Bring grain and the baker will make some.' };
+    }
+  }
   if (pr && pr.kind === 'bed' && !itBuildOn(n)) return { msg: pr.owner && !pr.owner.dead ? (pr.owner === n ? 'Your bed.' : pr.owner.first + '\'s bed.') : 'A free bed. Somebody will take it.' };
   if (pr) {
     const label = LF_NOUN[pr.kind];
