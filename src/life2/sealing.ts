@@ -43,7 +43,9 @@ function bldExit(start: number[], pending: number[][]) {
       for (const [dx, dy] of BLD_D4) {
         const dxx = x + dx, dyy = y + dy, p = lfPropAt(dxx, dyy), isDoor = (p && p.kind === 'bdoor' && !p.fixed) || (grid[dyy][dxx] === T.DOOR && doors.some(d => d.x === dxx && d.y === dyy && rooms[d.room] && rooms[d.room].free));
         if (!isDoor) continue;
-        const ox = dxx + dx, oy = dyy + dy; if (ox < 1 || oy < 1 || ox >= W - 1 || oy >= H - 1 || bldSolid(ox, oy)) continue;
+        let ox = dxx + dx, oy = dyy + dy;
+        for (let hop = 0; hop < 8 && ox > 0 && oy > 0 && ox < W - 1 && oy < H - 1; hop++) { const pp = lfPropAt(ox, oy); if ((pp && pp.kind === 'bdoor' && !pp.fixed) || (grid[oy][ox] === T.DOOR && doors.some(d => d.x === ox && d.y === oy && rooms[d.room] && rooms[d.room].free))) { ox += dx; oy += dy; } else break; }   // (a door set into a thick wall: the way out runs through all of its door tiles)
+        if (ox < 1 || oy < 1 || ox >= W - 1 || oy >= H - 1 || bldSolid(ox, oy)) continue;
         const ok = ox + oy * W;
         if (where.has(ok)) { const other = where.get(ok); if (!seenG.has(other)) { seenG.add(other); q.push(other); } continue; }
         const fr = bldFreeRoom(ox, oy); if (fr) { if (!seenR.has(roomAt[oy][ox])) { seenR.add(roomAt[oy][ox]); q.push([...fr.cells]); } continue; }
@@ -88,7 +90,9 @@ function bldMake(regions: number[][], dissolve: any[]) {
 /** look round the blocks that have just landed, and seal whatever they close */
 function bldEvaluate(spots: [number, number][]) {
   const seen = new Set<number>(), regions: number[][] = [], dissolve = new Set<any>(); let hint = '';   // (`seen`: tiles of regions already found closed; an open flood is never shared, or its leftovers would look closed)
-  for (const [bx, by] of spots) for (const [dx, dy] of BLD_D8) {
+  /* a wall may be several blocks thick, so the ground a few tiles round a new block is looked at too (the blocks beside it are solid, the room is behind them) */
+  const near: [number, number][][] = spots.map(([bx, by]) => { const o: [number, number][] = []; for (let r = 1; r <= 3; r++) for (let dy2 = -r; dy2 <= r; dy2++) for (let dx2 = -r; dx2 <= r; dx2++) if (Math.max(Math.abs(dx2), Math.abs(dy2)) === r) o.push([dx2, dy2]); return o; });
+  for (let si = 0; si < spots.length; si++) { const [bx, by] = spots[si]; for (const [dx, dy] of near[si]) {
     const x = bx + dx, y = by + dy; if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1 || seen.has(x + y * W) || bldSolid(x, y)) continue;
     const reg = bldFlood(x, y); if (reg.open) continue;
     for (const k of reg.cells) seen.add(k);
@@ -105,7 +109,7 @@ function bldEvaluate(spots: [number, number][]) {
     if (!bldHasDoor(reg.cells)) { hint = hint || 'door'; continue; }
     if (!bldExit(reg.cells, [reg.cells])) { hint = hint || 'exit'; continue; }
     regions.push(reg.cells);
-  }
+  } }
   if (!regions.length) return { made: [], hint };
   let made = bldMake(regions, [...dissolve]);
   // rooms that were waiting for a way out may be joined to the new ones by a door: look again from every door of what has just been made

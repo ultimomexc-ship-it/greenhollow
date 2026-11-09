@@ -1011,6 +1011,7 @@ test('items: seeds grow at their own pace and give their own food; a harvest giv
 
 test('items: a lockpick opens a house barred for the night; picks snap, and somebody inside may hear', await itemScene(async page => {
   const r = await page.evaluate(() => {
+    LF2.feat.nightlocks = true;   /* (barred doors are off in the game for now; the code is still tested) */
     const P = game.player, houses = rooms.filter(q => !q.dead && q.kind === 'house' && q !== P.homeRoom); const out = { open: 0, snap: 0, heard: 0, tries: 0, ev: 0 };
     const e0 = lfEmit; lfEmit = function (k) { if (k === 'breakin') out.ev++; return e0.apply(this, arguments); };
     for (let i = 0; i < 40; i++) { const h = houses[i % houses.length]; h.unbarred = null; P.bag.lockpick = 5; const before = out.ev; itPickLock(P, h); out.tries++;
@@ -1179,6 +1180,23 @@ test('build: a thing placed on a taken tile goes on the next tile in front, so a
   check(r.got.join() === '1,2,3,4,5,6,7,8', 'eight placed in a row in front: ' + JSON.stringify(r.got));
   check(!errors.length, errors.slice(0, 2).join(' | '));
   return 'items line up in front of you, one tile after another';
+});
+
+test('build: the last block put down in a wall closes the room, thick walls included', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('seal-test', 'blank'); if (!town.props) lfInitProps(); startPlaying(npcs[0]); const P = game.player; itBuildToggle(P, true);
+    const cx = P.tx + 3, cy = P.ty - 3; let skip = null;
+    // a thick-walled room (two blocks thick, a door two tiles long); every block but one is put down first
+    for (let i = 0; i < 8; i++) for (let j = 0; j < 7; j++) { const edge = i < 2 || i > 5 || j < 2 || j > 4; if (!edge) continue; if (i === 0 && j === 3) { skip = [cx + i, cy + j]; continue; } lfAddProp(i === 3 && j >= 5 ? 'bdoor' : 'bwall', cx + i, cy + j); }
+    const before = rooms.filter(r => r.free && !r.dead).length;
+    // the last one is placed through the build bar (it stands in front of the player)
+    P.tx = P.x = skip[0] - 1; P.ty = P.y = skip[1]; P.face = { dx: 1, dy: 0 }; rebuildOcc(); bldPlaceFront(P, 'bwall'); bldTick();
+    return { before, after: rooms.filter(r => r.free && !r.dead).length };
+  });
+  check(r.before === 0 && r.after === 1, 'placing the last block should close the room: ' + JSON.stringify(r));
+  check(!errors.length, errors.slice(0, 2).join(' | '));
+  return 'a block put down in the last gap seals the room';
 });
 
 const browser = await launch();

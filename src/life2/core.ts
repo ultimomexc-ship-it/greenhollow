@@ -6,7 +6,7 @@
    can lose the "who did it" along the way). Opinions move liking, mood, reputation and memory; reaction handlers (guards,
    revenge, comfort...) hook in through LF2.react. A new mechanic only has to emit events with tags to join all of this.      */
 const LF2: any = { shadows: false, react: [], tickers: [], hourly: [], pre: [], preD: [], dec: [], work: [], frame: [], verbs: [], social: [],
-  feat: { gossip: true, law: true, npccrime: true, economy: true, cooking: true, couples: true, baths: true, tavern: true, romance: true, nightlocks: true, revenge: true } };
+  feat: { gossip: true, law: true, npccrime: true, economy: true, cooking: true, couples: true, baths: true, tavern: true, romance: true, nightlocks: false, revenge: true } };
 const LF2_FEATN = { gossip: 'Gossip and rumours', law: 'Guards, fines and jail', npccrime: 'Villagers commit crimes too', economy: 'Coins, trades and shops', cooking: 'Home cooking', couples: 'Couples go to bed together',
   baths: 'Hygiene and the public baths', tavern: 'Drinking, dice and brawls', romance: 'Crushes, affairs and jealousy', nightlocks: 'Doors barred at night', revenge: 'Grudges and getting even' };
 LF2.on = k => LF2.feat[k] !== false;

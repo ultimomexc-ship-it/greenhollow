@@ -17353,7 +17353,7 @@ const LF2 = {
   frame: [],
   verbs: [],
   social: [],
-  feat: { gossip: true, law: true, npccrime: true, economy: true, cooking: true, couples: true, baths: true, tavern: true, romance: true, nightlocks: true, revenge: true }
+  feat: { gossip: true, law: true, npccrime: true, economy: true, cooking: true, couples: true, baths: true, tavern: true, romance: true, nightlocks: false, revenge: true }
 };
 const LF2_FEATN = {
   gossip: "Gossip and rumours",
@@ -18719,7 +18719,14 @@ function bldExit(start, pending) {
       for (const [dx, dy] of BLD_D4) {
         const dxx = x + dx, dyy = y + dy, p = lfPropAt(dxx, dyy), isDoor = p && p.kind === "bdoor" && !p.fixed || grid[dyy][dxx] === T.DOOR && doors.some((d) => d.x === dxx && d.y === dyy && rooms[d.room] && rooms[d.room].free);
         if (!isDoor) continue;
-        const ox = dxx + dx, oy = dyy + dy;
+        let ox = dxx + dx, oy = dyy + dy;
+        for (let hop = 0; hop < 8 && ox > 0 && oy > 0 && ox < W - 1 && oy < H - 1; hop++) {
+          const pp = lfPropAt(ox, oy);
+          if (pp && pp.kind === "bdoor" && !pp.fixed || grid[oy][ox] === T.DOOR && doors.some((d) => d.x === ox && d.y === oy && rooms[d.room] && rooms[d.room].free)) {
+            ox += dx;
+            oy += dy;
+          } else break;
+        }
         if (ox < 1 || oy < 1 || ox >= W - 1 || oy >= H - 1 || bldSolid(ox, oy)) continue;
         const ok = ox + oy * W;
         if (where.has(ok)) {
@@ -18856,46 +18863,54 @@ function bldMake(regions, dissolve) {
 function bldEvaluate(spots) {
   const seen = /* @__PURE__ */ new Set(), regions = [], dissolve = /* @__PURE__ */ new Set();
   let hint = "";
-  for (const [bx, by] of spots) for (const [dx, dy] of BLD_D8) {
-    const x = bx + dx, y = by + dy;
-    if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1 || seen.has(x + y * W) || bldSolid(x, y)) continue;
-    const reg = bldFlood(x, y);
-    if (reg.open) continue;
-    for (const k of reg.cells) seen.add(k);
-    const inRoom = bldFreeRoom(x, y);
-    if (inRoom) {
-      if (dissolve.has(inRoom)) continue;
-      const seen2 = /* @__PURE__ */ new Set(), comps = [];
-      let ok = true;
-      for (const k of inRoom.cells) {
-        if (seen2.has(k) || bldSolid(k % W, k / W | 0)) continue;
-        const c = bldFlood(k % W, k / W | 0);
-        if (c.open || c.bad) {
-          ok = false;
-          break;
+  const near = spots.map(([bx, by]) => {
+    const o = [];
+    for (let r = 1; r <= 3; r++) for (let dy2 = -r; dy2 <= r; dy2++) for (let dx2 = -r; dx2 <= r; dx2++) if (Math.max(Math.abs(dx2), Math.abs(dy2)) === r) o.push([dx2, dy2]);
+    return o;
+  });
+  for (let si = 0; si < spots.length; si++) {
+    const [bx, by] = spots[si];
+    for (const [dx, dy] of near[si]) {
+      const x = bx + dx, y = by + dy;
+      if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1 || seen.has(x + y * W) || bldSolid(x, y)) continue;
+      const reg = bldFlood(x, y);
+      if (reg.open) continue;
+      for (const k of reg.cells) seen.add(k);
+      const inRoom = bldFreeRoom(x, y);
+      if (inRoom) {
+        if (dissolve.has(inRoom)) continue;
+        const seen2 = /* @__PURE__ */ new Set(), comps = [];
+        let ok = true;
+        for (const k of inRoom.cells) {
+          if (seen2.has(k) || bldSolid(k % W, k / W | 0)) continue;
+          const c = bldFlood(k % W, k / W | 0);
+          if (c.open || c.bad) {
+            ok = false;
+            break;
+          }
+          for (const q of c.cells) seen2.add(q);
+          comps.push(c.cells);
         }
-        for (const q of c.cells) seen2.add(q);
-        comps.push(c.cells);
+        if (!ok || comps.length < 2 || !comps.every((c) => bldExit(c, comps))) continue;
+        dissolve.add(inRoom);
+        for (const c of comps) regions.push(c);
+        continue;
       }
-      if (!ok || comps.length < 2 || !comps.every((c) => bldExit(c, comps))) continue;
-      dissolve.add(inRoom);
-      for (const c of comps) regions.push(c);
-      continue;
+      if (reg.bad) {
+        hint = reg.bad;
+        continue;
+      }
+      if (reg.cells.length < 1) continue;
+      if (!bldHasDoor(reg.cells)) {
+        hint = hint || "door";
+        continue;
+      }
+      if (!bldExit(reg.cells, [reg.cells])) {
+        hint = hint || "exit";
+        continue;
+      }
+      regions.push(reg.cells);
     }
-    if (reg.bad) {
-      hint = reg.bad;
-      continue;
-    }
-    if (reg.cells.length < 1) continue;
-    if (!bldHasDoor(reg.cells)) {
-      hint = hint || "door";
-      continue;
-    }
-    if (!bldExit(reg.cells, [reg.cells])) {
-      hint = hint || "exit";
-      continue;
-    }
-    regions.push(reg.cells);
   }
   if (!regions.length) return { made: [], hint };
   let made = bldMake(regions, [...dissolve]);
@@ -19994,6 +20009,9 @@ const itBuildName = (k) => {
   const it = YARD_ITEMS.find((q) => q.kind === k);
   return it ? it.name : k;
 };
+function bldQueue(p) {
+  (town.bldQ = town.bldQ || []).push([p.x, p.y]);
+}
 function bldPlaceFront(n, kind) {
   if (town.props.length >= BUILD_CAP) {
     playerSay(n, "The island is full of loose things. Smash some first.");
@@ -20013,6 +20031,7 @@ function bldPlaceFront(n, kind) {
         const p = lfAddProp(kind, x, y);
         p.v = Math.floor(Math.random() * 5);
         p.rot = 0;
+        bldQueue(p);
         playerSay(n, "A " + (LF_NOUN[kind] || kind) + ".");
         return p;
       }
@@ -20031,6 +20050,7 @@ function bldPlaceFront(n, kind) {
     const p = lfAddProp(kind, x, y);
     p.v = Math.floor(Math.random() * 5);
     p.rot = 0;
+    bldQueue(p);
     playerSay(n, "A " + (LF_NOUN[kind] || kind) + ".");
     return p;
   }
