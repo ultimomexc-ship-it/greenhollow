@@ -7822,8 +7822,12 @@ function resetWorld() {
   doors = [];
   lamps = [];
 }
+const lfBedAt = (x, y) => {
+  const p = town.propAt && town.propAt.get(y * W + x);
+  return !!p && p.kind === "bed";
+};
 function walkable(x, y) {
-  return x >= 0 && y >= 0 && x < W && y < H && !BLOCKED.has(grid[y][x]) && !(town && town.block && town.block[y * W + x]) && !(town && town.hgt && town.hgt[y * W + x] >= 0) && !(town && town.fmask && town.fmask[y * W + x]) && !(town && town.pblock && town.pblock[y * W + x] && !LF.seeThru);
+  return x >= 0 && y >= 0 && x < W && y < H && !BLOCKED.has(grid[y][x]) && !(town && town.block && town.block[y * W + x]) && !(town && town.hgt && town.hgt[y * W + x] >= 0) && !(town && town.fmask && town.fmask[y * W + x]) && !(town && town.pblock && town.pblock[y * W + x] && !LF.seeThru && !lfBedAt(x, y));
 }
 function tileCost(x, y) {
   return COST[grid[y][x]] || 1;
@@ -10908,7 +10912,7 @@ function bumpInto(n, o) {
   if (!o.moving) bumpTalk(n, o, intent);
 }
 function blockedStep(n, nx, dt) {
-  if (town.pblock && town.pblock[nx.y * W + nx.x]) {
+  if (town.pblock && town.pblock[nx.y * W + nx.x] && !lfBedAt(nx.x, nx.y)) {
     const dest2 = n.path[n.path.length - 1], p = findPath(n.tx, n.ty, dest2.x, dest2.y);
     n.t = 0;
     n.blockT = 0;
@@ -20032,6 +20036,10 @@ function itBuildToggle(n, on) {
     if (b.prev) {
       n.sel = b.prev.sel;
       n.mode = b.prev.mode;
+    }
+    if (typeof visHomes === "function") {
+      visHomes();
+      if (typeof housingTick === "function") housingTick();
     }
     if (typeof isleSave === "function") isleSave();
   }

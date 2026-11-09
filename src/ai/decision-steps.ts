@@ -93,7 +93,7 @@ function bumpInto(n, o) {
   if (!o.moving) bumpTalk(n, o, intent);
 }
 function blockedStep(n, nx, dt) {
-  if (town.pblock && town.pblock[nx.y * W + nx.x]) {            // something was pushed into the way
+  if (town.pblock && town.pblock[nx.y * W + nx.x] && !lfBedAt(nx.x, nx.y)) {            // something was pushed into the way (a loose bed is walked over)
     const dest = n.path[n.path.length - 1], p = findPath(n.tx, n.ty, dest.x, dest.y);
     n.t = 0; n.blockT = 0;
     if (p && p.length) { n.path = p; return true; }

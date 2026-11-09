@@ -1221,6 +1221,27 @@ test('building: a hut gets no kitchen oven, and nothing blocked is left where a 
   return 'no oven in a hut; nothing blocked stays behind';
 });
 
+test('beds: you get the first bed the moment you leave build mode, and a visitor sleeps in theirs (loose beds are walked over)', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r0 = await page.evaluate(() => {
+    newTown('bed-alloc', 'blank'); if (!town.props) lfInitProps(); town.bldQ = town.bldQ || []; startPlaying(npcs[0]); const P = game.player; itBuildToggle(P, true);
+    const cx = P.tx + 4, cy = P.ty - 8, n = 6; window.__c = [cx, cy];
+    for (let j = -3; j < 12; j++) for (let i = -4; i < 12; i++) { setT(cx + i, cy + j, T.GRASS); roomAt[cy + j][cx + i] = -1; const p = lfPropAt(cx + i, cy + j); if (p) { town.props = town.props.filter(q => q !== p); town.propAt.delete((cy + j) * W + cx + i); town.pblock[(cy + j) * W + cx + i] = 0; } }
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { if (!(i === 0 || j === 0 || i === n - 1 || j === n - 1)) continue; lfAddProp(i === 2 && j === n - 1 ? 'bdoor' : 'bwall', cx + i, cy + j); }
+    lfAddProp('bed', cx + 2, cy + 2); lfAddProp('bed', cx + 4, cy + 2); town.bldQ.push([cx, cy]); bldTick(); itBuildToggle(P, false);
+    return { mine: !!(P.bed && P.bed.owner === P && P.homeRoom) };
+  });
+  check(r0.mine, 'you should own a bed as soon as you leave build mode');
+  await simulate(page, 2 * 1440);
+  await page.evaluate(() => { window.__skip = ((26 * 60) - (game.time % 1440) + 1440) % 1440; });
+  await simulate(page, await page.evaluate(() => window.__skip));
+  const r = await page.evaluate(() => { const v = npcs.find(n => !n.player); return v ? { homed: !!(v.bed && v.bed.owner === v), pose: v.pose, at: [v.tx - window.__c[0], v.ty - window.__c[1]], bed: v.bed && [v.bed.x - window.__c[0], v.bed.y - window.__c[1]] } : null; });
+  check(r && r.homed, 'a visitor should have come and been given the free bed: ' + JSON.stringify(r));
+  check(r.pose === 'sleep' && r.at.join() === r.bed.join(), 'at two in the morning the visitor should be asleep in their bed: ' + JSON.stringify(r));
+  check(!errors.length, errors.slice(0, 2).join(' | '));
+  return 'first bed is yours at once; the visitor sleeps in theirs';
+});
+
 const browser = await launch();
 let failed = 0;
 const chosen = tests.filter(t => t.name.includes(filter));
