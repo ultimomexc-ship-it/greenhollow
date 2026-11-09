@@ -82,8 +82,8 @@ async function isleSave() {
   try {
     const json = isleCapture(), d = await isleOpenDB(), pl = game.player, meta = { id: ISLE.id, name: town.name, seed: town.seed, scenario: town.scenario || 'village', day: Math.floor(game.time / 1440) + 1, pop: npcs.filter(n => !n.dead).length, savedAt: Date.now(), version: SAVE_VERSION, created: ISLE.created || Date.now(), you: pl ? pl.first : '' };
     const tx = d.transaction(['meta', 'data'], 'readwrite'); tx.objectStore('data').put({ id: ISLE.id, json }); tx.objectStore('meta').put(meta);
-    await new Promise((r, j) => { tx.oncomplete = r; tx.onerror = () => j(tx.error); }); ISLE.last = Date.now(); isleLabel(); return true;
-  } catch (e) { console.warn('save failed', e); return false; } finally { ISLE.busy = false; }
+    await new Promise((r, j) => { tx.oncomplete = r; tx.onerror = () => j(tx.error); }); ISLE.last = Date.now(); ISLE.err = ''; isleLabel(); return true;
+  } catch (e) { console.warn('save failed', e); ISLE.err = String((e && e.message) || e); isleLabel(); return false; } finally { ISLE.busy = false; }
 }
 /** start a new island in a new slot */
 function isleNew(seedText: string | undefined, scenario: string) {
@@ -110,7 +110,14 @@ async function isleLoad(id: string): Promise<boolean> {
     return true;
   } catch (e) { console.error('load failed', e); return false; }
 }
-function isleLabel() { const e = document.getElementById('islandName'); if (e) e.textContent = ISLE.id && town ? town.name + ' · day ' + (Math.floor(game.time / 1440) + 1) : ''; }
+function isleLabel() {
+  const e = document.getElementById('islandName'); if (!e) return;
+  if (!town) { e.textContent = ''; return; }
+  const d = new Date(ISLE.last || 0), hm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  const st = !isleOK() ? ' · NOT SAVING (this browser blocks storage)' : !ISLE.id ? ' · not saved' : ISLE.err ? ' · SAVE FAILED' : ISLE.last ? ' · saved ' + hm : '';
+  e.textContent = town.name + ' · day ' + (Math.floor(game.time / 1440) + 1) + st; e.title = ISLE.err || 'Autosaved every 30 seconds and when you leave build mode. Click to save now.';
+  e.style.cursor = 'pointer'; e.onclick = () => { isleSave(); };
+}
 
 /* ---------- the Islands panel ---------- */
 function isleAgo(t: number) { const m = Math.max(0, Math.round((Date.now() - t) / 60000)); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' days ago'; }

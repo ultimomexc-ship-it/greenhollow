@@ -22,7 +22,7 @@ function handOffMats(n) {
     n.inv[k] = 0; }
 }
 function setRole(n, role, mk?) {
-  if (n.player && !['Worker', 'Elder', 'Child'].includes(role)) releasePlayer();
+  if (n.player && !['Worker', 'Elder', 'Child'].includes(role)) return;   // (the villager you steer is never given a job: you keep control of the same person)
   if (role !== 'Worker' && ((n.inv.wood || 0) + (n.inv.stone || 0)) > 0) handOffMats(n);
   const was = n.role; n.role = role; styleFor(rng(town.seed + n.id * 53 + Math.floor(game.time)), n); routine(rng(town.seed ^ n.id), n);
   if (was === 'Trader' && n.shop) dropMerchant(n);

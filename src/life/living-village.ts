@@ -100,7 +100,7 @@ function lfAccident(n) {
 }
 
 /* ---------------- privies ---------------- */
-const lfPrivies = () => rooms.filter(r => r.kind === 'privy' && !r.dead && r.toilet);
+const lfPrivies = () => rooms.filter(r => !r.dead && r.toilet && (r.kind === 'privy' || r.ptoilet));
 function lfPrivyFor(n) {
   const list = lfPrivies().map(r => ({ r, d: Math.abs(r.toilet.x - n.tx) + Math.abs(r.toilet.y - n.ty) + ((r.user && r.user !== n.id && game.time < r.until) ? 16 : 0) })).sort((a, b) => a.d - b.d);
   for (const e of list.slice(0, 3)) if (findPath(n.tx, n.ty, e.r.toilet.x, e.r.toilet.y)) return e.r;
@@ -109,7 +109,7 @@ function lfPrivyFor(n) {
 function toiletPlan(n) {
   const r = lfPrivyFor(n); if (!r) return bushPlan(n);
   r.user = n.id; r.until = game.time + 18;
-  return [goS({ x: r.toilet.x, y: r.toilet.y, face: r.toilet.face, sit: true }, 'Heading for ' + r.name),
+  return [goS({ x: r.toilet.x, y: r.toilet.y, face: r.toilet.face, sit: !r.ptoilet }, 'Heading for ' + r.name),
     waitS(3 + lfR(n) * 3, 'leisure', 'Using the privy', { priv: true, nopie: true, onEnd(nn) { nn.bladder = 0; lfMod(nn, 'relief', 'relieved', 5, 150); if (r.user === nn.id) r.user = null; } })];
 }
 function bushPlan(n) {

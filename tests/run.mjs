@@ -1143,7 +1143,7 @@ test('visitors: on a blank island a built hut with a free bed brings a settler a
     newTown('blank-test', 'blank'); if (!town.props) lfInitProps(); town.bldQ = town.bldQ || []; startPlaying(npcs[0]);
     const cx = Math.round(npcs[0].tx) + 3, cy = Math.round(npcs[0].ty) + 3;
     for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) { if (i && i < 4 && j && j < 4) continue; lfAddProp(i === 2 && j === 4 ? 'bdoor' : 'bwall', cx + i, cy + j); town.bldQ.push([cx + i, cy + j]); }
-    lfAddProp('bed', cx + 1, cy + 1); lfAddProp('bed', cx + 3, cy + 1); bldTick();
+    lfAddProp('bed', cx + 1, cy + 1); lfAddProp('bed', cx + 3, cy + 1); lfAddProp('toilet', cx + 3, cy + 3); bldTick();
     return { huts: rooms.filter(r => !r.dead && r.free).length };
   });
   check(r.huts === 1, 'the closed room should exist');
@@ -1151,8 +1151,12 @@ test('visitors: on a blank island a built hut with a free bed brings a settler a
   const s = await page.evaluate(() => ({ n: npcs.length, homed: npcs.filter(n => n.homeRoom && n.bed && n.bed.owner === n).length, hut: rooms.some(r => r.hut && r.kind === 'house') }));
   check(s.hut, 'a room with a bed should become a hut');
   check(s.n === 2 && s.homed === 2, `expected a visitor living in the hut, got ${s.n} people, ${s.homed} housed`);
+  const q = await page.evaluate(() => ({ ctl: !!(game.player && game.player.player), toilet: rooms.some(r => r.toilet && r.ptoilet), accidents: town.chron.filter(c => /in time/.test(c.text || c)).length }));
+  check(q.ctl, 'you lost control of your villager');
+  check(q.toilet, 'a privy seat inside a built room should make a privy');
+  check(q.accidents === 0, 'accidents despite a privy: ' + q.accidents);
   check(!errors.length, errors.slice(0, 2).join(' | '));
-  return 'hut made, visitor came ashore and took the free bed';
+  return 'hut made, visitor came ashore and took the free bed, privy used, control kept';
 });
 
 const browser = await launch();

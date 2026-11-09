@@ -52,7 +52,7 @@ function newTown(seedText?, scenario?) {
   el('legend').textContent = (scenario === 'blank' ? 'blank island' : 'ready village') + ' · ' + W + '×' + H;
 }
 el('newTown').addEventListener('click', () => newTown(String(Math.floor(Math.random() * 1000000))));
-el('seedForm').addEventListener('submit', e => { e.preventDefault(); newTown((el('seed') as any).value); });
+el('seedForm').addEventListener('submit', e => { e.preventDefault(); const v = (el('seed') as any).value; if (typeof isleNew === 'function' && typeof isleOK === 'function' && isleOK()) isleNew(v, (town && town.scenario) || 'village'); else newTown(v); });   // (a new seed is a new island in a new save slot: it never overwrites the one you were on)
 
 /* ---------- camera: drag, wheel, pinch, keys, buttons ---------- */
 const ptrs = new Map(); let dragMoved = 0, pinch0 = 0;
@@ -181,7 +181,9 @@ function updateHud(force) {
 
 /* let go of the keys for a while and your villager carries on alone, like everyone else */
 const IDLE_MS = 25000;
+const IDLE_RELEASE = false;   // you keep your villager for good: nothing hands them back to the village (set true for the old 25-second hand-over)
 function idleRelease(now) {
+  if (!IDLE_RELEASE) return;
   const n = game.player, p = n && n.player; if (!p) return;
   const busy = state.speed === 0 || state.slowed || p.sleeping || p.act || p.summonGo || p.autoBed || n.moving || p.follow || n.jail || town.succession || (typeof talkUI !== 'undefined' && talkUI.o) || Object.values(p.keys).some(Boolean);
   if (busy) { p.lastKey = now; return; }

@@ -15,6 +15,9 @@ function eventSlow() {
 function frame(now) {
   if (!town) { requestAnimationFrame(frame); return; }   // (an island is still being loaded)
   const dt = Math.min(100, now - last) / 1000; last = now;
+  if (!game.player && game.steer != null && !town.succession && !skipping) {   // you always steer the same person: take the reins back if anything let go of them
+    const t = byId(game.steer); if (t && !t.dead && !t.infant && t.age >= 8) { if (!canControl(t)) t.role = t.age >= 60 ? 'Elder' : 'Worker'; startPlaying(t); }
+  }
   { const sl = game.player && game.player.player && game.player.player.sleeping;
     if (sl && state.sleepFast == null && state.speed > 0) { state.sleepFast = String(state.speed); const b: any = document.querySelector('[data-speed="100"]'); if (b) b.click(); }
     else if (!sl && state.sleepFast != null) { const b: any = document.querySelector('[data-speed="' + state.sleepFast + '"]'); state.sleepFast = null; if (b) b.click(); } }
