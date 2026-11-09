@@ -18771,6 +18771,29 @@ function bldMake(regions, dissolve) {
     }
     r.dead = true;
   }
+  {
+    const inS = new Set([...blocks].map((p) => p.x + p.y * W));
+    for (let it = 0; it < 4; it++) {
+      let more = false;
+      for (const p of town.props.slice()) {
+        if (!bldBlock(p) || blocks.has(p) || p.kind === "bdoor") continue;
+        let s4 = 0, n4 = 0;
+        for (const [dx, dy] of BLD_D4) {
+          const x = p.x + dx, y = p.y + dy;
+          if (inS.has(x + y * W)) {
+            s4++;
+            n4++;
+          } else if (bldBlock(lfPropAt(x, y))) n4++;
+        }
+        if (s4 >= 1 && n4 >= 3 || s4 >= 2) {
+          blocks.add(p);
+          inS.add(p.x + p.y * W);
+          more = true;
+        }
+      }
+      if (!more) break;
+    }
+  }
   doors = doors.filter((d) => !oldRooms.has(rooms[d.room]));
   const wall = /* @__PURE__ */ new Map();
   town.bldWas = town.bldWas || /* @__PURE__ */ new Map();
@@ -28215,6 +28238,17 @@ function showTip(p, html) {
 function tileTip(x, y) {
   if (!town || x < 0 || y < 0 || x >= W || y >= H) return null;
   const g = grid[y][x];
+  if (typeof itBuildOn === "function" && game.player && itBuildOn(game.player)) {
+    const k = y * W + x, name = Object.keys(T).find((q) => T[q] === g) || String(g), ri2 = roomAt[y][x], r = ri2 >= 0 ? rooms[ri2] : null, pr = lfPropAt(x, y), why = [];
+    if (BLOCKED.has(g)) why.push("tile type " + name);
+    if (town.block && town.block[k]) why.push("town.block");
+    if (town.hgt && town.hgt[k] >= 0) why.push("height map");
+    if (town.fmask && town.fmask[k]) why.push("field mask");
+    if (town.pblock && town.pblock[k]) why.push("a prop");
+    if (tileOwner.get(k)) why.push("somebody stands here");
+    const wall = town.bldWall && town.bldWall.get(k);
+    return `<b>${x}, ${y}</b> ${name}<br>` + (r ? `room: ${esc(r.name || r.kind)} (${r.kind}${r.free ? ", built" : ""}${r.dead ? ", DEAD" : ""})<br>` : "no room<br>") + (pr ? `prop: ${pr.kind}${pr.fixed ? " (fixed)" : ""}<br>` : "") + (wall ? `built wall: ${wall}<br>` : "") + (walkable(x, y) ? "walkable" : "<b>blocked by: " + (why.join(", ") || "unknown") + "</b>");
+  }
   if (g === T.TENT) {
     const t = (town.tents || []).find((q) => q.x === x && q.y === y);
     return "<b>Tent</b><br>" + (t && t.owner ? esc(t.owner.first) + " is sleeping here" : "Free. Anyone may use it.");
@@ -28840,7 +28874,7 @@ async function isleShow(first) {
   }
   const rows2 = list.map((m) => {
     const nm = ISLE.renaming === m.id ? `<input class="islren" data-irentxt="${m.id}" value="${esc(m.name)}" maxlength="40" spellcheck="false"> <button type="button" class="btn primary" data-irenok="${m.id}">Save name</button>` : `<b>${esc(m.name)}</b> <button type="button" class="islpen" data-iren="${m.id}" title="Rename">rename</button>`;
-    const btns = ISLE.confirmDel === m.id ? `<button type="button" class="btn danger" data-idelyes="${m.id}">Yes, delete</button><button type="button" class="btn" data-idelno="1">Keep</button>` : `<button type="button" class="btn primary" data-icont="${m.id}">${m.id === ISLE.id ? "Resume" : "Continue"}</button><button type="button" class="btn" data-idel="${m.id}">Delete</button>`;
+    const btns = ISLE.confirmDel === m.id ? `<button type="button" class="btn danger" data-idelyes="${m.id}">Yes, delete</button><button type="button" class="btn" data-idelno="1">Keep</button>` : `<button type="button" class="btn primary" data-icont="${m.id}">${m.id === ISLE.id ? "Resume" : "Continue"}</button><button type="button" class="btn" data-iexp="${m.id}" title="Download this island as a file (to send it for a look)">Export</button><button type="button" class="btn" data-idel="${m.id}">Delete</button>`;
     return `<div class="islrow"><div>${nm} <span class="dim">${m.scenario === "blank" ? "blank island" : "ready village"}</span><br><span class="dim">day ${m.day} \xB7 ${m.pop} ${m.pop === 1 ? "person" : "people"}${m.you ? " \xB7 you: " + esc(m.you) : ""} \xB7 ${isleAgo(m.savedAt)}</span></div><div class="islbtns">${btns}</div></div>`;
   }).join("");
   box.innerHTML = `<div class="bgwrap isl"><div class="bghead"><b>Islands</b>${ISLE.id || !first ? '<button type="button" class="bgx" data-iclose="1" title="Close">\xD7</button>' : ""}</div>` + (err ? `<p class="sub">${esc(err)}</p>` : "") + (rows2 ? `<div class="bglab">Your islands \xB7 each one is saved automatically</div>${rows2}` : '<p class="sub">No islands yet. Start one below.</p>') + `<div class="bglab">New island</div><div class="islnew"><label><input type="radio" name="isc" value="blank" checked> <b>Blank island</b> <span class="dim">you alone, an empty island: build it up</span></label><label><input type="radio" name="isc" value="village"> <b>Ready village</b> <span class="dim">a built village with people (for trying things)</span></label><div class="islseed"><label>Name <input id="islname" type="text" autocomplete="off" spellcheck="false" maxlength="40" placeholder="your island's name"></label></div><div class="islseed"><label>Seed <input id="islseed" type="text" autocomplete="off" spellcheck="false" placeholder="random"></label><button type="button" class="btn primary" data-inew="1">Start</button></div></div></div>`;
@@ -28873,6 +28907,25 @@ document.addEventListener("click", async (e) => {
       isleShow();
     }
     return;
+  }
+  {
+    const ex = t.closest("[data-iexp]");
+    if (ex) {
+      try {
+        const db = await isleOpenDB(), rec = await isleReq(db.transaction("data").objectStore("data").get(ex.dataset.iexp));
+        if (rec) {
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(new Blob([rec.json], { type: "application/json" }));
+          a.download = "greenhollow-island-" + ex.dataset.iexp + ".json";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        }
+      } catch (err) {
+        alert("Could not export: " + err);
+      }
+      return;
+    }
   }
   if (d) {
     ISLE.confirmDel = d.dataset.idel;

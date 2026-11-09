@@ -60,6 +60,13 @@ function bldMake(regions: number[][], dissolve: any[]) {
   const oldRooms = new Set<any>(dissolve), blocks = new Set<any>(), bounds = { x0: 1e9, y0: 1e9, x1: -1, y1: -1 };
   for (const R of regions) for (const k of R) { const x = k % W, y = (k / W) | 0; for (const [dx, dy] of BLD_D8) { const p = lfPropAt(x + dx, y + dy); if (bldBlock(p)) blocks.add(p); } }
   for (const r of oldRooms) { for (const k of r.cells) { const x = k % W, y = (k / W) | 0; for (const [dx, dy] of BLD_D8) { const p = lfPropAt(x + dx, y + dy); if (bldBlock(p)) blocks.add(p); } } r.dead = true; }
+  /* a thick wall: loose wall blocks that lie against the new wall and are held by at least two more blocks (a layer going round) become part of it too; a lone line of blocks leading away does not */
+  { const inS = new Set<number>([...blocks].map(p => p.x + p.y * W));
+    for (let it = 0; it < 4; it++) { let more = false;
+      for (const p of town.props.slice()) { if (!bldBlock(p) || blocks.has(p) || p.kind === 'bdoor') continue; let s4 = 0, n4 = 0;
+        for (const [dx, dy] of BLD_D4) { const x = p.x + dx, y = p.y + dy; if (inS.has(x + y * W)) { s4++; n4++; } else if (bldBlock(lfPropAt(x, y))) n4++; }
+        if ((s4 >= 1 && n4 >= 3) || s4 >= 2) { blocks.add(p); inS.add(p.x + p.y * W); more = true; } }
+      if (!more) break; } }
   doors = doors.filter(d => !oldRooms.has(rooms[d.room]));
   // fixed blocks first, so the floors know where the walls are
   const wall = new Map<number, string>();

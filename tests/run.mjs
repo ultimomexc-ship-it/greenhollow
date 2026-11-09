@@ -1192,9 +1192,10 @@ test('build: the last block put down in a wall closes the room, thick walls incl
     const before = rooms.filter(r => r.free && !r.dead).length;
     // the last one is placed through the build bar (it stands in front of the player)
     P.tx = P.x = skip[0] - 1; P.ty = P.y = skip[1]; P.face = { dx: 1, dy: 0 }; rebuildOcc(); bldPlaceFront(P, 'bwall'); bldTick();
-    return { before, after: rooms.filter(r => r.free && !r.dead).length };
+    return { before, after: rooms.filter(r => r.free && !r.dead).length, loose: town.props.filter(p => ['bwall', 'bwindow'].includes(p.kind)).length };
   });
   check(r.before === 0 && r.after === 1, 'placing the last block should close the room: ' + JSON.stringify(r));
+  check(r.loose === 0, 'the outer layer of a thick wall should become wall too, no loose blocks left: ' + r.loose);
   check(!errors.length, errors.slice(0, 2).join(' | '));
   return 'a block put down in the last gap seals the room';
 });

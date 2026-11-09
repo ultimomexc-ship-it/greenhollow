@@ -87,6 +87,12 @@ function showTip(p, html) {
 function tileTip(x, y) {
   if (!town || x < 0 || y < 0 || x >= W || y >= H) return null;
   const g = grid[y][x];
+  if (typeof itBuildOn === 'function' && game.player && itBuildOn(game.player)) {   // in build mode a tile says what it is made of and what blocks it
+    const k = y * W + x, name = Object.keys(T).find(q => T[q] === g) || String(g), ri = roomAt[y][x], r = ri >= 0 ? rooms[ri] : null, pr = lfPropAt(x, y), why: string[] = [];
+    if (BLOCKED.has(g)) why.push('tile type ' + name); if (town.block && town.block[k]) why.push('town.block'); if (town.hgt && town.hgt[k] >= 0) why.push('height map'); if (town.fmask && town.fmask[k]) why.push('field mask'); if (town.pblock && town.pblock[k]) why.push('a prop'); if (tileOwner.get(k)) why.push('somebody stands here');
+    const wall = town.bldWall && town.bldWall.get(k);
+    return `<b>${x}, ${y}</b> ${name}<br>` + (r ? `room: ${esc(r.name || r.kind)} (${r.kind}${r.free ? ', built' : ''}${r.dead ? ', DEAD' : ''})<br>` : 'no room<br>') + (pr ? `prop: ${pr.kind}${pr.fixed ? ' (fixed)' : ''}<br>` : '') + (wall ? `built wall: ${wall}<br>` : '') + (walkable(x, y) ? 'walkable' : '<b>blocked by: ' + (why.join(', ') || 'unknown') + '</b>');
+  }
   if (g === T.TENT) { const t = (town.tents || []).find(q => q.x === x && q.y === y); return '<b>Tent</b><br>' + (t && t.owner ? esc(t.owner.first) + ' is sleeping here' : 'Free. Anyone may use it.'); }
   return null;
 }

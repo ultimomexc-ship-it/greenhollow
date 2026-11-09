@@ -135,7 +135,7 @@ async function isleShow(first?: boolean) {
   const rows = list.map(m => {
     const nm = ISLE.renaming === m.id ? `<input class="islren" data-irentxt="${m.id}" value="${esc(m.name)}" maxlength="40" spellcheck="false"> <button type="button" class="btn primary" data-irenok="${m.id}">Save name</button>` : `<b>${esc(m.name)}</b> <button type="button" class="islpen" data-iren="${m.id}" title="Rename">rename</button>`;
     const btns = ISLE.confirmDel === m.id ? `<button type="button" class="btn danger" data-idelyes="${m.id}">Yes, delete</button><button type="button" class="btn" data-idelno="1">Keep</button>`
-      : `<button type="button" class="btn primary" data-icont="${m.id}">${m.id === ISLE.id ? 'Resume' : 'Continue'}</button><button type="button" class="btn" data-idel="${m.id}">Delete</button>`;
+      : `<button type="button" class="btn primary" data-icont="${m.id}">${m.id === ISLE.id ? 'Resume' : 'Continue'}</button><button type="button" class="btn" data-iexp="${m.id}" title="Download this island as a file (to send it for a look)">Export</button><button type="button" class="btn" data-idel="${m.id}">Delete</button>`;
     return `<div class="islrow"><div>${nm} <span class="dim">${m.scenario === 'blank' ? 'blank island' : 'ready village'}</span><br><span class="dim">day ${m.day} · ${m.pop} ${m.pop === 1 ? 'person' : 'people'}${m.you ? ' · you: ' + esc(m.you) : ''} · ${isleAgo(m.savedAt)}</span></div><div class="islbtns">${btns}</div></div>`;
   }).join('');
   box.innerHTML = `<div class="bgwrap isl"><div class="bghead"><b>Islands</b>${ISLE.id || !first ? '<button type="button" class="bgx" data-iclose="1" title="Close">×</button>' : ''}</div>`
@@ -150,6 +150,7 @@ document.addEventListener('click', async (e: any) => {
   const c = t.closest('[data-icont]'), d = t.closest('[data-idel]'), n = t.closest('[data-inew]'), x = t.closest('[data-iclose]');
   if (x) { isleHide(); return; }
   if (c) { const id = c.dataset.icont; if (id === ISLE.id) { isleHide(); return; } c.disabled = true; if (ISLE.id) await isleSave(); const ok = await isleLoad(id); if (ok) isleHide(); else { alert('This island could not be loaded. It may be from an older version: you can delete it.'); isleShow(); } return; }
+  { const ex = t.closest('[data-iexp]'); if (ex) { try { const db = await isleOpenDB(), rec = await isleReq(db.transaction('data').objectStore('data').get(ex.dataset.iexp)); if (rec) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([rec.json], { type: 'application/json' })); a.download = 'greenhollow-island-' + ex.dataset.iexp + '.json'; document.body.appendChild(a); a.click(); a.remove(); } } catch (err) { alert('Could not export: ' + err); } return; } }
   if (d) { ISLE.confirmDel = d.dataset.idel; isleShow(!ISLE.id); return; }
   if (t.closest('[data-idelno]')) { ISLE.confirmDel = null; isleShow(!ISLE.id); return; }
   { const y = t.closest('[data-idelyes]'); if (y) { ISLE.confirmDel = null; await isleDelete(y.dataset.idelyes); isleShow(!ISLE.id); return; } }
