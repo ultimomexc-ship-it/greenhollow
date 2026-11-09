@@ -61,6 +61,7 @@ const IT_SEEDS: any = { barley: { grow: 1, yield: 'grain', q: 3, word: 'barley' 
 const itGrow = c => GROW * ((IT_SEEDS[c.seed] || IT_SEEDS.barley).grow);
 /** harvesting a plot: the food it gives, and (for the player) a seed or two back */
 function itHarvest(n, c) {
+  town.tut = town.tut || { harvests: 0 }; town.tut.harvests++;
   const S = IT_SEEDS[c.seed] || IT_SEEDS.barley; n.inv[S.yield] = (n.inv[S.yield] || 0) + S.q; c.st = 0;
   let back = 0; if (n.player) { back = 1 + (Math.random() < 0.5 ? 1 : 0); itGiveStack(n, 'seed_' + (c.seed || 'barley'), back); }
   c.seed = null; return { q: S.q, what: GOODS[S.yield] ? GOODS[S.yield].name : S.yield, back };

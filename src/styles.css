@@ -199,3 +199,4 @@ body.fs #c { height: 100vh !important; height: 100dvh !important; }
 #islands{position:fixed;inset:0;z-index:50}#islands .bgwrap{max-height:90vh}
 #islands{line-height:1.4}
 .islpen{background:none;border:0;color:#8d8570;font-size:11px;cursor:pointer;text-decoration:underline;padding:0 4px}.islren{background:#101317;border:1px solid #3a3226;color:#d9d2c0;border-radius:6px;padding:3px 6px}.btn.danger{background:#7a2e2a;color:#fff;border-color:#a0443e}#islname{width:220px}.bgwrap.isl .islseed input{background:#101317;border:1px solid #3a3226;color:#d9d2c0;border-radius:6px;padding:5px 8px}
+.req{background:#1b2227;border:1px solid #3a4a3a;border-left:3px solid #e0a93b;border-radius:6px;padding:8px 10px;margin:6px 0}.ok{color:#8bd05f}

@@ -1249,7 +1249,7 @@ test('fields: the build-mode field brush marks plots under your feet, the hoe wo
     const cx = P.tx + 6, cy = P.ty - 6; for (let j = -2; j < 8; j++) for (let i = -2; i < 12; i++) { setT(cx + i, cy + j, T.GRASS); roomAt[cy + j][cx + i] = -1; const q = lfPropAt(cx + i, cy + j); if (q) { town.props = town.props.filter(z => z !== q); town.propAt.delete((cy + j) * W + cx + i); town.pblock[(cy + j) * W + cx + i] = 0; } }
     const slot = P.build.bar.indexOf('field'); itBuildSelect(P, slot + 3); const on = P.build.brush === 'field';
     for (let i = 0; i < 4; i++) { P.tx = P.x = cx + i; P.ty = P.y = cy; bldBrushStep(P); }
-    const plots = town.crops.filter(c => c.garden === P.id).length, tiles = [0, 1, 2, 3].every(i => grid[cy][cx + i] === T.CROP);
+    const plots = town.crops.filter(c => c.byField === P.id).length, tiles = [0, 1, 2, 3].every(i => grid[cy][cx + i] === T.CROP);
     itBuildSelect(P, slot + 3); const off = !P.build.brush; P.tx = P.x = cx + 5; P.ty = P.y = cy; bldBrushStep(P); const notAfter = grid[cy][cx + 5] === T.GRASS;
     itBuildSelect(P, 1);   // destroy
     const t = targetAt0(P, cx + 1, cy); t.run(P); const dug = grid[cy][cx + 1] === T.GRASS && !town.crops.some(c => c.x === cx + 1 && c.y === cy);
@@ -1257,9 +1257,9 @@ test('fields: the build-mode field brush marks plots under your feet, the hoe wo
     return { on, plots, tiles, off, notAfter, dug, farmers: itFarmersPlot(town.crops[0]) };
   });
   check(r.on, 'the field slot should switch the brush on'); check(r.plots === 4 && r.tiles, 'four steps lay four plots: ' + JSON.stringify(r));
-  check(r.off && r.notAfter, 'the brush stops when switched off'); check(r.dug, 'the hammer digs a plot back to grass'); check(r.farmers === false, 'village farmers leave your field alone');
+  check(r.off && r.notAfter, 'the brush stops when switched off'); check(r.dug, 'the hammer digs a plot back to grass'); check(r.farmers === true, 'village farmers work your field');
   check(!errors.length, errors.slice(0, 2).join(' | '));
-  return 'brush lays plots as you walk; hammer removes them; farmers leave them be';
+  return 'brush lays plots as you walk; hammer removes them; farmers work them';
 });
 
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
@@ -1364,6 +1364,30 @@ test('bakery: on a blank island the baker collects spare grain from the huts and
   check(/^buybread/.test(r.buy || '') && r.bought, 'buying bread at the counter: ' + JSON.stringify(r));
   check(!errors.length, errors.slice(0, 3).join(' | '));
   return `${r.bread} loaves baked; you sold grain and bought bread at the counter`;
+});
+
+test('tutorial: one request at a time with exact numbers; a visitor needs two beds; privy and field requests hold new arrivals; villagers farm your field', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const st = () => page.evaluate(() => ({ pop: npcs.length, cur: islandNeeds().map(q => q.id), harv: (town.tut && town.tut.harvests) || 0, block: tutBlocksArrival(), B: (({ plots, plotsNeeded, privies, priviesNeeded, beds, bedsNeeded }) => ({ plots, plotsNeeded, privies, priviesNeeded, beds, bedsNeeded }))(townBalance()) }));
+  await page.evaluate(() => {
+    newTown('tut-test', 'blank'); if (!town.props) lfInitProps(); town.bldQ = town.bldQ || []; startPlaying(npcs[0]); const P = game.player; itBuildToggle(P, true);
+    const cx = P.tx + 4, cy = P.ty - 8, n = 6; window.__c = [cx, cy];
+    for (let j = -3; j < 16; j++) for (let i = -4; i < 24; i++) { setT(cx + i, cy + j, T.GRASS); roomAt[cy + j][cx + i] = -1; const p = lfPropAt(cx + i, cy + j); if (p) { town.props = town.props.filter(q => q !== p); town.propAt.delete((cy + j) * W + cx + i); town.pblock[(cy + j) * W + cx + i] = 0; } }
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { if (!(i === 0 || j === 0 || i === n - 1 || j === n - 1)) continue; lfAddProp(i === 2 && j === n - 1 ? 'bdoor' : 'bwall', cx + i, cy + j); }
+    lfAddProp('bed', cx + 1, cy + 1); town.bldQ.push([cx, cy]); bldTick(); itBuildToggle(P, false);
+  });
+  const a = await st(); check(a.cur[0] === 'bed2' && !a.block && a.B.beds === 1 && a.B.bedsNeeded === 2, 'alone with one bed: the request is a second bed, and it does not block a visitor: ' + JSON.stringify(a));
+  await page.evaluate(() => { const P = game.player; itBuildToggle(P, true); const [cx, cy] = window.__c; lfAddProp('bed', cx + 3, cy + 1); itBuildToggle(P, false); });
+  await simulate(page, 3 * 1440);
+  const c = await st(); check(c.pop === 2, 'a second bed should bring the first visitor: ' + JSON.stringify(c));
+  check(c.cur.includes('privy') && c.cur.includes('field') && c.block && c.B.plotsNeeded === 5, 'then a privy and a field of 5 plots are asked for, and no more visitors come: ' + JSON.stringify(c));
+  await page.evaluate(() => { const P = game.player; itBuildToggle(P, true); const [cx, cy] = window.__c, n = 6, ox = cx + 8; for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { if (!(i === 0 || j === 0 || i === n - 1 || j === n - 1)) continue; lfAddProp(i === 2 && j === n - 1 ? 'bdoor' : 'bwall', ox + i, cy + j); } lfAddProp('toilet', ox + 2, cy + 2); town.bldQ.push([ox, cy]); bldTick();
+    P.build.brush = 'field'; let k = 0; for (let j = 8; j < 14 && k < 5; j++) for (let i = 0; i < 6 && k < 5; i++) { P.tx = P.x = cx + i; P.ty = P.y = cy + j; P.build.lastT = null; bldBrushStep(P); k++; } itBuildToggle(P, false); });
+  await simulate(page, 6 * 1440);
+  const d = await st(); check(d.harv >= 5, 'villagers should have ploughed, sown and harvested the field: ' + JSON.stringify(d));
+  check(!d.cur.includes('field') && !d.cur.includes('harvest') && !d.cur.includes('privy'), 'the field and privy requests are met: ' + JSON.stringify(d.cur));
+  check(!errors.length, errors.slice(0, 3).join(' | '));
+  return `request order and numbers right; ${d.harv} plots harvested by villagers`;
 });
 
 const browser = await launch();

@@ -209,6 +209,7 @@ body.fs #c { height: 100vh !important; height: 100dvh !important; }
 #islands{position:fixed;inset:0;z-index:50}#islands .bgwrap{max-height:90vh}
 #islands{line-height:1.4}
 .islpen{background:none;border:0;color:#8d8570;font-size:11px;cursor:pointer;text-decoration:underline;padding:0 4px}.islren{background:#101317;border:1px solid #3a3226;color:#d9d2c0;border-radius:6px;padding:3px 6px}.btn.danger{background:#7a2e2a;color:#fff;border-color:#a0443e}#islname{width:220px}.bgwrap.isl .islseed input{background:#101317;border:1px solid #3a3226;color:#d9d2c0;border-radius:6px;padding:5px 8px}
+.req{background:#1b2227;border:1px solid #3a4a3a;border-left:3px solid #e0a93b;border-radius:6px;padding:8px 10px;margin:6px 0}.ok{color:#8bd05f}
 
 </style>
 </head>
@@ -10576,7 +10577,7 @@ function pickAgenda(n) {
   if (n.cur && game.time < n.curUntil) return n.cur;
   const cnt = {};
   npcs.forEach((p) => {
-    if (p !== n && p.role === "Worker" && p.cur) cnt[p.cur] = (cnt[p.cur] || 0) + 1;
+    if (p !== n && p.role === "Worker" && p.cur && !p.player) cnt[p.cur] = (cnt[p.cur] || 0) + 1;
   });
   const fd = foodDaysNow(), need = Math.max(0, 3.5 - fd), sc = {};
   if (shoreTiles.length && fishAvail()) sc.Fisher = 5 + need * 20;
@@ -19408,6 +19409,7 @@ function visitorTick() {
   }
   if (day < v.next) return;
   if (visFreeBeds() < 1) return;
+  if (typeof tutBlocksArrival === "function" && tutBlocksArrival()) return;
   const pop = npcs.length, need = 8 + pop * 6;
   if (v.n >= 2 && visFood() < need) return;
   visArrive();
@@ -19453,7 +19455,7 @@ function visNeeds() {
       continue;
     }
     {
-      const nd = (typeof islandNeeds === "function" ? islandNeeds() : []).find((q) => !["bed", "privy", "field", "food"].includes(q.id));
+      const nd = (typeof islandNeeds === "function" ? islandNeeds() : []).find((q) => !["bed", "bed2", "privy", "field", "food", "harvest"].includes(q.id));
       if (nd && game.time - (said["n:" + nd.id] || -1e9) > 720) {
         said["n:" + nd.id] = game.time;
         lfShout(n, nd.say);
@@ -19693,36 +19695,77 @@ function fnScan() {
   }
 }
 LF2.hourly.push(() => fnScan());
+const TUT_TARGET = 10;
+const FOOD_PER_HEAD = 3.6;
+const PLOT_YIELD = 1.25;
+const PRIVY_FOR = 5;
+function townBalance() {
+  const people = npcs.filter((n) => !n.dead && !n.infant && n.age >= 3), pop = people.length;
+  const homeless = people.filter((n) => !(n.homeRoom && n.bed && n.bed.owner === n));
+  let beds = 0;
+  for (const r of rooms) if (!r.dead && r.kind === "house") beds += (r.beds || []).length;
+  const bakery = typeof lf2Room === "function" ? lf2Room("bakery") : null, baker = !!(bakery && npcs.some((n) => !n.dead && n.job === "Baker"));
+  const plots = (town.crops || []).filter((c) => typeof itFarmersPlot === "function" ? itFarmersPlot(c) : true).length;
+  const demand = pop * FOOD_PER_HEAD, perPlot = PLOT_YIELD * (baker ? 1.8 : 1), supply = plots * perPlot;
+  const plotsNeeded = Math.ceil(demand * 0.75 / perPlot);
+  const privies = typeof lfPrivies === "function" ? lfPrivies().length : 0;
+  const stock = people.reduce((s, n) => s + FOODS.reduce((t, g) => t + (n.inv[g] || 0), 0), 0) + rooms.reduce((s, r) => s + (!r.dead && r.pantry ? FOODS.reduce((t, g) => t + (r.pantry[g] || 0), 0) : 0), 0);
+  return { people, pop, homeless, beds, bedsNeeded: pop + (pop < TUT_TARGET ? 1 : 0), privies, priviesNeeded: pop >= 2 ? Math.ceil(pop / PRIVY_FOR) : 0, plots, plotsNeeded, demand, supply, stock, stockDays: demand ? stock / demand : 9, bakery, baker, harvests: town.tut && town.tut.harvests || 0, kids: people.filter((n) => n.age < 16 && !(n.bed && n.bed.owner === n) && n.homeRoom) };
+}
 function islandNeeds() {
   const out = [];
   if (!town) return out;
-  const people = npcs.filter((n) => !n.dead && !n.infant && n.age >= 3), adults = people.filter((n) => n.age >= 16), pop = people.length;
-  const names = (a) => a.slice(0, 3).map((n) => n.player ? "you" : n.first).join(", ") + (a.length > 3 ? " and " + (a.length - 3) + " more" : "");
-  const add = (id, title, say2, how, who) => out.push({ id, title, say: say2, how, who: who.map((n) => n.player ? "you" : n.first) });
-  const homeless = people.filter((n) => !(n.homeRoom && n.bed && n.bed.owner === n));
-  if (homeless.length) add("bed", "Beds", (homeless.length === 1 ? "I have nowhere to sleep." : `${homeless.length} of us have nowhere to sleep.`) + " A bed in a closed room would do.", "Build a hut: walls, a door that leads outside, and a bed inside. One bed each.", homeless);
-  const kids = people.filter((n) => n.age < 16 && !(n.bed && n.bed.owner === n) && n.homeRoom);
-  if (kids.length) add("kidbed", "Beds for the children", (kids.length === 1 ? "The child needs" : "The children need") + " a bed of their own.", "Put one more bed in the hut for each child.", kids);
-  const pr = typeof lfPrivies === "function" ? lfPrivies().length : 0;
-  if (!pr) add("privy", "A privy", `Is there a privy anywhere? We are tired of the bushes.`, "Build a closed room with a privy seat in it (build menu, I).", people.filter((n) => n.bladder > 30));
-  else if (pop > pr * 6) add("privy2", "Another privy", `One privy for ${pop} people is a queue.`, "Build a second room with a privy seat.", people.filter((n) => n.bladder > 50));
-  const plots = (town.crops || []).length, fd = typeof foodDaysNow === "function" ? foodDaysNow() : 3, hungry = people.filter((n) => n.hunger > 55);
-  if (!plots && pop > 1) add("field", "A field", "Berries and fish will not feed us for long. Somebody has to plough.", "Use the Field brush in build mode, then work it with the hoe and sow seed.", hungry);
-  else if (fd < 0.8 && pop > 1) add("food", "More food", `There's not much to eat. ${fd < 0.4 ? "We are going hungry." : "A bigger field would help."}`, "Mark more field plots, then plough and sow them.", hungry);
+  const B = townBalance(), pop = B.pop, adults = B.people.filter((n) => n.age >= 16), alone = pop <= 1;
+  const add = (id, title, say2, how, who, hard = false) => out.push({ id, title, say: say2, how, hard, who: who.map((n) => n.player ? "you" : n.first) });
   const has = (k) => !!(typeof lf2Room === "function" && lf2Room(k));
-  if (pop >= 3 && plots && !has("bakery")) add("bakery", "A bakery", "Grain keeps better as bread, and it goes further.", "Build a room with an oven and a counter in it.", adults);
+  const me = B.people.find((n) => n.player);
+  if (me && !(me.homeRoom && me.bed && me.bed.owner === me)) add("bed", "A bed for you", alone ? "I should build a bed first. Walls, a door that leads outside, and a bed inside." : "You still have no bed of your own.", "Build a hut: walls, a door, a bed inside. Then leave build mode (B).", [me], true);
+  else if (B.beds < B.bedsNeeded) {
+    const n = B.bedsNeeded - B.beds;
+    add("bed2", alone ? "A bed for the first villager" : "Beds", alone ? `A second bed, and somebody may come ashore to take it. (${B.beds} bed${B.beds === 1 ? "" : "s"} for ${pop} ${pop === 1 ? "person" : "people"}.)` : `${B.homeless.length ? B.homeless.length + " of us sleep rough. " : ""}${B.beds} beds for ${pop} people: we need ${B.bedsNeeded}, one more than we are.`, `Put ${n} more bed${n > 1 ? "s" : ""} inside a closed room.`, B.homeless, true);
+  }
+  if (!alone && B.privies < B.priviesNeeded) add("privy", B.privies ? "Another privy" : "A privy", `${B.privies} privy for ${pop} people, and we want one for every ${PRIVY_FOR}.${B.privies ? "" : " We are tired of the bushes."}`, `Build ${B.priviesNeeded - B.privies} more: a closed room with a privy seat in it (build menu, I).`, B.people.filter((n) => n.bladder > 30), true);
+  if (!alone && B.plots < B.plotsNeeded) {
+    const short = B.plotsNeeded - B.plots;
+    add("field", B.plots ? "More field" : "A field", `We eat about ${B.demand.toFixed(0)} portions a day. ${B.plots} plot${B.plots === 1 ? "" : "s"} give${B.plots === 1 ? "s" : ""} about ${B.supply.toFixed(0)}. ${short} more plot${short > 1 ? "s" : ""} and we feed ourselves.`, "Use the Field brush in build mode (walk over grass), then the hoe and seed in the world. Villagers will plough, sow and harvest it.", B.people.filter((n) => n.hunger > 40), true);
+  } else if (!alone && B.plots && !B.harvests) add("harvest", "The first harvest", "The plots are marked. Somebody has to plough and sow them, and wait about two days.", "Plough with the hoe (stand beside a plot, walk into it) and sow seed; villagers help.", B.people.filter((n) => n.hunger > 40), true);
+  const kids = B.kids;
+  if (kids.length) add("kidbed", "Beds for the children", (kids.length === 1 ? "The child needs" : "The children need") + " a bed of their own.", "Put one more bed in the hut for each child.", kids, true);
+  if (pop >= 3 && B.harvests && !has("bakery")) add("bakery", "A bakery", `Bread feeds ${"nearly three times as many"} as the grain it is baked from. Then ${Math.max(1, Math.ceil(B.demand * 0.75 / (PLOT_YIELD * 1.8)))} plots would do, not ${B.plotsNeeded}.`, "Build a room with an oven and a counter in it. The farmers' spare grain goes to the baker.", adults);
   if (pop >= 4 && !has("smithy")) add("smithy", "A smithy", "Our tools are wearing out and nobody can mend them.", "Build a room with a forge and an anvil in it.", adults.filter((n) => n.toolQ != null && n.toolQ < 40));
+  if (pop >= 5 && !town.tavern) add("tavern", "A tavern", "After work there is nowhere to sit and talk.", "Build a room with a counter, a table and two chairs.", B.people.filter((n) => n.social != null && n.social < 50));
   if (pop >= 5 && !has("shop")) add("shop", "A shop", "Somewhere to trade would help.", "Build a room with a counter and a shelf in it.", adults);
-  if (pop >= 5 && !town.tavern) add("tavern", "A tavern", "After work there is nowhere to sit and talk.", "Build a room with a counter, a table and two chairs.", people.filter((n) => n.social != null && n.social < 50));
   if (pop >= 6 && !town.church) add("church", "A chapel", "We have nowhere to pray, to marry or to bury our dead.", "Build a room with an altar and two pews.", adults);
-  else if (town.church && (town.church.pews || []).length < Math.ceil(pop / 2)) add("pews", "More pews", "The chapel is too small for everybody who wants to sit.", "Add pews to the chapel.", adults);
+  else if (town.church && (town.church.pews || []).length < Math.ceil(pop / 2)) add("pews", "More pews", `${(town.church.pews || []).length} pews for ${pop} people. We want ${Math.ceil(pop / 2)}.`, "Add pews to the chapel.", adults);
   return out;
 }
-function needsHTML() {
-  const n = islandNeeds();
-  if (!n.length) return '<h2>What the island needs</h2><p class="sub">Nothing pressing. People are getting by.</p>';
-  return '<h2>What the island needs</h2><ul class="plain needs">' + n.slice(0, 6).map((x) => `<li><b>${esc(x.title)}</b> <span class="dim">${x.who.length ? "\xB7 " + esc(x.who.slice(0, 3).join(", ")) : ""}</span><br>\u201C${esc(x.say)}\u201D<br><span class="dim">${esc(x.how)}</span></li>`).join("") + "</ul>";
+function tutBlocksArrival() {
+  return islandNeeds().some((q) => q.hard && q.id !== "bed2" && q.id !== "bed");
 }
+function needsHTML() {
+  const B = townBalance(), n = islandNeeds(), cur = n[0], row = (name, have, need, unit) => `<tr><td>${name}</td><td style="text-align:right">${have}</td><td style="text-align:right">${need}</td><td>${have >= need ? '<span class="ok">\u2713</span>' : "<b>short " + (need - have) + "</b>"} <span class="dim">${unit}</span></td></tr>`;
+  const sheet = `<table class="mk"><thead><tr><th>Balance</th><th style="text-align:right">have</th><th style="text-align:right">need</th><th></th></tr></thead><tbody>` + row("Beds", B.beds, B.bedsNeeded, "one more than people") + row("Privies", B.privies, B.priviesNeeded, `1 per ${PRIVY_FOR}`) + row("Field plots", B.plots, B.plotsNeeded, `${B.supply.toFixed(0)} of ${B.demand.toFixed(0)} portions/day`) + `</tbody></table><p class="sub">Food in store: ${B.stock} portions (${B.stockDays.toFixed(1)} days). People: ${B.pop}${B.pop >= TUT_TARGET ? " \xB7 settled" : " of " + TUT_TARGET}.</p>`;
+  const head = !cur ? '<h2>What the island needs</h2><p class="sub">Everything is in balance. ' + (B.pop >= TUT_TARGET ? "The island is settled." : "More people will come.") + "</p>" : `<h2>What the island needs next</h2><div class="req"><b>${esc(cur.title)}</b> ${cur.who.length ? '<span class="dim">\xB7 ' + esc(cur.who.slice(0, 3).join(", ")) + "</span>" : ""}<br>\u201C${esc(cur.say)}\u201D<br><span class="dim">${esc(cur.how)}</span></div>` + (n.length > 1 ? '<p class="sub">Then: ' + esc(n.slice(1, 4).map((x) => x.title).join(" \xB7 ")) + "</p>" : "");
+  return head + sheet;
+}
+function tutFarmers() {
+  if (typeof farmWork !== "function" || !farmWork()) return;
+  const tasks = town.crops.filter((c) => !c.claim && itFarmersPlot(c) && (c.st && cropStage(c) === 4 || !c.pl || !c.st && c.pl && fieldPlowed(c))).length, want = Math.max(1, Math.ceil(tasks / 6));
+  const farmers = npcs.filter((n) => !n.dead && !n.player && n.role === "Worker" && n.cur === "Farmer").length;
+  let more = want - farmers;
+  for (const n of npcs) {
+    if (more <= 0) break;
+    if (n.dead || n.player || n.role !== "Worker" || n.age < 16 || LF2_JOBS[n.job] || n.cur !== "Gatherer" && n.cur !== "Fisher" && n.cur != null) continue;
+    n.job = null;
+    n.cur = "Farmer";
+    n.curUntil = game.time + 600;
+    if (typeof abortPlan === "function") abortPlan(n);
+    more--;
+  }
+}
+LF2.hourly.push(() => {
+  if (town && (town.crops || []).length) tutFarmers();
+});
 const SH_TRIP = 210;
 const SH_CAP = 90;
 const shroomAt = (x, y) => (town.shrooms || []).find((s) => s.x === x && s.y === y);
@@ -20462,6 +20505,7 @@ function itBuildToggle(n, on) {
       n.mode = b.prev.mode;
     }
     if (typeof fnScan === "function") fnScan();
+    if (typeof tutFarmers === "function") tutFarmers();
     if (typeof visHomes === "function") {
       visHomes();
       if (typeof housingTick === "function") housingTick();
@@ -20513,7 +20557,7 @@ function bldBrushStep(n) {
   const x = n.tx, y = n.ty;
   if (grid[y][x] !== T.GRASS || roomAt[y][x] >= 0 || lfPropAt(x, y) || town.siteAt && town.siteAt[y * W + x] || town.nodeMap && town.nodeMap.has(y * W + x) || x < 3 || y < 3 || x >= W - 3 || y >= H - 3) return;
   setT(x, y, T.CROP);
-  town.crops.push({ x, y, f: "garden" + n.id, pl: 0, st: 0, t0: 0, garden: n.id });
+  town.crops.push({ x, y, f: "field" + n.id, pl: 0, st: 0, t0: 0, byField: n.id });
   markDirty(x, y, 1, 1);
   town.gridV = (town.gridV || 0) + 1;
   if (typeof refreshReach === "function") refreshReach();
@@ -20913,6 +20957,7 @@ function lf2AssignJobs(first) {
   for (const k of LF2_JOBORDER) {
     const J = LF2_JOBS[k];
     if (J.room && !lf2Room(J.room)) continue;
+    if (!J.room && town.scenario === "blank") continue;
     const want = J.n ? J.n(pop) : 1;
     while (npcs.filter((n) => !n.dead && n.job === k).length < want && (have < maxTrades || k === "Smith" || k === "Baker" || k === "Guard")) {
       const c = pool.filter((n) => !LF2_JOBS[n.job] && !((n.lf2NoTrade || 0) > game.time)).map((n) => ({ n, s: (J.fit || []).reduce((s, t) => s + (lf2Has(n, t) ? 3 : 0), 0) - (J.unfit || []).reduce((s, t) => s + (lf2Has(n, t) ? 4 : 0), 0) + Math.random() * 2 })).sort((a, b) => b.s - a.s)[0];
@@ -28412,6 +28457,8 @@ function itRockOre(n) {
 const IT_SEEDS = { barley: { grow: 1, yield: "grain", q: 3, word: "barley" }, turnip: { grow: 0.55, yield: "turnip", q: 3, word: "turnips" }, bean: { grow: 0.8, yield: "beans", q: 3, word: "beans" } };
 const itGrow = (c) => GROW * (IT_SEEDS[c.seed] || IT_SEEDS.barley).grow;
 function itHarvest(n, c) {
+  town.tut = town.tut || { harvests: 0 };
+  town.tut.harvests++;
   const S = IT_SEEDS[c.seed] || IT_SEEDS.barley;
   n.inv[S.yield] = (n.inv[S.yield] || 0) + S.q;
   c.st = 0;

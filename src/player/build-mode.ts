@@ -9,7 +9,7 @@ const itBuildOn = n => !!(n && n.build && n.build.on);
 function itBuildToggle(n, on?: boolean) {
   const b = itBuildState(n); const want = on == null ? !b.on : on; if (want === b.on) return; const p = n.player;
   if (want) { b.prev = { sel: n.sel || 0, mode: n.mode }; b.on = true; b.sel = 0; n.sel = 0; if (typeof itBag === 'function') itBag(false); if (p && typeof playerSay === 'function') playerSay(n, 'Build mode. Time stands still while you build.'); }
-  else { b.on = false; b.sel = 0; b.brush = null; if (b.prev) { n.sel = b.prev.sel; n.mode = b.prev.mode; } if (typeof fnScan === 'function') fnScan(); if (typeof visHomes === 'function') { visHomes(); if (typeof housingTick === 'function') housingTick(); }   /* (what you built is looked at now: a new hut's free beds go to whoever has none, you first) */ if (typeof isleSave === 'function') isleSave(); }   // (a build session ends with a save)
+  else { b.on = false; b.sel = 0; b.brush = null; if (b.prev) { n.sel = b.prev.sel; n.mode = b.prev.mode; } if (typeof fnScan === 'function') fnScan(); if (typeof tutFarmers === 'function') tutFarmers(); if (typeof visHomes === 'function') { visHomes(); if (typeof housingTick === 'function') housingTick(); }   /* (what you built is looked at now: a new hut's free beds go to whoever has none, you first) */ if (typeof isleSave === 'function') isleSave(); }   // (a build session ends with a save)
   if (p) { p.act = null; p.lock = false; p.skip = null; p.grace = null; } itSync(true);
 }
 /** 1 Push (the default), 2 Destroy (the hammer), 3 Turn; 4-9 and 0 put the item in them down in front of you */
@@ -25,7 +25,7 @@ function bldBrushStep(n) {
   const b = n.build; if (!b || !b.on || b.brush !== 'field') return;
   const key = n.tx + ',' + n.ty; if (b.lastT === key) return; b.lastT = key;
   const x = n.tx, y = n.ty; if (grid[y][x] !== T.GRASS || roomAt[y][x] >= 0 || lfPropAt(x, y) || (town.siteAt && town.siteAt[y * W + x]) || (town.nodeMap && town.nodeMap.has(y * W + x)) || x < 3 || y < 3 || x >= W - 3 || y >= H - 3) return;
-  setT(x, y, T.CROP); town.crops.push({ x, y, f: 'garden' + n.id, pl: 0, st: 0, t0: 0, garden: n.id }); markDirty(x, y, 1, 1); town.gridV = (town.gridV || 0) + 1; if (typeof refreshReach === 'function') refreshReach();
+  setT(x, y, T.CROP); town.crops.push({ x, y, f: 'field' + n.id, pl: 0, st: 0, t0: 0, byField: n.id }); markDirty(x, y, 1, 1); town.gridV = (town.gridV || 0) + 1; if (typeof refreshReach === 'function') refreshReach();
 }
 const itBuildName = (k: string) => { const it = YARD_ITEMS.find(q => q.kind === k); return it ? it.name : k; };
 /** put one building item on the free ground nearest the tile in front of you */

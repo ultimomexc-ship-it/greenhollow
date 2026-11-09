@@ -74,6 +74,7 @@ function visitorTick() {
   if (v.next == null) { if (visFreeBeds() > 0) v.next = day + VIS_FIRST_DAY; else return; }
   if (day < v.next) return;
   if (visFreeBeds() < 1) return;
+  if (typeof tutBlocksArrival === 'function' && tutBlocksArrival()) return;   // (a bed, a privy or food is still missing: nobody new comes until it is put right)
   const pop = npcs.length, need = 8 + pop * 6;   // the first ones come easily, later ones need more on the island
   if (v.n >= 2 && visFood() < need) return;
   visArrive(); v.n++; v.next = day + VIS_GAP[0] + Math.random() * (VIS_GAP[1] - VIS_GAP[0]);
@@ -106,7 +107,7 @@ function visNeeds() {
     if (homeless) { once('bed', anyOf(["I've nowhere to sleep. Could you build a bed for me?", 'Is there a free bed? Any roof will do.', 'I could use a bed. Walls, a door, a bed inside.'])); continue; }
     if (!lfPrivies().length && n.bladder > 45) { once('privy', anyOf(["Is there a privy anywhere? I'm tired of the bushes.", 'We need a privy. A seat in a closed room would do.'])); continue; }
     if (n.hunger > 65 && food < 1) { once('food', anyOf(["I'm hungry and I've nothing to eat. Could we grow something?", 'There is no food. A field, a net, anything.'])); continue; }
-    { const nd = (typeof islandNeeds === 'function' ? islandNeeds() : []).find(q => !['bed', 'privy', 'field', 'food'].includes(q.id)); if (nd && game.time - (said['n:' + nd.id] || -1e9) > 720) { said['n:' + nd.id] = game.time; lfShout(n, nd.say); continue; } }
+    { const nd = (typeof islandNeeds === 'function' ? islandNeeds() : []).find(q => !['bed', 'bed2', 'privy', 'field', 'food', 'harvest'].includes(q.id)); if (nd && game.time - (said['n:' + nd.id] || -1e9) > 720) { said['n:' + nd.id] = game.time; lfShout(n, nd.say); continue; } }
     if (n.energy < 25 && homeless) once('tired', 'I can hardly keep my eyes open.');
     else if (n.newcomer && game.time - (said.isle || -1e9) > 180) { said.isle = game.time; lfShout(n, pick(Math.random, VIS_ISLE)); }
   }

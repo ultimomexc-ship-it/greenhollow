@@ -130,7 +130,7 @@ function foodDaysNow() {
 }
 function pickAgenda(n) {
   if (n.cur && game.time < n.curUntil) return n.cur;
-  const cnt = {}; npcs.forEach(p => { if (p !== n && p.role === 'Worker' && p.cur) cnt[p.cur] = (cnt[p.cur] || 0) + 1; });
+  const cnt = {}; npcs.forEach(p => { if (p !== n && p.role === 'Worker' && p.cur && !p.player) cnt[p.cur] = (cnt[p.cur] || 0) + 1; });   // (the villager you steer takes no job from anybody)
   const fd = foodDaysNow(), need = Math.max(0, 3.5 - fd), sc: any = {};
   if (shoreTiles.length && fishAvail()) sc.Fisher = 5 + need * 20;
   if (farmWork()) sc.Farmer = 5 + need * 18;
