@@ -34,6 +34,7 @@
   "life2/push.ts",
   "life2/yard.ts",
   "life2/sealing.ts",
+  "life2/visitors.ts",
   "life2/controls.ts",
   "player/items.ts",
   "player/build-mode.ts",

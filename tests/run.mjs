@@ -1137,6 +1137,24 @@ test('build mode: the clock and the villagers stand still while you build', asyn
   return 'clock and villagers frozen in build mode, running again after';
 });
 
+test('visitors: on a blank island a built hut with a free bed brings a settler ashore, who moves in', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('blank-test', 'blank'); if (!town.props) lfInitProps(); town.bldQ = town.bldQ || []; startPlaying(npcs[0]);
+    const cx = Math.round(npcs[0].tx) + 3, cy = Math.round(npcs[0].ty) + 3;
+    for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) { if (i && i < 4 && j && j < 4) continue; lfAddProp(i === 2 && j === 4 ? 'bdoor' : 'bwall', cx + i, cy + j); town.bldQ.push([cx + i, cy + j]); }
+    lfAddProp('bed', cx + 1, cy + 1); lfAddProp('bed', cx + 3, cy + 1); bldTick();
+    return { huts: rooms.filter(r => !r.dead && r.free).length };
+  });
+  check(r.huts === 1, 'the closed room should exist');
+  await simulate(page, 4 * 1440);
+  const s = await page.evaluate(() => ({ n: npcs.length, homed: npcs.filter(n => n.homeRoom && n.bed && n.bed.owner === n).length, hut: rooms.some(r => r.hut && r.kind === 'house') }));
+  check(s.hut, 'a room with a bed should become a hut');
+  check(s.n === 2 && s.homed === 2, `expected a visitor living in the hut, got ${s.n} people, ${s.homed} housed`);
+  check(!errors.length, errors.slice(0, 2).join(' | '));
+  return 'hut made, visitor came ashore and took the free bed';
+});
+
 const browser = await launch();
 let failed = 0;
 const chosen = tests.filter(t => t.name.includes(filter));
