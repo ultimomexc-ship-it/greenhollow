@@ -375,32 +375,32 @@ test('push: a table can be pushed inside a house (never out of the door, never s
   return `${r.moved} tables pushed (${r.tried} tried)`;
 }));
 
-test('builder\'s yard: stands on the edge of the square hand out building blocks (free) onto a pad; they push, chain and swap like boxes; the stands never move; the pad fills up', await controlScene('yard', 41, async page => {
+test('build mode (B): a build hotbar replaces the hand modes: 1 smash, 2 turn, 3-9 put an item down in front of you; trees are cleared with the hammer; the bag (I) fills the slots', await controlScene('buildmode', 41, async page => {
   const r = await page.evaluate(() => {
-    const b = town.builder, P = game.player, res = { yard: !!b }; if (!b) return res;
-    const stands = town.props.filter(p => p.fixed && p.dispense); res.stands = stands.length; res.kinds = stands.map(p => p.dispense).join();
-    // each stand: Push mode refuses (and the stand stays), Talk mode gives one
-    const log = [];
-    for (const st of stands) {
-      P.tx = P.x = st.x; P.ty = P.y = st.y + 1; P.path = []; P.moving = false; rebuildOcc(); P.mode = 'push'; P.sel = 0;
-      const a1 = lifeAct(P, P.player, st.x, st.y, 0, -1); const pushed = lf2PushLine(P, st.x, st.y, 0, -1);
-      P.mode = 'talk'; const before = town.props.length, a2 = lifeAct(P, P.player, st.x, st.y, 0, -1); if (a2 && a2.run) a2.run(P);
-      log.push(a1 && a1.msg ? 'refused' : 'NOT refused', pushed === null ? 'fixed' : 'MOVABLE', town.props.length === before + 1 ? 'one' : 'count ' + (town.props.length - before));
-      if (lfPropAt(st.x, st.y) !== st) log.push('STAND MOVED');
-    }
-    res.log = log.join(' '); const made = town.props.filter(p => p.yard); res.made = made.map(p => p.kind).join(); res.onPad = made.every(p => p.y >= b.pad.y && p.y < b.pad.y + b.pad.h + 4);
-    // a chain of two blocks pushed along the pad
-    const walls = made.filter(p => p.kind === 'bwall' || p.kind === 'bdoor' || p.kind === 'bwindow'); res.free = walls.length;
-    // fill the pad up
-    let said = ''; for (let i = 0; i < 30; i++) { const st = stands[0]; P.tx = P.x = st.x; P.ty = P.y = st.y + 1; rebuildOcc(); const a = lifeAct(P, P.player, st.x, st.y, 0, -1); window.__said = null; const old = playerSay; if (a && a.run) { playerSay = (n, t) => { said = t; }; a.run(P); playerSay = old; } }
-    res.full = /full/.test(said); res.total = town.props.filter(p => p.yard).length;
+    const P = game.player, res = {}; const [x, y] = __find((x, y) => [-1, 0, 1, 2, 3].every(i => __free(x + i, y)) && __free(x, y - 1) && __free(x, y + 1)); __place(P, x, y, { dx: 1, dy: 0 });
+    const was = { sel: P.sel, mode: P.mode }; itBuildToggle(P, true); res.on = itBuildOn(P); res.mode = itMode(P); res.hand = itHeld(P).kind;
+    // 3-9: one of each item appears in front of you
+    const n0 = town.props.length; for (let i = 2; i <= 8; i++) itBuildSelect(P, i); res.placed = town.props.length - n0; res.kinds = town.props.slice(n0).map(p => p.kind).join();
+    // every other kind through the function (cleared away again)
+    const fresh = []; for (const k of ['counter', 'oven', 'forge', 'anvil', 'loom', 'shelf']) fresh.push(bldPlaceFront(P, k)); res.more = fresh.filter(Boolean).length;
+    // 1: the hammer smashes a block; the walls and doors of buildings too; a tree is cleared into wood
+    itBuildSelect(P, 0); res.hammer = itHeld(P).kind; const blk = town.props.find(p => p.kind === 'bwall'); __place(P, blk.x - 1, blk.y, { dx: 1, dy: 0 }); const a = lifeAct(P, P.player, blk.x, blk.y, 1, 0); res.smash = a && /^wallp/.test(a.key); a.run(P); res.gone = !lfPropAt(blk.x, blk.y);
+    const [tx, ty] = __find((x, y) => __free(x, y) && __free(x - 1, y) && grid[y][x + 1] !== T.TREE); setT(tx + 1, ty, T.TREE); __place(P, tx, ty, { dx: 1, dy: 0 }); const wood0 = P.inv.wood || 0; const t = targetAt0(P, tx + 1, ty); res.tree = t && /^wallt/.test(t.key) && t.tool === 'hammer'; t.run(P); res.cleared = grid[ty][tx + 1] === T.GRASS && (P.inv.wood || 0) === wood0 + 1;
+    // 2: the turner turns a chair and a bed
+    itBuildSelect(P, 1); res.turner = P.build.sel === 2; const ch = town.props.find(p => p.kind === 'chair'), bd = town.props.find(p => p.kind === 'bed'); const arts = [lfPropArt(ch), lfPropArt(bd)]; bldRotate(ch.x, ch.y); bldRotate(bd.x, bd.y); res.turned = lfPropArt(ch) !== arts[0] && lfPropArt(bd) !== arts[1];
+    // furniture standing in a house turns too
+    const hs = rooms.find(q => !q.free && !q.dead && q.kind === 'house' && q.seats.length && q.beds.length), seat = hs.seats[0], face0 = JSON.stringify(seat.face); bldRotate(seat.x, seat.y); const bed = hs.beds[0]; bldRotate(bed.x, bed.y); res.roomTurn = JSON.stringify(seat.face) !== face0 && bed.flip === true;
+    // the bag fills the slots
+    itBuildAssign(P, 0, 'oven'); res.assigned = P.build.bar[0] === 'oven';
+    itBuildToggle(P, false); res.off = !itBuildOn(P) && P.sel === was.sel && P.mode === was.mode;
     return res;
   });
-  check(r.yard && r.stands === 13, 'the yard should have 13 stands: ' + JSON.stringify(r));
-  check(!/NOT refused|MOVABLE|STAND MOVED|count/.test(r.log) && r.made.split(',').length === 13, 'each stand refuses a push, stays put, and gives one thing in Talk mode: ' + r.log + ' / ' + r.made);
-  check(r.onPad, 'what you take should appear on the pad: ' + JSON.stringify(r));
-  check(r.full && r.total <= 17, 'the pad should fill up and say so: ' + JSON.stringify(r));
-  return `${r.stands} stands; one of each taken onto the pad; stands fixed; pad full at ${r.total}`;
+  check(r.on && r.mode === 'push' && r.hand === 'hand', 'build mode: the hand always pushes: ' + JSON.stringify(r));
+  check(r.placed === 7 && r.more === 6, 'slots 3-9 put one item down in front of you; the rest through the function: ' + JSON.stringify(r));
+  check(r.hammer === 'hammer' && r.smash && r.gone && r.tree && r.cleared, 'slot 1 is the hammer: smashes blocks and clears trees: ' + JSON.stringify(r));
+  check(r.turner && r.turned && r.roomTurn, 'slot 2 turns chairs and beds, loose or standing in a room: ' + JSON.stringify(r));
+  check(r.assigned && r.off, 'the bag assigns slots and leaving build mode restores your hand: ' + JSON.stringify(r));
+  return 'B toggles; 1 smash / clears trees, 2 turn, 3-9 place; bag assigns; leaving restores the hand';
 }));
 
 test('builder\'s yard: blocks are loose things (a wall block chains with a crate)', await controlScene('blocks', 41, async page => {
@@ -449,7 +449,7 @@ test('building: blocks close into rooms of any shape (L-shape, a door needed, no
     const Bn = { x: o.x + 30, y: o.y }; const bring = ringOf([[1, 1], [2, 1], [3, 1]]); town.nodes.push({ x: Bn.x + 2, y: Bn.y + 1, kind: 'berry', amt: 3, max: 6 }); town.nodeMap.set((Bn.y + 1) * W + Bn.x + 2, town.nodes[town.nodes.length - 1]);
     put(Bn.x, Bn.y, bring, '2,2'); run(bring.map(c => [Bn.x + c[0], Bn.y + c[1]])); res.bush = { rooms: rooms0() - 2 - 0, gone: !town.nodeMap.has((Bn.y + 1) * W + Bn.x + 2) };
     // 7. not on the yard's pad
-    const pad = town.builder.pad; const pc = { x: pad.x + 1, y: pad.y }; res.pad = bldOnPad(pc.x, pc.y);
+    res.pad = true;   // (the yard and its pad are gone)
     return res;
   });
   check(r.notYet === 0 && r.L.rooms === 1 && r.L.cells === 24 && r.L.floor && r.L.wall && r.L.door && r.L.loose === 0 && r.L.at, 'an L-shaped ring closes into one 24-tile room with fixed walls, a door and a floor: ' + JSON.stringify(r));
@@ -580,7 +580,6 @@ test('building: the hammer is the delete button: loose things, house furniture, 
     // loose things: a crate and a block are deleted outright (a rock still breaks into stone; a yard stand stays)
     const crate = lfAddProp('crate', x, y), blk = lfAddProp('bwall', x + 1, y); let a = lifeAct(P, P.player, x, y, 1, 0); res.crateKey = a && a.key; a.run(P); res.crateGone = !lfPropAt(x, y) && !town.props.includes(crate);
     a = lifeAct(P, P.player, x + 1, y, 1, 0); a.run(P); res.blockGone = !lfPropAt(x + 1, y);
-    const st = town.props.find(p => p.fixed && p.dispense); res.stand = !(lifeAct(P, P.player, st.x, st.y, 0, -1) || {}).key || !/^wallp/.test(lifeAct(P, P.player, st.x, st.y, 0, -1).key);
     // furniture standing in a house is smashed one piece at a time
     const hs = rooms.find(q => !q.free && !q.dead && q.kind === 'house' && npcs.some(n => n.homeRoom === q) && q !== P.homeRoom);
     const bed = hs.beds[0], owner = npcs.find(n => n.bed === bed); const bt = targetAt0(P, bed.x, bed.y); res.bedKey = bt && bt.key; bt.run(P); res.bed = grid[bed.y][bed.x] === T.FLOOR && !hs.beds.includes(bed) && (!owner || !owner.bed || owner.bed.owner === null);
@@ -598,7 +597,7 @@ test('building: the hammer is the delete button: loose things, house furniture, 
     const free2 = (() => { const door = town.props.find(p => p.kind === 'bdoor' && inside(p)); return door; })(); res.doorLoose = !!free2;
     return res;
   });
-  check(/^wallp/.test(r.crateKey) && r.crateGone && r.blockGone && r.stand, 'the hammer deletes loose things, not the yard stands: ' + JSON.stringify(r));
+  check(/^wallp/.test(r.crateKey) && r.crateGone && r.blockGone, 'the hammer deletes loose things: ' + JSON.stringify(r));
   check(r.bed && r.seat, 'the bed and chair of a house can be smashed: ' + JSON.stringify(r));
   check(/^wall/.test(r.wallKey) && r.dead && r.hole && r.floor && r.homeless && r.loose === r.walls - 1 && r.furn >= 2, 'one wall tile is deleted, the house falls apart: floor gone, other walls and furniture loose, the family homeless: ' + JSON.stringify(r));
   check(r.pushable, 'the loose pieces push like before: ' + JSON.stringify(r));

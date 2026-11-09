@@ -93,7 +93,7 @@ function lf2AssignJobs(first) {
   for (const k of LF2_JOBORDER) {
     const J = LF2_JOBS[k]; if (J.room && !lf2Room(J.room)) continue;
     const want = J.n ? J.n(pop) : 1;
-    while (npcs.filter(n => !n.dead && n.job === k).length < want && have < maxTrades) {
+    while (npcs.filter(n => !n.dead && n.job === k).length < want && (have < maxTrades || k === 'Smith' || k === 'Baker' || k === 'Guard')) {   // (the smith, baker and watch are never crowded out by the cap: a smithy with nobody at the anvil leaves nobody a new tool)
       const c = pool.filter(n => !LF2_JOBS[n.job] && !((n.lf2NoTrade || 0) > game.time)).map(n => ({ n, s: (J.fit || []).reduce((s, t) => s + (lf2Has(n, t) ? 3 : 0), 0) - (J.unfit || []).reduce((s, t) => s + (lf2Has(n, t) ? 4 : 0), 0) + Math.random() * 2 })).sort((a, b) => b.s - a.s)[0];
       if (!c) break;
       lf2SetJob(c.n, k, first); have++;

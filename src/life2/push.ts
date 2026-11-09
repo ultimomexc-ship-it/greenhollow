@@ -11,7 +11,7 @@ const PUSH_MAX = 5;   // the player is strong: five things at once
 const LF_ROCK_ART = ['boulder_0', 'boulder_1', 'boulder_2', 'boulder_3'];
 Object.assign(LF_NOUN, { rock: 'rock' });
 /** how a loose thing is drawn (a chair or bed pushed out of a house keeps its look) */
-const lfPropArt = pr => pr.art ? pr.art : pr.kind === 'rock' ? LF_ROCK_ART[(pr.v || 0) & 3] : pr.kind === 'chair' ? 'seat_down' : pr.kind === 'bed' ? 'bed_head_up_' + ((pr.v || 0) % 5) : (LF_ART[pr.kind] || 'crate');
+const lfPropArt = pr => pr.art ? pr.art : pr.kind === 'rock' ? LF_ROCK_ART[(pr.v || 0) & 3] : pr.kind === 'chair' ? 'seat_' + ['down', 'left', 'up', 'right'][(pr.rot || 0) & 3] : pr.kind === 'bed' ? 'bed_head_' + ((pr.rot || 0) & 1 ? 'down' : 'up') + '_' + ((pr.v || 0) % 5) : (LF_ART[pr.kind] || 'crate');
 const PUSH_STATION: Record<number, string> = { [T.TABLE]: 'table', [T.COUNTER]: 'counter', [T.FORGE]: 'forge', [T.ANVIL]: 'anvil', [T.LOOM]: 'loom', [T.OVEN]: 'oven', [T.SHELF]: 'shelf' };   // furniture that is just its tile (no record of its own)
 const PUSH_FURNITURE = new Set([T.SEAT, T.BED, T.BARREL, ...Object.keys(PUSH_STATION).map(Number)]);
 const pushRoomOf = (x, y) => { const i = roomAt[y] && roomAt[y][x]; return i != null && i >= 0 ? rooms[i] : null; };

@@ -177,7 +177,7 @@ function updateHud(force) {
   el('dpad').hidden = !n;
   if (!n) { if (!h.hidden) { h.hidden = true; hudSig = ''; const mh = el('maphint'); if (mh) mh.style.bottom = ''; } return; }
   const p = n.player, full = Math.round(100 - n.hunger), tone = full < 25 ? 'bad' : full < 45 ? 'warn' : '';
-  const hint = p.sleeping ? 'Sleeping. Press a movement key to get up.' : p.act ? p.act.text + '…' : n.hunger >= 60 && !foodSat(n.inv) ? 'Hungry: pick berries or fish, you eat automatically' : n.bladder >= 70 ? 'Bursting! Find a privy: walk into the seat inside one' : 'WASD to move · walk into things to use them · Q hand mode (Talk, Push, Search) · 1-9 belt · B bag';
+  const hint = p.sleeping ? 'Sleeping. Press a movement key to get up.' : p.act ? p.act.text + '…' : n.hunger >= 60 && !foodSat(n.inv) ? 'Hungry: pick berries or fish, you eat automatically' : n.bladder >= 70 ? 'Bursting! Find a privy: walk into the seat inside one' : (typeof itBuildOn === 'function' && itBuildOn(n)) ? 'BUILD: walk to push · 1 smash · 2 turn · 3-9 put an item down · I bag · B leave' : 'WASD to move · walk into things to use them · Q hand mode (Talk, Push, Search) · 1-9 belt · I bag · B build';
   const sig = [full, JSON.stringify(n.inv), hint, n.status, Math.round((n.bladder || 0) / 4), Math.round((n.mood || 0) / 6)].join('|');
   if (!force && sig === hudSig) return; hudSig = sig; h.hidden = false;
   h.innerHTML = '<span><b>' + esc(nameOf(n)) + '</b></span><span>Fullness <span class="hbar ' + tone + '"><i style="width:' + Math.max(0, full) + '%"></i></span></span>' + lifeHud(n) + '<span class="hint">' + esc(hint) + '</span>';
