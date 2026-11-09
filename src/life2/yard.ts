@@ -10,23 +10,30 @@ const YARD_ITEMS: { kind: string; stand: string; art: string; noun: string; name
   { kind: 'chair', stand: 'yd_chair', art: 'seat_down', noun: 'chair', name: 'Chair' },
   { kind: 'table', stand: 'yd_table', art: 'table_loose', noun: 'table', name: 'Table' },
   { kind: 'barrel', stand: 'yd_barrel', art: 'barrel_o', noun: 'barrel', name: 'Barrel' },
+  { kind: 'counter', stand: 'yd_counter', art: 'counter_1', noun: 'counter', name: 'Counter' },
+  { kind: 'oven', stand: 'yd_oven', art: 'oven', noun: 'oven', name: 'Oven' },
+  { kind: 'forge', stand: 'yd_forge', art: 'forge', noun: 'forge', name: 'Forge' },
+  { kind: 'anvil', stand: 'yd_anvil', art: 'anvil', noun: 'anvil', name: 'Anvil' },
+  { kind: 'loom', stand: 'yd_loom', art: 'loom', noun: 'loom', name: 'Loom' },
+  { kind: 'shelf', stand: 'yd_shelf', art: 'shelf_0', noun: 'shelf', name: 'Shelf' },
 ];
+const YARD_COLS = 7;   // two rows of stands
 const YARD_CAP = 16;       // how many delivered things may stand about the pad before the yard says it is full
 for (const it of YARD_ITEMS) { if (!LF_ART[it.kind]) LF_ART[it.kind] = it.art; if (!LF_NOUN[it.kind]) LF_NOUN[it.kind] = it.noun; }
 LF_NOUN.dispenser = 'stand';
 
-/** put the yard on the edge of the square: a row of stands, and a pad of free ground in front of them */
+/** put the yard on the edge of the square: two rows of stands, and a pad of free ground in front of them */
 function lfPlaceYard() {
-  const n = YARD_ITEMS.length, cx = town.cx, cy = town.cy;
+  const n = YARD_COLS, rows = Math.ceil(YARD_ITEMS.length / n), cx = town.cx, cy = town.cy;
   const free = (x, y) => x > 3 && y > 3 && x < W - 4 && y < H - 4 && (grid[y][x] === T.GRASS || grid[y][x] === T.PATH) && roomAt[y][x] < 0 && !lfNearDoor(x, y) && !town.siteAt[y * W + x] && !town.nodeMap.has(y * W + x) && !lfPropAt(x, y) && walkable(x, y);
-  const ok = (x0, y0) => { for (let dy = 0; dy <= 3; dy++) for (let dx = 0; dx < n; dx++) if (!free(x0 + dx, y0 + dy)) return false; return true; };
+  const ok = (x0, y0) => { for (let dy = 0; dy <= rows + 2; dy++) for (let dx = 0; dx < n; dx++) if (!free(x0 + dx, y0 + dy)) return false; return true; };
   const cand: [number, number, number][] = [];
-  for (let y = cy - 16; y <= cy + 16; y++) for (let x = cx - 20; x <= cx + 14; x++) { const mx = x + n / 2, my = y + 2, d = Math.hypot(mx - cx, (my - cy) * 1.4); if (d >= 6 && d <= 20) cand.push([d, x, y]); }
+  for (let y = cy - 16; y <= cy + 16; y++) for (let x = cx - 20; x <= cx + 14; x++) { const mx = x + n / 2, my = y + rows + 1, d = Math.hypot(mx - cx, (my - cy) * 1.4); if (d >= 6 && d <= 20) cand.push([d, x, y]); }
   cand.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]);
   for (const [, x0, y0] of cand) if (ok(x0, y0)) {
     yardClear(x0, y0, n);
-    YARD_ITEMS.forEach((it, i) => { const pr: any = lfAddProp('dispenser', x0 + i, y0); pr.fixed = true; pr.dispense = it.kind; pr.art = it.stand; });
-    town.builder = { x0, y0, n, pad: { x: x0, y: y0 + 1, w: n, h: 3 }, cx: x0 + n / 2, cy: y0 + 2 }; return town.builder;
+    YARD_ITEMS.forEach((it, i) => { const pr: any = lfAddProp('dispenser', x0 + (i % n), y0 + Math.floor(i / n)); pr.fixed = true; pr.dispense = it.kind; pr.art = it.stand; });
+    town.builder = { x0, y0, n, rows, pad: { x: x0, y: y0 + rows, w: n, h: 3 }, cx: x0 + n / 2, cy: y0 + rows + 1 }; return town.builder;
   }
   town.builder = null; return null;
 }
