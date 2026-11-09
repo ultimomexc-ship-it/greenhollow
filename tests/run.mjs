@@ -1390,6 +1390,27 @@ test('tutorial: one request at a time with exact numbers; a visitor needs two be
   return `request order and numbers right; ${d.harv} plots harvested by villagers`;
 });
 
+test('signs, guides and the request on screen: a sign beside each door says who lives there or what it is for, the first hut and privy come with marked layouts, the request is a pill on the canvas', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('sign-test', 'blank'); if (!town.props) lfInitProps(); town.bldQ = town.bldQ || []; startPlaying(npcs[0]); const P = game.player;
+    guidesUpdate(islandNeeds()); const g = town.guides && town.guides.hut; if (!g) return { noGuide: true };
+    itBuildToggle(P, true); for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) { if (!(i === 0 || j === 0 || i === 4 || j === 4)) continue; lfAddProp(i === 2 && j === 4 ? 'bdoor' : 'bwall', g.x + i, g.y + j); } lfAddProp('bed', g.x + 1, g.y + 1); town.bldQ.push([g.x, g.y]); bldTick(); itBuildToggle(P, false);
+    const room = rooms.find(q => q.free && !q.dead), sw = signWallOf(room); let said = null;
+    if (sw) { const t = targetAt0(P, sw.x, sw.y); said = t && t.msg; }
+    const unfinished = (() => { const n = 6; const cx = g.x + 10, cy = g.y; for (let j = -1; j <= n; j++) for (let i = -1; i <= n; i++) { setT(cx + i, cy + j, T.GRASS); roomAt[cy + j][cx + i] = -1; const q = lfPropAt(cx + i, cy + j); if (q) { town.props = town.props.filter(z => z !== q); town.propAt.delete((cy + j) * W + cx + i); town.pblock[(cy + j) * W + cx + i] = 0; } } for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { if (!(i === 0 || j === 0 || i === n - 1 || j === n - 1)) continue; lfAddProp(i === 2 && j === n - 1 ? 'bdoor' : 'bwall', cx + i, cy + j); } lfAddProp('oven', cx + 1, cy + 1); town.bldQ.push([cx, cy]); bldTick(); const r2 = rooms.filter(q => q.free && !q.dead).find(q => q !== room); return r2 ? signText(r2) : null; })();
+    guidesUpdate(islandNeeds());
+    return { sw: !!sw, said, hut: signText(room), unfinished, guideGone: !town.guides.hut, pill: !!document.querySelector('#reqbox'), req: islandNeeds()[0] && islandNeeds()[0].id };
+  });
+  check(!r.noGuide, 'a guide should appear for the first hut');
+  check(r.sw && /live here/.test(r.said || ''), 'walking into the sign beside the door should say who lives there: ' + JSON.stringify(r));
+  check(/Unfinished bakery.*oven ✓.*counter ✗/.test(r.unfinished || ''), 'an unfinished room should say what it lacks: ' + r.unfinished);
+  check(r.guideGone, 'the guide goes once the hut is built');
+  check(r.pill, 'the request pill should be on the canvas');
+  check(!errors.length, errors.slice(0, 3).join(' | '));
+  return 'sign says "' + r.said + '"; unfinished: ' + r.unfinished;
+});
+
 const browser = await launch();
 let failed = 0;
 const chosen = tests.filter(t => t.name.includes(filter));

@@ -210,6 +210,13 @@ body.fs #c { height: 100vh !important; height: 100dvh !important; }
 #islands{line-height:1.4}
 .islpen{background:none;border:0;color:#8d8570;font-size:11px;cursor:pointer;text-decoration:underline;padding:0 4px}.islren{background:#101317;border:1px solid #3a3226;color:#d9d2c0;border-radius:6px;padding:3px 6px}.btn.danger{background:#7a2e2a;color:#fff;border-color:#a0443e}#islname{width:220px}.bgwrap.isl .islseed input{background:#101317;border:1px solid #3a3226;color:#d9d2c0;border-radius:6px;padding:5px 8px}
 .req{background:#1b2227;border:1px solid #3a4a3a;border-left:3px solid #e0a93b;border-radius:6px;padding:8px 10px;margin:6px 0}.ok{color:#8bd05f}
+.reqbox{position:absolute;left:10px;top:44px;z-index:7;max-width:340px;font:13px/1.35 var(--font-body);color:#e8e2d0}
+.reqbox[hidden]{display:none}
+.reqpill{background:rgba(21,25,27,.88);border:1px solid #6b5a2a;color:#f3d796;border-radius:16px;padding:5px 12px;font:600 12.5px var(--font-body);cursor:pointer;line-height:1.2}
+.reqpill.hard{border-color:#e0a93b;box-shadow:0 0 10px rgba(224,169,59,.35)}.reqpill.ok{border-color:#3a5a3a;color:#a8e07a}
+.reqcard{position:relative;background:rgba(18,22,24,.93);border:1px solid #6b5a2a;border-left:3px solid #e0a93b;border-radius:8px;padding:9px 30px 9px 12px;line-height:1.4}
+.reqcard .dim{color:#9a927c;font-size:12px}.reqx{position:absolute;right:6px;top:4px;background:none;border:0;color:#c9c2ae;font-size:18px;cursor:pointer}
+.reqrows{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:7px;padding-top:6px;border-top:1px solid rgba(255,255,255,.1);font-size:12px}.reqrows .ok{color:#8bd05f}.reqthen{margin-top:4px}
 
 </style>
 </head>
@@ -13907,6 +13914,10 @@ function targetAt0(n, x, y) {
     if (typeof refreshReach === "function") refreshReach();
     playerSay(nn, "Gone.");
   } };
+  if (g === T.WALL && !itBuildOn(n)) {
+    const sr = signRoomAt(x, y);
+    if (sr) return { msg: signText(sr) };
+  }
   {
     const sh = !itBuildOn(n) && shroomAt(x, y);
     if (sh) return { key: "shroom" + x + "," + y, min: 0.6, text: "Eating a mushroom", tool: null, run(nn) {
@@ -19719,12 +19730,12 @@ function islandNeeds() {
   const add = (id, title, say2, how, who, hard = false) => out.push({ id, title, say: say2, how, hard, who: who.map((n) => n.player ? "you" : n.first) });
   const has = (k) => !!(typeof lf2Room === "function" && lf2Room(k));
   const me = B.people.find((n) => n.player);
-  if (me && !(me.homeRoom && me.bed && me.bed.owner === me)) add("bed", "A bed for you", alone ? "I should build a bed first. Walls, a door that leads outside, and a bed inside." : "You still have no bed of your own.", "Build a hut: walls, a door, a bed inside. Then leave build mode (B).", [me], true);
+  if (me && !(me.homeRoom && me.bed && me.bed.owner === me)) add("bed", "A bed for you", alone ? "I should build a bed first. Walls, a door that leads outside, and a bed inside." : "You still have no bed of your own.", "Build a hut: walls, a door, a bed inside. Then leave build mode (B)." + (town.guides && town.guides.hut ? " Follow the markers on the ground." : ""), [me], true);
   else if (B.beds < B.bedsNeeded) {
     const n = B.bedsNeeded - B.beds;
     add("bed2", alone ? "A bed for the first villager" : "Beds", alone ? `A second bed, and somebody may come ashore to take it. (${B.beds} bed${B.beds === 1 ? "" : "s"} for ${pop} ${pop === 1 ? "person" : "people"}.)` : `${B.homeless.length ? B.homeless.length + " of us sleep rough. " : ""}${B.beds} beds for ${pop} people: we need ${B.bedsNeeded}, one more than we are.`, `Put ${n} more bed${n > 1 ? "s" : ""} inside a closed room.`, B.homeless, true);
   }
-  if (!alone && B.privies < B.priviesNeeded) add("privy", B.privies ? "Another privy" : "A privy", `${B.privies} privy for ${pop} people, and we want one for every ${PRIVY_FOR}.${B.privies ? "" : " We are tired of the bushes."}`, `Build ${B.priviesNeeded - B.privies} more: a closed room with a privy seat in it (build menu, I).`, B.people.filter((n) => n.bladder > 30), true);
+  if (!alone && B.privies < B.priviesNeeded) add("privy", B.privies ? "Another privy" : "A privy", `${B.privies} privy for ${pop} people, and we want one for every ${PRIVY_FOR}.${B.privies ? "" : " We are tired of the bushes."}`, `Build ${B.priviesNeeded - B.privies} more: a closed room with a privy seat in it (build menu, I).` + (town.guides && town.guides.privy ? " Follow the markers." : ""), B.people.filter((n) => n.bladder > 30), true);
   if (!alone && B.plots < B.plotsNeeded) {
     const short = B.plotsNeeded - B.plots;
     add("field", B.plots ? "More field" : "A field", `We eat about ${B.demand.toFixed(0)} portions a day. ${B.plots} plot${B.plots === 1 ? "" : "s"} give${B.plots === 1 ? "s" : ""} about ${B.supply.toFixed(0)}. ${short} more plot${short > 1 ? "s" : ""} and we feed ourselves.`, "Use the Field brush in build mode (walk over grass), then the hoe and seed in the world. Villagers will plough, sow and harvest it.", B.people.filter((n) => n.hunger > 40), true);
@@ -19766,6 +19777,154 @@ function tutFarmers() {
 LF2.hourly.push(() => {
   if (town && (town.crops || []).length) tutFarmers();
 });
+function signWallOf(r) {
+  if (!r || r.dead || r.doorX == null) return null;
+  const dx = r.doorX, dy = r.doorY;
+  let ix = 0, iy = 0;
+  for (const [ax, ay] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+    const x = dx + ax, y = dy + ay;
+    const inn = r.cells ? r.cells.has(x + y * W) : x > r.x && x < r.x + r.w - 1 && y > r.y && y < r.y + r.h - 1;
+    if (inn) {
+      ix = ax;
+      iy = ay;
+      break;
+    }
+  }
+  if (!ix && !iy) return null;
+  for (const [ax, ay] of ix ? [[0, 1], [0, -1]] : [[1, 0], [-1, 0]]) {
+    const x = dx + ax, y = dy + ay;
+    if (grid[y] && grid[y][x] === T.WALL) return { x, y };
+  }
+  return null;
+}
+let SIGN_CACHE = { v: -1, map: /* @__PURE__ */ new Map() };
+function signMap() {
+  const v = (town.gridV || 0) * 1e3 + rooms.length * 7 + rooms.filter((r) => r.dead).length;
+  if (SIGN_CACHE.v === v && SIGN_CACHE.t === town) return SIGN_CACHE.map;
+  const m = /* @__PURE__ */ new Map();
+  for (const r of rooms) {
+    const s = signWallOf(r);
+    if (s && !m.has(s.x + s.y * W)) m.set(s.x + s.y * W, r);
+  }
+  SIGN_CACHE = { v, map: m, t: town };
+  return m;
+}
+const signRoomAt = (x, y) => town && rooms ? signMap().get(x + y * W) : null;
+function signUnfinished(r) {
+  if (typeof FN_DEFS === "undefined" || typeof fnProps !== "function") return "";
+  const P = fnProps(r);
+  let best = null, bs = 0;
+  for (const d of FN_DEFS) {
+    const ks = Object.keys(d.need), have = ks.filter((k) => (P[k] || []).length >= d.need[k]).length, any = ks.some((k) => (P[k] || []).length > 0);
+    if (any && have / ks.length > bs) {
+      bs = have / ks.length;
+      best = d;
+    }
+  }
+  if (!best) return "";
+  return `Unfinished ${best.name.replace(/^The /, "").toLowerCase()}: ` + Object.keys(best.need).map((k) => `${best.need[k] > 1 ? best.need[k] + " " : ""}${k}${best.need[k] > 1 ? "s" : ""} ${(P[k] || []).length >= best.need[k] ? "\u2713" : "\u2717"}`).join(", ") + ".";
+}
+function signText(r) {
+  if (!r) return "";
+  const names = (a) => a.map((n) => n.player ? "you" : n.first).join(" and ");
+  const live = typeof occupants === "function" ? occupants(r) : [];
+  if (r.fn) return `${r.name}. ${{ bakery: "Bread and flour.", smithy: "Tools and mending.", shop: "Goods for sale.", tavern: "Food, drink and company.", church: "Prayers, weddings and farewells." }[r.fn] || ""}`;
+  if (r.ptoilet && r.name === "Privy") return "The privy.";
+  if (r.kind === "house") {
+    const beds = (r.beds || []).length, freeBeds = (r.beds || []).filter((b) => !b.owner || b.owner.dead || b.owner.homeRoom !== r).length;
+    return live.length ? `${names(live)} ${live.length === 1 && !live[0].player ? "lives" : "live"} here.${freeBeds ? " " + freeBeds + " free bed" + (freeBeds > 1 ? "s" : "") + "." : ""}` : `${r.name || "A house"}: ${beds} bed${beds === 1 ? "" : "s"}, nobody home.`;
+  }
+  if (r.kind === "room") return signUnfinished(r) || "An empty room. Furniture decides what it is for.";
+  return `${r.name || r.kind}.`;
+}
+function drawSigns(c, now) {
+  if (!town || cam.z < 0.9) return;
+  const v = gaView();
+  for (const [k, r] of signMap()) {
+    const x = k % W, y = k / W | 0;
+    if (x < v.x0 || x >= v.x1 || y < v.y0 || y >= v.y1 || !r) continue;
+    const px = x * TS, py = y * TS, u = TS / 24;
+    c.fillStyle = "#2a2332";
+    c.fillRect(px + 6 * u, py + 9 * u, 12 * u, 8 * u);
+    c.fillStyle = "#9a6a3a";
+    c.fillRect(px + 6.8 * u, py + 9.8 * u, 10.4 * u, 6.4 * u);
+    c.fillStyle = "#e8c88a";
+    c.fillRect(px + 8.4 * u, py + 11.4 * u, 7 * u, 1 * u);
+    c.fillRect(px + 8.4 * u, py + 13.4 * u, 5 * u, 1 * u);
+  }
+}
+const GUIDE_DEFS = {
+  hut: { w: 5, h: 5, door: [2, 4], items: [["bed", 1, 1], ["bed", 3, 1]], say: "Put a wall block on each amber marker, a door on the blue one, and the beds inside." },
+  privy: { w: 4, h: 3, door: [1, 2], items: [["toilet", 1, 1]], say: "Amber markers for the walls, blue for the door, and the privy seat inside." }
+};
+function guideFree(x, y, w, h) {
+  for (let j = -1; j <= h; j++) for (let i = -1; i <= w; i++) {
+    const tx = x + i, ty = y + j;
+    if (tx < 4 || ty < 4 || tx >= W - 4 || ty >= H - 4 || grid[ty][tx] !== T.GRASS || roomAt[ty][tx] >= 0 || lfPropAt(tx, ty) || town.nodeMap && town.nodeMap.has(ty * W + tx) || shroomAt(tx, ty) || town.siteAt && town.siteAt[ty * W + tx] || (town.crops || []).some((c) => c.x === tx && c.y === ty)) return false;
+  }
+  return true;
+}
+function guideSpot(w, h) {
+  const pl = game.player || npcs[0];
+  if (!pl) return null;
+  let best = null, bd = 1e9;
+  for (let r = 3; r <= 16 && !best; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+    if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+    const x = pl.tx + dx, y = pl.ty + dy;
+    if (!guideFree(x, y, w, h)) continue;
+    const d = Math.hypot(dx - 4, dy);
+    if (d < bd) {
+      bd = d;
+      best = { x, y };
+    }
+  }
+  return best;
+}
+function guidesUpdate(needs) {
+  if (!town || town.scenario !== "blank") return;
+  town.guides = town.guides || {};
+  const top = needs[0] && needs[0].id, free = rooms.some((r) => !r.dead && r.free);
+  const want = { hut: (top === "bed" || top === "bed2") && !free && !rooms.some((r) => !r.dead && r.hut), privy: top === "privy" && !(typeof lfPrivies === "function" && lfPrivies().length) };
+  for (const k of Object.keys(GUIDE_DEFS)) {
+    if (want[k] && !town.guides[k]) {
+      const d = GUIDE_DEFS[k], p = guideSpot(d.w, d.h);
+      if (p) {
+        town.guides[k] = { x: p.x, y: p.y };
+        const pl = game.player;
+        if (pl && pl.player) playerSay(pl, k === "hut" ? "The markers show where my first hut could go." : "The markers show where a privy could go.");
+      }
+    } else if (!want[k] && town.guides[k]) delete town.guides[k];
+  }
+}
+function drawGuides(c, now) {
+  if (!town || !town.guides) return;
+  const pulse = 0.55 + 0.25 * Math.sin(now / 400);
+  for (const k of Object.keys(town.guides)) {
+    const g = town.guides[k], d = GUIDE_DEFS[k];
+    if (!d) continue;
+    for (let j = 0; j < d.h; j++) for (let i = 0; i < d.w; i++) {
+      const edge = i === 0 || j === 0 || i === d.w - 1 || j === d.h - 1, door = i === d.door[0] && j === d.door[1], x = g.x + i, y = g.y + j, px = x * TS, py = y * TS;
+      if (!edge) continue;
+      const p = lfPropAt(x, y), built = grid[y][x] === T.WALL || grid[y][x] === T.DOOR || p && (p.kind === "bwall" || p.kind === "bwindow" || p.kind === "bdoor"), right = door ? p && p.kind === "bdoor" || grid[y][x] === T.DOOR : !!built;
+      c.save();
+      c.globalAlpha = right ? 0.55 : pulse;
+      c.lineWidth = 2;
+      c.strokeStyle = right ? "#8bd05f" : door ? "#6ab0ff" : "#e0a93b";
+      c.setLineDash([5, 4]);
+      c.strokeRect(px + 2, py + 2, TS - 4, TS - 4);
+      c.fillStyle = right ? "rgba(139,208,95,.25)" : door ? "rgba(106,176,255,.18)" : "rgba(224,169,59,.16)";
+      c.fillRect(px + 2, py + 2, TS - 4, TS - 4);
+      c.restore();
+    }
+    for (const [kind, ix, iy] of d.items) {
+      const x = g.x + ix, y = g.y + iy, p = lfPropAt(x, y), have = !!(p && p.kind === kind);
+      c.save();
+      c.globalAlpha = have ? 0.9 : 0.4 * (0.8 + 0.4 * Math.sin(now / 500));
+      if (!have) gaDraw(c, kind === "bed" ? "bed_head_up_5" : "toilet", x * TS, y * TS, now, 0);
+      c.restore();
+    }
+  }
+}
 const SH_TRIP = 210;
 const SH_CAP = 90;
 const shroomAt = (x, y) => (town.shrooms || []).find((s) => s.x === x && s.y === y);
@@ -27034,6 +27193,8 @@ function render(now, dtSec, hourOfDay) {
   if (typeof drawTide === "function") drawTide(c, now);
   drawNodes(c, now);
   if (typeof drawShrooms === "function") drawShrooms(c, now);
+  if (typeof drawSigns === "function") drawSigns(c, now);
+  if (typeof drawGuides === "function") drawGuides(c, now);
   drawSites(c, now);
   drawEventsFx(c, now);
   drawWorkFx(c, now);
@@ -29585,6 +29746,69 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("pagehide", () => {
   isleSave();
 });
+let REQ_OPEN = false;
+try {
+  REQ_OPEN = localStorage.getItem("gh.req") === "1";
+} catch (e) {
+}
+(function() {
+  const stage = canvas.parentNode;
+  if (!stage) return;
+  const box = document.createElement("div");
+  box.id = "reqbox";
+  box.className = "reqbox";
+  box.hidden = true;
+  stage.appendChild(box);
+  let sig = "";
+  function draw() {
+    if (!town || typeof islandNeeds !== "function") {
+      box.hidden = true;
+      return;
+    }
+    const n = islandNeeds();
+    if (typeof guidesUpdate === "function") guidesUpdate(n);
+    const cur = n[0], B = townBalance(), open = REQ_OPEN;
+    const s = (cur ? cur.id + cur.say : "ok") + "|" + open + "|" + B.pop + "|" + B.beds + "|" + B.privies + "|" + B.plots + "|" + Math.round(B.stock / 5);
+    box.hidden = false;
+    if (s === sig) return;
+    sig = s;
+    const mark = (have, need) => have >= need ? '<span class="ok">\u2713</span>' : "<b>" + have + "/" + need + "</b>";
+    if (!open) {
+      box.innerHTML = cur ? `<button type="button" class="reqpill${cur.hard ? " hard" : ""}" data-req="1" title="What the island needs (N)">\u25CF ${esc(cur.title)}</button>` : `<button type="button" class="reqpill ok" data-req="1" title="What the island needs (N)">\u25CF In balance</button>`;
+      return;
+    }
+    box.innerHTML = `<div class="reqcard"><button type="button" class="reqx" data-req="1" title="Close (N)">\xD7</button>` + (cur ? `<b>${esc(cur.title)}</b>${cur.who.length ? ' <span class="dim">\xB7 ' + esc(cur.who.slice(0, 3).join(", ")) + "</span>" : ""}<br>\u201C${esc(cur.say)}\u201D<br><span class="dim">${esc(cur.how)}</span>` : "<b>Everything is in balance.</b>") + `<div class="reqrows"><span>Beds ${mark(B.beds, B.bedsNeeded)}</span>${B.pop > 1 ? `<span>Privies ${mark(B.privies, B.priviesNeeded)}</span><span>Field plots ${mark(B.plots, B.plotsNeeded)}</span>` : ""}<span>Food ${B.stockDays.toFixed(1)} days</span></div>` + (n.length > 1 ? `<div class="dim reqthen">Then: ${esc(n.slice(1, 3).map((x) => x.title).join(" \xB7 "))}</div>` : "") + "</div>";
+  }
+  box.addEventListener("click", (e) => {
+    if (e.target.closest("[data-req]")) {
+      REQ_OPEN = !REQ_OPEN;
+      try {
+        localStorage.setItem("gh.req", REQ_OPEN ? "1" : "0");
+      } catch (err) {
+      }
+      sig = "";
+      draw();
+      canvas.focus({ preventScroll: true });
+    }
+  });
+  window.addEventListener("keydown", (e) => {
+    if ((e.key === "n" || e.key === "N") && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || "") && town) {
+      REQ_OPEN = !REQ_OPEN;
+      try {
+        localStorage.setItem("gh.req", REQ_OPEN ? "1" : "0");
+      } catch (err) {
+      }
+      sig = "";
+      draw();
+    }
+  });
+  setInterval(() => {
+    try {
+      draw();
+    } catch (e) {
+    }
+  }, 800);
+})();
 let last = performance.now();
 function eventSlow() {
   const n = game.player;

@@ -37,6 +37,8 @@
   "life2/visitors.ts",
   "life2/functions.ts",
   "life2/needs.ts",
+  "life2/signs.ts",
+  "life2/guides.ts",
   "life2/shrooms.ts",
   "life2/controls.ts",
   "player/items.ts",
@@ -67,6 +69,7 @@
   "life2/items-trade.ts",
   "ui/controls-camera.ts",
   "ui/saves.ts",
+  "ui/hud-needs.ts",
   "ui/loop.ts",
   "ui/menus-hud.ts"
 ]
