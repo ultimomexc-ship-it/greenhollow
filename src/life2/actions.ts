@@ -71,6 +71,7 @@ function lifeAct(n, p, fx, fy, dx, dy) {
   const pr = lfPropAt(fx, fy);
   if (pr && pr.dispense) return yardTake(n, pr);
   if (pr && pr.kind === 'rock' && itHeld(n).kind === 'hammer') return { key: 'rock' + pr.id + 'p', min: 13, text: 'Breaking stone', tool: 'hammer', run(nn) { lf2BreakRock(nn, pr); } };   // a loose rock: the hammer breaks it
+  if (pr && itBuildOn(n) && n.build.sel === 2 && itBuildCanRotate(fx, fy)) return { key: 'rotp' + pr.id, min: 1.2, text: 'Turning it', tool: null, run(nn) { bldRotate(fx, fy); } };
   if (pr && !pr.fixed && pr.kind !== 'rock' && itHeld(n).kind === 'hammer') return { key: 'wallp' + pr.id, min: 5, text: 'Smashing the ' + (LF_NOUN[pr.kind] || 'thing'), tool: 'hammer', run(nn) { bldDeleteProp(pr); playerSay(nn, 'Gone.'); } };   // the hammer deletes any loose thing
   if (itHand(n, 'push')) {   // Push: push it, or the line of things it heads (life2/push.ts); against a wall a lone crate swaps places with you
     const r = lf2PushLine(n, fx, fy, dx, dy); if (r === true) return null;

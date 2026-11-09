@@ -30,12 +30,13 @@ function itKit(n) { if (typeof itGarden === 'function') itGarden(n); for (const 
 const itById = (n, id) => (n.items || []).find(i => i.id === id) || null;
 /** what is in your hand: { ref, kind ('hand', a tool kind or a stack key), item, count } */
 function itHeld(n): any {
+  if (n && n.build && n.build.on) { if (n.build.sel === 1) { const hm = (n.items || []).find(i => i.kind === 'hammer'); return { ref: hm ? 'i' + hm.id : 'hammer', kind: 'hammer', item: hm || null }; } return { ref: 'hand', kind: 'hand' }; }   // (build mode: the hand always pushes; slot 1 is the hammer)
   const ref = n && n.belt ? n.belt[n.sel || 0] : 'hand';
   if (!ref || ref === 'hand') return { ref: 'hand', kind: 'hand' };
   if (ref[0] === 'i') { const it = itById(n, +ref.slice(1)); return it ? { ref, kind: it.kind, item: it } : { ref: 'hand', kind: 'hand' }; }
   const k = ref.slice(2); return { ref, kind: k, count: (n.bag && n.bag[k]) || 0 };
 }
-const itMode = n => (n && n.mode) || 'talk';
+const itMode = n => (n && n.build && n.build.on) ? 'push' : (n && n.mode) || 'talk';
 const itHand = (n, mode?: string) => itHeld(n).kind === 'hand' && (!mode || itMode(n) === mode);
 const itTalking = n => !n || !n.belt || itHand(n, 'talk');   // (villagers and an unsteered body always talk)
 
@@ -78,6 +79,8 @@ function itGate(n, tg, walkOn: boolean) {
 function itFacing(n): { what: string; verb: string; need: string | null } | null {
   const { x, y } = lf2Front(n); if (x < 0 || y < 0 || x >= W || y >= H) return null;
   const o = lf2Occ(x, y, n), pr = lfPropAt(x, y), g = grid[y][x], c = cropAt(x, y), mode = itMode(n), hand = itHeld(n).kind === 'hand';
+  if (itBuildOn(n) && n.build.sel === 2 && itBuildCanRotate(x, y)) return { what: pr ? cvCap(LF_NOUN[pr.kind] || 'thing') : 'Furniture', verb: 'Turn', need: null };
+  if (itBuildOn(n) && n.build.sel === 1 && g === T.TREE) return { what: 'Tree', verb: 'Clear', need: 'hammer' };
   if (o) return o.pose === 'sleep' ? { what: o.first, verb: 'asleep', need: null } : hand && mode === 'push' ? { what: o.first, verb: 'Push past', need: 'push' } : { what: o.first, verb: 'Talk', need: 'talk' };
   if (pr && pr.dispense) { const yi = YARD_ITEMS.find(q => q.kind === pr.dispense); return { what: (yi ? yi.name : 'Stand') + ' stand', verb: 'Take one (free)', need: 'talk' }; }
   if (pr && pr.kind === 'rock' && itHeld(n).kind === 'hammer') return { what: 'Loose rock', verb: 'Break', need: 'hammer' };
@@ -102,7 +105,11 @@ window.addEventListener('keydown', e => {
   if (typing(e) || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
   const n = game.player; if (!n || !n.player || (typeof talkUI !== 'undefined' && talkUI.o)) return;
   const k = (e.key || '').toLowerCase();
-  if (k === 'q') { itCycleMode(n); e.preventDefault(); } else if (/^[1-9]$/.test(k)) { itSelect(n, +k - 1); e.preventDefault(); } else if (k === 'b') { itBag(!itBagOpen()); e.preventDefault(); } else if (k === 'escape' && itBagOpen()) { itBag(false); e.preventDefault(); }
+  if (k === 'b') { itBuildToggle(n); e.preventDefault(); return; }
+  if (k === 'i') { itBag(!itBagOpen()); e.preventDefault(); return; }
+  if (k === 'escape' && itBagOpen()) { itBag(false); e.preventDefault(); return; }
+  if (itBuildOn(n)) { if (/^[1-9]$/.test(k)) { itBuildSelect(n, +k - 1); e.preventDefault(); } return; }   // (build mode: no hand modes, 1-9 are the build hotbar)
+  if (k === 'q') { itCycleMode(n); e.preventDefault(); } else if (/^[1-9]$/.test(k)) { itSelect(n, +k - 1); e.preventDefault(); }
 });
 
 /* ---------------- the hotbar and the bag ---------------- */
@@ -132,12 +139,13 @@ function itSync(force?: boolean) {
   if (!n || !n.belt) { if (!hb.hidden) { hb.hidden = true; itSig = ''; } itBag(false); return; }
   const f = !(typeof talkUI !== 'undefined' && talkUI.o) && !(n.player && n.player.sleeping) ? itFacing(n) : null, ok = f && itFits(n, f.need);
   const face = !f ? '' : f.need === null ? `<b>${esc(f.what)}</b> · ${esc(f.verb)}` : ok ? `<b>${esc(f.what)}</b> → <b class="ok">${esc(f.verb)}</b>` : `<b>${esc(f.what)}</b> → ${esc(itWant(n, f.need, f.verb))}`;
-  const sig = [n.sel, itMode(n), JSON.stringify(n.belt), JSON.stringify(n.bag), (n.items || []).map(i => i.id + ':' + i.wear.toFixed(2)).join(','), face].join('|');
+  const sig = [n.sel, itMode(n), JSON.stringify(n.build || 0), JSON.stringify(n.belt), JSON.stringify(n.bag), (n.items || []).map(i => i.id + ':' + i.wear.toFixed(2)).join(','), face].join('|');
   const hud = document.getElementById('hud'); hb.style.bottom = ((hud && !hud.hidden ? hud.offsetHeight : 0) + 16) + 'px';
   if (!force && sig === itSig && !hb.hidden) return; itSig = sig; hb.hidden = false;
+  if (itBuildOn(n)) { hb.className = 'hotbar build'; hb.innerHTML = itBuildBarHTML(n, face); if (itBagOpen()) itBagDraw(); return; } hb.className = 'hotbar';
   const mode = itMode(n), onHand = (n.sel || 0) === 0;
   hb.innerHTML = `<div class="hbmodes" title="Hand modes (Q)">${IT_MODES.map(m => `<button type="button" class="hbmode${onHand && mode === m ? ' on' : ''}" data-mode="${m}"><svg width="22" height="22" viewBox="0 0 34 34" aria-hidden="true">${IT_SVG[m]}</svg><span>${IT_MODE_NAME[m]}</span></button>`).join('')}</div>`
-    + `<div class="hbslots">${n.belt.map((_, i) => itSlotHTML(n, i)).join('')}</div><div class="hbface">${face || '<span class="dim">Q hand mode · 1-9 belt · B bag</span>'}</div>`;
+    + `<div class="hbslots">${n.belt.map((_, i) => itSlotHTML(n, i)).join('')}</div><div class="hbface">${face || '<span class="dim">Q hand mode · 1-9 belt · I bag · B build</span>'}</div>`;
   if (itBagOpen()) itBagDraw();
 }
 function itBagOpen() { const b = document.getElementById('bagbox'); return !!(b && !b.hidden); }
@@ -147,10 +155,10 @@ function itBagDraw() {
   const goods = Object.entries<number>(n.inv || {}).filter(([g, q]) => q > 0).map(([g, q]) => `<div class="bgcell"><span class="bgname">${esc((GOODS[g] && GOODS[g].name) || GICON[g] || g)}</span><u>${q}</u></div>`);
   const stacks = Object.entries<number>(n.bag || {}).filter(([k, q]) => q > 0).map(([k, q]) => `<button type="button" class="bgcell${n.belt.includes('s:' + k) ? ' worn' : ''}" data-add="s:${k}">${itIcon(k, 28)}<span class="bgname">${esc(itName(k))}</span><u>${q}</u></button>`);
   const tools = (n.items || []).map(it => `<button type="button" class="bgcell${n.belt.includes('i' + it.id) ? ' worn' : ''}" data-add="i${it.id}">${itIcon(it.kind, 28)}<span class="bgname">${esc(itName(it.kind))}</span><i class="hbwear"><b style="width:${Math.round(it.wear * 100)}%"></b></i></button>`);
-  const cells = [...tools, ...stacks, ...goods]; while (cells.length < 24) cells.push('<div class="bgcell empty"></div>');
-  b.innerHTML = `<div class="bgwrap"><div class="bghead"><b>${esc(nameOf(n))} · Bag</b><span class="coin">${Math.floor(n.coin || 0)} denarii</span><button type="button" class="bgx" data-close="1" title="Close (B)">×</button></div>`
+  const cells = [...tools, ...stacks, ...goods]; while (cells.length < 12) cells.push('<div class="bgcell empty"></div>');
+  b.innerHTML = `<div class="bgwrap"><div class="bghead"><b>${esc(nameOf(n))} · Bag (I)</b><span class="coin">${Math.floor(n.coin || 0)} denarii</span><button type="button" class="bgx" data-close="1" title="Close (I)">×</button></div>`
     + `<div class="bglab">Belt · 1-9 · click a slot to take it off</div><div class="bgbelt">${n.belt.map((_, i) => itSlotHTML(n, i, 'hbslot big')).join('')}</div>`
-    + `<div class="bglab">Bag · click a tool or a stack to put it on the belt</div><div class="bggrid">${cells.join('')}</div></div>`;
+    + `<div class="bglab">Bag · click a tool or a stack to put it on the belt</div><div class="bggrid">${cells.join('')}</div>` + itBuildBagHTML(n) + `</div>`;
 }
 (function () {
   const stage = canvas.parentNode; if (!stage) return;
