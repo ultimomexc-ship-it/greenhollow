@@ -10590,6 +10590,10 @@ function pickAgenda(n) {
   if (shoreTiles.length && fishAvail()) sc.Fisher = 5 + need * 20;
   if (farmWork()) sc.Farmer = 5 + need * 18;
   if (town.nodes.some((x) => x.amt >= 1 && reach[x.y * W + x.x])) sc.Gatherer = 5 + need * 16;
+  if (town.scenario === "blank" && typeof lf2Room === "function") {
+    const ws = lf2Room("workshop");
+    if (ws && !n.player && (lf2Stock(ws).wood || 0) < 14 && (cnt.Woodcutter || 0) < Math.max(1, Math.floor(npcs.length / 3)) && typeof carpWant === "function" && carpWant()) sc.Woodcutter = 22;
+  }
   {
     const foodOK = fd >= 3;
     if (foodOK) {
@@ -10642,7 +10646,7 @@ function workPlan(n, tod) {
     }
     if (r === "Farmer") return farmPlan(n) || (n.curUntil = 0, null);
     if (r === "Fisher") return fishPlan(n) || (n.curUntil = 0, null);
-    if (r === "Woodcutter") return woodPlan(n) || (n.curUntil = 0, null);
+    if (r === "Woodcutter") return (town.scenario === "blank" && typeof wcPlan === "function" ? wcPlan(n) : woodPlan(n)) || (n.curUntil = 0, null);
     if (r === "Stonecutter") return stonePlan(n) || (n.curUntil = 0, null);
     if (r === "Gatherer") return gatherPlan(n) || (n.curUntil = 0, null);
   }
@@ -11283,6 +11287,7 @@ function blankStart() {
   keep.bed = { owner: null };
   keep.seat = null;
   town.tents = [];
+  town.kit = Object.assign({}, KIT_START);
   clearTentTiles();
   town.crops = [];
   town.fields = 0;
@@ -17937,6 +17942,22 @@ function lifeAct(n, p, fx, fy, dx, dy) {
       return { msg: "The bakery has no bread yet. Bring grain and the baker will make some." };
     }
   }
+  if (pr && pr.kind === "bench" && !itBuildOn(n)) {
+    const ri2 = roomAt[fy] && roomAt[fy][fx] >= 0 ? roomAt[fy][fx] : -1, r = ri2 >= 0 ? rooms[ri2] : null;
+    if (r && r.fn === "workshop") {
+      const w = n.inv.wood || 0, st = n.inv.stone || 0;
+      if (w + st > 0) return { key: "givewood" + pr.id, min: 1.5, text: "Handing in wood and stone", tool: null, run(nn) {
+        const s2 = lf2Stock(r);
+        s2.wood = (s2.wood || 0) + (nn.inv.wood || 0);
+        s2.stone = (s2.stone || 0) + (nn.inv.stone || 0);
+        playerSay(nn, "You hand in " + (nn.inv.wood || 0) + " wood and " + (nn.inv.stone || 0) + " stone.");
+        nn.inv.wood = 0;
+        nn.inv.stone = 0;
+      } };
+      const s = lf2Stock(r);
+      return { msg: `The carpenter's table. ${s.wood || 0} wood and ${s.stone || 0} stone in store. Bring more and he makes what you need.` };
+    }
+  }
   if (pr && pr.kind === "bed" && !itBuildOn(n)) return { msg: pr.owner && !pr.owner.dead ? pr.owner === n ? "Your bed." : pr.owner.first + "'s bed." : "A free bed. Somebody will take it." };
   if (pr) {
     const label = LF_NOUN[pr.kind];
@@ -18534,6 +18555,7 @@ const YARD_ITEMS = [
   { kind: "anvil", stand: "yd_anvil", art: "anvil", noun: "anvil", name: "Anvil" },
   { kind: "toilet", stand: "", art: "toilet", noun: "privy seat", name: "Privy" },
   { kind: "field", stand: "", art: "crop_raw", noun: "field plot", name: "Field" },
+  { kind: "bench", stand: "", art: "table_loose", noun: "carpentry table", name: "Carpentry table" },
   { kind: "loom", stand: "yd_loom", art: "loom", noun: "loom", name: "Loom" },
   { kind: "shelf", stand: "yd_shelf", art: "shelf_0", noun: "shelf", name: "Shelf" },
   { kind: "altar", stand: "", art: "altar_0", noun: "altar", name: "Altar" },
@@ -19086,6 +19108,7 @@ function bldDissolve(list) {
       }
       continue;
     }
+    kitGive(town.bldWall.get(k) === "bdoor" || grid[y][x] === T.DOOR ? "bdoor" : town.bldWall.get(k) || "bwall");
     doors = doors.filter((d) => !(d.x === x && d.y === y));
     setT(x, y, T.GRASS);
     roomAt[y][x] = -1;
@@ -19141,6 +19164,7 @@ function bldHammerWall(x, y, hammer) {
 }
 function bldDeleteProp(pr) {
   if (!pr || pr.fixed || !town.props.includes(pr)) return false;
+  kitGive(pr.kind);
   town.pblock[pr.y * W + pr.x] = 0;
   town.propAt.delete(pr.y * W + pr.x);
   town.props = town.props.filter((q) => q !== pr);
@@ -19164,6 +19188,7 @@ function bldDeleteFurniture(x, y) {
   const f = typeof pushFurniture === "function" ? pushFurniture(x, y) : null;
   if (!f) return false;
   const r = f.r, o = f.o;
+  kitGive(f.type === "seat" ? "chair" : f.type);
   if (f.type === "bed") {
     r.beds = r.beds.filter((b) => b !== o);
     for (const n of npcs) if (n.bed === o) {
@@ -19393,6 +19418,10 @@ function visArrive() {
       }
     });
   }
+  {
+    const B0 = typeof townBalance === "function" ? townBalance() : null;
+    if (kitOn() && B0 && B0.harvests >= 1 && !(town.tut && town.tut.carpenter) && grp.length === 1) carpArrive(grp[0]);
+  }
   const a = grp[0];
   chron(grp.length > 1 ? `${nameOf(a)} and ${nameOf(grp[1])} came ashore and asked for a place to stay. ${a.first} ${a.back}.` : `${nameOf(a)} came ashore and asked for a place to stay. ${a.first} ${a.back}.`, "life");
   housingTick();
@@ -19580,13 +19609,14 @@ function npcDebug(n) {
   return `<b>${esc(n.first)}</b> \xB7 ${n.age} \xB7 ${esc(n.role || "")}${n.job ? " / " + esc(n.job) : ""}${n.player ? " (you)" : ""}<br>home: ${r ? esc(r.name || r.kind) : "<b>none</b>"} \xB7 bed: ${bed ? bed.x - (r ? r.x : 0) + ", " + (bed.y - (r ? r.y : 0)) + " (theirs)" : "<b>none</b>"}<br>hunger ${pct(n.hunger)} \xB7 bladder ${pct(n.bladder)} \xB7 energy ${pct(n.energy)} \xB7 company ${pct(n.social)}<br>doing: ${esc(n.status || n.pose || "")}<br><b>${need.length ? "needs next: " + need.join(", ") : "needs nothing right now"}</b>`;
 }
 const FN_DEFS = [
+  { fn: "workshop", name: "The Workshop", need: { bench: 1, shelf: 1 }, what: "walls, beds and furniture made from wood" },
   { fn: "church", name: "The Chapel", need: { altar: 1, pew: 2 }, what: "a place to pray, wed and bury" },
   { fn: "tavern", name: "The Tavern", need: { counter: 1, table: 1, chair: 2 }, what: "somewhere to meet and drink" },
   { fn: "bakery", name: "The Bakery", need: { oven: 1, counter: 1 }, what: "bread from the grain" },
   { fn: "smithy", name: "The Smithy", need: { forge: 1, anvil: 1 }, what: "tools and mending" },
   { fn: "shop", name: "The Taberna", need: { counter: 1, shelf: 1 }, what: "a shop" }
 ];
-const FN_JOB = { bakery: "Baker", smithy: "Smith", shop: "Shopkeeper" };
+const FN_JOB = { bakery: "Baker", smithy: "Smith", shop: "Shopkeeper", workshop: "Carpenter" };
 function fnProps(r) {
   const o = {};
   for (const p of town.props || []) if (!p.fixed && r.cells.has(p.x + p.y * W)) (o[p.kind] = o[p.kind] || []).push(p);
@@ -19628,6 +19658,9 @@ function fnSpots(r, fn) {
       sp.loom = fnStand(first("loom"), r, taken);
       sp.loomFront = fnFreeCell(r, taken, first("loom"));
     }
+  } else if (fn === "workshop") {
+    sp.work = first("bench") && fnStand(first("bench"), r, taken);
+    sp.front = first("shelf") && fnStand(first("shelf"), r, taken) || fnFreeCell(r, taken);
   } else if (fn === "tavern") {
     sp.bar = first("counter") && fnStand(first("counter"), r, taken);
     sp.barFront = first("counter") && fnStand(first("counter"), r, taken) || fnFreeCell(r, taken);
@@ -19748,6 +19781,19 @@ function islandNeeds() {
   if (pop >= 5 && !has("shop")) add("shop", "A shop", "Somewhere to trade would help.", "Build a room with a counter and a shelf in it.", adults);
   if (pop >= 6 && !town.church) add("church", "A chapel", "We have nowhere to pray, to marry or to bury our dead.", "Build a room with an altar and two pews.", adults);
   else if (town.church && (town.church.pews || []).length < Math.ceil(pop / 2)) add("pews", "More pews", `${(town.church.pews || []).length} pews for ${pop} people. We want ${Math.ceil(pop / 2)}.`, "Add pews to the chapel.", adults);
+  if (kitOn() && !alone) {
+    const ins2 = (id, title, say2, how, who) => {
+      const idx = out.findIndex((z) => !z.hard);
+      out.splice(idx < 0 ? out.length : idx, 0, { id, title, say: say2, how, hard: false, who: who.map((n) => n.player ? "you" : n.first) });
+    };
+    const ws = has("workshop"), carp = !!(town.tut && town.tut.carpenter);
+    if (B.harvests && !carp) ins2("carpenter", "A carpenter", "We could use somebody who works wood: walls, beds and chairs, so we do not run out.", "A carpenter comes ashore once there is a free bed (and no hard request is open).", adults);
+    else if (carp && !ws) ins2("workshop", "A workshop", "Put my carpentry table and a shelf in a room, and I can start work.", "Build a room (the kit has a table and a shelf), then place the carpentry table and the shelf in it.", adults.filter((n) => n.lf2Want === "Carpenter"));
+    else if (ws && carpWant(out)) {
+      const s = lf2Stock(lf2Room("workshop")), want = carpWant(out), R = KIT_RECIPE[want];
+      if (R && ((R.wood || 0) > (s.wood || 0) || (R.stone || 0) > (s.stone || 0))) ins2("wood", (R.stone || 0) > (s.stone || 0) ? "Stone for the carpenter" : "Wood for the carpenter", `I am making ${itBuildName(want).toLowerCase()}, and I need ${R.wood ? R.wood + " wood" : ""}${R.wood && R.stone ? " and " : ""}${R.stone ? R.stone + " stone" : ""}. The workshop has ${s.wood || 0} wood and ${s.stone || 0} stone.`, "Fell trees (walk into them) or break rocks (hammer) and walk into the carpenter's table to hand it in. Villagers help with wood.", adults.filter((n) => n.job === "Carpenter"));
+    }
+  }
   return out;
 }
 function tutBlocksArrival() {
@@ -19924,6 +19970,53 @@ function drawGuides(c, now) {
       c.restore();
     }
   }
+}
+const KIT_START = { bwall: 40, bdoor: 3, bwindow: 2, bed: 3, toilet: 1, chair: 2, table: 1, shelf: 1 };
+const KIT_RECIPE = {
+  bwall: { wood: 2, q: 4 },
+  bwindow: { wood: 2, q: 2 },
+  bdoor: { wood: 2, q: 1 },
+  bed: { wood: 4, q: 1 },
+  chair: { wood: 2, q: 1 },
+  table: { wood: 3, q: 1 },
+  barrel: { wood: 3, q: 1 },
+  counter: { wood: 4, q: 1 },
+  shelf: { wood: 3, q: 1 },
+  pew: { wood: 3, q: 1 },
+  loom: { wood: 6, q: 1 },
+  lamp: { wood: 2, q: 1 },
+  tent: { wood: 4, q: 1 },
+  campfire: { wood: 2, q: 1 },
+  toilet: { wood: 3, q: 1 },
+  altar: { stone: 4, q: 1 },
+  oven: { stone: 6, q: 1 },
+  forge: { stone: 6, wood: 2, q: 1 },
+  anvil: { stone: 4, q: 1 }
+};
+const kitOn = () => !!(town && town.scenario === "blank");
+function kitStart() {
+  if (kitOn() && !town.kit) town.kit = Object.assign({}, KIT_START);
+}
+const kitCount = (kind) => {
+  kitStart();
+  return kitOn() ? (town.kit || {})[kind] || 0 : 999;
+};
+const kitHas = (kind) => kind === "field" || !kitOn() || kitCount(kind) > 0;
+function kitTake(kind) {
+  if (!kitOn() || kind === "field") return;
+  kitStart();
+  town.kit[kind] = Math.max(0, (town.kit[kind] || 0) - 1);
+}
+function kitGive(kind, q = 1) {
+  if (!kitOn() || !kind || kind === "field") return;
+  if (!(kind in KIT_RECIPE) && !(kind in KIT_START) && kind !== "bench") return;
+  kitStart();
+  town.kit[kind] = (town.kit[kind] || 0) + q;
+}
+const kitLabel = (kind) => kitOn() && kind !== "field" ? String(kitCount(kind)) : "\u221E";
+function kitOut(n, kind) {
+  const ws = typeof lf2Room === "function" ? lf2Room("workshop") : null, has = town.tut && town.tut.carpenter;
+  playerSay(n, "No " + (typeof itBuildName === "function" ? itBuildName(kind).toLowerCase() : kind) + " left. " + (ws ? "Bring wood to the carpenter, or take something down: it comes back." : has ? "Set up the workshop so the carpenter can make more, or take something down: it comes back." : "Take something down and it comes back to you."));
 }
 const SH_TRIP = 210;
 const SH_CAP = 90;
@@ -20729,6 +20822,10 @@ function bldQueue(p) {
   (town.bldQ = town.bldQ || []).push([p.x, p.y]);
 }
 function bldPlaceFront(n, kind) {
+  if (!kitHas(kind)) {
+    kitOut(n, kind);
+    return null;
+  }
   if (town.props.length >= BUILD_CAP) {
     playerSay(n, "The island is full of loose things. Smash some first.");
     return null;
@@ -20748,6 +20845,7 @@ function bldPlaceFront(n, kind) {
         p.v = Math.floor(Math.random() * 5);
         p.rot = 0;
         bldQueue(p);
+        kitTake(kind);
         playerSay(n, "A " + (LF_NOUN[kind] || kind) + ".");
         return p;
       }
@@ -20767,6 +20865,7 @@ function bldPlaceFront(n, kind) {
     p.v = Math.floor(Math.random() * 5);
     p.rot = 0;
     bldQueue(p);
+    kitTake(kind);
     playerSay(n, "A " + (LF_NOUN[kind] || kind) + ".");
     return p;
   }
@@ -20818,12 +20917,12 @@ const IT_ROTATE_SVG = '<path d="M28 18a10 10 0 1 1-4-8" fill="none" stroke="#a8e
 function itBuildBarHTML(n, face) {
   const b = itBuildState(n);
   const tool = (i, svg, name, on) => `<button type="button" class="hbslot${on ? " on" : ""}" data-bslot="${i}" title="${name}"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${svg}</svg><span class="hbcap">${name}</span></button>`;
-  const slots = b.bar.map((k, j) => `<button type="button" class="hbslot item${k && k === b.brush ? " on" : ""}" data-bslot="${j + 3}" title="${k ? esc(itBuildName(k)) : "Empty: drag one here in the build menu (I)"}"><em>${(j + 4) % 10}</em>${k ? itBuildIcon(k) : ""}${k ? "<u>\u221E</u>" : ""}<span class="hbcap">${k ? esc(itBuildName(k)) : ""}</span></button>`).join("");
+  const slots = b.bar.map((k, j) => `<button type="button" class="hbslot item${k && k === b.brush ? " on" : ""}" data-bslot="${j + 3}" title="${k ? esc(itBuildName(k)) : "Empty: drag one here in the build menu (I)"}"><em>${(j + 4) % 10}</em>${k ? itBuildIcon(k) : ""}${k ? "<u>" + kitLabel(k) + "</u>" : ""}<span class="hbcap">${k ? esc(itBuildName(k)) : ""}</span></button>`).join("");
   return `<div class="hbbadge" title="Build mode (B)"><b>BUILD</b><span>B to leave</span></div><div class="hbslots">${tool(0, IT_SVG.push, "Push", b.sel === 0)}${tool(1, IT_SVG.hammer, "Destroy", b.sel === 1)}${tool(2, IT_ROTATE_SVG, "Turn", b.sel === 2)}<i class="hbsep"></i>${slots}</div><div class="hbface">${face || '<span class="dim">Walk to push \xB7 2 destroy \xB7 3 turn \xB7 4-0 put an item down \xB7 I menu</span>'}</div>`;
 }
 function itBuildBagHTML(n) {
   const b = itBuildState(n), sel = n._bpick || "";
-  const items = YARD_ITEMS.map((it) => `<button type="button" class="bgcell bi${sel === it.kind ? " worn" : ""}" draggable="true" data-bkind="${it.kind}" title="Drag onto a build slot">${itBuildIcon(it.kind, 34)}<span class="bgname">${esc(it.name)}</span></button>`).join("");
+  const items = YARD_ITEMS.map((it) => `<button type="button" class="bgcell bi${sel === it.kind ? " worn" : ""}" draggable="true" data-bkind="${it.kind}" title="Drag onto a build slot">${itBuildIcon(it.kind, 34)}<span class="bgname">${esc(it.name)} \xB7 ${kitLabel(it.kind)}</span></button>`).join("");
   const slots = b.bar.map((k, j) => `<button type="button" class="hbslot big item" data-bdrop="${j}" title="Build slot ${(j + 4) % 10}"><em>${(j + 4) % 10}</em>${k ? itBuildIcon(k, 38) : ""}</button>`).join("");
   return `<div class="bglab">Build menu \xB7 drag an item onto a build slot (or click an item, then a slot)</div><div class="bgbuild">${items}</div><div class="bglab">Build hotbar \xB7 slots 4-0 (1 pushes, 2 destroys, 3 turns things) \xB7 click a slot while an item is picked to fill it, right-click to empty it</div><div class="bgbelt">${slots}</div>`;
 }
@@ -20917,6 +21016,7 @@ function bldGroundUnder(x, y) {
   return T.GRASS;
 }
 function bldDeleteLamp(x, y) {
+  kitGive("lamp");
   const i = lamps.findIndex((l) => l.x === x && l.y === y);
   if (i >= 0) lamps.splice(i, 1);
   if (grid[y][x] === T.LAMP) setT(x, y, bldGroundUnder(x, y));
@@ -20926,6 +21026,7 @@ function bldDeleteLamp(x, y) {
   return true;
 }
 function bldDeleteTent(x, y) {
+  kitGive("tent");
   const t = (town.tents || []).find((q) => q.x === x && q.y === y);
   if (t) {
     town.tents = town.tents.filter((q) => q !== t);
@@ -20939,6 +21040,7 @@ function bldDeleteTent(x, y) {
   return true;
 }
 function bldDeleteFire(f) {
+  kitGive("campfire");
   town.fires = fireList().filter((q) => q !== f);
   if (f.home) town.fireGone = true;
   return true;
@@ -21273,6 +21375,7 @@ function lf2WorkPlan(n, tod) {
   if (n.job === "Labourer") return lf2LabourPlan(n, tod);
   const r = lf2Work(n);
   if (!r) return null;
+  if (n.job === "Carpenter") return carpPlan(n, r);
   if (J.recipe) {
     if (r.broken) {
       if (Math.random() < 0.3) lfShout(n, anyOf([`Who broke my ${r.broken.what}?!`, `I cannot work like this. The ${r.broken.what} is ruined.`]));
@@ -28764,6 +28867,99 @@ function itMillerLogs(n, r) {
     }
   } })]);
 }
+function carpWant(needs) {
+  if (!town || !kitOn()) return null;
+  const B = townBalance(), K = (k) => kitCount(k), placed = (k) => (town.props || []).filter((p) => p.kind === k && !p.fixed).length;
+  if (B.beds + K("bed") < B.bedsNeeded) return "bed";
+  if (K("bwall") < 12) return "bwall";
+  if (K("bdoor") < 2) return "bdoor";
+  if (B.privies + K("toilet") + placed("toilet") < B.priviesNeeded) return "toilet";
+  const top = (needs || islandNeeds() || []).find((q) => !q.hard && ["bakery", "smithy", "shop", "tavern", "church", "pews"].includes(q.id));
+  const need = { bakery: ["oven", "counter"], smithy: ["forge", "anvil"], shop: ["counter", "shelf"], tavern: ["counter", "table", "chair", "chair"], church: ["altar", "pew", "pew"], pews: ["pew"] };
+  if (top) {
+    const want = need[top.id] || [], have = {};
+    for (const k of want) {
+      have[k] = (have[k] || 0) + 1;
+      if (K(k) + placed(k) < have[k]) return k;
+    }
+  }
+  return null;
+}
+function carpPlan(n, r) {
+  const s = lf2Stock(r), sp = lf2Spot(r, "work") || lf2Spot(r, "front");
+  if (!sp) return null;
+  const kind = carpWant();
+  if (!kind) return lf2GoWork(r, "work", "Sharpening the tools", 30, "stand");
+  const R = KIT_RECIPE[kind];
+  if (!R) return null;
+  if ((R.wood || 0) > (s.wood || 0) || (R.stone || 0) > (s.stone || 0)) return lf2GoWork(r, "work", `Waiting for ${(R.wood || 0) > (s.wood || 0) ? "wood" : "stone"} for ${itBuildName(kind).toLowerCase()}`, 25, "stand");
+  return lf2GoWork(r, "work", `Making ${itBuildName(kind).toLowerCase()}`, 38, "work", { tool: "hammer", onEnd(nn) {
+    if ((R.wood || 0) > (s.wood || 0) || (R.stone || 0) > (s.stone || 0)) return;
+    s.wood = (s.wood || 0) - (R.wood || 0);
+    s.stone = (s.stone || 0) - (R.stone || 0);
+    kitGive(kind, R.q);
+    const pl = game.player;
+    chron(`The carpenter finished ${R.q > 1 ? R.q + " " : "a "}${itBuildName(kind).toLowerCase()}${R.q > 1 ? "s" : ""}: it is in your kit.`, "build");
+    if (pl && pl.player) playerSay(pl, "The carpenter made " + (R.q > 1 ? R.q + " " : "a ") + itBuildName(kind).toLowerCase() + (R.q > 1 ? "s" : "") + " for you.");
+  } });
+}
+function wcPlan(n) {
+  const ws = lf2Room("workshop");
+  if (!ws) return null;
+  const sp = lf2Spot(ws, "front") || lf2Spot(ws, "work");
+  if (!sp) return null;
+  town.treeClaim = town.treeClaim || /* @__PURE__ */ new Set();
+  let best = null, bd = 1e9;
+  const cx = ws.x + ws.w / 2, cy = ws.y + ws.h / 2;
+  for (let y = Math.max(2, Math.floor(cy - 30)); y < Math.min(H - 2, cy + 30); y++) for (let x = Math.max(2, Math.floor(cx - 30)); x < Math.min(W - 2, cx + 30); x++) {
+    if (grid[y][x] !== T.TREE || town.treeClaim.has(y * W + x)) continue;
+    const d = Math.abs(x - n.tx) + Math.abs(y - n.ty);
+    if (d >= bd) continue;
+    for (const [dx, dy] of DIRS) {
+      const sx = x + dx, sy = y + dy;
+      if (walkable(sx, sy) && reach[sy * W + sx] && roomAt[sy][sx] < 0 && !lfPropAt(sx, sy)) {
+        best = { x, y, stand: { x: sx, y: sy, face: { dx: -dx, dy: -dy } } };
+        bd = d;
+        break;
+      }
+    }
+  }
+  if (!best) return null;
+  const k = best.y * W + best.x;
+  town.treeClaim.add(k);
+  return [
+    goS(best.stand, "Heading for a tree"),
+    waitS(10, "work", "Felling a tree for the carpenter", { tool: "axe", onEnd(nn) {
+      town.treeClaim.delete(k);
+      if (grid[best.y][best.x] === T.TREE) {
+        workFx("fall", best.x, best.y, nn);
+        setT(best.x, best.y, T.GRASS);
+        markDirty(best.x, best.y, 1, 1);
+        nn.inv.wood = (nn.inv.wood || 0) + 1;
+        town.treeDirty = true;
+        town.treeCache = null;
+      }
+    } }),
+    goS(sp, "Taking the wood to the workshop"),
+    waitS(1, "stand", "Stacking the wood", { nopie: true, onEnd(nn) {
+      const s = lf2Stock(ws);
+      s.wood = (s.wood || 0) + (nn.inv.wood || 0);
+      nn.inv.wood = 0;
+    } })
+  ];
+}
+function carpArrive(n) {
+  town.tut = town.tut || { harvests: 0 };
+  town.tut.carpenter = true;
+  n.lf2Want = "Carpenter";
+  n.back = "was a ship's carpenter until the ship went down";
+  kitGive("bench");
+  lfShout(n, anyOf(["I carried my bench ashore. Give me a room with a shelf and I will make you walls and beds.", "Carpenter. I saved my bench from the wreck: put it in a room with a shelf."]));
+  const pl = game.player;
+  if (pl && pl.player) playerSay(pl, n.first + " the carpenter brought a carpentry table. It is in your kit.");
+}
+LF2_JOBS.Carpenter = { name: "Carpenter", room: "workshop", spot: "work", fit: ["handy"], wage: 0 };
+LF2_JOBORDER.push("Carpenter");
 function setTab(t) {
   state.tab = t;
   document.querySelectorAll("[data-tab]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.tab === t ? "true" : "false"));
@@ -29411,6 +29607,7 @@ function isleRestore(text) {
   if (typeof clearTentTiles === "function") clearTentTiles();
   if (typeof clearOrphanOvens === "function") clearOrphanOvens();
   if (!town.shrooms && typeof shroomScatter === "function") shroomScatter();
+  if (typeof kitStart === "function") kitStart();
   rebuildOcc();
   refreshReach();
   refreshShore();

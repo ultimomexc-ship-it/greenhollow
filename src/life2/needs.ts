@@ -38,6 +38,12 @@ function islandNeeds(): { id: string; title: string; say: string; how: string; w
   if (pop >= 5 && !has('shop')) add('shop', 'A shop', 'Somewhere to trade would help.', 'Build a room with a counter and a shelf in it.', adults);
   if (pop >= 6 && !town.church) add('church', 'A chapel', 'We have nowhere to pray, to marry or to bury our dead.', 'Build a room with an altar and two pews.', adults);
   else if (town.church && (town.church.pews || []).length < Math.ceil(pop / 2)) add('pews', 'More pews', `${(town.church.pews || []).length} pews for ${pop} people. We want ${Math.ceil(pop / 2)}.`, 'Add pews to the chapel.', adults);
+  if (kitOn() && !alone) { const ins2 = (id, title, say, how, who: any[]) => { const idx = out.findIndex(z => !z.hard); out.splice(idx < 0 ? out.length : idx, 0, { id, title, say, how, hard: false, who: who.map(n => n.player ? 'you' : n.first) }); };
+    const ws = has('workshop'), carp = !!(town.tut && town.tut.carpenter);
+    if (B.harvests && !carp) ins2('carpenter', 'A carpenter', 'We could use somebody who works wood: walls, beds and chairs, so we do not run out.', 'A carpenter comes ashore once there is a free bed (and no hard request is open).', adults);
+    else if (carp && !ws) ins2('workshop', 'A workshop', 'Put my carpentry table and a shelf in a room, and I can start work.', 'Build a room (the kit has a table and a shelf), then place the carpentry table and the shelf in it.', adults.filter(n => n.lf2Want === 'Carpenter'));
+    else if (ws && carpWant(out)) { const s = lf2Stock(lf2Room('workshop')), want = carpWant(out), R = KIT_RECIPE[want]; if (R && ((R.wood || 0) > (s.wood || 0) || (R.stone || 0) > (s.stone || 0))) ins2('wood', (R.stone || 0) > (s.stone || 0) ? 'Stone for the carpenter' : 'Wood for the carpenter', `I am making ${itBuildName(want).toLowerCase()}, and I need ${R.wood ? R.wood + ' wood' : ''}${R.wood && R.stone ? ' and ' : ''}${R.stone ? R.stone + ' stone' : ''}. The workshop has ${s.wood || 0} wood and ${s.stone || 0} stone.`, 'Fell trees (walk into them) or break rocks (hammer) and walk into the carpenter\'s table to hand it in. Villagers help with wood.', adults.filter(n => n.job === 'Carpenter')); }
+  }
   return out;
 }
 /** new visitors wait while a hard request (a bed, a privy, food) is open; the first bed is the exception: a free bed is what brings a visitor */

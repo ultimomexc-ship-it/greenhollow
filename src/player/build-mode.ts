@@ -32,18 +32,19 @@ const itBuildName = (k: string) => { const it = YARD_ITEMS.find(q => q.kind === 
 /** a block (or a bed, a privy seat) that has just been put down is looked at like a pushed one: it may close a room */
 function bldQueue(p: any) { (town.bldQ = town.bldQ || []).push([p.x, p.y]); }
 function bldPlaceFront(n, kind: string) {
+  if (!kitHas(kind)) { kitOut(n, kind); return null; }
   if (town.props.length >= BUILD_CAP) { playerSay(n, 'The island is full of loose things. Smash some first.'); return null; }
   const f = lf2Front(n), cand: [number, number, number][] = [];
   const ok = (x, y) => x >= 3 && y >= 3 && x < W - 3 && y < H - 3 && walkable(x, y) && !lfPropAt(x, y) && !tileOwner.get(y * W + x) && !(x === n.tx && y === n.ty) && !town.siteAt[y * W + x] && ![T.DOOR, T.PLOT, T.TENT, T.PEW].includes(grid[y][x]);
   { /* the tile in front is taken by a loose thing: the new one goes on the next tile in front, so a row of them can be pushed along together */
     const dx = Math.sign(f.x - n.tx), dy = Math.sign(f.y - n.ty);
-    if ((dx || dy) && lfPropAt(f.x, f.y)) { let x = f.x, y = f.y; for (let i = 0; i < 400 && lfPropAt(x, y); i++) { x += dx; y += dy; } if (ok(x, y)) { const p: any = lfAddProp(kind, x, y); p.v = Math.floor(Math.random() * 5); p.rot = 0; bldQueue(p); playerSay(n, 'A ' + (LF_NOUN[kind] || kind) + '.'); return p; } }
+    if ((dx || dy) && lfPropAt(f.x, f.y)) { let x = f.x, y = f.y; for (let i = 0; i < 400 && lfPropAt(x, y); i++) { x += dx; y += dy; } if (ok(x, y)) { const p: any = lfAddProp(kind, x, y); p.v = Math.floor(Math.random() * 5); p.rot = 0; bldQueue(p); kitTake(kind); playerSay(n, 'A ' + (LF_NOUN[kind] || kind) + '.'); return p; } }
   }
   for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const x = f.x + dx, y = f.y + dy; if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) continue; cand.push([Math.abs(dx) + Math.abs(dy) * 1.01, x, y]); }
   cand.sort((a, b) => a[0] - b[0]);
   for (const [, x, y] of cand) {
     if (!walkable(x, y) || lfPropAt(x, y) || tileOwner.get(y * W + x) || (x === n.tx && y === n.ty) || town.siteAt[y * W + x]) continue; const g = grid[y][x]; if (g === T.DOOR || g === T.PLOT || g === T.TENT || g === T.PEW) continue;
-    const p: any = lfAddProp(kind, x, y); p.v = Math.floor(Math.random() * 5); p.rot = 0; bldQueue(p); playerSay(n, 'A ' + (LF_NOUN[kind] || kind) + '.'); return p;
+    const p: any = lfAddProp(kind, x, y); p.v = Math.floor(Math.random() * 5); p.rot = 0; bldQueue(p); kitTake(kind); playerSay(n, 'A ' + (LF_NOUN[kind] || kind) + '.'); return p;
   }
   playerSay(n, 'No room here.'); return null;
 }
@@ -67,12 +68,12 @@ const IT_ROTATE_SVG = '<path d="M28 18a10 10 0 1 1-4-8" fill="none" stroke="#a8e
 function itBuildBarHTML(n, face: string) {
   const b = itBuildState(n);
   const tool = (i: number, svg: string, name: string, on: boolean) => `<button type="button" class="hbslot${on ? ' on' : ''}" data-bslot="${i}" title="${name}"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${svg}</svg><span class="hbcap">${name}</span></button>`;
-  const slots = b.bar.map((k, j) => `<button type="button" class="hbslot item${k && k === b.brush ? ' on' : ''}" data-bslot="${j + 3}" title="${k ? esc(itBuildName(k)) : 'Empty: drag one here in the build menu (I)'}"><em>${(j + 4) % 10}</em>${k ? itBuildIcon(k) : ''}${k ? '<u>∞</u>' : ''}<span class="hbcap">${k ? esc(itBuildName(k)) : ''}</span></button>`).join('');
+  const slots = b.bar.map((k, j) => `<button type="button" class="hbslot item${k && k === b.brush ? ' on' : ''}" data-bslot="${j + 3}" title="${k ? esc(itBuildName(k)) : 'Empty: drag one here in the build menu (I)'}"><em>${(j + 4) % 10}</em>${k ? itBuildIcon(k) : ''}${k ? '<u>' + kitLabel(k) + '</u>' : ''}<span class="hbcap">${k ? esc(itBuildName(k)) : ''}</span></button>`).join('');
   return `<div class="hbbadge" title="Build mode (B)"><b>BUILD</b><span>B to leave</span></div><div class="hbslots">${tool(0, IT_SVG.push, 'Push', b.sel === 0)}${tool(1, IT_SVG.hammer, 'Destroy', b.sel === 1)}${tool(2, IT_ROTATE_SVG, 'Turn', b.sel === 2)}<i class="hbsep"></i>${slots}</div><div class="hbface">${face || '<span class="dim">Walk to push · 2 destroy · 3 turn · 4-0 put an item down · I menu</span>'}</div>`;
 }
 function itBuildBagHTML(n) {
   const b = itBuildState(n), sel = (n as any)._bpick || '';
-  const items = YARD_ITEMS.map(it => `<button type="button" class="bgcell bi${sel === it.kind ? ' worn' : ''}" draggable="true" data-bkind="${it.kind}" title="Drag onto a build slot">${itBuildIcon(it.kind, 34)}<span class="bgname">${esc(it.name)}</span></button>`).join('');
+  const items = YARD_ITEMS.map(it => `<button type="button" class="bgcell bi${sel === it.kind ? ' worn' : ''}" draggable="true" data-bkind="${it.kind}" title="Drag onto a build slot">${itBuildIcon(it.kind, 34)}<span class="bgname">${esc(it.name)} · ${kitLabel(it.kind)}</span></button>`).join('');
   const slots = b.bar.map((k, j) => `<button type="button" class="hbslot big item" data-bdrop="${j}" title="Build slot ${(j + 4) % 10}"><em>${(j + 4) % 10}</em>${k ? itBuildIcon(k, 38) : ''}</button>`).join('');
   return `<div class="bglab">Build menu · drag an item onto a build slot (or click an item, then a slot)</div><div class="bgbuild">${items}</div><div class="bglab">Build hotbar · slots 4-0 (1 pushes, 2 destroys, 3 turns things) · click a slot while an item is picked to fill it, right-click to empty it</div><div class="bgbelt">${slots}</div>`;
 }
@@ -98,6 +99,6 @@ function fireList(): any[] { if (!town.fires) town.fires = town.yard && !town.fi
 const allLamps = (): any[] => (lamps as any[]).concat((town.props || []).filter(p => p.kind === 'lamp'));
 const allFires = (): any[] => fireList().concat((town.props || []).filter(p => p.kind === 'campfire'));
 function bldGroundUnder(x: number, y: number) { for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (grid[y + dy] && grid[y + dy][x + dx] === T.PATH) return T.PATH; return T.GRASS; }
-function bldDeleteLamp(x: number, y: number) { const i = lamps.findIndex(l => l.x === x && l.y === y); if (i >= 0) lamps.splice(i, 1); if (grid[y][x] === T.LAMP) setT(x, y, bldGroundUnder(x, y)); markDirty(x, y, 1, 1); town.gridV = (town.gridV || 0) + 1; if (typeof refreshReach === 'function') refreshReach(); return true; }
-function bldDeleteTent(x: number, y: number) { const t = (town.tents || []).find(q => q.x === x && q.y === y); if (t) { town.tents = town.tents.filter(q => q !== t); if (t.owner) { t.owner.tent = null; } } if (grid[y][x] === T.TENT) setT(x, y, (t && t.under) || T.GRASS); markDirty(x, y, 1, 1); town.gridV = (town.gridV || 0) + 1; return true; }
-function bldDeleteFire(f: any) { town.fires = fireList().filter(q => q !== f); if (f.home) town.fireGone = true; return true; }
+function bldDeleteLamp(x: number, y: number) { kitGive('lamp'); const i = lamps.findIndex(l => l.x === x && l.y === y); if (i >= 0) lamps.splice(i, 1); if (grid[y][x] === T.LAMP) setT(x, y, bldGroundUnder(x, y)); markDirty(x, y, 1, 1); town.gridV = (town.gridV || 0) + 1; if (typeof refreshReach === 'function') refreshReach(); return true; }
+function bldDeleteTent(x: number, y: number) { kitGive('tent'); const t = (town.tents || []).find(q => q.x === x && q.y === y); if (t) { town.tents = town.tents.filter(q => q !== t); if (t.owner) { t.owner.tent = null; } } if (grid[y][x] === T.TENT) setT(x, y, (t && t.under) || T.GRASS); markDirty(x, y, 1, 1); town.gridV = (town.gridV || 0) + 1; return true; }
+function bldDeleteFire(f: any) { kitGive('campfire'); town.fires = fireList().filter(q => q !== f); if (f.home) town.fireGone = true; return true; }

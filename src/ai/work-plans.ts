@@ -135,6 +135,7 @@ function pickAgenda(n) {
   if (shoreTiles.length && fishAvail()) sc.Fisher = 5 + need * 20;
   if (farmWork()) sc.Farmer = 5 + need * 18;
   if (town.nodes.some(x => x.amt >= 1 && reach[x.y * W + x.x])) sc.Gatherer = 5 + need * 16;
+  if (town.scenario === 'blank' && typeof lf2Room === 'function') { const ws = lf2Room('workshop'); if (ws && !n.player && (lf2Stock(ws).wood || 0) < 14 && ((cnt as any).Woodcutter || 0) < Math.max(1, Math.floor(npcs.length / 3)) && typeof carpWant === 'function' && carpWant()) sc.Woodcutter = 22; }   // (everybody helps with the wood the carpenter needs)
   { const foodOK = fd >= 3.0;
     if (foodOK) { if (sc.Fisher) sc.Fisher = 3; if (sc.Gatherer) sc.Gatherer = 3;
       const pw = town.crops.some(c => !c.claim && (!c.pl || (!c.st && c.pl && fieldPlowed(c))));
@@ -164,7 +165,7 @@ function workPlan(n, tod) {
     if (load >= thr || ((load > 0 || mats > 0) && left < 200)) { if (game.time >= n.sellCool || (n.inv.wood || 0) + (n.inv.stone || 0) > 0) { const hp = haulPlan(n); if (hp && hp.length) return hp; } }
     if (r === 'Farmer') return farmPlan(n) || (n.curUntil = 0, null);
     if (r === 'Fisher') return fishPlan(n) || (n.curUntil = 0, null);
-    if (r === 'Woodcutter') return woodPlan(n) || (n.curUntil = 0, null);
+    if (r === 'Woodcutter') return (town.scenario === 'blank' && typeof wcPlan === 'function' ? wcPlan(n) : woodPlan(n)) || (n.curUntil = 0, null);
     if (r === 'Stonecutter') return stonePlan(n) || (n.curUntil = 0, null);
     if (r === 'Gatherer') return gatherPlan(n) || (n.curUntil = 0, null);
   }

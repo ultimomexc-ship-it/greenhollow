@@ -165,6 +165,7 @@ function lf2WorkPlan(n, tod) {
   if (n.job === 'Builder') return lf2BuilderPlan(n, tod);
   if (n.job === 'Labourer') return lf2LabourPlan(n, tod);
   const r = lf2Work(n); if (!r) return null;
+  if (n.job === 'Carpenter') return carpPlan(n, r);
   if (J.recipe) {
     if (r.broken) { if (Math.random() < 0.3) lfShout(n, anyOf([`Who broke my ${r.broken.what}?!`, `I cannot work like this. The ${r.broken.what} is ruined.`])); return lf2GoWork(r, J.spot, `Waiting for someone to mend the ${r.broken.what}`, 25, 'stand'); }
     const s = lf2Stock(r), R = J.recipe, out = Object.keys(R.out)[0];

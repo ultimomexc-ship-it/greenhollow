@@ -3,13 +3,14 @@
    The room gets the kind, the name and the standing spots the village's jobs expect (see life2/town.ts), and the job is offered to whoever is free. */
 
 const FN_DEFS: { fn: string; name: string; need: Record<string, number>; what: string }[] = [
+  { fn: 'workshop', name: 'The Workshop', need: { bench: 1, shelf: 1 }, what: 'walls, beds and furniture made from wood' },
   { fn: 'church', name: 'The Chapel', need: { altar: 1, pew: 2 }, what: 'a place to pray, wed and bury' },
   { fn: 'tavern', name: 'The Tavern', need: { counter: 1, table: 1, chair: 2 }, what: 'somewhere to meet and drink' },
   { fn: 'bakery', name: 'The Bakery', need: { oven: 1, counter: 1 }, what: 'bread from the grain' },
   { fn: 'smithy', name: 'The Smithy', need: { forge: 1, anvil: 1 }, what: 'tools and mending' },
   { fn: 'shop', name: 'The Taberna', need: { counter: 1, shelf: 1 }, what: 'a shop' },
 ];
-const FN_JOB: Record<string, string> = { bakery: 'Baker', smithy: 'Smith', shop: 'Shopkeeper' };
+const FN_JOB: Record<string, string> = { bakery: 'Baker', smithy: 'Smith', shop: 'Shopkeeper', workshop: 'Carpenter' };
 
 function fnProps(r: any) { const o: Record<string, any[]> = {}; for (const p of town.props || []) if (!p.fixed && r.cells.has(p.x + p.y * W)) (o[p.kind] = o[p.kind] || []).push(p); return o; }
 function fnStand(pr: any, r: any, taken: Set<number>) {
@@ -27,6 +28,7 @@ function fnSpots(r: any, fn: string) {
   if (fn === 'bakery') { sp.oven = first('oven') && fnStand(first('oven'), r, taken); sp.front = first('counter') && fnStand(first('counter'), r, taken); }
   else if (fn === 'smithy') { sp.work = first('anvil') && fnStand(first('anvil'), r, taken); sp.front = (first('forge') && fnStand(first('forge'), r, taken)) || fnFreeCell(r, taken); }
   else if (fn === 'shop') { sp.counter = first('counter') && fnStand(first('counter'), r, taken); sp.front = (first('counter') && fnStand(first('counter'), r, taken)) || fnFreeCell(r, taken); if (first('loom')) { sp.loom = fnStand(first('loom'), r, taken); sp.loomFront = fnFreeCell(r, taken, first('loom')); } }
+  else if (fn === 'workshop') { sp.work = first('bench') && fnStand(first('bench'), r, taken); sp.front = (first('shelf') && fnStand(first('shelf'), r, taken)) || fnFreeCell(r, taken); }
   else if (fn === 'tavern') {
     sp.bar = first('counter') && fnStand(first('counter'), r, taken); sp.barFront = (first('counter') && fnStand(first('counter'), r, taken)) || fnFreeCell(r, taken); sp.stage = fnFreeCell(r, taken);
     for (const c of P.chair || []) { const t = (P.table || []).find(q => Math.abs(q.x - c.x) + Math.abs(q.y - c.y) === 1); r.seats.push({ x: c.x, y: c.y, sit: true, face: t ? { dx: t.x - c.x, dy: t.y - c.y } : { dx: 0, dy: 1 }, prop: c }); }

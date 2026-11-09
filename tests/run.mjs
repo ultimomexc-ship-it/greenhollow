@@ -1411,6 +1411,37 @@ test('signs, guides and the request on screen: a sign beside each door says who 
   return 'sign says "' + r.said + '"; unfinished: ' + r.unfinished;
 });
 
+test('materials: a blank island starts with a kit, placing uses it, taking things down gives it back, and the carpenter makes more from wood', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const a = await page.evaluate(() => {
+    newTown('kit-test', 'blank'); if (!town.props) lfInitProps(); town.bldQ = town.bldQ || []; startPlaying(npcs[0]); const P = game.player; itBuildToggle(P, true);
+    const k0 = kitCount('bwall'), p1 = bldPlaceFront(P, 'bwall'), k1 = kitCount('bwall'); bldDeleteProp(p1); const k2 = kitCount('bwall');
+    town.kit.bwall = 0; const none = bldPlaceFront(P, 'bwall'); const msg = P.player.msg;
+    town.kit.bed = 1; const bed = bldPlaceFront(P, 'bed'); const bedLeft = kitCount('bed'); const field = kitHas('field');
+    return { k0, k1, k2, none: none === null, msg, bedLeft, field, label: kitLabel('bwall') };
+  });
+  check(a.k0 === 40 && a.k1 === 39 && a.k2 === 40, 'placing uses one, taking down gives it back: ' + JSON.stringify(a));
+  check(a.none && /No wall left/i.test(a.msg || ''), 'out of blocks says so: ' + a.msg);
+  check(a.bedLeft === 0 && a.field && a.label === '0', 'counts follow: ' + JSON.stringify(a));
+  const r = await page.evaluate(() => {
+    const P = game.player; const cx = P.tx + 4, cy = P.ty - 8, n = 6; window.__c = [cx, cy];
+    for (let j = -3; j < 12; j++) for (let i = -4; i < 14; i++) { setT(cx + i, cy + j, T.GRASS); roomAt[cy + j][cx + i] = -1; const q = lfPropAt(cx + i, cy + j); if (q) { town.props = town.props.filter(z => z !== q); town.propAt.delete((cy + j) * W + cx + i); town.pblock[(cy + j) * W + cx + i] = 0; } }
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { if (!(i === 0 || j === 0 || i === n - 1 || j === n - 1)) continue; lfAddProp(i === 2 && j === n - 1 ? 'bdoor' : 'bwall', cx + i, cy + j); } lfAddProp('bed', cx + 1, cy + 1); lfAddProp('bed', cx + 3, cy + 1);
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { if (!(i === 0 || j === 0 || i === n - 1 || j === n - 1)) continue; lfAddProp(i === 2 && j === n - 1 ? 'bdoor' : 'bwall', cx + 7 + i, cy + j); } lfAddProp('bench', cx + 8, cy + 1); lfAddProp('shelf', cx + 10, cy + 1);
+    town.bldQ.push([cx, cy], [cx + 7, cy]); bldTick(); itBuildToggle(P, false);
+    visArrive(); const v = npcs.find(q => !q.player); carpArrive(v); const bench = kitCount('bench'); fnScan(); lf2AssignJobs(false);
+    town.kit.bwall = 0; const ws = lf2Room('workshop'); if (ws) lf2Stock(ws).wood = 8;
+    return { ws: !!ws, bench, job: v.job, want: carpWant() };
+  });
+  check(r.ws && r.bench === 1, 'the table and a shelf make a workshop: ' + JSON.stringify(r));
+  check(r.job === 'Carpenter', 'the carpenter takes the workshop job: ' + JSON.stringify(r));
+  await simulate(page, 2 * 1440);
+  const w = await page.evaluate(() => ({ walls: kitCount('bwall'), wood: lf2Stock(lf2Room('workshop')).wood }));
+  check(w.walls >= 4, 'the carpenter should have made walls from the wood and put them in the kit: ' + JSON.stringify(w));
+  check(!errors.length, errors.slice(0, 3).join(' | '));
+  return `kit 40 -> 39 -> 40; carpenter made walls (${w.walls}) from wood`;
+});
+
 const browser = await launch();
 let failed = 0;
 const chosen = tests.filter(t => t.name.includes(filter));

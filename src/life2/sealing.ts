@@ -156,7 +156,8 @@ function bldDissolve(list: any[]): [number, number][] {
     if (seen.has(k)) continue; seen.add(k); const x = k % W, y = (k / W) | 0, kind = town.bldWall.get(k); if (!kind) continue;
     const holder = live.find(q => BLD_D8.some(([dx, dy]) => q.cells.has(x + dx + (y + dy) * W)));
     if (holder) { if (roomAt[y][x] < 0 || (rooms[roomAt[y][x]] && rooms[roomAt[y][x]].dead)) roomAt[y][x] = rooms.indexOf(holder); if (grid[y][x] === T.DOOR) { const d = doors.find(q => q.x === x && q.y === y); if (d) d.room = rooms.indexOf(holder); else doors.push({ x, y, room: rooms.indexOf(holder), o: 0 }); } continue; }
-    doors = doors.filter(d => !(d.x === x && d.y === y)); setT(x, y, T.GRASS); roomAt[y][x] = -1; town.bldWall.delete(k); town.win.delete(k);
+    kitGive(town.bldWall.get(k) === 'bdoor' || grid[y][x] === T.DOOR ? 'bdoor' : (town.bldWall.get(k) || 'bwall'));   // (what you take down comes back to your kit)
+  doors = doors.filter(d => !(d.x === x && d.y === y)); setT(x, y, T.GRASS); roomAt[y][x] = -1; town.bldWall.delete(k); town.win.delete(k);
     if (!lfPropAt(x, y)) lfAddProp(kind, x, y); spots.push([x, y]);
   }
   return spots;
@@ -188,6 +189,7 @@ function bldHammerWall(x: number, y: number, hammer?: boolean) { const g = grid[
 /** the hammer deletes a loose thing (a block, crate, barrel, bed, chair, table or stool) outright */
 function bldDeleteProp(pr: any) {
   if (!pr || pr.fixed || !town.props.includes(pr)) return false;
+  kitGive(pr.kind);
   town.pblock[pr.y * W + pr.x] = 0; town.propAt.delete(pr.y * W + pr.x); town.props = town.props.filter(q => q !== pr); town.lfPV = (town.lfPV || 0) + 1;
   if (pr.rider) { pr.rider = null; }
   if (pr.fur) { const o = pr.fur.o; if (o) o.gone = true; }   // (a bed or chair that was pushed out of a house: the house's record is dropped too)
@@ -196,7 +198,7 @@ function bldDeleteProp(pr: any) {
 }
 /** the hammer deletes a piece of furniture standing in a house (a bed, chair, table or the family barrel): the tile goes back to bare floor and the room forgets it; the owner of a deleted bed has no bed any more */
 function bldDeleteFurniture(x: number, y: number) {
-  const f = typeof pushFurniture === 'function' ? pushFurniture(x, y) : null; if (!f) return false; const r = f.r, o = f.o;
+  const f = typeof pushFurniture === 'function' ? pushFurniture(x, y) : null; if (!f) return false; const r = f.r, o = f.o; kitGive(f.type === 'seat' ? 'chair' : f.type);
   if (f.type === 'bed') { r.beds = r.beds.filter(b => b !== o); for (const n of npcs) if (n.bed === o) { n.bed = { owner: null }; n.homeless = true; abortPlan(n); } }
   else if (f.type === 'seat') { r.seats = r.seats.filter(b => b !== o); for (const n of npcs) if (n.seat === o) n.seat = null; }
   else if (f.type === 'barrel') { o.out = true; o.gone = true; }
