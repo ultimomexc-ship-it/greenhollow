@@ -77,6 +77,11 @@ function lifeAct(n, p, fx, fy, dx, dy) {
     const r = lf2PushLine(n, fx, fy, dx, dy); if (r === true) return null;
     if (r) return { msg: r };
   }
+  if (pr && pr.kind === 'bed' && !itBuildOn(n) && n.bed === pr && pr.owner === n) {   // your own loose bed: a bump puts you to bed (a bed in a built hut)
+    if (typeof awakeFor === 'function' && awakeFor(n, game.time % 1440) < 180) return { msg: 'You have only just got up. Not tired yet.' };
+    return { key: 'rest', min: 4, text: 'Going to bed', tool: null, sleep: true };
+  }
+  if (pr && pr.kind === 'bed' && !itBuildOn(n)) return { msg: pr.owner && !pr.owner.dead ? (pr.owner === n ? 'Your bed.' : pr.owner.first + '\'s bed.') : 'A free bed. Somebody will take it.' };
   if (pr) {
     const label = LF_NOUN[pr.kind];
     const mode = IT_AUTO && !itBuildOn(n) ? (['crate', 'crate1', 'barrel', 'stool'].includes(pr.kind) ? 'search' : 'fixed') : itHand(n) ? itMode(n) : null;   // (auto: a bump searches a crate or barrel; the rest wait for build mode)

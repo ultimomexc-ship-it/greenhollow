@@ -114,7 +114,7 @@ function playerFinish(n, a) {
     if (a.tent) { if (n.tent && n.tent !== a.tent && n.tent.owner === n) n.tent.owner = null; a.tent.owner = n; n.tent = a.tent; n.tx = a.tent.x; n.ty = a.tent.y; n.x = n.tx; n.y = n.ty; }
     const tod = game.time % 1440; let dl = (n.wake - tod + 1440) % 1440; if (dl < 45) dl += 1440; p.wakeAt = game.time + dl; p.needRelease = true;
   }
-  if (a.sleep) { p.sleeping = true; n.pose = 'sleep'; n.tool = null; n.status = 'Sleeping'; if (a.key === 'rest' && n.bed && n.bed.x != null && grid[n.bed.y][n.bed.x] === T.BED) { n.tx = n.bed.x; n.ty = n.bed.y; n.x = n.tx; n.y = n.ty; } logStep(n, 'Went to sleep'); return; }
+  if (a.sleep) { p.sleeping = true; n.pose = 'sleep'; n.tool = null; n.status = 'Sleeping'; if (a.key === 'rest' && n.bed && n.bed.x != null && (grid[n.bed.y][n.bed.x] === T.BED || lfBedAt(n.bed.x, n.bed.y))) { n.tx = n.bed.x; n.ty = n.bed.y; n.x = n.tx; n.y = n.ty; } logStep(n, 'Went to sleep'); return; }
   a.run(n); logStep(n, a.text);
 }
 function tickPlayer(n, dt) {

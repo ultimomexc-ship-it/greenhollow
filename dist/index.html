@@ -14021,7 +14021,7 @@ function playerFinish(n, a) {
     n.pose = "sleep";
     n.tool = null;
     n.status = "Sleeping";
-    if (a.key === "rest" && n.bed && n.bed.x != null && grid[n.bed.y][n.bed.x] === T.BED) {
+    if (a.key === "rest" && n.bed && n.bed.x != null && (grid[n.bed.y][n.bed.x] === T.BED || lfBedAt(n.bed.x, n.bed.y))) {
       n.tx = n.bed.x;
       n.ty = n.bed.y;
       n.x = n.tx;
@@ -17876,6 +17876,11 @@ function lifeAct(n, p, fx, fy, dx, dy) {
     if (r === true) return null;
     if (r) return { msg: r };
   }
+  if (pr && pr.kind === "bed" && !itBuildOn(n) && n.bed === pr && pr.owner === n) {
+    if (typeof awakeFor === "function" && awakeFor(n, game.time % 1440) < 180) return { msg: "You have only just got up. Not tired yet." };
+    return { key: "rest", min: 4, text: "Going to bed", tool: null, sleep: true };
+  }
+  if (pr && pr.kind === "bed" && !itBuildOn(n)) return { msg: pr.owner && !pr.owner.dead ? pr.owner === n ? "Your bed." : pr.owner.first + "'s bed." : "A free bed. Somebody will take it." };
   if (pr) {
     const label = LF_NOUN[pr.kind];
     const mode = IT_AUTO && !itBuildOn(n) ? ["crate", "crate1", "barrel", "stool"].includes(pr.kind) ? "search" : "fixed" : itHand(n) ? itMode(n) : null;

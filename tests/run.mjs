@@ -1279,6 +1279,26 @@ test('debug (build mode): hovering a bed says whose it is and where, hovering a 
   return 'bed owner and villager needs are shown in build mode';
 });
 
+test('beds: bumping into your own bed in a built hut puts you to bed', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await page.evaluate(() => {
+    newTown('sleep-test', 'blank'); if (!town.props) lfInitProps(); town.bldQ = town.bldQ || []; startPlaying(npcs[0]); const P = game.player; itBuildToggle(P, true);
+    const cx = P.tx + 4, cy = P.ty - 8, n = 6; window.__c = [cx, cy];
+    for (let j = -3; j < 12; j++) for (let i = -4; i < 12; i++) { setT(cx + i, cy + j, T.GRASS); roomAt[cy + j][cx + i] = -1; const q = lfPropAt(cx + i, cy + j); if (q) { town.props = town.props.filter(z => z !== q); town.propAt.delete((cy + j) * W + cx + i); town.pblock[(cy + j) * W + cx + i] = 0; } }
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { if (!(i === 0 || j === 0 || i === n - 1 || j === n - 1)) continue; lfAddProp(i === 2 && j === n - 1 ? 'bdoor' : 'bwall', cx + i, cy + j); }
+    lfAddProp('bed', cx + 2, cy + 2); lfAddProp('bed', cx + 4, cy + 2); town.bldQ.push([cx, cy]); bldTick(); itBuildToggle(P, false);
+  });
+  await simulate(page, 6 * 60);   // awake long enough to be tired
+  const r = await page.evaluate(() => {
+    const P = game.player, [cx, cy] = window.__c; P.tx = P.x = cx + 2; P.ty = P.y = cy + 3; P.face = { dx: 0, dy: -1 }; rebuildOcc();
+    const t = lifeAct(P, P.player, cx + 2, cy + 2, 0, -1); if (!t || !t.sleep) return { t: t && (t.key || t.msg) };
+    playerFinish(P, t); return { t: t.key, sleeping: !!P.player.sleeping, onBed: P.tx === cx + 2 && P.ty === cy + 2, pose: P.pose };
+  });
+  check(r.t === 'rest' && r.sleeping && r.onBed && r.pose === 'sleep', 'a bump into your own bed should put you to bed: ' + JSON.stringify(r));
+  check(!errors.length, errors.slice(0, 2).join(' | '));
+  return 'you go to bed in your own bed';
+});
+
 const browser = await launch();
 let failed = 0;
 const chosen = tests.filter(t => t.name.includes(filter));
