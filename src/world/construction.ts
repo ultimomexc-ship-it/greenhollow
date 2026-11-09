@@ -6,8 +6,8 @@ function resetWorld() {
   roomAt = Array.from({ length: H }, () => Array(W).fill(-1));
   rooms = []; doors = []; lamps = [];
 }
-/** a loose bed is walked over, like the beds in a house (so its owner can get into it) */
-const lfBedAt = (x, y) => { const p = town.propAt && town.propAt.get(y * W + x); return !!p && p.kind === 'bed'; };
+/** a loose bed, chair or pew is walked over (and sat on), like the ones in a house (so its owner can get into it) */
+const lfBedAt = (x, y) => { const p = town.propAt && town.propAt.get(y * W + x); return !!p && (p.kind === 'bed' || p.kind === 'chair' || p.kind === 'pew'); };
 function walkable(x, y) { return x >= 0 && y >= 0 && x < W && y < H && !BLOCKED.has(grid[y][x]) && !(town && town.block && town.block[y * W + x]) && !(town && town.hgt && town.hgt[y * W + x] >= 0) && !(town && town.fmask && town.fmask[y * W + x]) && !(town && town.pblock && town.pblock[y * W + x] && !LF.seeThru && !lfBedAt(x, y)); }
 function tileCost(x, y) { return COST[grid[y][x]] || 1; }
 const vh = (x, y, s) => { let h = (x * 374761393 + y * 668265263 + s * 1442695041) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };

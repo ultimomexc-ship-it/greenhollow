@@ -1299,6 +1299,30 @@ test('beds: bumping into your own bed in a built hut puts you to bed', async b =
   return 'you go to bed in your own bed';
 });
 
+test('function rooms: furniture you place makes a room a bakery, smithy, tavern or chapel, workers take the jobs, and moving the furniture undoes it', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const out = await page.evaluate(() => {
+    newTown('fn-test', 'blank'); if (!town.props) lfInitProps(); town.bldQ = town.bldQ || []; startPlaying(npcs[0]); const P = game.player; itBuildToggle(P, true);
+    const cx = P.tx + 4, cy = P.ty - 8, n = 6;
+    for (let j = -3; j < 12; j++) for (let i = -4; i < 40; i++) { setT(cx + i, cy + j, T.GRASS); roomAt[cy + j][cx + i] = -1; const p = lfPropAt(cx + i, cy + j); if (p) { town.props = town.props.filter(q => q !== p); town.propAt.delete((cy + j) * W + cx + i); town.pblock[(cy + j) * W + cx + i] = 0; } }
+    const room = (ox, items) => { for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { if (!(i === 0 || j === 0 || i === n - 1 || j === n - 1)) continue; lfAddProp(i === 2 && j === n - 1 ? 'bdoor' : 'bwall', ox + i, cy + j); } for (const [k, x, y] of items) lfAddProp(k, ox + x, cy + y); town.bldQ.push([ox, cy]); };
+    room(cx, [['bed', 1, 1], ['bed', 3, 1], ['bed', 4, 1], ['bed', 1, 3]]); room(cx + 7, [['oven', 1, 1], ['counter', 3, 1]]); room(cx + 14, [['forge', 1, 1], ['anvil', 3, 1]]);
+    room(cx + 21, [['counter', 1, 1], ['table', 3, 3], ['chair', 2, 3], ['chair', 4, 3]]); room(cx + 28, [['altar', 2, 1], ['pew', 1, 3], ['pew', 3, 3]]);
+    bldTick(); itBuildToggle(P, false); for (let i = 0; i < 4; i++) visArrive();
+    window.__c = [cx, cy]; return { kinds: rooms.filter(r => r.free && !r.dead).map(r => r.kind).join(), church: !!town.church, tavern: !!town.tavern, needs: islandNeeds().map(x => x.id), html: needsHTML() };
+  });
+  check(out.kinds === 'house,bakery,smithy,tavern,church', 'rooms should take their purpose from the furniture: ' + out.kinds);
+  check(out.church && out.tavern, 'the chapel and the tavern should be registered');
+  check(/What the island needs/.test(out.html) && out.needs.length > 0, 'the needs list should say what is missing: ' + JSON.stringify(out.needs));
+  await simulate(page, 2 * 1440);
+  const r1 = await page.evaluate(() => ({ baker: npcs.some(n => n.job === 'Baker'), smith: npcs.some(n => n.job === 'Smith'), priest: npcs.some(n => n.role === 'Priest') }));
+  check(r1.baker && r1.smith, 'the bakery and the smithy should have taken on workers: ' + JSON.stringify(r1));
+  const r2 = await page.evaluate(() => { const [cx, cy] = window.__c, o = lfPropAt(cx + 8, cy + 1); bldDeleteProp(o); fnScan(); return { kind: rooms.filter(r => r.free && !r.dead)[1].kind }; });
+  check(r2.kind === 'room', 'smashing the oven should undo the bakery: ' + r2.kind);
+  check(!errors.length, errors.slice(0, 3).join(' | '));
+  return 'bakery, smithy, tavern and chapel made by furniture; workers hired; undone when the furniture goes';
+});
+
 const browser = await launch();
 let failed = 0;
 const chosen = tests.filter(t => t.name.includes(filter));

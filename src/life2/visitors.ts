@@ -25,7 +25,7 @@ function visToilet(r) {
 function visHomes() {
   if (!town || !rooms) return;
   for (const r of rooms) {
-    if (r.dead || !r.free || !r.cells) continue;
+    if (r.dead || !r.free || !r.cells || r.fn) continue;   // (a bakery, tavern, chapel ... is not a home)
     const inside = visBedProps().filter(p => r.cells.has(p.x + p.y * W));
     if (r.kind === 'room' && inside.length && r.doorX != null) { r.kind = 'house'; r.name = 'Hut'; r.pantry = r.pantry || {}; r.hut = true; if (!r.hearth) r.hearth = { none: true }; }   // (a hut has no kitchen: the village's "hearth in every house" would drop an oven tile in it, which stays behind as a blocked tile when the hut comes down)
     visToilet(r);
@@ -106,6 +106,7 @@ function visNeeds() {
     if (homeless) { once('bed', anyOf(["I've nowhere to sleep. Could you build a bed for me?", 'Is there a free bed? Any roof will do.', 'I could use a bed. Walls, a door, a bed inside.'])); continue; }
     if (!lfPrivies().length && n.bladder > 45) { once('privy', anyOf(["Is there a privy anywhere? I'm tired of the bushes.", 'We need a privy. A seat in a closed room would do.'])); continue; }
     if (n.hunger > 65 && food < 1) { once('food', anyOf(["I'm hungry and I've nothing to eat. Could we grow something?", 'There is no food. A field, a net, anything.'])); continue; }
+    { const nd = (typeof islandNeeds === 'function' ? islandNeeds() : []).find(q => !['bed', 'privy', 'field', 'food'].includes(q.id)); if (nd && game.time - (said['n:' + nd.id] || -1e9) > 720) { said['n:' + nd.id] = game.time; lfShout(n, nd.say); continue; } }
     if (n.energy < 25 && homeless) once('tired', 'I can hardly keep my eyes open.');
     else if (n.newcomer && game.time - (said.isle || -1e9) > 180) { said.isle = game.time; lfShout(n, pick(Math.random, VIS_ISLE)); }
   }

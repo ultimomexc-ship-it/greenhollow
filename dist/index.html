@@ -7824,7 +7824,7 @@ function resetWorld() {
 }
 const lfBedAt = (x, y) => {
   const p = town.propAt && town.propAt.get(y * W + x);
-  return !!p && p.kind === "bed";
+  return !!p && (p.kind === "bed" || p.kind === "chair" || p.kind === "pew");
 };
 function walkable(x, y) {
   return x >= 0 && y >= 0 && x < W && y < H && !BLOCKED.has(grid[y][x]) && !(town && town.block && town.block[y * W + x]) && !(town && town.hgt && town.hgt[y * W + x] >= 0) && !(town && town.fmask && town.fmask[y * W + x]) && !(town && town.pblock && town.pblock[y * W + x] && !LF.seeThru && !lfBedAt(x, y));
@@ -19009,6 +19009,8 @@ function bldDissolve(list) {
     r.hearth = null;
     r.toilet = null;
     r.beds = r.beds || [];
+    if (town.church === r) town.church = null;
+    if (town.tavern === r) town.tavern = null;
     markDirty(r.x - 1, r.y - 1, r.w + 2, r.h + 2);
   }
   const seen = /* @__PURE__ */ new Set();
@@ -19244,7 +19246,7 @@ function visToilet(r) {
 function visHomes() {
   if (!town || !rooms) return;
   for (const r of rooms) {
-    if (r.dead || !r.free || !r.cells) continue;
+    if (r.dead || !r.free || !r.cells || r.fn) continue;
     const inside = visBedProps().filter((p) => r.cells.has(p.x + p.y * W));
     if (r.kind === "room" && inside.length && r.doorX != null) {
       r.kind = "house";
@@ -19405,6 +19407,14 @@ function visNeeds() {
       once("food", anyOf(["I'm hungry and I've nothing to eat. Could we grow something?", "There is no food. A field, a net, anything."]));
       continue;
     }
+    {
+      const nd = (typeof islandNeeds === "function" ? islandNeeds() : []).find((q) => !["bed", "privy", "field", "food"].includes(q.id));
+      if (nd && game.time - (said["n:" + nd.id] || -1e9) > 720) {
+        said["n:" + nd.id] = game.time;
+        lfShout(n, nd.say);
+        continue;
+      }
+    }
     if (n.energy < 25 && homeless) once("tired", "I can hardly keep my eyes open.");
     else if (n.newcomer && game.time - (said.isle || -1e9) > 180) {
       said.isle = game.time;
@@ -19510,6 +19520,163 @@ function npcDebug(n) {
   if (n.social != null && n.social < 25) need.push("company");
   const pct = (v) => Math.round(v == null ? 0 : v) + "%";
   return `<b>${esc(n.first)}</b> \xB7 ${n.age} \xB7 ${esc(n.role || "")}${n.job ? " / " + esc(n.job) : ""}${n.player ? " (you)" : ""}<br>home: ${r ? esc(r.name || r.kind) : "<b>none</b>"} \xB7 bed: ${bed ? bed.x - (r ? r.x : 0) + ", " + (bed.y - (r ? r.y : 0)) + " (theirs)" : "<b>none</b>"}<br>hunger ${pct(n.hunger)} \xB7 bladder ${pct(n.bladder)} \xB7 energy ${pct(n.energy)} \xB7 company ${pct(n.social)}<br>doing: ${esc(n.status || n.pose || "")}<br><b>${need.length ? "needs next: " + need.join(", ") : "needs nothing right now"}</b>`;
+}
+const FN_DEFS = [
+  { fn: "church", name: "The Chapel", need: { altar: 1, pew: 2 }, what: "a place to pray, wed and bury" },
+  { fn: "tavern", name: "The Tavern", need: { counter: 1, table: 1, chair: 2 }, what: "somewhere to meet and drink" },
+  { fn: "bakery", name: "The Bakery", need: { oven: 1, counter: 1 }, what: "bread from the grain" },
+  { fn: "smithy", name: "The Smithy", need: { forge: 1, anvil: 1 }, what: "tools and mending" },
+  { fn: "shop", name: "The Taberna", need: { counter: 1, shelf: 1 }, what: "a shop" }
+];
+const FN_JOB = { bakery: "Baker", smithy: "Smith", shop: "Shopkeeper" };
+function fnProps(r) {
+  const o = {};
+  for (const p of town.props || []) if (!p.fixed && r.cells.has(p.x + p.y * W)) (o[p.kind] = o[p.kind] || []).push(p);
+  return o;
+}
+function fnStand(pr, r, taken) {
+  for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+    const x = pr.x + dx, y = pr.y + dy, k = x + y * W;
+    if (!r.cells.has(k) || taken.has(k) || lfPropAt(x, y) || !walkable(x, y)) continue;
+    taken.add(k);
+    return { x, y, face: { dx: -dx, dy: -dy } };
+  }
+  return null;
+}
+function fnFreeCell(r, taken, near) {
+  const c = [...r.cells].map((k) => ({ x: k % W, y: k / W | 0, k })).filter((q2) => !taken.has(q2.k) && !lfPropAt(q2.x, q2.y) && walkable(q2.x, q2.y));
+  const ref = near || { x: r.doorX, y: r.doorY };
+  c.sort((a, b) => Math.hypot(a.x - ref.x, a.y - ref.y) - Math.hypot(b.x - ref.x, b.y - ref.y));
+  const q = c[0];
+  if (!q) return null;
+  taken.add(q.k);
+  return { x: q.x, y: q.y, face: { dx: 0, dy: 1 } };
+}
+function fnSpots(r, fn) {
+  const P = fnProps(r), taken = /* @__PURE__ */ new Set(), sp = {};
+  r.seats = [];
+  r.pews = [];
+  const first = (k) => (P[k] || [])[0];
+  if (fn === "bakery") {
+    sp.oven = first("oven") && fnStand(first("oven"), r, taken);
+    sp.front = first("counter") && fnStand(first("counter"), r, taken);
+  } else if (fn === "smithy") {
+    sp.work = first("anvil") && fnStand(first("anvil"), r, taken);
+    sp.front = first("forge") && fnStand(first("forge"), r, taken) || fnFreeCell(r, taken);
+  } else if (fn === "shop") {
+    sp.counter = first("counter") && fnStand(first("counter"), r, taken);
+    sp.front = first("counter") && fnStand(first("counter"), r, taken) || fnFreeCell(r, taken);
+    if (first("loom")) {
+      sp.loom = fnStand(first("loom"), r, taken);
+      sp.loomFront = fnFreeCell(r, taken, first("loom"));
+    }
+  } else if (fn === "tavern") {
+    sp.bar = first("counter") && fnStand(first("counter"), r, taken);
+    sp.barFront = first("counter") && fnStand(first("counter"), r, taken) || fnFreeCell(r, taken);
+    sp.stage = fnFreeCell(r, taken);
+    for (const c of P.chair || []) {
+      const t = (P.table || []).find((q) => Math.abs(q.x - c.x) + Math.abs(q.y - c.y) === 1);
+      r.seats.push({ x: c.x, y: c.y, sit: true, face: t ? { dx: t.x - c.x, dy: t.y - c.y } : { dx: 0, dy: 1 }, prop: c });
+    }
+  } else if (fn === "church") {
+    sp.altar = first("altar") && fnStand(first("altar"), r, taken);
+    for (const c of P.pew || []) r.pews.push({ x: c.x, y: c.y, sit: true, pew: true, face: { dx: 0, dy: -1 }, prop: c });
+  }
+  for (const k of Object.keys(sp)) if (!sp[k]) delete sp[k];
+  r.spots = sp;
+}
+function fnMatch(r) {
+  const P = fnProps(r);
+  for (const d of FN_DEFS) if (Object.keys(d.need).every((k) => (P[k] || []).length >= d.need[k])) return d;
+  return null;
+}
+function fnConvert(r, d) {
+  if (r.hut) {
+    for (const b of r.beds || []) {
+      const o = b.owner;
+      if (o && o.bed === b) {
+        o.bed = { owner: null };
+        o.homeRoom = null;
+        o.homeless = true;
+      }
+      b.owner = null;
+    }
+    r.beds = [];
+    r.hut = false;
+  }
+  r.fn = d.fn;
+  r.kind = d.fn;
+  r.name = d.name;
+  r.hearth = { none: true };
+  r.pantry = r.pantry || {};
+  r.noWindows = true;
+  fnSpots(r, d.fn);
+  if (d.fn === "church") town.church = r;
+  if (d.fn === "tavern") town.tavern = r;
+  chron(`${d.name} is ready: ${d.what}.`, "build");
+  const pl = game.player;
+  if (pl && pl.player) playerSay(pl, d.name.replace("The ", "The ") + " is ready.");
+  if (d.fn === "church" && typeof ensurePriest === "function") ensurePriest();
+  if (FN_JOB[d.fn] && typeof lf2AssignJobs === "function") lf2AssignJobs(false);
+}
+function fnRevert(r) {
+  const was = r.name;
+  if (town.church === r) town.church = null;
+  if (town.tavern === r) town.tavern = null;
+  r.fn = null;
+  r.kind = "room";
+  r.name = "Room";
+  r.spots = {};
+  r.seats = [];
+  r.pews = [];
+  r.hearth = null;
+  for (const n of npcs) if (n.job && LF2_JOBS[n.job] && LF2_JOBS[n.job].room && !lf2Room(LF2_JOBS[n.job].room)) {
+    n.job = null;
+  }
+  chron(`${was} is no longer what it was: its furniture has been moved.`, "build");
+}
+function fnScan() {
+  if (!town || !rooms) return;
+  for (const r of rooms) {
+    if (r.dead || !r.free || !r.cells) continue;
+    const d = fnMatch(r);
+    if (d && r.fn !== d.fn) {
+      if (r.fn) fnRevert(r);
+      fnConvert(r, d);
+    } else if (d) fnSpots(r, d.fn);
+    else if (r.fn) fnRevert(r);
+  }
+}
+LF2.hourly.push(() => fnScan());
+function islandNeeds() {
+  const out = [];
+  if (!town) return out;
+  const people = npcs.filter((n) => !n.dead && !n.infant && n.age >= 3), adults = people.filter((n) => n.age >= 16), pop = people.length;
+  const names = (a) => a.slice(0, 3).map((n) => n.player ? "you" : n.first).join(", ") + (a.length > 3 ? " and " + (a.length - 3) + " more" : "");
+  const add = (id, title, say2, how, who) => out.push({ id, title, say: say2, how, who: who.map((n) => n.player ? "you" : n.first) });
+  const homeless = people.filter((n) => !(n.homeRoom && n.bed && n.bed.owner === n));
+  if (homeless.length) add("bed", "Beds", (homeless.length === 1 ? "I have nowhere to sleep." : `${homeless.length} of us have nowhere to sleep.`) + " A bed in a closed room would do.", "Build a hut: walls, a door that leads outside, and a bed inside. One bed each.", homeless);
+  const kids = people.filter((n) => n.age < 16 && !(n.bed && n.bed.owner === n) && n.homeRoom);
+  if (kids.length) add("kidbed", "Beds for the children", (kids.length === 1 ? "The child needs" : "The children need") + " a bed of their own.", "Put one more bed in the hut for each child.", kids);
+  const pr = typeof lfPrivies === "function" ? lfPrivies().length : 0;
+  if (!pr) add("privy", "A privy", `Is there a privy anywhere? We are tired of the bushes.`, "Build a closed room with a privy seat in it (build menu, I).", people.filter((n) => n.bladder > 30));
+  else if (pop > pr * 6) add("privy2", "Another privy", `One privy for ${pop} people is a queue.`, "Build a second room with a privy seat.", people.filter((n) => n.bladder > 50));
+  const plots = (town.crops || []).length, fd = typeof foodDaysNow === "function" ? foodDaysNow() : 3, hungry = people.filter((n) => n.hunger > 55);
+  if (!plots && pop > 1) add("field", "A field", "Berries and fish will not feed us for long. Somebody has to plough.", "Use the Field brush in build mode, then work it with the hoe and sow seed.", hungry);
+  else if (fd < 0.8 && pop > 1) add("food", "More food", `There's not much to eat. ${fd < 0.4 ? "We are going hungry." : "A bigger field would help."}`, "Mark more field plots, then plough and sow them.", hungry);
+  const has = (k) => !!(typeof lf2Room === "function" && lf2Room(k));
+  if (pop >= 3 && plots && !has("bakery")) add("bakery", "A bakery", "Grain keeps better as bread, and it goes further.", "Build a room with an oven and a counter in it.", adults);
+  if (pop >= 4 && !has("smithy")) add("smithy", "A smithy", "Our tools are wearing out and nobody can mend them.", "Build a room with a forge and an anvil in it.", adults.filter((n) => n.toolQ != null && n.toolQ < 40));
+  if (pop >= 5 && !has("shop")) add("shop", "A shop", "Somewhere to trade would help.", "Build a room with a counter and a shelf in it.", adults);
+  if (pop >= 5 && !town.tavern) add("tavern", "A tavern", "After work there is nowhere to sit and talk.", "Build a room with a counter, a table and two chairs.", people.filter((n) => n.social != null && n.social < 50));
+  if (pop >= 6 && !town.church) add("church", "A chapel", "We have nowhere to pray, to marry or to bury our dead.", "Build a room with an altar and two pews.", adults);
+  else if (town.church && (town.church.pews || []).length < Math.ceil(pop / 2)) add("pews", "More pews", "The chapel is too small for everybody who wants to sit.", "Add pews to the chapel.", adults);
+  return out;
+}
+function needsHTML() {
+  const n = islandNeeds();
+  if (!n.length) return '<h2>What the island needs</h2><p class="sub">Nothing pressing. People are getting by.</p>';
+  return '<h2>What the island needs</h2><ul class="plain needs">' + n.slice(0, 6).map((x) => `<li><b>${esc(x.title)}</b> <span class="dim">${x.who.length ? "\xB7 " + esc(x.who.slice(0, 3).join(", ")) : ""}</span><br>\u201C${esc(x.say)}\u201D<br><span class="dim">${esc(x.how)}</span></li>`).join("") + "</ul>";
 }
 const lf2PersonOK = (x, y) => {
   const g = grid[y] && grid[y][x];
@@ -20065,6 +20232,7 @@ function itBuildToggle(n, on) {
       n.sel = b.prev.sel;
       n.mode = b.prev.mode;
     }
+    if (typeof fnScan === "function") fnScan();
     if (typeof visHomes === "function") {
       visHomes();
       if (typeof housingTick === "function") housingTick();
@@ -27762,7 +27930,7 @@ function updateResBar() {
 }
 let resSig = "";
 function buildTown(force) {
-  const t = town, sig = npcs.length + "|" + t.dead.length + "|" + rooms.length + "|" + t.markets.length + "|" + t.sites.length + "|" + Math.floor(game.time / 1440);
+  const t = town, sig = npcs.length + "|" + t.dead.length + "|" + rooms.length + "|" + t.markets.length + "|" + t.sites.length + "|" + Math.floor(game.time / 1440) + "|" + Math.floor(game.time / 120) + "|" + rooms.filter((r) => r.fn).length;
   if (!force && sig === townSig) return;
   townSig = sig;
   const counts = {};
@@ -27774,7 +27942,7 @@ function buildTown(force) {
   const people = Object.entries(counts).map(([r, c]) => c + " " + plural(r, c)).join(", ");
   const houses = rooms.filter((r) => r.kind === "house" && !r.dead).length;
   const dead = t.dead.slice(-25).reverse().map((d) => "<li>" + esc(d.name) + ' <span class="dim">' + d.age + " \xB7 " + esc((d.label || d.role).toLowerCase()) + " \xB7 " + stamp(d.died) + "</span></li>").join("");
-  el("townPanel").innerHTML = "<h2>The town</h2><h3>" + esc(t.name) + '</h3><p class="sub">' + npcs.length + " villagers \xB7 " + houses + " homes \xB7 year " + yearOf(game.time) + '</p><p class="bio">' + esc(t.founding) + '</p><h2 class="gap">Population</h2>' + popChart() + '<dl class="kv" style="margin-top:8px"><dt>Born</dt><dd>' + t.births + "</dd><dt>Married</dt><dd>" + t.weddings + "</dd><dt>Died</dt><dd>" + t.deaths + '</dd></dl><h2 class="gap">Buildings</h2><dl class="kv"><dt>Church</dt><dd>' + (t.church ? "built" : "none") + "</dd><dt>Tavern</dt><dd>" + (t.tavern ? "built" : "none") + '</dd></dl><h2 class="gap">Greens and larders</h2><ul class="plain">' + t.markets.map((m) => "<li>" + esc(m.name) + ' <span class="dim">' + (m.stalls.some((s) => s.owner) ? m.stalls.filter((s) => s.owner).map((s) => esc(s.owner.first)).join(", ") : "no larder-keeper yet") + "</span></li>").join("") + '</ul><h2 class="gap">People</h2><p class="bio">' + esc(people) + '.</p><h2 class="gap">Churchyard</h2>' + (dead ? '<ul class="plain">' + dead + "</ul>" : '<p class="sub">No graves yet.</p>');
+  el("townPanel").innerHTML = (typeof needsHTML === "function" ? needsHTML() : "") + '<h2 class="gap">The town</h2><h3>' + esc(t.name) + '</h3><p class="sub">' + npcs.length + " villagers \xB7 " + houses + " homes \xB7 year " + yearOf(game.time) + '</p><p class="bio">' + esc(t.founding) + '</p><h2 class="gap">Population</h2>' + popChart() + '<dl class="kv" style="margin-top:8px"><dt>Born</dt><dd>' + t.births + "</dd><dt>Married</dt><dd>" + t.weddings + "</dd><dt>Died</dt><dd>" + t.deaths + '</dd></dl><h2 class="gap">Buildings</h2><dl class="kv"><dt>Church</dt><dd>' + (t.church ? "built" : "none") + "</dd><dt>Tavern</dt><dd>" + (t.tavern ? "built" : "none") + '</dd></dl><h2 class="gap">Greens and larders</h2><ul class="plain">' + t.markets.map((m) => "<li>" + esc(m.name) + ' <span class="dim">' + (m.stalls.some((s) => s.owner) ? m.stalls.filter((s) => s.owner).map((s) => esc(s.owner.first)).join(", ") : "no larder-keeper yet") + "</span></li>").join("") + '</ul><h2 class="gap">People</h2><p class="bio">' + esc(people) + '.</p><h2 class="gap">Churchyard</h2>' + (dead ? '<ul class="plain">' + dead + "</ul>" : '<p class="sub">No graves yet.</p>');
   el("townName").textContent = t.name;
   el("townSub").textContent = npcs.length + " villagers \xB7 " + houses + " homes";
 }

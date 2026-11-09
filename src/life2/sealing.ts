@@ -148,7 +148,7 @@ function bldDissolve(list: any[]): [number, number][] {
   for (const r of list) {
     const ri = rooms.indexOf(r);
     for (const k of r.cells) { const x = k % W, y = (k / W) | 0; if (roomAt[y][x] === ri && grid[y][x] !== T.WALL && grid[y][x] !== T.DOOR) { setT(x, y, town.bldWas.has(k) ? town.bldWas.get(k) : T.GRASS); town.bldWas.delete(k); roomAt[y][x] = -1; } }
-    r.hearth = null; r.toilet = null; r.beds = r.beds || [];
+    r.hearth = null; r.toilet = null; r.beds = r.beds || []; if (town.church === r) town.church = null; if (town.tavern === r) town.tavern = null;
     markDirty(r.x - 1, r.y - 1, r.w + 2, r.h + 2);
   }
   const seen = new Set<number>();

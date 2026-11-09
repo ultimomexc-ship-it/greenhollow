@@ -177,14 +177,14 @@ function updateResBar() {   // the status bar shows food only: nothing is waitin
 }
 let resSig = '';
 function buildTown(force) {
-  const t = town, sig = npcs.length + '|' + t.dead.length + '|' + rooms.length + '|' + t.markets.length + '|' + t.sites.length + '|' + Math.floor(game.time / 1440);
+  const t = town, sig = npcs.length + '|' + t.dead.length + '|' + rooms.length + '|' + t.markets.length + '|' + t.sites.length + '|' + Math.floor(game.time / 1440) + '|' + Math.floor(game.time / 120) + '|' + rooms.filter(r => r.fn).length;
   if (!force && sig === townSig) return; townSig = sig;
   const counts = {}; npcs.forEach(n => { const r = n.age < 16 ? 'Child' : n.role === 'Worker' ? (n.cur || 'Worker') : n.role; counts[r] = (counts[r] || 0) + 1; });
   const plural = (r, c) => c === 1 ? r.toLowerCase() : (r === 'Child' ? 'children' : r.toLowerCase() + 's');
   const people = Object.entries(counts).map(([r, c]) => c + ' ' + plural(r, c)).join(', ');
   const houses = rooms.filter(r => r.kind === 'house' && !r.dead).length;
   const dead = t.dead.slice(-25).reverse().map(d => '<li>' + esc(d.name) + ' <span class="dim">' + d.age + ' · ' + esc((d.label || d.role).toLowerCase()) + ' · ' + stamp(d.died) + '</span></li>').join('');
-  el('townPanel').innerHTML = '<h2>The town</h2><h3>' + esc(t.name) + '</h3><p class="sub">' + npcs.length + ' villagers · ' + houses + ' homes · year ' + yearOf(game.time) + '</p>' +
+  el('townPanel').innerHTML = (typeof needsHTML === 'function' ? needsHTML() : '') + '<h2 class="gap">The town</h2><h3>' + esc(t.name) + '</h3><p class="sub">' + npcs.length + ' villagers · ' + houses + ' homes · year ' + yearOf(game.time) + '</p>' +
     '<p class="bio">' + esc(t.founding) + '</p><h2 class="gap">Population</h2>' + popChart() +
     '<dl class="kv" style="margin-top:8px"><dt>Born</dt><dd>' + t.births + '</dd><dt>Married</dt><dd>' + t.weddings + '</dd><dt>Died</dt><dd>' + t.deaths + '</dd></dl>' +
     '<h2 class="gap">Buildings</h2><dl class="kv"><dt>Church</dt><dd>' + (t.church ? 'built' : 'none') + '</dd><dt>Tavern</dt><dd>' + (t.tavern ? 'built' : 'none') + '</dd></dl>' + '<h2 class="gap">Greens and larders</h2><ul class="plain">' + t.markets.map(m => '<li>' + esc(m.name) + ' <span class="dim">' + (m.stalls.some(s => s.owner) ? m.stalls.filter(s => s.owner).map(s => esc(s.owner.first)).join(', ') : 'no larder-keeper yet') + '</span></li>').join('') + '</ul>' +
