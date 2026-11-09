@@ -253,6 +253,6 @@ function blankStart() {
   for (const k of Object.keys(keep.fam || {})) keep.fam[k] = Array.isArray(keep.fam[k]) ? [] : null;
   keep.rel = {}; keep.know = {}; keep.aff = {}; keep.homeRoom = null; keep.bed = { owner: null }; keep.seat = null;
   town.tents = []; town.kit = Object.assign({}, KIT_START); clearTentTiles(); town.crops = []; town.fields = 0; town.chron = []; town.dead = [];
-  chron('You have reached the island alone, with a few tools. The camp ground is empty. Build a bed, then walls and a door, and see who comes.', 'note');
+  chron('You woke up on the island with a few tools, and no memory of arriving. You decide not to wonder about it. Build a bed, then walls and a door, and see who comes.', 'note');
 }
 function makeTownIndex2() { npcs.forEach(n => { town.byId.set(n.id, n); }); }

@@ -4,11 +4,12 @@
    Alone, you talk to yourself about what to build next (`visitorMutter`). */
 
 const VIS_FIRST_DAY = 1, VIS_GAP = [3, 5];   // days between arrivals (first one a day after the first bed)
-const VIS_BACK = [
-  'lost the farm to a bad harvest and the tax collector', 'was a fisher until the boat went down', 'ran from a quarrel in a town two valleys over', 'is a younger child with no land to inherit',
-  'was a shepherd whose flock was taken by wolves', 'walked here from a village the fever emptied', 'left a debt behind and a loaf in the pocket', 'heard there was an island with room',
-  'was a potter whose kiln burned', 'wants a place that has not been decided already',
-];
+/* the people who arrive do not know why they are here: an ordinary moment, then sand (put together at random, so no two are the same) */
+const VIS_ORD = ['was ironing a shirt', 'had just put the kettle on', 'was waiting for a bus that never came', 'was looking for a lost cat', 'was reading a timetable', 'was listening to the radio',
+  'was cutting an onion', 'was on the way to the post office', 'was in the bath', 'was counting change', 'was standing in a queue', 'was watering a plant', 'was folding the washing', 'was reaching for the light switch'];
+const VIS_ARR = ['and then there was sand', 'and then the floor was a beach', 'and then somebody turned the light off and the sea was there', 'and then, without any door, here', 'and then it was afternoon, somewhere else', 'and then the wind smelled of salt',
+  'and then the street simply ended', 'and then there were gulls'];
+
 const VIS_HOME_KINDS = ['house'];
 
 function visBedProps() { return (town.props || []).filter(p => p.kind === 'bed'); }
@@ -54,14 +55,14 @@ function visArrive() {
   for (const n of grp) {
     n.adult = true; n.infant = false; n.age = ageNow(n); updateLook(n); n.rand = rng(town.seed + n.id * 977); n.jit = 0; n.bornHere = false;
     n.homeRoom = null; n.bed = { owner: null }; routine(R, n); town.byId.set(n.id, n); initNpcSim(n);
-    setRole(n, 'Worker'); n.coin = 10; n.inv = n.inv || {}; n.inv.grain = (n.inv.grain || 0) + 6; n.seat = null; n.x = n.tx = p.x; n.y = n.ty = p.y; n.back = pick(R, VIS_BACK); n.newcomer = { t0: game.time, met: [], next: game.time + 20 }; npcs.push(n);
+    setRole(n, 'Worker'); n.coin = 10; n.inv = n.inv || {}; n.inv.grain = (n.inv.grain || 0) + 6; n.seat = null; n.x = n.tx = p.x; n.y = n.ty = p.y; n.back = pick(R, VIS_ORD) + ', ' + pick(R, VIS_ARR); n.newcomer = { t0: game.time, met: [], next: game.time + 20 }; npcs.push(n);
     npcs.forEach(o => { if (o !== n && !n.know[o.id]) { n.know[o.id] = 4; o.know[n.id] = 4; n.aff[o.id] = 8; o.aff[n.id] = 8; } });
   }
   { const B0 = typeof townBalance === 'function' ? townBalance() : null; if (kitOn() && B0 && B0.harvests >= 1 && !(town.tut && town.tut.carpenter) && grp.length === 1) carpArrive(grp[0]); }
-  const a = grp[0]; chron(grp.length > 1 ? `${nameOf(a)} and ${nameOf(grp[1])} came ashore and asked for a place to stay. ${a.first} ${a.back}.` : `${nameOf(a)} came ashore and asked for a place to stay. ${a.first} ${a.back}.`, 'life');
+  const a = grp[0]; chron(grp.length > 1 ? `${nameOf(a)} and ${nameOf(grp[1])} came ashore, looking as though they had just woken up. ${a.first} ${a.back}.` : `${nameOf(a)} came ashore, looking as though they had just woken up. ${a.first} ${a.back}.`, 'life');
   housingTick();
   for (const n of grp) { if (!n.homeRoom) n.homeless = true; }
-  lfShout(a, anyOf(['Land at last!', 'Solid ground. Thank the gods.', 'Is anybody here?']));
+  lfShout(a, anyOf(['Excuse me, is this a dream?', 'I think I am still asleep. Hello.', 'This is not where I was a moment ago. ...All right.', 'Is anybody here? Or is that not how it works?', 'Hm. Sand. Of course.']));
   const pl = game.player; if (pl && pl.player) playerSay(pl, `Somebody has come ashore: ${a.first}.`);
   return grp;
 }
@@ -88,7 +89,7 @@ function visitorMutter() {
   const m = town.mut = town.mut || { at: 0, i: 0 };
   if (game.time - m.at < 90) return;
   const hasRoom = rooms.some(r => !r.dead && r.free), hasBed = visBedProps().length > 0, hasHut = rooms.some(r => !r.dead && r.hut);
-  const L = !hasBed ? ['I should make a bed. B for build mode, then pick the bed from the menu (I).', 'A bed first. Somebody may come if there is a place to sleep.']
+  const L = !hasBed ? ['I woke up here and I do not remember going to sleep. A bed, I think. B for build mode, then the bed from the menu (I).', 'No idea how I got here. A bed first, though. Somebody may come if there is a place to sleep.']
     : !hasRoom ? ['A bed is not a house. Walls and a door, and push them together.', 'Four walls, a door that leads outside, and the bed inside. Then it is a home.']
     : !hasHut ? ['The room is closed but there is no bed inside it. Push one in.', 'A bed inside the room, and it counts as a home.']
     : visFood() < 12 ? ['If anyone is to stay, they will need food. Berries, fish, a field of barley.', 'I should sow something. A hoe and a few seeds.']
@@ -117,12 +118,12 @@ LF2.hourly.push(() => visNeeds());
 
 /* a newcomer introduces themselves around the place and talks about the island for the first couple of days */
 const VIS_ISLE = [
-  'The soil here looks good. Somebody could grow barley on that slope.', 'I heard seals on the north shore last night. Or it was the wind.', 'So this is the place. Quieter than I thought.',
-  'Fresh water is the first thing. Has anybody found a spring?', 'The tide leaves a lot of driftwood. That is a lot of building wood, if you know how.', 'I like it here already. The air is different.',
-  'It is strange, starting over with nothing. It is a good strange.', 'Where do people fish from? I saw fish in the shallows.', 'I could stay a long time if there is a bed and a bit of work.',
+  'The sea is very blue. It looks painted, but I do not mind.', 'I keep expecting to wake up. I am in no hurry.', 'My shoes are full of sand. That feels real, at least.', 'Nobody has asked how we got here. I think that is polite.',
+  'It is an odd place. I like it more than I should.', 'I had a whole afternoon planned. This is better, somehow.', 'If this is a dream, it is a very detailed one. Somebody even built a wall.', 'I do not remember falling asleep. I do not remember anything wrong, either.',
+  'The grass is exactly the right green. That is what worries me, a little.', 'Is it strange that I am not frightened? I thought I would be.', 'The gulls here do not seem to want anything. I find that restful.', 'I will need a place to sleep. That seems like the practical thing.',
 ];
-const VIS_HELLO = ["Hello! I'm {me}. I came ashore this morning.", "Good day. {me}, newly arrived. I hope I'm not in the way.", "I don't think we've met. I'm {me}, from over the water.", "{me}. I've just landed. Is it always this peaceful?"];
-const VIS_WELCOME = ['Welcome, {me}. I am {you}. There is room for one more.', "{you}. Glad of the company, {me}. Ask if you need anything.", 'Well met, {me}. I am {you}. You have picked a quiet corner of the world.'];
+const VIS_HELLO = ["Hello. I am {me}. I do not know why I am here, to be honest.", "{me}. Is this a dream, do you think? ...It does not feel like one.", "Good morning. {me}. I seem to have arrived.", "I am {me}. I was somewhere else a minute ago. You do not have to explain."];
+const VIS_WELCOME = ['Welcome, {me}. I am {you}. I am not sure how I got here either.', "{you}. Nice to meet you, {me}. We seem to be all right, whatever this is.", 'Well met, {me}. I am {you}. Best not to ask too much. There is a bed, I think.', "{you}. Sit down, {me}. The kettle, I am told, will turn up."];
 function visNearTile(t) { for (const [dx, dy] of [[0, 1], [1, 0], [-1, 0], [0, -1], [1, 1], [-1, 1]]) { const x = t.tx + dx, y = t.ty + dy; if (walkable(x, y) && !lfPropAt(x, y) && !npcs.some(o => o !== t && o.tx === x && o.ty === y)) return { x, y, face: { dx: -dx, dy: -dy } }; } return null; }
 function visFill(s, me, you?) { return s.replace(/\{me\}/g, me).replace(/\{you\}/g, you || ''); }
 function visIntroTick() {

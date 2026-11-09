@@ -38,8 +38,8 @@ function wcPlan(n: any) {
 }
 /** the carpenter arrives with his table */
 function carpArrive(n: any) {
-  town.tut = town.tut || { harvests: 0 }; town.tut.carpenter = true; n.lf2Want = 'Carpenter'; n.back = 'was a ship\'s carpenter until the ship went down'; kitGive('bench');
-  lfShout(n, anyOf(['I carried my bench ashore. Give me a room with a shelf and I will make you walls and beds.', 'Carpenter. I saved my bench from the wreck: put it in a room with a shelf.']));
+  town.tut = town.tut || { harvests: 0 }; town.tut.carpenter = true; n.lf2Want = 'Carpenter'; n.back = 'was fitting a stair in a house that has since lost its address, and then the stair was a beach'; kitGive('bench');
+  lfShout(n, anyOf(['I seem to have brought my bench. I do not remember packing it. Give me a room with a shelf and I will make you walls and beds.', 'Carpenter. The bench came with me, which is lucky. Put it in a room with a shelf.']));
   const pl = game.player; if (pl && pl.player) playerSay(pl, n.first + ' the carpenter brought a carpentry table. It is in your kit.');
 }
 (LF2_JOBS as any).Carpenter = { name: 'Carpenter', room: 'workshop', spot: 'work', fit: ['handy'], wage: 0 };
