@@ -16554,14 +16554,14 @@ function gaTerrain(g, x, y, wt) {
       g.drawImage(ART.terr("path", v2), X2, Y2, TS, TS);
       g.fillStyle = "rgba(24,14,8,.4)";
       g.fillRect(X2, Y2, TS, TS);
-      if (t === T.STAIRU) {
+      if (t === T.STAIRU || t === T.STAIRM) {
         const it = ART.BYID[stairSpriteId(t, x, y)];
         if (it) g.drawImage(ART.frameOf(it, 0), X2, Y2, TS, TS);
       }
       return;
     }
     g.drawImage(ART.terr("stone", 1), X2, Y2, TS, TS);
-    if (t === T.STAIRD) {
+    if (t === T.STAIRD || t === T.STAIR) {
       const it = ART.BYID[stairSpriteId(t, x, y)];
       if (it) g.drawImage(ART.frameOf(it, 0), X2, Y2, TS, TS);
     }
@@ -20192,6 +20192,21 @@ function teleportTo(n, x, y) {
   tileOwner.set(tkey(x, y), n);
   if (n.path && n.path.length && n.path[0].x === x && n.path[0].y === y) n.path.shift();
 }
+function deckFootprint(x0, y0) {
+  const out = [], lv = lvlOf(y0), seen = /* @__PURE__ */ new Set([y0 * W + x0]), q = [y0 * W + x0];
+  let head = 0;
+  while (head < q.length && out.length < 2500) {
+    const k = q[head++], x = k % W, y = k / W | 0;
+    out.push([x, y]);
+    for (const [dx, dy] of DIRS) {
+      const nx = x + dx, ny = y + dy, nk = ny * W + nx;
+      if (nx < 1 || nx >= W - 1 || ny < 1 || ny >= H - 1 || lvlOf(ny) !== lv || seen.has(nk) || grid[ny][nx] === T.SKY) continue;
+      seen.add(nk);
+      q.push(nk);
+    }
+  }
+  return out;
+}
 const stairSpriteId = (t, x, y) => t === T.STAIR || t === T.STAIRU ? "stair_up" : "stair_down";
 const stairClear = (x, y) => x >= 3 && y >= 3 && x < W - 3 && y < H - 3 && walkable(x, y) && !lfPropAt(x, y) && !tileOwner.get(y * W + x) && !town.siteAt[y * W + x] && !town.nodeMap.has(y * W + x) && [T.GRASS, T.PATH, T.SAND, T.FLOOR, T.DIRTF, T.DECK].includes(grid[y][x]);
 function stairLink(s0, l0, s1, l1, kind) {
@@ -20220,7 +20235,7 @@ function stairMake(lx, ly, down) {
     refreshReach();
     return;
   }
-  const sx = lx, sy = ly - 1, r = rooms[roomAt[sy][sx]], fp = stairFootprint(r), s1y = sy + h0, l1y = s1y - 1;
+  const sx = lx, sy = ly - 1, ri2 = roomAt[sy][sx], fp = ri2 >= 0 && rooms[ri2] && !rooms[ri2].dead ? stairFootprint(rooms[ri2]) : deckFootprint(sx, sy), s1y = sy + h0, l1y = s1y - 1;
   for (const [x, y] of fp) if (grid[y + h0][x] === T.SKY) setT(x, y + h0, T.DECK);
   if (grid[l1y][sx] === T.SKY) setT(sx, l1y, T.DECK);
   setT(sx, sy, T.STAIR);
@@ -20265,12 +20280,12 @@ function stairPlace(n, down = false) {
     playerSay(n, "There is nothing higher to climb to.");
     return null;
   }
-  const ri2 = roomAt[sy] && roomAt[sy][sx];
-  if (!(ri2 >= 0) || ri2 !== roomAt[ly][lx] || !rooms[ri2] || rooms[ri2].dead) {
-    playerSay(n, "Stairs up go on the floor of a room, just north of where you stand.");
+  const ri2 = roomAt[sy] && roomAt[sy][sx], inRoom = ri2 >= 0 && ri2 === roomAt[ly][lx] && rooms[ri2] && !rooms[ri2].dead, onRoof = isUpperY(ly) && ri2 < 0 && roomAt[ly][lx] < 0 && grid[sy][sx] === T.DECK && grid[ly][lx] === T.DECK;
+  if (!inRoom && !onRoof) {
+    playerSay(n, "Stairs up go on the floor of a room, or on an open roof, just north of where you stand.");
     return null;
   }
-  if (grid[sy][sx] !== T.FLOOR || lfPropAt(sx, sy) || tileOwner.get(sy * W + sx) || grid[ly][lx] !== T.FLOOR) {
+  if (inRoom && (grid[sy][sx] !== T.FLOOR || grid[ly][lx] !== T.FLOOR) || lfPropAt(sx, sy) || tileOwner.get(sy * W + sx)) {
     playerSay(n, "The floor just north of you has to be clear.");
     return null;
   }

@@ -35,11 +35,11 @@ function gaTerrain(g, x, y, wt) {
         for (let i = 0; i < 5; i++) { g.fillStyle = i % 2 ? 'rgba(20,12,6,.5)' : 'rgba(150,120,90,.35)'; g.fillRect(X + 2 + hh(20 + i) * 18, Y + 2 + hh(30 + i) * 18, 2 + hh(40 + i) * 2.4, 1.6 + hh(50 + i) * 2); }
         const o = town.ore && town.ore[y * W + x]; if (o) { const col = o === 1 ? '#d27a3e' : o === 2 ? '#38c2a0' : '#f4cc38'; for (let i = 0; i < 5; i++) { g.fillStyle = '#1d1410'; g.fillRect(X + 3 + hh(60 + i) * 15, Y + 3 + hh(70 + i) * 15, 4.2, 3.6); g.fillStyle = col; g.fillRect(X + 3.5 + hh(60 + i) * 15, Y + 3.4 + hh(70 + i) * 15, 3.2, 2.6); } } return; }
       g.drawImage(ART.terr('path', v), X, Y, TS, TS); g.fillStyle = 'rgba(24,14,8,.4)'; g.fillRect(X, Y, TS, TS);
-      if (t === T.STAIRU) { const it = ART.BYID[stairSpriteId(t, x, y)]; if (it) g.drawImage(ART.frameOf(it, 0), X, Y, TS, TS); }
+      if (t === T.STAIRU || t === T.STAIRM) { const it = ART.BYID[stairSpriteId(t, x, y)]; if (it) g.drawImage(ART.frameOf(it, 0), X, Y, TS, TS); }   // (a stair up to the way you came, or a stair down to the next mine)
       return;
     }
     g.drawImage(ART.terr('stone', 1), X, Y, TS, TS);
-    if (t === T.STAIRD) { const it = ART.BYID[stairSpriteId(t, x, y)]; if (it) g.drawImage(ART.frameOf(it, 0), X, Y, TS, TS); }
+    if (t === T.STAIRD || t === T.STAIR) { const it = ART.BYID[stairSpriteId(t, x, y)]; if (it) g.drawImage(ART.frameOf(it, 0), X, Y, TS, TS); }   // (the way down, or a stair up to a higher roof)
     return;
   }
   const X = x * TS, Y = y * TS, v = (ART.h32(x, y, GA.seed, 4) * 4) | 0, D = im => g.drawImage(im, X, Y, TS, TS);
