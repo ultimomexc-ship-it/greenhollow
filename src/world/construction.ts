@@ -20,7 +20,8 @@ function vnoise(x, y, s) {
 function refreshReach() { const _st = LF.seeThru; LF.seeThru = true; try { refreshReach0(); } finally { LF.seeThru = _st; } }
 function refreshReach0() {
   const seen = new Uint8Array(W * H), st = [[town.yard.stand.x, town.yard.stand.y]]; seen[town.yard.stand.y * W + town.yard.stand.x] = 1;
-  while (st.length) { const [x, y] = st.pop(); for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy; if (walkable(nx, ny) && !seen[ny * W + nx]) { seen[ny * W + nx] = 1; st.push([nx, ny]); } } }
+  while (st.length) { const [x, y] = st.pop(); for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy; if (walkable(nx, ny) && !seen[ny * W + nx]) { seen[ny * W + nx] = 1; st.push([nx, ny]); } }
+    const po = town.portals && town.portals.get(y * W + x); if (po !== undefined && !seen[po]) { seen[po] = 1; st.push([po % W, (po / W) | 0]); } }
   reach = seen;
 }
 function refreshShore() {
@@ -42,6 +43,7 @@ function growSky() {
   if (town.h0) return; const H0 = H; town.h0 = H0; H = H0 * 2;
   for (let y = H0; y < H; y++) { grid.push(Array(W).fill(T.SKY)); roomAt.push(Array(W).fill(-1)); }
   const ext = (a, Ctor) => { if (!a) return a; const b = new Ctor(W * H); b.set(a); return b; };
+  for (const [k, fill] of [['hgt', -1], ['fmask', 0], ['cmask', 0], ['islet', 0], ['fout', 255], ['fin', 255], ['cout', 255]] as [string, number][]) { const a = town[k]; if (a && a.length === W * H0) { const b = new (a.constructor as any)(W * H).fill(fill); b.set(a); town[k] = b; } }   // (the level above is neither water, forest nor coast)
   town.siteAt = ext(town.siteAt, Uint16Array); town.block = ext(town.block, Uint8Array); if (town.pblock) town.pblock = ext(town.pblock, Uint8Array);
   town.portals = new Map(); town.stairs = [];
   reach = new Uint8Array(W * H); town.gridV = (town.gridV || 0) + 1;

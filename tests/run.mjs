@@ -1524,6 +1524,29 @@ test('truesight: the solid wall beside a window is never inside what you can see
   check(r.views > 10 && r.leaks === 0, 'wall bodies beside windows leaked into the visible area: ' + JSON.stringify(r)); check(errors.length === 0, 'no errors');
   return r.views + ' views, no leaks';
 });
+test('stairs: a staircase in a room leads to a roof deck over the building; you can build a sealed room up there; villagers walk up and down by the stairs', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await simulate(page, 6 * 60);
+  const r = await page.evaluate(() => {
+    startPlaying(npcs.find(canControl)); const P = game.player, out = {}, o = { x: town.cx + 14, y: town.cy - 40 };
+    out.levels = town.h0 > 0 && H === town.h0 * 2 && grid.length === H && roomAt.length === H;
+    for (let j = -2; j < 14; j++) for (let i = -2; i < 16; i++) { setT(o.x + i, o.y + j, T.GRASS); roomAt[o.y + j][o.x + i] = -1; const q = lfPropAt(o.x + i, o.y + j); if (q) { town.props = town.props.filter(z => z !== q); town.propAt.delete((o.y + j) * W + o.x + i); town.pblock[(o.y + j) * W + o.x + i] = 0; } }
+    buildRoom({ kind: 'lab', id: 'lab', name: 'Big room' }, o.x, o.y, 12, 10, 'b', null);
+    P.tx = P.x = o.x + 3; P.ty = P.y = o.y + 3; P.face = { dx: 1, dy: 0 }; P.path = []; rebuildOcc(); refreshReach(); town.kit = Object.assign(town.kit || {}, { stair: 1 }); itBuildToggle(P, true); const f = lf2Front(P); out.placed = !!stairPlace(P); itBuildToggle(P, false);
+    const h0 = town.h0; out.tiles = grid[f.y][f.x] === T.STAIR && grid[f.y + h0][f.x] === T.STAIRD && grid[o.y + 5 + h0][o.x + 5] === T.DECK && town.portals.size === 2;
+    const up = targetAt0(P, f.x, f.y); if (up && up.run) up.run(P); out.up = P.ty >= h0 && P.tx === o.x + 3;
+    const down = targetAt0(P, f.x, f.y + h0); if (down && down.run) down.run(P); out.down = P.ty < h0;
+    // a walled hut on the deck seals into a room (with a window), and the ground it stood on goes back to deck when a block is taken out
+    const D = { x: o.x + 5, y: o.y + 2 + h0 }, placed = []; for (let i = 0; i <= 5; i++) for (let j = 0; j <= 4; j++) if (i === 0 || j === 0 || i === 5 || j === 4) { lfAddProp(i === 2 && j === 4 ? 'bdoor' : (i === 3 && j === 0 ? 'bwindow' : 'bwall'), D.x + i, D.y + j); placed.push([D.x + i, D.y + j]); }
+    town.bldQ = placed; bldTick(); out.hut = rooms.some(q => q.free && !q.dead && q.y >= h0) && grid[D.y + 2][D.x + 2] === T.FLOOR && !!(town.win && town.win.has(D.y * W + D.x + 3)); out.bare = bldBare(D.y) === T.DECK;
+    // somebody walks up by the stairs, one step at a time, exactly as the villagers' movement does
+    P.tx = P.x = o.x + 10; P.ty = P.y = o.y + 7; rebuildOcc(); const n = npcs.find(q => q !== P && !q.dead && q.age >= 18); n.tx = n.x = o.x + 8; n.ty = n.y = o.y + 6; n.path = []; n.t = 0; rebuildOcc();
+    const p = findPath(n.tx, n.ty, o.x + 8, o.y + 7 + h0); out.path = !!p && p.some(q => q.y >= h0); n.path = p; for (let i = 0; i < 400 && n.path.length; i++) stepNpc(n, 0.3); out.walked = n.ty === o.y + 7 + h0 && n.tx === o.x + 8;
+    return out; });
+  check(r.levels, 'the map has a level above the island: ' + JSON.stringify(r)); check(r.placed && r.tiles, 'a staircase lays a deck over the building and links the two levels'); check(r.up && r.down, 'bumping the stairs takes you up and down');
+  check(r.hut && r.bare, 'a walled hut seals into a room up on the deck'); check(r.path && r.walked, 'villagers path and walk up the stairs: ' + JSON.stringify([r.path, r.walked])); check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return 'stairs, deck, a room on the roof and a walk up';
+});
 test('crops and flowers: every crop is its own plant with its own art; flowers stay in bloom a long time, then wither and are cleared for replanting', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

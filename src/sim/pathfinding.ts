@@ -26,7 +26,8 @@ function findPath(sx, sy, gx, gy, avoid?) {
   if (!walkable(gx, gy) || !walkable(sx, sy)) return null;
   if (sx === gx && sy === gy) return [];
   const N = W * H, g = new Float32Array(N).fill(1e9), par = new Int32Array(N).fill(-1), closed = new Uint8Array(N);
-  const s = sy * W + sx, e = gy * W + gx, heap = new Heap();
+  const s = sy * W + sx, e = gy * W + gx, heap = new Heap(), pt = town && town.portals && town.portals.size ? town.portals : null, h0 = (town && town.h0) || 1e9, gUp = gy >= h0;
+  const hh = (x, y) => pt && (y >= h0) !== gUp ? 0 : Math.abs(x - gx) + Math.abs(y - gy);   // (on the other level the way is by the stairs: no guess)
   g[s] = 0; heap.push(s, 0);
   while (heap.size) {
     const cur = heap.pop();
@@ -41,8 +42,10 @@ function findPath(sx, sy, gx, gy, avoid?) {
       if (closed[ni]) continue;
       if (avoid && ni !== e && avoid.has(ni)) continue;
       const ng = g[cur] + tileCost(nx, ny);
-      if (ng < g[ni]) { g[ni] = ng; par[ni] = cur; heap.push(ni, ng + Math.abs(nx - gx) + Math.abs(ny - gy)); }
+      if (ng < g[ni]) { g[ni] = ng; par[ni] = cur; heap.push(ni, ng + hh(nx, ny)); }
     }
+    const po = pt && pt.get(cur);   // a staircase: from one landing to the other
+    if (po !== undefined && !closed[po] && !(avoid && po !== e && avoid.has(po))) { const ng = g[cur] + 3; if (ng < g[po]) { g[po] = ng; par[po] = cur; heap.push(po, ng + hh(po % W, (po / W) | 0)); } }
   }
   if (par[e] < 0) return null;
   const path = [];

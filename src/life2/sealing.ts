@@ -9,7 +9,9 @@ const BLD_MAX = 260;                 // a region bigger than this counts as open
 const bldBlock = pr => !!pr && BLD_KINDS.includes(pr.kind) && !pr.fixed;
 const bldSolid = (x, y) => { const g = grid[y][x]; return g === T.WALL || g === T.DOOR || bldBlock(lfPropAt(x, y)); };
 const bldFreeRoom = (x, y) => { const i = roomAt[y][x]; const r = i >= 0 ? rooms[i] : null; return r && r.free && !r.dead ? r : null; };
-const bldOKTile = (x, y) => { const g = grid[y][x]; if (g !== T.GRASS && g !== T.PATH && g !== T.FLOOR && g !== T.CROP && g !== T.SAND) return false; if (town.siteAt[y * W + x]) return false; /* (a berry or herb bush inside does not stop it: the bush is cleared away when the room closes) */ const p = lfPropAt(x, y); if (p && p.fixed) return false; if (roomAt[y][x] >= 0 && !bldFreeRoom(x, y)) return false; return !bldOnPad(x, y); };
+/** bare ground under a removed wall or floor: grass, or the roof deck on the level above */
+const bldBare = (y: number) => (town.h0 && y >= town.h0) ? T.DECK : T.GRASS;
+const bldOKTile = (x, y) => { const g = grid[y][x]; if (g !== T.GRASS && g !== T.PATH && g !== T.FLOOR && g !== T.CROP && g !== T.SAND && g !== T.DECK) return false; if (town.siteAt[y * W + x]) return false; /* (a berry or herb bush inside does not stop it: the bush is cleared away when the room closes) */ const p = lfPropAt(x, y); if (p && p.fixed) return false; if (roomAt[y][x] >= 0 && !bldFreeRoom(x, y)) return false; return !bldOnPad(x, y); };
 const bldOnPad = (x, y) => { const b = town.builder; return !!b && x >= b.pad.x - 1 && x < b.pad.x + b.pad.w + 1 && y >= b.pad.y - 1 && y < b.pad.y + b.pad.h + 1; };
 const BLD_D8: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]], BLD_D4: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
@@ -149,7 +151,7 @@ function bldDissolve(list: any[]): [number, number][] {
   const live = rooms.filter(q => q.free && !q.dead);
   for (const r of list) {
     const ri = rooms.indexOf(r);
-    for (const k of r.cells) { const x = k % W, y = (k / W) | 0; if (roomAt[y][x] === ri && grid[y][x] !== T.WALL && grid[y][x] !== T.DOOR) { setT(x, y, town.bldWas.has(k) ? town.bldWas.get(k) : T.GRASS); town.bldWas.delete(k); roomAt[y][x] = -1; } }
+    for (const k of r.cells) { const x = k % W, y = (k / W) | 0; if (roomAt[y][x] === ri && grid[y][x] !== T.WALL && grid[y][x] !== T.DOOR) { setT(x, y, town.bldWas.has(k) ? town.bldWas.get(k) : bldBare(y)); town.bldWas.delete(k); roomAt[y][x] = -1; } }
     r.hearth = null; r.toilet = null; r.beds = r.beds || []; if (town.church === r) town.church = null; if (town.tavern === r) town.tavern = null;
     markDirty(r.x - 1, r.y - 1, r.w + 2, r.h + 2);
   }
@@ -159,7 +161,7 @@ function bldDissolve(list: any[]): [number, number][] {
     const holder = live.find(q => BLD_D8.some(([dx, dy]) => q.cells.has(x + dx + (y + dy) * W)));
     if (holder) { if (roomAt[y][x] < 0 || (rooms[roomAt[y][x]] && rooms[roomAt[y][x]].dead)) roomAt[y][x] = rooms.indexOf(holder); if (grid[y][x] === T.DOOR) { const d = doors.find(q => q.x === x && q.y === y); if (d) d.room = rooms.indexOf(holder); else doors.push({ x, y, room: rooms.indexOf(holder), o: 0 }); } continue; }
     kitGive(town.bldWall.get(k) === 'bdoor' || grid[y][x] === T.DOOR ? 'bdoor' : (town.bldWall.get(k) || 'bwall'));   // (what you take down comes back to your kit)
-  doors = doors.filter(d => !(d.x === x && d.y === y)); setT(x, y, T.GRASS); roomAt[y][x] = -1; town.bldWall.delete(k); town.win.delete(k); if (town.winS) town.winS.delete(k);
+  doors = doors.filter(d => !(d.x === x && d.y === y)); setT(x, y, bldBare(y)); roomAt[y][x] = -1; town.bldWall.delete(k); town.win.delete(k); if (town.winS) town.winS.delete(k);
     if (!lfPropAt(x, y)) lfAddProp(kind, x, y); spots.push([x, y]);
   }
   return spots;
@@ -171,7 +173,7 @@ function bldBreak(x: number, y: number, by?: any) {
   const k = x + y * W; town.bldWall = town.bldWall || new Map();   // (any wall of a house or a room you built; the tile is simply deleted)
   const aff = new Set<any>(); for (const [dx, dy] of BLD_D8) { const r = bldFreeRoom(x + dx, y + dy); if (r) aff.add(r); } const own = roomAt[y][x] >= 0 ? rooms[roomAt[y][x]] : null; if (own && own.free && !own.dead) aff.add(own);
   const before = rooms.filter(q => q.free && !q.dead).length;
-  doors = doors.filter(d => !(d.x === x && d.y === y)); setT(x, y, T.GRASS); roomAt[y][x] = -1; town.bldWall.delete(k); if (town.win) town.win.delete(k); if (town.winS) town.winS.delete(k); markDirty(x - 1, y - 1, 3, 3); town.treeDirty = true;
+  doors = doors.filter(d => !(d.x === x && d.y === y)); setT(x, y, bldBare(y)); roomAt[y][x] = -1; town.bldWall.delete(k); if (town.win) town.win.delete(k); if (town.winS) town.winS.delete(k); markDirty(x - 1, y - 1, 3, 3); town.treeDirty = true;
   if (by) workFx('split', x, y, by);
   let spots: [number, number][] = ([[x, y]] as [number, number][]).concat(bldDissolve([...aff]));
   bldEvaluate(spots);
@@ -218,7 +220,7 @@ function bldDemolish(r: any, hx: number, hy: number, by?: any) {
   const loose: [number, number][] = [];
   for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
     if (roomAt[y][x] !== ri) continue; const t = grid[y][x], hole = x === hx && y === hy;
-    setT(x, y, T.GRASS); roomAt[y][x] = -1; if (hole) continue;
+    setT(x, y, bldBare(y)); roomAt[y][x] = -1; if (hole) continue;
     if (t === T.WALL || t === T.DOOR) { const win = t === T.WALL && y === r.y && x !== r.x && x !== r.x + r.w - 1 && x !== r.doorX && (x - r.x) % 3 === 2; if (out(x, y, t === T.DOOR ? 'bdoor' : win ? 'bwindow' : 'bwall')) loose.push([x, y]); }
     else if (t === T.BED) { const b = (r.beds || []).find(q => q.x === x && q.y === y); out(x, y, 'bed', { ownerId: b && b.owner ? b.owner.id : null }); }
     else if (t === T.SEAT) out(x, y, 'chair'); else if (t === T.TABLE) out(x, y, 'table'); else if (t === T.BARREL) out(x, y, 'barrel', { pantry: r.pantry });

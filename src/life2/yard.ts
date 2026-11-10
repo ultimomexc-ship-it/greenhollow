@@ -23,6 +23,7 @@ const YARD_ITEMS: { kind: string; stand: string; art: string; noun: string; name
   { kind: 'pew', stand: '', art: 'pew', noun: 'pew', name: 'Pew' },
   { kind: 'lamp', stand: '', art: 'lamp_unlit', noun: 'lamp post', name: 'Lamp post' },
   { kind: 'tent', stand: '', art: 'tent_0', noun: 'tent', name: 'Tent' },
+  { kind: 'stair', stand: '', art: 'stair_up', noun: 'staircase', name: 'Stairs' },
   { kind: 'campfire', stand: '', art: 'campfire', noun: 'campfire', name: 'Campfire' },
 ];
 const YARD_COLS = 7;   // two rows of stands (the yard is gone; the list is what the build menu offers)

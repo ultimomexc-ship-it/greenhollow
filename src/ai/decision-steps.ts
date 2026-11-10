@@ -135,6 +135,7 @@ function stepNpc(n, dt) {
       n.ignoreBlock = false;
     }
     if (n.t === 0) { tileOwner.set(tkey(nx.x, nx.y), n); }
+    if (Math.abs(nx.x - n.tx) + Math.abs(nx.y - n.ty) > 1.5) { teleportTo(n, nx.x, nx.y); continue; }   // up or down a staircase
     const cost = TILE_MIN * (n.player ? 1 : tileCost(nx.x, nx.y)) / n.speed;
     const need = (1 - n.t) * cost;
     n.face = { dx: Math.sign(nx.x - n.tx), dy: Math.sign(nx.y - n.ty) };

@@ -26,6 +26,13 @@ function gaFlatV(vx, vy) {                           // the mud runs out to the 
 }
 const GA_LAYERS = ['shallow', 'sand', 'grass'];
 function gaTerrain(g, x, y, wt) {
+  if (town.h0 && y >= town.h0) {   // the level above: nothing, or a roof deck (stone) you can walk and build on, or the stairs down
+    const X = x * TS, Y = y * TS, t = grid[y][x];
+    if (t === T.SKY) return;   // nothing: transparent, so the ground below shows through, dimmed (render)
+    g.drawImage(ART.terr('stone', 1), X, Y, TS, TS);
+    if (t === T.STAIRD) { const it = ART.BYID['stair_down']; if (it) g.drawImage(ART.frameOf(it, 0), X, Y, TS, TS); }
+    return;
+  }
   const X = x * TS, Y = y * TS, v = (ART.h32(x, y, GA.seed, 4) * 4) | 0, D = im => g.drawImage(im, X, Y, TS, TS);
   const lv = [gaLevel(x, y), gaLevel(x + 1, y), gaLevel(x + 1, y + 1), gaLevel(x, y + 1)], masks = [1, 2, 3].map(L => { let m = 0; for (let i = 0; i < 4; i++) if (lv[i] >= L) m |= 1 << i; return m; });
   if (wt && masks[1] === 0) { wt.push(x, y, masks[0]); return; }              // open water: painted afresh each frame
@@ -46,6 +53,7 @@ function gaFurniture(r, x, y, t) {
     case T.BED: { const b = (r.beds || []).find(q => q.x === x && q.y === y); return `bed_head_${(r.side === 'b') !== !!(b && b.flip) ? 'up' : 'down'}_${b && !(b.owner && !b.owner.dead) ? 5 : (hh(60) * 5) | 0}`; }
     case T.SEAT: { if (r.kind === 'privy') return 'toilet'; const s = (r.seats || []).find(q => q.x === x && q.y === y), f = s && s.face ? s.face : { dx: 0, dy: 1 }; return 'seat_' + (f.dy > 0 ? 'down' : f.dy < 0 ? 'up' : f.dx > 0 ? 'right' : 'left'); }
     case T.TABLE: { const l = grid[y][x - 1] === T.TABLE, rr = grid[y][x + 1] === T.TABLE, part = l && rr ? 'mid' : l ? 'right' : rr ? 'left' : 'single', d = hh(71); return `table_${part}_${d < 0.35 ? 'plate' : d < 0.5 ? 'vase' : 'plain'}`; }
+    case T.STAIR: return 'stair_up';
     case T.BARREL: return 'barrel'; case T.SHELF: return 'shelf_' + ((x + y) & 1); case T.RUG: return ['rug', 'rug_1', 'rug_2'][Math.floor(hh(72) * 3)];
     case T.COUNTER: return 'counter_' + (hh(70) < 0.6 ? 0 : 1); case T.PEW: return 'pew'; case T.ALTAR: return (x + y) % 3 === 0 ? 'altar_1' : 'altar_0';
     case T.FORGE: return 'forge'; case T.ANVIL: return 'anvil'; case T.LOOM: return 'loom'; case T.OVEN: return 'oven';
@@ -147,6 +155,7 @@ function gaEvict() {
 
 /* ---- the whole island at a glance, for when the camera is far out (and while a chunk is still being painted) ---- */
 function gaTileColour(x, y) {
+  if (town.h0 && y >= town.h0) return grid[y][x] === T.SKY ? null : '#8a8478';
   if (roomAt[y][x] >= 0) { const t = grid[y][x]; return t === T.WALL || t === T.DOOR ? '#a69a80' : '#9c7a52'; }
   const t = grid[y][x], K = gclass(x, y);
   if (t === T.TREE) return '#3f7a3a'; if (t === T.ROCK) return '#8c8f92'; if (t === T.MOUNTAIN) return '#8f9488'; if (t === T.TENT) return '#cdbf94'; if (t === T.STALL) return '#b5683a'; if (t === T.GRAVE) return '#7d9a6a';
@@ -157,7 +166,7 @@ function gaTileColour(x, y) {
 }
 function gaOverview() {
   const cv = GA.ov || (GA.ov = document.createElement('canvas')); cv.width = W * OVP; cv.height = H * OVP; const g = GA.ovc = cv.getContext('2d');
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { g.fillStyle = gaTileColour(x, y); g.fillRect(x * OVP, y * OVP, OVP, OVP); }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const col = gaTileColour(x, y); if (!col) continue; g.fillStyle = col; g.fillRect(x * OVP, y * OVP, OVP, OVP); }
 }
 function gaOverviewRect(x0, y0, x1, y1) { const g = GA.ovc; if (!g) return; for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { g.fillStyle = gaTileColour(x, y); g.fillRect(x * OVP, y * OVP, OVP, OVP); } }
 

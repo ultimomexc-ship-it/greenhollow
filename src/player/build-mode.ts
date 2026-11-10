@@ -33,6 +33,7 @@ const itBuildName = (k: string) => { const it = YARD_ITEMS.find(q => q.kind === 
 function bldQueue(p: any) { (town.bldQ = town.bldQ || []).push([p.x, p.y]); }
 function bldPlaceFront(n, kind: string) {
   if (!kitHas(kind)) { kitOut(n, kind); return null; }
+  if (kind === 'stair') return stairPlace(n);
   if (town.props.length >= BUILD_CAP) { playerSay(n, 'The island is full of loose things. Smash some first.'); return null; }
   const f = lf2Front(n), cand: [number, number, number][] = [];
   const ok = (x, y) => x >= 3 && y >= 3 && x < W - 3 && y < H - 3 && walkable(x, y) && !lfPropAt(x, y) && !tileOwner.get(y * W + x) && !(x === n.tx && y === n.ty) && !town.siteAt[y * W + x] && ![T.DOOR, T.PLOT, T.TENT, T.PEW].includes(grid[y][x]);
