@@ -3413,17 +3413,37 @@ const ART = (function() {
     g.fillStyle = INK;
     g.fillRect(1.9, 0.6, 20.2, 0.5);
     g.fillRect(1.9, 22.9, 20.2, 0.5);
-    g.fillStyle = up ? "rgba(255,255,255,.32)" : "rgba(255,235,190,.42)";
+  }
+  function stairArrow24(g, up) {
+    g.save();
+    if (!up) {
+      g.translate(12, 12);
+      g.scale(1, -1);
+      g.translate(-12, -12);
+    }
+    g.fillStyle = INK;
     g.beginPath();
-    g.moveTo(12, 3);
-    g.lineTo(17.5, 9.5);
-    g.lineTo(14, 9.5);
-    g.lineTo(14, 20);
-    g.lineTo(10, 20);
-    g.lineTo(10, 9.5);
-    g.lineTo(6.5, 9.5);
+    g.moveTo(12, 3.4);
+    g.lineTo(19, 11.4);
+    g.lineTo(14.6, 11.4);
+    g.lineTo(14.6, 20.4);
+    g.lineTo(9.4, 20.4);
+    g.lineTo(9.4, 11.4);
+    g.lineTo(5, 11.4);
     g.closePath();
     g.fill();
+    g.fillStyle = up ? "#f4f0e0" : "#ffd890";
+    g.beginPath();
+    g.moveTo(12, 4.8);
+    g.lineTo(17.4, 10.6);
+    g.lineTo(13.4, 10.6);
+    g.lineTo(13.4, 19.2);
+    g.lineTo(10.6, 19.2);
+    g.lineTo(10.6, 10.6);
+    g.lineTo(6.6, 10.6);
+    g.closePath();
+    g.fill();
+    g.restore();
   }
   function torch24(g, t) {
     const fl = tw(t, 3, 0) * 0.5 + tw(t, 5, 1.3) * 0.3, rg = g.createRadialGradient(12, 8, 1, 12, 8, 11);
@@ -7428,13 +7448,16 @@ const ART = (function() {
   T24("wall_face", "walls", "Back wall", (g) => wallFace24(g, false), { kind: "tile", under: null });
   T24("wall_window", "walls", "Back wall, window", (g) => wallFace24(g, true), { kind: "tile", under: null });
   A("torch", "camp", "Torch", 24, 26, FR, (g, t) => torch24(g, t), { bot: true });
-  for (const r of [0, 1, 2, 3]) for (const up of [true, false]) A(`stair_${up ? "up" : "down"}${r ? "_" + r : ""}`, "walls", `Staircase ${up ? "up" : "down"}${r ? ", turned " + r : ""}`, 24, 24, 1, (g) => {
+  for (const up of [true, false]) A(up ? "stair_up" : "stair_down", "walls", up ? "Staircase up (the landing is south of it)" : "Staircase down (the landing is north of it)", 24, 24, 1, (g) => {
     g.save();
-    g.translate(12, 12);
-    g.rotate(r * Math.PI / 2);
-    g.translate(-12, -12);
-    stair24(g, up);
+    if (!up) {
+      g.translate(12, 12);
+      g.scale(1, -1);
+      g.translate(-12, -12);
+    }
+    stair24(g, true);
     g.restore();
+    stairArrow24(g, up);
   }, { kind: "tile", under: null });
   T24("window_side", "walls", "Window in a side wall", (g) => windowSide24(g), { kind: "tile", under: null });
   for (const s of ["W", "E", "S", "WS", "ES", "WN", "EN"]) T24("cap_" + s, "walls", "Wall top " + s, (g) => cap24(g, s), { kind: "tile", under: null });
@@ -20092,17 +20115,7 @@ function teleportTo(n, x, y) {
   tileOwner.set(tkey(x, y), n);
   if (n.path && n.path.length && n.path[0].x === x && n.path[0].y === y) n.path.shift();
 }
-function stairRot(x, y) {
-  const k = y * W + x;
-  for (const st of town.stairs || []) {
-    const l = st.s0 === k ? st.l0 : st.s1 === k ? st.l1 : -1;
-    if (l < 0) continue;
-    const dx = x - l % W, dy = y - (l / W | 0);
-    return dy < 0 ? 0 : dx > 0 ? 1 : dy > 0 ? 2 : 3;
-  }
-  return 0;
-}
-const stairSpriteId = (t, x, y) => (t === T.STAIR || t === T.STAIRU ? "stair_up" : "stair_down") + (stairRot(x, y) ? "_" + stairRot(x, y) : "");
+const stairSpriteId = (t, x, y) => t === T.STAIR || t === T.STAIRU ? "stair_up" : "stair_down";
 const stairClear = (x, y) => x >= 3 && y >= 3 && x < W - 3 && y < H - 3 && walkable(x, y) && !lfPropAt(x, y) && !tileOwner.get(y * W + x) && !town.siteAt[y * W + x] && !town.nodeMap.has(y * W + x) && [T.GRASS, T.PATH, T.SAND, T.FLOOR, T.DIRTF, T.DECK].includes(grid[y][x]);
 function stairLink(s0, l0, s1, l1, kind) {
   town.portals = town.portals || /* @__PURE__ */ new Map();
@@ -20111,65 +20124,61 @@ function stairLink(s0, l0, s1, l1, kind) {
   town.portals.set(l1, l0);
   town.stairs.push({ s0, l0, s1, l1, kind });
 }
-function stairMake(sx, sy, lx, ly, down) {
+function stairMake(lx, ly, down) {
   const h0 = town.h0;
   if (down) {
-    const shift = lvlOf(ly) === 0 ? LV_MINE * h0 : h0, l1y = ly + shift, s1x2 = lx - (sx - lx), s1y2 = l1y - (sy - ly);
+    const sx2 = lx, sy2 = ly + 1, shift = lvlOf(ly) === 0 ? LV_MINE * h0 : h0, s1y2 = sy2 + shift, l1y2 = s1y2 + 1;
     for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
-      const x = lx + i, y = l1y + j;
+      const x = sx2 + i, y = s1y2 + j;
       setT(x, y, T.DIRTF);
       town.ore[y * W + x] = 0;
       roomAt[y][x] = -1;
     }
-    setT(sx, sy, T.STAIRM);
-    setT(s1x2, s1y2, T.STAIRU);
-    stairLink(sy * W + sx, ly * W + lx, s1y2 * W + s1x2, l1y * W + lx, "down");
+    setT(sx2, sy2, T.STAIRM);
+    setT(sx2, s1y2, T.STAIRU);
+    stairLink(sy2 * W + sx2, ly * W + lx, s1y2 * W + sx2, l1y2 * W + sx2, "down");
     town.gridV = (town.gridV || 0) + 1;
-    markDirty(sx - 1, sy - 1, 3, 3);
-    markDirty(lx - 2, l1y - 2, 5, 5);
+    markDirty(sx2 - 1, sy2 - 1, 3, 3);
+    markDirty(sx2 - 2, s1y2 - 2, 5, 5);
     refreshReach();
     return;
   }
-  const r = rooms[roomAt[sy][sx]], fp = stairFootprint(r);
+  const sx = lx, sy = ly - 1, r = rooms[roomAt[sy][sx]], fp = stairFootprint(r), s1y = sy + h0, l1y = s1y - 1;
   for (const [x, y] of fp) if (grid[y + h0][x] === T.SKY) setT(x, y + h0, T.DECK);
-  const s1x = lx - (sx - lx), s1y = ly - (sy - ly) + h0;
-  for (const [x, y] of [[s1x, s1y]]) if (grid[y][x] === T.SKY) setT(x, y, T.DECK);
+  if (grid[l1y][sx] === T.SKY) setT(sx, l1y, T.DECK);
   setT(sx, sy, T.STAIR);
-  setT(s1x, s1y, T.STAIRD);
-  stairLink(sy * W + sx, ly * W + lx, s1y * W + s1x, (ly + h0) * W + lx, "up");
+  setT(sx, s1y, T.STAIRD);
+  stairLink(sy * W + sx, ly * W + lx, s1y * W + sx, l1y * W + sx, "up");
   markDirty(sx - 1, sy - 1, 3, 3);
   for (const [x, y] of fp) markDirty(x, y + h0, 1, 1);
-  markDirty(s1x - 1, s1y - 1, 3, 3);
+  markDirty(sx - 1, l1y - 1, 3, 4);
   town.gridV = (town.gridV || 0) + 1;
   town.lfPV = (town.lfPV || 0) + 1;
   refreshReach();
 }
 function stairPlace(n, down = false) {
-  const f = lf2Front(n), sx = f.x, sy = f.y, lx = n.tx, ly = n.ty, h0 = town.h0;
+  const lx = n.tx, ly = n.ty, h0 = town.h0;
   if (!h0) return null;
-  const L = lvlOf(ly), kit = down ? "stairdown" : "stair";
+  const L = lvlOf(ly), kit = down ? "stairdown" : "stair", sx = lx, sy = down ? ly + 1 : ly - 1;
+  if (town.portals && town.portals.has(ly * W + lx)) {
+    playerSay(n, "You are standing on the landing of another staircase. Step away from it.");
+    return null;
+  }
   if (down) {
     if (L !== 0 && L !== LV_MINE) {
       playerSay(n, "Stairs down go on the ground, or deep in a mine.");
       return null;
     }
     if (!stairClear(sx, sy) || !walkable(lx, ly)) {
-      playerSay(n, "The ground in front of you has to be clear.");
+      playerSay(n, "Stairs down go just south of you: that ground has to be clear.");
       return null;
     }
-    if (town.portals && town.portals.has(ly * W + lx)) {
-      playerSay(n, "You are standing on the landing of another staircase. Step away from it.");
+    const s1y = sy + (L === 0 ? LV_MINE * h0 : h0);
+    if (sx < 4 || sx >= W - 4 || s1y + 3 >= H - 3) {
+      playerSay(n, "The earth is too thin here.");
       return null;
     }
-    const l1y = ly + (L === 0 ? LV_MINE * h0 : h0);
-    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
-      const x = lx + i, y = l1y + j;
-      if (x < 3 || x >= W - 3 || y >= H - 3) {
-        playerSay(n, "The earth is too thin here.");
-        return null;
-      }
-    }
-    stairMake(sx, sy, lx, ly, true);
+    stairMake(lx, ly, true);
     kitTake(kit);
     playerSay(n, "A staircase. It goes down into the earth.");
     return { stair: true };
@@ -20180,18 +20189,14 @@ function stairPlace(n, down = false) {
   }
   const ri2 = roomAt[sy] && roomAt[sy][sx];
   if (!(ri2 >= 0) || ri2 !== roomAt[ly][lx] || !rooms[ri2] || rooms[ri2].dead) {
-    playerSay(n, "Stairs up go on the floor of a room, with you standing beside them.");
+    playerSay(n, "Stairs up go on the floor of a room, just north of where you stand.");
     return null;
   }
   if (grid[sy][sx] !== T.FLOOR || lfPropAt(sx, sy) || tileOwner.get(sy * W + sx) || grid[ly][lx] !== T.FLOOR) {
-    playerSay(n, "The floor in front of you has to be clear.");
+    playerSay(n, "The floor just north of you has to be clear.");
     return null;
   }
-  if (town.portals && town.portals.has(ly * W + lx)) {
-    playerSay(n, "You are standing on the landing of another staircase. Step away from it.");
-    return null;
-  }
-  stairMake(sx, sy, lx, ly, false);
+  stairMake(lx, ly, false);
   kitTake(kit);
   playerSay(n, "A staircase. It goes up to the roof.");
   return { stair: true };
@@ -20200,10 +20205,12 @@ function stairAction(n, x, y) {
   const k = y * W + x, st = (town.stairs || []).find((q) => q.s0 === k || q.s1 === k);
   if (!st) return null;
   const fromA = st.s0 === k, land = fromA ? st.l0 : st.l1, up = st.kind === "up" ? fromA : !fromA;
-  if (n.tx !== land % W || n.ty !== (land / W | 0)) return { msg: "Stairs are entered from their landing, following the arrow." };
+  if (n.tx !== land % W || n.ty !== (land / W | 0)) return { msg: "Stairs up are climbed from the south, stairs down from the north." };
+  if (n.stairFresh && n.stairFresh.land === land && n.walked === n.stairFresh.walked) return null;
   return { key: "stair" + x + "," + y, min: 0.08, text: up ? "Going up" : "Going down", tool: null, run(nn) {
     const t = fromA ? st.l1 : st.l0, tx = t % W, ty = t / W | 0, sk = fromA ? st.s1 : st.s0;
     teleportTo(nn, tx, ty);
+    nn.stairFresh = { land: t, walked: nn.walked };
     nn.face = { dx: -Math.sign(sk % W - tx), dy: -Math.sign((sk / W | 0) - ty) };
     playerSay(nn, st.kind === "down" ? fromA ? "Underground." : "Daylight." : up ? "The roof." : "Downstairs.");
   } };
@@ -20245,17 +20252,18 @@ function prebuildLevels() {
   const big = rooms.filter((r) => !r.dead && !r.free && r.w >= 7 && r.h >= 7).sort((a, b) => b.w * b.h - a.w * a.h);
   for (const r of big) {
     let st = null;
-    for (let y = r.y + 2; y < r.y + r.h - 2 && !st; y++) for (let x = r.x + 1; x < r.x + r.w - 2 && !st; x++) {
-      const ok = (a, b) => grid[b][a] === T.FLOOR && roomAt[b][a] === roomAt[r.y + 1][r.x + 1] && !lfPropAt(a, b);
-      if (ok(x, y) && ok(x + 1, y) && ok(x, y + 1) && ok(x + 1, y + 1)) st = [x + 1, y, x, y];
+    const ri0 = roomAt[r.y + 1][r.x + 1];
+    for (let y = r.y + 3; y < r.y + r.h - 1 && !st; y++) for (let x = r.x + 1; x < r.x + r.w - 1 && !st; x++) {
+      const ok = (a, b) => grid[b][a] === T.FLOOR && roomAt[b][a] === ri0 && !lfPropAt(a, b);
+      if (ok(x, y) && ok(x, y - 1)) st = [x, y];
     }
     if (!st) continue;
-    const [sx, sy, lx, ly] = st;
-    stairMake(sx, sy, lx, ly, false);
+    const [lx, ly] = st;
+    stairMake(lx, ly, false);
     const y0 = r.y, hitY = (b) => b >= y0 && b <= y0 + 5;
     for (const x0 of [r.x, r.x + r.w - 5]) {
       const hit = (a) => a >= x0 - 1 && a <= x0 + 5;
-      if ((hit(lx) || hit(sx)) && (hitY(ly) || hitY(sy))) continue;
+      if (hit(lx) && (hitY(ly) || hitY(ly - 2))) continue;
       hut(x0, y0 + h0, 2);
       break;
     }
@@ -20263,12 +20271,12 @@ function prebuildLevels() {
   }
   let done = false;
   for (let d = 5; d < 24 && !done; d++) for (let a = 0; a < 16 && !done; a++) {
-    const ang = a * Math.PI / 8, lx = Math.round(cx + Math.cos(ang) * d), ly = Math.round(cy + Math.sin(ang) * d * 0.8), sx = lx + 1, sy = ly;
-    if (!stairClear(sx, sy) || !stairClear(lx, ly) || [-1, 0, 1].some((dy) => [-1, 0, 1, 2].some((dx) => roomAt[ly + dy] && roomAt[ly + dy][lx + dx] >= 0))) continue;
+    const ang = a * Math.PI / 8, lx = Math.round(cx + Math.cos(ang) * d), ly = Math.round(cy + Math.sin(ang) * d * 0.8);
+    if (!stairClear(lx, ly) || !stairClear(lx, ly + 1) || [-1, 0, 1, 2].some((dy) => [-1, 0, 1].some((dx) => roomAt[ly + dy] && roomAt[ly + dy][lx + dx] >= 0))) continue;
     const my = ly + LV_MINE * h0;
     if (lx < 14 || lx > W - 18) continue;
-    stairMake(sx, sy, lx, ly, true);
-    for (let j = -4; j <= 4; j++) for (let i = -4; i <= 9; i++) {
+    stairMake(lx, ly, true);
+    for (let j = -4; j <= 6; j++) for (let i = -4; i <= 9; i++) {
       const x = lx + i, y = my + j;
       if (grid[y][x] === T.EARTH) {
         setT(x, y, T.DIRTF);
@@ -20276,14 +20284,14 @@ function prebuildLevels() {
       }
     }
     for (let i = 10; i <= 17; i++) {
-      const x = lx + i, y = my;
+      const x = lx + i, y = my + 1;
       if (grid[y][x] === T.EARTH) {
         setT(x, y, T.DIRTF);
         town.ore[y * W + x] = 0;
       }
     }
     hut(lx + 4, my - 3, 2);
-    for (const [tx, ty] of [[lx, my - 2], [lx + 2, my + 2], [lx + 6, my + 3], [lx + 12, my - 1], [lx + 16, my + 1]]) if (!lfPropAt(tx, ty) && grid[ty][tx] === T.DIRTF) lfAddProp("torch", tx, ty);
+    for (const [tx, ty] of [[lx - 2, my - 2], [lx + 2, my + 4], [lx + 6, my + 4], [lx + 12, my], [lx + 16, my + 2]]) if (!lfPropAt(tx, ty) && grid[ty][tx] === T.DIRTF) lfAddProp("torch", tx, ty);
     done = true;
   }
   if (typeof visHomes === "function") visHomes();

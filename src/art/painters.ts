@@ -971,7 +971,12 @@ function stair24(g, up) {
   for (let i = 0; i < 6; i++) { const y = 1.6 + i * 3.6, k = up ? i / 5 : 1 - i / 5; g.fillStyle = up ? `rgb(${130 + 60 * k | 0},${88 + 40 * k | 0},${52 + 24 * k | 0})` : `rgb(${120 - 70 * (1 - k) | 0},${80 - 45 * (1 - k) | 0},${48 - 26 * (1 - k) | 0})`; g.fillRect(2.4, y, 19.2, 3.1); g.fillStyle = up ? 'rgba(255,230,190,.35)' : 'rgba(255,230,190,.12)'; g.fillRect(2.4, y, 19.2, 0.5); g.fillStyle = 'rgba(30,18,12,.55)'; g.fillRect(2.4, y + 2.7, 19.2, 0.5); }
   for (const x of [0.4, 21.6]) { g.fillStyle = INK; g.fillRect(x - 0.2, 0.6, 2.2, 22.8); g.fillStyle = '#9a6238'; g.fillRect(x + 0.2, 0.9, 1.4, 22.2); g.fillStyle = 'rgba(255,220,170,.4)'; g.fillRect(x + 0.2, 0.9, 0.4, 22.2); }
   g.fillStyle = INK; g.fillRect(1.9, 0.6, 20.2, 0.5); g.fillRect(1.9, 22.9, 20.2, 0.5);
-  g.fillStyle = up ? 'rgba(255,255,255,.32)' : 'rgba(255,235,190,.42)'; g.beginPath(); g.moveTo(12, 3); g.lineTo(17.5, 9.5); g.lineTo(14, 9.5); g.lineTo(14, 20); g.lineTo(10, 20); g.lineTo(10, 9.5); g.lineTo(6.5, 9.5); g.closePath(); g.fill();   // the arrow: you walk in from the landing at its tail
+}
+/** the arrow on a stair: it says UP or DOWN (a floor), upright whichever way the treads are turned */
+function stairArrow24(g, up) {
+  g.save(); if (!up) { g.translate(12, 12); g.scale(1, -1); g.translate(-12, -12); }
+  g.fillStyle = INK; g.beginPath(); g.moveTo(12, 3.4); g.lineTo(19, 11.4); g.lineTo(14.6, 11.4); g.lineTo(14.6, 20.4); g.lineTo(9.4, 20.4); g.lineTo(9.4, 11.4); g.lineTo(5, 11.4); g.closePath(); g.fill();
+  g.fillStyle = up ? '#f4f0e0' : '#ffd890'; g.beginPath(); g.moveTo(12, 4.8); g.lineTo(17.4, 10.6); g.lineTo(13.4, 10.6); g.lineTo(13.4, 19.2); g.lineTo(10.6, 19.2); g.lineTo(10.6, 10.6); g.lineTo(6.6, 10.6); g.closePath(); g.fill(); g.restore();
 }
 /* a standing torch: a wooden stake with a wrapped head and a flame that flickers */
 function torch24(g, t) {
@@ -2061,7 +2066,7 @@ const WALLX = ['N', 'W', 'E', 'S', 'WS', 'ES', 'WN', 'EN'];
 function T24(id, group, label, fn, o: any = {}) { return A(id, group, label, 24, 24, o.frames || 1, fn, Object.assign({ kind: 'furniture', under: 'wood' }, o)); }
 T24('wall_face', 'walls', 'Back wall', g => wallFace24(g, false), { kind: 'tile', under: null }); T24('wall_window', 'walls', 'Back wall, window', g => wallFace24(g, true), { kind: 'tile', under: null });
 A('torch', 'camp', 'Torch', 24, 26, FR, (g, t) => torch24(g, t), { bot: true });
-for (const r of [0, 1, 2, 3]) for (const up of [true, false]) A(`stair_${up ? 'up' : 'down'}${r ? '_' + r : ''}`, 'walls', `Staircase ${up ? 'up' : 'down'}${r ? ', turned ' + r : ''}`, 24, 24, 1, g => { g.save(); g.translate(12, 12); g.rotate(r * Math.PI / 2); g.translate(-12, -12); stair24(g, up); g.restore(); }, { kind: 'tile', under: null });   // (r: which way the arrow points: 0 north, 1 east, 2 south, 3 west)
+for (const up of [true, false]) A(up ? 'stair_up' : 'stair_down', 'walls', up ? 'Staircase up (the landing is south of it)' : 'Staircase down (the landing is north of it)', 24, 24, 1, g => { g.save(); if (!up) { g.translate(12, 12); g.scale(1, -1); g.translate(-12, -12); } stair24(g, true); g.restore(); stairArrow24(g, up); }, { kind: 'tile', under: null });   // (the down stair is the up stair turned over, its arrow too)   // (r: which way the treads are turned, the landing at the foot: 0 north, 1 east, 2 south, 3 west; the arrow always says up or down)
 T24('window_side', 'walls', 'Window in a side wall', g => windowSide24(g), { kind: 'tile', under: null });
 for (const s of ['W', 'E', 'S', 'WS', 'ES', 'WN', 'EN']) T24('cap_' + s, 'walls', 'Wall top ' + s, g => cap24(g, s), { kind: 'tile', under: null }); T24('cap_plain', 'walls', 'Wall top, inner', g => cap24(g, ''), { kind: 'tile', under: null });
 /* every other combination of open edges, for free-form walls (letters in the order W, E, N, S) */
