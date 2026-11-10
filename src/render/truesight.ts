@@ -14,6 +14,7 @@ const TSIGHT: any = { on: true, poly: null, hits: null, key: '', rect: null, eye
 /** is this back-wall tile a window (see room drawing in render/village.ts) */
 function tsWindow(x, y) {
   if (town.tsHoles && town.tsHoles.has(y * W + x)) return true;
+  if (town.winS && town.winS.has(y * W + x)) return true;   // (a window in a side wall)
   if (town.win && town.win.has(y * W + x)) return true;   // (a window block in a free-form wall)
   const ri = roomAt[y] && roomAt[y][x]; if (ri == null || ri < 0) return false; const r = rooms[ri]; if (!r || r.dead || r.noWindows) return false;
   return y === r.y && x !== r.x && x !== r.x + r.w - 1 && x !== r.doorX && (x - r.x) % 3 === 2;
@@ -31,11 +32,16 @@ const TS_CELL = 2;
     The hole is two thin plates, one at its top edge and one at its bottom edge, each solid except for the hole's width, so sight passes only through the hole, and only from where the hole is. Another hole shape is another entry. */
 const TS_HOLES: any = {
   window: { x0: 8 / 24, x1: 16 / 24, y0: 11.8 / 24, y1: 17.6 / 24, bars: [[11.6 / 24, 12.4 / 24]] },   // bars: the upright dividers between panes (x0, x1); the horizontal divider lies along the line of sight, so seen from above it casts nothing
+  // the same window in a side wall (the wall runs up and down the map and the glass looks east or west): across the thickness the opening sits in the middle
+  windowSide: { x0: 8 / 24, x1: 16 / 24, y0: 0.3, y1: 0.7, bars: [[11.6 / 24, 12.4 / 24]] },
   // test shapes (tsLab, a hole wall): thin and wide, high and low
   slit: { x0: 0.44, x1: 0.56, y0: 0.15, y1: 0.85, bars: [] }, narrow: { x0: 0.3, x1: 0.7, y0: 0.15, y1: 0.85, bars: [] }, wide: { x0: 0.08, x1: 0.92, y0: 0.4, y1: 0.6, bars: [] }, low: { x0: 0.2, x1: 0.8, y0: 0.6, y1: 0.95, bars: [] }, high: { x0: 0.2, x1: 0.8, y0: 0.05, y1: 0.4, bars: [] }, archway: { x0: 0.12, x1: 0.88, y0: 0.02, y1: 0.98, bars: [] },
 };
 /** which hole a tile is (a window unless the test ground says otherwise) */
 const tsHoleKind = (x, y) => (town.tsHoles && town.tsHoles.get(y * W + x)) || 'window';
+/** a hole tile in a wall that runs up and down the map (walls north and south of it, not east and west): its plates are upright */
+function tsHoleRot(x, y) { const w = (a, b) => a >= 0 && b >= 0 && a < W && b < H && (grid[b][a] === T.WALL || grid[b][a] === T.DOOR); return w(x, y - 1) && w(x, y + 1) && !(w(x - 1, y) && w(x + 1, y)); }
+const tsHoleDef = (kind, rot) => (rot && TS_HOLES[kind + 'Side']) || TS_HOLES[kind];
 /** The plate seen from the side the eye is on is not the one that casts: from above the light is cast from the bottom of the hole, from below from its top (plate flags: 1 top plate, 2 bottom plate). */
 /** segments (x1, y1, x2, y2 ... flat), the wall tiles to show when seen, and a cell grid over the map.
     Walls are as thick as they are drawn: every wall tile is a solid square, and the segments are the straight edges of the solid parts, merged along each wall.
@@ -45,7 +51,7 @@ function tsBuild() {
   const full = (x, y) => x >= 0 && y >= 0 && x < W && y < H && ((grid[y][x] === T.WALL && !tsWindow(x, y)) || (grid[y][x] === T.DOOR && !tsDoorOpen(x, y)));
   const win = (x, y) => x >= 0 && y >= 0 && x < W && y < H && grid[y][x] === T.WALL && tsWindow(x, y);
   const hard = (x, y) => full(x, y) || win(x, y);
-  const hE = new Map<number, number[][]>(), vE = new Map<number, number[][]>(), walls: any[] = [], plates = new Map<string, number[]>();
+  const hE = new Map<number, number[][]>(), vE = new Map<number, number[][]>(), walls: any[] = [], plates = new Map<string, number[]>(), sides = new Set<string>();
   const addH = (y, x1, x2) => { let l = hE.get(y); if (!l) hE.set(y, l = []); l.push([x1, x2]); }, addV = (x, y1, y2) => { let l = vE.get(x); if (!l) vE.set(x, l = []); l.push([y1, y2]); };
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const t = grid[y][x]; if (t !== T.WALL && t !== T.DOOR) continue;
@@ -54,10 +60,17 @@ function tsBuild() {
       if (!hard(x, y - 1)) { addH(y, x, x + 1); pts.push([x + 0.5, y], [x + 0.15, y], [x + 0.85, y]); } if (!hard(x, y + 1)) { addH(y + 1, x, x + 1); pts.push([x + 0.5, y + 1], [x + 0.15, y + 1], [x + 0.85, y + 1]); }
       if (!hard(x - 1, y)) { addV(x, y, y + 1); pts.push([x, y + 0.5], [x, y + 0.15], [x, y + 0.85]); } if (!hard(x + 1, y)) { addV(x + 1, y, y + 1); pts.push([x + 1, y + 0.5], [x + 1, y + 0.15], [x + 1, y + 0.85]); }
       walls.push({ x, y, pts: pts.length ? pts : [[x + 0.5, y + 0.5]] });
-    } else if (win(x, y)) {   // a window: the wall is solid but for the hole (the back wall, so it runs along x)
-      const kind = tsHoleKind(x, y), H = TS_HOLES[kind]; for (const [yy, fl] of [[H.y0, 1], [H.y1, 2]]) { addH(y + yy, x, x + H.x0); addH(y + yy, x + H.x1, x + 1); for (const [b0, b1] of H.bars) addH(y + yy, x + b0, x + b1); plates.set((y + yy).toFixed(5), [fl, y]); }
-      addV(x, y, y + 1); addV(x + 1, y, y + 1);   // the sides of the tile always close: the open strip in front of the plates must not run on into the wall beside the window
-      walls.push({ x, y, win: true, kind, pts: [[x + 0.5, y + H.y0], [x + H.x0 / 2, y + H.y0], [x + (1 + H.x1) / 2, y + H.y0], [x + 0.5, y + H.y1]] });
+    } else if (win(x, y)) {   // a window: the wall is solid but for the hole. In a back wall (running along x) the plates are level, in a side wall (running along y) they are upright.
+      const kind = tsHoleKind(x, y), rot = tsHoleRot(x, y), H = tsHoleDef(kind, rot);
+      if (!rot) {
+        for (const [yy, fl] of [[H.y0, 1], [H.y1, 2]]) { addH(y + yy, x, x + H.x0); addH(y + yy, x + H.x1, x + 1); for (const [b0, b1] of H.bars) addH(y + yy, x + b0, x + b1); plates.set('h' + (y + yy).toFixed(5), [fl, y]); }
+        addV(x + 0.002, y, y + 1); addV(x + 0.998, y, y + 1); sides.add('v' + (x + 0.002).toFixed(4) + '|' + y); sides.add('v' + (x + 0.998).toFixed(4) + '|' + y);   // the sides of the tile always close: the open strip in front of the plates must not run on into the wall beside the window
+        walls.push({ x, y, win: true, kind, rot, pts: [[x + 0.5, y + H.y0], [x + H.x0 / 2, y + H.y0], [x + (1 + H.x1) / 2, y + H.y0], [x + 0.5, y + H.y1]] });
+      } else {
+        for (const [xx, fl] of [[H.y0, 1], [H.y1, 2]]) { addV(x + xx, y, y + H.x0); addV(x + xx, y + H.x1, y + 1); for (const [b0, b1] of H.bars) addV(x + xx, y + b0, y + b1); plates.set('v' + (x + xx).toFixed(5), [fl, x]); }
+        addH(y + 0.002, x, x + 1); addH(y + 0.998, x, x + 1); sides.add('h' + (y + 0.002).toFixed(4) + '|' + x); sides.add('h' + (y + 0.998).toFixed(4) + '|' + x);
+        walls.push({ x, y, win: true, kind, rot, pts: [[x + H.y0, y + 0.5], [x + H.y0, y + H.x0 / 2], [x + H.y0, y + (1 + H.x1) / 2], [x + H.y1, y + 0.5]] });
+      }
     }
   }
   // merge the straight edges along each line into single segments
@@ -73,7 +86,10 @@ function tsBuild() {
       // a segment along a cell border also belongs to the cell next door
       for (const [dx, dy] of [[1, 0], [0, 1], [1, 1]]) { const nx = Math.floor((px + 1e-6 * dx) / TS_CELL), ny = Math.floor((py + 1e-6 * dy) / TS_CELL); if ((dx && nx !== cx) || (dy && ny !== cy)) { const k2 = Math.min(ch - 1, ny) * cw + Math.min(cw - 1, nx); if (k2 !== k && !(cells[k2] && cells[k2].includes(s))) (cells[k2] || (cells[k2] = [])).push(s); } } }
   }
-  const pf = new Int8Array(seg.length / 4), pty = new Int32Array(seg.length / 4); for (let s = 0; s < seg.length; s += 4) if (seg[s + 1] === seg[s + 3]) { const p = plates.get(seg[s + 1].toFixed(5)); if (p) { pf[s >> 2] = p[0]; pty[s >> 2] = p[1]; } }
+  const pf = new Int8Array(seg.length / 4), pty = new Int32Array(seg.length / 4);
+  for (let s = 0; s < seg.length; s += 4) { const hz = seg[s + 1] === seg[s + 3];
+    const pk = hz ? 'h' + seg[s + 1].toFixed(5) : 'v' + seg[s].toFixed(5), pl = plates.get(pk);
+    if (pl) { pf[s >> 2] = pl[0]; pty[s >> 2] = pl[1]; } else if (sides.has(hz ? 'h' + seg[s + 1].toFixed(4) + '|' + seg[s] : 'v' + seg[s].toFixed(4) + '|' + seg[s + 1])) pf[s >> 2] = 3; }   // 3: the closed side of a hole tile, a blocker only (never a face to light)
   return { seg, walls, cells, cw, ch, pf, pty };
 }
 /** the nearest segment a ray meets: { t, s } (s = -1 when it reaches tMax first). Inclusive at segment ends, so two walls touching corner to corner do not leak. */
@@ -84,7 +100,7 @@ function tsRay(G, ox, oy, dx, dy, tMax) {
   let tmx = dx !== 0 ? ((sx > 0 ? (cx + 1) * TS_CELL - ox : ox - cx * TS_CELL) * Math.abs(1 / dx)) : Infinity, tmy = dy !== 0 ? ((sy > 0 ? (cy + 1) * TS_CELL - oy : oy - cy * TS_CELL) * Math.abs(1 / dy)) : Infinity;
   for (let guard = 0; guard < 2000; guard++) {
     if (cx >= 0 && cy >= 0 && cx < cw && cy < ch) { const L = cells[cy * cw + cx];
-      if (L) for (let i = 0; i < L.length; i++) { const s = L[i], pf = G.pf[s >> 2]; if (pf && (pf === 1 ? oy < G.pty[s >> 2] : oy > G.pty[s >> 2] + 1)) continue; const x1 = seg[s], y1 = seg[s + 1], ex = seg[s + 2] - x1, ey = seg[s + 3] - y1, den = dx * ey - dy * ex; if (den > -1e-12 && den < 1e-12) continue;
+      if (L) for (let i = 0; i < L.length; i++) { const s = L[i], pf = G.pf[s >> 2]; if (pf && pf < 3) { const o = seg[s] === seg[s + 2] ? ox : oy, t0 = G.pty[s >> 2]; if (pf === 1 ? o < t0 : o > t0 + 1) continue; } const x1 = seg[s], y1 = seg[s + 1], ex = seg[s + 2] - x1, ey = seg[s + 3] - y1, den = dx * ey - dy * ex; if (den > -1e-12 && den < 1e-12) continue;
         const px = x1 - ox, py = y1 - oy, t = (px * ey - py * ex) / den, u = (px * dy - py * dx) / den; if (t >= -1e-9 && t < best && u >= -1e-7 && u <= 1 + 1e-7) { best = t; bs = s; } } }
     const tn = Math.min(tmx, tmy); if (tn > best || tn > tMax) break;
     if (tmx < tmy) { cx += sx; tmx += tdx; } else { cy += sy; tmy += tdy; }
@@ -119,9 +135,11 @@ function tsFaces(ex, ey, pts, G = tsGeo(), depth = 1) {
   for (let i = 0; i < n; i++) {
     const j = (i + 1) % n, s = pts.segs[i]; if (s < 0 || s !== pts.segs[j]) continue;
     const a = pts[i], b = pts[j]; if (Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) < 1e-5) continue;
+    if (G.pf[s >> 2] === 3) continue;   // the closed side of a hole tile blocks sight but is no face
     let nx = -(seg[s + 3] - seg[s + 1]), ny = seg[s + 2] - seg[s], l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
     if ((ex - a[0]) * nx + (ey - a[1]) * ny > 0) { nx = -nx; ny = -ny; }   // pointing away from you, into the wall
-    const pmx = (a[0] + b[0]) / 2, pmy = (a[1] + b[1]) / 2, plate = tsTile(Math.floor(pmx), Math.floor(pmy)) === 2 && Math.abs(pmy - Math.round(pmy)) > 1e-4, dep = plate ? (ny > 0 ? Math.floor(pmy) + 1 - pmy : pmy - Math.floor(pmy)) : depth;   // a window plate lights only the rest of its own tile
+    const pmx = (a[0] + b[0]) / 2, pmy = (a[1] + b[1]) / 2, vert = seg[s] === seg[s + 2], plate = tsTile(Math.floor(pmx), Math.floor(pmy)) === 2 && Math.abs((vert ? pmx : pmy) - Math.round(vert ? pmx : pmy)) > 1e-4,
+      dep = plate ? (vert ? (nx > 0 ? Math.floor(pmx) + 1 - pmx : pmx - Math.floor(pmx)) : (ny > 0 ? Math.floor(pmy) + 1 - pmy : pmy - Math.floor(pmy))) : depth;   // a window plate lights only the rest of its own tile
     if (!plate) { const mx = (a[0] + b[0]) / 2 + nx * 0.5, my = (a[1] + b[1]) / 2 + ny * 0.5; if (tsTile(Math.floor(mx), Math.floor(my)) === 0) continue; }   // you are inside the wall's thickness (standing in a doorway): this is the wall's far side, not a face you look at
     // a hair of overlap (along the face and back into the lit floor) so neighbouring strips and the polygon never show a seam
     let tx = b[0] - a[0], ty = b[1] - a[1]; const tl = Math.hypot(tx, ty) || 1; tx = tx / tl * 0.03; ty = ty / tl * 0.03; const o = 0.03;
@@ -138,12 +156,15 @@ function tsFaces(ex, ey, pts, G = tsGeo(), depth = 1) {
     quads.push([a0, a1, b0, b1, b0 + nx * (dep + o), b1 + ny * (dep + o), a0 + nx * (dep + o), a1 + ny * (dep + o)]);
   }
   // a window tile shows its whole face wherever its outer line can be seen (the wall beside it may hide the recessed glass, never the face of the tile)
-  for (const w of G.walls) { if (!w.win || Math.abs(w.x + 0.5 - ex) > 60 || Math.abs(w.y + 0.5 - ey) > 60) continue; const north = ey < w.y, south = ey > w.y + 1; if (!north && !south) continue;
-    const ly = north ? w.y : w.y + 1, dir = north ? 1 : -1;
-    const H = TS_HOLES[w.kind || 'window'], N = 24;   // the face is lit all over except the hole itself: what shows through the glass is whatever the sight line through it reaches
-    for (let k = 0; k < N; k++) { const x0 = w.x + k / N, x1 = w.x + (k + 1) / N; if (!tsClear(G, ex, ey, (x0 + x1) / 2, ly - dir * 0.03, 0)) continue;
-      const inHole = (k + 0.5) / N > H.x0 && (k + 0.5) / N < H.x1, ys = inHole ? [[0, H.y0], [H.y1, 1]] : [[0, 1]];
-      for (const [t0, t1] of ys) { const ya = w.y + t0 - (t0 === 0 ? 0.03 : 0), yb = w.y + t1 + (t1 === 1 ? 0.03 : 0); quads.push([x0 - 0.01, ya, x1 + 0.01, ya, x1 + 0.01, yb, x0 - 0.01, yb]); } } }
+  for (const w of G.walls) { if (!w.win || Math.abs(w.x + 0.5 - ex) > 60 || Math.abs(w.y + 0.5 - ey) > 60) continue; const H = tsHoleDef(w.kind || 'window', w.rot), N = 24;
+    if (!w.rot) { const north = ey < w.y, south = ey > w.y + 1; if (!north && !south) continue; const ly = north ? w.y : w.y + 1, dir = north ? 1 : -1;
+      for (let k = 0; k < N; k++) { const x0 = w.x + k / N, x1 = w.x + (k + 1) / N; if (!tsClear(G, ex, ey, (x0 + x1) / 2, ly - dir * 0.03, 0)) continue;   // the face is lit all over except the hole itself: what shows through the glass is whatever the sight line through it reaches
+        const inHole = (k + 0.5) / N > H.x0 && (k + 0.5) / N < H.x1, ys = inHole ? [[0, H.y0], [H.y1, 1]] : [[0, 1]];
+        for (const [t0, t1] of ys) { const ya = w.y + t0 - (t0 === 0 ? 0.03 : 0), yb = w.y + t1 + (t1 === 1 ? 0.03 : 0); quads.push([x0 - 0.01, ya, x1 + 0.01, ya, x1 + 0.01, yb, x0 - 0.01, yb]); } } }
+    else { const west = ex < w.x, east = ex > w.x + 1; if (!west && !east) continue; const lx = west ? w.x : w.x + 1, dir = west ? 1 : -1;
+      for (let k = 0; k < N; k++) { const y0 = w.y + k / N, y1 = w.y + (k + 1) / N; if (!tsClear(G, ex, ey, lx - dir * 0.03, (y0 + y1) / 2, 0)) continue;
+        const inHole = (k + 0.5) / N > H.x0 && (k + 0.5) / N < H.x1, xs = inHole ? [[0, H.y0], [H.y1, 1]] : [[0, 1]];
+        for (const [t0, t1] of xs) { const xa = w.x + t0 - (t0 === 0 ? 0.03 : 0), xb = w.x + t1 + (t1 === 1 ? 0.03 : 0); quads.push([xa, y0 - 0.01, xb, y0 - 0.01, xb, y1 + 0.01, xa, y1 + 0.01]); } } } }
   return quads;
 }
 /** is the point (tile coords) in a clear line from the eye? (nothing of any building between them) */
@@ -268,6 +289,7 @@ function tsLab() {
   for (let i = 0; i < 4; i++) { setT(ox + 36 + i, oy + 22, T.WALL); setT(ox + 40 + i, oy + 23, T.WALL); }
   // 5. a wall of holes of different shapes (a thin slit, a narrow door, a wide low slot, a window ...): the same wall, the same light
   town.tsHoles = new Map(); const kinds = ['slit', 'narrow', 'wide', 'low', 'high', 'archway', 'window']; for (let i = 0; i < 22; i++) setT(ox + 2 + i, oy + 27, T.WALL); kinds.forEach((k, i) => { town.tsHoles.set((oy + 27) * W + ox + 3 + i * 3, k); });
+  for (let j = 3; j < 25; j++) setT(ox + 44, oy + j, T.WALL); kinds.forEach((k, i) => { town.tsHoles.set((oy + 4 + i * 3) * W + ox + 44, k); });   // and the same holes in a wall that runs up and down
   town.gridV = (town.gridV || 0) + 1;
   town.treeDirty = true; town.treeCache = null; if (typeof markDirty === 'function') markDirty(ox, oy, LW, LH); if (typeof refreshReach === 'function') refreshReach(); rebuildOcc();
   return { ox, oy, A, B, C, K, H: Hh, shed: Sh, holes: kinds };

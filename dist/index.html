@@ -3358,6 +3358,38 @@ const ART = (function() {
       c24(g, [rect(5.6, 18.6, 12.8, 1.5)], pal("#b8bcc2", "#f0f0e6", null), { smooth: false, seed: 4, hs: 0.01, iw: 0.12 });
     }
   }
+  function windowSide24(g) {
+    g.fillStyle = "rgba(30,24,50,.4)";
+    g.fillRect(2.5, 7.6, 19, 9.2);
+    wood(g, 1.6, 6.4, 20.8, 11.2, { dir: "v", planks: 1, seed: 8, nails: false, knots: 0, P: pal("#7a4a2a", "#c08a58", "#9a6238") });
+    const gl = g.createLinearGradient(0, 8, 0, 16);
+    gl.addColorStop(0, "#b4c4f8");
+    gl.addColorStop(0.5, "#7b8fe0");
+    gl.addColorStop(1, "#5a6cc0");
+    g.fillStyle = gl;
+    g.fillRect(4, 8, 16, 8);
+    g.fillStyle = "rgba(255,255,255,.34)";
+    g.beginPath();
+    g.moveTo(4.4, 8);
+    g.lineTo(8.4, 8);
+    g.lineTo(4.4, 13.6);
+    g.fill();
+    g.beginPath();
+    g.moveTo(9.6, 8);
+    g.lineTo(11.2, 8);
+    g.lineTo(4.8, 15.4);
+    g.lineTo(4.4, 15.4);
+    g.fill();
+    g.fillStyle = IN2.trimDk;
+    g.fillRect(4, 11.6, 16, 0.8);
+    g.fillRect(11.6, 8, 0.8, 8);
+    g.fillStyle = "rgba(255,220,170,.4)";
+    g.fillRect(4, 11.6, 16, 0.25);
+    g.strokeStyle = INK;
+    g.lineWidth = 0.18;
+    g.strokeRect(4, 8, 16, 8);
+    g.strokeRect(1.6, 6.4, 20.8, 11.2);
+  }
   function cap24(g, side) {
     const R = mul(17 + side.length);
     g.fillStyle = IN2.cap;
@@ -7336,6 +7368,7 @@ const ART = (function() {
   }
   T24("wall_face", "walls", "Back wall", (g) => wallFace24(g, false), { kind: "tile", under: null });
   T24("wall_window", "walls", "Back wall, window", (g) => wallFace24(g, true), { kind: "tile", under: null });
+  T24("window_side", "walls", "Window in a side wall", (g) => windowSide24(g), { kind: "tile", under: null });
   for (const s of ["W", "E", "S", "WS", "ES", "WN", "EN"]) T24("cap_" + s, "walls", "Wall top " + s, (g) => cap24(g, s), { kind: "tile", under: null });
   T24("cap_plain", "walls", "Wall top, inner", (g) => cap24(g, ""), { kind: "tile", under: null });
   for (let m = 1; m < 16; m++) {
@@ -15627,6 +15660,7 @@ function boulderShape(x, y) {
 const TSIGHT = { on: true, poly: null, hits: null, key: "", rect: null, eye: null, ms: 0, cv: null, geo: null, geoKey: "" };
 function tsWindow(x, y) {
   if (town.tsHoles && town.tsHoles.has(y * W + x)) return true;
+  if (town.winS && town.winS.has(y * W + x)) return true;
   if (town.win && town.win.has(y * W + x)) return true;
   const ri2 = roomAt[y] && roomAt[y][x];
   if (ri2 == null || ri2 < 0) return false;
@@ -15649,6 +15683,8 @@ const TS_CELL = 2;
 const TS_HOLES = {
   window: { x0: 8 / 24, x1: 16 / 24, y0: 11.8 / 24, y1: 17.6 / 24, bars: [[11.6 / 24, 12.4 / 24]] },
   // bars: the upright dividers between panes (x0, x1); the horizontal divider lies along the line of sight, so seen from above it casts nothing
+  // the same window in a side wall (the wall runs up and down the map and the glass looks east or west): across the thickness the opening sits in the middle
+  windowSide: { x0: 8 / 24, x1: 16 / 24, y0: 0.3, y1: 0.7, bars: [[11.6 / 24, 12.4 / 24]] },
   // test shapes (tsLab, a hole wall): thin and wide, high and low
   slit: { x0: 0.44, x1: 0.56, y0: 0.15, y1: 0.85, bars: [] },
   narrow: { x0: 0.3, x1: 0.7, y0: 0.15, y1: 0.85, bars: [] },
@@ -15658,11 +15694,16 @@ const TS_HOLES = {
   archway: { x0: 0.12, x1: 0.88, y0: 0.02, y1: 0.98, bars: [] }
 };
 const tsHoleKind = (x, y) => town.tsHoles && town.tsHoles.get(y * W + x) || "window";
+function tsHoleRot(x, y) {
+  const w = (a, b) => a >= 0 && b >= 0 && a < W && b < H && (grid[b][a] === T.WALL || grid[b][a] === T.DOOR);
+  return w(x, y - 1) && w(x, y + 1) && !(w(x - 1, y) && w(x + 1, y));
+}
+const tsHoleDef = (kind, rot) => rot && TS_HOLES[kind + "Side"] || TS_HOLES[kind];
 function tsBuild() {
   const full = (x, y) => x >= 0 && y >= 0 && x < W && y < H && (grid[y][x] === T.WALL && !tsWindow(x, y) || grid[y][x] === T.DOOR && !tsDoorOpen(x, y));
   const win = (x, y) => x >= 0 && y >= 0 && x < W && y < H && grid[y][x] === T.WALL && tsWindow(x, y);
   const hard = (x, y) => full(x, y) || win(x, y);
-  const hE = /* @__PURE__ */ new Map(), vE = /* @__PURE__ */ new Map(), walls = [], plates = /* @__PURE__ */ new Map();
+  const hE = /* @__PURE__ */ new Map(), vE = /* @__PURE__ */ new Map(), walls = [], plates = /* @__PURE__ */ new Map(), sides = /* @__PURE__ */ new Set();
   const addH = (y, x1, x2) => {
     let l = hE.get(y);
     if (!l) hE.set(y, l = []);
@@ -15695,16 +15736,32 @@ function tsBuild() {
       }
       walls.push({ x, y, pts: pts.length ? pts : [[x + 0.5, y + 0.5]] });
     } else if (win(x, y)) {
-      const kind = tsHoleKind(x, y), H2 = TS_HOLES[kind];
-      for (const [yy, fl] of [[H2.y0, 1], [H2.y1, 2]]) {
-        addH(y + yy, x, x + H2.x0);
-        addH(y + yy, x + H2.x1, x + 1);
-        for (const [b0, b1] of H2.bars) addH(y + yy, x + b0, x + b1);
-        plates.set((y + yy).toFixed(5), [fl, y]);
+      const kind = tsHoleKind(x, y), rot = tsHoleRot(x, y), H2 = tsHoleDef(kind, rot);
+      if (!rot) {
+        for (const [yy, fl] of [[H2.y0, 1], [H2.y1, 2]]) {
+          addH(y + yy, x, x + H2.x0);
+          addH(y + yy, x + H2.x1, x + 1);
+          for (const [b0, b1] of H2.bars) addH(y + yy, x + b0, x + b1);
+          plates.set("h" + (y + yy).toFixed(5), [fl, y]);
+        }
+        addV(x + 2e-3, y, y + 1);
+        addV(x + 0.998, y, y + 1);
+        sides.add("v" + (x + 2e-3).toFixed(4) + "|" + y);
+        sides.add("v" + (x + 0.998).toFixed(4) + "|" + y);
+        walls.push({ x, y, win: true, kind, rot, pts: [[x + 0.5, y + H2.y0], [x + H2.x0 / 2, y + H2.y0], [x + (1 + H2.x1) / 2, y + H2.y0], [x + 0.5, y + H2.y1]] });
+      } else {
+        for (const [xx, fl] of [[H2.y0, 1], [H2.y1, 2]]) {
+          addV(x + xx, y, y + H2.x0);
+          addV(x + xx, y + H2.x1, y + 1);
+          for (const [b0, b1] of H2.bars) addV(x + xx, y + b0, y + b1);
+          plates.set("v" + (x + xx).toFixed(5), [fl, x]);
+        }
+        addH(y + 2e-3, x, x + 1);
+        addH(y + 0.998, x, x + 1);
+        sides.add("h" + (y + 2e-3).toFixed(4) + "|" + x);
+        sides.add("h" + (y + 0.998).toFixed(4) + "|" + x);
+        walls.push({ x, y, win: true, kind, rot, pts: [[x + H2.y0, y + 0.5], [x + H2.y0, y + H2.x0 / 2], [x + H2.y0, y + (1 + H2.x1) / 2], [x + H2.y1, y + 0.5]] });
       }
-      addV(x, y, y + 1);
-      addV(x + 1, y, y + 1);
-      walls.push({ x, y, win: true, kind, pts: [[x + 0.5, y + H2.y0], [x + H2.x0 / 2, y + H2.y0], [x + (1 + H2.x1) / 2, y + H2.y0], [x + 0.5, y + H2.y1]] });
     }
   }
   const seg = [], merge = (m, horiz) => {
@@ -15744,12 +15801,13 @@ function tsBuild() {
     }
   }
   const pf = new Int8Array(seg.length / 4), pty = new Int32Array(seg.length / 4);
-  for (let s = 0; s < seg.length; s += 4) if (seg[s + 1] === seg[s + 3]) {
-    const p = plates.get(seg[s + 1].toFixed(5));
-    if (p) {
-      pf[s >> 2] = p[0];
-      pty[s >> 2] = p[1];
-    }
+  for (let s = 0; s < seg.length; s += 4) {
+    const hz = seg[s + 1] === seg[s + 3];
+    const pk2 = hz ? "h" + seg[s + 1].toFixed(5) : "v" + seg[s].toFixed(5), pl = plates.get(pk2);
+    if (pl) {
+      pf[s >> 2] = pl[0];
+      pty[s >> 2] = pl[1];
+    } else if (sides.has(hz ? "h" + seg[s + 1].toFixed(4) + "|" + seg[s] : "v" + seg[s].toFixed(4) + "|" + seg[s + 1])) pf[s >> 2] = 3;
   }
   return { seg, walls, cells, cw, ch, pf, pty };
 }
@@ -15765,7 +15823,10 @@ function tsRay(G, ox, oy, dx, dy, tMax) {
       const L = cells[cy * cw + cx];
       if (L) for (let i = 0; i < L.length; i++) {
         const s = L[i], pf = G.pf[s >> 2];
-        if (pf && (pf === 1 ? oy < G.pty[s >> 2] : oy > G.pty[s >> 2] + 1)) continue;
+        if (pf && pf < 3) {
+          const o = seg[s] === seg[s + 2] ? ox : oy, t0 = G.pty[s >> 2];
+          if (pf === 1 ? o < t0 : o > t0 + 1) continue;
+        }
         const x1 = seg[s], y1 = seg[s + 1], ex = seg[s + 2] - x1, ey = seg[s + 3] - y1, den = dx * ey - dy * ex;
         if (den > -1e-12 && den < 1e-12) continue;
         const px = x1 - ox, py = y1 - oy, t = (px * ey - py * ex) / den, u = (px * dy - py * dx) / den;
@@ -15842,6 +15903,7 @@ function tsFaces(ex, ey, pts, G = tsGeo(), depth = 1) {
     if (s < 0 || s !== pts.segs[j]) continue;
     const a = pts[i], b = pts[j];
     if (Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) < 1e-5) continue;
+    if (G.pf[s >> 2] === 3) continue;
     let nx = -(seg[s + 3] - seg[s + 1]), ny = seg[s + 2] - seg[s], l = Math.hypot(nx, ny) || 1;
     nx /= l;
     ny /= l;
@@ -15849,7 +15911,7 @@ function tsFaces(ex, ey, pts, G = tsGeo(), depth = 1) {
       nx = -nx;
       ny = -ny;
     }
-    const pmx = (a[0] + b[0]) / 2, pmy = (a[1] + b[1]) / 2, plate = tsTile(Math.floor(pmx), Math.floor(pmy)) === 2 && Math.abs(pmy - Math.round(pmy)) > 1e-4, dep = plate ? ny > 0 ? Math.floor(pmy) + 1 - pmy : pmy - Math.floor(pmy) : depth;
+    const pmx = (a[0] + b[0]) / 2, pmy = (a[1] + b[1]) / 2, vert = seg[s] === seg[s + 2], plate = tsTile(Math.floor(pmx), Math.floor(pmy)) === 2 && Math.abs((vert ? pmx : pmy) - Math.round(vert ? pmx : pmy)) > 1e-4, dep = plate ? vert ? nx > 0 ? Math.floor(pmx) + 1 - pmx : pmx - Math.floor(pmx) : ny > 0 ? Math.floor(pmy) + 1 - pmy : pmy - Math.floor(pmy) : depth;
     if (!plate) {
       const mx = (a[0] + b[0]) / 2 + nx * 0.5, my = (a[1] + b[1]) / 2 + ny * 0.5;
       if (tsTile(Math.floor(mx), Math.floor(my)) === 0) continue;
@@ -15879,17 +15941,32 @@ function tsFaces(ex, ey, pts, G = tsGeo(), depth = 1) {
   }
   for (const w of G.walls) {
     if (!w.win || Math.abs(w.x + 0.5 - ex) > 60 || Math.abs(w.y + 0.5 - ey) > 60) continue;
-    const north = ey < w.y, south = ey > w.y + 1;
-    if (!north && !south) continue;
-    const ly = north ? w.y : w.y + 1, dir = north ? 1 : -1;
-    const H2 = TS_HOLES[w.kind || "window"], N = 24;
-    for (let k = 0; k < N; k++) {
-      const x0 = w.x + k / N, x1 = w.x + (k + 1) / N;
-      if (!tsClear(G, ex, ey, (x0 + x1) / 2, ly - dir * 0.03, 0)) continue;
-      const inHole = (k + 0.5) / N > H2.x0 && (k + 0.5) / N < H2.x1, ys = inHole ? [[0, H2.y0], [H2.y1, 1]] : [[0, 1]];
-      for (const [t0, t1] of ys) {
-        const ya = w.y + t0 - (t0 === 0 ? 0.03 : 0), yb = w.y + t1 + (t1 === 1 ? 0.03 : 0);
-        quads.push([x0 - 0.01, ya, x1 + 0.01, ya, x1 + 0.01, yb, x0 - 0.01, yb]);
+    const H2 = tsHoleDef(w.kind || "window", w.rot), N = 24;
+    if (!w.rot) {
+      const north = ey < w.y, south = ey > w.y + 1;
+      if (!north && !south) continue;
+      const ly = north ? w.y : w.y + 1, dir = north ? 1 : -1;
+      for (let k = 0; k < N; k++) {
+        const x0 = w.x + k / N, x1 = w.x + (k + 1) / N;
+        if (!tsClear(G, ex, ey, (x0 + x1) / 2, ly - dir * 0.03, 0)) continue;
+        const inHole = (k + 0.5) / N > H2.x0 && (k + 0.5) / N < H2.x1, ys = inHole ? [[0, H2.y0], [H2.y1, 1]] : [[0, 1]];
+        for (const [t0, t1] of ys) {
+          const ya = w.y + t0 - (t0 === 0 ? 0.03 : 0), yb = w.y + t1 + (t1 === 1 ? 0.03 : 0);
+          quads.push([x0 - 0.01, ya, x1 + 0.01, ya, x1 + 0.01, yb, x0 - 0.01, yb]);
+        }
+      }
+    } else {
+      const west = ex < w.x, east = ex > w.x + 1;
+      if (!west && !east) continue;
+      const lx = west ? w.x : w.x + 1, dir = west ? 1 : -1;
+      for (let k = 0; k < N; k++) {
+        const y0 = w.y + k / N, y1 = w.y + (k + 1) / N;
+        if (!tsClear(G, ex, ey, lx - dir * 0.03, (y0 + y1) / 2, 0)) continue;
+        const inHole = (k + 0.5) / N > H2.x0 && (k + 0.5) / N < H2.x1, xs = inHole ? [[0, H2.y0], [H2.y1, 1]] : [[0, 1]];
+        for (const [t0, t1] of xs) {
+          const xa = w.x + t0 - (t0 === 0 ? 0.03 : 0), xb = w.x + t1 + (t1 === 1 ? 0.03 : 0);
+          quads.push([xa, y0 - 0.01, xb, y0 - 0.01, xb, y1 + 0.01, xa, y1 + 0.01]);
+        }
       }
     }
   }
@@ -16139,6 +16216,10 @@ function tsLab() {
   kinds.forEach((k, i) => {
     town.tsHoles.set((oy + 27) * W + ox + 3 + i * 3, k);
   });
+  for (let j = 3; j < 25; j++) setT(ox + 44, oy + j, T.WALL);
+  kinds.forEach((k, i) => {
+    town.tsHoles.set((oy + 4 + i * 3) * W + ox + 44, k);
+  });
   town.gridV = (town.gridV || 0) + 1;
   town.treeDirty = true;
   town.treeCache = null;
@@ -16321,6 +16402,7 @@ function gaFreeTile(g, r, x, y, t, X, Y, v, fk, P) {
     }
     const k = (!gaSolidW(x - 1, y) ? "W" : "") + (!gaSolidW(x + 1, y) ? "E" : "") + (!gaSolidW(x, y - 1) && !gaInside(x, y - 1) ? "N" : "") + (!gaSolidW(x, y + 1) ? "S" : "");
     P(k === "" ? "cap_plain" : "cap_" + k);
+    if (town.winS && town.winS.has(y * W + x)) P("window_side");
     return;
   }
   g.drawImage(ART.terr(fk, v), X, Y, TS, TS);
@@ -19353,6 +19435,8 @@ function bldMake(regions, dissolve) {
   }
   town.win = town.win || /* @__PURE__ */ new Set();
   for (const k of [...town.win]) if (grid[k / W | 0][k % W] !== T.WALL) town.win.delete(k);
+  town.winS = town.winS || /* @__PURE__ */ new Set();
+  for (const k of [...town.winS]) if (grid[k / W | 0][k % W] !== T.WALL) town.winS.delete(k);
   const made = [];
   for (const R of regions) {
     const idx = rooms.length, set = new Set(R);
@@ -19410,6 +19494,7 @@ function bldMake(regions, dissolve) {
     for (const k of edge) {
       const x = k % W, y = k / W | 0;
       if (wall.get(k) === "bwindow" && grid[y][x] === T.WALL && grid[y][x - 1] !== void 0 && (grid[y][x - 1] === T.WALL || grid[y][x - 1] === T.DOOR) && (grid[y][x + 1] === T.WALL || grid[y][x + 1] === T.DOOR) && set.has(x + (y + 1) * W)) town.win.add(k);
+      else if (wall.get(k) === "bwindow" && grid[y][x] === T.WALL && gaSolidW(x, y - 1) && gaSolidW(x, y + 1) && (set.has(x - 1 + y * W) || set.has(x + 1 + y * W))) town.winS.add(k);
     }
   }
   for (const room of made) {
@@ -19520,6 +19605,7 @@ function bldDissolve(list) {
   town.bldWas = town.bldWas || /* @__PURE__ */ new Map();
   town.bldWall = town.bldWall || /* @__PURE__ */ new Map();
   town.win = town.win || /* @__PURE__ */ new Set();
+  town.winS = town.winS || /* @__PURE__ */ new Set();
   for (const r of list) r.dead = true;
   const live = rooms.filter((q) => q.free && !q.dead);
   for (const r of list) {
@@ -19561,6 +19647,7 @@ function bldDissolve(list) {
     roomAt[y][x] = -1;
     town.bldWall.delete(k);
     town.win.delete(k);
+    if (town.winS) town.winS.delete(k);
     if (!lfPropAt(x, y)) lfAddProp(kind, x, y);
     spots.push([x, y]);
   }
@@ -19586,6 +19673,7 @@ function bldBreak(x, y, by) {
   roomAt[y][x] = -1;
   town.bldWall.delete(k);
   if (town.win) town.win.delete(k);
+  if (town.winS) town.winS.delete(k);
   markDirty(x - 1, y - 1, 3, 3);
   town.treeDirty = true;
   if (by) workFx("split", x, y, by);

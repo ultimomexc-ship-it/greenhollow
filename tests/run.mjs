@@ -439,7 +439,7 @@ test('building: blocks close into rooms of any shape (L-shape, a door needed, no
     const pth = findPath(o.x + 2, o.y + 8, o.x + 4, o.y + 2); res.path = !!pth && pth.length > 0;
     // 2. a closed square with no door: nothing; add a door block and it seals (a window block in the back wall becomes a window)
     const sq = []; for (let j = 1; j <= 3; j++) for (let i = 1; i <= 3; i++) sq.push([i, j]); ring = ringOf(sq); const S = { x: o.x + 10, y: o.y }; put(S.x, S.y, ring); run(ring.map(c => [S.x + c[0], S.y + c[1]])); res.noDoor = rooms0() - 1;
-    const dp = lfPropAt(S.x + 2, S.y + 4); dp && (town.props = town.props.filter(q => q !== dp), town.propAt.delete((S.y + 4) * W + S.x + 2), town.pblock[(S.y + 4) * W + S.x + 2] = 0); lfAddProp('bdoor', S.x + 2, S.y + 4); const wp = lfPropAt(S.x + 2, S.y); wp.kind = 'bwindow'; run([[S.x + 2, S.y + 4]]); res.withDoor = rooms0() - 1; res.win = town.win && town.win.has(S.y * W + S.x + 2);
+    const dp = lfPropAt(S.x + 2, S.y + 4); dp && (town.props = town.props.filter(q => q !== dp), town.propAt.delete((S.y + 4) * W + S.x + 2), town.pblock[(S.y + 4) * W + S.x + 2] = 0); lfAddProp('bdoor', S.x + 2, S.y + 4); const wp = lfPropAt(S.x + 2, S.y); wp.kind = 'bwindow'; const wq = lfPropAt(S.x, S.y + 2); wq.kind = 'bwindow'; run([[S.x + 2, S.y + 4]]); res.withDoor = rooms0() - 1; res.win = town.win && town.win.has(S.y * W + S.x + 2); res.winS = !!(town.winS && town.winS.has((S.y + 2) * W + S.x)) && !(town.win && town.win.has((S.y + 2) * W + S.x));
     // 3. walls that meet only at a corner never close anything
     const D = { x: o.x + 16, y: o.y }; const dsq = []; for (let i = 0; i <= 4; i++) for (let j = 0; j <= 4; j++) if ((i === 0 || j === 0 || i === 4 || j === 4) && !(i === 0 && j === 4)) dsq.push([i, j]); for (const [i, j] of dsq) lfAddProp(i === 2 && j === 4 ? 'bdoor' : 'bwall', D.x + i, D.y + j); run(dsq.map(c => [D.x + c[0], D.y + c[1]])); res.diag = rooms0() - 2;
     // 4. a tree inside refuses to seal
@@ -459,7 +459,7 @@ test('building: blocks close into rooms of any shape (L-shape, a door needed, no
   });
   check(r.notYet === 0 && r.L.rooms === 1 && r.L.cells === 24 && r.L.floor && r.L.wall && r.L.door && r.L.loose === 0 && r.L.at, 'an L-shaped ring closes into one 24-tile room with fixed walls, a door and a floor: ' + JSON.stringify(r));
   check(r.path, 'you can walk in through the new door');
-  check(r.noDoor === 0 && r.withDoor === 1 && r.win, 'a closed square needs a door; a window block in a straight wall becomes a window: ' + JSON.stringify([r.noDoor, r.withDoor, r.win]));
+  check(r.noDoor === 0 && r.withDoor === 1 && r.win && r.winS, 'a closed square needs a door; a window block in a straight wall becomes a window: ' + JSON.stringify([r.noDoor, r.withDoor, r.win, r.winS]));
   check(r.diag === 0, 'walls meeting only at a corner must not close anything');
   check(r.tree === 0, 'a tree inside refuses to seal');
   check(r.bush.gone, 'a berry bush inside is cleared when the room closes: ' + JSON.stringify(r.bush));
@@ -1514,9 +1514,13 @@ test('truesight: the solid wall beside a window is never inside what you can see
     for (let ex = -5; ex <= 5; ex += 2) for (let ey = -5; ey <= -1; ey++) { P.tx = P.x = w[0] + ex; P.ty = P.y = w[1] + ey; P.path = []; P.slide = null; if (grid[P.ty][P.tx] === T.WALL) continue; rebuildOcc(); cam.follow = false; cam.z = 2; clampCam(); cam.x = w[0] * TS - cam.cw / cam.z / 2; cam.y = w[1] * TS - cam.ch / cam.z / 2; clampCam(); render(performance.now(), 0.016, 12); views++;
       for (let ty = w[1] - 2; ty < w[1] + 8; ty++) for (let tx = w[0] - 6; tx < w[0] + 8; tx++) { if (grid[ty][tx] !== T.WALL || tsWindow(tx, ty)) continue; for (const [fx, fy] of [[0.5, 0.5], [0.2, 0.5], [0.8, 0.5], [0.5, 0.2], [0.5, 0.8]]) if (inPoly(TSIGHT.poly, tx + fx, ty + fy)) { leaks++; break; } } }
     const ex = w[0] + 0.5, ey = w[1] - 3, panes = { left: tsLine(ex, ey, w[0] + 0.3, w[1] + 4), right: tsLine(ex, ey, w[0] + 0.7, w[1] + 4), divider: tsLine(ex, ey, w[0] + 0.5, w[1] + 4), frame: tsLine(ex, ey, w[0] + 0.1, w[1] + 4) };
-    return { leaks, views, panes };
+    // the tile below the corner of the wall beside a window is not lit by the window (regression)
+    const wy = L.oy + 12, wx = L.ox + 8; P.tx = P.x = wx - 2; P.ty = P.y = wy - 2; P.path = []; P.slide = null; rebuildOcc(); cam.follow = false; cam.z = 3; clampCam(); cam.x = wx * TS - cam.cw / cam.z / 2; cam.y = wy * TS - cam.ch / cam.z / 2; clampCam(); render(performance.now(), 0.016, 12);
+    const lit2 = TSIGHT.faces.filter(q => { let sg = 0; for (let i = 0; i < 4; i++) { const j = (i + 1) % 4, cr = (q[j * 2] - q[i * 2]) * ((wy + 1.5) - q[i * 2 + 1]) - (q[j * 2 + 1] - q[i * 2 + 1]) * ((wx + 1.5) - q[i * 2]); if (cr > 1e-9) sg |= 1; if (cr < -1e-9) sg |= 2; } return sg !== 3; }).length;
+    return { leaks, views, panes, lit2 };
   });
   check(r.panes.left && r.panes.right && !r.panes.divider && !r.panes.frame, 'light passes through each pane, and the divider and the frame cast their shadows: ' + JSON.stringify(r.panes));
+  check(r.lit2 === 0, 'the second wall tile below the corner was lit: ' + r.lit2);
   check(r.views > 10 && r.leaks === 0, 'wall bodies beside windows leaked into the visible area: ' + JSON.stringify(r)); check(errors.length === 0, 'no errors');
   return r.views + ' views, no leaks';
 });

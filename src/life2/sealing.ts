@@ -73,6 +73,7 @@ function bldMake(regions: number[][], dissolve: any[]) {
   town.bldWas = town.bldWas || new Map<number, number>(); town.bldWall = town.bldWall || new Map<number, string>();   // what the ground was under a floor, and which fixed walls were built from blocks (the hammer can break only those)
   for (const p of blocks) { wall.set(p.x + p.y * W, p.kind); town.bldWall.set(p.x + p.y * W, p.kind); town.pblock[p.y * W + p.x] = 0; town.propAt.delete(p.y * W + p.x); town.props = town.props.filter(q => q !== p); setT(p.x, p.y, p.kind === 'bdoor' ? T.DOOR : T.WALL); }
   town.win = town.win || new Set<number>(); for (const k of [...town.win]) if (grid[(k / W) | 0][k % W] !== T.WALL) town.win.delete(k);
+  town.winS = town.winS || new Set<number>(); for (const k of [...town.winS]) if (grid[(k / W) | 0][k % W] !== T.WALL) town.winS.delete(k);   // (windows in side walls)
   const made: any[] = [];
   for (const R of regions) {
     const idx = rooms.length, set = new Set<number>(R); let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
@@ -86,7 +87,8 @@ function bldMake(regions: number[][], dissolve: any[]) {
     // doors: every door tile beside the room is registered once
     for (const k of edge) { const x = k % W, y = (k / W) | 0; if (grid[y][x] !== T.DOOR) continue; if (!BLD_D4.some(([dx, dy]) => set.has(x + dx + (y + dy) * W))) continue; if (!doors.some(d => d.x === x && d.y === y)) doors.push({ x, y, room: idx, o: 0 }); if (room.doorX == null) { room.doorX = x; room.doorY = y; room.side = set.has(x + (y - 1) * W) ? 'b' : 't'; } }
     bounds.x0 = Math.min(bounds.x0, x0); bounds.y0 = Math.min(bounds.y0, y0); bounds.x1 = Math.max(bounds.x1, x1); bounds.y1 = Math.max(bounds.y1, y1);
-    for (const k of edge) { const x = k % W, y = (k / W) | 0; if (wall.get(k) === 'bwindow' && grid[y][x] === T.WALL && grid[y][x - 1] !== undefined && (grid[y][x - 1] === T.WALL || grid[y][x - 1] === T.DOOR) && (grid[y][x + 1] === T.WALL || grid[y][x + 1] === T.DOOR) && set.has(x + (y + 1) * W)) town.win.add(k); }
+    for (const k of edge) { const x = k % W, y = (k / W) | 0; if (wall.get(k) === 'bwindow' && grid[y][x] === T.WALL && grid[y][x - 1] !== undefined && (grid[y][x - 1] === T.WALL || grid[y][x - 1] === T.DOOR) && (grid[y][x + 1] === T.WALL || grid[y][x + 1] === T.DOOR) && set.has(x + (y + 1) * W)) town.win.add(k);
+      else if (wall.get(k) === 'bwindow' && grid[y][x] === T.WALL && gaSolidW(x, y - 1) && gaSolidW(x, y + 1) && (set.has(x - 1 + y * W) || set.has(x + 1 + y * W))) town.winS.add(k); }   // a window block in a straight wall that runs up and down, with floor on one side, is a window in a side wall
   }
   // doors of rooms that were taken apart and rebuilt: a door tile still stands, and gets a record in the room beside it
   for (const room of made) { const idx = rooms.indexOf(room); for (const k of room.walls) { const x = k % W, y = (k / W) | 0; if (grid[y][x] === T.DOOR && !doors.some(d => d.x === x && d.y === y)) doors.push({ x, y, room: idx, o: 0 }); } }
@@ -142,7 +144,7 @@ LF2.tickers.push(bldTick);
 /* ---------------- breaking blocks: the hammer (phase 4) ---------------- */
 /** take rooms apart: the floor goes back to ground, and every wall that was built from a block and now borders no sealed room becomes a loose block again (pushable). Returns where the loose blocks are. */
 function bldDissolve(list: any[]): [number, number][] {
-  const spots: [number, number][] = [], dying = new Set<any>(list); town.bldWas = town.bldWas || new Map(); town.bldWall = town.bldWall || new Map(); town.win = town.win || new Set();
+  const spots: [number, number][] = [], dying = new Set<any>(list); town.bldWas = town.bldWas || new Map(); town.bldWall = town.bldWall || new Map(); town.win = town.win || new Set(); town.winS = town.winS || new Set();
   for (const r of list) r.dead = true;
   const live = rooms.filter(q => q.free && !q.dead);
   for (const r of list) {
@@ -157,7 +159,7 @@ function bldDissolve(list: any[]): [number, number][] {
     const holder = live.find(q => BLD_D8.some(([dx, dy]) => q.cells.has(x + dx + (y + dy) * W)));
     if (holder) { if (roomAt[y][x] < 0 || (rooms[roomAt[y][x]] && rooms[roomAt[y][x]].dead)) roomAt[y][x] = rooms.indexOf(holder); if (grid[y][x] === T.DOOR) { const d = doors.find(q => q.x === x && q.y === y); if (d) d.room = rooms.indexOf(holder); else doors.push({ x, y, room: rooms.indexOf(holder), o: 0 }); } continue; }
     kitGive(town.bldWall.get(k) === 'bdoor' || grid[y][x] === T.DOOR ? 'bdoor' : (town.bldWall.get(k) || 'bwall'));   // (what you take down comes back to your kit)
-  doors = doors.filter(d => !(d.x === x && d.y === y)); setT(x, y, T.GRASS); roomAt[y][x] = -1; town.bldWall.delete(k); town.win.delete(k);
+  doors = doors.filter(d => !(d.x === x && d.y === y)); setT(x, y, T.GRASS); roomAt[y][x] = -1; town.bldWall.delete(k); town.win.delete(k); if (town.winS) town.winS.delete(k);
     if (!lfPropAt(x, y)) lfAddProp(kind, x, y); spots.push([x, y]);
   }
   return spots;
@@ -169,7 +171,7 @@ function bldBreak(x: number, y: number, by?: any) {
   const k = x + y * W; town.bldWall = town.bldWall || new Map();   // (any wall of a house or a room you built; the tile is simply deleted)
   const aff = new Set<any>(); for (const [dx, dy] of BLD_D8) { const r = bldFreeRoom(x + dx, y + dy); if (r) aff.add(r); } const own = roomAt[y][x] >= 0 ? rooms[roomAt[y][x]] : null; if (own && own.free && !own.dead) aff.add(own);
   const before = rooms.filter(q => q.free && !q.dead).length;
-  doors = doors.filter(d => !(d.x === x && d.y === y)); setT(x, y, T.GRASS); roomAt[y][x] = -1; town.bldWall.delete(k); if (town.win) town.win.delete(k); markDirty(x - 1, y - 1, 3, 3); town.treeDirty = true;
+  doors = doors.filter(d => !(d.x === x && d.y === y)); setT(x, y, T.GRASS); roomAt[y][x] = -1; town.bldWall.delete(k); if (town.win) town.win.delete(k); if (town.winS) town.winS.delete(k); markDirty(x - 1, y - 1, 3, 3); town.treeDirty = true;
   if (by) workFx('split', x, y, by);
   let spots: [number, number][] = ([[x, y]] as [number, number][]).concat(bldDissolve([...aff]));
   bldEvaluate(spots);

@@ -956,6 +956,15 @@ function wallFace24(g, win) { /* north wall, seen from the front; every row repe
     g.fillStyle = IN2.trimDk; g.fillRect(11.6, 11.8, 0.8, 5.8); g.fillRect(8, 14.4, 8, 0.8); g.fillStyle = 'rgba(255,220,170,.4)'; g.fillRect(11.6, 11.8, 0.25, 5.8);
     g.strokeStyle = INK; g.lineWidth = 0.18; g.strokeRect(8, 11.8, 8, 5.8);
     c24(g, [rect(5.6, 18.6, 12.8, 1.5)], pal('#b8bcc2', '#f0f0e6', null), { smooth: false, seed: 4, hs: 0.01, iw: 0.12 }); } }
+/* a window in a side wall, seen from above: a frame and glass set across the thickness of the wall top (an overlay on the wall-top tile) */
+function windowSide24(g) {
+  g.fillStyle = 'rgba(30,24,50,.4)'; g.fillRect(2.5, 7.6, 19, 9.2);                                         // the opening casts a little shade
+  wood(g, 1.6, 6.4, 20.8, 11.2, { dir: 'v', planks: 1, seed: 8, nails: false, knots: 0, P: pal('#7a4a2a', '#c08a58', '#9a6238') });
+  const gl = g.createLinearGradient(0, 8, 0, 16); gl.addColorStop(0, '#b4c4f8'); gl.addColorStop(0.5, '#7b8fe0'); gl.addColorStop(1, '#5a6cc0'); g.fillStyle = gl; g.fillRect(4, 8, 16, 8);
+  g.fillStyle = 'rgba(255,255,255,.34)'; g.beginPath(); g.moveTo(4.4, 8); g.lineTo(8.4, 8); g.lineTo(4.4, 13.6); g.fill(); g.beginPath(); g.moveTo(9.6, 8); g.lineTo(11.2, 8); g.lineTo(4.8, 15.4); g.lineTo(4.4, 15.4); g.fill();
+  g.fillStyle = IN2.trimDk; g.fillRect(4, 11.6, 16, 0.8); g.fillRect(11.6, 8, 0.8, 8); g.fillStyle = 'rgba(255,220,170,.4)'; g.fillRect(4, 11.6, 16, 0.25);
+  g.strokeStyle = INK; g.lineWidth = 0.18; g.strokeRect(4, 8, 16, 8); g.strokeRect(1.6, 6.4, 20.8, 11.2);
+}
 function cap24(g, side) { /* the top of a side or front wall, seen from above: whitewashed capping stones */
   const R = mul(17 + side.length); g.fillStyle = IN2.cap; g.fillRect(0, 0, 24, 24);
   for (let j = 0; j < 4; j++) { const y = j * 6, off = j % 2 ? 6 : 0; for (let i = -1; i < 3; i++) { const x = off + i * 12 + 0.3; g.fillStyle = (h32(i & 1, j, 7, side.length) < 0.5) ? '#ded1ae' : '#e8dcba'; g.fillRect(x, y + 0.3, 11.4, 5.4); g.fillStyle = 'rgba(255,252,236,.55)'; g.fillRect(x, y + 0.3, 11.4, 0.5); g.fillStyle = 'rgba(150,130,90,.22)'; g.fillRect(x, y + 5.2, 11.4, 0.5);
@@ -2035,6 +2044,7 @@ for (const v of R3(3)) A(`forest_sprite_${v}`, 'wild', `Forest sprite ${v + 1}`,
 const WALLX = ['N', 'W', 'E', 'S', 'WS', 'ES', 'WN', 'EN'];
 function T24(id, group, label, fn, o: any = {}) { return A(id, group, label, 24, 24, o.frames || 1, fn, Object.assign({ kind: 'furniture', under: 'wood' }, o)); }
 T24('wall_face', 'walls', 'Back wall', g => wallFace24(g, false), { kind: 'tile', under: null }); T24('wall_window', 'walls', 'Back wall, window', g => wallFace24(g, true), { kind: 'tile', under: null });
+T24('window_side', 'walls', 'Window in a side wall', g => windowSide24(g), { kind: 'tile', under: null });
 for (const s of ['W', 'E', 'S', 'WS', 'ES', 'WN', 'EN']) T24('cap_' + s, 'walls', 'Wall top ' + s, g => cap24(g, s), { kind: 'tile', under: null }); T24('cap_plain', 'walls', 'Wall top, inner', g => cap24(g, ''), { kind: 'tile', under: null });
 /* every other combination of open edges, for free-form walls (letters in the order W, E, N, S) */
 for (let m = 1; m < 16; m++) { const k = (m & 1 ? 'W' : '') + (m & 2 ? 'E' : '') + (m & 4 ? 'N' : '') + (m & 8 ? 'S' : ''); if (!['W', 'E', 'S', 'WS', 'ES', 'WN', 'EN'].includes(k)) T24('cap_' + k, 'walls', 'Wall top ' + k, g => cap24(g, k), { kind: 'tile', under: null }); }

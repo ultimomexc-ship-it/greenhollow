@@ -73,7 +73,7 @@ function gaFreeTile(g, r, x, y, t, X, Y, v, fk, P) {
   if (t === T.WALL) {
     if (gaInside(x, y + 1)) { P(town.win && town.win.has(y * W + x) ? 'wall_window' : 'wall_face'); return; }
     const k = (!gaSolidW(x - 1, y) ? 'W' : '') + (!gaSolidW(x + 1, y) ? 'E' : '') + (!gaSolidW(x, y - 1) && !gaInside(x, y - 1) ? 'N' : '') + (!gaSolidW(x, y + 1) ? 'S' : '');
-    P(k === '' ? 'cap_plain' : 'cap_' + k); return;
+    P(k === '' ? 'cap_plain' : 'cap_' + k); if (town.winS && town.winS.has(y * W + x)) P('window_side'); return;   // (a window in a side wall: the glass is set across the top of the wall)
   }
   g.drawImage(ART.terr(fk, v), X, Y, TS, TS);
 }
