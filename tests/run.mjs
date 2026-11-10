@@ -1531,6 +1531,7 @@ test('crops and flowers: every crop is its own plant with its own art; flowers s
     const seeds = Object.keys(IT_SEEDS); out.seeds = seeds.length;
     out.art = seeds.filter(s => s !== 'barley').every(s => [1, 2, 3, 4].every(k => ART.BYID['crop_' + s + '_' + k])) && seeds.filter(s => IT_SEEDS[s].flower).every(s => ART.BYID['crop_' + s + '_5']);
     out.stacks = seeds.every(s => IT_STACKS['seed_' + s]);
+    itEnsure(P, true); out.gift = seeds.every(s => (P.bag['seed_' + s] || 0) >= 12);
     const c = { x: P.tx + 2, y: P.ty, pl: 1, st: 1, t0: game.time, seed: 'daisy', byPlayer: true }; town.crops = town.crops || []; town.crops.push(c);
     out.young = cropStage(c) < 4; game.time += itGrow(c) + 10; out.bloom = cropStage(c) === 4 && !itWilted(c);
     out.keepsBloom = (game.time += 30 * 1440, cropStage(c) === 4 && !itWilted(c)); out.wilts = (game.time += 12 * 1440, itWilted(c));
@@ -1539,7 +1540,7 @@ test('crops and flowers: every crop is its own plant with its own art; flowers s
     c.pl = 1; c.st = 1; c.t0 = game.time; c.seed = 'pumpkin'; game.time += itGrow(c) + 10; out.ripe = cropStage(c) === 4; const h = itHarvest(P, c); out.pumpkins = P.inv.pumpkin === 2;
     return out;
   });
-  check(r.seeds >= 15 && r.art && r.stacks, 'every seed should have its stack and its art: ' + JSON.stringify(r));
+  check(r.seeds >= 15 && r.art && r.stacks && r.gift, 'every seed should have its stack and its art: ' + JSON.stringify(r));
   check(r.young && r.bloom && r.keepsBloom, 'a flower blooms and keeps blooming for weeks: ' + JSON.stringify(r)); check(r.wilts && r.farmersLeaveIt, 'it withers in the end and farmers leave it alone');
   check(r.clear && r.cleared, 'clearing the withered flower empties the plot and gives a seed back: ' + JSON.stringify(r)); check(r.ripe && r.pumpkins, 'a pumpkin ripens and is harvested: ' + JSON.stringify(r));
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));

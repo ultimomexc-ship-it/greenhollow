@@ -20830,6 +20830,7 @@ function itEnsure(n, steering) {
   if (!n) return;
   if (!n.items) n.items = [];
   if (!n.bag) n.bag = {};
+  if (n.player && n.belt && IT.kit === "test") itSeedGift(n);
   if (steering && !n.belt) {
     n.belt = IT_AUTO ? [null, null, null, null, null, null, null, null, null, null] : ["hand", null, null, null, null, null, null, null, null];
     n.sel = 0;
@@ -20859,13 +20860,17 @@ function itGiveStack(n, key, q) {
   n.bag[key] = (n.bag[key] || 0) + q;
   itBeltAdd(n, "s:" + key);
 }
+function itSeedGift(n) {
+  if (n.seedGift || typeof IT_SEEDS === "undefined") return;
+  n.seedGift = 1;
+  for (const sd of Object.keys(IT_SEEDS)) if (sd !== "barley" || !(n.bag["seed_barley"] > 0)) itGiveStack(n, "seed_" + sd, 12);
+}
 function itKit(n) {
   if (typeof itGarden === "function") itGarden(n);
   for (const k of ["axe", "hammer", "hoe", "rod"]) if (!n.items.some((i) => i.kind === k)) itGiveTool(n, k);
   itGiveStack(n, "lockpick", 5);
   itGiveStack(n, "seed_barley", 20);
-  itGiveStack(n, "seed_turnip", 12);
-  itGiveStack(n, "seed_bean", 12);
+  itSeedGift(n);
   n.coin = (n.coin || 0) + 100;
 }
 const itById = (n, id) => (n.items || []).find((i) => i.id === id) || null;

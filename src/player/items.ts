@@ -22,14 +22,17 @@ const IT_MODES = ['talk', 'push', 'search'], IT_MODE_NAME: any = { talk: 'Talk',
 /* ---------------- the model ---------------- */
 function itEnsure(n, steering?: boolean) {
   if (!n) return; if (!n.items) n.items = []; if (!n.bag) n.bag = {};
+  if (n.player && n.belt && IT.kit === 'test') itSeedGift(n);
   if (steering && !n.belt) { n.belt = IT_AUTO ? [null, null, null, null, null, null, null, null, null, null] : ['hand', null, null, null, null, null, null, null, null]; n.sel = 0; n.mode = 'talk'; if (IT.kit === 'test') itKit(n); }
 }
 function itNew(kind: string, owner) { town.itemSeq = (town.itemSeq || 0) + 1; return { id: town.itemSeq, kind, wear: 1, owner: owner ? owner.id : null }; }
 function itBeltAdd(n, ref: string) { if (!n.belt || n.belt.includes(ref)) return; if (IT_AUTO && ref[0] === 'i') return; const i = n.belt.indexOf(null); if (i > (IT_AUTO ? -1 : 0)) n.belt[i] = ref; }   // (auto: tools are never on the hotbar)
 function itGiveTool(n, kind: string) { itEnsure(n); const it = itNew(kind, n); n.items.push(it); itBeltAdd(n, 'i' + it.id); return it; }
 function itGiveStack(n, key: string, q: number) { itEnsure(n); n.bag[key] = (n.bag[key] || 0) + q; itBeltAdd(n, 's:' + key); }
+/** a dozen of every seed (crops and flowers) for testing; once per villager, so saves made before the new plants get them too */
+function itSeedGift(n) { if (n.seedGift || typeof IT_SEEDS === 'undefined') return; n.seedGift = 1; for (const sd of Object.keys(IT_SEEDS)) if (sd !== 'barley' || !(n.bag['seed_barley'] > 0)) itGiveStack(n, 'seed_' + sd, 12); }
 /** the testing kit: every tool, lockpicks, each kind of seed, some coins */
-function itKit(n) { if (typeof itGarden === 'function') itGarden(n); for (const k of ['axe', 'hammer', 'hoe', 'rod']) if (!n.items.some(i => i.kind === k)) itGiveTool(n, k); itGiveStack(n, 'lockpick', 5); itGiveStack(n, 'seed_barley', 20); itGiveStack(n, 'seed_turnip', 12); itGiveStack(n, 'seed_bean', 12); n.coin = (n.coin || 0) + 100; }
+function itKit(n) { if (typeof itGarden === 'function') itGarden(n); for (const k of ['axe', 'hammer', 'hoe', 'rod']) if (!n.items.some(i => i.kind === k)) itGiveTool(n, k); itGiveStack(n, 'lockpick', 5); itGiveStack(n, 'seed_barley', 20); itSeedGift(n); n.coin = (n.coin || 0) + 100; }
 const itById = (n, id) => (n.items || []).find(i => i.id === id) || null;
 /** what is in your hand: { ref, kind ('hand', a tool kind or a stack key), item, count } */
 function itHeld(n): any {
