@@ -160,12 +160,25 @@ function tsUpdate(now) {
 /** public buildings keep their doors open during the day, so you can look in from the street */
 const TS_PUBLIC = new Set(['tavern', 'bakery', 'smithy', 'shop', 'thermopolium', 'baths', 'macellum', 'church', 'mill']);
 function tsPropDoors() { const h = (game.time % 1440) / 60; for (const d of doors) { const r = rooms[d.room]; d.propped = !!(r && !r.dead && TS_PUBLIC.has(r.kind) && h >= 8 && h < 20); } }
+/** how dark the unseen outdoors is (0..0.97); buildings stay fully dark */
+const TS_SHADE = 0.5;
+/** is this tile part of a building (a wall, a door, a floor or inside a room) */
+function tsBuilding(x, y) {
+  const t = grid[y][x]; if (t === T.WALL || t === T.DOOR || t === T.FLOOR) return true;
+  const ri = roomAt[y] && roomAt[y][x]; if (ri == null || ri < 0) return false; const r = rooms[ri]; return !!r && !r.dead;
+}
 /** the darkness over everything the player cannot see (drawn in world coordinates after the world and the lighting) */
 function drawTrueSight(c, now) {
   if (!tsActive()) { TSIGHT.eye = null; return; }
   tsUpdate(now); const cv = c.canvas; if (!TSIGHT.cv) TSIGHT.cv = document.createElement('canvas'); const sc = TSIGHT.cv; if (sc.width !== cv.width || sc.height !== cv.height) { sc.width = cv.width; sc.height = cv.height; }
   const g = sc.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, sc.width, sc.height); g.fillStyle = 'rgba(4,6,10,0.97)'; g.fillRect(0, 0, sc.width, sc.height);
-  g.setTransform(c.getTransform()); g.globalCompositeOperation = 'destination-out'; g.fillStyle = '#000';
+  g.setTransform(c.getTransform());
+  // out of doors, what you cannot see is only half dark (TS_SHADE); a building (walls, doors, floors, rooms) keeps the full darkness, so you cannot see in
+  g.globalCompositeOperation = 'destination-out'; g.fillStyle = 'rgba(0,0,0,' + (0.97 - TS_SHADE) / 0.97 + ')'; g.fillRect(0, 0, W * TS, H * TS);
+  { const R = TSIGHT.rect; g.globalCompositeOperation = 'source-over'; g.fillStyle = 'rgba(4,6,10,0.97)';
+    const x0 = Math.max(0, Math.floor(R.x0)), x1 = Math.min(W - 1, Math.ceil(R.x1)), y0 = Math.max(0, Math.floor(R.y0)), y1 = Math.min(H - 1, Math.ceil(R.y1));
+    for (let y = y0; y <= y1; y++) { let run = -1; for (let x = x0; x <= x1 + 1; x++) { const b = x <= x1 && tsBuilding(x, y); if (b && run < 0) run = x; else if (!b && run >= 0) { g.fillRect(run * TS, y * TS, (x - run) * TS, TS); run = -1; } } } }
+  g.globalCompositeOperation = 'destination-out'; g.fillStyle = '#000';
   g.beginPath(); TSIGHT.poly.forEach((p, i) => i ? g.lineTo(p[0] * TS, p[1] * TS) : g.moveTo(p[0] * TS, p[1] * TS)); g.closePath(); g.fill();
   for (const q of TSIGHT.faces) { g.beginPath(); for (let i = 0; i < 8; i += 2) i ? g.lineTo(q[i] * TS, q[i + 1] * TS) : g.moveTo(q[i] * TS, q[i + 1] * TS); g.closePath(); g.fill(); }   // the wall behind each visible stretch of face
   g.globalCompositeOperation = 'source-over';
