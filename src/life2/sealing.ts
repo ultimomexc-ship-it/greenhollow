@@ -10,8 +10,8 @@ const bldBlock = pr => !!pr && BLD_KINDS.includes(pr.kind) && !pr.fixed;
 const bldSolid = (x, y) => { const g = grid[y][x]; return g === T.WALL || g === T.DOOR || bldBlock(lfPropAt(x, y)); };
 const bldFreeRoom = (x, y) => { const i = roomAt[y][x]; const r = i >= 0 ? rooms[i] : null; return r && r.free && !r.dead ? r : null; };
 /** bare ground under a removed wall or floor: grass, or the roof deck on the level above */
-const bldBare = (y: number) => (town.h0 && y >= town.h0) ? T.DECK : T.GRASS;
-const bldOKTile = (x, y) => { const g = grid[y][x]; if (g !== T.GRASS && g !== T.PATH && g !== T.FLOOR && g !== T.CROP && g !== T.SAND && g !== T.DECK) return false; if (town.siteAt[y * W + x]) return false; /* (a berry or herb bush inside does not stop it: the bush is cleared away when the room closes) */ const p = lfPropAt(x, y); if (p && p.fixed) return false; if (roomAt[y][x] >= 0 && !bldFreeRoom(x, y)) return false; return !bldOnPad(x, y); };
+const bldBare = (y: number) => isMineY(y) ? T.DIRTF : isUpperY(y) ? T.DECK : T.GRASS;
+const bldOKTile = (x, y) => { const g = grid[y][x]; if (g !== T.GRASS && g !== T.PATH && g !== T.FLOOR && g !== T.CROP && g !== T.SAND && g !== T.DECK && g !== T.DIRTF) return false; if (town.siteAt[y * W + x]) return false; /* (a berry or herb bush inside does not stop it: the bush is cleared away when the room closes) */ const p = lfPropAt(x, y); if (p && p.fixed) return false; if (roomAt[y][x] >= 0 && !bldFreeRoom(x, y)) return false; return !bldOnPad(x, y); };
 const bldOnPad = (x, y) => { const b = town.builder; return !!b && x >= b.pad.x - 1 && x < b.pad.x + b.pad.w + 1 && y >= b.pad.y - 1 && y < b.pad.y + b.pad.h + 1; };
 const BLD_D8: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]], BLD_D4: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 

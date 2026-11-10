@@ -49,7 +49,7 @@ const itTalking = n => !n || !n.belt || (IT_AUTO ? !itBuildOn(n) : itHand(n, 'ta
 
 /* ---------------- which action needs what in your hand ---------------- */
 function itNeedOf(key: string): string | null {
-  if (/^tree/.test(key)) return 'axe'; if (/^rock/.test(key) || /^wall/.test(key)) return 'hammer'; if (/^fish/.test(key)) return 'rod';
+  if (/^tree/.test(key)) return 'axe'; if (/^rock/.test(key) || /^wall/.test(key) || /^dig/.test(key)) return 'hammer'; if (/^fish/.test(key)) return 'rod';
   if (/^crop.*[ph]$/.test(key)) return 'hoe'; if (/^crop.*s$/.test(key)) return 'seed';
   if (/^(node|throw)/.test(key)) return 'hand'; if (/^lockpick/.test(key)) return 'lockpick'; if (/^search/.test(key)) return 'search'; if (/^(talk|stall|trade)/.test(key)) return 'talk';
   return null;

@@ -7,14 +7,19 @@ let sizeKey = 'L';
 function setSize(k) { const z = SIZES[k] || SIZES.M; sizeKey = SIZES[k] ? k : 'M'; W = z[0]; H = z[1] + (NORTH[sizeKey] || 0) + (SOUTH[sizeKey] || 0); reach = new Uint8Array(W * H); }
 const T: any = { GRASS: 0, PATH: 1, FLOOR: 2, WALL: 3, DOOR: 4, TREE: 5, WATER: 6, CROP: 7, TABLE: 8, BED: 9, SEAT: 10,
   COUNTER: 11, FORGE: 12, ANVIL: 13, LOOM: 14, WELL: 15, ALTAR: 16, PEW: 17, LAMP: 18, SHELF: 19, RUG: 20, OVEN: 21, STALL: 22, GRAVE: 23, PLOT: 24, SAND: 25, ROCK: 26, PILE: 27, TENT: 28, BARREL: 29, MOUNTAIN: 30,
-  SKY: 31, DECK: 32, STAIR: 33, STAIRD: 34 };   // the upper level lives in rows below the island (town.h0 and down): SKY is nothing, DECK a roof you can walk and build on, STAIR a stair going up (ground), STAIRD one going down (on the deck)
-const BLOCKED = new Set([T.WALL, T.TREE, T.WATER, T.TABLE, T.COUNTER, T.FORGE, T.ANVIL, T.LOOM, T.WELL, T.ALTAR, T.LAMP, T.SHELF, T.OVEN, T.STALL, T.GRAVE, T.ROCK, T.PILE, T.BARREL, T.MOUNTAIN, T.SKY, T.STAIR, T.STAIRD]);
+  SKY: 31, DECK: 32, STAIR: 33, STAIRD: 34, EARTH: 35, DIRTF: 36, STAIRM: 37, STAIRU: 38 };   // EARTH: solid ground below the island (dig it with the hammer), DIRTF: dug-out floor, STAIRM: a stair going down into the earth (on the ground), STAIRU: its way back up   // the upper level lives in rows below the island (town.h0 and down): SKY is nothing, DECK a roof you can walk and build on, STAIR a stair going up (ground), STAIRD one going down (on the deck)
+const BLOCKED = new Set([T.WALL, T.TREE, T.WATER, T.TABLE, T.COUNTER, T.FORGE, T.ANVIL, T.LOOM, T.WELL, T.ALTAR, T.LAMP, T.SHELF, T.OVEN, T.STALL, T.GRAVE, T.ROCK, T.PILE, T.BARREL, T.MOUNTAIN, T.SKY, T.STAIR, T.STAIRD, T.EARTH, T.STAIRM, T.STAIRU]);
 const COST = { [T.GRASS]: 1.5, [T.CROP]: 1.8, [T.PLOT]: 1.3, [T.SAND]: 1.25 };
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const TILE_MIN = 0.9;
 const YEAR = 3 * 1440;
 
 /** the height of the ground level: the map is doubled downwards for the level above (growSky), and ground things pick places among the ground rows only */
+/** The map is stacked in blocks of town.h0 rows: 0 the ground, 1 and 2 levels above it (roof decks), 3 and 4 the earth below it (mines). */
+const LV_N = 5, LV_UP_MAX = 2, LV_MINE = 3;
+const lvlOf = (y: number) => (typeof town !== 'undefined' && town && town.h0) ? Math.floor(y / town.h0) : 0;
+const isUpperY = (y: number) => { const l = lvlOf(y); return l >= 1 && l <= LV_UP_MAX; };
+const isMineY = (y: number) => lvlOf(y) >= LV_MINE;
 const GH = () => (typeof town !== 'undefined' && town && town.h0) || H;
 let grid = [], roomAt = [], rooms = [], doors = [], lamps = [], reach = new Uint8Array(W * H);
 let town = null, npcs = [], NEXT_ID = 1;

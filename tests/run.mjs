@@ -1529,7 +1529,7 @@ test('stairs: a staircase in a room leads to a roof deck over the building; you 
   await simulate(page, 6 * 60);
   const r = await page.evaluate(() => {
     startPlaying(npcs.find(canControl)); const P = game.player, out = {}, o = { x: town.cx + 14, y: town.cy - 40 };
-    out.levels = town.h0 > 0 && H === town.h0 * 2 && grid.length === H && roomAt.length === H;
+    out.levels = town.h0 > 0 && H === town.h0 * LV_N && grid.length === H && roomAt.length === H && town.ore.length === W * H;
     for (let j = -2; j < 14; j++) for (let i = -2; i < 16; i++) { setT(o.x + i, o.y + j, T.GRASS); roomAt[o.y + j][o.x + i] = -1; const q = lfPropAt(o.x + i, o.y + j); if (q) { town.props = town.props.filter(z => z !== q); town.propAt.delete((o.y + j) * W + o.x + i); town.pblock[(o.y + j) * W + o.x + i] = 0; } }
     buildRoom({ kind: 'lab', id: 'lab', name: 'Big room' }, o.x, o.y, 12, 10, 'b', null);
     P.tx = P.x = o.x + 3; P.ty = P.y = o.y + 3; P.face = { dx: 1, dy: 0 }; P.path = []; rebuildOcc(); refreshReach(); town.kit = Object.assign(town.kit || {}, { stair: 1 }); itBuildToggle(P, true); const f = lf2Front(P); out.placed = !!stairPlace(P); itBuildToggle(P, false);
@@ -1542,7 +1542,17 @@ test('stairs: a staircase in a room leads to a roof deck over the building; you 
     // somebody walks up by the stairs, one step at a time, exactly as the villagers' movement does
     P.tx = P.x = o.x + 10; P.ty = P.y = o.y + 7; rebuildOcc(); const n = npcs.find(q => q !== P && !q.dead && q.age >= 18); n.tx = n.x = o.x + 8; n.ty = n.y = o.y + 6; n.path = []; n.t = 0; rebuildOcc();
     const p = findPath(n.tx, n.ty, o.x + 8, o.y + 7 + h0); out.path = !!p && p.some(q => q.y >= h0); n.path = p; for (let i = 0; i < 400 && n.path.length; i++) stepNpc(n, 0.3); out.walked = n.ty === o.y + 7 + h0 && n.tx === o.x + 8;
+    // down into the earth: a 3 x 3 chamber in solid earth, the hammer digs it out (and some of it is ore), and back up; a third level up from a room on the deck
+    P.tx = P.x = o.x + 3; P.ty = P.y = o.y + 8; P.face = { dx: 1, dy: 0 }; P.path = []; rebuildOcc(); town.kit = Object.assign(town.kit || {}, { stairdown: 1, stair: 2 }); itBuildToggle(P, true); const g1 = lf2Front(P); out.downPlaced = !!stairPlace(P, true); itBuildToggle(P, false);
+    const dn = targetAt0(P, g1.x, g1.y); if (dn && dn.run) dn.run(P); out.under = lvlOf(P.ty) === LV_MINE;
+    let fl = 0, ea = 0; for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) { const t = grid[P.ty + j][P.tx + i]; if (t === T.DIRTF || t === T.STAIRU) fl++; else if (t === T.EARTH) ea++; } out.chamber = fl === 9 && ea >= 30;
+    const ex = P.tx, ey = P.ty - 2, dg = itGate(P, targetAt0(P, ex, ey), false); if (dg && dg.run) dg.run(P); out.dug = grid[ey][ex] === T.DIRTF;
+    let ore = 0; for (let k = 0; k < town.ore.length; k++) if (town.ore[k]) ore++; out.ore = ore > 1000;
+    const bk = targetAt0(P, g1.x, g1.y + LV_MINE * h0); if (bk && bk.run) bk.run(P); out.back = lvlOf(P.ty) === 0;
+    buildRoom({ kind: 'lab', id: 'lab2', name: 'Upstairs' }, o.x + 2, o.y + 5 + h0, 6, 5, 'b', null); P.tx = P.x = o.x + 4; P.ty = P.y = o.y + 7 + h0; P.face = { dx: 1, dy: 0 }; P.path = []; rebuildOcc(); itBuildToggle(P, true); const g2 = lf2Front(P); out.third = !!stairPlace(P); itBuildToggle(P, false);
+    const tp = targetAt0(P, g2.x, g2.y); if (tp && tp.run) tp.run(P); out.level2 = lvlOf(P.ty) === 2;
     return out; });
+  check(r.downPlaced && r.under && r.chamber, 'a stair down opens a 3 x 3 chamber in solid earth: ' + JSON.stringify([r.downPlaced, r.under, r.chamber])); check(r.dug && r.ore && r.back, 'the hammer digs earth, there is ore below, and the stairs lead back: ' + JSON.stringify([r.dug, r.ore, r.back])); check(r.third && r.level2, 'a room on the deck takes stairs to a third level');
   check(r.levels, 'the map has a level above the island: ' + JSON.stringify(r)); check(r.placed && r.tiles, 'a staircase lays a deck over the building and links the two levels'); check(r.up && r.down, 'bumping the stairs takes you up and down');
   check(r.hut && r.bare, 'a walled hut seals into a room up on the deck'); check(r.path && r.walked, 'villagers path and walk up the stairs: ' + JSON.stringify([r.path, r.walked])); check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
   return 'stairs, deck, a room on the roof and a walk up';

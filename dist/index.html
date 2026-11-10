@@ -7774,13 +7774,24 @@ const T = {
   SKY: 31,
   DECK: 32,
   STAIR: 33,
-  STAIRD: 34
+  STAIRD: 34,
+  EARTH: 35,
+  DIRTF: 36,
+  STAIRM: 37,
+  STAIRU: 38
 };
-const BLOCKED = /* @__PURE__ */ new Set([T.WALL, T.TREE, T.WATER, T.TABLE, T.COUNTER, T.FORGE, T.ANVIL, T.LOOM, T.WELL, T.ALTAR, T.LAMP, T.SHELF, T.OVEN, T.STALL, T.GRAVE, T.ROCK, T.PILE, T.BARREL, T.MOUNTAIN, T.SKY, T.STAIR, T.STAIRD]);
+const BLOCKED = /* @__PURE__ */ new Set([T.WALL, T.TREE, T.WATER, T.TABLE, T.COUNTER, T.FORGE, T.ANVIL, T.LOOM, T.WELL, T.ALTAR, T.LAMP, T.SHELF, T.OVEN, T.STALL, T.GRAVE, T.ROCK, T.PILE, T.BARREL, T.MOUNTAIN, T.SKY, T.STAIR, T.STAIRD, T.EARTH, T.STAIRM, T.STAIRU]);
 const COST = { [T.GRASS]: 1.5, [T.CROP]: 1.8, [T.PLOT]: 1.3, [T.SAND]: 1.25 };
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const TILE_MIN = 0.9;
 const YEAR = 3 * 1440;
+const LV_N = 5, LV_UP_MAX = 2, LV_MINE = 3;
+const lvlOf = (y) => typeof town !== "undefined" && town && town.h0 ? Math.floor(y / town.h0) : 0;
+const isUpperY = (y) => {
+  const l = lvlOf(y);
+  return l >= 1 && l <= LV_UP_MAX;
+};
+const isMineY = (y) => lvlOf(y) >= LV_MINE;
 const GH = () => typeof town !== "undefined" && town && town.h0 || H;
 let grid = [], roomAt = [], rooms = [], doors = [], lamps = [], reach = new Uint8Array(W * H);
 let town = null, npcs = [], NEXT_ID = 1;
@@ -8212,34 +8223,37 @@ function refreshShore() {
   }
   town.shoreSpots = shoreTiles;
 }
-function growSky() {
-  if (town.h0) return;
-  const H0 = H;
+function growLevels() {
+  const H0 = town.h0 || H;
   town.h0 = H0;
-  H = H0 * 2;
-  for (let y = H0; y < H; y++) {
-    grid.push(Array(W).fill(T.SKY));
+  const have = Math.max(1, Math.round(grid.length / H0));
+  if (have >= LV_N) {
+    H = grid.length;
+    return;
+  }
+  const oldH = grid.length;
+  for (let b = have; b < LV_N; b++) for (let y = 0; y < H0; y++) {
+    grid.push(Array(W).fill(b >= LV_MINE ? T.EARTH : T.SKY));
     roomAt.push(Array(W).fill(-1));
   }
-  const ext = (a, Ctor) => {
-    if (!a) return a;
-    const b = new Ctor(W * H);
+  H = grid.length;
+  const ext = (a, Ctor, fill = 0) => {
+    if (!a || a.length !== W * oldH) return a;
+    const b = new Ctor(W * H).fill(fill);
     b.set(a);
     return b;
   };
-  for (const [k, fill] of [["hgt", -1], ["fmask", 0], ["cmask", 0], ["islet", 0], ["fout", 255], ["fin", 255], ["cout", 255]]) {
-    const a = town[k];
-    if (a && a.length === W * H0) {
-      const b = new a.constructor(W * H).fill(fill);
-      b.set(a);
-      town[k] = b;
-    }
+  for (const [k, fill, C] of [["hgt", -1, Float32Array], ["fmask", 0, Uint8Array], ["cmask", 0, Uint8Array], ["islet", 0, Uint8Array], ["fout", 255, Uint8Array], ["fin", 255, Uint8Array], ["cout", 255, Uint8Array], ["siteAt", 0, Uint16Array], ["block", 0, Uint8Array], ["pblock", 0, Uint8Array]]) if (town[k]) town[k] = ext(town[k], C, fill);
+  town.portals = town.portals || /* @__PURE__ */ new Map();
+  town.stairs = town.stairs || [];
+  town.ore = new Uint8Array(W * H);
+  const seed = (town.seed | 0) + 17;
+  for (let y = 2 * 0 + LV_MINE * H0; y < H; y++) for (let x = 2; x < W - 2; x++) {
+    const deep = y >= (LV_MINE + 1) * H0, v = vnoise(x * 0.17, y * 0.17, seed), w = vnoise(x * 0.21, y * 0.21, seed + 5), q = vh(x, y, seed + 9);
+    if (v > (deep ? 0.72 : 0.76) && q < 0.75) town.ore[y * W + x] = 1;
+    else if (w > (deep ? 0.74 : 0.79) && q < 0.7) town.ore[y * W + x] = 2;
+    else if (q < (deep ? 0.012 : 2e-3) && vh(x, y, seed + 3) < 0.5) town.ore[y * W + x] = 3;
   }
-  town.siteAt = ext(town.siteAt, Uint16Array);
-  town.block = ext(town.block, Uint8Array);
-  if (town.pblock) town.pblock = ext(town.pblock, Uint8Array);
-  town.portals = /* @__PURE__ */ new Map();
-  town.stairs = [];
   reach = new Uint8Array(W * H);
   town.gridV = (town.gridV || 0) + 1;
 }
@@ -8335,7 +8349,7 @@ function generateTown(seed, size) {
   town.patrol = [];
   startPeople(R);
   townName(R);
-  growSky();
+  growLevels();
   refreshReach();
   refreshShore();
   spawnNodes(18);
@@ -14331,10 +14345,11 @@ function targetAt0(n, x, y) {
       eatShroom(nn, sh);
     } };
   }
-  if ((g === T.STAIR || g === T.STAIRD) && !itBuildOn(n)) {
+  if ((g === T.STAIR || g === T.STAIRD || g === T.STAIRM || g === T.STAIRU) && !itBuildOn(n)) {
     const sa = stairAction(n, x, y);
     if (sa) return sa;
   }
+  if (g === T.EARTH && !itBuildOn(n)) return digAction(n, x, y);
   const c = cropAt(x, y);
   if (c && !itBuildOn(n)) {
     const st = c.st ? cropStage(c) : 0, fl = !!c.st && itIsFlower(c);
@@ -15774,6 +15789,7 @@ function tsDoorOpen(x, y) {
 }
 function tsTile(x, y) {
   const t = grid[y] && grid[y][x];
+  if (t === T.EARTH) return 1;
   if (t === T.DOOR) return tsDoorOpen(x, y) ? 0 : 1;
   if (t !== T.WALL) return 0;
   return tsWindow(x, y) ? 2 : 1;
@@ -15799,7 +15815,7 @@ function tsHoleRot(x, y) {
 }
 const tsHoleDef = (kind, rot) => rot && TS_HOLES[kind + "Side"] || TS_HOLES[kind];
 function tsBuild() {
-  const full = (x, y) => x >= 0 && y >= 0 && x < W && y < H && (grid[y][x] === T.WALL && !tsWindow(x, y) || grid[y][x] === T.DOOR && !tsDoorOpen(x, y));
+  const full = (x, y) => x >= 0 && y >= 0 && x < W && y < H && (grid[y][x] === T.WALL && !tsWindow(x, y) || grid[y][x] === T.EARTH || grid[y][x] === T.DOOR && !tsDoorOpen(x, y));
   const win = (x, y) => x >= 0 && y >= 0 && x < W && y < H && grid[y][x] === T.WALL && tsWindow(x, y);
   const hard = (x, y) => full(x, y) || win(x, y);
   const hE = /* @__PURE__ */ new Map(), vE = /* @__PURE__ */ new Map(), walls = [], plates = /* @__PURE__ */ new Map(), sides = /* @__PURE__ */ new Set();
@@ -15814,7 +15830,7 @@ function tsBuild() {
   };
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const t = grid[y][x];
-    if (t !== T.WALL && t !== T.DOOR) continue;
+    if (t !== T.WALL && t !== T.DOOR && t !== T.EARTH) continue;
     if (full(x, y)) {
       const pts = [];
       if (!hard(x, y - 1)) {
@@ -15833,7 +15849,7 @@ function tsBuild() {
         addV(x + 1, y, y + 1);
         pts.push([x + 1, y + 0.5], [x + 1, y + 0.15], [x + 1, y + 0.85]);
       }
-      walls.push({ x, y, pts: pts.length ? pts : [[x + 0.5, y + 0.5]] });
+      if (pts.length || t !== T.EARTH) walls.push({ x, y, pts: pts.length ? pts : [[x + 0.5, y + 0.5]] });
     } else if (win(x, y)) {
       const kind = tsHoleKind(x, y), rot = tsHoleRot(x, y), H2 = tsHoleDef(kind, rot);
       if (!rot) {
@@ -16135,7 +16151,7 @@ function tsPropDoors() {
 const TS_DARK = 0.9, TS_SHADE = 0.7;
 function tsBuilding(x, y) {
   const t = grid[y][x];
-  if (t === T.WALL || t === T.DOOR || t === T.FLOOR) return true;
+  if (t === T.WALL || t === T.DOOR || t === T.FLOOR || t === T.EARTH) return true;
   const ri2 = roomAt[y] && roomAt[y][x];
   if (ri2 == null || ri2 < 0) return false;
   const r = rooms[ri2];
@@ -16365,9 +16381,40 @@ function gaFlatV(vx, vy) {
 }
 const GA_LAYERS = ["shallow", "sand", "grass"];
 function gaTerrain(g, x, y, wt) {
-  if (town.h0 && y >= town.h0) {
+  if (lvlOf(y) >= 1) {
     const X2 = x * TS, Y2 = y * TS, t = grid[y][x];
     if (t === T.SKY) return;
+    if (isMineY(y)) {
+      const v2 = ART.h32(x, y, GA.seed, 4) * 4 | 0, hh = (n) => ART.h32(x, y, n, n);
+      if (t === T.EARTH) {
+        g.drawImage(ART.terr("soil", v2 & 1), X2, Y2, TS, TS);
+        g.fillStyle = "rgba(34,20,10,.5)";
+        g.fillRect(X2, Y2, TS, TS);
+        for (let i = 0; i < 5; i++) {
+          g.fillStyle = i % 2 ? "rgba(20,12,6,.5)" : "rgba(150,120,90,.35)";
+          g.fillRect(X2 + 2 + hh(20 + i) * 18, Y2 + 2 + hh(30 + i) * 18, 2 + hh(40 + i) * 2.4, 1.6 + hh(50 + i) * 2);
+        }
+        const o = town.ore && town.ore[y * W + x];
+        if (o) {
+          const col = o === 1 ? "#d27a3e" : o === 2 ? "#38c2a0" : "#f4cc38";
+          for (let i = 0; i < 5; i++) {
+            g.fillStyle = "#1d1410";
+            g.fillRect(X2 + 3 + hh(60 + i) * 15, Y2 + 3 + hh(70 + i) * 15, 4.2, 3.6);
+            g.fillStyle = col;
+            g.fillRect(X2 + 3.5 + hh(60 + i) * 15, Y2 + 3.4 + hh(70 + i) * 15, 3.2, 2.6);
+          }
+        }
+        return;
+      }
+      g.drawImage(ART.terr("path", v2), X2, Y2, TS, TS);
+      g.fillStyle = "rgba(24,14,8,.4)";
+      g.fillRect(X2, Y2, TS, TS);
+      if (t === T.STAIRU) {
+        const it = ART.BYID["stair_up"];
+        if (it) g.drawImage(ART.frameOf(it, 0), X2, Y2, TS, TS);
+      }
+      return;
+    }
     g.drawImage(ART.terr("stone", 1), X2, Y2, TS, TS);
     if (t === T.STAIRD) {
       const it = ART.BYID["stair_down"];
@@ -16444,6 +16491,8 @@ function gaFurniture(r, x, y, t) {
     }
     case T.STAIR:
       return "stair_up";
+    case T.STAIRM:
+      return "stair_down";
     case T.BARREL:
       return "barrel";
     case T.SHELF:
@@ -16625,6 +16674,10 @@ function gaPaintRect(g, x0, y0, w, h, k, wt) {
     if (roomAt[y][x] >= 0) continue;
     const t = grid[y][x];
     if (t === T.TREE || t === T.ROCK || t === T.MOUNTAIN || t === T.TENT || t === T.STALL || t === T.GRAVE) gaStand(g, x, y, t);
+    else if ((t === T.STAIR || t === T.STAIRM) && lvlOf(y) === 0) {
+      const it = ART.BYID[t === T.STAIR ? "stair_up" : "stair_down"];
+      if (it) g.drawImage(ART.frameOf(it, 0), x * TS, y * TS, TS, TS);
+    }
   }
   const wl = town.well;
   if (wl && wl.x + 2 > x0 && wl.x < x1 && wl.y + 2 > y0 && wl.y < y1) gaWell(g);
@@ -16667,7 +16720,10 @@ function gaEvict() {
   }
 }
 function gaTileColour(x, y) {
-  if (town.h0 && y >= town.h0) return grid[y][x] === T.SKY ? null : "#8a8478";
+  if (lvlOf(y) >= 1) {
+    const t2 = grid[y][x];
+    return t2 === T.SKY ? null : t2 === T.EARTH ? "#4a3426" : isMineY(y) ? "#6b523a" : "#8a8478";
+  }
   if (roomAt[y][x] >= 0) {
     const t2 = grid[y][x];
     return t2 === T.WALL || t2 === T.DOOR ? "#a69a80" : "#9c7a52";
@@ -19205,6 +19261,7 @@ const YARD_ITEMS = [
   { kind: "pew", stand: "", art: "pew", noun: "pew", name: "Pew" },
   { kind: "lamp", stand: "", art: "lamp_unlit", noun: "lamp post", name: "Lamp post" },
   { kind: "tent", stand: "", art: "tent_0", noun: "tent", name: "Tent" },
+  { kind: "stairdown", stand: "", art: "stair_down", noun: "staircase down", name: "Stairs down" },
   { kind: "stair", stand: "", art: "stair_up", noun: "staircase", name: "Stairs" },
   { kind: "campfire", stand: "", art: "campfire", noun: "campfire", name: "Campfire" }
 ];
@@ -19400,10 +19457,10 @@ const bldFreeRoom = (x, y) => {
   const r = i >= 0 ? rooms[i] : null;
   return r && r.free && !r.dead ? r : null;
 };
-const bldBare = (y) => town.h0 && y >= town.h0 ? T.DECK : T.GRASS;
+const bldBare = (y) => isMineY(y) ? T.DIRTF : isUpperY(y) ? T.DECK : T.GRASS;
 const bldOKTile = (x, y) => {
   const g = grid[y][x];
-  if (g !== T.GRASS && g !== T.PATH && g !== T.FLOOR && g !== T.CROP && g !== T.SAND && g !== T.DECK) return false;
+  if (g !== T.GRASS && g !== T.PATH && g !== T.FLOOR && g !== T.CROP && g !== T.SAND && g !== T.DECK && g !== T.DIRTF) return false;
   if (town.siteAt[y * W + x]) return false;
   const p = lfPropAt(x, y);
   if (p && p.fixed) return false;
@@ -19938,7 +19995,6 @@ function stairFootprint(r) {
   for (const k of r.walls || []) out.push([k % W, k / W | 0]);
   return out;
 }
-const stairUp = (k) => k + W * (town.h0 || 0);
 function teleportTo(n, x, y) {
   if (tileOwner.get(tkey(n.tx, n.ty)) === n) tileOwner.delete(tkey(n.tx, n.ty));
   n.tx = x;
@@ -19951,29 +20007,71 @@ function teleportTo(n, x, y) {
   tileOwner.set(tkey(x, y), n);
   if (n.path && n.path.length && n.path[0].x === x && n.path[0].y === y) n.path.shift();
 }
-function stairPlace(n) {
-  const f = lf2Front(n), sx = f.x, sy = f.y, lx = n.tx, ly = n.ty, ri2 = roomAt[sy] && roomAt[sy][sx];
+const stairClear = (x, y) => x >= 3 && y >= 3 && x < W - 3 && y < H - 3 && walkable(x, y) && !lfPropAt(x, y) && !tileOwner.get(y * W + x) && !town.siteAt[y * W + x] && !town.nodeMap.has(y * W + x) && [T.GRASS, T.PATH, T.SAND, T.FLOOR, T.DIRTF, T.DECK].includes(grid[y][x]);
+function stairLink(s0, l0, s1, l1, kind) {
+  town.portals = town.portals || /* @__PURE__ */ new Map();
+  town.stairs = town.stairs || [];
+  town.portals.set(l0, l1);
+  town.portals.set(l1, l0);
+  town.stairs.push({ s0, l0, s1, l1, kind });
+}
+function stairPlace(n, down = false) {
+  const f = lf2Front(n), sx = f.x, sy = f.y, lx = n.tx, ly = n.ty, h0 = town.h0;
+  if (!h0) return null;
+  const L = lvlOf(ly), kit = down ? "stairdown" : "stair";
+  if (down) {
+    if (L !== 0 && L !== LV_MINE) {
+      playerSay(n, "Stairs down go on the ground, or deep in a mine.");
+      return null;
+    }
+    if (!stairClear(sx, sy) || !walkable(lx, ly)) {
+      playerSay(n, "The ground in front of you has to be clear.");
+      return null;
+    }
+    const shift = L === 0 ? LV_MINE * h0 : h0, l1y = ly + shift, s1y = sy + shift;
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+      const x = lx + i, y = l1y + j;
+      if (x < 3 || x >= W - 3 || y >= H - 3) {
+        playerSay(n, "The earth is too thin here.");
+        return null;
+      }
+    }
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+      const x = lx + i, y = l1y + j;
+      setT(x, y, T.DIRTF);
+      town.ore[y * W + x] = 0;
+      roomAt[y][x] = -1;
+    }
+    setT(sx, sy, T.STAIRM);
+    setT(sx, s1y, T.STAIRU);
+    stairLink(sy * W + sx, ly * W + lx, s1y * W + sx, l1y * W + lx, "down");
+    kitTake(kit);
+    town.gridV = (town.gridV || 0) + 1;
+    markDirty(sx - 1, sy - 1, 3, 3);
+    markDirty(lx - 2, l1y - 2, 5, 5);
+    refreshReach();
+    playerSay(n, "A staircase. It goes down into the earth.");
+    return { stair: true };
+  }
+  if (L < 0 || L >= LV_UP_MAX) {
+    playerSay(n, "There is nothing higher to climb to.");
+    return null;
+  }
+  const ri2 = roomAt[sy] && roomAt[sy][sx];
   if (!(ri2 >= 0) || ri2 !== roomAt[ly][lx] || !rooms[ri2] || rooms[ri2].dead) {
-    playerSay(n, "Stairs go on the floor of a room, with you standing beside them.");
+    playerSay(n, "Stairs up go on the floor of a room, with you standing beside them.");
     return null;
   }
   if (grid[sy][sx] !== T.FLOOR || lfPropAt(sx, sy) || tileOwner.get(sy * W + sx) || grid[ly][lx] !== T.FLOOR) {
     playerSay(n, "The floor in front of you has to be clear.");
     return null;
   }
-  const h0 = town.h0;
-  if (!h0) return null;
   const r = rooms[ri2], fp = stairFootprint(r);
   for (const [x, y] of fp) if (grid[y + h0][x] === T.SKY) setT(x, y + h0, T.DECK);
   setT(sx, sy, T.STAIR);
   setT(sx, sy + h0, T.STAIRD);
-  const l0 = ly * W + lx, l1 = stairUp(l0), s0 = sy * W + sx, s1 = stairUp(s0);
-  town.portals = town.portals || /* @__PURE__ */ new Map();
-  town.stairs = town.stairs || [];
-  town.portals.set(l0, l1);
-  town.portals.set(l1, l0);
-  town.stairs.push({ s0, l0, s1, l1 });
-  kitTake("stair");
+  stairLink(sy * W + sx, ly * W + lx, (sy + h0) * W + sx, (ly + h0) * W + lx, "up");
+  kitTake(kit);
   markDirty(sx - 1, sy - 1, 3, 3);
   for (const [x, y] of fp) markDirty(x, y + h0, 1, 1);
   markDirty(sx, sy + h0 - 1, 3, 3);
@@ -19984,13 +20082,31 @@ function stairPlace(n) {
   return { stair: true };
 }
 function stairAction(n, x, y) {
-  const g = grid[y][x], k = y * W + x, st = (town.stairs || []).find((q) => q.s0 === k || q.s1 === k);
+  const k = y * W + x, st = (town.stairs || []).find((q) => q.s0 === k || q.s1 === k);
   if (!st) return null;
-  const up = g === T.STAIR;
+  const fromA = st.s0 === k, up = st.kind === "up" ? fromA : !fromA;
   return { key: "stair" + x + "," + y, min: 0.5, text: up ? "Going up" : "Going down", tool: null, run(nn) {
-    const t = up ? st.l1 : st.l0;
+    const t = fromA ? st.l1 : st.l0;
     teleportTo(nn, t % W, t / W | 0);
-    playerSay(nn, up ? "The roof." : "Downstairs.");
+    playerSay(nn, st.kind === "down" ? fromA ? "Underground." : "Daylight." : up ? "The roof." : "Downstairs.");
+  } };
+}
+function digAction(n, x, y) {
+  if (x < 3 || x >= W - 3 || y < LV_MINE * town.h0 + 1 || y >= H - 2 || (y + 1) % town.h0 === 0 || y % town.h0 === 0) return { msg: "Solid rock. It does not give." };
+  return { key: "dig" + x + "," + y, min: 2.2, text: "Digging", tool: "hammer", run(nn) {
+    if (grid[y][x] !== T.EARTH) return;
+    const o = town.ore[y * W + x];
+    town.ore[y * W + x] = 0;
+    setT(x, y, T.DIRTF);
+    markDirty(x - 1, y - 1, 3, 3);
+    workFx("split", x, y, nn);
+    if (o) {
+      const good = ["", "iron", "copper", "gold"][o], q = o === 3 ? 1 : 1 + (Math.random() < 0.4 ? 1 : 0);
+      nn.inv[good] = (nn.inv[good] || 0) + q;
+      playerSay(nn, "+" + q + " " + (GOODS[good] ? GOODS[good].name : good));
+    } else if (Math.random() < 0.35) {
+      bagGet(nn, "stone");
+    }
   } };
 }
 const VIS_FIRST_DAY = 1, VIS_GAP = [3, 5];
@@ -20708,7 +20824,7 @@ function drawGuides(c, now) {
     }
   }
 }
-const KIT_START = { bwall: 40, bdoor: 3, bwindow: 2, bed: 3, toilet: 1, chair: 2, table: 1, shelf: 1, stair: 1 };
+const KIT_START = { bwall: 40, bdoor: 3, bwindow: 2, bed: 3, toilet: 1, chair: 2, table: 1, shelf: 1, stair: 1, stairdown: 1 };
 const KIT_RECIPE = {
   bwall: { wood: 2, q: 4 },
   bwindow: { wood: 2, q: 2 },
@@ -20726,6 +20842,7 @@ const KIT_RECIPE = {
   campfire: { wood: 2, q: 1 },
   toilet: { wood: 3, q: 1 },
   stair: { wood: 6, q: 1 },
+  stairdown: { wood: 6, q: 1 },
   altar: { stone: 4, q: 1 },
   oven: { stone: 6, q: 1 },
   forge: { stone: 6, wood: 2, q: 1 },
@@ -21084,7 +21201,7 @@ const itHand = (n, mode) => itHeld(n).kind === "hand" && (!mode || itMode(n) ===
 const itTalking = (n) => !n || !n.belt || (IT_AUTO ? !itBuildOn(n) : itHand(n, "talk"));
 function itNeedOf(key) {
   if (/^tree/.test(key)) return "axe";
-  if (/^rock/.test(key) || /^wall/.test(key)) return "hammer";
+  if (/^rock/.test(key) || /^wall/.test(key) || /^dig/.test(key)) return "hammer";
   if (/^fish/.test(key)) return "rod";
   if (/^crop.*[ph]$/.test(key)) return "hoe";
   if (/^crop.*s$/.test(key)) return "seed";
@@ -21569,7 +21686,7 @@ function bldPlaceFront(n, kind) {
     kitOut(n, kind);
     return null;
   }
-  if (kind === "stair") return stairPlace(n);
+  if (kind === "stair" || kind === "stairdown") return stairPlace(n, kind === "stairdown");
   if (town.props.length >= BUILD_CAP) {
     playerSay(n, "The island is full of loose things. Smash some first.");
     return null;
@@ -28071,7 +28188,7 @@ function render(now, dtSec, hourOfDay) {
   c.imageSmoothingEnabled = true;
   GA.hour = hourOfDay;
   flushDirty();
-  if (town.h0 && ft && ft.y >= town.h0) {
+  if (town.h0 && ft && isUpperY(ft.y)) {
     const sv = cam.y;
     cam.y -= town.h0 * TS;
     c.save();
@@ -29425,9 +29542,9 @@ function drainEvents(now) {
   tradeSeen = town.eco.trades;
   if (chronSeen > town.chron.length) chronSeen = 0;
 }
-Object.assign(GOODS, { turnip: { base: 2, sat: 30, name: "turnips" }, beans: { base: 2, sat: 28, name: "beans" }, potato: { base: 2, sat: 32, name: "potatoes" }, cabbage: { base: 2, sat: 26, name: "cabbages" }, tomato: { base: 2, sat: 22, name: "tomatoes" }, corn: { base: 2, sat: 30, name: "corn" }, pumpkin: { base: 3, sat: 34, name: "pumpkins" }, strawberries: { base: 3, sat: 20, name: "strawberries" }, carrot: { base: 2, sat: 26, name: "carrots" }, seeds: { base: 2, name: "seed" }, planks: { base: 3, name: "planks" } });
+Object.assign(GOODS, { copper: { base: 5, name: "copper ore" }, gold: { base: 14, name: "gold nuggets" }, turnip: { base: 2, sat: 30, name: "turnips" }, beans: { base: 2, sat: 28, name: "beans" }, potato: { base: 2, sat: 32, name: "potatoes" }, cabbage: { base: 2, sat: 26, name: "cabbages" }, tomato: { base: 2, sat: 22, name: "tomatoes" }, corn: { base: 2, sat: 30, name: "corn" }, pumpkin: { base: 3, sat: 34, name: "pumpkins" }, strawberries: { base: 3, sat: 20, name: "strawberries" }, carrot: { base: 2, sat: 26, name: "carrots" }, seeds: { base: 2, name: "seed" }, planks: { base: 3, name: "planks" } });
 FOODS.push("turnip", "beans", "potato", "cabbage", "tomato", "corn", "pumpkin", "strawberries", "carrot");
-Object.assign(GICON, { turnip: "turnips", beans: "beans", potato: "potatoes", cabbage: "cabbages", tomato: "tomatoes", corn: "corn", pumpkin: "pumpkins", strawberries: "strawberries", carrot: "carrots", planks: "planks", iron: "iron ore", stone: "stone" });
+Object.assign(GICON, { copper: "copper ore", gold: "gold", turnip: "turnips", beans: "beans", potato: "potatoes", cabbage: "cabbages", tomato: "tomatoes", corn: "corn", pumpkin: "pumpkins", strawberries: "strawberries", carrot: "carrots", planks: "planks", iron: "iron ore", stone: "stone" });
 Object.assign(LF2_BLD, { mill: "The Sawmill" });
 BUILDING.mill = 1;
 Object.assign(LF2_SELL, { mill: { planks: 10 } });
@@ -30385,10 +30502,7 @@ function isleRestore(text) {
   SB.count = o.sb && o.sb.count || {};
   SB.pair = o.sb && o.sb.pair || /* @__PURE__ */ new Map();
   SB.presim = !!(o.sb && o.sb.presim);
-  if (!town.h0) growSky();
-  else {
-    H = town.h0 * 2;
-  }
+  growLevels();
   reach = new Uint8Array(W * H);
   tileOwner = /* @__PURE__ */ new Map();
   pairCool.clear();

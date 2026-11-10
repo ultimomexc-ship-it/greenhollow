@@ -37,15 +37,20 @@ function refreshShore() {
   town.shoreSpots = shoreTiles;
 }
 
-/** The second level: the map is doubled downwards. Row y + town.h0 is the level above row y: a roof deck over a building (T.DECK), nothing elsewhere (T.SKY). Everything that works on the ground works up there
-    unchanged (building, sealing, props, rooms, walking, TrueSight), because it is only more map; stairs link the two (town.portals). Safe to call twice. */
-function growSky() {
-  if (town.h0) return; const H0 = H; town.h0 = H0; H = H0 * 2;
-  for (let y = H0; y < H; y++) { grid.push(Array(W).fill(T.SKY)); roomAt.push(Array(W).fill(-1)); }
-  const ext = (a, Ctor) => { if (!a) return a; const b = new Ctor(W * H); b.set(a); return b; };
-  for (const [k, fill] of [['hgt', -1], ['fmask', 0], ['cmask', 0], ['islet', 0], ['fout', 255], ['fin', 255], ['cout', 255]] as [string, number][]) { const a = town[k]; if (a && a.length === W * H0) { const b = new (a.constructor as any)(W * H).fill(fill); b.set(a); town[k] = b; } }   // (the level above is neither water, forest nor coast)
-  town.siteAt = ext(town.siteAt, Uint16Array); town.block = ext(town.block, Uint8Array); if (town.pblock) town.pblock = ext(town.pblock, Uint8Array);
-  town.portals = new Map(); town.stairs = [];
+/** The levels: the map is stacked downwards in blocks of town.h0 rows. Block 0 is the ground; row y + h0 is the level above row y (roof decks, SKY elsewhere), blocks 3 and 4 are the earth below the island
+    (EARTH with ore in it, dug out by hand). Everything that works on the ground works on every level unchanged (building, sealing, props, rooms, walking, TrueSight), because it is only more map; stairs link
+    the levels (town.portals). Safe to call twice, and for islands saved with fewer levels. */
+function growLevels() {
+  const H0 = town.h0 || H; town.h0 = H0; const have = Math.max(1, Math.round(grid.length / H0)); if (have >= LV_N) { H = grid.length; return; }
+  const oldH = grid.length;
+  for (let b = have; b < LV_N; b++) for (let y = 0; y < H0; y++) { grid.push(Array(W).fill(b >= LV_MINE ? T.EARTH : T.SKY)); roomAt.push(Array(W).fill(-1)); }
+  H = grid.length;
+  const ext = (a, Ctor, fill = 0) => { if (!a || a.length !== W * oldH) return a; const b = new Ctor(W * H).fill(fill); b.set(a); return b; };
+  for (const [k, fill, C] of [['hgt', -1, Float32Array], ['fmask', 0, Uint8Array], ['cmask', 0, Uint8Array], ['islet', 0, Uint8Array], ['fout', 255, Uint8Array], ['fin', 255, Uint8Array], ['cout', 255, Uint8Array], ['siteAt', 0, Uint16Array], ['block', 0, Uint8Array], ['pblock', 0, Uint8Array]] as any[]) if (town[k]) town[k] = ext(town[k], C, fill);   // (the other levels are neither water, forest nor coast)
+  town.portals = town.portals || new Map(); town.stairs = town.stairs || [];
+  town.ore = new Uint8Array(W * H); const seed = (town.seed | 0) + 17;   // 1 iron, 2 copper, 3 gold: in veins; the second mine is richer
+  for (let y = 2 * 0 + LV_MINE * H0; y < H; y++) for (let x = 2; x < W - 2; x++) { const deep = y >= (LV_MINE + 1) * H0, v = vnoise(x * 0.17, y * 0.17, seed), w = vnoise(x * 0.21, y * 0.21, seed + 5), q = vh(x, y, seed + 9);
+    if (v > (deep ? 0.72 : 0.76) && q < 0.75) town.ore[y * W + x] = 1; else if (w > (deep ? 0.74 : 0.79) && q < 0.7) town.ore[y * W + x] = 2; else if (q < (deep ? 0.012 : 0.002) && vh(x, y, seed + 3) < 0.5) town.ore[y * W + x] = 3; }
   reach = new Uint8Array(W * H); town.gridV = (town.gridV || 0) + 1;
 }
 function generateTown(seed, size) {
@@ -90,7 +95,7 @@ function generateTown(seed, size) {
   // the founding families
   startPeople(R);
   townName(R);
-  growSky();
+  growLevels();
   refreshReach(); refreshShore(); spawnNodes(18);
   return town;
 }

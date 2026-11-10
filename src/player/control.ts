@@ -53,7 +53,8 @@ function targetAt0(n, x, y) {
   if (itBuildOn(n) && n.build.sel === 1 && g === T.CROP) return { key: 'wallC' + x + ',' + y, min: 2, text: 'Digging the plot back to grass', tool: 'hammer', run(nn) { town.crops = town.crops.filter(c => !(c.x === x && c.y === y)); setT(x, y, T.GRASS); markDirty(x, y, 1, 1); town.gridV = (town.gridV || 0) + 1; if (typeof refreshReach === 'function') refreshReach(); playerSay(nn, 'Gone.'); } };
   if (g === T.WALL && !itBuildOn(n)) { const sr = signRoomAt(x, y); if (sr) return { msg: signText(sr) }; }   // (the sign beside a door)
   { const sh = !itBuildOn(n) && shroomAt(x, y); if (sh) return { key: 'shroom' + x + ',' + y, min: 0.6, text: 'Eating a mushroom', tool: null, run(nn) { eatShroom(nn, sh); } }; }
-  if ((g === T.STAIR || g === T.STAIRD) && !itBuildOn(n)) { const sa = stairAction(n, x, y); if (sa) return sa; }
+  if ((g === T.STAIR || g === T.STAIRD || g === T.STAIRM || g === T.STAIRU) && !itBuildOn(n)) { const sa = stairAction(n, x, y); if (sa) return sa; }
+  if (g === T.EARTH && !itBuildOn(n)) return digAction(n, x, y);
   const c = cropAt(x, y);
   if (c && !itBuildOn(n)) {
     const st = c.st ? cropStage(c) : 0, fl = !!c.st && itIsFlower(c);

@@ -161,7 +161,7 @@ function render(now, dtSec, hourOfDay) {
   c.setTransform(Z, 0, 0, Z, -cam.x * Z, -cam.y * Z);
   c.imageSmoothingEnabled = true; GA.hour = hourOfDay;
   flushDirty();
-  if (town.h0 && ft && ft.y >= town.h0) {   // up on the roof: the ground is still there below, dimmed. The deck (and a building's roof) hides what is under it.
+  if (town.h0 && ft && isUpperY(ft.y)) {   // up on a roof: the ground is still there below, dimmed. The deck (and a building's roof) hides what is under it.
     const sv = cam.y; cam.y -= town.h0 * TS; c.save(); c.translate(0, town.h0 * TS); drawGround(c, now); c.restore(); cam.y = sv;
     c.fillStyle = 'rgba(8,10,16,0.62)'; c.fillRect(cam.x, cam.y, cam.cw / cam.z, cam.ch / cam.z);
   }

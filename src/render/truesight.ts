@@ -23,7 +23,7 @@ function tsWindow(x, y) {
 function tsDoorOpen(x, y) { const d = doors.find(q => q.x === x && q.y === y); if (!d) return true; return !d.shut && (d.o > 0.5 || !!d.propped); }
 /** what a wall-ring tile is to sight: 1 solid, 0 open (an open door or an archway), 2 a window (open in the middle only) */
 function tsTile(x, y) {
-  const t = grid[y] && grid[y][x]; if (t === T.DOOR) return tsDoorOpen(x, y) ? 0 : 1; if (t !== T.WALL) return 0; return tsWindow(x, y) ? 2 : 1;
+  const t = grid[y] && grid[y][x]; if (t === T.EARTH) return 1; if (t === T.DOOR) return tsDoorOpen(x, y) ? 0 : 1; if (t !== T.WALL) return 0; return tsWindow(x, y) ? 2 : 1;
 }
 
 /* ---------------- the geometry: segments in a grid, so a ray only meets the ones near it ---------------- */
@@ -48,18 +48,18 @@ const tsHoleDef = (kind, rot) => (rot && TS_HOLES[kind + 'Side']) || TS_HOLES[ki
     So a building's outer corner casts from the outermost point of its corner tile, and a doorway is a real opening between two door jambs: the beam through
     it is bounded by the inside corners of the door frame. A window is a gap in the middle of its tile with a solid piece either side. */
 function tsBuild() {
-  const full = (x, y) => x >= 0 && y >= 0 && x < W && y < H && ((grid[y][x] === T.WALL && !tsWindow(x, y)) || (grid[y][x] === T.DOOR && !tsDoorOpen(x, y)));
+  const full = (x, y) => x >= 0 && y >= 0 && x < W && y < H && ((grid[y][x] === T.WALL && !tsWindow(x, y)) || grid[y][x] === T.EARTH || (grid[y][x] === T.DOOR && !tsDoorOpen(x, y)));
   const win = (x, y) => x >= 0 && y >= 0 && x < W && y < H && grid[y][x] === T.WALL && tsWindow(x, y);
   const hard = (x, y) => full(x, y) || win(x, y);
   const hE = new Map<number, number[][]>(), vE = new Map<number, number[][]>(), walls: any[] = [], plates = new Map<string, number[]>(), sides = new Set<string>();
   const addH = (y, x1, x2) => { let l = hE.get(y); if (!l) hE.set(y, l = []); l.push([x1, x2]); }, addV = (x, y1, y2) => { let l = vE.get(x); if (!l) vE.set(x, l = []); l.push([y1, y2]); };
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const t = grid[y][x]; if (t !== T.WALL && t !== T.DOOR) continue;
+    const t = grid[y][x]; if (t !== T.WALL && t !== T.DOOR && t !== T.EARTH) continue;
     if (full(x, y)) {
       const pts: number[][] = [];
       if (!hard(x, y - 1)) { addH(y, x, x + 1); pts.push([x + 0.5, y], [x + 0.15, y], [x + 0.85, y]); } if (!hard(x, y + 1)) { addH(y + 1, x, x + 1); pts.push([x + 0.5, y + 1], [x + 0.15, y + 1], [x + 0.85, y + 1]); }
       if (!hard(x - 1, y)) { addV(x, y, y + 1); pts.push([x, y + 0.5], [x, y + 0.15], [x, y + 0.85]); } if (!hard(x + 1, y)) { addV(x + 1, y, y + 1); pts.push([x + 1, y + 0.5], [x + 1, y + 0.15], [x + 1, y + 0.85]); }
-      walls.push({ x, y, pts: pts.length ? pts : [[x + 0.5, y + 0.5]] });
+      if (pts.length || t !== T.EARTH) walls.push({ x, y, pts: pts.length ? pts : [[x + 0.5, y + 0.5]] });   // (the inside of solid earth is never seen)
     } else if (win(x, y)) {   // a window: the wall is solid but for the hole. In a back wall (running along x) the plates are level, in a side wall (running along y) they are upright.
       const kind = tsHoleKind(x, y), rot = tsHoleRot(x, y), H = tsHoleDef(kind, rot);
       if (!rot) {
@@ -211,7 +211,7 @@ function tsPropDoors() { const h = (game.time % 1440) / 60; for (const d of door
 const TS_DARK = 0.9, TS_SHADE = 0.7;
 /** is this tile part of a building (a wall, a door, a floor or inside a room) */
 function tsBuilding(x, y) {
-  const t = grid[y][x]; if (t === T.WALL || t === T.DOOR || t === T.FLOOR) return true;
+  const t = grid[y][x]; if (t === T.WALL || t === T.DOOR || t === T.FLOOR || t === T.EARTH) return true;
   const ri = roomAt[y] && roomAt[y][x]; if (ri == null || ri < 0) return false; const r = rooms[ri]; return !!r && !r.dead;
 }
 /** the darkness over everything the player cannot see (drawn in world coordinates after the world and the lighting) */
