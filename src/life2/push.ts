@@ -112,6 +112,7 @@ function lf2PushLine(n, x, y, dx, dy): true | string | null {
   }
   if (typeof refreshReach === 'function') refreshReach();
   for (const pr of moved) if (typeof lf2AfterPush === 'function' && lfPropAt(pr.x, pr.y) === pr) lf2AfterPush(n, pr);
+  sndPush(n && n.player ? 1 : sndAt(n.x, n.y));
   return true;
 }
 /** a person pushed along: they stumble one tile (harmless: no crime, no gossip beyond "you pushed somebody") */

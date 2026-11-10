@@ -24,7 +24,7 @@ function itBuildSelect(n, i: number) {
 function bldBrushStep(n) {
   const b = n.build; if (!b || !b.on || b.brush !== 'field') return;
   const key = n.tx + ',' + n.ty; if (b.lastT === key) return; b.lastT = key;
-  const x = n.tx, y = n.ty; if (grid[y][x] !== T.GRASS || roomAt[y][x] >= 0 || lfPropAt(x, y) || (town.siteAt && town.siteAt[y * W + x]) || (town.nodeMap && town.nodeMap.has(y * W + x)) || x < 3 || y < 3 || x >= W - 3 || y >= H - 3) return;
+  const x = n.tx, y = n.ty; if ((grid[y][x] !== T.GRASS && !(grid[y][x] === T.DECK && isUpperY(y))) || roomAt[y][x] >= 0 || lfPropAt(x, y) || (town.siteAt && town.siteAt[y * W + x]) || (town.nodeMap && town.nodeMap.has(y * W + x)) || x < 3 || y < 3 || x >= W - 3 || y >= H - 3) return;
   setT(x, y, T.CROP); town.crops.push({ x, y, f: 'field' + n.id, pl: 0, st: 0, t0: 0, byField: n.id }); markDirty(x, y, 1, 1); town.gridV = (town.gridV || 0) + 1; if (typeof refreshReach === 'function') refreshReach();
 }
 const itBuildName = (k: string) => { const it = YARD_ITEMS.find(q => q.kind === k); return it ? it.name : k; };
@@ -39,13 +39,13 @@ function bldPlaceFront(n, kind: string) {
   const ok = (x, y) => x >= 3 && y >= 3 && x < W - 3 && y < H - 3 && walkable(x, y) && !lfPropAt(x, y) && !tileOwner.get(y * W + x) && !(x === n.tx && y === n.ty) && !town.siteAt[y * W + x] && ![T.DOOR, T.PLOT, T.TENT, T.PEW].includes(grid[y][x]);
   { /* the tile in front is taken by a loose thing: the new one goes on the next tile in front, so a row of them can be pushed along together */
     const dx = Math.sign(f.x - n.tx), dy = Math.sign(f.y - n.ty);
-    if ((dx || dy) && lfPropAt(f.x, f.y)) { let x = f.x, y = f.y; for (let i = 0; i < 400 && lfPropAt(x, y); i++) { x += dx; y += dy; } if (ok(x, y)) { const p: any = lfAddProp(kind, x, y); p.v = Math.floor(Math.random() * 5); p.rot = 0; bldQueue(p); kitTake(kind); playerSay(n, 'A ' + (LF_NOUN[kind] || kind) + '.'); return p; } }
+    if ((dx || dy) && lfPropAt(f.x, f.y)) { let x = f.x, y = f.y; for (let i = 0; i < 400 && lfPropAt(x, y); i++) { x += dx; y += dy; } if (ok(x, y)) { const p: any = lfAddProp(kind, x, y); p.v = Math.floor(Math.random() * 5); p.rot = 0; bldQueue(p); kitTake(kind); sndPlace(); playerSay(n, 'A ' + (LF_NOUN[kind] || kind) + '.'); return p; } }
   }
   for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const x = f.x + dx, y = f.y + dy; if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) continue; cand.push([Math.abs(dx) + Math.abs(dy) * 1.01, x, y]); }
   cand.sort((a, b) => a[0] - b[0]);
   for (const [, x, y] of cand) {
     if (!walkable(x, y) || lfPropAt(x, y) || tileOwner.get(y * W + x) || (x === n.tx && y === n.ty) || town.siteAt[y * W + x]) continue; const g = grid[y][x]; if (g === T.DOOR || g === T.PLOT || g === T.TENT || g === T.PEW) continue;
-    const p: any = lfAddProp(kind, x, y); p.v = Math.floor(Math.random() * 5); p.rot = 0; bldQueue(p); kitTake(kind); playerSay(n, 'A ' + (LF_NOUN[kind] || kind) + '.'); return p;
+    const p: any = lfAddProp(kind, x, y); p.v = Math.floor(Math.random() * 5); p.rot = 0; bldQueue(p); kitTake(kind); sndPlace(); playerSay(n, 'A ' + (LF_NOUN[kind] || kind) + '.'); return p;
   }
   playerSay(n, 'No room here.'); return null;
 }

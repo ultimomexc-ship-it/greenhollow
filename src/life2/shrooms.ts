@@ -31,6 +31,7 @@ function shroomGrow() {
 LF2.hourly.push(h => { if (h === 4) shroomGrow(); });
 /** walk into one: eat it */
 function eatShroom(n: any, s: any) {
+  sndMagic();
   town.shrooms = town.shrooms.filter(q => q !== s);
   const tr = game.trip && game.time < game.trip.until ? game.trip : null;
   if (tr) { tr.until += SH_TRIP * 0.6; tr.dose = (tr.dose || 1) + 1; playerSay(n, 'Another one. The colours get louder.'); }

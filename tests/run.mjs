@@ -1588,6 +1588,23 @@ test('levels: villagers move into huts upstairs and underground, walk there by t
   check(r2.homed >= 1 && r2.sawLevels !== '', 'visitors moved into the huts on other levels: ' + JSON.stringify(r2)); check(r2.placeOk, 'everybody can be found: ' + JSON.stringify(r2)); check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
   return JSON.stringify(r2);
 });
+test('work: villagers dig the mine, farmers sow a mix of seeds, a roof can hold a garden; and the sound engine stays silent under test', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await simulate(page, 2 * 1440);
+  const r = await page.evaluate(() => {
+    const out = {}; out.seeds = [...new Set(town.crops.filter(c => c.seed).map(c => c.seed))].length; out.mineWork = mineWork();
+    const w = npcs.find(n => n.role === 'Worker' && !n.dead && !n.player && n.cur === 'Farmer'); w.cur = 'Miner'; w.curUntil = game.time + 99999; window.__miner = w.id; out.m0 = town.mined || 0; out.coin0 = w.coin || 0;
+    // a roof garden: the field brush works on a deck, and the plot goes back to deck when dug up
+    startPlaying(npcs.find(q => canControl(q) && q !== w)); const P = game.player, st = town.stairs.find(q => q.kind === 'up'), l1 = st.l1, lx = l1 % W, ly = (l1 / W) | 0;
+    teleportTo(P, lx, ly); itBuildToggle(P, true); P.build.brush = 'field'; P.tx = P.x = lx + 1; P.ty = P.y = ly; P.build.lastT = null; bldBrushStep(P); out.roofPlot = grid[ly][lx + 1] === T.CROP && town.crops.some(c => c.x === lx + 1 && c.y === ly); itBuildToggle(P, false);
+    out.silent = !SND.ctx;
+    return out; });
+  await simulate(page, 8 * 60);
+  const r2 = await page.evaluate(() => { const w = byId(window.__miner); return { mined: town.mined || 0, inMine: lvlOf(w.ty) >= 3, coin: w.coin || 0 }; });
+  check(r.seeds >= 3, 'farmers sow a mix of seeds, not only barley: ' + r.seeds); check(r.mineWork && r2.mined > r.m0, 'a villager goes down and digs out the earth: ' + JSON.stringify([r.m0, r2])); check(r.roofPlot, 'a roof can be a garden'); check(r.silent, 'no audio is created under test');
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return r.seeds + ' kinds sown, ' + (r2.mined - r.m0) + ' tiles dug by a miner';
+});
 test('crops and flowers: every crop is its own plant with its own art; flowers stay in bloom a long time, then wither and are cleared for replanting', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

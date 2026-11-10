@@ -46,7 +46,7 @@ function newPlan(n) {
   n.plan = p; n.si = 0; n.stepStarted = false; n.roaming = false;
 }
 // a tree falling or a boulder splitting: remembered for a moment so it can be drawn
-function workFx(k, x, y, n) { (town.fx = town.fx || []).push({ k, x, y, dir: n && n.tx < x ? 1 : n && n.tx > x ? -1 : (Math.random() < 0.5 ? 1 : -1), rt: typeof performance !== 'undefined' ? performance.now() : 0 }); if (town.fx.length > 30) town.fx.shift(); }
+function workFx(k, x, y, n) { if (typeof sndWork === 'function') sndWork(k, n && n.player ? 1 : sndAt(x, y)); (town.fx = town.fx || []).push({ k, x, y, dir: n && n.tx < x ? 1 : n && n.tx > x ? -1 : (Math.random() < 0.5 ? 1 : -1), rt: typeof performance !== 'undefined' ? performance.now() : 0 }); if (town.fx.length > 30) town.fx.shift(); }
 function abortPlan(n) { n.plan = null; n.si = 0; n.stepStarted = false; n.roaming = false; n.moving = false; n.path = []; n.t = 0; n.x = n.tx; n.y = n.ty; }
 
 /* ---------- running steps ---------- */
@@ -140,7 +140,7 @@ function stepNpc(n, dt) {
     const need = (1 - n.t) * cost;
     n.face = { dx: Math.sign(nx.x - n.tx), dy: Math.sign(nx.y - n.ty) };
     if (n.pose !== 'walk' && !n.player) n.pose = 'walk';
-    if (dt >= need) { dt -= need; if (tileOwner.get(tkey(n.tx, n.ty)) === n) tileOwner.delete(tkey(n.tx, n.ty)); n.tx = nx.x; n.ty = nx.y; n.t = 0; n.path.shift(); n.walked++; tileOwner.set(tkey(n.tx, n.ty), n); }
+    if (dt >= need) { dt -= need; if (tileOwner.get(tkey(n.tx, n.ty)) === n) tileOwner.delete(tkey(n.tx, n.ty)); n.tx = nx.x; n.ty = nx.y; n.t = 0; n.path.shift(); n.walked++; if (n.player) sndStep(n); tileOwner.set(tkey(n.tx, n.ty), n); }
     else { n.t += dt / cost; dt = 0; }
   }
   if (n.path.length) { const nx = n.path[0]; n.x = n.tx + (nx.x - n.tx) * n.t; n.y = n.ty + (nx.y - n.ty) * n.t; }

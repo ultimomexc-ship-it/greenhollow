@@ -74,6 +74,7 @@
   "ui/controls-camera.ts",
   "ui/saves.ts",
   "ui/hud-needs.ts",
+  "ui/sound.ts",
   "ui/loop.ts",
   "ui/menus-hud.ts"
 ]

@@ -54,13 +54,13 @@ function stairPlace(n, down = false) {
     if (!stairClear(sx, sy) || !walkable(lx, ly)) { playerSay(n, 'Stairs down go just south of you: that ground has to be clear.'); return null; }
     const s1y = sy + (L === 0 ? LV_MINE * h0 : h0);
     if (sx < 4 || sx >= W - 4 || s1y + 3 >= H - 3) { playerSay(n, 'The earth is too thin here.'); return null; }
-    stairMake(lx, ly, true); kitTake(kit); playerSay(n, 'A staircase. It goes down into the earth.'); return { stair: true };
+    stairMake(lx, ly, true); kitTake(kit); sndPlace(); playerSay(n, 'A staircase. It goes down into the earth.'); return { stair: true };
   }
   if (L < 0 || L >= LV_UP_MAX) { playerSay(n, 'There is nothing higher to climb to.'); return null; }
   const ri = roomAt[sy] && roomAt[sy][sx];
   if (!(ri >= 0) || ri !== roomAt[ly][lx] || !rooms[ri] || rooms[ri].dead) { playerSay(n, 'Stairs up go on the floor of a room, just north of where you stand.'); return null; }
   if (grid[sy][sx] !== T.FLOOR || lfPropAt(sx, sy) || tileOwner.get(sy * W + sx) || grid[ly][lx] !== T.FLOOR) { playerSay(n, 'The floor just north of you has to be clear.'); return null; }
-  stairMake(lx, ly, false); kitTake(kit); playerSay(n, 'A staircase. It goes up to the roof.'); return { stair: true };
+  stairMake(lx, ly, false); kitTake(kit); sndPlace(); playerSay(n, 'A staircase. It goes up to the roof.'); return { stair: true };
 }
 /** walking into a stair: only from its landing, following the arrow; a straight cut to the landing at the other end (the next floor). From anywhere else the stair is just a solid thing with a message. */
 function stairAction(n, x: number, y: number) {
@@ -71,14 +71,14 @@ function stairAction(n, x: number, y: number) {
     const t = fromA ? st.l1 : st.l0, [tx, ty] = stairArrivalTile(t, nn), sk = fromA ? st.s1 : st.s0; teleportTo(nn, tx, ty);
     if (nn.player) { const pp = nn.player; pp.stairHold = {}; for (const d of ['up', 'down', 'left', 'right']) if (pp.keys[d]) pp.stairHold[d] = true; pp.keys = {}; pp.order = []; }   // (you arrive ON the landing: a key still held does not walk you off it)
     nn.face = { dx: -Math.sign((sk % W) - tx), dy: -Math.sign(((sk / W) | 0) - ty) };   // (turned away from the stair you came out of)
-    playerSay(nn, st.kind === 'down' ? (fromA ? 'Underground.' : 'Daylight.') : (up ? 'The roof.' : 'Downstairs.')); } };
+    sndStairs(up); playerSay(nn, st.kind === 'down' ? (fromA ? 'Underground.' : 'Daylight.') : (up ? 'The roof.' : 'Downstairs.')); } };
 }
 /** the hammer on solid earth: dig it out. Some of it is ore. */
 function digAction(n, x: number, y: number) {
   if (x < 3 || x >= W - 3 || y < LV_MINE * town.h0 + 1 || y >= H - 2 || (y + 1) % town.h0 === 0 || y % town.h0 === 0) return { msg: 'Solid rock. It does not give.' };
   return { key: 'dig' + x + ',' + y, min: 2.2, text: 'Digging', tool: 'hammer', run(nn) {
-    if (grid[y][x] !== T.EARTH) return; const o = town.ore[y * W + x]; town.ore[y * W + x] = 0; setT(x, y, T.DIRTF); markDirty(x - 1, y - 1, 3, 3); workFx('split', x, y, nn);
-    if (o) { const good = ['', 'iron', 'copper', 'gold'][o], q = o === 3 ? 1 : 1 + (Math.random() < 0.4 ? 1 : 0); nn.inv[good] = (nn.inv[good] || 0) + q; playerSay(nn, '+' + q + ' ' + (GOODS[good] ? GOODS[good].name : good)); }
+    if (grid[y][x] !== T.EARTH) return; const o = town.ore[y * W + x]; town.ore[y * W + x] = 0; setT(x, y, T.DIRTF); markDirty(x - 1, y - 1, 3, 3); workFx('split', x, y, nn); sndDig();
+    if (o) { const good = ['', 'iron', 'copper', 'gold'][o], q = o === 3 ? 1 : 1 + (Math.random() < 0.4 ? 1 : 0); nn.inv[good] = (nn.inv[good] || 0) + q; sndOre(); playerSay(nn, '+' + q + ' ' + (GOODS[good] ? GOODS[good].name : good)); }
     else if (Math.random() < 0.35) { bagGet(nn, 'stone'); }
   } };
 }
@@ -128,4 +128,36 @@ function stairPushTarget(px: number, py: number, dx: number, dy: number): [numbe
   const fromA = st.s0 === k, land = fromA ? st.l0 : st.l1; if (land !== py * W + px) return null;
   const to = fromA ? st.l1 : st.l0, [ax, ay] = stairArrivalTile(to); if (!walkable(ax, ay) || lfPropAt(ax, ay) || tileOwner.get(tkey(ax, ay))) return null;
   return [ax, ay];
+}
+
+/* ---------------- villagers in the mine ---------------- */
+const MINE_CAP = 900;   // how many tiles villagers will dig out before they call it a mine
+/** the earth that can be dug now: walk out from each stair down over the dug-out floor, and every solid tile touching it is a candidate (ore first, then the nearest) */
+function mineSpots(max = 1): { sx: number; sy: number; ex: number; ey: number; ore: number }[] {
+  const out: any[] = [], h0 = town.h0; if (!h0) return out;
+  for (const st of town.stairs || []) {
+    if (st.kind !== 'down') continue; const start = st.l1, seen = new Set<number>([start]), q = [start]; let head = 0;
+    while (head < q.length && q.length < 700) {
+      const k = q[head++], x = k % W, y = (k / W) | 0;
+      for (const [dx, dy] of DIRS) {
+        const nx = x + dx, ny = y + dy, nk = ny * W + nx; if (seen.has(nk)) continue; seen.add(nk);
+        if (grid[ny][nx] === T.EARTH) { if (nx >= 4 && nx < W - 4 && ny > LV_MINE * h0 + 1 && ny < H - 3 && ny % h0 !== 0 && (ny + 1) % h0 !== 0 && !town.treeClaim.has(nk)) out.push({ sx: x, sy: y, ex: nx, ey: ny, ore: town.ore[nk] }); }
+        else if (walkable(nx, ny)) q.push(nk);
+      }
+    }
+  }
+  out.sort((a, b) => (b.ore ? 1 : 0) - (a.ore ? 1 : 0));   // (stable: ore first, otherwise the order they were found in: nearest the stairs)
+  return out.slice(0, Math.max(1, max));
+}
+const mineWork = () => !!town.h0 && (town.mined || 0) < MINE_CAP && (town.stairs || []).some(s => s.kind === 'down') && mineSpots().length > 0;
+/** a villager goes down and digs one tile: ore goes where it is wanted (iron to the smithy, copper and gold sold) */
+function minePlan(n) {
+  const sp = mineSpots()[0]; if (!sp) return null; const k = sp.ey * W + sp.ex; town.treeClaim.add(k);
+  return [goS({ x: sp.sx, y: sp.sy, face: { dx: Math.sign(sp.ex - sp.sx), dy: Math.sign(sp.ey - sp.sy) } }, 'Going down to the mine'),
+    waitS(11, 'work', 'Digging in the mine', { tool: 'hammer', onEnd(n) {
+      town.treeClaim.delete(k); if (grid[sp.ey][sp.ex] !== T.EARTH) return;
+      const o = town.ore[k]; town.ore[k] = 0; setT(sp.ex, sp.ey, T.DIRTF); markDirty(sp.ex - 1, sp.ey - 1, 3, 3); workFx('split', sp.ex, sp.ey, n); town.mined = (town.mined || 0) + 1;
+      if (o === 1) { const sm = typeof lf2Room === 'function' ? lf2Room('smithy') : null, q = 1 + (n.rand() < 0.4 ? 1 : 0); if (sm) { lf2Stock(sm).iron = (lf2Stock(sm).iron || 0) + q; n.coin = (n.coin || 0) + 2 * q; } else n.inv.iron = (n.inv.iron || 0) + q; }
+      else if (o === 2) n.coin = (n.coin || 0) + 3; else if (o === 3) n.coin = (n.coin || 0) + 9;
+    } })];
 }

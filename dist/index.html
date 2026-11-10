@@ -10823,6 +10823,7 @@ function farmPlan(n) {
         if (!c.st && c.pl && fieldPlowed(c)) {
           c.st = 1;
           c.t0 = game.time;
+          c.seed = farmSeed(n2);
         }
       } else c.pl = 1;
     } }));
@@ -11017,6 +11018,12 @@ function demandFor(g) {
   return v;
 }
 const CROP_YIELD = 3;
+function farmSeed(n) {
+  const food = Object.keys(IT_SEEDS).filter((k) => k !== "barley" && !IT_SEEDS[k].flower), r = n.rand ? n.rand() : Math.random();
+  if (r < 0.5) return "barley";
+  const fav = food[n.id * 7 % food.length], fav2 = food[(n.id * 7 + 3) % food.length], q = (r - 0.5) * 2;
+  return q < 0.35 ? fav : q < 0.55 ? fav2 : food[Math.floor(q * 997 % food.length)];
+}
 const fieldPlowed = (c) => town.crops.every((o) => o.f !== c.f || o.pl);
 function farmWork() {
   return town.crops.some((c) => !c.claim && itFarmersPlot(c) && (c.st && cropStage(c) === 4 || !c.pl || !c.st && c.pl && fieldPlowed(c)));
@@ -11052,6 +11059,7 @@ function pickAgenda(n) {
     const ws = lf2Room("workshop");
     if (ws && !n.player && (lf2Stock(ws).wood || 0) < 14 && (cnt.Woodcutter || 0) < Math.max(1, Math.floor(npcs.length / 3)) && typeof carpWant === "function" && carpWant()) sc.Woodcutter = 22;
   }
+  if (typeof mineWork === "function" && fd >= 2 && !n.player && mineWork()) sc.Miner = 14;
   {
     const foodOK = fd >= 3;
     if (foodOK) {
@@ -11068,7 +11076,7 @@ function pickAgenda(n) {
   }
   {
     const pop = npcs.length, tasks = town.crops.filter((c) => !c.claim && (c.st && cropStage(c) === 4 || !c.pl || !c.st && fieldPlowed(c))).length;
-    const capF = { Fisher: Math.max(1, Math.ceil(pop / 7)), Gatherer: Math.max(1, Math.ceil(pop / 7)), Farmer: Math.max(1, Math.ceil(tasks / 6)) };
+    const capF = { Fisher: Math.max(1, Math.ceil(pop / 7)), Gatherer: Math.max(1, Math.ceil(pop / 7)), Farmer: Math.max(1, Math.ceil(tasks / 6)), Miner: Math.max(1, Math.floor(pop / 8)) };
     if (fd >= 1.5) {
       for (const r in capF) if (sc[r] && (cnt[r] || 0) >= capF[r]) sc[r] *= 0.15;
     }
@@ -11095,7 +11103,7 @@ function workPlan(n, tod) {
   if (n.role === "Worker") {
     const r = pickAgenda(n);
     const mats = 0;
-    const load = carried(n) - ((n.inv.wood || 0) + (n.inv.stone || 0)), thr = { Farmer: 12, Fisher: 6, Woodcutter: 99, Stonecutter: 99, Gatherer: 8 }[r] || 8;
+    const load = carried(n) - ((n.inv.wood || 0) + (n.inv.stone || 0)), thr = { Farmer: 12, Fisher: 6, Woodcutter: 99, Stonecutter: 99, Miner: 99, Gatherer: 8 }[r] || 8;
     if (load >= thr || (load > 0 || mats > 0) && left < 200) {
       if (game.time >= n.sellCool || (n.inv.wood || 0) + (n.inv.stone || 0) > 0) {
         const hp = haulPlan(n);
@@ -11106,6 +11114,7 @@ function workPlan(n, tod) {
     if (r === "Fisher") return fishPlan(n) || (n.curUntil = 0, null);
     if (r === "Woodcutter") return (town.scenario === "blank" && typeof wcPlan === "function" ? wcPlan(n) : woodPlan(n)) || (n.curUntil = 0, null);
     if (r === "Stonecutter") return stonePlan(n) || (n.curUntil = 0, null);
+    if (r === "Miner") return minePlan(n) || (n.curUntil = 0, null);
     if (r === "Gatherer") return gatherPlan(n) || (n.curUntil = 0, null);
   }
   return null;
@@ -11278,6 +11287,7 @@ function newPlan(n) {
   n.roaming = false;
 }
 function workFx(k, x, y, n) {
+  if (typeof sndWork === "function") sndWork(k, n && n.player ? 1 : sndAt(x, y));
   (town.fx = town.fx || []).push({ k, x, y, dir: n && n.tx < x ? 1 : n && n.tx > x ? -1 : Math.random() < 0.5 ? 1 : -1, rt: typeof performance !== "undefined" ? performance.now() : 0 });
   if (town.fx.length > 30) town.fx.shift();
 }
@@ -11512,6 +11522,7 @@ function stepNpc(n, dt) {
       n.t = 0;
       n.path.shift();
       n.walked++;
+      if (n.player) sndStep(n);
       tileOwner.set(tkey(n.tx, n.ty), n);
     } else {
       n.t += dt / cost;
@@ -14415,7 +14426,7 @@ function targetAt0(n, x, y) {
   } };
   if (itBuildOn(n) && n.build.sel === 1 && g === T.CROP) return { key: "wallC" + x + "," + y, min: 2, text: "Digging the plot back to grass", tool: "hammer", run(nn) {
     town.crops = town.crops.filter((c2) => !(c2.x === x && c2.y === y));
-    setT(x, y, T.GRASS);
+    setT(x, y, bldBare(y));
     markDirty(x, y, 1, 1);
     town.gridV = (town.gridV || 0) + 1;
     if (typeof refreshReach === "function") refreshReach();
@@ -19175,6 +19186,7 @@ function lf2PushLine(n, x, y, dx, dy) {
   }
   if (typeof refreshReach === "function") refreshReach();
   for (const pr of moved) if (typeof lf2AfterPush === "function" && lfPropAt(pr.x, pr.y) === pr) lf2AfterPush(n, pr);
+  sndPush(n && n.player ? 1 : sndAt(n.x, n.y));
   return true;
 }
 function pushMovePerson(n, who, tx, ty) {
@@ -20245,6 +20257,7 @@ function stairPlace(n, down = false) {
     }
     stairMake(lx, ly, true);
     kitTake(kit);
+    sndPlace();
     playerSay(n, "A staircase. It goes down into the earth.");
     return { stair: true };
   }
@@ -20263,6 +20276,7 @@ function stairPlace(n, down = false) {
   }
   stairMake(lx, ly, false);
   kitTake(kit);
+  sndPlace();
   playerSay(n, "A staircase. It goes up to the roof.");
   return { stair: true };
 }
@@ -20282,6 +20296,7 @@ function stairAction(n, x, y) {
       pp.order = [];
     }
     nn.face = { dx: -Math.sign(sk % W - tx), dy: -Math.sign((sk / W | 0) - ty) };
+    sndStairs(up);
     playerSay(nn, st.kind === "down" ? fromA ? "Underground." : "Daylight." : up ? "The roof." : "Downstairs.");
   } };
 }
@@ -20294,9 +20309,11 @@ function digAction(n, x, y) {
     setT(x, y, T.DIRTF);
     markDirty(x - 1, y - 1, 3, 3);
     workFx("split", x, y, nn);
+    sndDig();
     if (o) {
       const good = ["", "iron", "copper", "gold"][o], q = o === 3 ? 1 : 1 + (Math.random() < 0.4 ? 1 : 0);
       nn.inv[good] = (nn.inv[good] || 0) + q;
+      sndOre();
       playerSay(nn, "+" + q + " " + (GOODS[good] ? GOODS[good].name : good));
     } else if (Math.random() < 0.35) {
       bagGet(nn, "stone");
@@ -20383,6 +20400,57 @@ function stairPushTarget(px, py, dx, dy) {
   const to = fromA ? st.l1 : st.l0, [ax, ay] = stairArrivalTile(to);
   if (!walkable(ax, ay) || lfPropAt(ax, ay) || tileOwner.get(tkey(ax, ay))) return null;
   return [ax, ay];
+}
+const MINE_CAP = 900;
+function mineSpots(max = 1) {
+  const out = [], h0 = town.h0;
+  if (!h0) return out;
+  for (const st of town.stairs || []) {
+    if (st.kind !== "down") continue;
+    const start = st.l1, seen = /* @__PURE__ */ new Set([start]), q = [start];
+    let head = 0;
+    while (head < q.length && q.length < 700) {
+      const k = q[head++], x = k % W, y = k / W | 0;
+      for (const [dx, dy] of DIRS) {
+        const nx = x + dx, ny = y + dy, nk = ny * W + nx;
+        if (seen.has(nk)) continue;
+        seen.add(nk);
+        if (grid[ny][nx] === T.EARTH) {
+          if (nx >= 4 && nx < W - 4 && ny > LV_MINE * h0 + 1 && ny < H - 3 && ny % h0 !== 0 && (ny + 1) % h0 !== 0 && !town.treeClaim.has(nk)) out.push({ sx: x, sy: y, ex: nx, ey: ny, ore: town.ore[nk] });
+        } else if (walkable(nx, ny)) q.push(nk);
+      }
+    }
+  }
+  out.sort((a, b) => (b.ore ? 1 : 0) - (a.ore ? 1 : 0));
+  return out.slice(0, Math.max(1, max));
+}
+const mineWork = () => !!town.h0 && (town.mined || 0) < MINE_CAP && (town.stairs || []).some((s) => s.kind === "down") && mineSpots().length > 0;
+function minePlan(n) {
+  const sp = mineSpots()[0];
+  if (!sp) return null;
+  const k = sp.ey * W + sp.ex;
+  town.treeClaim.add(k);
+  return [
+    goS({ x: sp.sx, y: sp.sy, face: { dx: Math.sign(sp.ex - sp.sx), dy: Math.sign(sp.ey - sp.sy) } }, "Going down to the mine"),
+    waitS(11, "work", "Digging in the mine", { tool: "hammer", onEnd(n2) {
+      town.treeClaim.delete(k);
+      if (grid[sp.ey][sp.ex] !== T.EARTH) return;
+      const o = town.ore[k];
+      town.ore[k] = 0;
+      setT(sp.ex, sp.ey, T.DIRTF);
+      markDirty(sp.ex - 1, sp.ey - 1, 3, 3);
+      workFx("split", sp.ex, sp.ey, n2);
+      town.mined = (town.mined || 0) + 1;
+      if (o === 1) {
+        const sm = typeof lf2Room === "function" ? lf2Room("smithy") : null, q = 1 + (n2.rand() < 0.4 ? 1 : 0);
+        if (sm) {
+          lf2Stock(sm).iron = (lf2Stock(sm).iron || 0) + q;
+          n2.coin = (n2.coin || 0) + 2 * q;
+        } else n2.inv.iron = (n2.inv.iron || 0) + q;
+      } else if (o === 2) n2.coin = (n2.coin || 0) + 3;
+      else if (o === 3) n2.coin = (n2.coin || 0) + 9;
+    } })
+  ];
 }
 const VIS_FIRST_DAY = 1, VIS_GAP = [3, 5];
 const VIS_ORD = [
@@ -21194,6 +21262,7 @@ LF2.hourly.push((h) => {
   if (h === 4) shroomGrow();
 });
 function eatShroom(n, s) {
+  sndMagic();
   town.shrooms = town.shrooms.filter((q) => q !== s);
   const tr2 = game.trip && game.time < game.trip.until ? game.trip : null;
   if (tr2) {
@@ -21943,7 +22012,7 @@ function bldBrushStep(n) {
   if (b.lastT === key) return;
   b.lastT = key;
   const x = n.tx, y = n.ty;
-  if (grid[y][x] !== T.GRASS || roomAt[y][x] >= 0 || lfPropAt(x, y) || town.siteAt && town.siteAt[y * W + x] || town.nodeMap && town.nodeMap.has(y * W + x) || x < 3 || y < 3 || x >= W - 3 || y >= H - 3) return;
+  if (grid[y][x] !== T.GRASS && !(grid[y][x] === T.DECK && isUpperY(y)) || roomAt[y][x] >= 0 || lfPropAt(x, y) || town.siteAt && town.siteAt[y * W + x] || town.nodeMap && town.nodeMap.has(y * W + x) || x < 3 || y < 3 || x >= W - 3 || y >= H - 3) return;
   setT(x, y, T.CROP);
   town.crops.push({ x, y, f: "field" + n.id, pl: 0, st: 0, t0: 0, byField: n.id });
   markDirty(x, y, 1, 1);
@@ -21983,6 +22052,7 @@ function bldPlaceFront(n, kind) {
         p.rot = 0;
         bldQueue(p);
         kitTake(kind);
+        sndPlace();
         playerSay(n, "A " + (LF_NOUN[kind] || kind) + ".");
         return p;
       }
@@ -22003,6 +22073,7 @@ function bldPlaceFront(n, kind) {
     p.rot = 0;
     bldQueue(p);
     kitTake(kind);
+    sndPlace();
     playerSay(n, "A " + (LF_NOUN[kind] || kind) + ".");
     return p;
   }
@@ -28561,6 +28632,7 @@ function render(now, dtSec, hourOfDay) {
   }
   if (ft && isMineY(ft.y)) drawMineDark(c, now);
   else if (STYLE.light) drawLighting(c, hourOfDay, now);
+  sndAmbient(now, hourOfDay);
   drawTrueSight(c, now);
   drawSightCones(c, now);
   if (!STYLE.light && night > 0.01) {
@@ -29935,6 +30007,7 @@ function itHarvest(n, c) {
   const S = IT_SEEDS[c.seed] || IT_SEEDS.barley;
   n.inv[S.yield] = (n.inv[S.yield] || 0) + S.q;
   c.st = 0;
+  if (n.player) sndPick();
   let back = 0;
   if (n.player) {
     back = 1 + (Math.random() < 0.5 ? 1 : 0);
@@ -31252,6 +31325,235 @@ try {
     }
   }, 400);
 })();
+const SND = { ctx: null, master: null, on: true, noiseBuf: null, last: {}, amb: null, nextBird: 0, nextDrip: 0, nextCricket: 0, nextWave: 0, dead: false };
+try {
+  SND.on = localStorage.getItem("gh.mute") !== "1";
+} catch (e) {
+}
+function sndInit() {
+  if (SND.dead || window.GH_NOSOUND) return false;
+  if (SND.ctx) return true;
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) {
+      SND.dead = true;
+      return false;
+    }
+    const c = new AC();
+    SND.ctx = c;
+    SND.master = c.createGain();
+    SND.master.gain.value = SND.on ? 0.55 : 0;
+    SND.master.connect(c.destination);
+    const len = c.sampleRate * 2, b = c.createBuffer(1, len, c.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    SND.noiseBuf = b;
+    return true;
+  } catch (e) {
+    SND.dead = true;
+    return false;
+  }
+}
+const sndReady = () => !!SND.ctx && SND.on && SND.ctx.state === "running";
+function sndTone(f, dur, type = "sine", vol = 0.15, to, at = 0) {
+  if (!sndReady()) return;
+  const c = SND.ctx, t = c.currentTime + at, o = c.createOscillator(), g = c.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(f, t);
+  if (to) o.frequency.exponentialRampToValueAtTime(Math.max(20, to), t + dur);
+  g.gain.setValueAtTime(1e-4, t);
+  g.gain.exponentialRampToValueAtTime(Math.max(2e-4, vol), t + 8e-3);
+  g.gain.exponentialRampToValueAtTime(1e-4, t + dur);
+  o.connect(g);
+  g.connect(SND.master);
+  o.start(t);
+  o.stop(t + dur + 0.02);
+}
+function sndNoise(dur, filt, f, vol = 0.12, to, at = 0) {
+  if (!sndReady()) return;
+  const c = SND.ctx, t = c.currentTime + at, s = c.createBufferSource(), fl = c.createBiquadFilter(), g = c.createGain();
+  s.buffer = SND.noiseBuf;
+  s.playbackRate.value = 0.8 + Math.random() * 0.4;
+  fl.type = filt;
+  fl.frequency.setValueAtTime(f, t);
+  if (to) fl.frequency.exponentialRampToValueAtTime(Math.max(40, to), t + dur);
+  fl.Q.value = filt === "bandpass" ? 1.4 : 0.7;
+  g.gain.setValueAtTime(1e-4, t);
+  g.gain.exponentialRampToValueAtTime(Math.max(2e-4, vol), t + 0.01);
+  g.gain.exponentialRampToValueAtTime(1e-4, t + dur);
+  s.connect(fl);
+  fl.connect(g);
+  g.connect(SND.master);
+  s.start(t, Math.random());
+  s.stop(t + dur + 0.02);
+}
+function sndAt(x, y) {
+  const p = game.player;
+  if (!p) return 0.6;
+  if (town && town.h0 && lvlOf(y) !== lvlOf(p.y)) return 0;
+  const d = Math.hypot(x - p.x, y - p.y);
+  return Math.max(0, 1 - d / 20);
+}
+const sndThrottle = (k, ms) => {
+  const now = performance.now();
+  if (now - (SND.last[k] || -1e9) < ms) return false;
+  SND.last[k] = now;
+  return true;
+};
+function sndStep(n) {
+  if (!sndReady() || !n || !sndThrottle("step", 110)) return;
+  const t = grid[n.ty] && grid[n.ty][n.tx], inRoom = roomAt[n.ty] && roomAt[n.ty][n.tx] >= 0, mine = isMineY(n.ty), deck = isUpperY(n.ty);
+  const v = 0.55 + Math.random() * 0.3;
+  if (inRoom || t === T.FLOOR) {
+    sndNoise(0.05, "bandpass", 380 + Math.random() * 120, 0.05 * v);
+    sndTone(150 + Math.random() * 30, 0.05, "triangle", 0.03 * v, 90);
+  } else if (mine || t === T.DIRTF) sndNoise(0.07, "lowpass", 520, 0.07 * v, 250);
+  else if (deck || t === T.STAIR || t === T.STAIRU) {
+    sndNoise(0.03, "highpass", 2600, 0.04 * v);
+    sndTone(520 + Math.random() * 60, 0.03, "square", 0.015 * v, 380);
+  } else if (t === T.SAND) sndNoise(0.09, "lowpass", 1100, 0.05 * v, 500);
+  else if (t === T.PATH) sndNoise(0.06, "bandpass", 1500, 0.045 * v);
+  else sndNoise(0.08, "bandpass", 800 + Math.random() * 200, 0.04 * v, 420);
+}
+function sndStairs(up) {
+  if (!sndReady()) return;
+  for (let i = 0; i < 4; i++) {
+    const f = up ? 160 + i * 25 : 240 - i * 25;
+    sndTone(f, 0.07, "triangle", 0.09, f * 0.7, i * 0.07);
+    sndNoise(0.05, "bandpass", 420, 0.05, void 0, i * 0.07);
+  }
+}
+function sndDig(vol = 1) {
+  if (!sndReady() || vol <= 0) return;
+  sndNoise(0.14, "lowpass", 700, 0.16 * vol, 180);
+  sndTone(95, 0.12, "sine", 0.14 * vol, 55);
+  sndNoise(0.05, "highpass", 3200, 0.05 * vol, void 0, 0.03);
+}
+function sndOre(vol = 1) {
+  if (!sndReady() || vol <= 0) return;
+  sndTone(1318, 0.18, "triangle", 0.1 * vol, void 0, 0.05);
+  sndTone(1760, 0.22, "sine", 0.08 * vol, void 0, 0.11);
+  sndTone(2637, 0.14, "sine", 0.04 * vol, void 0, 0.16);
+}
+function sndPlace(vol = 1) {
+  if (!sndReady() || vol <= 0) return;
+  sndTone(230, 0.09, "square", 0.08 * vol, 130);
+  sndNoise(0.06, "bandpass", 600, 0.08 * vol);
+}
+function sndPush(vol = 1) {
+  if (!sndReady() || vol <= 0 || !sndThrottle("push", 160)) return;
+  sndNoise(0.14, "bandpass", 380, 0.09 * vol, 220);
+}
+function sndWork(kind, vol = 1) {
+  if (!sndReady() || vol <= 0) return;
+  if (kind === "fall") {
+    sndNoise(0.35, "lowpass", 1800, 0.12 * vol, 300);
+    sndTone(70, 0.4, "sine", 0.14 * vol, 40, 0.18);
+  } else if (kind === "split") {
+    sndNoise(0.06, "highpass", 2400, 0.1 * vol);
+    sndTone(1500, 0.08, "triangle", 0.06 * vol, 900);
+    sndNoise(0.12, "lowpass", 600, 0.1 * vol, 200, 0.05);
+  } else sndNoise(0.08, "bandpass", 900, 0.07 * vol);
+}
+function sndPick(vol = 1) {
+  if (!sndReady() || vol <= 0) return;
+  sndTone(520, 0.08, "sine", 0.09 * vol, 780);
+  sndTone(780, 0.1, "sine", 0.06 * vol, void 0, 0.06);
+}
+function sndMagic() {
+  if (!sndReady()) return;
+  for (let i = 0; i < 6; i++) sndTone(300 + i * 140 + Math.random() * 60, 0.5, "sine", 0.06, 200 + i * 220, i * 0.09);
+}
+function sndSay() {
+  if (!sndReady() || !sndThrottle("say", 80)) return;
+  sndTone(420 + Math.random() * 160, 0.05, "sine", 0.04, 330);
+}
+function sndAmbientInit() {
+  const c = SND.ctx;
+  if (!c || SND.amb) return;
+  const mk = (f, q = 0.6) => {
+    const s = c.createBufferSource(), fl = c.createBiquadFilter(), g = c.createGain();
+    s.buffer = SND.noiseBuf;
+    s.loop = true;
+    fl.type = "lowpass";
+    fl.frequency.value = f;
+    fl.Q.value = q;
+    g.gain.value = 0;
+    s.connect(fl);
+    fl.connect(g);
+    g.connect(SND.master);
+    s.start();
+    return { g, fl };
+  };
+  SND.amb = { wind: mk(420), drone: mk(110, 1.2), shore: mk(900, 0.4) };
+}
+function sndAmbient(now, hour) {
+  if (!sndReady() || !SND.on) return;
+  const p = game.player;
+  if (!p || typeof town === "undefined" || !town) return;
+  sndAmbientInit();
+  const A = SND.amb;
+  if (!A) return;
+  const c = SND.ctx, t = c.currentTime;
+  const mine = isMineY(p.ty), inRoom = roomAt[p.ty] && roomAt[p.ty][p.tx] >= 0, outdoors = !mine && !inRoom, day = hour >= 6 && hour < 19;
+  let near = 0;
+  if (!mine && town.hgt) for (let dy = -6; dy <= 6; dy += 2) for (let dx = -6; dx <= 6; dx += 2) {
+    const y = p.ty + dy, x = p.tx + dx;
+    if (grid[y] && grid[y][x] === T.WATER) near = Math.max(near, 1 - Math.hypot(dx, dy) / 9);
+  }
+  const wind = outdoors ? 0.05 + 0.02 * Math.sin(now / 3100) + 0.015 * Math.sin(now / 1300) : inRoom ? 0.012 : 0, shore = outdoors ? Math.max(0, near) * 0.07 * (0.7 + 0.3 * Math.sin(now / 2300)) : 0, drone = mine ? 0.05 : 0;
+  A.wind.g.gain.setTargetAtTime(wind, t, 0.8);
+  A.wind.fl.frequency.setTargetAtTime(380 + 160 * Math.sin(now / 4e3), t, 0.5);
+  A.shore.g.gain.setTargetAtTime(shore, t, 0.8);
+  A.drone.g.gain.setTargetAtTime(drone, t, 1.2);
+  if (outdoors && day && now > SND.nextBird) {
+    SND.nextBird = now + 2500 + Math.random() * 7e3;
+    const f = 2200 + Math.random() * 1400, k = 2 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < k; i++) sndTone(f + i * 120, 0.07, "sine", 0.025, f * 1.35 + i * 100, i * 0.1);
+  }
+  if (outdoors && !day && now > SND.nextCricket) {
+    SND.nextCricket = now + 600 + Math.random() * 900;
+    const f = 4300 + Math.random() * 300;
+    for (let i = 0; i < 3; i++) sndTone(f, 0.04, "sine", 0.012, void 0, i * 0.07);
+  }
+  if (outdoors && near > 0.3 && now > SND.nextWave) {
+    SND.nextWave = now + 3500 + Math.random() * 3500;
+    sndNoise(1.6, "lowpass", 500, 0.05 * near, 1400);
+  }
+  if (mine && now > SND.nextDrip) {
+    SND.nextDrip = now + 2200 + Math.random() * 5e3;
+    const f = 1500 + Math.random() * 900;
+    sndTone(f, 0.12, "sine", 0.05, f * 0.55);
+    sndTone(f * 0.5, 0.2, "sine", 0.02, f * 0.3, 0.09);
+  }
+  if (mine && town.props && sndThrottle("crackle", 380)) {
+    let best = 99;
+    for (const pr of town.props) if (pr.kind === "torch") {
+      const d = Math.hypot(pr.x - p.x, pr.y - p.y);
+      if (d < best) best = d;
+    }
+    if (best < 12) {
+      const v = (1 - best / 12) * 0.05;
+      sndNoise(0.03 + Math.random() * 0.05, "highpass", 2500 + Math.random() * 2e3, v);
+      if (Math.random() < 0.3) sndNoise(0.02, "highpass", 4e3, v * 0.7, void 0, 0.06);
+    }
+  }
+}
+function sndStart() {
+  if (sndInit() && SND.ctx.state === "suspended") SND.ctx.resume();
+}
+function sndMute(on) {
+  SND.on = on === void 0 ? !SND.on : on;
+  try {
+    localStorage.setItem("gh.mute", SND.on ? "0" : "1");
+  } catch (e) {
+  }
+  if (SND.master) SND.master.gain.setTargetAtTime(SND.on ? 0.55 : 0, SND.ctx.currentTime, 0.05);
+  if (typeof playerSay === "function" && game.player && sndReady() !== void 0) playerSay(game.player, SND.on ? "Sound on." : "Sound off.");
+}
+for (const ev of ["keydown", "pointerdown", "touchstart"]) window.addEventListener(ev, () => sndStart(), { passive: true });
+window.addEventListener("keydown", (e) => {
+  if ((e.key === "m" || e.key === "M") && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target && e.target.tagName || "")) sndMute();
+});
 let last = performance.now();
 function eventSlow() {
   const n = game.player;

@@ -17,7 +17,7 @@ function farmPlan(n) {
     prev = { x: c.x, y: c.y };
     steps.push(waitS(kind === 'plow' ? 3 : kind === 'harvest' ? 4 : 7, 'work', txt, { tool: 'hoe', onEnd(n) {
       if (kind === 'harvest') { if (c.st && cropStage(c) === 4) itHarvest(n, c); }
-      else if (kind === 'sow') { if (!c.st && c.pl && fieldPlowed(c)) { c.st = 1; c.t0 = game.time; } }
+      else if (kind === 'sow') { if (!c.st && c.pl && fieldPlowed(c)) { c.st = 1; c.t0 = game.time; c.seed = farmSeed(n); } }
       else c.pl = 1;
     } }));
   }
@@ -119,6 +119,12 @@ function demandFor(g) {
   return v;
 }
 const CROP_YIELD = 3;
+/** what a farmer sows: mostly barley (the staple the bakery needs), the rest a mix of the other food crops; the same villager keeps a liking for one or two */
+function farmSeed(n) {
+  const food = Object.keys(IT_SEEDS).filter(k => k !== 'barley' && !IT_SEEDS[k].flower), r = n.rand ? n.rand() : Math.random(); if (r < 0.5) return 'barley';
+  const fav = food[(n.id * 7) % food.length], fav2 = food[(n.id * 7 + 3) % food.length], q = (r - 0.5) * 2;   // 0..1 over the other half
+  return q < 0.35 ? fav : q < 0.55 ? fav2 : food[Math.floor((q * 997) % food.length)];
+}
 const fieldPlowed = c => town.crops.every(o => o.f !== c.f || o.pl);
 function farmWork() { return town.crops.some(c => !c.claim && itFarmersPlot(c) && ((c.st && cropStage(c) === 4) || !c.pl || (!c.st && c.pl && fieldPlowed(c)))); }
 function foodDaysNow() {
@@ -136,13 +142,14 @@ function pickAgenda(n) {
   if (farmWork()) sc.Farmer = 5 + need * 18;
   if (town.nodes.some(x => x.amt >= 1 && reach[x.y * W + x.x])) sc.Gatherer = 5 + need * 16;
   if (town.scenario === 'blank' && typeof lf2Room === 'function') { const ws = lf2Room('workshop'); if (ws && !n.player && (lf2Stock(ws).wood || 0) < 14 && ((cnt as any).Woodcutter || 0) < Math.max(1, Math.floor(npcs.length / 3)) && typeof carpWant === 'function' && carpWant()) sc.Woodcutter = 22; }   // (everybody helps with the wood the carpenter needs)
+  if (typeof mineWork === 'function' && fd >= 2.0 && !n.player && mineWork()) sc.Miner = 14;   // (when the island is fed, somebody goes down to dig)
   { const foodOK = fd >= 3.0;
     if (foodOK) { if (sc.Fisher) sc.Fisher = 3; if (sc.Gatherer) sc.Gatherer = 3;
       const pw = town.crops.some(c => !c.claim && (!c.pl || (!c.st && c.pl && fieldPlowed(c))));
       if (pw && sc.Farmer) sc.Farmer = Math.max(sc.Farmer, 55); }
     else { const k = Math.min(1.6, 1 + (3.0 - fd) * 0.4); if (sc.Fisher) sc.Fisher *= k; if (sc.Farmer) sc.Farmer *= k; if (sc.Gatherer) sc.Gatherer *= k; } }
   { const pop = npcs.length, tasks = town.crops.filter(c => !c.claim && ((c.st && cropStage(c) === 4) || !c.pl || (!c.st && fieldPlowed(c)))).length;
-    const capF = { Fisher: Math.max(1, Math.ceil(pop / 7)), Gatherer: Math.max(1, Math.ceil(pop / 7)), Farmer: Math.max(1, Math.ceil(tasks / 6)) };
+    const capF = { Fisher: Math.max(1, Math.ceil(pop / 7)), Gatherer: Math.max(1, Math.ceil(pop / 7)), Farmer: Math.max(1, Math.ceil(tasks / 6)), Miner: Math.max(1, Math.floor(pop / 8)) };
     if (fd >= 1.5) for (const r in capF) if (sc[r] && (cnt[r] || 0) >= capF[r]) sc[r] *= 0.15; }
   lfJobBias(n, sc);
   if (n.pref && sc[n.pref]) sc[n.pref] += 10;
@@ -161,12 +168,13 @@ function workPlan(n, tod) {
   if (n.role === 'Worker') {
     const r = pickAgenda(n);
     const mats = 0;
-    const load = carried(n) - ((n.inv.wood || 0) + (n.inv.stone || 0)), thr = { Farmer: 12, Fisher: 6, Woodcutter: 99, Stonecutter: 99, Gatherer: 8 }[r] || 8;
+    const load = carried(n) - ((n.inv.wood || 0) + (n.inv.stone || 0)), thr = { Farmer: 12, Fisher: 6, Woodcutter: 99, Stonecutter: 99, Miner: 99, Gatherer: 8 }[r] || 8;
     if (load >= thr || ((load > 0 || mats > 0) && left < 200)) { if (game.time >= n.sellCool || (n.inv.wood || 0) + (n.inv.stone || 0) > 0) { const hp = haulPlan(n); if (hp && hp.length) return hp; } }
     if (r === 'Farmer') return farmPlan(n) || (n.curUntil = 0, null);
     if (r === 'Fisher') return fishPlan(n) || (n.curUntil = 0, null);
     if (r === 'Woodcutter') return (town.scenario === 'blank' && typeof wcPlan === 'function' ? wcPlan(n) : woodPlan(n)) || (n.curUntil = 0, null);
     if (r === 'Stonecutter') return stonePlan(n) || (n.curUntil = 0, null);
+    if (r === 'Miner') return minePlan(n) || (n.curUntil = 0, null);
     if (r === 'Gatherer') return gatherPlan(n) || (n.curUntil = 0, null);
   }
   return null;
