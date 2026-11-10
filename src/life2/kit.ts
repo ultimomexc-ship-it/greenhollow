@@ -8,7 +8,8 @@ const KIT_RECIPE: Record<string, { wood?: number; stone?: number; q: number }> =
   shelf: { wood: 3, q: 1 }, pew: { wood: 3, q: 1 }, loom: { wood: 6, q: 1 }, lamp: { wood: 2, q: 1 }, tent: { wood: 4, q: 1 }, campfire: { wood: 2, q: 1 }, toilet: { wood: 3, q: 1 }, stair: { wood: 6, q: 1 }, stairdown: { wood: 6, q: 1 }, torch: { wood: 1, q: 3 },
   altar: { stone: 4, q: 1 }, oven: { stone: 6, q: 1 }, forge: { stone: 6, wood: 2, q: 1 }, anvil: { stone: 4, q: 1 },
 };
-const kitOn = () => !!(town && town.scenario === 'blank');
+/** for testing the build menu has everything, as many as you like; the kit and the carpenter (below) are in place for when it is wanted again */
+const kitOn = () => !!(window as any).GH_KIT_LIMITED && !!(town && town.scenario === 'blank');   // (unlimited unless GH_KIT_LIMITED is set: the tests of the kit and the carpenter set it)
 function kitStart() { if (kitOn() && !town.kit) town.kit = Object.assign({}, KIT_START); }
 const kitCount = (kind: string) => { kitStart(); return kitOn() ? ((town.kit || {})[kind] || 0) : 999; };
 const kitHas = (kind: string) => kind === 'field' || !kitOn() || kitCount(kind) > 0;

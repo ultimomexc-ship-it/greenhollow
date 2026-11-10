@@ -93,6 +93,7 @@ function gaFreeTile(g, r, x, y, t, X, Y, v, fk, P) {
     P(k === '' ? 'cap_plain' : 'cap_' + k); if (town.winS && town.winS.has(y * W + x)) P('window_side'); return;   // (a window in a side wall: the glass is set across the top of the wall)
   }
   g.drawImage(ART.terr(fk, v), X, Y, TS, TS);
+  if (t === T.STAIR || t === T.STAIRM) { const it = ART.BYID[t === T.STAIR ? 'stair_up' : 'stair_down']; if (it) g.drawImage(ART.frameOf(it, 0), X, Y, TS, TS); }   // (a staircase in a room you built)
 }
 function gaRoomShade(g, r, k) {                      // the walls hold their own shade inside, and the furniture sits on the floor
   if (r.free) return;

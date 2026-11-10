@@ -16644,6 +16644,10 @@ function gaFreeTile(g, r, x, y, t, X, Y, v, fk, P) {
     return;
   }
   g.drawImage(ART.terr(fk, v), X, Y, TS, TS);
+  if (t === T.STAIR || t === T.STAIRM) {
+    const it = ART.BYID[t === T.STAIR ? "stair_up" : "stair_down"];
+    if (it) g.drawImage(ART.frameOf(it, 0), X, Y, TS, TS);
+  }
 }
 function gaRoomShade(g, r, k) {
   if (r.free) return;
@@ -20929,7 +20933,7 @@ const KIT_RECIPE = {
   forge: { stone: 6, wood: 2, q: 1 },
   anvil: { stone: 4, q: 1 }
 };
-const kitOn = () => !!(town && town.scenario === "blank");
+const kitOn = () => !!window.GH_KIT_LIMITED && !!(town && town.scenario === "blank");
 function kitStart() {
   if (kitOn() && !town.kit) town.kit = Object.assign({}, KIT_START);
 }
