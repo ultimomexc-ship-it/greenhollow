@@ -30,5 +30,5 @@ const CV_CONTRACT: [RegExp, (m: string, ...a: string[]) => string][] = [
 function cvSpeak(s: string): string {
   if (!s || typeof s !== 'string') return s;
   for (const [re, f] of CV_CONTRACT) s = s.replace(re, f as any);
-  return s;
+  return placeWords(s);
 }

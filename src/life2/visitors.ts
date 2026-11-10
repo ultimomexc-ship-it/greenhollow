@@ -63,7 +63,7 @@ function visArrive() {
   housingTick();
   for (const n of grp) { if (!n.homeRoom) n.homeless = true; }
   lfShout(a, anyOf(['Excuse me, is this a dream?', 'I think I am still asleep. Hello.', 'This is not where I was a moment ago. ...All right.', 'Is anybody here? Or is that not how it works?', 'Hm. Sand. Of course.']));
-  const pl = game.player; if (pl && pl.player) playerSay(pl, `Somebody has come ashore: ${a.first}.`);
+  const pl = game.player; if (pl && pl.player) playerSay(pl, `${a.first} is on the beach. I do not think they know why, either.`);
   return grp;
 }
 function visitorTick() {
@@ -90,10 +90,10 @@ function visitorMutter() {
   if (game.time - m.at < 90) return;
   const hasRoom = rooms.some(r => !r.dead && r.free), hasBed = visBedProps().length > 0, hasHut = rooms.some(r => !r.dead && r.hut);
   const L = !hasBed ? ['I woke up here and I do not remember going to sleep. A bed, I think. B for build mode, then the bed from the menu (I).', 'No idea how I got here. A bed first, though. Somebody may come if there is a place to sleep.']
-    : !hasRoom ? ['A bed is not a house. Walls and a door, and push them together.', 'Four walls, a door that leads outside, and the bed inside. Then it is a home.']
-    : !hasHut ? ['The room is closed but there is no bed inside it. Push one in.', 'A bed inside the room, and it counts as a home.']
-    : visFood() < 12 ? ['If anyone is to stay, they will need food. Berries, fish, a field of barley.', 'I should sow something. A hoe and a few seeds.']
-    : ['A free bed and food on the table. Now we wait and see who comes.', 'Another bed would not hurt. Somebody might need it.'];
+    : !hasRoom ? ['A bed on its own is just a bed on a beach. It wants walls, and a door that leads somewhere real.', 'Walls and a door. I push them into place one at a time, and the sand does not seem to mind.']
+    : !hasHut ? ['The room is closed, but it has no bed in it. That seems wrong, like a kitchen with no kettle.', 'A bed inside the room, and I think it counts as a home.']
+    : visFood() < 12 ? ['If anyone is going to stay they will want to eat. Berries, fish, a field of barley. I have the strange feeling I have done this before.', 'I ought to sow something. There is a hoe, and a few seeds, and nobody to tell me it is odd.']
+    : ['A free bed and something to eat. Now I wait, and try not to wonder who.', 'Another bed would not hurt. Somebody might need it. They usually do.'];
   pl.player.msg = L[m.i++ % L.length]; pl.player.msgAt = clk(); m.at = game.time;
 }
 LF2.hourly.push(() => visitorMutter());
@@ -106,11 +106,11 @@ function visNeeds() {
     const said = n.said = n.said || {}, once = (k, t) => { if (game.time - (said[k] || -1e9) < 360) return false; said[k] = game.time; lfShout(n, t); return true; };
     const homeless = !n.homeRoom || !n.bed || n.bed.owner !== n;
     const food = FOODS.reduce((s, g) => s + (n.inv[g] || 0), 0) + (n.homeRoom && n.homeRoom.pantry ? FOODS.reduce((s, g) => s + (n.homeRoom.pantry[g] || 0), 0) : 0);
-    if (homeless) { once('bed', anyOf(["I've nowhere to sleep. Could you build a bed for me?", 'Is there a free bed? Any roof will do.', 'I could use a bed. Walls, a door, a bed inside.'])); continue; }
-    if (!lfPrivies().length && n.bladder > 45) { once('privy', anyOf(["Is there a privy anywhere? I'm tired of the bushes.", 'We need a privy. A seat in a closed room would do.'])); continue; }
-    if (n.hunger > 65 && food < 1) { once('food', anyOf(["I'm hungry and I've nothing to eat. Could we grow something?", 'There is no food. A field, a net, anything.'])); continue; }
+    if (homeless) { once('bed', anyOf(["I have nowhere to sleep. It's all right. Though a bed would be better.", 'Is there a spare bed? I do not need much. A blanket would do.', 'I would like a bed, if one is going. Walls, a door, a bed inside.'])); continue; }
+    if (!lfPrivies().length && n.bladder > 45) { once('privy', anyOf(["Is there a privy? I only ask because it keeps coming up.", 'We need a privy. A seat in a closed room would do.'])); continue; }
+    if (n.hunger > 65 && food < 1) { once('food', anyOf(["I am hungry and I have nothing to eat. It occurred to me that this might be a problem.", 'There is no food. A field, a net, anything.'])); continue; }
     { const nd = (typeof islandNeeds === 'function' ? islandNeeds() : []).find(q => !['bed', 'bed2', 'privy', 'field', 'food', 'harvest'].includes(q.id)); if (nd && game.time - (said['n:' + nd.id] || -1e9) > 720) { said['n:' + nd.id] = game.time; lfShout(n, nd.say); continue; } }
-    if (n.energy < 25 && homeless) once('tired', 'I can hardly keep my eyes open.');
+    if (n.energy < 25 && homeless) once('tired', 'I can hardly keep my eyes open. This may or may not be the dream.');
     else if (n.newcomer && game.time - (said.isle || -1e9) > 180) { said.isle = game.time; lfShout(n, pick(Math.random, VIS_ISLE)); }
   }
 }

@@ -23,7 +23,7 @@ function guidesUpdate(needs: any[]) {
   const top = needs[0] && needs[0].id, free = rooms.some(r => !r.dead && r.free);
   const want = { hut: (top === 'bed' || top === 'bed2') && !free && !rooms.some(r => !r.dead && r.hut), privy: top === 'privy' && !(typeof lfPrivies === 'function' && lfPrivies().length) };
   for (const k of Object.keys(GUIDE_DEFS)) {
-    if (want[k] && !town.guides[k]) { const d = GUIDE_DEFS[k], p = guideSpot(d.w, d.h); if (p) { town.guides[k] = { x: p.x, y: p.y }; const pl = game.player; if (pl && pl.player) playerSay(pl, k === 'hut' ? 'The markers show where my first hut could go.' : 'The markers show where a privy could go.'); } }
+    if (want[k] && !town.guides[k]) { const d = GUIDE_DEFS[k], p = guideSpot(d.w, d.h); if (p) { town.guides[k] = { x: p.x, y: p.y }; const pl = game.player; if (pl && pl.player) playerSay(pl, k === 'hut' ? 'Faint markers on the ground show where a hut could go. I did not put them there.' : 'Markers again, on the ground. A privy, this time.'); } }
     else if (!want[k] && town.guides[k]) delete town.guides[k];
   }
 }

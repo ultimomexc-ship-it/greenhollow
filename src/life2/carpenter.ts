@@ -21,7 +21,7 @@ function carpPlan(n: any, r: any) {
   return lf2GoWork(r, 'work', `Making ${itBuildName(kind).toLowerCase()}`, 38, 'work', { tool: 'hammer', onEnd(nn) {
     if ((R.wood || 0) > (s.wood || 0) || (R.stone || 0) > (s.stone || 0)) return;
     s.wood = (s.wood || 0) - (R.wood || 0); s.stone = (s.stone || 0) - (R.stone || 0); kitGive(kind, R.q);
-    const pl = game.player; chron(`The carpenter finished ${R.q > 1 ? R.q + ' ' : 'a '}${itBuildName(kind).toLowerCase()}${R.q > 1 ? 's' : ''}: it is in your kit.`, 'build'); if (pl && pl.player) playerSay(pl, 'The carpenter made ' + (R.q > 1 ? R.q + ' ' : 'a ') + itBuildName(kind).toLowerCase() + (R.q > 1 ? 's' : '') + ' for you.');
+    const pl = game.player; chron(`The carpenter finished ${R.q > 1 ? R.q + ' ' : 'a '}${itBuildName(kind).toLowerCase()}${R.q > 1 ? 's' : ''}. It turned up in your kit, and nobody remarked on it.`, 'build'); if (pl && pl.player) playerSay(pl, 'The carpenter made ' + (R.q > 1 ? R.q + ' ' : 'a ') + itBuildName(kind).toLowerCase() + (R.q > 1 ? 's' : '') + ' for you.');
   } });
 }
 /** a villager with nothing better to do fells a tree and stacks the wood at the workshop */
@@ -40,7 +40,7 @@ function wcPlan(n: any) {
 function carpArrive(n: any) {
   town.tut = town.tut || { harvests: 0 }; town.tut.carpenter = true; n.lf2Want = 'Carpenter'; n.back = 'was fitting a stair in a house that has since lost its address, and then the stair was a beach'; kitGive('bench');
   lfShout(n, anyOf(['I seem to have brought my bench. I do not remember packing it. Give me a room with a shelf and I will make you walls and beds.', 'Carpenter. The bench came with me, which is lucky. Put it in a room with a shelf.']));
-  const pl = game.player; if (pl && pl.player) playerSay(pl, n.first + ' the carpenter brought a carpentry table. It is in your kit.');
+  const pl = game.player; if (pl && pl.player) playerSay(pl, n.first + ' arrived with a bench under one arm. It is in your kit now.');
 }
 (LF2_JOBS as any).Carpenter = { name: 'Carpenter', room: 'workshop', spot: 'work', fit: ['handy'], wage: 0 };
 LF2_JOBORDER.push('Carpenter');

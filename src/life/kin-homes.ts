@@ -3,6 +3,7 @@ const yearsOf = t => Math.floor(t / YEAR);
 const ageNow = n => Math.floor((game.time - n.born) / YEAR);
 const byId = id => (town.byId && town.byId.get(id)) || null;
 function chron(text, kind) {
+  text = placeWords(text);
   town.chron.push({ time: game.time, text, kind: kind || 'note' });
   if (town.chron.length > 400) town.chron.shift();
 }

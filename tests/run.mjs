@@ -1352,7 +1352,7 @@ test('bakery: on a blank island the baker collects spare grain from the huts and
     room(cx, [['bed', 1, 1], ['bed', 3, 1], ['bed', 4, 1]]); room(cx + 7, [['oven', 1, 1], ['counter', 3, 1]]);
     bldTick(); itBuildToggle(P, false); for (let i = 0; i < 3; i++) visArrive(); rooms.find(r => r.hut).pantry.grain = 24;
   });
-  await simulate(page, 3 * 1440);
+  await simulate(page, 6 * 1440);   /* (a fever can keep the baker in bed for a few days) */
   const r = await page.evaluate(() => {
     const bk = lf2Room('bakery'), P = game.player, st = lf2Stock(bk), [cx, cy] = window.__c, ctr = (town.props || []).find(p => p.kind === 'counter');
     const bread = st.bread || 0; const coin0 = P.coin; P.inv.grain = 5; P.tx = P.x = ctr.x; P.ty = P.y = ctr.y + 1; rebuildOcc();

@@ -8437,6 +8437,7 @@ const yearsOf = (t) => Math.floor(t / YEAR);
 const ageNow = (n) => Math.floor((game.time - n.born) / YEAR);
 const byId = (id) => town.byId && town.byId.get(id) || null;
 function chron(text, kind) {
+  text = placeWords(text);
   town.chron.push({ time: game.time, text, kind: kind || "note" });
   if (town.chron.length > 400) town.chron.shift();
 }
@@ -10039,8 +10040,8 @@ function tickEcon(dt) {
     hourly(lastHr);
   }
 }
-const goS = (spot, text) => ({ k: "go", spot, text });
-const waitS = (min, act, text, o) => Object.assign({ k: "wait", min: Math.max(1, Math.round(min)), act, text }, o || {});
+const goS = (spot, text) => ({ k: "go", spot, text: placeWords(text) });
+const waitS = (min, act, text, o) => Object.assign({ k: "wait", min: Math.max(1, Math.round(min)), act, text: placeWords(text) }, o || {});
 function release(n) {
   if (n.tent) {
     if (n.tent.owner === n) n.tent.owner = null;
@@ -13189,6 +13190,7 @@ function spaceOut(at) {
 }
 function ensurePriest() {
   if (npcs.some((n) => n.role === "Priest" && !n.dead)) return;
+  if (town.scenario === "blank" && !town.church) return;
   const c = npcs.filter((n) => n.age >= 28 && n.age < 58 && n.role === "Worker" && !n.player && !n.shop).sort((a, b) => (b.traits.includes("devout") ? 4 : 0) - (a.traits.includes("devout") ? 4 : 0) + (b.age - a.age) * 0.05)[0];
   if (!c || npcs.filter((n) => n.role === "Worker" && n.age >= 16).length < 4) return;
   setRole(c, "Priest");
@@ -19058,13 +19060,13 @@ function bldTick() {
   if (r.made.length) {
     const cells = r.made.reduce((s, m) => s + m.cells.size, 0);
     chron(`${pl ? pl.first : "Somebody"} raised ${r.made.length > 1 ? r.made.length + " rooms" : "a room"} out of building blocks (${cells} tiles).`, "build");
-    if (pl && pl.player) playerSay(pl, r.made.length > 1 ? "The walls close: " + r.made.length + " rooms." : "The walls close. A room!");
+    if (pl && pl.player) playerSay(pl, r.made.length > 1 ? "The walls close: " + r.made.length + " rooms." : "The walls close. It is a room now.");
   } else if (r.hint === "exit") {
     const pl2 = game.player;
-    if (pl2 && pl2.player && spots.some((s) => Math.abs(s[0] - pl2.tx) + Math.abs(s[1] - pl2.ty) <= 6)) playerSay(pl2, "Closed in, but there is no way out: a door has to lead to the outside.");
+    if (pl2 && pl2.player && spots.some((s) => Math.abs(s[0] - pl2.tx) + Math.abs(s[1] - pl2.ty) <= 6)) playerSay(pl2, "It is closed in, and the door only leads to another room. Somewhere there has to be an outside.");
   } else if (r.hint === "door") {
     const pl2 = game.player;
-    if (pl2 && pl2.player && spots.some((s) => Math.abs(s[0] - pl2.tx) + Math.abs(s[1] - pl2.ty) <= 6)) playerSay(pl2, "Closed in, but it needs a door.");
+    if (pl2 && pl2.player && spots.some((s) => Math.abs(s[0] - pl2.tx) + Math.abs(s[1] - pl2.ty) <= 6)) playerSay(pl2, "It is closed in, but there is no door. A room should have a way out, I think.");
   } else if (r.hint && pl && pl.player && spots.some((s) => Math.abs(s[0] - pl.tx) + Math.abs(s[1] - pl.ty) <= 6)) playerSay(pl, "Closed in, but " + r.hint + " is inside it.");
 }
 LF2.tickers.push(bldTick);
@@ -19444,7 +19446,7 @@ function visArrive() {
   }
   lfShout(a, anyOf(["Excuse me, is this a dream?", "I think I am still asleep. Hello.", "This is not where I was a moment ago. ...All right.", "Is anybody here? Or is that not how it works?", "Hm. Sand. Of course."]));
   const pl = game.player;
-  if (pl && pl.player) playerSay(pl, `Somebody has come ashore: ${a.first}.`);
+  if (pl && pl.player) playerSay(pl, `${a.first} is on the beach. I do not think they know why, either.`);
   return grp;
 }
 function visitorTick() {
@@ -19477,7 +19479,7 @@ function visitorMutter() {
   const m = town.mut = town.mut || { at: 0, i: 0 };
   if (game.time - m.at < 90) return;
   const hasRoom = rooms.some((r) => !r.dead && r.free), hasBed = visBedProps().length > 0, hasHut = rooms.some((r) => !r.dead && r.hut);
-  const L = !hasBed ? ["I woke up here and I do not remember going to sleep. A bed, I think. B for build mode, then the bed from the menu (I).", "No idea how I got here. A bed first, though. Somebody may come if there is a place to sleep."] : !hasRoom ? ["A bed is not a house. Walls and a door, and push them together.", "Four walls, a door that leads outside, and the bed inside. Then it is a home."] : !hasHut ? ["The room is closed but there is no bed inside it. Push one in.", "A bed inside the room, and it counts as a home."] : visFood() < 12 ? ["If anyone is to stay, they will need food. Berries, fish, a field of barley.", "I should sow something. A hoe and a few seeds."] : ["A free bed and food on the table. Now we wait and see who comes.", "Another bed would not hurt. Somebody might need it."];
+  const L = !hasBed ? ["I woke up here and I do not remember going to sleep. A bed, I think. B for build mode, then the bed from the menu (I).", "No idea how I got here. A bed first, though. Somebody may come if there is a place to sleep."] : !hasRoom ? ["A bed on its own is just a bed on a beach. It wants walls, and a door that leads somewhere real.", "Walls and a door. I push them into place one at a time, and the sand does not seem to mind."] : !hasHut ? ["The room is closed, but it has no bed in it. That seems wrong, like a kitchen with no kettle.", "A bed inside the room, and I think it counts as a home."] : visFood() < 12 ? ["If anyone is going to stay they will want to eat. Berries, fish, a field of barley. I have the strange feeling I have done this before.", "I ought to sow something. There is a hoe, and a few seeds, and nobody to tell me it is odd."] : ["A free bed and something to eat. Now I wait, and try not to wonder who.", "Another bed would not hurt. Somebody might need it. They usually do."];
   pl.player.msg = L[m.i++ % L.length];
   pl.player.msgAt = clk();
   m.at = game.time;
@@ -19497,15 +19499,15 @@ function visNeeds() {
     const homeless = !n.homeRoom || !n.bed || n.bed.owner !== n;
     const food = FOODS.reduce((s, g) => s + (n.inv[g] || 0), 0) + (n.homeRoom && n.homeRoom.pantry ? FOODS.reduce((s, g) => s + (n.homeRoom.pantry[g] || 0), 0) : 0);
     if (homeless) {
-      once("bed", anyOf(["I've nowhere to sleep. Could you build a bed for me?", "Is there a free bed? Any roof will do.", "I could use a bed. Walls, a door, a bed inside."]));
+      once("bed", anyOf(["I have nowhere to sleep. It's all right. Though a bed would be better.", "Is there a spare bed? I do not need much. A blanket would do.", "I would like a bed, if one is going. Walls, a door, a bed inside."]));
       continue;
     }
     if (!lfPrivies().length && n.bladder > 45) {
-      once("privy", anyOf(["Is there a privy anywhere? I'm tired of the bushes.", "We need a privy. A seat in a closed room would do."]));
+      once("privy", anyOf(["Is there a privy? I only ask because it keeps coming up.", "We need a privy. A seat in a closed room would do."]));
       continue;
     }
     if (n.hunger > 65 && food < 1) {
-      once("food", anyOf(["I'm hungry and I've nothing to eat. Could we grow something?", "There is no food. A field, a net, anything."]));
+      once("food", anyOf(["I am hungry and I have nothing to eat. It occurred to me that this might be a problem.", "There is no food. A field, a net, anything."]));
       continue;
     }
     {
@@ -19516,7 +19518,7 @@ function visNeeds() {
         continue;
       }
     }
-    if (n.energy < 25 && homeless) once("tired", "I can hardly keep my eyes open.");
+    if (n.energy < 25 && homeless) once("tired", "I can hardly keep my eyes open. This may or may not be the dream.");
     else if (n.newcomer && game.time - (said.isle || -1e9) > 180) {
       said.isle = game.time;
       lfShout(n, pick(Math.random, VIS_ISLE));
@@ -19721,7 +19723,7 @@ function fnConvert(r, d) {
   fnSpots(r, d.fn);
   if (d.fn === "church") town.church = r;
   if (d.fn === "tavern") town.tavern = r;
-  chron(`${d.name} is ready: ${d.what}.`, "build");
+  chron(`${d.name} is ready. It already smells faintly of what it is for (${d.what}), though nothing has happened there yet.`, "build");
   const pl = game.player;
   if (pl && pl.player) playerSay(pl, d.name.replace("The ", "The ") + " is ready.");
   if (d.fn === "church" && typeof ensurePriest === "function") ensurePriest();
@@ -19741,7 +19743,7 @@ function fnRevert(r) {
   for (const n of npcs) if (n.job && LF2_JOBS[n.job] && LF2_JOBS[n.job].room && !lf2Room(LF2_JOBS[n.job].room)) {
     n.job = null;
   }
-  chron(`${was} is no longer what it was: its furniture has been moved.`, "build");
+  chron(`${was} is no longer what it was. Somebody moved the furniture, and the room seems to have forgotten.`, "build");
 }
 function fnScan() {
   if (!town || !rooms) return;
@@ -19780,35 +19782,35 @@ function islandNeeds() {
   const add = (id, title, say2, how, who, hard = false) => out.push({ id, title, say: say2, how, hard, who: who.map((n) => n.player ? "you" : n.first) });
   const has = (k) => !!(typeof lf2Room === "function" && lf2Room(k));
   const me = B.people.find((n) => n.player);
-  if (me && !(me.homeRoom && me.bed && me.bed.owner === me)) add("bed", "A bed for you", alone ? "I should build a bed first. Walls, a door that leads outside, and a bed inside." : "You still have no bed of your own.", "Build a hut: walls, a door, a bed inside. Then leave build mode (B)." + (town.guides && town.guides.hut ? " Follow the markers on the ground." : ""), [me], true);
+  if (me && !(me.homeRoom && me.bed && me.bed.owner === me)) add("bed", "A bed for you", alone ? "I woke up on a beach with sand in my shoes and nothing to sleep on. A bed seems the sensible next step." : "I still have no bed. I only mention it because I keep noticing.", "Build a hut: walls, a door, a bed inside. Then leave build mode (B)." + (town.guides && town.guides.hut ? " Follow the markers on the ground." : ""), [me], true);
   else if (B.beds < B.bedsNeeded) {
     const n = B.bedsNeeded - B.beds;
-    add("bed2", alone ? "A bed for the first villager" : "Beds", alone ? `A second bed, and somebody may come ashore to take it. (${B.beds} bed${B.beds === 1 ? "" : "s"} for ${pop} ${pop === 1 ? "person" : "people"}.)` : `${B.homeless.length ? B.homeless.length + " of us sleep rough. " : ""}${B.beds} beds for ${pop} people: we need ${B.bedsNeeded}, one more than we are.`, `Put ${n} more bed${n > 1 ? "s" : ""} inside a closed room.`, B.homeless, true);
+    add("bed2", alone ? "A bed for the first villager" : "Beds", alone ? `There is one bed and one of me. If I make a second, somebody may turn up. It is only a feeling. (${B.beds} bed${B.beds === 1 ? "" : "s"} for ${pop} ${pop === 1 ? "person" : "people"}.)` : `${B.homeless.length ? B.homeless.length + " of us are sleeping on the ground. It is not so bad, but I would not call it good. " : ""}${B.beds} beds for ${pop} people. We need ${B.bedsNeeded}, one more than we are. Somebody always seems to arrive.`, `Put ${n} more bed${n > 1 ? "s" : ""} inside a closed room.`, B.homeless, true);
   }
-  if (!alone && B.privies < B.priviesNeeded) add("privy", B.privies ? "Another privy" : "A privy", `${B.privies} privy for ${pop} people, and we want one for every ${PRIVY_FOR}.${B.privies ? "" : " We are tired of the bushes."}`, `Build ${B.priviesNeeded - B.privies} more: a closed room with a privy seat in it (build menu, I).` + (town.guides && town.guides.privy ? " Follow the markers." : ""), B.people.filter((n) => n.bladder > 30), true);
+  if (!alone && B.privies < B.priviesNeeded) add("privy", B.privies ? "Another privy" : "A privy", `${B.privies ? "There is one privy" : "There is no privy"} for ${pop} people, and we would like one for every ${PRIVY_FOR}.${B.privies ? "" : " I raise it only because it keeps coming up."}`, `Build ${B.priviesNeeded - B.privies} more: a closed room with a privy seat in it (build menu, I).` + (town.guides && town.guides.privy ? " Follow the markers." : ""), B.people.filter((n) => n.bladder > 30), true);
   if (!alone && B.plots < B.plotsNeeded) {
     const short = B.plotsNeeded - B.plots;
-    add("field", B.plots ? "More field" : "A field", `We eat about ${B.demand.toFixed(0)} portions a day. ${B.plots} plot${B.plots === 1 ? "" : "s"} give${B.plots === 1 ? "s" : ""} about ${B.supply.toFixed(0)}. ${short} more plot${short > 1 ? "s" : ""} and we feed ourselves.`, "Use the Field brush in build mode (walk over grass), then the hoe and seed in the world. Villagers will plough, sow and harvest it.", B.people.filter((n) => n.hunger > 40), true);
-  } else if (!alone && B.plots && !B.harvests) add("harvest", "The first harvest", "The plots are marked. Somebody has to plough and sow them, and wait about two days.", "Plough with the hoe (stand beside a plot, walk into it) and sow seed; villagers help.", B.people.filter((n) => n.hunger > 40), true);
+    add("field", B.plots ? "More field" : "A field", `We eat about ${B.demand.toFixed(0)} portions a day. ${B.plots} plot${B.plots === 1 ? "" : "s"} give${B.plots === 1 ? "s" : ""} about ${B.supply.toFixed(0)}. I did the arithmetic twice and it did not improve. ${short} more plot${short > 1 ? "s" : ""} and we feed ourselves.`, "Use the Field brush in build mode (walk over grass), then the hoe and seed in the world. Villagers will plough, sow and harvest it.", B.people.filter((n) => n.hunger > 40), true);
+  } else if (!alone && B.plots && !B.harvests) add("harvest", "The first harvest", "The plots are marked. Somebody has to plough them and sow them and then wait about two days, which is apparently how it is done.", "Plough with the hoe (stand beside a plot, walk into it) and sow seed; villagers help.", B.people.filter((n) => n.hunger > 40), true);
   const kids = B.kids;
-  if (kids.length) add("kidbed", "Beds for the children", (kids.length === 1 ? "The child needs" : "The children need") + " a bed of their own.", "Put one more bed in the hut for each child.", kids, true);
-  if (pop >= 3 && B.harvests && !has("bakery")) add("bakery", "A bakery", `Bread feeds ${"nearly three times as many"} as the grain it is baked from. Then ${Math.max(1, Math.ceil(B.demand * 0.75 / (PLOT_YIELD * 1.8)))} plots would do, not ${B.plotsNeeded}.`, "Build a room with an oven and a counter in it. The farmers' spare grain goes to the baker.", adults);
-  if (pop >= 4 && !has("smithy")) add("smithy", "A smithy", "Our tools are wearing out and nobody can mend them.", "Build a room with a forge and an anvil in it.", adults.filter((n) => n.toolQ != null && n.toolQ < 40));
-  if (pop >= 5 && !town.tavern) add("tavern", "A tavern", "After work there is nowhere to sit and talk.", "Build a room with a counter, a table and two chairs.", B.people.filter((n) => n.social != null && n.social < 50));
-  if (pop >= 5 && !has("shop")) add("shop", "A shop", "Somewhere to trade would help.", "Build a room with a counter and a shelf in it.", adults);
-  if (pop >= 6 && !town.church) add("church", "A chapel", "We have nowhere to pray, to marry or to bury our dead.", "Build a room with an altar and two pews.", adults);
-  else if (town.church && (town.church.pews || []).length < Math.ceil(pop / 2)) add("pews", "More pews", `${(town.church.pews || []).length} pews for ${pop} people. We want ${Math.ceil(pop / 2)}.`, "Add pews to the chapel.", adults);
+  if (kids.length) add("kidbed", "Beds for the children", (kids.length === 1 ? "The child does not mind where they sleep, but they ought to have a bed" : "The children do not mind where they sleep, but they ought to have beds") + " of their own.", "Put one more bed in the hut for each child.", kids, true);
+  if (pop >= 3 && B.harvests && !has("bakery")) add("bakery", "A bakery", `Bread feeds nearly three times as many as the grain it is baked from. I read that somewhere, or dreamed it. Then ${Math.max(1, Math.ceil(B.demand * 0.75 / (PLOT_YIELD * 1.8)))} plots would do, not ${B.plotsNeeded}.`, "Build a room with an oven and a counter in it. The farmers' spare grain goes to the baker.", adults);
+  if (pop >= 4 && !has("smithy")) add("smithy", "A smithy", "Our tools are wearing out. Nobody here seems to know who mends them.", "Build a room with a forge and an anvil in it.", adults.filter((n) => n.toolQ != null && n.toolQ < 40));
+  if (pop >= 5 && !town.tavern) add("tavern", "A tavern", "In the evenings there is nowhere to sit and talk. We sit on the ground anyway, and it is fine, but a table would be something.", "Build a room with a counter, a table and two chairs.", B.people.filter((n) => n.social != null && n.social < 50));
+  if (pop >= 5 && !has("shop")) add("shop", "A shop", "It would be useful to have a place where things are exchanged, though I could not say who would exchange what.", "Build a room with a counter and a shelf in it.", adults);
+  if (pop >= 6 && !town.church) add("church", "A chapel", "We have nowhere to say goodbye to anybody. Nobody has had to yet.", "Build a room with an altar and two pews.", adults);
+  else if (town.church && (town.church.pews || []).length < Math.ceil(pop / 2)) add("pews", "More pews", `${(town.church.pews || []).length} pews for ${pop} people. We want ${Math.ceil(pop / 2)}. People stand at the back and do not complain.`, "Add pews to the chapel.", adults);
   if (kitOn() && !alone) {
     const ins2 = (id, title, say2, how, who) => {
       const idx = out.findIndex((z) => !z.hard);
       out.splice(idx < 0 ? out.length : idx, 0, { id, title, say: say2, how, hard: false, who: who.map((n) => n.player ? "you" : n.first) });
     };
     const ws = has("workshop"), carp = !!(town.tut && town.tut.carpenter);
-    if (B.harvests && !carp) ins2("carpenter", "A carpenter", "We could use somebody who works wood: walls, beds and chairs, so we do not run out.", "A carpenter comes ashore once there is a free bed (and no hard request is open).", adults);
-    else if (carp && !ws) ins2("workshop", "A workshop", "Put my carpentry table and a shelf in a room, and I can start work.", "Build a room (the kit has a table and a shelf), then place the carpentry table and the shelf in it.", adults.filter((n) => n.lf2Want === "Carpenter"));
+    if (B.harvests && !carp) ins2("carpenter", "A carpenter", "Sooner or later somebody who works with wood will turn up. I do not know why I think so. Walls, beds, chairs: so we do not run out.", "A carpenter comes ashore once there is a free bed (and no hard request is open).", adults);
+    else if (carp && !ws) ins2("workshop", "A workshop", "I seem to have brought my bench. I do not remember packing it. Put it in a room with a shelf and I will make you whatever you need.", "Build a room (the kit has a table and a shelf), then place the carpentry table and the shelf in it.", adults.filter((n) => n.lf2Want === "Carpenter"));
     else if (ws && carpWant(out)) {
       const s = lf2Stock(lf2Room("workshop")), want = carpWant(out), R = KIT_RECIPE[want];
-      if (R && ((R.wood || 0) > (s.wood || 0) || (R.stone || 0) > (s.stone || 0))) ins2("wood", (R.stone || 0) > (s.stone || 0) ? "Stone for the carpenter" : "Wood for the carpenter", `I am making ${itBuildName(want).toLowerCase()}, and I need ${R.wood ? R.wood + " wood" : ""}${R.wood && R.stone ? " and " : ""}${R.stone ? R.stone + " stone" : ""}. The workshop has ${s.wood || 0} wood and ${s.stone || 0} stone.`, "Fell trees (walk into them) or break rocks (hammer) and walk into the carpenter's table to hand it in. Villagers help with wood.", adults.filter((n) => n.job === "Carpenter"));
+      if (R && ((R.wood || 0) > (s.wood || 0) || (R.stone || 0) > (s.stone || 0))) ins2("wood", (R.stone || 0) > (s.stone || 0) ? "Stone for the carpenter" : "Wood for the carpenter", `I am making ${itBuildName(want).toLowerCase()}, and I need ${R.wood ? R.wood + " wood" : ""}${R.wood && R.stone ? " and " : ""}${R.stone ? R.stone + " stone" : ""}. The workshop has ${s.wood || 0} wood and ${s.stone || 0} stone. I thought I would mention it.`, "Fell trees (walk into them) or break rocks (hammer) and walk into the carpenter's table to hand it in. Villagers help with wood.", adults.filter((n) => n.job === "Carpenter"));
     }
   }
   return out;
@@ -19891,13 +19893,13 @@ function signText(r) {
   if (!r) return "";
   const names = (a) => a.map((n) => n.player ? "you" : n.first).join(" and ");
   const live = typeof occupants === "function" ? occupants(r) : [];
-  if (r.fn) return `${r.name}. ${{ bakery: "Bread and flour.", smithy: "Tools and mending.", shop: "Goods for sale.", tavern: "Food, drink and company.", church: "Prayers, weddings and farewells." }[r.fn] || ""}`;
+  if (r.fn) return `${r.name}. ${{ bakery: "Bread, when there is grain.", smithy: "Tools, and the mending of them.", shop: "Things are exchanged here, in principle.", tavern: "Somewhere to sit.", church: "For prayers, and for saying goodbye.", workshop: "Wood goes in, beds come out." }[r.fn] || ""}`;
   if (r.ptoilet && r.name === "Privy") return "The privy.";
   if (r.kind === "house") {
     const beds = (r.beds || []).length, freeBeds = (r.beds || []).filter((b) => !b.owner || b.owner.dead || b.owner.homeRoom !== r).length;
     return live.length ? `${names(live)} ${live.length === 1 && !live[0].player ? "lives" : "live"} here.${freeBeds ? " " + freeBeds + " free bed" + (freeBeds > 1 ? "s" : "") + "." : ""}` : `${r.name || "A house"}: ${beds} bed${beds === 1 ? "" : "s"}, nobody home.`;
   }
-  if (r.kind === "room") return signUnfinished(r) || "An empty room. Furniture decides what it is for.";
+  if (r.kind === "room") return signUnfinished(r) || "An empty room. What it is for depends on what you put in it.";
   return `${r.name || r.kind}.`;
 }
 function drawSigns(c, now) {
@@ -19954,7 +19956,7 @@ function guidesUpdate(needs) {
       if (p) {
         town.guides[k] = { x: p.x, y: p.y };
         const pl = game.player;
-        if (pl && pl.player) playerSay(pl, k === "hut" ? "The markers show where my first hut could go." : "The markers show where a privy could go.");
+        if (pl && pl.player) playerSay(pl, k === "hut" ? "Faint markers on the ground show where a hut could go. I did not put them there." : "Markers again, on the ground. A privy, this time.");
       }
     } else if (!want[k] && town.guides[k]) delete town.guides[k];
   }
@@ -20764,7 +20766,7 @@ function itBuildToggle(n, on) {
     b.sel = 0;
     n.sel = 0;
     if (typeof itBag === "function") itBag(false);
-    if (p && typeof playerSay === "function") playerSay(n, "Build mode. Time stands still while you build.");
+    if (p && typeof playerSay === "function") playerSay(n, "Build mode. Time stands still while you build. It does not seem to mind.");
   } else {
     b.on = false;
     b.sel = 0;
@@ -23269,6 +23271,21 @@ const CV_CONTRACT = [
 function cvSpeak(s) {
   if (!s || typeof s !== "string") return s;
   for (const [re, f] of CV_CONTRACT) s = s.replace(re, f);
+  return placeWords(s);
+}
+function placeWords(s) {
+  if (!s || typeof s !== "string" || typeof town === "undefined" || !town || town.scenario !== "blank") return s;
+  const cap2 = (m, r) => /^[A-Z]/.test(m) ? r.charAt(0).toUpperCase() + r.slice(1) : r;
+  const sub = (re, r) => {
+    s = s.replace(re, (m) => cap2(m, r));
+  };
+  if (!town.tavern) sub(/\b(?:the |this )?(?:tavern|taberna|inn)\b/gi, "the camp fire");
+  if (!town.church) sub(/\b(?:the |this )?(?:chapel|church|temple|shrine)\b/gi, "the clearing");
+  sub(/\b(?:the |this )?(?:square|plaza|forum|village green)\b/gi, "the clearing");
+  sub(/\b(?:the |our )?(?:high street|streets?|lanes?|roads?)\b/gi, "the path");
+  sub(/\bthe well\b/gi, "the shore");
+  sub(/\b(?:the )?(?:market hall|market|stalls?)\b/gi, "the beach");
+  s = s.replace(/\btownsfolk\b/gi, "islanders").replace(/\b(town|village)\b/gi, (m) => cap2(m, "island"));
   return s;
 }
 const CV_ARCHS = ["talkative", "reserved", "nosy", "cynic", "sunny", "wary", "prickly", "smooth", "lonely"];
@@ -28916,7 +28933,7 @@ function carpPlan(n, r) {
     s.stone = (s.stone || 0) - (R.stone || 0);
     kitGive(kind, R.q);
     const pl = game.player;
-    chron(`The carpenter finished ${R.q > 1 ? R.q + " " : "a "}${itBuildName(kind).toLowerCase()}${R.q > 1 ? "s" : ""}: it is in your kit.`, "build");
+    chron(`The carpenter finished ${R.q > 1 ? R.q + " " : "a "}${itBuildName(kind).toLowerCase()}${R.q > 1 ? "s" : ""}. It turned up in your kit, and nobody remarked on it.`, "build");
     if (pl && pl.player) playerSay(pl, "The carpenter made " + (R.q > 1 ? R.q + " " : "a ") + itBuildName(kind).toLowerCase() + (R.q > 1 ? "s" : "") + " for you.");
   } });
 }
@@ -28973,7 +28990,7 @@ function carpArrive(n) {
   kitGive("bench");
   lfShout(n, anyOf(["I seem to have brought my bench. I do not remember packing it. Give me a room with a shelf and I will make you walls and beds.", "Carpenter. The bench came with me, which is lucky. Put it in a room with a shelf."]));
   const pl = game.player;
-  if (pl && pl.player) playerSay(pl, n.first + " the carpenter brought a carpentry table. It is in your kit.");
+  if (pl && pl.player) playerSay(pl, n.first + " arrived with a bench under one arm. It is in your kit now.");
 }
 LF2_JOBS.Carpenter = { name: "Carpenter", room: "workshop", spot: "work", fit: ["handy"], wage: 0 };
 LF2_JOBORDER.push("Carpenter");

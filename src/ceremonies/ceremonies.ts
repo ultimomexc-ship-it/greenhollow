@@ -10,6 +10,7 @@ function spaceOut(at) { const days = new Set(eventTimes().map(x => Math.floor(x 
 /* ---------- a priest is chosen early ---------- */
 function ensurePriest() {
   if (npcs.some(n => n.role === 'Priest' && !n.dead)) return;
+  if (town.scenario === 'blank' && !town.church) return;   // (nobody takes holy orders before there is a chapel to take them in)
   const c = npcs.filter(n => n.age >= 28 && n.age < 58 && n.role === 'Worker' && !n.player && !n.shop).sort((a, b) => (b.traits.includes('devout') ? 4 : 0) - (a.traits.includes('devout') ? 4 : 0) + (b.age - a.age) * 0.05)[0];
   if (!c || npcs.filter(n => n.role === 'Worker' && n.age >= 16).length < 4) return;
   setRole(c, 'Priest'); c.quirk = anyOf(['wears a colander on their head and calls it holy', 'says "R\'amen" after every meal, even breakfast', 'insists pirates are sacred and talks like one on Fridays', 'blesses every pot of pasta personally']);

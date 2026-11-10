@@ -50,6 +50,7 @@
   "life2/glue.ts",
   "dialogue/cv-world.ts",
   "dialogue/cv-speech.ts",
+  "dialogue/place-words.ts",
   "dialogue/cv-voice.ts",
   "dialogue/cv-rules.ts",
   "dialogue/cv-topics.ts",

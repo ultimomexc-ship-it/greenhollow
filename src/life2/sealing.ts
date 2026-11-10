@@ -132,9 +132,9 @@ function bldTick() {
   const spots: [number, number][] = q.splice(0).filter(p => bldBlock(lfPropAt(p[0], p[1])));
   if (!spots.length) return;
   const r = bldEvaluate(spots), pl = game.player;
-  if (r.made.length) { const cells = r.made.reduce((s, m) => s + m.cells.size, 0); chron(`${pl ? pl.first : 'Somebody'} raised ${r.made.length > 1 ? r.made.length + ' rooms' : 'a room'} out of building blocks (${cells} tiles).`, 'build'); if (pl && pl.player) playerSay(pl, r.made.length > 1 ? 'The walls close: ' + r.made.length + ' rooms.' : 'The walls close. A room!'); }
-  else if (r.hint === 'exit') { const pl2 = game.player; if (pl2 && pl2.player && spots.some(s => Math.abs(s[0] - pl2.tx) + Math.abs(s[1] - pl2.ty) <= 6)) playerSay(pl2, 'Closed in, but there is no way out: a door has to lead to the outside.'); }
-  else if (r.hint === 'door') { const pl2 = game.player; if (pl2 && pl2.player && spots.some(s => Math.abs(s[0] - pl2.tx) + Math.abs(s[1] - pl2.ty) <= 6)) playerSay(pl2, 'Closed in, but it needs a door.'); }
+  if (r.made.length) { const cells = r.made.reduce((s, m) => s + m.cells.size, 0); chron(`${pl ? pl.first : 'Somebody'} raised ${r.made.length > 1 ? r.made.length + ' rooms' : 'a room'} out of building blocks (${cells} tiles).`, 'build'); if (pl && pl.player) playerSay(pl, r.made.length > 1 ? 'The walls close: ' + r.made.length + ' rooms.' : 'The walls close. It is a room now.'); }
+  else if (r.hint === 'exit') { const pl2 = game.player; if (pl2 && pl2.player && spots.some(s => Math.abs(s[0] - pl2.tx) + Math.abs(s[1] - pl2.ty) <= 6)) playerSay(pl2, 'It is closed in, and the door only leads to another room. Somewhere there has to be an outside.'); }
+  else if (r.hint === 'door') { const pl2 = game.player; if (pl2 && pl2.player && spots.some(s => Math.abs(s[0] - pl2.tx) + Math.abs(s[1] - pl2.ty) <= 6)) playerSay(pl2, 'It is closed in, but there is no door. A room should have a way out, I think.'); }
   else if (r.hint && pl && pl.player && spots.some(s => Math.abs(s[0] - pl.tx) + Math.abs(s[1] - pl.ty) <= 6)) playerSay(pl, 'Closed in, but ' + r.hint + ' is inside it.');
 }
 LF2.tickers.push(bldTick);

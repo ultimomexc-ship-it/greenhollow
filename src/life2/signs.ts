@@ -26,11 +26,11 @@ function signText(r: any): string {
   if (!r) return '';
   const names = (a: any[]) => a.map(n => n.player ? 'you' : n.first).join(' and ');
   const live = typeof occupants === 'function' ? occupants(r) : [];
-  if (r.fn) return `${r.name}. ${({ bakery: 'Bread and flour.', smithy: 'Tools and mending.', shop: 'Goods for sale.', tavern: 'Food, drink and company.', church: 'Prayers, weddings and farewells.' } as any)[r.fn] || ''}`;
+  if (r.fn) return `${r.name}. ${({ bakery: 'Bread, when there is grain.', smithy: 'Tools, and the mending of them.', shop: 'Things are exchanged here, in principle.', tavern: 'Somewhere to sit.', church: 'For prayers, and for saying goodbye.', workshop: 'Wood goes in, beds come out.' } as any)[r.fn] || ''}`;
   if (r.ptoilet && r.name === 'Privy') return 'The privy.';
   if (r.kind === 'house') { const beds = (r.beds || []).length, freeBeds = (r.beds || []).filter(b => !b.owner || b.owner.dead || b.owner.homeRoom !== r).length;
     return live.length ? `${names(live)} ${live.length === 1 && !live[0].player ? 'lives' : 'live'} here.${freeBeds ? ' ' + freeBeds + ' free bed' + (freeBeds > 1 ? 's' : '') + '.' : ''}` : `${r.name || 'A house'}: ${beds} bed${beds === 1 ? '' : 's'}, nobody home.`; }
-  if (r.kind === 'room') return signUnfinished(r) || 'An empty room. Furniture decides what it is for.';
+  if (r.kind === 'room') return signUnfinished(r) || 'An empty room. What it is for depends on what you put in it.';
   return `${r.name || r.kind}.`;
 }
 /** the plaque: a small board on the wall beside the door */

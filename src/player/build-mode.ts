@@ -8,7 +8,7 @@ function itBuildState(n) { if (!n.build) n.build = { on: false, sel: 0, bar: BUI
 const itBuildOn = n => !!(n && n.build && n.build.on);
 function itBuildToggle(n, on?: boolean) {
   const b = itBuildState(n); const want = on == null ? !b.on : on; if (want === b.on) return; const p = n.player;
-  if (want) { b.prev = { sel: n.sel || 0, mode: n.mode }; b.on = true; b.sel = 0; n.sel = 0; if (typeof itBag === 'function') itBag(false); if (p && typeof playerSay === 'function') playerSay(n, 'Build mode. Time stands still while you build.'); }
+  if (want) { b.prev = { sel: n.sel || 0, mode: n.mode }; b.on = true; b.sel = 0; n.sel = 0; if (typeof itBag === 'function') itBag(false); if (p && typeof playerSay === 'function') playerSay(n, 'Build mode. Time stands still while you build. It does not seem to mind.'); }
   else { b.on = false; b.sel = 0; b.brush = null; if (b.prev) { n.sel = b.prev.sel; n.mode = b.prev.mode; } if (typeof fnScan === 'function') fnScan(); if (typeof tutFarmers === 'function') tutFarmers(); if (typeof visHomes === 'function') { visHomes(); if (typeof housingTick === 'function') housingTick(); }   /* (what you built is looked at now: a new hut's free beds go to whoever has none, you first) */ if (typeof isleSave === 'function') isleSave(); }   // (a build session ends with a save)
   if (p) { p.act = null; p.lock = false; p.skip = null; p.grace = null; } itSync(true);
 }

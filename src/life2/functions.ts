@@ -44,7 +44,7 @@ function fnConvert(r: any, d: any) {
   if (r.hut) { for (const b of r.beds || []) { const o = b.owner; if (o && o.bed === b) { o.bed = { owner: null }; o.homeRoom = null; o.homeless = true; } b.owner = null; } r.beds = []; r.hut = false; }
   r.fn = d.fn; r.kind = d.fn; r.name = d.name; r.hearth = { none: true }; r.pantry = r.pantry || {}; r.noWindows = true; fnSpots(r, d.fn);
   if (d.fn === 'church') town.church = r; if (d.fn === 'tavern') town.tavern = r;
-  chron(`${d.name} is ready: ${d.what}.`, 'build');
+  chron(`${d.name} is ready. It already smells faintly of what it is for (${d.what}), though nothing has happened there yet.`, 'build');
   const pl = game.player; if (pl && pl.player) playerSay(pl, d.name.replace('The ', 'The ') + ' is ready.');
   if (d.fn === 'church' && typeof ensurePriest === 'function') ensurePriest();
   if (FN_JOB[d.fn] && typeof lf2AssignJobs === 'function') lf2AssignJobs(false);
@@ -53,7 +53,7 @@ function fnRevert(r: any) {
   const was = r.name; if (town.church === r) town.church = null; if (town.tavern === r) town.tavern = null;
   r.fn = null; r.kind = 'room'; r.name = 'Room'; r.spots = {}; r.seats = []; r.pews = []; r.hearth = null;
   for (const n of npcs) if (n.job && LF2_JOBS[n.job] && LF2_JOBS[n.job].room && !lf2Room(LF2_JOBS[n.job].room)) { n.job = null; }
-  chron(`${was} is no longer what it was: its furniture has been moved.`, 'build');
+  chron(`${was} is no longer what it was. Somebody moved the furniture, and the room seems to have forgotten.`, 'build');
 }
 /** look at every room you built: does what is in it make it something? */
 function fnScan() {
