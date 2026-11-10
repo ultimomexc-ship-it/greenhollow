@@ -973,6 +973,14 @@ function stair24(g, up) {
   g.fillStyle = INK; g.fillRect(1.9, 0.6, 20.2, 0.5); g.fillRect(1.9, 22.9, 20.2, 0.5);
   if (up) { g.fillStyle = 'rgba(255,255,255,.18)'; g.beginPath(); g.moveTo(12, 3); g.lineTo(17, 9); g.lineTo(14, 9); g.lineTo(14, 17); g.lineTo(10, 17); g.lineTo(10, 9); g.lineTo(7, 9); g.closePath(); g.fill(); }
 }
+/* a standing torch: a wooden stake with a wrapped head and a flame that flickers */
+function torch24(g, t) {
+  const fl = tw(t, 3, 0) * 0.5 + tw(t, 5, 1.3) * 0.3, rg = g.createRadialGradient(12, 8, 1, 12, 8, 11); rg.addColorStop(0, 'rgba(255,190,90,.38)'); rg.addColorStop(1, 'rgba(255,150,40,0)'); g.fillStyle = rg; g.fillRect(0, 0, 24, 22);
+  dab(g, 12.4, 22.4, 3.6, 1, 0, 'rgba(30,20,20,.35)');
+  g.fillStyle = INK; g.fillRect(10.6, 9, 3.6, 14); g.fillStyle = '#8a5a34'; g.fillRect(11.2, 9.4, 2.4, 13.2); g.fillStyle = 'rgba(255,220,170,.4)'; g.fillRect(11.2, 9.4, 0.7, 13.2);
+  g.fillStyle = INK; g.fillRect(9.6, 6.2, 5.6, 4.4); g.fillStyle = '#5a3a24'; g.fillRect(10.2, 6.8, 4.4, 3.4); g.fillStyle = '#c8a46a'; g.fillRect(10.2, 8, 4.4, 0.7);
+  dab(g, 12.4 + fl * 0.5, 4.4 - fl, 2.6, 3.7, fl * 0.08, INK); dab(g, 12.4 + fl * 0.5, 4.6 - fl, 2.1, 3.2, fl * 0.08, '#e8641c'); dab(g, 12.4 + fl * 0.3, 5.2 - fl * 0.6, 1.4, 2.3, 0, '#ffb62a'); dab(g, 12.4, 5.9, 0.7, 1.2, 0, '#fff2a8');
+}
 function cap24(g, side) { /* the top of a side or front wall, seen from above: whitewashed capping stones */
   const R = mul(17 + side.length); g.fillStyle = IN2.cap; g.fillRect(0, 0, 24, 24);
   for (let j = 0; j < 4; j++) { const y = j * 6, off = j % 2 ? 6 : 0; for (let i = -1; i < 3; i++) { const x = off + i * 12 + 0.3; g.fillStyle = (h32(i & 1, j, 7, side.length) < 0.5) ? '#ded1ae' : '#e8dcba'; g.fillRect(x, y + 0.3, 11.4, 5.4); g.fillStyle = 'rgba(255,252,236,.55)'; g.fillRect(x, y + 0.3, 11.4, 0.5); g.fillStyle = 'rgba(150,130,90,.22)'; g.fillRect(x, y + 5.2, 11.4, 0.5);
@@ -2052,6 +2060,7 @@ for (const v of R3(3)) A(`forest_sprite_${v}`, 'wild', `Forest sprite ${v + 1}`,
 const WALLX = ['N', 'W', 'E', 'S', 'WS', 'ES', 'WN', 'EN'];
 function T24(id, group, label, fn, o: any = {}) { return A(id, group, label, 24, 24, o.frames || 1, fn, Object.assign({ kind: 'furniture', under: 'wood' }, o)); }
 T24('wall_face', 'walls', 'Back wall', g => wallFace24(g, false), { kind: 'tile', under: null }); T24('wall_window', 'walls', 'Back wall, window', g => wallFace24(g, true), { kind: 'tile', under: null });
+A('torch', 'camp', 'Torch', 24, 26, FR, (g, t) => torch24(g, t), { bot: true });
 A('stair_up', 'walls', 'Staircase up', 24, 24, 1, g => stair24(g, true), { kind: 'tile', under: null }); A('stair_down', 'walls', 'Staircase down', 24, 24, 1, g => stair24(g, false), { kind: 'tile', under: null });
 T24('window_side', 'walls', 'Window in a side wall', g => windowSide24(g), { kind: 'tile', under: null });
 for (const s of ['W', 'E', 'S', 'WS', 'ES', 'WN', 'EN']) T24('cap_' + s, 'walls', 'Wall top ' + s, g => cap24(g, s), { kind: 'tile', under: null }); T24('cap_plain', 'walls', 'Wall top, inner', g => cap24(g, ''), { kind: 'tile', under: null });

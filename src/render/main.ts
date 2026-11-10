@@ -197,7 +197,7 @@ function render(now, dtSec, hourOfDay) {
   // night overlay
   const d = daylight(hourOfDay), night = 1 - d, warmth = 0;
   for (const rm of rooms) { if (rm.dead || rm.free) continue; const occupied = npcs.some(n => n.pose !== 'sleep' && n.x > rm.x && n.x < rm.x + rm.w - 1 && n.y > rm.y && n.y < rm.y + rm.h - 1); const tavernOpen = rm.kind === 'tavern' && hourOfDay >= 17 && hourOfDay < 23.5; rm.lit += ((occupied || tavernOpen ? 1 : 0) - rm.lit) * Math.min(1, dtSec * 3); }
-  if (STYLE.light) drawLighting(c, hourOfDay, now);
+  if (ft && isMineY(ft.y)) drawMineDark(c, now); else if (STYLE.light) drawLighting(c, hourOfDay, now);
   drawTrueSight(c, now); drawSightCones(c, now);   // what you cannot see from where you stand (visibility, not light)
   if (!STYLE.light && night > 0.01) {
     const r = Math.round(14 + warmth * 160), g = Math.round(20 + warmth * 60), b = Math.round(58 - warmth * 20);

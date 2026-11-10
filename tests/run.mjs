@@ -1557,6 +1557,30 @@ test('stairs: a staircase in a room leads to a roof deck over the building; you 
   check(r.hut && r.bare, 'a walled hut seals into a room up on the deck'); check(r.path && r.walked, 'villagers path and walk up the stairs: ' + JSON.stringify([r.path, r.walked])); check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
   return 'stairs, deck, a room on the roof and a walk up';
 });
+test('levels: villagers move into huts upstairs and underground, walk there by the stairs and can be found wherever they are; a torch lights the mine', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('huts', 'blank'); if (!town.props) lfInitProps(); startPlaying(npcs[0]); const P = game.player, out = {};
+    const o = { x: P.tx + 4, y: P.ty - 8 }; for (let j = -2; j < 12; j++) for (let i = -2; i < 14; i++) { setT(o.x + i, o.y + j, T.GRASS); roomAt[o.y + j][o.x + i] = -1; const q = lfPropAt(o.x + i, o.y + j); if (q) { town.props = town.props.filter(z => z !== q); town.propAt.delete((o.y + j) * W + o.x + i); town.pblock[(o.y + j) * W + o.x + i] = 0; } }
+    const h0 = town.h0; town.kit = Object.assign(town.kit || {}, { stair: 2, stairdown: 2, bwall: 99, bdoor: 9, bed: 9, torch: 9 });
+    buildRoom({ kind: 'lab', id: 'g', name: 'Ground room' }, o.x, o.y, 10, 8, 'b', null); P.tx = P.x = o.x + 3; P.ty = P.y = o.y + 3; P.face = { dx: 1, dy: 0 }; P.path = []; rebuildOcc(); itBuildToggle(P, true); stairPlace(P); itBuildToggle(P, false);
+    const hut = (D, door) => { const placed = []; for (let i = 0; i <= 4; i++) for (let j = 0; j <= 4; j++) if (i === 0 || j === 0 || i === 4 || j === 4) { lfAddProp(i === door[0] && j === door[1] ? 'bdoor' : 'bwall', D.x + i, D.y + j); placed.push([D.x + i, D.y + j]); } lfAddProp('bed', D.x + 2, D.y + 1); town.bldQ = placed.concat([[D.x + 2, D.y + 1]]); bldTick(); };
+    hut({ x: o.x + 5, y: o.y + 2 + h0 }, [2, 4]);
+    P.tx = P.x = o.x + 3; P.ty = P.y = o.y + 10; P.face = { dx: 1, dy: 0 }; P.path = []; rebuildOcc(); itBuildToggle(P, true); stairPlace(P, true); itBuildToggle(P, false);
+    const my = P.ty + LV_MINE * h0; for (let j = -2; j <= 8; j++) for (let i = -2; i <= 9; i++) { const x = P.tx + i, y = my + j; if (grid[y][x] === T.EARTH) { setT(x, y, T.DIRTF); town.ore[y * W + x] = 0; } }
+    hut({ x: P.tx + 2, y: my + 2 }, [2, 4]); visHomes();
+    out.huts = rooms.filter(q => q.kind === 'house' && q.hut && !q.dead).map(q => lvlOf(q.y)).sort().join(',');
+    // a torch is a light: the mine is dark round it otherwise
+    const tl = { x: P.tx + 3, y: my + 5 }; const pr = lfAddProp('torch', tl.x, tl.y); P.tx = P.x = tl.x - 1; P.ty = P.y = tl.y; game.player = P; centerOn(P.x, P.y, 1); const lights = mineLights(); out.torch = lights.some(l => l.r === MINE.torch) && lights.some(l => l.r === MINE.own);
+    visArrive(); visArrive(); visArrive(); housingTick(); window.__ppl = npcs.filter(n => n !== P).map(n => n.id); out.n = window.__ppl.length;
+    out.level = levelWord(my) === 'underground' && levelWord(o.y + h0) === 'upstairs' && levelWord(5) === '';
+    return out; });
+  await simulate(page, 14 * 60);
+  const r2 = await page.evaluate(() => { const ppl = npcs.filter(n => window.__ppl.includes(n.id) && !n.dead), homed = ppl.filter(n => n.homeRoom && !n.homeRoom.dead && lvlOf(n.homeRoom.y) > 0); return { homed: homed.length, there: homed.filter(n => lvlOf(n.ty) === lvlOf(n.homeRoom.y)).length, sawLevels: [...new Set(homed.map(n => lvlOf(n.homeRoom.y)))].sort().join(','), placeOk: homed.every(n => /upstairs|mine|roof|high up|underground/.test(placeOf(n)) || lvlOf(n.ty) === 0) }; });
+  check(r.huts === '1,3', 'a hut upstairs and one underground should become homes: ' + JSON.stringify(r)); check(r.torch && r.level, 'a torch and you are the lights underground, and the levels have names: ' + JSON.stringify([r.torch, r.level]));
+  check(r2.homed >= 1 && r2.sawLevels !== '', 'visitors moved into the huts on other levels: ' + JSON.stringify(r2)); check(r2.placeOk, 'everybody can be found: ' + JSON.stringify(r2)); check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return JSON.stringify(r2);
+});
 test('crops and flowers: every crop is its own plant with its own art; flowers stay in bloom a long time, then wither and are cleared for replanting', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

@@ -3427,6 +3427,30 @@ const ART = (function() {
       g.fill();
     }
   }
+  function torch24(g, t) {
+    const fl = tw(t, 3, 0) * 0.5 + tw(t, 5, 1.3) * 0.3, rg = g.createRadialGradient(12, 8, 1, 12, 8, 11);
+    rg.addColorStop(0, "rgba(255,190,90,.38)");
+    rg.addColorStop(1, "rgba(255,150,40,0)");
+    g.fillStyle = rg;
+    g.fillRect(0, 0, 24, 22);
+    dab(g, 12.4, 22.4, 3.6, 1, 0, "rgba(30,20,20,.35)");
+    g.fillStyle = INK;
+    g.fillRect(10.6, 9, 3.6, 14);
+    g.fillStyle = "#8a5a34";
+    g.fillRect(11.2, 9.4, 2.4, 13.2);
+    g.fillStyle = "rgba(255,220,170,.4)";
+    g.fillRect(11.2, 9.4, 0.7, 13.2);
+    g.fillStyle = INK;
+    g.fillRect(9.6, 6.2, 5.6, 4.4);
+    g.fillStyle = "#5a3a24";
+    g.fillRect(10.2, 6.8, 4.4, 3.4);
+    g.fillStyle = "#c8a46a";
+    g.fillRect(10.2, 8, 4.4, 0.7);
+    dab(g, 12.4 + fl * 0.5, 4.4 - fl, 2.6, 3.7, fl * 0.08, INK);
+    dab(g, 12.4 + fl * 0.5, 4.6 - fl, 2.1, 3.2, fl * 0.08, "#e8641c");
+    dab(g, 12.4 + fl * 0.3, 5.2 - fl * 0.6, 1.4, 2.3, 0, "#ffb62a");
+    dab(g, 12.4, 5.9, 0.7, 1.2, 0, "#fff2a8");
+  }
   function cap24(g, side) {
     const R = mul(17 + side.length);
     g.fillStyle = IN2.cap;
@@ -7405,6 +7429,7 @@ const ART = (function() {
   }
   T24("wall_face", "walls", "Back wall", (g) => wallFace24(g, false), { kind: "tile", under: null });
   T24("wall_window", "walls", "Back wall, window", (g) => wallFace24(g, true), { kind: "tile", under: null });
+  A("torch", "camp", "Torch", 24, 26, FR, (g, t) => torch24(g, t), { bot: true });
   A("stair_up", "walls", "Staircase up", 24, 24, 1, (g) => stair24(g, true), { kind: "tile", under: null });
   A("stair_down", "walls", "Staircase down", 24, 24, 1, (g) => stair24(g, false), { kind: "tile", under: null });
   T24("window_side", "walls", "Window in a side wall", (g) => windowSide24(g), { kind: "tile", under: null });
@@ -9975,9 +10000,14 @@ function todBand(m) {
   const h = m % 1440 / 60;
   return h < 5 ? "night" : h < 11 ? "morning" : h < 17 ? "day" : h < 22 ? "evening" : "night";
 }
+function levelWord(y) {
+  const l = lvlOf(Math.round(y));
+  return l === 1 ? "upstairs" : l === 2 ? "high up" : l === LV_MINE ? "underground" : l > LV_MINE ? "deep underground" : "";
+}
 function placeOf(n) {
-  const ri2 = roomAt[Math.round(n.y)] && roomAt[Math.round(n.y)][Math.round(n.x)];
-  if (ri2 >= 0) return rooms[ri2].name;
+  const ri2 = roomAt[Math.round(n.y)] && roomAt[Math.round(n.y)][Math.round(n.x)], lw = levelWord(n.y);
+  if (ri2 >= 0) return rooms[ri2].name + (lw ? " " + lw : "");
+  if (lw) return lw === "underground" || lw === "deep underground" ? "the " + lw.replace("underground", "mine") : "the roof";
   const g = grid[Math.round(n.y)][Math.round(n.x)];
   if (g === T.CROP) return "the fields";
   if (town.markets.some((m) => m.plaza.some((p) => p.x === Math.round(n.x) && p.y === Math.round(n.y)))) return "the plaza";
@@ -16343,6 +16373,54 @@ function tsLab() {
   rebuildOcc();
   return { ox, oy, A, B, C, K, H: Hh, shed: Sh, holes: kinds };
 }
+const MINE = { cv: null, own: 2.4, torch: 6.2 };
+function mineLights() {
+  const out = [], p = game.player;
+  if (p) out.push({ x: p.x + 0.5, y: p.y + 0.5, r: MINE.own });
+  const v = gaView();
+  for (const pr of town.props || []) if (pr.kind === "torch" && pr.x >= v.x0 - 8 && pr.x <= v.x1 + 8 && pr.y >= v.y0 - 8 && pr.y <= v.y1 + 8) out.push({ x: pr.x + 0.5, y: pr.y + 0.4, r: MINE.torch });
+  return out;
+}
+function drawMineDark(c, now) {
+  const cv = c.canvas;
+  if (!MINE.cv) MINE.cv = document.createElement("canvas");
+  const m = MINE.cv;
+  if (m.width !== cv.width || m.height !== cv.height) {
+    m.width = cv.width;
+    m.height = cv.height;
+  }
+  const g = m.getContext("2d");
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.globalCompositeOperation = "source-over";
+  g.clearRect(0, 0, m.width, m.height);
+  g.fillStyle = "rgba(2,2,6,0.94)";
+  g.fillRect(0, 0, m.width, m.height);
+  g.setTransform(c.getTransform());
+  g.globalCompositeOperation = "destination-out";
+  for (const L of mineLights()) {
+    const fl = 1 + Math.sin(now / 170 + L.x * 3) * 0.03 + Math.sin(now / 90 + L.y) * 0.02, r = L.r * TS * fl, gr = g.createRadialGradient(L.x * TS, L.y * TS, r * 0.08, L.x * TS, L.y * TS, r);
+    gr.addColorStop(0, "rgba(0,0,0,1)");
+    gr.addColorStop(0.55, "rgba(0,0,0,0.78)");
+    gr.addColorStop(1, "rgba(0,0,0,0)");
+    g.fillStyle = gr;
+    g.fillRect(L.x * TS - r, L.y * TS - r, r * 2, r * 2);
+  }
+  c.save();
+  c.globalCompositeOperation = "lighter";
+  for (const L of mineLights()) {
+    if (L.r === MINE.own) continue;
+    const r = L.r * TS * 0.7, gr = c.createRadialGradient(L.x * TS, L.y * TS, 0, L.x * TS, L.y * TS, r);
+    gr.addColorStop(0, "rgba(255,140,50,0.2)");
+    gr.addColorStop(1, "rgba(255,120,30,0)");
+    c.fillStyle = gr;
+    c.fillRect(L.x * TS - r, L.y * TS - r, r * 2, r * 2);
+  }
+  c.restore();
+  c.save();
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.drawImage(m, 0, 0);
+  c.restore();
+}
 const GA = { CT: 8, LODS: [12, 24, 48, 96], chunks: /* @__PURE__ */ new Map(), px: 0, maxPx: 56e6, frame: 0, ov: null, ovc: null, shal: null, seed: 7, boost: 0, hour: 12, stats: { bake: 0, baked: 0, ms: 0 } };
 const OVP = 4;
 const gaFrame = (it, now, ph) => it.frames <= 1 ? 0 : Math.floor(now / 1e3 * (it.fps || it.frames / 2) + (ph || 0)) % it.frames;
@@ -19261,6 +19339,7 @@ const YARD_ITEMS = [
   { kind: "pew", stand: "", art: "pew", noun: "pew", name: "Pew" },
   { kind: "lamp", stand: "", art: "lamp_unlit", noun: "lamp post", name: "Lamp post" },
   { kind: "tent", stand: "", art: "tent_0", noun: "tent", name: "Tent" },
+  { kind: "torch", stand: "", art: "torch", noun: "torch", name: "Torch" },
   { kind: "stairdown", stand: "", art: "stair_down", noun: "staircase down", name: "Stairs down" },
   { kind: "stair", stand: "", art: "stair_up", noun: "staircase", name: "Stairs" },
   { kind: "campfire", stand: "", art: "campfire", noun: "campfire", name: "Campfire" }
@@ -19481,6 +19560,7 @@ function bldFlood(sx, sy) {
     cells.push(k);
     if (cells.length > BLD_MAX) open = true;
     if (x < 4 || y < 4 || x >= W - 4 || y >= H - 4) open = true;
+    if (town.portals && town.portals.has(k)) open = true;
     if (!bad && !bldOKTile(x, y)) bad = bldOnPad(x, y) ? "the yard's pad" : grid[y][x] === T.TREE ? "a tree" : grid[y][x] === T.ROCK || grid[y][x] === T.MOUNTAIN ? "a rock" : grid[y][x] === T.WATER ? "water" : "something";
     if (open) return { cells, open: true, bad };
     for (const [dx, dy] of BLD_D8) {
@@ -20459,7 +20539,7 @@ function npcDebug(n) {
   if (n.energy != null && n.energy < 30) need.push("rest");
   if (n.social != null && n.social < 25) need.push("company");
   const pct = (v) => Math.round(v == null ? 0 : v) + "%";
-  return `<b>${esc(n.first)}</b> \xB7 ${n.age} \xB7 ${esc(n.role || "")}${n.job ? " / " + esc(n.job) : ""}${n.player ? " (you)" : ""}<br>home: ${r ? esc(r.name || r.kind) : "<b>none</b>"} \xB7 bed: ${bed ? bed.x - (r ? r.x : 0) + ", " + (bed.y - (r ? r.y : 0)) + " (theirs)" : "<b>none</b>"}<br>hunger ${pct(n.hunger)} \xB7 bladder ${pct(n.bladder)} \xB7 energy ${pct(n.energy)} \xB7 company ${pct(n.social)}<br>doing: ${esc(n.status || n.pose || "")}<br><b>${need.length ? "needs next: " + need.join(", ") : "needs nothing right now"}</b>`;
+  return `<b>${esc(n.first)}</b> \xB7 ${n.age} \xB7 ${esc(n.role || "")}${n.job ? " / " + esc(n.job) : ""}${n.player ? " (you)" : ""}<br>home: ${r ? esc(r.name || r.kind) : "<b>none</b>"} \xB7 bed: ${bed ? bed.x - (r ? r.x : 0) + ", " + (bed.y - (r ? r.y : 0)) + " (theirs)" : "<b>none</b>"}<br>hunger ${pct(n.hunger)} \xB7 bladder ${pct(n.bladder)} \xB7 energy ${pct(n.energy)} \xB7 company ${pct(n.social)}<br>where: ${esc(placeOf(n))}${levelWord(n.y) && !/upstairs|underground|high up|roof|mine/.test(placeOf(n)) ? " (" + levelWord(n.y) + ")" : ""} \xB7 doing: ${esc(n.status || n.pose || "")}<br><b>${need.length ? "needs next: " + need.join(", ") : "needs nothing right now"}</b>`;
 }
 const FN_DEFS = [
   { fn: "workshop", name: "The Workshop", need: { bench: 1, shelf: 1 }, what: "walls, beds and furniture made from wood" },
@@ -20824,7 +20904,7 @@ function drawGuides(c, now) {
     }
   }
 }
-const KIT_START = { bwall: 40, bdoor: 3, bwindow: 2, bed: 3, toilet: 1, chair: 2, table: 1, shelf: 1, stair: 1, stairdown: 1 };
+const KIT_START = { bwall: 40, bdoor: 3, bwindow: 2, bed: 3, toilet: 1, chair: 2, table: 1, shelf: 1, stair: 1, stairdown: 1, torch: 8 };
 const KIT_RECIPE = {
   bwall: { wood: 2, q: 4 },
   bwindow: { wood: 2, q: 2 },
@@ -20843,6 +20923,7 @@ const KIT_RECIPE = {
   toilet: { wood: 3, q: 1 },
   stair: { wood: 6, q: 1 },
   stairdown: { wood: 6, q: 1 },
+  torch: { wood: 1, q: 3 },
   altar: { stone: 4, q: 1 },
   oven: { stone: 6, q: 1 },
   forge: { stone: 6, wood: 2, q: 1 },
@@ -28283,7 +28364,8 @@ function render(now, dtSec, hourOfDay) {
     const tavernOpen = rm.kind === "tavern" && hourOfDay >= 17 && hourOfDay < 23.5;
     rm.lit += ((occupied || tavernOpen ? 1 : 0) - rm.lit) * Math.min(1, dtSec * 3);
   }
-  if (STYLE.light) drawLighting(c, hourOfDay, now);
+  if (ft && isMineY(ft.y)) drawMineDark(c, now);
+  else if (STYLE.light) drawLighting(c, hourOfDay, now);
   drawTrueSight(c, now);
   drawSightCones(c, now);
   if (!STYLE.light && night > 0.01) {

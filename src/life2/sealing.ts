@@ -22,6 +22,8 @@ function bldFlood(sx, sy) {
     const k = q.pop(), x = k % W, y = (k / W) | 0; cells.push(k);
     if (cells.length > BLD_MAX) open = true;
     if (x < 4 || y < 4 || x >= W - 4 || y >= H - 4) open = true;
+    if (town.portals && town.portals.has(k)) open = true;   // the way to a staircase is a way out: a hut on a roof or in a mine
+
     if (!bad && !bldOKTile(x, y)) bad = bldOnPad(x, y) ? 'the yard\'s pad' : grid[y][x] === T.TREE ? 'a tree' : grid[y][x] === T.ROCK || grid[y][x] === T.MOUNTAIN ? 'a rock' : grid[y][x] === T.WATER ? 'water' : 'something';
     if (open) return { cells, open: true, bad };
     for (const [dx, dy] of BLD_D8) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const nk = nx + ny * W; if (seen.has(nk) || bldSolid(nx, ny)) continue; seen.add(nk); q.push(nk); }

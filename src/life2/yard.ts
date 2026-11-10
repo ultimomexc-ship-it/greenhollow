@@ -23,6 +23,7 @@ const YARD_ITEMS: { kind: string; stand: string; art: string; noun: string; name
   { kind: 'pew', stand: '', art: 'pew', noun: 'pew', name: 'Pew' },
   { kind: 'lamp', stand: '', art: 'lamp_unlit', noun: 'lamp post', name: 'Lamp post' },
   { kind: 'tent', stand: '', art: 'tent_0', noun: 'tent', name: 'Tent' },
+  { kind: 'torch', stand: '', art: 'torch', noun: 'torch', name: 'Torch' },
   { kind: 'stairdown', stand: '', art: 'stair_down', noun: 'staircase down', name: 'Stairs down' },
   { kind: 'stair', stand: '', art: 'stair_up', noun: 'staircase', name: 'Stairs' },
   { kind: 'campfire', stand: '', art: 'campfire', noun: 'campfire', name: 'Campfire' },

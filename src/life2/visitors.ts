@@ -173,5 +173,5 @@ function npcDebug(n) {
   return `<b>${esc(n.first)}</b> · ${n.age} · ${esc(n.role || '')}${n.job ? ' / ' + esc(n.job) : ''}${n.player ? ' (you)' : ''}<br>` +
     `home: ${r ? esc(r.name || r.kind) : '<b>none</b>'} · bed: ${bed ? (bed.x - (r ? r.x : 0)) + ', ' + (bed.y - (r ? r.y : 0)) + ' (theirs)' : '<b>none</b>'}<br>` +
     `hunger ${pct(n.hunger)} · bladder ${pct(n.bladder)} · energy ${pct(n.energy)} · company ${pct(n.social)}<br>` +
-    `doing: ${esc(n.status || n.pose || '')}<br><b>${need.length ? 'needs next: ' + need.join(', ') : 'needs nothing right now'}</b>`;
+    `where: ${esc(placeOf(n))}${levelWord(n.y) && !/upstairs|underground|high up|roof|mine/.test(placeOf(n)) ? ' (' + levelWord(n.y) + ')' : ''} · doing: ${esc(n.status || n.pose || '')}<br><b>${need.length ? 'needs next: ' + need.join(', ') : 'needs nothing right now'}</b>`;
 }

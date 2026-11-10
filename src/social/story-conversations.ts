@@ -51,9 +51,12 @@ const TIME_GREET = {
 const FLAVOR = { grumpy: t => 'Hmph. ' + t.replace(/!/g, '.'), shy: t => 'Um... ' + t, jovial: t => t + ' Ha!', cheerful: t => t.replace(/\.$/, '!'), anxious: t => t.replace(/\.$/, '...'), proud: t => t };
 
 function todBand(m) { const h = (m % 1440) / 60; return h < 5 ? 'night' : h < 11 ? 'morning' : h < 17 ? 'day' : h < 22 ? 'evening' : 'night'; }
+/** where in the stack of levels (empty on the ground): used so everybody can be found wherever they are */
+function levelWord(y: number): string { const l = lvlOf(Math.round(y)); return l === 1 ? 'upstairs' : l === 2 ? 'high up' : l === LV_MINE ? 'underground' : l > LV_MINE ? 'deep underground' : ''; }
 function placeOf(n) {
-  const ri2 = roomAt[Math.round(n.y)] && roomAt[Math.round(n.y)][Math.round(n.x)];
-  if (ri2 >= 0) return rooms[ri2].name;
+  const ri2 = roomAt[Math.round(n.y)] && roomAt[Math.round(n.y)][Math.round(n.x)], lw = levelWord(n.y);
+  if (ri2 >= 0) return rooms[ri2].name + (lw ? ' ' + lw : '');
+  if (lw) return lw === 'underground' || lw === 'deep underground' ? 'the ' + lw.replace('underground', 'mine') : 'the roof';
   const g = grid[Math.round(n.y)][Math.round(n.x)];
   if (g === T.CROP) return 'the fields';
   if (town.markets.some(m => m.plaza.some(p => p.x === Math.round(n.x) && p.y === Math.round(n.y)))) return 'the plaza';

@@ -294,3 +294,21 @@ function tsLab() {
   town.treeDirty = true; town.treeCache = null; if (typeof markDirty === 'function') markDirty(ox, oy, LW, LH); if (typeof refreshReach === 'function') refreshReach(); rebuildOcc();
   return { ox, oy, A, B, C, K, H: Hh, shed: Sh, holes: kinds };
 }
+
+/* ---------------- the dark underground (drawn instead of the day and night lighting while you are in a mine) ----------------
+   Down there nothing is lit but what a torch (a loose prop, kind 'torch') or you yourself light: a small glow round you, a wider one round every torch. TrueSight still decides what a sight line reaches. */
+const MINE: any = { cv: null, own: 2.4, torch: 6.2 };
+function mineLights(): { x: number; y: number; r: number }[] {
+  const out = [], p = game.player; if (p) out.push({ x: p.x + 0.5, y: p.y + 0.5, r: MINE.own });
+  const v = gaView(); for (const pr of town.props || []) if (pr.kind === 'torch' && pr.x >= v.x0 - 8 && pr.x <= v.x1 + 8 && pr.y >= v.y0 - 8 && pr.y <= v.y1 + 8) out.push({ x: pr.x + 0.5, y: pr.y + 0.4, r: MINE.torch });
+  return out;
+}
+function drawMineDark(c, now) {
+  const cv = c.canvas; if (!MINE.cv) MINE.cv = document.createElement('canvas'); const m = MINE.cv; if (m.width !== cv.width || m.height !== cv.height) { m.width = cv.width; m.height = cv.height; }
+  const g = m.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, m.width, m.height); g.fillStyle = 'rgba(2,2,6,0.94)'; g.fillRect(0, 0, m.width, m.height);
+  g.setTransform(c.getTransform()); g.globalCompositeOperation = 'destination-out';
+  for (const L of mineLights()) { const fl = 1 + Math.sin(now / 170 + L.x * 3) * 0.03 + Math.sin(now / 90 + L.y) * 0.02, r = L.r * TS * fl, gr = g.createRadialGradient(L.x * TS, L.y * TS, r * 0.08, L.x * TS, L.y * TS, r); gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.55, 'rgba(0,0,0,0.78)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(L.x * TS - r, L.y * TS - r, r * 2, r * 2); }
+  c.save(); c.globalCompositeOperation = 'lighter';   // a warm glow round the torches
+  for (const L of mineLights()) { if (L.r === MINE.own) continue; const r = L.r * TS * 0.7, gr = c.createRadialGradient(L.x * TS, L.y * TS, 0, L.x * TS, L.y * TS, r); gr.addColorStop(0, 'rgba(255,140,50,0.2)'); gr.addColorStop(1, 'rgba(255,120,30,0)'); c.fillStyle = gr; c.fillRect(L.x * TS - r, L.y * TS - r, r * 2, r * 2); }
+  c.restore(); c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(m, 0, 0); c.restore();
+}
