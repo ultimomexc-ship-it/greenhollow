@@ -100,7 +100,7 @@ function tileTip(x, y) {
 }
 function endPtr(e) {
   const had = ptrs.has(e.pointerId); ptrs.delete(e.pointerId); canvas.classList.remove('dragging');
-  if (had && e.type === 'pointerup' && dragMoved <= 5 && ptrs.size === 0) { const w = worldTile(localXY(e)), n = npcAt(w.x, w.y); if (n) { select(n); setTab('people'); } }
+  if (had && e.type === 'pointerup' && dragMoved <= 5 && ptrs.size === 0) { const w = worldTile(localXY(e)), n = npcAt(w.x, w.y); if (n) { select(n); setTab('people'); if (typeof openVillagerCard === 'function') openVillagerCard(n); } }
   if (ptrs.size < 2) pinch0 = 0;
 }
 canvas.addEventListener('pointerup', endPtr); canvas.addEventListener('pointercancel', endPtr);

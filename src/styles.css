@@ -208,3 +208,7 @@ body.fs #c { height: 100vh !important; height: 100dvh !important; }
 .reqcard .dim{color:#9a927c;font-size:12px}.reqx{position:absolute;right:6px;top:4px;background:none;border:0;color:#c9c2ae;font-size:18px;cursor:pointer}
 .reqrows{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:7px;padding-top:6px;border-top:1px solid rgba(255,255,255,.1);font-size:12px}.reqrows .ok{color:#8bd05f}.reqthen{margin-top:4px}
 .decbox{position:absolute;left:0;right:0;top:0;bottom:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(6,8,10,.55)}.decbox[hidden]{display:none}.deccard{max-width:440px;background:#161b1e;border:1px solid #6b5a2a;border-radius:12px;padding:16px 18px;color:#e8e2d0;font:14px/1.5 var(--font-body)}.deccard p{margin:8px 0 12px}.decopts{display:flex;gap:8px;flex-wrap:wrap}.deccard .dim{margin-top:10px;font-size:11.5px;color:#9a927c}
+
+.vcbox{position:absolute;right:10px;top:44px;z-index:7;width:280px;max-width:calc(100% - 20px);font:13px/1.35 var(--font-body);color:#e8e2d0}.vcbox[hidden]{display:none}
+.vccard{position:relative;background:rgba(18,22,24,.93);border:1px solid #4a5a4a;border-left:3px solid #8bb87a;border-radius:8px;padding:9px 30px 9px 12px;max-height:70vh;overflow:auto}
+.vccard .dim{color:#9a927c;font-size:12px}.vccard ul{margin:2px 0 0;padding-left:16px}.vcrow{margin-top:5px}.vch{margin-top:8px;padding-top:5px;border-top:1px solid rgba(255,255,255,.1);color:#b9c9a8;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
