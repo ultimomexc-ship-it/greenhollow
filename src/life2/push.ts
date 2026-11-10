@@ -90,13 +90,14 @@ function lf2PushLine(n, x, y, dx, dy): true | string | null {
   const line = pushLine(n, x, y, dx, dy); if (!line) return null;
   const furn = line[0].kind === 'furniture'; if (line.some(p => (p.kind === 'furniture') !== furn)) return pushSwap(n, line[0]);
   const last = line[line.length - 1], nx = last.x + dx, ny = last.y + dy;
-  if (furn) {
+  const stairTo = stairPushTarget(last.x, last.y, dx, dy);   // (anything on a landing, pushed into its stair, goes up or down: people, loose things, rocks and furniture alike)
+  if (furn && stairTo) { if (line.some(p => p.f.r !== line[0].f.r)) return pushSwap(n, line[0]); }
+  else if (furn) {
     const r = line[0].f.r; if (line.some(p => p.f.r !== r)) return pushSwap(n, line[0]);
     const inWay = tileOwner.get(ny * W + nx); if (inWay && inWay !== n && !line.some(p => p.x === nx && p.y === ny)) return (inWay.first || 'Somebody') + ' is in the way.';
     if (!pushFurnitureOK(last.f, nx, ny, true)) return pushSwap(n, line[0]);
     if (!pushRoomConnected(r, line.map(p => [p.x, p.y, p.x + dx, p.y + dy] as [number, number, number, number]))) return 'That would block the way in the ' + (r.kind === 'house' ? 'house' : 'room') + '.';
   } else {
-    const stairTo = last.kind === 'person' || last.kind === 'prop' ? stairPushTarget(last.x, last.y, dx, dy) : null;   // (a person or a thing on a landing, pushed into its stair, goes up or down)
     const stuck = line.some(p => p.kind === 'person' && pushSettled(p.who)), endOK = stairTo ? true : last.kind === 'person' ? pushPersonOK(nx, ny) : pushLooseOK(nx, ny);
     if (stuck || !endOK) return pushSwap(n, line[0]);
   }
@@ -104,10 +105,10 @@ function lf2PushLine(n, x, y, dx, dy): true | string | null {
   // move from the front, so each piece lands on the tile the next one has just left
   const moved: any[] = [];
   for (let i = line.length - 1; i >= 0; i--) {
-    const p = line[i], via = i === line.length - 1 ? ((last.kind === 'person' || last.kind === 'prop') ? stairPushTarget(p.x, p.y, dx, dy) : null) : null;
+    const p = line[i], via = i === line.length - 1 ? stairTo : null;
     if (p.kind === 'person') { if (via) { pushMovePerson(n, p.who, via[0], via[1]); p.who.slide = null; } else pushMovePerson(n, p.who, p.x + dx, p.y + dy); continue; }
     if (p.kind === 'rock') { const pr = pushRockToProp(p.x, p.y); if (!pr) return 'It won\'t budge.'; p.pr = pr; p.kind = 'prop'; }
-    if (p.kind === 'prop') { if (via) { pushMoveProp(p.pr, via[0] - p.pr.x, via[1] - p.pr.y, n); p.pr.fx = p.pr.x; p.pr.fy = p.pr.y; p.pr.follow = null; p.pr.st = 0; } else pushMoveProp(p.pr, dx, dy, n); moved.push(p.pr); } else { const pr = pushMoveFurniture(p.f, dx, dy, n); if (pr) moved.push(pr); }
+    if (p.kind === 'prop') { if (via) { pushMoveProp(p.pr, via[0] - p.pr.x, via[1] - p.pr.y, n); p.pr.fx = p.pr.x; p.pr.fy = p.pr.y; p.pr.follow = null; p.pr.st = 0; } else pushMoveProp(p.pr, dx, dy, n); moved.push(p.pr); } else { const pr = via ? pushFurnitureStairs(p.f, via[0], via[1], n) : pushMoveFurniture(p.f, dx, dy, n); if (pr) moved.push(pr); }
   }
   if (typeof refreshReach === 'function') refreshReach();
   for (const pr of moved) if (typeof lf2AfterPush === 'function' && lfPropAt(pr.x, pr.y) === pr) lf2AfterPush(n, pr);
@@ -194,6 +195,14 @@ function pushMoveFurniture(f, dx, dy, by?) {
     for (const [ax, ay] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) if (grid[ty + ay] && grid[ty + ay][tx + ax] === T.TABLE) { o.face = { dx: ax, dy: ay }; break; } }
   markDirty(Math.min(fx, tx), Math.min(fy, ty), Math.abs(dx) + 1, Math.abs(dy) + 1);
   town.lfPV = (town.lfPV || 0) + 1; town.gridV = (town.gridV || 0) + 1; return null;
+}
+/** furniture pushed into a stair comes out the other end as a loose thing (like furniture pushed out of a door: the room keeps its record, marked out) */
+function pushFurnitureStairs(f, tx, ty, by?) {
+  const o = f.o, fx = o.x, fy = o.y, rider = tileOwner.get(fy * W + fx), carry = rider && rider !== by && !rider.dead && (rider.pose === 'sleep' || rider.pose === 'sit') ? rider : null;
+  setT(fx, fy, T.FLOOR); o.out = true; const kind = f.type === 'seat' ? 'chair' : f.type, pr: any = lfAddProp(kind, tx, ty); pr.fur = f; pr.v = Math.floor(ART.h32(fx, fy, 61, 61) * 5);
+  pr.fx = tx; pr.fy = ty; pr.st = 0; pr.follow = null; pr.moved = game.time; pr.by = by ? by.id : null; pr.seen = [];
+  if (carry) { pr.rider = carry; pushCarry(carry, tx, ty, by); carry.slide = null; }
+  markDirty(fx, fy, 1, 1); markDirty(tx, ty, 1, 1); town.gridV = (town.gridV || 0) + 1; town.lfPV = (town.lfPV || 0) + 1; return pr;
 }
 /** where a loose thing is drawn: a thing the player is pushing follows the player's own step (so it moves at exactly the player's pace), anything else slides on a timer */
 function lfPropPos(pr, now): [number, number] {
