@@ -185,6 +185,29 @@ function drawTrueSight(c, now) {
   c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(sc, 0, 0); c.restore();
 }
 
+/* ---------------- what the villagers can see (a debugging view for stealth; V toggles it) ----------------
+   Each villager's sight is a cone in the way they face (SIGHT_RANGE tiles, SIGHT_HALF either side of straight ahead), cut by the same building
+   geometry as yours: the visibility polygon from their eye, clipped to the cone. Drawn as a light red patch on the ground, no half shades. */
+const SIGHT_RANGE = 7, SIGHT_HALF = Math.PI * 0.42;
+const SIGHT_VIS: any = { on: true };
+function sightPoly(n, ex, ey, G) {
+  const f = n.face && (n.face.dx || n.face.dy) ? n.face : { dx: 0, dy: 1 }, key = ex.toFixed(2) + ',' + ey.toFixed(2) + '|' + f.dx + f.dy + '|' + TSIGHT.geoKey;
+  if (n._sk === key && n._sp) return n._sp; const R = { x0: Math.max(0, ex - SIGHT_RANGE), y0: Math.max(0, ey - SIGHT_RANGE), x1: Math.min(W, ex + SIGHT_RANGE), y1: Math.min(H, ey + SIGHT_RANGE) };
+  n._sp = tsPolygon(ex, ey, R, G); n._sk = key; return n._sp;
+}
+function drawSightCones(c, now) {
+  if (!SIGHT_VIS.on || !game.player || cam.z < 0.6) return; const G = tsGeo(), x0 = cam.x / TS - SIGHT_RANGE, y0 = cam.y / TS - SIGHT_RANGE, x1 = (cam.x + cam.cw / cam.z) / TS + SIGHT_RANGE, y1 = (cam.y + cam.ch / cam.z) / TS + SIGHT_RANGE;
+  c.save();
+  for (const n of npcs) {
+    if (n.dead || n.player || n === game.player || n.pose === 'sleep' || n.age < 3 || n.x < x0 || n.x > x1 || n.y < y0 || n.y > y1) continue;
+    const s = typeof gaSlide === 'function' ? gaSlide(n, now) : [n.x, n.y], ex = s[0] + 0.5, ey = s[1] + 0.55, f = n.face && (n.face.dx || n.face.dy) ? n.face : { dx: 0, dy: 1 }, a = Math.atan2(f.dy, f.dx), poly = sightPoly(n, ex, ey, G);
+    c.save(); c.beginPath(); c.moveTo(ex * TS, ey * TS); c.arc(ex * TS, ey * TS, SIGHT_RANGE * TS, a - SIGHT_HALF, a + SIGHT_HALF); c.closePath(); c.clip();
+    c.beginPath(); poly.forEach((p, i) => i ? c.lineTo(p[0] * TS, p[1] * TS) : c.moveTo(p[0] * TS, p[1] * TS)); c.closePath(); c.fillStyle = 'rgba(255,60,70,0.4)'; c.fill(); c.restore();
+  }
+  c.restore();
+}
+window.addEventListener('keydown', (e: any) => { if ((e.key === 'v' || e.key === 'V') && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || '')) SIGHT_VIS.on = !SIGHT_VIS.on; });
+
 /* ---------------- the TrueSight test ground (tests and tools/truesight.mjs; never called by the game itself) ----------------
    Cleared ground with: a building of three rooms (an open archway between the first two, a shut door to the third), a corridor with three
    corners, a house with windows in its back wall, trees (scenery: they do not block), a shed, and two walls touching only at a corner. Returns the named places.     */

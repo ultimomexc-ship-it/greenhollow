@@ -182,6 +182,7 @@ behind each visible stretch of face (`tsFaces`: a strip one tile deep), so a gla
 - `node tools/truesight.mjs [--out=dir]` stamps a test ground (`tsLab`: rooms with an archway and a shut door, a corridor with three corners, a house
   with windows, trees, a shed, walls touching corner to corner), checks who is seen from each spot (and while people walk), and saves screenshots. Tests run it.
 - The unseen outdoors is only half dark (`TS_SHADE`); buildings (`tsBuilding`: walls, doors, floors, rooms) keep full darkness, so you cannot see in but see the ground round the sides and back.
+- **Villager sight** (`drawSightCones`, `sightPoly`, V toggles, `SIGHT_VIS`): each villager sees a cone (`SIGHT_RANGE` 7 tiles, `SIGHT_HALF` either side of `n.face`) cut by the same building geometry, drawn light red on the ground. A debugging view for stealth; not yet used by NPC perception.
 - ~0.2 ms per recompute at normal zoom, ~0.5 ms zoomed out, only when the eye, the view or a door changes.
 
 ## Performance tools
