@@ -1513,8 +1513,10 @@ test('truesight: the solid wall beside a window is never inside what you can see
     const w = wins.find(q => grid[q[1]][q[0] - 1] === T.WALL && grid[q[1]][q[0] + 1] === T.WALL) || wins[0]; let leaks = 0, views = 0;
     for (let ex = -5; ex <= 5; ex += 2) for (let ey = -5; ey <= -1; ey++) { P.tx = P.x = w[0] + ex; P.ty = P.y = w[1] + ey; P.path = []; P.slide = null; if (grid[P.ty][P.tx] === T.WALL) continue; rebuildOcc(); cam.follow = false; cam.z = 2; clampCam(); cam.x = w[0] * TS - cam.cw / cam.z / 2; cam.y = w[1] * TS - cam.ch / cam.z / 2; clampCam(); render(performance.now(), 0.016, 12); views++;
       for (let ty = w[1] - 2; ty < w[1] + 8; ty++) for (let tx = w[0] - 6; tx < w[0] + 8; tx++) { if (grid[ty][tx] !== T.WALL || tsWindow(tx, ty)) continue; for (const [fx, fy] of [[0.5, 0.5], [0.2, 0.5], [0.8, 0.5], [0.5, 0.2], [0.5, 0.8]]) if (inPoly(TSIGHT.poly, tx + fx, ty + fy)) { leaks++; break; } } }
-    return { leaks, views };
+    const ex = w[0] + 0.5, ey = w[1] - 3, panes = { left: tsLine(ex, ey, w[0] + 0.3, w[1] + 4), right: tsLine(ex, ey, w[0] + 0.7, w[1] + 4), divider: tsLine(ex, ey, w[0] + 0.5, w[1] + 4), frame: tsLine(ex, ey, w[0] + 0.1, w[1] + 4) };
+    return { leaks, views, panes };
   });
+  check(r.panes.left && r.panes.right && !r.panes.divider && !r.panes.frame, 'light passes through each pane, and the divider and the frame cast their shadows: ' + JSON.stringify(r.panes));
   check(r.views > 10 && r.leaks === 0, 'wall bodies beside windows leaked into the visible area: ' + JSON.stringify(r)); check(errors.length === 0, 'no errors');
   return r.views + ' views, no leaks';
 });

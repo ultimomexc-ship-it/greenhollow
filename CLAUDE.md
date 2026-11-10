@@ -176,6 +176,7 @@ visibility polygon. Everything outside it is covered in near-black, cut along th
 behind each visible stretch of face (`tsFaces`: a strip one tile deep), so a glancing view shows a sliver; no tile is ever lit as a whole (doors included).
 - ONLY buildings block sight: walls, closed doors, the solid bits beside a window. Trees, rocks, furniture, crates and people never do.
 - At an inner corner (the face ends at the segment's own end and solid wall carries on round it) `tsFaces` shows the corner tile too, so the four outer corner tiles of a room are not black notches when you stand inside.
+- Windows have their upright dividers (`bars`) as thin solids in both plates, so each pane casts its own beam and the divider casts a dark line; the horizontal divider lies along the line of sight and casts nothing from above.
 - A window is a hole in a wall tile (`TS_HOLES`, fractions of the tile, taken from the glass of the sprite): two thin plates, solid but for the hole, at its top and bottom edges, so sight passes only through the hole and the lit strip of a window plate stops at its own tile. A new hole shape is a new entry.
 - A window tile shows its whole face wherever its outer line can be seen (`tsFaces`), so the wall beside it never shades the tile; only the glass (the `TS_HOLES` rectangle) follows the sight line through it, lit where you can see through and dark where you cannot.
 - `tsGeo()` builds (and caches, keyed by `town.gridV` and door states) the segments in a cell grid; `tsRay` finds the nearest hit; `tsPolygon`, `tsWalls`.
