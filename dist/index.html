@@ -15676,7 +15676,7 @@ function tsPropDoors() {
     d.propped = !!(r && !r.dead && TS_PUBLIC.has(r.kind) && h >= 8 && h < 20);
   }
 }
-const TS_SHADE = 0.5;
+const TS_DARK = 0.9, TS_SHADE = 0.7;
 function tsBuilding(x, y) {
   const t = grid[y][x];
   if (t === T.WALL || t === T.DOOR || t === T.FLOOR) return true;
@@ -15702,7 +15702,7 @@ function drawTrueSight(c, now) {
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.globalCompositeOperation = "source-over";
   g.clearRect(0, 0, sc.width, sc.height);
-  g.fillStyle = "rgba(4,6,10,0.97)";
+  g.fillStyle = "rgba(4,6,10," + TS_DARK + ")";
   g.fillRect(0, 0, sc.width, sc.height);
   g.setTransform(c.getTransform());
   {
@@ -15722,7 +15722,7 @@ function drawTrueSight(c, now) {
     };
     const lit = rm < 0 ? ((x, y) => !tsBuilding(x, y)) : inRoom;
     g.globalCompositeOperation = "destination-out";
-    g.fillStyle = "rgba(0,0,0," + (0.97 - TS_SHADE) / 0.97 + ")";
+    g.fillStyle = "rgba(0,0,0," + (TS_DARK - TS_SHADE) / TS_DARK + ")";
     for (let y = y0; y <= y1; y++) {
       let run = -1;
       for (let x = x0; x <= x1 + 1; x++) {

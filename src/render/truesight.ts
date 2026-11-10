@@ -160,8 +160,8 @@ function tsUpdate(now) {
 /** public buildings keep their doors open during the day, so you can look in from the street */
 const TS_PUBLIC = new Set(['tavern', 'bakery', 'smithy', 'shop', 'thermopolium', 'baths', 'macellum', 'church', 'mill']);
 function tsPropDoors() { const h = (game.time % 1440) / 60; for (const d of doors) { const r = rooms[d.room]; d.propped = !!(r && !r.dead && TS_PUBLIC.has(r.kind) && h >= 8 && h < 20); } }
-/** how dark the unseen outdoors is (0..0.97); buildings stay fully dark */
-const TS_SHADE = 0.5;
+/** how dark what you cannot see is: TS_DARK in a building or anywhere but the place you are in, TS_SHADE in the place you are in (0..1) */
+const TS_DARK = 0.9, TS_SHADE = 0.7;
 /** is this tile part of a building (a wall, a door, a floor or inside a room) */
 function tsBuilding(x, y) {
   const t = grid[y][x]; if (t === T.WALL || t === T.DOOR || t === T.FLOOR) return true;
@@ -171,7 +171,7 @@ function tsBuilding(x, y) {
 function drawTrueSight(c, now) {
   if (!tsActive()) { TSIGHT.eye = null; return; }
   tsUpdate(now); const cv = c.canvas; if (!TSIGHT.cv) TSIGHT.cv = document.createElement('canvas'); const sc = TSIGHT.cv; if (sc.width !== cv.width || sc.height !== cv.height) { sc.width = cv.width; sc.height = cv.height; }
-  const g = sc.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, sc.width, sc.height); g.fillStyle = 'rgba(4,6,10,0.97)'; g.fillRect(0, 0, sc.width, sc.height);
+  const g = sc.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, sc.width, sc.height); g.fillStyle = 'rgba(4,6,10,' + TS_DARK + ')'; g.fillRect(0, 0, sc.width, sc.height);
   g.setTransform(c.getTransform());
   // the place you are in is only half dark where you cannot see (TS_SHADE); everywhere else keeps the full darkness.
   // Out of doors that is the open ground (buildings stay black, you cannot see in); inside a room it is that room and its walls (the outside goes really dark).
@@ -179,7 +179,7 @@ function drawTrueSight(c, now) {
     const x0 = Math.max(0, Math.floor(R.x0)), x1 = Math.min(W - 1, Math.ceil(R.x1)), y0 = Math.max(0, Math.floor(R.y0)), y1 = Math.min(H - 1, Math.ceil(R.y1));
     const inRoom = (x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const qx = x + dx, qy = y + dy; if (qx < 0 || qy < 0 || qx >= W || qy >= H) continue; if (roomAt[qy] && roomAt[qy][qx] === rm) { const t = grid[y][x]; if (!dx && !dy) return true; if (t === T.WALL || t === T.DOOR) return true; } } return false; };
     const lit = rm < 0 ? ((x, y) => !tsBuilding(x, y)) : inRoom;
-    g.globalCompositeOperation = 'destination-out'; g.fillStyle = 'rgba(0,0,0,' + (0.97 - TS_SHADE) / 0.97 + ')';
+    g.globalCompositeOperation = 'destination-out'; g.fillStyle = 'rgba(0,0,0,' + (TS_DARK - TS_SHADE) / TS_DARK + ')';
     for (let y = y0; y <= y1; y++) { let run = -1; for (let x = x0; x <= x1 + 1; x++) { const b = x <= x1 && lit(x, y); if (b && run < 0) run = x; else if (!b && run >= 0) { g.fillRect(run * TS, y * TS, (x - run) * TS, TS); run = -1; } } }
     if (rm < 0) { /* open ground beyond the view edge is half dark too */ g.fillRect(0, 0, W * TS, y0 * TS); g.fillRect(0, (y1 + 1) * TS, W * TS, (H - y1 - 1) * TS); g.fillRect(0, y0 * TS, x0 * TS, (y1 - y0 + 1) * TS); g.fillRect((x1 + 1) * TS, y0 * TS, (W - x1 - 1) * TS, (y1 - y0 + 1) * TS); } }
   g.globalCompositeOperation = 'destination-out'; g.fillStyle = '#000';
