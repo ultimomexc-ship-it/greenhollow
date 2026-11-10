@@ -15626,6 +15626,7 @@ function boulderShape(x, y) {
 }
 const TSIGHT = { on: true, poly: null, hits: null, key: "", rect: null, eye: null, ms: 0, cv: null, geo: null, geoKey: "" };
 function tsWindow(x, y) {
+  if (town.tsHoles && town.tsHoles.has(y * W + x)) return true;
   if (town.win && town.win.has(y * W + x)) return true;
   const ri2 = roomAt[y] && roomAt[y][x];
   if (ri2 == null || ri2 < 0) return false;
@@ -15645,12 +15646,23 @@ function tsTile(x, y) {
   return tsWindow(x, y) ? 2 : 1;
 }
 const TS_CELL = 2;
-const TS_HOLES = { window: { x0: 8 / 24, x1: 16 / 24, y0: 11.8 / 24, y1: 17.6 / 24, bars: [[11.6 / 24, 12.4 / 24]] } };
+const TS_HOLES = {
+  window: { x0: 8 / 24, x1: 16 / 24, y0: 11.8 / 24, y1: 17.6 / 24, bars: [[11.6 / 24, 12.4 / 24]] },
+  // bars: the upright dividers between panes (x0, x1); the horizontal divider lies along the line of sight, so seen from above it casts nothing
+  // test shapes (tsLab, a hole wall): thin and wide, high and low
+  slit: { x0: 0.44, x1: 0.56, y0: 0.15, y1: 0.85, bars: [] },
+  narrow: { x0: 0.3, x1: 0.7, y0: 0.15, y1: 0.85, bars: [] },
+  wide: { x0: 0.08, x1: 0.92, y0: 0.4, y1: 0.6, bars: [] },
+  low: { x0: 0.2, x1: 0.8, y0: 0.6, y1: 0.95, bars: [] },
+  high: { x0: 0.2, x1: 0.8, y0: 0.05, y1: 0.4, bars: [] },
+  archway: { x0: 0.12, x1: 0.88, y0: 0.02, y1: 0.98, bars: [] }
+};
+const tsHoleKind = (x, y) => town.tsHoles && town.tsHoles.get(y * W + x) || "window";
 function tsBuild() {
   const full = (x, y) => x >= 0 && y >= 0 && x < W && y < H && (grid[y][x] === T.WALL && !tsWindow(x, y) || grid[y][x] === T.DOOR && !tsDoorOpen(x, y));
   const win = (x, y) => x >= 0 && y >= 0 && x < W && y < H && grid[y][x] === T.WALL && tsWindow(x, y);
   const hard = (x, y) => full(x, y) || win(x, y);
-  const hE = /* @__PURE__ */ new Map(), vE = /* @__PURE__ */ new Map(), walls = [];
+  const hE = /* @__PURE__ */ new Map(), vE = /* @__PURE__ */ new Map(), walls = [], plates = /* @__PURE__ */ new Map();
   const addH = (y, x1, x2) => {
     let l = hE.get(y);
     if (!l) hE.set(y, l = []);
@@ -15683,15 +15695,16 @@ function tsBuild() {
       }
       walls.push({ x, y, pts: pts.length ? pts : [[x + 0.5, y + 0.5]] });
     } else if (win(x, y)) {
-      const H2 = TS_HOLES.window;
-      for (const yy of [H2.y0, H2.y1]) {
+      const kind = tsHoleKind(x, y), H2 = TS_HOLES[kind];
+      for (const [yy, fl] of [[H2.y0, 1], [H2.y1, 2]]) {
         addH(y + yy, x, x + H2.x0);
         addH(y + yy, x + H2.x1, x + 1);
         for (const [b0, b1] of H2.bars) addH(y + yy, x + b0, x + b1);
+        plates.set((y + yy).toFixed(5), [fl, y]);
       }
       addV(x, y, y + 1);
       addV(x + 1, y, y + 1);
-      walls.push({ x, y, win: true, pts: [[x + 0.5, y + H2.y0], [x + H2.x0 / 2, y + H2.y0], [x + (1 + H2.x1) / 2, y + H2.y0], [x + 0.5, y + H2.y1]] });
+      walls.push({ x, y, win: true, kind, pts: [[x + 0.5, y + H2.y0], [x + H2.x0 / 2, y + H2.y0], [x + (1 + H2.x1) / 2, y + H2.y0], [x + 0.5, y + H2.y1]] });
     }
   }
   const seg = [], merge = (m, horiz) => {
@@ -15730,7 +15743,15 @@ function tsBuild() {
       }
     }
   }
-  return { seg, walls, cells, cw, ch };
+  const pf = new Int8Array(seg.length / 4), pty = new Int32Array(seg.length / 4);
+  for (let s = 0; s < seg.length; s += 4) if (seg[s + 1] === seg[s + 3]) {
+    const p = plates.get(seg[s + 1].toFixed(5));
+    if (p) {
+      pf[s >> 2] = p[0];
+      pty[s >> 2] = p[1];
+    }
+  }
+  return { seg, walls, cells, cw, ch, pf, pty };
 }
 function tsRay(G, ox, oy, dx, dy, tMax) {
   const seg = G.seg, cells = G.cells, cw = G.cw, ch = G.ch;
@@ -15743,7 +15764,9 @@ function tsRay(G, ox, oy, dx, dy, tMax) {
     if (cx >= 0 && cy >= 0 && cx < cw && cy < ch) {
       const L = cells[cy * cw + cx];
       if (L) for (let i = 0; i < L.length; i++) {
-        const s = L[i], x1 = seg[s], y1 = seg[s + 1], ex = seg[s + 2] - x1, ey = seg[s + 3] - y1, den = dx * ey - dy * ex;
+        const s = L[i], pf = G.pf[s >> 2];
+        if (pf && (pf === 1 ? oy < G.pty[s >> 2] : oy > G.pty[s >> 2] + 1)) continue;
+        const x1 = seg[s], y1 = seg[s + 1], ex = seg[s + 2] - x1, ey = seg[s + 3] - y1, den = dx * ey - dy * ex;
         if (den > -1e-12 && den < 1e-12) continue;
         const px = x1 - ox, py = y1 - oy, t = (px * ey - py * ex) / den, u = (px * dy - py * dx) / den;
         if (t >= -1e-9 && t < best && u >= -1e-7 && u <= 1 + 1e-7) {
@@ -15859,7 +15882,7 @@ function tsFaces(ex, ey, pts, G = tsGeo(), depth = 1) {
     const north = ey < w.y, south = ey > w.y + 1;
     if (!north && !south) continue;
     const ly = north ? w.y : w.y + 1, dir = north ? 1 : -1;
-    const H2 = TS_HOLES.window, N = 24;
+    const H2 = TS_HOLES[w.kind || "window"], N = 24;
     for (let k = 0; k < N; k++) {
       const x0 = w.x + k / N, x1 = w.x + (k + 1) / N;
       if (!tsClear(G, ex, ey, (x0 + x1) / 2, ly - dir * 0.03, 0)) continue;
@@ -16110,12 +16133,19 @@ function tsLab() {
     setT(ox + 36 + i, oy + 22, T.WALL);
     setT(ox + 40 + i, oy + 23, T.WALL);
   }
+  town.tsHoles = /* @__PURE__ */ new Map();
+  const kinds = ["slit", "narrow", "wide", "low", "high", "archway", "window"];
+  for (let i = 0; i < 22; i++) setT(ox + 2 + i, oy + 27, T.WALL);
+  kinds.forEach((k, i) => {
+    town.tsHoles.set((oy + 27) * W + ox + 3 + i * 3, k);
+  });
+  town.gridV = (town.gridV || 0) + 1;
   town.treeDirty = true;
   town.treeCache = null;
   if (typeof markDirty === "function") markDirty(ox, oy, LW, LH);
   if (typeof refreshReach === "function") refreshReach();
   rebuildOcc();
-  return { ox, oy, A, B, C, K, H: Hh, shed: Sh };
+  return { ox, oy, A, B, C, K, H: Hh, shed: Sh, holes: kinds };
 }
 const GA = { CT: 8, LODS: [12, 24, 48, 96], chunks: /* @__PURE__ */ new Map(), px: 0, maxPx: 56e6, frame: 0, ov: null, ovc: null, shal: null, seed: 7, boost: 0, hour: 12, stats: { bake: 0, baked: 0, ms: 0 } };
 const OVP = 4;
