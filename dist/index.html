@@ -15858,10 +15858,15 @@ function tsFaces(ex, ey, pts, G = tsGeo(), depth = 1) {
     const north = ey < w.y, south = ey > w.y + 1;
     if (!north && !south) continue;
     const ly = north ? w.y : w.y + 1, dir = north ? 1 : -1;
-    for (let k = 0; k < 8; k++) {
-      const x0 = w.x + k / 8, x1 = w.x + (k + 1) / 8;
+    const H2 = TS_HOLES.window, N = 24;
+    for (let k = 0; k < N; k++) {
+      const x0 = w.x + k / N, x1 = w.x + (k + 1) / N;
       if (!tsClear(G, ex, ey, (x0 + x1) / 2, ly - dir * 0.03, 0)) continue;
-      quads.push([x0 - 0.01, ly - dir * 0.03, x1 + 0.01, ly - dir * 0.03, x1 + 0.01, ly + dir * 1.03, x0 - 0.01, ly + dir * 1.03]);
+      const inHole = (k + 0.5) / N > H2.x0 && (k + 0.5) / N < H2.x1, ys = inHole ? [[0, H2.y0], [H2.y1, 1]] : [[0, 1]];
+      for (const [t0, t1] of ys) {
+        const ya = w.y + t0 - (t0 === 0 ? 0.03 : 0), yb = w.y + t1 + (t1 === 1 ? 0.03 : 0);
+        quads.push([x0 - 0.01, ya, x1 + 0.01, ya, x1 + 0.01, yb, x0 - 0.01, yb]);
+      }
     }
   }
   return quads;

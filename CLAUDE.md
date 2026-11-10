@@ -177,7 +177,7 @@ behind each visible stretch of face (`tsFaces`: a strip one tile deep), so a gla
 - ONLY buildings block sight: walls, closed doors, the solid bits beside a window. Trees, rocks, furniture, crates and people never do.
 - At an inner corner (the face ends at the segment's own end and solid wall carries on round it) `tsFaces` shows the corner tile too, so the four outer corner tiles of a room are not black notches when you stand inside.
 - A window is a hole in a wall tile (`TS_HOLES`, fractions of the tile, taken from the glass of the sprite): two thin plates, solid but for the hole, at its top and bottom edges, so sight passes only through the hole and the lit strip of a window plate stops at its own tile. A new hole shape is a new entry.
-- A window tile always shows its whole face wherever its outer line can be seen (`tsFaces`), so the wall beside it can never throw a shadow over the window itself.
+- A window tile shows its whole face wherever its outer line can be seen (`tsFaces`), so the wall beside it never shades the tile; only the glass (the `TS_HOLES` rectangle) follows the sight line through it, lit where you can see through and dark where you cannot.
 - `tsGeo()` builds (and caches, keyed by `town.gridV` and door states) the segments in a cell grid; `tsRay` finds the nearest hit; `tsPolygon`, `tsWalls`.
   `tsSees(x, y)` = can the player see a person standing there (`canSee` uses it; hidden people are not drawn, picked or named).
   `tsLine(ax, ay, bx, by)` = a clear line on the same segments, for NPC perception with its own rules (NPCs still use the older `seeThrough`).

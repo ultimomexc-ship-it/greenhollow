@@ -131,7 +131,10 @@ function tsFaces(ex, ey, pts, G = tsGeo(), depth = 1) {
   // a window tile shows its whole face wherever its outer line can be seen (the wall beside it may hide the recessed glass, never the face of the tile)
   for (const w of G.walls) { if (!w.win || Math.abs(w.x + 0.5 - ex) > 60 || Math.abs(w.y + 0.5 - ey) > 60) continue; const north = ey < w.y, south = ey > w.y + 1; if (!north && !south) continue;
     const ly = north ? w.y : w.y + 1, dir = north ? 1 : -1;
-    for (let k = 0; k < 8; k++) { const x0 = w.x + k / 8, x1 = w.x + (k + 1) / 8; if (!tsClear(G, ex, ey, (x0 + x1) / 2, ly - dir * 0.03, 0)) continue; quads.push([x0 - 0.01, ly - dir * 0.03, x1 + 0.01, ly - dir * 0.03, x1 + 0.01, ly + dir * 1.03, x0 - 0.01, ly + dir * 1.03]); } }
+    const H = TS_HOLES.window, N = 24;   // the face is lit all over except the hole itself: what shows through the glass is whatever the sight line through it reaches
+    for (let k = 0; k < N; k++) { const x0 = w.x + k / N, x1 = w.x + (k + 1) / N; if (!tsClear(G, ex, ey, (x0 + x1) / 2, ly - dir * 0.03, 0)) continue;
+      const inHole = (k + 0.5) / N > H.x0 && (k + 0.5) / N < H.x1, ys = inHole ? [[0, H.y0], [H.y1, 1]] : [[0, 1]];
+      for (const [t0, t1] of ys) { const ya = w.y + t0 - (t0 === 0 ? 0.03 : 0), yb = w.y + t1 + (t1 === 1 ? 0.03 : 0); quads.push([x0 - 0.01, ya, x1 + 0.01, ya, x1 + 0.01, yb, x0 - 0.01, yb]); } } }
   return quads;
 }
 /** is the point (tile coords) in a clear line from the eye? (nothing of any building between them) */
