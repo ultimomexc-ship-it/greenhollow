@@ -109,9 +109,14 @@ function tsFaces(ex, ey, pts, G = tsGeo(), depth = 1) {
     const a = pts[i], b = pts[j]; if (Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) < 1e-5) continue;
     let nx = -(seg[s + 3] - seg[s + 1]), ny = seg[s + 2] - seg[s], l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
     if ((ex - a[0]) * nx + (ey - a[1]) * ny > 0) { nx = -nx; ny = -ny; }   // pointing away from you, into the wall
+    { const mx = (a[0] + b[0]) / 2 + nx * 0.5, my = (a[1] + b[1]) / 2 + ny * 0.5; if (tsTile(Math.floor(mx), Math.floor(my)) !== 1) continue; }   // you are inside the wall's thickness (standing in a doorway): this is the wall's far side, not a face you look at
     // a hair of overlap (along the face and back into the lit floor) so neighbouring strips and the polygon never show a seam
     let tx = b[0] - a[0], ty = b[1] - a[1]; const tl = Math.hypot(tx, ty) || 1; tx = tx / tl * 0.03; ty = ty / tl * 0.03; const o = 0.03;
-    let a0 = a[0] - tx - nx * o, a1 = a[1] - ty - ny * o, b0 = b[0] + tx - nx * o, b1 = b[1] + ty - ny * o;
+    // standing in a doorway: the jambs and the wall blocks beside you stay dark (the strip would sit right against you)
+    { const et = [Math.floor(ex), Math.floor(ey)], sx = Math.floor((a[0] + b[0]) / 2 + nx * 0.5), sy = Math.floor((a[1] + b[1]) / 2 + ny * 0.5); if (grid[et[1]] && grid[et[1]][et[0]] === T.DOOR && Math.abs(sx - et[0]) + Math.abs(sy - et[1]) === 1) continue; }
+    // the hair of overlap runs along the face only where the strip carries on; at the true end of a wall it would leave a light hairline past the corner
+    const endAt = p => Math.abs(p[0] - seg[s]) + Math.abs(p[1] - seg[s + 1]) < 0.02 || Math.abs(p[0] - seg[s + 2]) + Math.abs(p[1] - seg[s + 3]) < 0.02, ta = endAt(a) ? 0 : 1, tb = endAt(b) ? 0 : 1;
+    let a0 = a[0] - tx * ta - nx * o, a1 = a[1] - ty * ta - ny * o, b0 = b[0] + tx * tb - nx * o, b1 = b[1] + ty * tb - ny * o;
     // an inner corner: where the face ends at the segment's own end and the wall carries on round it (solid ahead and solid beside), the corner tile behind that end is shown whole
     { const ux = (b[0] - a[0]) / tl, uy = (b[1] - a[1]) / tl, hard = (px, py) => tsTile(Math.floor(px), Math.floor(py)) >= 1, ends = [[seg[s], seg[s + 1]], [seg[s + 2], seg[s + 3]]], at = (p, q) => Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) < 0.02;
       const corner = (p, dx, dy) => { if (!ends.some(q => at(p, q)) || !hard(p[0] + dx * 0.5 + nx * 0.5, p[1] + dy * 0.5 + ny * 0.5) || !hard(p[0] + dx * 0.5 - nx * 0.5, p[1] + dy * 0.5 - ny * 0.5)) return;

@@ -15593,12 +15593,21 @@ function tsFaces(ex, ey, pts, G = tsGeo(), depth = 1) {
       nx = -nx;
       ny = -ny;
     }
+    {
+      const mx = (a[0] + b[0]) / 2 + nx * 0.5, my = (a[1] + b[1]) / 2 + ny * 0.5;
+      if (tsTile(Math.floor(mx), Math.floor(my)) !== 1) continue;
+    }
     let tx = b[0] - a[0], ty = b[1] - a[1];
     const tl = Math.hypot(tx, ty) || 1;
     tx = tx / tl * 0.03;
     ty = ty / tl * 0.03;
     const o = 0.03;
-    let a0 = a[0] - tx - nx * o, a1 = a[1] - ty - ny * o, b0 = b[0] + tx - nx * o, b1 = b[1] + ty - ny * o;
+    {
+      const et = [Math.floor(ex), Math.floor(ey)], sx = Math.floor((a[0] + b[0]) / 2 + nx * 0.5), sy = Math.floor((a[1] + b[1]) / 2 + ny * 0.5);
+      if (grid[et[1]] && grid[et[1]][et[0]] === T.DOOR && Math.abs(sx - et[0]) + Math.abs(sy - et[1]) === 1) continue;
+    }
+    const endAt = (p) => Math.abs(p[0] - seg[s]) + Math.abs(p[1] - seg[s + 1]) < 0.02 || Math.abs(p[0] - seg[s + 2]) + Math.abs(p[1] - seg[s + 3]) < 0.02, ta = endAt(a) ? 0 : 1, tb = endAt(b) ? 0 : 1;
+    let a0 = a[0] - tx * ta - nx * o, a1 = a[1] - ty * ta - ny * o, b0 = b[0] + tx * tb - nx * o, b1 = b[1] + ty * tb - ny * o;
     {
       const ux = (b[0] - a[0]) / tl, uy = (b[1] - a[1]) / tl, hard = (px, py) => tsTile(Math.floor(px), Math.floor(py)) >= 1, ends = [[seg[s], seg[s + 1]], [seg[s + 2], seg[s + 3]]], at = (p, q) => Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) < 0.02;
       const corner = (p, dx, dy) => {
