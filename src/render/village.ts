@@ -165,7 +165,7 @@ function gaEvict() {
 
 /* ---- the whole island at a glance, for when the camera is far out (and while a chunk is still being painted) ---- */
 function gaTileColour(x, y) {
-  if (lvlOf(y) >= 1) { const t = grid[y][x]; return t === T.SKY ? null : t === T.EARTH ? '#4a3426' : isMineY(y) ? '#6b523a' : '#8a8478'; }
+  if (lvlOf(y) >= 1) return null;   // (the other levels are not in the overview: its smoothing would bleed a grey band round a roof)
   if (roomAt[y][x] >= 0) { const t = grid[y][x]; return t === T.WALL || t === T.DOOR ? '#a69a80' : '#9c7a52'; }
   const t = grid[y][x], K = gclass(x, y);
   if (t === T.TREE) return '#3f7a3a'; if (t === T.ROCK) return '#8c8f92'; if (t === T.MOUNTAIN) return '#8f9488'; if (t === T.TENT) return '#cdbf94'; if (t === T.STALL) return '#b5683a'; if (t === T.GRAVE) return '#7d9a6a';

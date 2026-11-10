@@ -243,7 +243,7 @@ function loadTown(seed, size, scenario?) {
   if(!ok) throw new Error('town generation failed');
   initEconomy();
   makeTownIndex2();
-  if (scenario === 'blank') blankStart(); else { prebuildVillage(); housingTick(); growthProjects(); }
+  if (scenario === 'blank') blankStart(); else { prebuildVillage(); prebuildLevels(); housingTick(); growthProjects(); }
   town.scenario = scenario === 'blank' ? 'blank' : 'village'; shroomScatter();
   return town;
 }
