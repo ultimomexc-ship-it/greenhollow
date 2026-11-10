@@ -55,8 +55,9 @@ function targetAt0(n, x, y) {
   { const sh = !itBuildOn(n) && shroomAt(x, y); if (sh) return { key: 'shroom' + x + ',' + y, min: 0.6, text: 'Eating a mushroom', tool: null, run(nn) { eatShroom(nn, sh); } }; }
   const c = cropAt(x, y);
   if (c && !itBuildOn(n)) {
-    const st = c.st ? cropStage(c) : 0;
-    if (c.st && st === 4) return { key: 'crop' + x + ',' + y + 'h', min: 4, text: 'Harvesting grain', tool: 'hoe', walkOn: true, run(n) { if (c.st && cropStage(c) === 4) { const h = itHarvest(n, c); playerSay(n, '+' + h.q + ' ' + h.what + (h.back ? ', +' + h.back + ' seed' : '')); } } };
+    const st = c.st ? cropStage(c) : 0, fl = !!c.st && itIsFlower(c);
+    if (fl && itWilted(c)) return { key: 'crop' + x + ',' + y + 'h', min: 2, text: 'Clearing the withered flowers', tool: 'hoe', walkOn: true, run(n) { if (c.st) { const sd = c.seed; c.st = 0; c.seed = null; itGiveStack(n, 'seed_' + sd, 1); playerSay(n, 'Cleared. The ground is ready again. +1 seed'); } } };
+    if (c.st && st === 4 && !fl) return { key: 'crop' + x + ',' + y + 'h', min: 4, text: 'Harvesting grain', tool: 'hoe', walkOn: true, run(n) { if (c.st && cropStage(c) === 4) { const h = itHarvest(n, c); playerSay(n, '+' + h.q + ' ' + h.what + (h.back ? ', +' + h.back + ' seed' : '')); } } };
     if (!c.pl) return { key: 'crop' + x + ',' + y + 'p', min: 3, text: 'Ploughing the field', tool: 'hoe', walkOn: true, run(n) { c.pl = 1; playerSay(n, 'Ploughed. Let go, then walk into it again to sow.'); } };
     if (!c.st) return { key: 'crop' + x + ',' + y + 's', min: 7, text: 'Sowing seed', tool: 'hoe', walkOn: true, run(n) { if (!c.st) { c.st = 1; c.t0 = game.time; c.byPlayer = true; playerSay(n, 'Sown'); } } };   // any ploughed plot can be sown; only the farmers wait for the whole field
   }

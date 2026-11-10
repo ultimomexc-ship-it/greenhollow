@@ -106,7 +106,7 @@ function itFacing(n): { what: string; verb: string; need: string | null } | null
   if (itBuildOn(n) && bldHammerWall(x, y, itHeld(n).kind === 'hammer')) return { what: g === T.DOOR ? 'Door' : 'Wall block', verb: 'Break', need: 'hammer' };
   if (g === T.TREE) return { what: 'Tree', verb: 'Fell', need: 'axe' }; if (g === T.ROCK) return { what: 'Rock', verb: 'Break', need: 'hammer' };
   if (g === T.WATER) return { what: 'Water', verb: 'Fish', need: 'rod' };
-  if (c) { const st = c.st ? cropStage(c) : 0; return !c.pl ? { what: 'Field', verb: 'Plough', need: 'hoe' } : c.st && st === 4 ? { what: 'Ripe ' + (c.seed || 'wheat'), verb: 'Harvest', need: 'hoe' } : c.st ? { what: cvCap(c.seed || 'wheat'), verb: 'growing', need: null } : { what: 'Ploughed field', verb: 'Sow', need: 'seed' }; }
+  if (c) { const st = c.st ? cropStage(c) : 0; return !c.pl ? { what: 'Field', verb: 'Plough', need: 'hoe' } : c.st && itIsFlower(c) ? (itWilted(c) ? { what: 'Withered ' + c.seed, verb: 'Clear', need: 'hoe' } : { what: cvCap(c.seed), verb: st === 4 ? 'in bloom' : 'growing', need: null }) : c.st && st === 4 ? { what: 'Ripe ' + (c.seed || 'wheat'), verb: 'Harvest', need: 'hoe' } : c.st ? { what: cvCap(c.seed || 'wheat'), verb: 'growing', need: null } : { what: 'Ploughed field', verb: 'Sow', need: 'seed' }; }
   const nd = town.nodes && town.nodes.find(q => q.x === x && q.y === y && q.amt >= 1); if (nd) return { what: nd.kind === 'berry' ? 'Berries' : 'Herbs', verb: 'Gather', need: 'hand' };
   return null;
 }

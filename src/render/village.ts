@@ -226,7 +226,8 @@ function drawCrops(c, now) {
     if (t.x < v.x0 || t.x >= v.x1 || t.y < v.y0 || t.y >= v.y1) continue;
     const st = t.pl ? cropStage(t) : -1;   // -1 untilled (rough and weedy), 0 ploughed (dark furrows), 1-4 growing
     if (st > 0) gaDraw(c, 'crop_0', t.x * TS, t.y * TS, now, 0);   // the ploughed earth under whatever is growing
-    gaDraw(c, st < 0 ? 'crop_raw' : 'crop_' + Math.min(4, st), t.x * TS, t.y * TS, now, t.x + t.y);
+    const sd = st > 0 && t.seed && t.seed !== 'barley' && IT_SEEDS[t.seed] ? t.seed : null;   // every other crop and flower has its own plant
+    gaDraw(c, sd ? 'crop_' + sd + '_' + (itWilted(t) ? 5 : Math.min(4, st)) : st < 0 ? 'crop_raw' : 'crop_' + Math.min(4, st), t.x * TS, t.y * TS, now, t.x + t.y);
   }
 }
 function drawNodes(c, now) {

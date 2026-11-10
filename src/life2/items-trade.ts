@@ -8,9 +8,9 @@
    The Taberna sells seed; the player has a garden plot by home that the farmers leave alone.
    Lockpicks: a lockpick in hand opens a house that is barred for the night (it may snap; somebody inside may hear). The smith sells them, quietly, to friends.
    The sawmill: a Miller saws logs into planks (2 logs -> 3 planks). Planks are sold there, and count as timber on a building site.                     */
-Object.assign(GOODS, { turnip: { base: 2, sat: 30, name: 'turnips' }, beans: { base: 2, sat: 28, name: 'beans' }, seeds: { base: 2, name: 'seed' }, planks: { base: 3, name: 'planks' } });
-FOODS.push('turnip', 'beans');
-Object.assign(GICON, { turnip: 'turnips', beans: 'beans', planks: 'planks', iron: 'iron ore', stone: 'stone' });
+Object.assign(GOODS, { turnip: { base: 2, sat: 30, name: 'turnips' }, beans: { base: 2, sat: 28, name: 'beans' }, potato: { base: 2, sat: 32, name: 'potatoes' }, cabbage: { base: 2, sat: 26, name: 'cabbages' }, tomato: { base: 2, sat: 22, name: 'tomatoes' }, corn: { base: 2, sat: 30, name: 'corn' }, pumpkin: { base: 3, sat: 34, name: 'pumpkins' }, strawberries: { base: 3, sat: 20, name: 'strawberries' }, carrot: { base: 2, sat: 26, name: 'carrots' }, seeds: { base: 2, name: 'seed' }, planks: { base: 3, name: 'planks' } });
+FOODS.push('turnip', 'beans', 'potato', 'cabbage', 'tomato', 'corn', 'pumpkin', 'strawberries', 'carrot');
+Object.assign(GICON, { turnip: 'turnips', beans: 'beans', potato: 'potatoes', cabbage: 'cabbages', tomato: 'tomatoes', corn: 'corn', pumpkin: 'pumpkins', strawberries: 'strawberries', carrot: 'carrots', planks: 'planks', iron: 'iron ore', stone: 'stone' });
 Object.assign(LF2_BLD, { mill: 'The Sawmill' }); (BUILDING as any).mill = 1;
 Object.assign(LF2_SELL, { mill: { planks: 10 } }); (LF2_SELL.shop as any).seeds = 8;
 Object.assign(LF2_JOBS, { Miller: { name: 'Miller', room: 'mill', spot: 'saw', tool: 'axe', text: 'Sawing logs into planks', recipe: { in: { wood: 2 }, out: { planks: 3 }, min: 50 }, fetch: { wood: 6 }, fit: ['early bird', 'brave'] } });
@@ -57,7 +57,19 @@ function itRockOre(n) {
 }
 
 /* ---------------- seeds ---------------- */
-const IT_SEEDS: any = { barley: { grow: 1, yield: 'grain', q: 3, word: 'barley' }, turnip: { grow: 0.55, yield: 'turnip', q: 3, word: 'turnips' }, bean: { grow: 0.8, yield: 'beans', q: 3, word: 'beans' } };
+const IT_SEEDS: any = {
+  barley: { grow: 1, yield: 'grain', q: 3, word: 'barley' }, turnip: { grow: 0.55, yield: 'turnip', q: 3, word: 'turnips', col: '#b58ac4' }, bean: { grow: 0.8, yield: 'beans', q: 3, word: 'beans', col: '#8fb07a' },
+  // the rest of the crops (after the harvest moon list): each has its own plant, grown through four stages
+  potato: { grow: 0.9, yield: 'potato', q: 3, word: 'potatoes', col: '#c49a62' }, cabbage: { grow: 1.1, yield: 'cabbage', q: 2, word: 'cabbages', col: '#9bd08a' }, tomato: { grow: 0.95, yield: 'tomato', q: 4, word: 'tomatoes', col: '#e23a2c' },
+  corn: { grow: 1.25, yield: 'corn', q: 3, word: 'corn', col: '#f2d04a' }, pumpkin: { grow: 1.4, yield: 'pumpkin', q: 2, word: 'pumpkins', col: '#e8832a' }, strawberry: { grow: 0.7, yield: 'strawberries', q: 4, word: 'strawberries', col: '#e0283a' }, carrot: { grow: 0.65, yield: 'carrot', q: 3, word: 'carrots', col: '#f08a1c' },
+  // flowers: nobody eats them, they are for decorating the island. They bloom and stay in bloom for FLOWER_LIFE days, then wither and want planting again
+  lavender: { grow: 0.6, flower: true, word: 'lavender', col: '#8a5ad0' }, poppy: { grow: 0.5, flower: true, word: 'poppies', col: '#e8281c' }, daisy: { grow: 0.4, flower: true, word: 'daisies', col: '#fffaf0' }, marigold: { grow: 0.5, flower: true, word: 'marigolds', col: '#f08a14' }, rose: { grow: 0.9, flower: true, word: 'roses', col: '#d82a52' },
+};
+const FLOWER_LIFE = 40 * 1440;
+for (const sd of Object.keys(IT_SEEDS)) if (!IT_STACKS['seed_' + sd]) IT_STACKS['seed_' + sd] = { name: IT_SEEDS[sd].word.charAt(0).toUpperCase() + IT_SEEDS[sd].word.slice(1) + ' seed', seed: sd, col: IT_SEEDS[sd].col || '#c9a96a' };
+const itIsFlower = c => !!(c.seed && IT_SEEDS[c.seed] && IT_SEEDS[c.seed].flower);
+/** a flower that has bloomed for its whole life: withered, to be cleared and planted again */
+const itWilted = c => itIsFlower(c) && !!c.st && game.time - c.t0 > itGrow(c) + FLOWER_LIFE;
 const itGrow = c => GROW * ((IT_SEEDS[c.seed] || IT_SEEDS.barley).grow);
 /** harvesting a plot: the food it gives, and (for the player) a seed or two back */
 function itHarvest(n, c) {

@@ -135,7 +135,7 @@ function stepNpc(n, dt) {
       n.ignoreBlock = false;
     }
     if (n.t === 0) { tileOwner.set(tkey(nx.x, nx.y), n); }
-    const cost = TILE_MIN * tileCost(nx.x, nx.y) / n.speed;
+    const cost = TILE_MIN * (n.player ? 1 : tileCost(nx.x, nx.y)) / n.speed;
     const need = (1 - n.t) * cost;
     n.face = { dx: Math.sign(nx.x - n.tx), dy: Math.sign(nx.y - n.ty) };
     if (n.pose !== 'walk' && !n.player) n.pose = 'walk';

@@ -712,6 +712,60 @@ function plants24(g, t, st) { const dkk = 'rgba(40,24,30,.55)'; for (let i = 0; 
       g.strokeStyle = ripe ? 'rgba(150,100,20,.7)' : 'rgba(40,90,40,.6)'; g.lineWidth = 0.14; for (let r = 0; r < 5; r++) { const yy = ey - 0.9 + r * 0.95; g.beginPath(); g.moveTo(ex, yy - 0.5); g.lineTo(ex - 1.1, yy + 0.4); g.moveTo(ex, yy - 0.5); g.lineTo(ex + 1.1, yy + 0.4); g.stroke(); }
       for (const s of [-1, 1]) for (let r = 0; r < 3; r++) ln(g, ex + s * 0.4, ey - 1 + r * 1.1, ex + s * 1.9, ey - 3.4 + r * 0.5, ripe ? '#e8cc78' : '#9acf68', 0.14); dab(g, ex - 0.45, ey + 0.4, 0.3, 1.1, 0, ripe ? '#fff0a8' : '#d4f0a0'); } } }
 
+/* ---- crops and flowers: every one its own plant, four stages (1 seedling, 2 growing, 3 nearly, 4 ripe or in bloom) and, for flowers, 5 withered ---- */
+const cblob = (g, x, y, rx, ry, col, hi?, a = 0) => { dab(g, x, y, rx + 0.4, ry + 0.4, a, INK); dab(g, x, y, rx, ry, a, col); if (hi) dab(g, x - rx * 0.25, y - ry * 0.3, rx * 0.5, ry * 0.4, a, hi); };
+const cleaf = (g, x, y, dx, dy, w, col, hi?) => cblob(g, x + dx / 2, y + dy / 2, Math.hypot(dx, dy) / 2, w, col, hi, Math.atan2(dy, dx));
+const cstem = (g, x1, y1, x2, y2, col, w = 0.6) => { ln(g, x1, y1, x2, y2, INK, w + 0.7); ln(g, x1, y1, x2, y2, col, w); };
+const CROP_ART: any = {
+  turnip: (g, x, b, st, sw) => { const L = '#5e9a3c', H = '#9ad26a'; if (st === 1) { for (const s of [-1, 1]) cleaf(g, x, b, s * 1.9, -1.5, 0.6, L, H); return; }
+    const h = [0, 0, 3.5, 5, 6][st], up = st >= 3 ? 1.2 : 0; if (st >= 3) { cblob(g, x, b - 0.7, st === 4 ? 2.4 : 1.6, st === 4 ? 2 : 1.3, '#f4ecf0', '#fff'); dab(g, x, b - 1.7, st === 4 ? 2 : 1.3, 0.9, 0, '#b05ec8'); }
+    for (const [s, k] of [[-1, 1], [0, 1.3], [1, 0.9]]) cleaf(g, x, b - up, s * 2.3 + sw * k, -h * k, 0.9, L, H); },
+  potato: (g, x, b, st, sw) => { const L = st === 4 ? '#8fa84a' : '#3f7a3a', H = st === 4 ? '#c4d66a' : '#7cc05a'; if (st === 1) { for (const s of [-1, 1]) cleaf(g, x, b, s * 1.8, -1.6, 0.6, '#5aa044', H); return; }
+    const n = [0, 0, 3, 4, 4][st]; for (let k = 0; k < n; k++) { const a = -2.4 + k * 1.6; cblob(g, x + a * 0.9 + sw * 0.4, b - 2.4 - (k % 2) * 1.6, 1.8, 1.4, L, H); }
+    if (st === 3) for (const [dx, dy] of [[-1.5, -4.6], [1.2, -3.2], [0.2, -5.4]]) dab(g, x + dx, b + dy, 0.55, 0.5, 0, '#fff'); if (st === 4) { cblob(g, x + 0.5, b - 0.2, 1.9, 1.2, '#c49a62', '#e6c690'); dab(g, x - 0.4, b - 0.5, 0.25, 0.2, 0, '#7a5a34'); } },
+  cabbage: (g, x, b, st) => { const L = '#5f9a5a', H = '#9bd08a'; if (st === 1) { for (const s of [-1, 1]) cleaf(g, x, b, s * 1.9, -1.2, 0.6, L, H); return; }
+    for (const s of [-1, 1]) cleaf(g, x, b - 0.6, s * 3.2, -0.2, 1.3, '#4f8a54', L); if (st === 2) { cleaf(g, x, b - 0.8, 0, -3, 1.5, L, H); return; }
+    const r = st === 4 ? 3.1 : 2.2; cblob(g, x, b - r + 0.4, r, r * 0.92, st === 4 ? '#b4dc86' : '#8cc070', '#e4f6bc'); ln(g, x, b - r * 1.6, x - 0.3, b - 0.4, 'rgba(70,120,60,.55)', 0.22); ln(g, x - r * 0.5, b - r * 1.5, x - r * 0.4, b - 0.8, 'rgba(70,120,60,.4)', 0.2); },
+  tomato: (g, x, b, st, sw) => { const h = [0, 3, 6, 8.5, 9.5][st]; cstem(g, x - 1.8, b, x - 1.8, b - h - 1, '#8a5a34', 0.45); cstem(g, x, b, x + sw * 0.4, b - h, '#4f8a3a', 0.55);
+    for (let k = 0; k < (st === 1 ? 1 : 3); k++) { const yy = b - h * (0.35 + k * 0.28); cleaf(g, x + sw * 0.3, yy, -2.4, -0.8, 0.8, '#468a3a', '#86c24e'); cleaf(g, x + sw * 0.3, yy - 0.8, 2.4, -0.7, 0.8, '#468a3a', '#86c24e'); }
+    if (st >= 3) for (const [dx, dy] of [[-1.7, 0.45], [1.8, 0.62], [0.3, 0.8]]) cblob(g, x + dx, b - h * dy, st === 4 ? 1.35 : 0.9, st === 4 ? 1.3 : 0.9, st === 4 ? '#e23a2c' : '#8fc24e', st === 4 ? '#ff8a70' : '#c4e88a'); },
+  corn: (g, x, b, st, sw) => { const h = [0, 3, 7, 11, 13][st]; cstem(g, x, b, x + sw * 0.5, b - h, '#5a9a3a', 0.8);
+    for (const [s, k] of [[-1, 0.35], [1, 0.5], [-1, 0.65]]) { if (st === 1 && k > 0.4) continue; cleaf(g, x + sw * k * 0.4, b - h * k, s * (3.4 + h * 0.1), -1 + (st >= 3 ? 1.6 : 0), 0.85, '#4f9a3a', '#98d060'); }
+    if (st >= 3) { for (const s of [-1, 0, 1]) ln(g, x + sw * 0.5, b - h, x + sw * 0.5 + s * 1.4, b - h - 1.8, '#d8c060', 0.35); }
+    if (st === 4) { cblob(g, x + 1.9, b - h * 0.55, 1.1, 2.6, '#f2d04a', '#fff0a0', 0.25); cleaf(g, x + 1.4, b - h * 0.5 + 1.8, 1, -3.4, 0.8, '#6aae44'); } },
+  pumpkin: (g, x, b, st, sw) => { const L = '#4f8a3a', H = '#8cc65a'; for (const s of [-1, 1]) cleaf(g, x, b - 0.6, s * (st === 1 ? 2 : 3.4), -0.5 - (st >= 2 ? 0.6 : 0), st === 1 ? 0.7 : 1.5, L, H);
+    if (st >= 2) ln(g, x - 3.4, b - 0.2, x + 3.4, b + 0.2, '#6aa044', 0.35);
+    if (st >= 3) { const r = st === 4 ? 3.3 : 1.7; cblob(g, x, b - r * 0.8, r, r * 0.78, st === 4 ? '#e8832a' : '#a8c04a', st === 4 ? '#ffbe5a' : '#d4e480'); if (st === 4) { ln(g, x - 1.1, b - r * 1.5, x - 1.4, b - 0.4, 'rgba(150,70,10,.5)', 0.25); ln(g, x + 1.1, b - r * 1.5, x + 1.4, b - 0.4, 'rgba(150,70,10,.5)', 0.25); } cstem(g, x, b - r * 1.5, x + 0.4, b - r * 1.5 - 1.1, '#6a8a34', 0.6); } },
+  strawberry: (g, x, b, st, sw) => { const L = '#3f8a3a', H = '#86c24e'; for (const [dx, dy] of st === 1 ? [[0, 0]] : [[-1.8, 0], [1.8, 0], [0, -1.2]]) { cleaf(g, x + dx, b + dy, -1.8, -1.2, 0.8, L, H); cleaf(g, x + dx, b + dy, 1.8, -1.2, 0.8, L, H); cleaf(g, x + dx, b + dy, 0, -2.2, 0.8, L, H); }
+    if (st === 3) for (const [dx, dy] of [[-2.2, -2.6], [1.8, -2.2], [0, -3.4]]) { dab(g, x + dx, b + dy, 0.8, 0.8, 0, '#fff'); dab(g, x + dx, b + dy, 0.28, 0.28, 0, '#f2c030'); }
+    if (st === 4) for (const [dx, dy] of [[-2.4, 0.2], [2, 0.3], [0.2, 0.6]]) { cblob(g, x + dx, b + dy, 1.05, 1.25, '#e0283a', '#ff8a90'); dab(g, x + dx - 0.3, b + dy, 0.15, 0.15, 0, '#ffe890'); dab(g, x + dx + 0.3, b + dy + 0.4, 0.15, 0.15, 0, '#ffe890'); } },
+  carrot: (g, x, b, st, sw) => { const h = [0, 2.5, 4.5, 6, 6.5][st]; for (const [s, k] of [[-1, 1], [0, 1.25], [1, 1], [0.5, 0.7]]) { cstem(g, x, b, x + s * 1.9 + sw * k * 0.5, b - h * k, '#4a9a3a', 0.35); if (st > 1) cblob(g, x + s * 1.9 + sw * k * 0.5, b - h * k, 0.9, 0.7, '#5aaa44', '#98d868'); }
+    if (st >= 3) cblob(g, x, b - 0.1, st === 4 ? 1.7 : 1.1, st === 4 ? 1.1 : 0.7, '#f08a1c', '#ffbe5a'); },
+  bean: (g, x, b, st, sw) => { const h = [0, 3, 7, 10, 11][st]; cstem(g, x, b, x, b - h - 1, '#8a5a34', 0.5); cstem(g, x + 0.9, b, x + 0.9 + sw * 0.3, b - h * 0.8, '#5aa044', 0.45);
+    for (let k = 0; k < (st === 1 ? 1 : 4); k++) { const yy = b - h * (0.25 + k * 0.2), s = k % 2 ? 1 : -1; cleaf(g, x + 0.4, yy, s * 2.4, -0.9, 0.85, '#4f9a3a', '#98d060'); }
+    if (st === 3) for (const [dx, dy] of [[-1, 0.5], [1.6, 0.7]]) dab(g, x + dx, b - h * dy, 0.5, 0.5, 0, '#fff');
+    if (st === 4) for (const [dx, dy] of [[-1.5, 0.4], [1.8, 0.55], [-1.1, 0.7], [1.5, 0.85]]) cleaf(g, x + dx, b - h * dy, 0.3, 2.8, 0.55, '#6fb04a', '#a8e078'); },
+  lavender: (g, x, b, st, sw) => { const L = '#6a9a7a', H = '#a4c8a8'; for (const s of [-1, 0, 1]) cleaf(g, x, b, s * 2, -(st === 1 ? 1.6 : 2.6), 0.5, L, H); if (st === 1) return;
+    for (const s of [-1.6, -0.6, 0.6, 1.6]) { const hh = [0, 0, 4.4, 5.8, 7][st] - Math.abs(s) * 0.5, tx = x + s * 1.1 + sw * 0.3; cstem(g, x + s * 0.5, b - 1, tx, b - hh, '#5a8a5a', 0.3);
+      if (st >= 3) for (let k = 0; k < 4; k++) dab(g, tx + (k % 2 ? 0.25 : -0.25), b - hh + 0.6 - k * 0.9 + 0.9, 0.7, 0.55, 0, st === 4 ? (k % 2 ? '#8a5ad0' : '#b088f0') : '#9aa0c8'); } },
+  poppy: (g, x, b, st, sw) => { const L = '#6a9a5a', H = '#a4cc84'; for (const s of [-1, 1]) cleaf(g, x, b, s * 2.1, -1.4, 0.6, L, H); if (st === 1) return; const hh = [0, 0, 4, 6, 7][st], tx = x + sw * 0.4; cstem(g, x, b - 1, tx, b - hh, '#5a8a4a', 0.35);
+    if (st === 2) cleaf(g, tx, b - hh, 0.2, -1.2, 0.5, L, H); if (st === 3) cblob(g, tx, b - hh, 0.9, 1.2, '#6aaa4a', '#a8dc7a'); if (st === 4) { for (const s of [-1, 1]) cblob(g, tx + s * 1.1, b - hh, 1.4, 1.5, '#e8281c', '#ff7a5a'); cblob(g, tx, b - hh - 0.5, 1.4, 1.5, '#d8201a', '#ff6a50'); dab(g, tx, b - hh, 0.55, 0.5, 0, '#2a2030'); } },
+  daisy: (g, x, b, st, sw) => { const L = '#5aa044', H = '#98d868'; for (const s of [-1, 1]) cleaf(g, x, b, s * 2, -1.3, 0.55, L, H); if (st === 1) return; const hh = [0, 0, 3.6, 5, 5.8][st], tx = x + sw * 0.35; cstem(g, x, b - 1, tx, b - hh, '#5a9a44', 0.3);
+    if (st === 3) cblob(g, tx, b - hh, 0.8, 0.9, '#d8ecb0', '#fff'); if (st === 4) { for (let k = 0; k < 7; k++) { const a = k * TAU / 7; cleaf(g, tx, b - hh, Math.cos(a) * 2.5, Math.sin(a) * 2.2, 0.55, '#fffaf0', '#fff'); } cblob(g, tx, b - hh, 0.95, 0.9, '#f4c830', '#ffe880'); } },
+  marigold: (g, x, b, st, sw) => { const L = '#4f9a3a', H = '#88c858'; for (const s of [-1, 0, 1]) cleaf(g, x, b, s * 1.9, -(s ? 1.6 : 2.4), 0.5, L, H); if (st === 1) return; const hh = [0, 0, 3.6, 5, 5.6][st], tx = x + sw * 0.35; cstem(g, x, b - 1, tx, b - hh, '#4f8a3a', 0.35);
+    if (st === 3) cblob(g, tx, b - hh, 1, 1, '#c8c050', '#e8e090'); if (st === 4) { cblob(g, tx, b - hh, 2.1, 1.8, '#f08a14', '#ffc050'); cblob(g, tx, b - hh - 0.2, 1.3, 1.1, '#f8a828', '#ffd880'); dab(g, tx, b - hh - 0.2, 0.5, 0.4, 0, '#d86a08'); } },
+  rose: (g, x, b, st, sw) => { const L = '#3a7a3a', H = '#6ab04e'; cstem(g, x, b, x - 0.6, b - [0, 2, 4, 5, 5.6][st], '#6a4a2a', 0.5); if (st === 1) { cleaf(g, x, b - 0.5, 1.8, -1.4, 0.6, L, H); return; }
+    for (const [dx, dy] of [[-1.8, -2], [1.8, -2.4], [0, -4], [-1.2, -4.6], [1.4, -4.4]]) { if (st === 2 && dy < -3) continue; cblob(g, x + dx + sw * 0.2, b + dy * (st === 2 ? 0.8 : 1), 1.7, 1.3, L, H); }
+    if (st === 3) for (const [dx, dy] of [[-1.5, -4.8], [1.6, -5], [0.1, -6.4]]) cblob(g, x + dx, b + dy, 0.7, 0.9, '#b8284a', '#e8607a'); if (st === 4) for (const [dx, dy] of [[-1.7, -4.6], [1.7, -5], [0, -6.4], [-0.4, -3]]) { cblob(g, x + dx, b + dy, 1.35, 1.25, '#d82a52', '#ff7a9a'); dab(g, x + dx, b + dy, 0.55, 0.45, 0, '#a01a3a'); } },
+};
+function cropArt24(g, t, seed, st) {
+  const D = CROP_ART[seed]; if (!D) return;
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { const x = 4.4 + j * 7.6 + (h32(i, j, 3, 7) - 0.5) * 1.2, b = 9.2 + i * 6.6, sw = tw(t, 1, j * 0.7 + i * 0.5) * 0.45 * Math.min(1, st / 2);
+    dab(g, x + 0.3, b + 0.4, 1.8, 0.7, 0, 'rgba(36,20,30,.4)');
+    if (st === 5) { const dry = '#a08a58'; cstem(g, x, b, x + 1.6, b - 3.2, dry, 0.4); cleaf(g, x, b, -2.2, -0.6, 0.55, '#8a7448'); cleaf(g, x + 1.6, b - 3.2, 1.6, 1.8, 0.7, '#9a8250', '#b8a470'); continue; }
+    D(g, x, b, st, sw); }
+}
+
 /* a field plot before it grows anything: rough and weedy until somebody ploughs it, then dark turned earth in three deep rows (the rows the seeds go into) */
 function field24(g, raw) {
   const r = (i, n) => h32(i, n, 41, raw ? 3 : 4);
@@ -1943,6 +1997,7 @@ function magicShroom24(g, t) { shadowE(g, 12, 20.2, 8, 2);
 A('magic_shroom', 'plants', 'Magic mushrooms', 24, 24, FR, (g, t) => magicShroom24(g, t));
 for (const s of R3(3)) A(`herb_${s}`, 'plants', ['Herb patch, bare', 'Herb patch, some', 'Herb patch, in flower'][s], 24, 24, FR, (g, t) => herb24(g, t, 0, s));
 for (const s of [1, 2, 3, 4]) A(`crop_${s}`, 'plants', ['Seedlings', 'Young wheat', 'Green wheat', 'Ripe wheat'][s - 1], 24, 24, FR, (g, t) => plants24(g, t, s), { under: 'soil' });
+for (const sd of Object.keys(CROP_ART)) for (const s of [1, 2, 3, 4, 5]) { if (s === 5 && !['lavender', 'poppy', 'daisy', 'marigold', 'rose'].includes(sd)) continue; A(`crop_${sd}_${s}`, 'plants', `${sd}, stage ${s}`, 24, 24, FR, (g, t) => cropArt24(g, t, sd, s), { under: 'soil' }); }
 A('crop_raw', 'plants', 'Field plot, untilled', 24, 24, 1, g => field24(g, true), { kind: 'tile', under: null });
 A('crop_0', 'plants', 'Field plot, ploughed', 24, 24, 1, g => field24(g, false), { kind: 'tile', under: null });
 A('shroom', 'plants', 'Glow mushrooms', 24, 24, FR, (g, t) => shroom24(g, t));

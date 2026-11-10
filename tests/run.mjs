@@ -1503,6 +1503,27 @@ test('truesight: whatever has a clear line of sight is lit at every zoom, even w
   check(!errors.length, errors.slice(0, 3).join(' | '));
   return `${r.views} views at four zooms: nothing visible is hidden`;
 });
+test('crops and flowers: every crop is its own plant with its own art; flowers stay in bloom a long time, then wither and are cleared for replanting', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('crop-test', 'blank'); if (!town.props) lfInitProps(); startPlaying(npcs[0]); const P = game.player, out = {};
+    const seeds = Object.keys(IT_SEEDS); out.seeds = seeds.length;
+    out.art = seeds.filter(s => s !== 'barley').every(s => [1, 2, 3, 4].every(k => ART.BYID['crop_' + s + '_' + k])) && seeds.filter(s => IT_SEEDS[s].flower).every(s => ART.BYID['crop_' + s + '_5']);
+    out.stacks = seeds.every(s => IT_STACKS['seed_' + s]);
+    const c = { x: P.tx + 2, y: P.ty, pl: 1, st: 1, t0: game.time, seed: 'daisy', byPlayer: true }; town.crops = town.crops || []; town.crops.push(c);
+    out.young = cropStage(c) < 4; game.time += itGrow(c) + 10; out.bloom = cropStage(c) === 4 && !itWilted(c);
+    out.keepsBloom = (game.time += 30 * 1440, cropStage(c) === 4 && !itWilted(c)); out.wilts = (game.time += 12 * 1440, itWilted(c));
+    out.farmersLeaveIt = !itFarmersPlot(c) ;
+    const t = itGate(P, targetAt0(P, c.x, c.y), true); out.clear = !!(t && t.run); if (t && t.run) t.run(P); out.cleared = !c.st && !c.seed && (P.bag.seed_daisy || 0) >= 1;
+    c.pl = 1; c.st = 1; c.t0 = game.time; c.seed = 'pumpkin'; game.time += itGrow(c) + 10; out.ripe = cropStage(c) === 4; const h = itHarvest(P, c); out.pumpkins = P.inv.pumpkin === 2;
+    return out;
+  });
+  check(r.seeds >= 15 && r.art && r.stacks, 'every seed should have its stack and its art: ' + JSON.stringify(r));
+  check(r.young && r.bloom && r.keepsBloom, 'a flower blooms and keeps blooming for weeks: ' + JSON.stringify(r)); check(r.wilts && r.farmersLeaveIt, 'it withers in the end and farmers leave it alone');
+  check(r.clear && r.cleared, 'clearing the withered flower empties the plot and gives a seed back: ' + JSON.stringify(r)); check(r.ripe && r.pumpkins, 'a pumpkin ripens and is harvested: ' + JSON.stringify(r));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return `${r.seeds} seeds, flowers bloom for 40 days then wither and are cleared`;
+});
 
 const browser = await launch();
 let failed = 0;
