@@ -98,7 +98,8 @@ function sbExchange(a, b, ctx?) {
 function sbPartnerW(a, b) { const f = a.aff[b.id] || 0; return (1 + Math.max(0, f) / 40 + (isKin(a, b) ? 0.8 : 0) + (a.fam && a.fam.spouse === b.id ? 1 : 0) + (a.job && a.job === b.job ? 0.4 : 0)) * (f < -30 ? 0.5 : 1); }
 /** with the player near, the exchange is not said across the room: a walks up to b, both stand face to face, and then they talk (the words hold them there, see drainEvents) */
 function sbMeet(a, b) {
-  const t = visNearTile(b); if (!t || a.moving && a.pose === 'sleep' || a.plan && a.plan.some((st: any) => st.act === 'sleep')) return false;
+  const idle = (n: any) => { const st = n.plan && n.plan[n.si]; return !st || n.roaming || (st.k === 'wait' && (st.act === 'stand' || st.act === 'leisure')); };   // (nobody is called away from their work, a walk to it, a meal or their bed)
+  const t = visNearTile(b); if (!t || !idle(a) || !idle(b)) return false;
   a.sbBusy = b.sbBusy = game.time + 14; b.talkUntil = Math.max(b.talkUntil || 0, game.time + 8);
   abortPlan(a);
   a.plan = [goS(() => visNearTile(b) || { x: b.tx, y: b.ty, face: null }, 'Going over to ' + b.first),

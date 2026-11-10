@@ -1288,7 +1288,7 @@ test('meeting: with the player near, two villagers walk up to each other and sta
   });
   check(r.skip || r.has, 'found a pair');
   const r2 = await page.evaluate(() => {
-    const ok = q => sbFree(q) && !q.moving && q.age >= 18; const free = npcs.filter(ok); const a = free[0], b = free[1];
+    const free = npcs.filter(q => sbFree(q) && q.age >= 18 && !q.player); const a = free[0], b = free[1]; if (!a || !b) return { skip: true };
     // put them four tiles apart on open ground near the player, with the player close by
     const P = game.player || (startPlaying(npcs.find(canControl)), game.player); const base = visNearTile(P) || { x: P.tx + 1, y: P.ty };
     const spot = (x, y) => { for (let r = 0; r < 12; r++) for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) { const tx = x + dx, ty = y + dy; if (walkable(tx, ty) && !lfPropAt(tx, ty) && !npcs.some(o => o.tx === tx && o.ty === ty)) return { x: tx, y: ty }; } return null; };
