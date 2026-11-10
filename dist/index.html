@@ -15688,8 +15688,8 @@ function tsBuild() {
         addH(y + yy, x, x + H2.x0);
         addH(y + yy, x + H2.x1, x + 1);
       }
-      if (!hard(x - 1, y)) addV(x, y, y + 1);
-      if (!hard(x + 1, y)) addV(x + 1, y, y + 1);
+      addV(x, y, y + 1);
+      addV(x + 1, y, y + 1);
       walls.push({ x, y, win: true, pts: [[x + 0.5, y + H2.y0], [x + H2.x0 / 2, y + H2.y0], [x + (1 + H2.x1) / 2, y + H2.y0], [x + 0.5, y + H2.y1]] });
     }
   }

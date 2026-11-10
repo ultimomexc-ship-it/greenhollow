@@ -48,7 +48,7 @@ function tsBuild() {
       walls.push({ x, y, pts: pts.length ? pts : [[x + 0.5, y + 0.5]] });
     } else if (win(x, y)) {   // a window: the wall is solid but for the hole (the back wall, so it runs along x)
       const H = TS_HOLES.window; for (const yy of [H.y0, H.y1]) { addH(y + yy, x, x + H.x0); addH(y + yy, x + H.x1, x + 1); }
-      if (!hard(x - 1, y)) addV(x, y, y + 1); if (!hard(x + 1, y)) addV(x + 1, y, y + 1);
+      addV(x, y, y + 1); addV(x + 1, y, y + 1);   // the sides of the tile always close: the open strip in front of the plates must not run on into the wall beside the window
       walls.push({ x, y, win: true, pts: [[x + 0.5, y + H.y0], [x + H.x0 / 2, y + H.y0], [x + (1 + H.x1) / 2, y + H.y0], [x + 0.5, y + H.y1]] });
     }
   }
