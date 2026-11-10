@@ -18,5 +18,14 @@ let REQ_OPEN = false; try { REQ_OPEN = localStorage.getItem('gh.req') === '1'; }
   }
   box.addEventListener('click', (e: any) => { if (e.target.closest('[data-req]')) { REQ_OPEN = !REQ_OPEN; try { localStorage.setItem('gh.req', REQ_OPEN ? '1' : '0'); } catch (err) {} sig = ''; draw(); canvas.focus({ preventScroll: true }); } });
   window.addEventListener('keydown', (e: any) => { if ((e.key === 'n' || e.key === 'N') && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || '') && town) { REQ_OPEN = !REQ_OPEN; try { localStorage.setItem('gh.req', REQ_OPEN ? '1' : '0'); } catch (err) {} sig = ''; draw(); } });
-  setInterval(() => { try { draw(); } catch (e) {} }, 800);
+  /* a decision card: time is stopped until you answer */
+  const dbox = document.createElement('div'); dbox.id = 'decbox'; dbox.className = 'decbox'; dbox.hidden = true; stage.appendChild(dbox);
+  let dsig = '';
+  function drawDecision() {
+    const d = town && town.decision; if (!d) { dbox.hidden = true; dsig = ''; return; }
+    const s = d.kind + d.who; if (s === dsig) return; dsig = s; dbox.hidden = false;
+    dbox.innerHTML = `<div class="deccard"><b>${esc(d.title)}</b><p>${esc(d.text)}</p><div class="decopts">${d.opts.map((o: any) => `<button type="button" class="btn${o.k === 'yes' ? ' primary' : ''}" data-dec="${o.k}">${esc(o.label)}</button>`).join('')}</div><div class="dim">Time is standing still while you decide.</div></div>`;
+  }
+  dbox.addEventListener('click', (e: any) => { const b = e.target.closest('[data-dec]'); if (!b) return; answerDecision(b.dataset.dec); dsig = ''; drawDecision(); canvas.focus({ preventScroll: true }); });
+  setInterval(() => { try { draw(); drawDecision(); } catch (e) {} }, 400);
 })();

@@ -22,7 +22,7 @@ function frame(now) {
     if (sl && state.sleepFast == null && state.speed > 0) { state.sleepFast = String(state.speed); const b: any = document.querySelector('[data-speed="100"]'); if (b) b.click(); }
     else if (!sl && state.sleepFast != null) { const b: any = document.querySelector('[data-speed="' + state.sleepFast + '"]'); state.sleepFast = null; if (b) b.click(); } }
   try {
-  if (state.speed > 0) {
+  if (state.speed > 0 && !(town && town.decision)) {   // (a decision about your own life stops the clock until you make it)
     let m = dt * state.rate * state.speed; const t0 = performance.now();
     while (m > 0 && performance.now() - t0 < 14) { const s = Math.min(m, 2); updateSim(s); m -= s; }
   }

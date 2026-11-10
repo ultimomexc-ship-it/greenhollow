@@ -5,7 +5,7 @@ const TIDE_P = 360;                 // player-minutes from one low tide to the n
 const TIDE_MID = 54;
 const TIDE_AMP = 42;                // every low tide reaches 12, every high tide 96 (no more great ebb)
 function tideRaw(t) { return TIDE_MID - TIDE_AMP * Math.cos(2 * Math.PI * t / TIDE_P); }
-function tideLevel() { return town && town.coast ? tideRaw(clk()) : 0; }
+function tideLevel() { return town && town.coast ? TIDE_MID : 0; }   // (no tides any more: the sea stands still at its middle level)
 function tideDepth(x, y) { const h = town.hgt[y * W + x]; return h < 0 ? 99 : tideLevel() - h; }
 const onFlats = (x, y) => !!(town.hgt && town.hgt[y * W + x] >= 0);
 

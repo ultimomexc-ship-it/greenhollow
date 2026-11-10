@@ -15,12 +15,16 @@ const VIS_HOME_KINDS = ['house'];
 function visBedProps() { return (town.props || []).filter(p => p.kind === 'bed'); }
 /** a privy seat standing inside a built room makes it a place to relieve yourself: villagers stand beside the seat */
 function visToilet(r) {
-  const t = (town.props || []).find(p => p.kind === 'toilet' && r.cells.has(p.x + p.y * W));
-  if (!t || r.doorX == null) { r.toilet = null; r.ptoilet = false; if (r.priv) { r.priv = false; r.name = r.hut ? 'Hut' : 'Room'; } return; }
-  let at = null;
-  for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) { const x = t.x + dx, y = t.y + dy; if (r.cells.has(x + y * W) && walkable(x, y) && !lfPropAt(x, y)) { at = { x, y, face: { dx: -dx, dy: -dy } }; break; } }
-  if (!at) { r.toilet = null; r.ptoilet = false; return; }
-  r.toilet = at; r.ptoilet = true; if (!r.hut) { r.priv = true; r.name = 'Privy'; }
+  const ts = (town.props || []).filter(p => p.kind === 'toilet' && r.cells.has(p.x + p.y * W));
+  if (!ts.length || r.doorX == null) { r.toilet = null; r.ptoilet = false; r.pseats = []; if (r.priv) { r.priv = false; r.name = r.hut ? 'Hut' : 'Room'; } return; }
+  const taken = new Set<number>(), old = r.pseats || [], seats: any[] = [];
+  for (const t of ts) {
+    let at: any = null;
+    for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) { const x = t.x + dx, y = t.y + dy, k = x + y * W; if (r.cells.has(k) && !taken.has(k) && walkable(x, y) && !lfPropAt(x, y)) { at = { x, y, face: { dx: -dx, dy: -dy } }; taken.add(k); break; } }
+    if (!at) continue; const was = old.find(q => q.prop === t);
+    seats.push({ toilet: at, prop: t, ptoilet: true, room: r, name: r.hut ? 'the hut' : 'the privy', user: was ? was.user : null, until: was ? was.until : 0 });   // (every seat with a free tile beside it is a privy of its own)
+  }
+  r.pseats = seats; r.toilet = seats.length ? seats[0].toilet : null; r.ptoilet = seats.length > 0; if (seats.length && !r.hut) { r.priv = true; r.name = 'Privy'; }
 }
 /** free rooms that hold a bed become huts; beds that left the room are let go */
 function visHomes() {

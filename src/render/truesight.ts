@@ -84,6 +84,12 @@ function tsRay(G, ox, oy, dx, dy, tMax) {
 function tsPolygon(ex, ey, R, G = tsGeo()) {
   const ends: number[][] = [[R.x0, R.y0], [R.x1, R.y0], [R.x1, R.y1], [R.x0, R.y1]], seg = G.seg;
   for (let s = 0; s < seg.length; s += 4) for (let k = 0; k < 4; k += 2) { const x = seg[s + k], y = seg[s + k + 1]; if (x >= R.x0 - 1 && x <= R.x1 + 1 && y >= R.y0 - 1 && y <= R.y1 + 1) ends.push([x, y]); }
+  /* a wall that runs across the edge of the view: its endpoints are outside, but where it meets the edge is a corner of what you can see (without it the shadow cuts a chord across the visible ground, most of all when zoomed in) */
+  for (let s = 0; s < seg.length; s += 4) {
+    const x1 = seg[s], y1 = seg[s + 1], dx = seg[s + 2] - x1, dy = seg[s + 3] - y1; let t0 = 0, t1 = 1;
+    const clip = (p: number, q: number) => { if (Math.abs(p) < 1e-12) return q >= 0; const r = q / p; if (p < 0) { if (r > t1) return false; if (r > t0) t0 = r; } else { if (r < t0) return false; if (r < t1) t1 = r; } return true; };
+    if (clip(-dx, x1 - R.x0) && clip(dx, R.x1 - x1) && clip(-dy, y1 - R.y0) && clip(dy, R.y1 - y1)) { if (t0 > 1e-9) ends.push([x1 + dx * t0, y1 + dy * t0]); if (t1 < 1 - 1e-9) ends.push([x1 + dx * t1, y1 + dy * t1]); }
+  }
   const out: number[][] = [], E = 2e-4;
   const exitT = (dx, dy) => { let t = Infinity; if (dx > 1e-12) t = Math.min(t, (R.x1 - ex) / dx); if (dx < -1e-12) t = Math.min(t, (R.x0 - ex) / dx); if (dy > 1e-12) t = Math.min(t, (R.y1 - ey) / dy); if (dy < -1e-12) t = Math.min(t, (R.y0 - ey) / dy); return Math.max(0, t); };
   for (const [vx, vy] of ends) {

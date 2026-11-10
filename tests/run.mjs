@@ -1442,6 +1442,68 @@ test('materials: a blank island starts with a kit, placing uses it, taking thing
   return `kit 40 -> 39 -> 40; carpenter made walls (${w.walls}) from wood`;
 });
 
+test('consent: nobody courts or marries the villager you steer without asking; the question is a decision card, time stands still, and your answer decides', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('love-test', 'blank'); startPlaying(npcs[0]); const P = game.player; let o = null;
+    for (let i = 0; i < 12 && !o; i++) { visArrive(); o = npcs.find(q => !q.player && q.female !== P.female && Math.abs(q.age - P.age) <= 12 && eligible(q)); }
+    if (!o) return { none: true };
+    P.aff[o.id] = o.aff[P.id] = 70; P.know[o.id] = o.know[P.id] = 60;
+    for (let i = 0; i < 40 && !town.decision; i++) romanceTick();
+    const asked = town.decision && town.decision.kind, partnerBefore = P.fam.partner;
+    answerDecision('later'); const afterLater = { partner: P.fam.partner, decision: !!town.decision };
+    o.waitCourt = 0; for (let i = 0; i < 40 && !town.decision; i++) romanceTick(); const again = town.decision && town.decision.kind;
+    answerDecision('yes'); const courting = P.fam.partner === o.id;
+    P.courtSince = o.courtSince = game.time - 0.5 * YEAR; P.aff[o.id] = o.aff[P.id] = 80; town.wedding = null; for (let i = 0; i < 6 && !town.decision; i++) romanceTick(); const marry = town.decision && town.decision.kind, noWedding = !town.wedding;
+    answerDecision('yes'); const wed = !!town.wedding;
+    return { asked, partnerBefore, afterLater, again, courting, marry, noWedding, wed };
+  });
+  check(!r.none, 'needs a suitable villager');
+  check(r.asked === 'court' && !r.partnerBefore, 'a courtship should be asked, not arranged: ' + JSON.stringify(r));
+  check(!r.afterLater.partner && !r.afterLater.decision, '"not yet" leaves things as they were: ' + JSON.stringify(r.afterLater));
+  check(r.again === 'court' && r.courting, 'asked again, "yes" begins the courtship: ' + JSON.stringify(r));
+  check(r.marry === 'marry' && r.noWedding && r.wed, 'a wedding needs your yes: ' + JSON.stringify(r));
+  check(!errors.length, errors.slice(0, 3).join(' | '));
+  return 'courtship and marriage are asked, answered and never arranged';
+});
+
+test('privies: every seat in a closed room with a free tile beside it counts, loose seats are explained', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('privy-test', 'blank'); if (!town.props) lfInitProps(); town.bldQ = town.bldQ || []; startPlaying(npcs[0]); const P = game.player;
+    const cx = P.tx + 4, cy = P.ty - 8, n = 6;
+    for (let j = -3; j < 12; j++) for (let i = -4; i < 14; i++) { setT(cx + i, cy + j, T.GRASS); roomAt[cy + j][cx + i] = -1; const q = lfPropAt(cx + i, cy + j); if (q) { town.props = town.props.filter(z => z !== q); town.propAt.delete((cy + j) * W + cx + i); town.pblock[(cy + j) * W + cx + i] = 0; } }
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { if (!(i === 0 || j === 0 || i === n - 1 || j === n - 1)) continue; lfAddProp(i === 2 && j === n - 1 ? 'bdoor' : 'bwall', cx + i, cy + j); }
+    lfAddProp('toilet', cx + 1, cy + 1); lfAddProp('toilet', cx + 3, cy + 1); lfAddProp('toilet', cx + 3, cy + 3); lfAddProp('toilet', cx + 20, cy + 1);   // three in the room, one out in the open
+    town.bldQ.push([cx, cy]); bldTick(); visHomes(); const B = townBalance();
+    return { privies: lfPrivies().length, loose: B.looseSeats };
+  });
+  check(r.privies === 3, 'three seats in one closed room are three privies: ' + JSON.stringify(r));
+  check(r.loose === 1, 'a seat outside a room is counted as loose: ' + JSON.stringify(r));
+  check(!errors.length, errors.slice(0, 3).join(' | '));
+  return 'three seats count as three privies; one loose seat is explained';
+});
+
+test('truesight: whatever has a clear line of sight is lit at every zoom, even when a wall runs across the edge of the view', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('ts-test', 'blank'); if (!town.props) lfInitProps(); town.bldQ = town.bldQ || []; startPlaying(npcs[0]); const P = game.player; itBuildToggle(P, true);
+    const cx = P.tx + 6, cy = P.ty - 6, n = 7;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { if (!(i === 0 || j === 0 || i === n - 1 || j === n - 1)) continue; lfAddProp(i === 2 && j === n - 1 ? 'bdoor' : 'bwall', cx + i, cy + j); } lfAddProp('bed', cx + 2, cy + 2); town.bldQ.push([cx, cy]); bldTick(); itBuildToggle(P, false);
+    const pip = (px, py, poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1]; if (((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) c = !c; } return c; };
+    let bad = 0, views = 0;
+    for (const z of [1, 2.5, 4, 6]) for (const off of [[-6, 3], [-3, 8], [4, 9], [-5, -1]]) {
+      P.tx = P.x = cx + off[0]; P.ty = P.y = cy + off[1]; rebuildOcc(); setFollow(false); cam.z = z; centerOn(P.x, P.y); clampCam(); game.time = 12 * 60; for (let i = 0; i < 2; i++) render(performance.now(), 0.016, 12);
+      const R = TSIGHT.rect, ex = TSIGHT.eye[0], ey = TSIGHT.eye[1]; views++;
+      for (let y = Math.floor(R.y0); y < R.y1; y++) for (let x = Math.floor(R.x0); x < R.x1; x++) { if (x + 0.5 < R.x0 + 0.1 || x + 0.5 > R.x1 - 0.1 || y + 0.5 < R.y0 + 0.1 || y + 0.5 > R.y1 - 0.1) continue; if (tsLine(ex, ey, x + 0.5, y + 0.5) && !pip(x + 0.5, y + 0.5, TSIGHT.poly)) bad++; }
+    }
+    return { bad, views };
+  });
+  check(r.bad === 0, 'tiles in a clear line of sight were left in shadow: ' + JSON.stringify(r));
+  check(!errors.length, errors.slice(0, 3).join(' | '));
+  return `${r.views} views at four zooms: nothing visible is hidden`;
+});
+
 const browser = await launch();
 let failed = 0;
 const chosen = tests.filter(t => t.name.includes(filter));

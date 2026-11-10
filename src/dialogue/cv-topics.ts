@@ -137,7 +137,6 @@ function cvPool(c): CvTopic[] {
 /* the day, the weather (the tide), the shops, the chronicle */
 function cvWorldTopics(c): CvTopic[] {
   const out: CvTopic[] = [], o = c.o, hr = c.hr, L = typeof tideLevel === 'function' ? tideLevel() : 50;
-  if (town.coast) { if (L < 26) out.push({ key: 'w:tide', kind: 'world', facet: 'low', w: 0.7, sens: 0 }); else if (L > 82) out.push({ key: 'w:tide', kind: 'world', facet: 'high', w: 0.5, sens: 0 }); }
   if (isRestDay()) out.push({ key: 'w:rest', kind: 'world', facet: 'rest', w: 0.8, sens: 0 }); else if (isRestDay(game.time + 1440)) out.push({ key: 'w:rest', kind: 'world', facet: 'eve', w: 0.6, sens: 0 });
   if (town.feast && game.time < town.feast.end) out.push({ key: 'w:feast', kind: 'world', facet: 'feast', w: 1.1, sens: 0 });
   for (const r of rooms) { if (r.dead || !LF2_SELL[r.kind]) continue; const st = lf2Stock(r), g = Object.keys(LF2_SELL[r.kind])[0]; if ((st[g] || 0) <= 0) out.push({ key: 'w:out' + r.id, kind: 'world', facet: 'out', id: r.id, extra: g, w: 0.9, sens: 0 }); }

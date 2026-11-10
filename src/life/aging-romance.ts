@@ -72,6 +72,34 @@ function dailyLife() {
 
 /* ---------- romance, weddings, birth ---------- */
 function eligible(n) { return n.age >= 16 && n.age < 65 && !n.fam.spouse && !n.fam.partner && game.time > n.grief; }
+/** two people begin walking out together (never the villager you steer: that is asked, see askCourtship) */
+function startCourtship(a, b) {
+  a.fam.partner = b.id; b.fam.partner = a.id; a.courtSince = b.courtSince = game.time; a.rel[b.id] = b.rel[a.id] = 'partner';
+  chron(`${a.first} ${a.surname} and ${b.first} ${b.surname} have been seen walking out together.`, 'love');
+  town.events && game.events.push({ time: game.time, a, b, place: 'the lanes', topic: 'courting', quiet: false, lines: [{ who: a, text: `I was thinking. Would you walk with me later, ${b.first}?` }, { who: b, text: 'I was hoping you would ask.' }] });
+}
+/** somebody asks you to walk out with them: a decision, with time stopped while you make it */
+function askCourtship(o) {
+  if (town.decision || (o.refusedAt && o.refusedAt > game.time - 20 * 1440) || (o.waitCourt || 0) > game.time) return;
+  town.decision = { kind: 'court', who: o.id, title: o.first + ' wants to speak to you', text: `${o.first} says: "I keep finding reasons to be near you. I have not decided what to do about it. Would you walk out with me?"`, opts: [{ k: 'yes', label: 'Yes' }, { k: 'later', label: 'Not yet' }, { k: 'no', label: 'No' }] };
+}
+function askMarriage(o) {
+  if (town.decision) return;
+  town.decision = { kind: 'marry', who: o.id, title: o.first + ' asks you something', text: `${o.first} says: "I have thought about this for a long time, or possibly for about a minute. Will you marry me?"`, opts: [{ k: 'yes', label: 'Yes' }, { k: 'later', label: 'Not yet. Ask me again later' }, { k: 'no', label: 'No' }] };
+}
+/** what you answered (the card calls this) */
+function answerDecision(k) {
+  const d = town.decision; if (!d) return; town.decision = null; const o = byId(d.who), p = game.player; if (!o || o.dead || !p) return;
+  if (d.kind === 'court') {
+    if (k === 'yes') { startCourtship(p, o); playerSay(p, 'I said yes. It seemed like the right answer, and I did not argue with it.'); }
+    else if (k === 'later') { o.waitCourt = game.time + 6 * 1440; playerSay(p, 'I said not yet. ' + o.first + ' nodded as though that was a reasonable thing to say.'); }
+    else { o.refusedAt = game.time; o.aff[p.id] = (o.aff[p.id] || 0) - 10; chron(`${o.first} asked ${p.first} something, and ${p.first} said no. ${o.first} thanked ${p.first} for being honest.`, 'love'); playerSay(p, 'I said no. ' + o.first + ' thanked me, which was worse somehow.'); }
+  } else {
+    if (k === 'yes') { scheduleWedding(p.female ? o : p, p.female ? p : o); playerSay(p, 'I said yes. Apparently I am getting married.'); }
+    else if (k === 'later') { p.waitMarry = o.waitMarry = game.time + 8 * 1440; playerSay(p, 'I said not yet. ' + o.first + ' said they would wait, and I believed them.'); }
+    else { p.fam.partner = o.fam.partner = null; p.rel[o.id] = o.rel[p.id] = 'friend'; o.refusedAt = game.time; o.aff[p.id] = (o.aff[p.id] || 0) - 25; chron(`${o.first} asked ${p.first} to marry them, and ${p.first} said no. They stopped walking out together.`, 'love'); playerSay(p, 'I said no. We both looked at the ground for a while.'); }
+  }
+}
 function romanceTick() {
   const pool = npcs.filter(eligible), pairs = [];
   for (let i = 0; i < pool.length; i++) for (let j = i + 1; j < pool.length; j++) {
@@ -83,9 +111,8 @@ function romanceTick() {
   pairs.sort((x, y) => y[2] - x[2]);
   pairs.forEach(([a, b]) => {
     if (!eligible(a) || !eligible(b) || Math.random() > 0.45) return;
-    a.fam.partner = b.id; b.fam.partner = a.id; a.courtSince = b.courtSince = game.time; a.rel[b.id] = b.rel[a.id] = 'partner';
-    chron(`${a.first} ${a.surname} and ${b.first} ${b.surname} have been seen walking out together.`, 'love');
-    town.events && game.events.push({ time: game.time, a, b, place: 'the lanes', topic: 'courting', quiet: false, lines: [{ who: a, text: `I was thinking. Would you walk with me later, ${b.first}?` }, { who: b, text: 'I was hoping you would ask.' }] });
+    if (a.player || b.player) { askCourtship(a.player ? b : a); return; }   // (your own heart is yours to decide: somebody asks, you answer)
+    startCourtship(a, b);
   });
   // maintain courtships
   npcs.forEach(a => {
@@ -95,7 +122,7 @@ function romanceTick() {
     const aff = Math.min(a.aff[b.id] || 0, b.aff[a.id] || 0);
     a.aff[b.id] = (a.aff[b.id] || 0) + 1.5; b.aff[a.id] = (b.aff[a.id] || 0) + 1.5;
     if (aff < 15) { a.fam.partner = b.fam.partner = null; a.rel[b.id] = b.rel[a.id] = 'friend'; chron(`${a.first} and ${b.first} have stopped walking out together.`, 'love'); return; }
-    if (game.time - a.courtSince > 0.45 * YEAR && aff >= 60 && !town.wedding) { if (true) scheduleWedding(a, b); else if (!a.waitedChurch) { a.waitedChurch = true; chron(`${a.first} and ${b.first} want to marry, but ${town.name} has no church yet.`, 'love'); } }
+    if (game.time - a.courtSince > 0.45 * YEAR && aff >= 60 && !town.wedding && (a.waitMarry || 0) < game.time) { if (a.player || b.player) askMarriage(a.player ? b : a); else scheduleWedding(a, b); }
   });
 }
 function nextAt(hour, minGap) { let t = Math.floor(game.time / 1440) * 1440 + hour * 60; while (t < game.time + minGap) t += 1440; return t; }

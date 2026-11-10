@@ -100,7 +100,7 @@ function lfAccident(n) {
 }
 
 /* ---------------- privies ---------------- */
-const lfPrivies = () => rooms.filter(r => !r.dead && r.toilet && (r.kind === 'privy' || r.ptoilet));
+const lfPrivies = () => { const out: any[] = []; for (const r of rooms) { if (r.dead) continue; if (r.kind === 'privy' && r.toilet) out.push(r); else if (r.ptoilet && r.pseats) for (const q of r.pseats) out.push(q); } return out; };   // (a village privy is a room; a seat you built is a privy of its own)
 function lfPrivyFor(n) {
   const list = lfPrivies().map(r => ({ r, d: Math.abs(r.toilet.x - n.tx) + Math.abs(r.toilet.y - n.ty) + ((r.user && r.user !== n.id && game.time < r.until) ? 16 : 0) })).sort((a, b) => a.d - b.d);
   for (const e of list.slice(0, 3)) if (findPath(n.tx, n.ty, e.r.toilet.x, e.r.toilet.y)) return e.r;
