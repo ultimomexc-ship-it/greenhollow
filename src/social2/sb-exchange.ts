@@ -6,7 +6,7 @@
      family talk (which can turn into a row) · arguing · courting · asking for a loan · paying one back · confiding a secret · letting one slip
    Each exchange changes what they know, how they feel (with a reason), and sometimes makes a new event others can hear about.
    No words are produced unless the player is close enough to overhear; the pre-simulation (sb-presim.ts) runs the same exchanges.     */
-const SB: any = { presim: false, pair: new Map(), count: {} };
+const SB: any = { presim: false, pair: new Map(), count: {}, feat: { meet: true } };   // feat.meet: when you are near, two villagers walk up to each other and stop before they talk
 const sbPairKey = (a, b) => Math.min(a.id, b.id) * 100000 + Math.max(a.id, b.id);
 const sbAdult = n => n && !n.dead && !n.infant && n.age >= 14;
 const sbHas = (n, t) => lf2Has(n, t) ? 1 : 0;
@@ -96,6 +96,18 @@ function sbExchange(a, b, ctx?) {
 
 /* ---------------- in the live game: who meets whom ---------------- */
 function sbPartnerW(a, b) { const f = a.aff[b.id] || 0; return (1 + Math.max(0, f) / 40 + (isKin(a, b) ? 0.8 : 0) + (a.fam && a.fam.spouse === b.id ? 1 : 0) + (a.job && a.job === b.job ? 0.4 : 0)) * (f < -30 ? 0.5 : 1); }
+/** with the player near, the exchange is not said across the room: a walks up to b, both stand face to face, and then they talk (the words hold them there, see drainEvents) */
+function sbMeet(a, b) {
+  const t = visNearTile(b); if (!t || a.moving && a.pose === 'sleep' || a.plan && a.plan.some((st: any) => st.act === 'sleep')) return false;
+  a.sbBusy = b.sbBusy = game.time + 14; b.talkUntil = Math.max(b.talkUntil || 0, game.time + 8);
+  abortPlan(a);
+  a.plan = [goS(() => visNearTile(b) || { x: b.tx, y: b.ty, face: null }, 'Going over to ' + b.first),
+    waitS(1, 'stand', 'Talking with ' + b.first, { onEnd(nn) {
+      if (b.dead || b.pose === 'sleep' || lfDist(nn, b) > 3) return;
+      faceTo(nn, b); faceTo(b, nn); nn.sbBusy = b.sbBusy = game.time + 4; sbExchange(nn, b, null);
+    } })];
+  a.si = 0; a.stepStarted = false; return true;
+}
 function sbTick() {
   if (SB.presim) return;
   const live = npcs.filter(sbFree);
@@ -105,6 +117,7 @@ function sbTick() {
     for (const b of live) { if (b === a || lfDist(a, b) > 4 || (b.sbBusy || 0) > game.time) continue; const last = SB.pair.get(sbPairKey(a, b)); if (last !== undefined && game.time - last < 90) continue;
       if (seeThrough(a.tx, a.ty, b.tx, b.ty) < 0.5) continue; const w = sbPartnerW(a, b) * (0.5 + Math.random()); if (w > bw) { bw = w; best = b; } }
     if (!best || Math.random() > 0.6 * sbSocial(a)) continue;
+    if (SB.feat.meet && sbNear(a, best) && lfDist(a, best) > 1.5 && sbMeet(a, best)) continue;
     a.sbBusy = best.sbBusy = game.time + 4; sbExchange(a, best, null);
   }
 }

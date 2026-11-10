@@ -1262,6 +1262,51 @@ test('fields: the build-mode field brush marks plots under your feet, the hoe wo
   return 'brush lays plots as you walk; hammer removes them; farmers work them';
 });
 
+test('villager card: clicking a villager opens a card with what they are doing, how they feel, who they get on with', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await simulate(page, 9 * 60);
+  const r = await page.evaluate(() => {
+    const n = npcs.find(q => !q.dead && !q.player && q.age >= 18 && q.status); const w = { x: n.x, y: n.y };
+    openVillagerCard(n); const box = document.getElementById('vcbox'), t1 = box.innerText, shown = !box.hidden;
+    const other = npcs.find(q => q !== n && !q.dead && q.age >= 18); for (const k of Object.keys(n.aff)) delete n.aff[k]; for (const k of Object.keys(n.know)) delete n.know[k]; n.aff[other.id] = 100; n.know[other.id] = 100; vcDraw(true); const t2 = box.innerText;
+    const dbg = t2; closeVillagerCard(); return { dbg, shown, t1, t2, hidden: box.hidden, status: n.status, first: n.first, other: other.first };
+  });
+  check(r.shown && r.t1.includes(r.first) && /right now/i.test(r.t1) && /feeling/i.test(r.t1), 'the card shows the villager and what they are doing: ' + r.t1.slice(0, 120));
+  check(r.t2.toLowerCase().includes('company') && r.t2.includes(r.other), 'the card lists who they are fond of: ' + r.dbg.replace(/\n/g, '|'));
+  check(r.hidden, 'the card closes');
+  check(!errors.length, 'no errors: ' + errors.join('|'));
+  return 'villager card';
+});
+
+test('meeting: with the player near, two villagers walk up to each other and stand face to face to talk', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await simulate(page, 10 * 60);
+  const r = await page.evaluate(() => {
+    const ok = q => sbFree(q) && !q.moving && q.age >= 18, a = npcs.find(ok), b = npcs.find(q => q !== a && ok(q) && lfDist(q, a) > 2.5 && lfDist(q, a) <= 4 && seeThrough(a.tx, a.ty, q.tx, q.ty) >= 0.5);
+    if (!a || !b) { const pair = npcs.filter(ok).slice(0, 2); if (pair.length < 2) return { skip: true }; }
+    return { skip: !a || !b, has: !!a && !!b };
+  });
+  check(r.skip || r.has, 'found a pair');
+  const r2 = await page.evaluate(() => {
+    const ok = q => sbFree(q) && !q.moving && q.age >= 18; const free = npcs.filter(ok); const a = free[0], b = free[1];
+    // put them four tiles apart on open ground near the player, with the player close by
+    const P = game.player || (startPlaying(npcs.find(canControl)), game.player); const base = visNearTile(P) || { x: P.tx + 1, y: P.ty };
+    const spot = (x, y) => { for (let r = 0; r < 12; r++) for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) { const tx = x + dx, ty = y + dy; if (walkable(tx, ty) && !lfPropAt(tx, ty) && !npcs.some(o => o.tx === tx && o.ty === ty)) return { x: tx, y: ty }; } return null; };
+    const sa = spot(P.tx + 3, P.ty), sb = sa && spot(sa.x + 3, sa.y); if (!sa || !sb) return { skip: true };
+    for (const [n, s] of [[a, sa], [b, sb]]) { abortPlan(n); n.tx = n.x = s.x; n.ty = n.y = s.y; n.pose = 'stand'; }
+    rebuildOcc(); const d0 = lfDist(a, b); const m = sbMeet(a, b); const first = a.plan && a.plan[0] && a.plan[0].text;
+    window.__pair = [a.id, b.id]; return { d0, m, first };
+  });
+  if (!r2.skip) {
+    check(r2.m && /Going over to/.test(r2.first), 'the first villager sets out to meet the other: ' + JSON.stringify(r2));
+    await simulate(page, 15);
+    const d = await page.evaluate(() => { const [a, b] = window.__pair.map(byId); return { d: lfDist(a, b), status: a.status }; });
+    check(d.d <= 1.5, 'they end up side by side: ' + JSON.stringify(d));
+  }
+  check(!errors.length, 'no errors: ' + errors.join('|'));
+  return 'meeting';
+});
+
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

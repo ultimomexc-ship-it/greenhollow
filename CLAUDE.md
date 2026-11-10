@@ -210,6 +210,10 @@ All sound is synthesised in the browser with the Web Audio API (no files): `sndT
 - **Roof gardens**: the field brush works on a deck, so a roof can be a garden (`bldBrushStep`); farmers work any plot they can walk to, on any level; digging a plot back leaves `bldBare(y)`.
 - **Farmers sow a mix** (`farmSeed` in ai/work-plans.ts): half barley (the staple), the rest the other food crops, each villager with a favourite or two; flowers are left to you. Plots remember their seed (`c.seed`) and grow and give their own food (`itGrow`, `itHarvest`).
 
+## Seeing what villagers are doing (src/ui/hud-villager.ts, sbMeet in social2/sb-exchange.ts)
+- **Villager card**: click a villager on the canvas (`openVillagerCard`, Esc or x closes; it refreshes twice a second). It reads `n.status` (what the plan is doing now, so any step's text should say something a player can follow), mood and plain-word need hints, `Company` (the four strongest ties from `n.aff`/`n.know`/`relLabel`, in words, no numbers), lines the chronicle says about them and `n.log` (the steps before). Numbers stay in `npcDebug` (build-mode hover). New systems (gifts, courtship) should give their plan steps readable texts and write chronicle or `lfAff` reasons so the card shows them.
+- **Meetings**: with the player within 10 tiles, a background exchange (`sbTick`) is no longer said across the room: `sbMeet` sends the first villager to the tile beside the other ("Going over to X"), both face each other, and then the exchange runs and its bubbles hold them still (`talkUntil` in `drainEvents`). Off-screen exchanges are unchanged (instant). `SB.feat.meet = false` turns it off.
+
 ## Performance tools
 - `node tools/profile.mjs <seconds> <zoom> [--pan] [--cpu] [--file=other.html]`: the real frame loop, with per-stage times, frame-time percentiles and optional panning / CPU profile. Headless Chromium paints in software, so compare before/after rather than against 60 fps.
 - `node tools/diff.mjs a.html b.html [--no-people]`: renders both builds at fixed views and compares pixels. Use it after any rendering change.
