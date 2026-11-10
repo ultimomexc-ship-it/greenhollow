@@ -38,6 +38,7 @@ function bldHasDoor(cells: number[]) {
 /** can somebody inside this region walk out to the open world through doors? A door straight through to open country is an exit; a door into another region (a sealed room, or one of the `pending` regions made in the same step) lets the search carry on from there.
     Every room must have a way out: no adjoining rooms with doors only to each other. */
 function bldExit(start: number[], pending: number[][]) {
+  if (isUpperY((start[0] / W) | 0)) return true;   // (upstairs a room needs neither door nor way out: only the ground level does)
   const where = new Map<number, any>(); for (const g of pending) for (const k of g) where.set(k, g);
   const groupOf = (k: number) => where.get(k) || (() => { const r = bldFreeRoom(k % W, (k / W) | 0); return r ? [...r.cells] : null; })();
   const seenG = new Set<any>([start]), seenR = new Set<number>(), q: number[][] = [start];
@@ -119,7 +120,7 @@ function bldEvaluate(spots: [number, number][]) {
     }
     if (reg.bad) { hint = reg.bad; continue; }
     if (reg.cells.length < 1) continue;
-    if (!bldHasDoor(reg.cells)) { hint = hint || 'door'; continue; }
+    if (!bldHasDoor(reg.cells) && !isUpperY((reg.cells[0] / W) | 0)) { hint = hint || 'door'; continue; }
     if (!bldExit(reg.cells, [reg.cells])) { hint = hint || 'exit'; continue; }
     regions.push(reg.cells);
   } }
