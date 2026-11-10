@@ -428,12 +428,12 @@ test('building: blocks close into rooms of any shape (L-shape, a door needed, no
     const clear = (x0, y0, w, h) => { for (let j = y0 - 1; j <= y0 + h; j++) for (let i = x0 - 1; i <= x0 + w; i++) { setT(i, j, T.GRASS); roomAt[j][i] = -1; const p = lfPropAt(i, j); if (p) { town.props = town.props.filter(q => q !== p); town.propAt.delete(j * W + i); town.pblock[j * W + i] = 0; } } };
     const ringOf = cells => { const cs = new Set(cells.map(c => c.join())), ring = new Set(); for (const [i, j] of cells) for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const k = (i + dx) + ',' + (j + dy); if (!cs.has(k)) ring.add(k); } return [...ring].map(k => k.split(',').map(Number)); };
     const put = (ox, oy, ring, door, skip) => { const placed = []; for (const [i, j] of ring) { const k = i + ',' + j; if (skip && k === skip) continue; lfAddProp(door && k === door ? 'bdoor' : 'bwall', ox + i, oy + j); placed.push([ox + i, oy + j]); } return placed; };
-    const rooms0 = () => rooms.filter(q => q.free && !q.dead).length, run = placed => { town.bldQ = placed; bldTick(); };
+    const rooms0 = () => rooms.filter(q => q.free && !q.dead && lvlOf(q.y) === 0).length, run = placed => { town.bldQ = placed; bldTick(); };
     clear(o.x, o.y, 40, 10);
     // 1. an L-shaped room (24 tiles) with a door: all the blocks but the last do nothing, the last closes it
     const L = []; for (let j = 1; j <= 3; j++) for (let i = 1; i <= 6; i++) L.push([i, j]); for (let j = 4; j <= 5; j++) for (let i = 1; i <= 3; i++) L.push([i, j]);
     let ring = ringOf(L); const lastK = '2,6'; const before = put(o.x, o.y, ring, lastK, lastK); run(before); res.notYet = rooms0();
-    lfAddProp('bdoor', o.x + 2, o.y + 6); run([[o.x + 2, o.y + 6]]); const A = rooms.filter(q => q.free && !q.dead)[0];
+    lfAddProp('bdoor', o.x + 2, o.y + 6); run([[o.x + 2, o.y + 6]]); const A = rooms.filter(q => q.free && !q.dead && lvlOf(q.y) === 0)[0];
     res.L = { rooms: rooms0(), cells: A && A.cells.size, floor: grid[o.y + 2][o.x + 2] === T.FLOOR, wall: grid[o.y][o.x] === T.WALL, door: grid[o.y + 6][o.x + 2] === T.DOOR, loose: town.props.filter(p => BLD_KINDS.includes(p.kind) && p.x < o.x + 8 && p.y < o.y + 8).length, at: roomAt[o.y + 2][o.x + 2] === rooms.indexOf(A) };
     // you can walk in through the door and the way in is a real path
     const pth = findPath(o.x + 2, o.y + 8, o.x + 4, o.y + 2); res.path = !!pth && pth.length > 0;
@@ -448,7 +448,7 @@ test('building: blocks close into rooms of any shape (L-shape, a door needed, no
     const lb = lfAddProp('bwall', o.x + 4, o.y + 2); run([[o.x + 4, o.y + 2]]); res.lone = { loose: !!lfPropAt(o.x + 4, o.y + 2) && grid[o.y + 2][o.x + 4] === T.FLOOR, rooms: rooms0() - 2 };
     town.props = town.props.filter(q => q !== lb); town.propAt.delete((o.y + 2) * W + o.x + 4); town.pblock[(o.y + 2) * W + o.x + 4] = 0;
     // 6. a partition across the room (and a door in it) splits it in two
-    const part = [[1, 4], [2, 4], [3, 4]]; for (const [i, j] of part) lfAddProp(i === 2 ? 'bdoor' : 'bwall', o.x + i, o.y + j); run(part.map(c => [o.x + c[0], o.y + c[1]])); const live = rooms.filter(q => q.free && !q.dead);
+    const part = [[1, 4], [2, 4], [3, 4]]; for (const [i, j] of part) lfAddProp(i === 2 ? 'bdoor' : 'bwall', o.x + i, o.y + j); run(part.map(c => [o.x + c[0], o.y + c[1]])); const live = rooms.filter(q => q.free && !q.dead && lvlOf(q.y) === 0);
     res.split = { rooms: rooms0() - 2, dead: A.dead, cells: live.filter(q => q.cells.has(o.x + 2 + (o.y + 2) * W) || q.cells.has(o.x + 2 + (o.y + 5) * W)).length };
     // 6b. a berry bush inside a ring does not stop it closing; the bush is cleared away (it blocked the church ring in play)
     const Bn = { x: o.x + 30, y: o.y }; const bring = ringOf([[1, 1], [2, 1], [3, 1]]); town.nodes.push({ x: Bn.x + 2, y: Bn.y + 1, kind: 'berry', amt: 3, max: 6 }); town.nodeMap.set((Bn.y + 1) * W + Bn.x + 2, town.nodes[town.nodes.length - 1]);
@@ -467,7 +467,7 @@ test('building: blocks close into rooms of any shape (L-shape, a door needed, no
   check(r.split.rooms === 1 && r.split.dead && r.split.cells === 2, 'a partition with a door splits the room in two: ' + JSON.stringify(r.split));
   check(r.pad, 'the delivery pad is off limits');
   await simulate(page, 2 * 1440);
-  const after = await page.evaluate(() => ({ dead: npcs.filter(n => n.dead).length, free: rooms.filter(q => q.free && !q.dead).length }));
+  const after = await page.evaluate(() => ({ dead: npcs.filter(n => n.dead).length, free: rooms.filter(q => q.free && !q.dead && lvlOf(q.y) === 0).length }));
   check(after.dead === 0, 'two days later nobody has died: ' + JSON.stringify(after));
   return 'L-shape sealed (24 tiles, door, floor), needs a door, no diagonal seal, tree refuses, partition splits, pad off limits; ' + after.free + ' rooms after two days';
 }));
@@ -480,8 +480,8 @@ test('building: pushing the last wall block into the gap closes the room once yo
     const ring = []; for (let i = 0; i <= 3; i++) for (let j = 0; j <= 2; j++) if (!(j === 1 && (i === 1 || i === 2))) ring.push([i, j]);
     for (const [i, j] of ring) { if (i === 1 && j === 0) continue; lfAddProp(i === 2 && j === 2 ? 'bdoor' : 'bwall', o.x + i, o.y + j); }
     const blk = lfAddProp('bwall', o.x + 1, o.y - 1); __place(P, o.x + 1, o.y - 2, { dx: 0, dy: 1 });
-    const res = { before: rooms.filter(q => q.free && !q.dead).length }; res.push = lf2PushLine(P, o.x + 1, o.y - 1, 0, 1); res.queued = (town.bldQ || []).length; res.waits = (bldTick(), rooms.filter(q => q.free && !q.dead).length);
-    lfPropPos(blk, performance.now()); P.moving = false; blk.follow = null; bldTick(); res.after = rooms.filter(q => q.free && !q.dead).length; res.wall = grid[o.y][o.x + 1] === T.WALL && !lfPropAt(o.x + 1, o.y);
+    const res = { before: rooms.filter(q => q.free && !q.dead && lvlOf(q.y) === 0).length }; res.push = lf2PushLine(P, o.x + 1, o.y - 1, 0, 1); res.queued = (town.bldQ || []).length; res.waits = (bldTick(), rooms.filter(q => q.free && !q.dead && lvlOf(q.y) === 0).length);
+    lfPropPos(blk, performance.now()); P.moving = false; blk.follow = null; bldTick(); res.after = rooms.filter(q => q.free && !q.dead && lvlOf(q.y) === 0).length; res.wall = grid[o.y][o.x + 1] === T.WALL && !lfPropAt(o.x + 1, o.y);
     return res;
   });
   check(r.push === true && r.queued >= 1, 'the push should queue a look at the ground: ' + JSON.stringify(r));
@@ -497,9 +497,9 @@ test('building: a ring with a gap far from the last block never closes (regressi
     const res = {}; const ring = []; for (let i = 0; i <= 10; i++) for (let j = 0; j <= 8; j++) if (i === 0 || j === 0 || i === 10 || j === 8) ring.push([i, j]);
     // the east wall has a gap of three tiles; every other block (including a door) is in place
     for (const [i, j] of ring) { if (i === 10 && j >= 3 && j <= 5) continue; lfAddProp(i === 5 && j === 8 ? 'bdoor' : 'bwall', o.x + i, o.y + j); }
-    town.bldQ = [[o.x + 5, o.y], [o.x + 1, o.y + 8], [o.x + 10, o.y + 2], [o.x + 10, o.y + 6], [o.x, o.y + 4]]; bldTick(); res.gap = rooms.filter(q => q.free && !q.dead).length;
+    town.bldQ = [[o.x + 5, o.y], [o.x + 1, o.y + 8], [o.x + 10, o.y + 2], [o.x + 10, o.y + 6], [o.x, o.y + 4]]; bldTick(); res.gap = rooms.filter(q => q.free && !q.dead && lvlOf(q.y) === 0).length;
     // with the gap filled it closes into one room of 9 x 7 tiles
-    for (let j = 3; j <= 5; j++) lfAddProp('bwall', o.x + 10, o.y + j); town.bldQ = [[o.x + 10, o.y + 3], [o.x + 10, o.y + 4], [o.x + 10, o.y + 5]]; bldTick(); const f = rooms.filter(q => q.free && !q.dead); res.closed = f.length; res.cells = f[0] && f[0].cells.size;
+    for (let j = 3; j <= 5; j++) lfAddProp('bwall', o.x + 10, o.y + j); town.bldQ = [[o.x + 10, o.y + 3], [o.x + 10, o.y + 4], [o.x + 10, o.y + 5]]; bldTick(); const f = rooms.filter(q => q.free && !q.dead && lvlOf(q.y) === 0); res.closed = f.length; res.cells = f[0] && f[0].cells.size;
     return res;
   });
   check(r.gap === 0, 'a ring with a gap must not close: ' + JSON.stringify(r));
@@ -520,9 +520,9 @@ test('building: random wall layouts never seal a room that leaks (fuzz; 400 layo
       const dIdx = Math.floor(R() * placed.length); placed.forEach(([i, j], n) => lfAddProp(n === dIdx ? 'bdoor' : R() < 0.1 ? 'bwindow' : 'bwall', o.x + i, o.y + j));
       const order = placed.map(p => [o.x + p[0], o.y + p[1]]).sort(() => R() - 0.5);
       for (let k = 0; k < order.length; k += 1 + Math.floor(R() * 3)) { town.bldQ = order.slice(k, k + 1 + Math.floor(R() * 3)); bldTick(); }
-      made += rooms.filter(q => q.free && !q.dead).length;
+      made += rooms.filter(q => q.free && !q.dead && lvlOf(q.y) === 0).length;
       for (let b = 0; b < 1 && town.bldWall && town.bldWall.size; b++) { const keys = [...town.bldWall.keys()]; const k = keys[Math.floor(R() * keys.length)]; bldBreak(k % W, (k / W) | 0); }   // (then knock a few blocks out: whatever stands must still be closed and have a way out)
-      for (const rm of rooms.filter(q => q.free && !q.dead)) { sealed++; if (!bldExit([...rm.cells], [])) bad.push(t + ':noexit');
+      for (const rm of rooms.filter(q => q.free && !q.dead && lvlOf(q.y) === 0)) { sealed++; if (!bldExit([...rm.cells], [])) bad.push(t + ':noexit');
         for (const k of rm.cells) { const x = k % W, y = (k / W) | 0; for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const nx = x + dx, ny = y + dy, g = grid[ny][nx]; if (rm.cells.has(nx + ny * W) || g === T.WALL || g === T.DOOR) continue; bad.push(t + ':' + (x - o.x) + ',' + (y - o.y)); } } }
     }
     return { sealed, made, bad: bad.length, first: bad.slice(0, 3) };
@@ -539,10 +539,10 @@ test('building: every room needs a way out to the open world (two rooms with a d
     // two rooms side by side (3 x 2 each) sharing the wall at x = 4; the only door is the one between them
     const blocks = []; for (let i = 0; i <= 8; i++) for (let j = 0; j <= 3; j++) if (i === 0 || i === 4 || i === 8 || j === 0 || j === 3) blocks.push([i, j]);
     const spots = []; for (const [i, j] of blocks) { lfAddProp(i === 4 && j === 1 ? 'bdoor' : 'bwall', o.x + i, o.y + j); spots.push([o.x + i, o.y + j]); }
-    town.bldQ = spots; bldTick(); res.none = rooms.filter(q => q.free && !q.dead).length;
+    town.bldQ = spots; bldTick(); res.none = rooms.filter(q => q.free && !q.dead && lvlOf(q.y) === 0).length;
     // swap one outer wall block of the left room (bottom wall) for a door: both rooms close
     const w = lfPropAt(o.x + 2, o.y + 3); town.props = town.props.filter(q => q !== w); town.propAt.delete((o.y + 3) * W + o.x + 2); town.pblock[(o.y + 3) * W + o.x + 2] = 0; lfAddProp('bdoor', o.x + 2, o.y + 3);
-    town.bldQ = [[o.x + 2, o.y + 3]]; bldTick(); const f = rooms.filter(q => q.free && !q.dead); res.both = f.length; res.exits = f.every(q => bldExit([...q.cells], []));
+    town.bldQ = [[o.x + 2, o.y + 3]]; bldTick(); const f = rooms.filter(q => q.free && !q.dead && lvlOf(q.y) === 0); res.both = f.length; res.exits = f.every(q => bldExit([...q.cells], []));
     return res;
   });
   check(r.none === 0, 'two rooms joined only to each other have no way out and must not seal: ' + JSON.stringify(r));
@@ -556,7 +556,7 @@ test('building: the hammer knocks out one built block; a closed room carries on 
     const clear = () => { for (let j = -2; j < 12; j++) for (let i = -2; i < 24; i++) { for (const q of rooms) if (q.free) q.dead = true; setT(O.x + i, O.y + j, T.GRASS); roomAt[O.y + j][O.x + i] = -1; const p = lfPropAt(O.x + i, O.y + j); if (p) { town.props = town.props.filter(q => q !== p); town.propAt.delete((O.y + j) * W + O.x + i); town.pblock[(O.y + j) * W + O.x + i] = 0; } } doors = doors.filter(d => !(rooms[d.room] && rooms[d.room].dead)); town.bldWall = new Map(); town.bldWas = new Map(); };
     // two rooms of 3 x 2 sharing the wall at x = 4 (door between them at y = 1), and the way out at the bottom of the left one
     const house = () => { clear(); const spots = []; for (let i = 0; i <= 8; i++) for (let j = 0; j <= 3; j++) if (i === 0 || i === 4 || i === 8 || j === 0 || j === 3) { lfAddProp((i === 4 && j === 1) || (i === 2 && j === 3) ? 'bdoor' : 'bwall', O.x + i, O.y + j); spots.push([O.x + i, O.y + j]); } town.bldQ = spots; bldTick(); };
-    const live = () => rooms.filter(q => q.free && !q.dead), loose = () => town.props.filter(p => ['bwall', 'bwindow', 'bdoor'].includes(p.kind) && p.x >= O.x - 1 && p.x <= O.x + 9 && p.y >= O.y - 1 && p.y <= O.y + 4).length;
+    const live = () => rooms.filter(q => q.free && !q.dead && lvlOf(q.y) === 0), loose = () => town.props.filter(p => ['bwall', 'bwindow', 'bdoor'].includes(p.kind) && p.x >= O.x - 1 && p.x <= O.x + 9 && p.y >= O.y - 1 && p.y <= O.y + 4).length;
     // 1. the house stands: two rooms; knock out the shared wall block at (4,2): they become one room of 13 tiles
     house(); res.start = live().length; bldBreak(O.x + 4, O.y + 2); res.merged = { rooms: live().length, cells: live()[0] && live()[0].cells.size, hole: grid[O.y + 2][O.x + 4] === T.FLOOR };
     // 2. knock out an outside wall of the left room: it falls apart (the right room stays: its door now opens straight onto open ground)
@@ -972,7 +972,7 @@ test('items: your tools wear and break; the smith sells each tool, buys iron ore
   const r = await page.evaluate(() => {
     const P = game.player, axe = P.items.find(i => i.kind === 'axe');
     axe.wear = 0.02; itWearTool(P, 'axe'); const broke = !P.items.includes(axe);
-    const sm = lf2Room('smithy'), smith = npcs.find(n => !n.dead && n.job === 'Smith'); const sp = sm.spots.work; smith.tx = smith.x = sp.x; smith.ty = smith.y = sp.y; smith.pose = 'stand'; rebuildOcc();
+    const sm = lf2Room('smithy'), smith = npcs.find(n => !n.dead && n.job === 'Smith') || (() => { const n = npcs.find(q => !q.dead && !q.player && q.age >= 20); n.job = 'Smith'; return n; })(); const sp = sm.spots.work; smith.tx = smith.x = sp.x; smith.ty = smith.y = sp.y; smith.pose = 'stand'; rebuildOcc();
     const s = lf2Stock(sm); s.tools = 3; s.iron = 2; const menu = () => [];
     const offers = itOffers(P, sm, 'tools', menu), coin0 = P.coin; offers.find(o => /^Hoe/.test(o[0]))[1](); const boughtHoe = P.items.filter(i => i.kind === 'hoe').length === 2 && P.coin < coin0 && s.tools === 2;
     P.inv.iron = 2; const sellLine = itExtras(P, sm, menu).find(o => /^Sell iron/.test(o[0])); const c1 = P.coin; sellLine[1](); const soldOre = P.inv.iron === 1 && P.coin > c1 && s.iron === 3;
@@ -1189,10 +1189,10 @@ test('build: the last block put down in a wall closes the room, thick walls incl
     const cx = P.tx + 3, cy = P.ty - 3; let skip = null;
     // a thick-walled room (two blocks thick, a door two tiles long); every block but one is put down first
     for (let i = 0; i < 8; i++) for (let j = 0; j < 7; j++) { const edge = i < 2 || i > 5 || j < 2 || j > 4; if (!edge) continue; if (i === 0 && j === 3) { skip = [cx + i, cy + j]; continue; } lfAddProp(i === 3 && j >= 5 ? 'bdoor' : 'bwall', cx + i, cy + j); }
-    const before = rooms.filter(r => r.free && !r.dead).length;
+    const before = rooms.filter(r => r.free && !r.dead && lvlOf(r.y) === 0).length;
     // the last one is placed through the build bar (it stands in front of the player)
     P.tx = P.x = skip[0] - 1; P.ty = P.y = skip[1]; P.face = { dx: 1, dy: 0 }; rebuildOcc(); bldPlaceFront(P, 'bwall'); bldTick();
-    return { before, after: rooms.filter(r => r.free && !r.dead).length, loose: town.props.filter(p => ['bwall', 'bwindow'].includes(p.kind)).length };
+    return { before, after: rooms.filter(r => r.free && !r.dead && lvlOf(r.y) === 0).length, loose: town.props.filter(p => ['bwall', 'bwindow'].includes(p.kind)).length };
   });
   check(r.before === 0 && r.after === 1, 'placing the last block should close the room: ' + JSON.stringify(r));
   check(r.loose === 0, 'the outer layer of a thick wall should become wall too, no loose blocks left: ' + r.loose);
@@ -1309,7 +1309,7 @@ test('function rooms: furniture you place makes a room a bakery, smithy, tavern 
     room(cx, [['bed', 1, 1], ['bed', 3, 1], ['bed', 4, 1], ['bed', 1, 3]]); room(cx + 7, [['oven', 1, 1], ['counter', 3, 1]]); room(cx + 14, [['forge', 1, 1], ['anvil', 3, 1]]);
     room(cx + 21, [['counter', 1, 1], ['table', 3, 3], ['chair', 2, 3], ['chair', 4, 3]]); room(cx + 28, [['altar', 2, 1], ['pew', 1, 3], ['pew', 3, 3]]);
     bldTick(); itBuildToggle(P, false); for (let i = 0; i < 4; i++) visArrive();
-    window.__c = [cx, cy]; return { kinds: rooms.filter(r => r.free && !r.dead).map(r => r.kind).join(), church: !!town.church, tavern: !!town.tavern, needs: islandNeeds().map(x => x.id), html: needsHTML() };
+    window.__c = [cx, cy]; return { kinds: rooms.filter(r => r.free && !r.dead && lvlOf(r.y) === 0).map(r => r.kind).join(), church: !!town.church, tavern: !!town.tavern, needs: islandNeeds().map(x => x.id), html: needsHTML() };
   });
   check(out.kinds === 'house,bakery,smithy,tavern,church', 'rooms should take their purpose from the furniture: ' + out.kinds);
   check(out.church && out.tavern, 'the chapel and the tavern should be registered');
@@ -1317,7 +1317,7 @@ test('function rooms: furniture you place makes a room a bakery, smithy, tavern 
   await simulate(page, 2 * 1440);
   const r1 = await page.evaluate(() => ({ baker: npcs.some(n => n.job === 'Baker'), smith: npcs.some(n => n.job === 'Smith'), priest: npcs.some(n => n.role === 'Priest') }));
   check(r1.baker && r1.smith, 'the bakery and the smithy should have taken on workers: ' + JSON.stringify(r1));
-  const r2 = await page.evaluate(() => { const [cx, cy] = window.__c, o = lfPropAt(cx + 8, cy + 1); bldDeleteProp(o); fnScan(); return { kind: rooms.filter(r => r.free && !r.dead)[1].kind }; });
+  const r2 = await page.evaluate(() => { const [cx, cy] = window.__c, o = lfPropAt(cx + 8, cy + 1); bldDeleteProp(o); fnScan(); return { kind: rooms.filter(r => r.free && !r.dead && lvlOf(r.y) === 0)[1].kind }; });
   check(r2.kind === 'room', 'smashing the oven should undo the bakery: ' + r2.kind);
   check(!errors.length, errors.slice(0, 3).join(' | '));
   return 'bakery, smithy, tavern and chapel made by furniture; workers hired; undone when the furniture goes';
@@ -1398,7 +1398,7 @@ test('signs, guides and the request on screen: a sign beside each door says who 
     itBuildToggle(P, true); for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) { if (!(i === 0 || j === 0 || i === 4 || j === 4)) continue; lfAddProp(i === 2 && j === 4 ? 'bdoor' : 'bwall', g.x + i, g.y + j); } lfAddProp('bed', g.x + 1, g.y + 1); town.bldQ.push([g.x, g.y]); bldTick(); itBuildToggle(P, false);
     const room = rooms.find(q => q.free && !q.dead), sw = signWallOf(room); let said = null;
     if (sw) { const t = targetAt0(P, sw.x, sw.y); said = t && t.msg; }
-    const unfinished = (() => { const n = 6; const cx = g.x + 10, cy = g.y; for (let j = -1; j <= n; j++) for (let i = -1; i <= n; i++) { setT(cx + i, cy + j, T.GRASS); roomAt[cy + j][cx + i] = -1; const q = lfPropAt(cx + i, cy + j); if (q) { town.props = town.props.filter(z => z !== q); town.propAt.delete((cy + j) * W + cx + i); town.pblock[(cy + j) * W + cx + i] = 0; } } for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { if (!(i === 0 || j === 0 || i === n - 1 || j === n - 1)) continue; lfAddProp(i === 2 && j === n - 1 ? 'bdoor' : 'bwall', cx + i, cy + j); } lfAddProp('oven', cx + 1, cy + 1); town.bldQ.push([cx, cy]); bldTick(); const r2 = rooms.filter(q => q.free && !q.dead).find(q => q !== room); return r2 ? signText(r2) : null; })();
+    const unfinished = (() => { const n = 6; const cx = g.x + 10, cy = g.y; for (let j = -1; j <= n; j++) for (let i = -1; i <= n; i++) { setT(cx + i, cy + j, T.GRASS); roomAt[cy + j][cx + i] = -1; const q = lfPropAt(cx + i, cy + j); if (q) { town.props = town.props.filter(z => z !== q); town.propAt.delete((cy + j) * W + cx + i); town.pblock[(cy + j) * W + cx + i] = 0; } } for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { if (!(i === 0 || j === 0 || i === n - 1 || j === n - 1)) continue; lfAddProp(i === 2 && j === n - 1 ? 'bdoor' : 'bwall', cx + i, cy + j); } lfAddProp('oven', cx + 1, cy + 1); town.bldQ.push([cx, cy]); bldTick(); const r2 = rooms.filter(q => q.free && !q.dead && lvlOf(q.y) === 0).find(q => q !== room); return r2 ? signText(r2) : null; })();
     guidesUpdate(islandNeeds());
     return { sw: !!sw, said, hut: signText(room), unfinished, guideGone: !town.guides.hut, pill: !!document.querySelector('#reqbox'), req: islandNeeds()[0] && islandNeeds()[0].id };
   });
@@ -1533,7 +1533,7 @@ test('stairs: a staircase in a room leads to a roof deck over the building; you 
     for (let j = -2; j < 14; j++) for (let i = -2; i < 16; i++) { setT(o.x + i, o.y + j, T.GRASS); roomAt[o.y + j][o.x + i] = -1; const q = lfPropAt(o.x + i, o.y + j); if (q) { town.props = town.props.filter(z => z !== q); town.propAt.delete((o.y + j) * W + o.x + i); town.pblock[(o.y + j) * W + o.x + i] = 0; } }
     buildRoom({ kind: 'lab', id: 'lab', name: 'Big room' }, o.x, o.y, 12, 10, 'b', null);
     P.tx = P.x = o.x + 3; P.ty = P.y = o.y + 3; P.face = { dx: 1, dy: 0 }; P.path = []; rebuildOcc(); refreshReach(); town.kit = Object.assign(town.kit || {}, { stair: 1 }); itBuildToggle(P, true); const f = lf2Front(P); out.placed = !!stairPlace(P); itBuildToggle(P, false);
-    const h0 = town.h0; out.tiles = grid[f.y][f.x] === T.STAIR && grid[f.y + h0][f.x] === T.STAIRD && grid[o.y + 5 + h0][o.x + 5] === T.DECK && town.portals.size === 2;
+    const h0 = town.h0, pn0 = town.portals.size - 2; out.tiles = grid[f.y][f.x] === T.STAIR && grid[f.y + h0][f.x] === T.STAIRD && grid[o.y + 5 + h0][o.x + 5] === T.DECK && town.portals.size === pn0 + 2;
     const up = targetAt0(P, f.x, f.y); if (up && up.run) up.run(P); out.up = P.ty >= h0 && P.tx === o.x + 3;
     const down = targetAt0(P, f.x, f.y + h0); if (down && down.run) down.run(P); out.down = P.ty < h0;
     // a walled hut on the deck seals into a room (with a window), and the ground it stood on goes back to deck when a block is taken out
