@@ -264,7 +264,7 @@ window.addEventListener('keydown', (e: any) => { if ((e.key === 'v' || e.key ===
    corners, a house with windows in its back wall, trees (scenery: they do not block), a shed, and two walls touching only at a corner. Returns the named places.     */
 function tsLab() {
   const LW = 46, LH = 32; let ox = -1, oy = -1;
-  for (let t = 0; t < 4000 && ox < 0; t++) { const x = 4 + Math.floor(Math.random() * (W - LW - 8)), y = 4 + Math.floor(Math.random() * (H - LH - 8)); let ok = true;
+  for (let t = 0; t < 4000 && ox < 0; t++) { const x = 4 + Math.floor(Math.random() * (W - LW - 8)), y = 4 + Math.floor(Math.random() * (GH() - LH - 8)); let ok = true;
     for (let j = y - 1; j < y + LH + 1 && ok; j++) for (let i = x - 1; i < x + LW + 1; i++) { const g = grid[j][i]; if (roomAt[j][i] >= 0 || g === T.WATER || g === T.MOUNTAIN || (town.hgt && town.hgt[j * W + i] >= 0)) { ok = false; break; } }
     if (ok) { ox = x; oy = y; } }
   if (ox < 0) return null;

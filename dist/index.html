@@ -7731,13 +7731,18 @@ const T = {
   PILE: 27,
   TENT: 28,
   BARREL: 29,
-  MOUNTAIN: 30
+  MOUNTAIN: 30,
+  SKY: 31,
+  DECK: 32,
+  STAIR: 33,
+  STAIRD: 34
 };
-const BLOCKED = /* @__PURE__ */ new Set([T.WALL, T.TREE, T.WATER, T.TABLE, T.COUNTER, T.FORGE, T.ANVIL, T.LOOM, T.WELL, T.ALTAR, T.LAMP, T.SHELF, T.OVEN, T.STALL, T.GRAVE, T.ROCK, T.PILE, T.BARREL, T.MOUNTAIN]);
+const BLOCKED = /* @__PURE__ */ new Set([T.WALL, T.TREE, T.WATER, T.TABLE, T.COUNTER, T.FORGE, T.ANVIL, T.LOOM, T.WELL, T.ALTAR, T.LAMP, T.SHELF, T.OVEN, T.STALL, T.GRAVE, T.ROCK, T.PILE, T.BARREL, T.MOUNTAIN, T.SKY, T.STAIR, T.STAIRD]);
 const COST = { [T.GRASS]: 1.5, [T.CROP]: 1.8, [T.PLOT]: 1.3, [T.SAND]: 1.25 };
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const TILE_MIN = 0.9;
 const YEAR = 3 * 1440;
+const GH = () => typeof town !== "undefined" && town && town.h0 || H;
 let grid = [], roomAt = [], rooms = [], doors = [], lamps = [], reach = new Uint8Array(W * H);
 let town = null, npcs = [], NEXT_ID = 1;
 let plazaTiles = [], shoreTiles = [];
@@ -8163,6 +8168,29 @@ function refreshShore() {
   }
   town.shoreSpots = shoreTiles;
 }
+function growSky() {
+  if (town.h0) return;
+  const H0 = H;
+  town.h0 = H0;
+  H = H0 * 2;
+  for (let y = H0; y < H; y++) {
+    grid.push(Array(W).fill(T.SKY));
+    roomAt.push(Array(W).fill(-1));
+  }
+  const ext = (a, Ctor) => {
+    if (!a) return a;
+    const b = new Ctor(W * H);
+    b.set(a);
+    return b;
+  };
+  town.siteAt = ext(town.siteAt, Uint16Array);
+  town.block = ext(town.block, Uint8Array);
+  if (town.pblock) town.pblock = ext(town.pblock, Uint8Array);
+  town.portals = /* @__PURE__ */ new Map();
+  town.stairs = [];
+  reach = new Uint8Array(W * H);
+  town.gridV = (town.gridV || 0) + 1;
+}
 function generateTown(seed, size) {
   setSize(size || "M");
   const R = rng(seed >>> 0);
@@ -8255,6 +8283,7 @@ function generateTown(seed, size) {
   town.patrol = [];
   startPeople(R);
   townName(R);
+  growSky();
   refreshReach();
   refreshShore();
   spawnNodes(18);
@@ -9243,7 +9272,7 @@ function growthProjects() {
 }
 function spawnNodes(n) {
   for (let t = 0; t < n * 14 && n > 0; t++) {
-    const x = ri(Math.random, 3, W - 4), y = ri(Math.random, 3, H - 4), d = marketDist(x, y);
+    const x = ri(Math.random, 3, W - 4), y = ri(Math.random, 3, GH() - 4), d = marketDist(x, y);
     if (d < 8 || d > 34 || !tileFree(x, y) || !reach[y * W + x]) continue;
     let ok = true;
     for (let j = -2; j <= 2 && ok; j++) for (let i = -2; i <= 2; i++) {
@@ -9604,7 +9633,7 @@ function rockfall() {
   if (nb >= cap2) return;
   let made = 0;
   for (let t = 0; t < 4e3 && made < 3 && nb + made < cap2; t++) {
-    const x = 2 + Math.floor(Math.random() * (W - 4)), y = 2 + Math.floor(Math.random() * (H - 4));
+    const x = 2 + Math.floor(Math.random() * (W - 4)), y = 2 + Math.floor(Math.random() * (GH() - 4));
     if (grid[y][x] !== T.GRASS || roomAt[y][x] >= 0 || town.siteAt[y * W + x] || town.nodeMap.has(y * W + x) || town.block && town.block[y * W + x] || nearGrave(x, y)) continue;
     let mt = 0;
     for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (grid[y + j][x + i] === T.MOUNTAIN) mt++;
@@ -9789,11 +9818,11 @@ function settlerArrives() {
   chron(grp.length > 1 ? `${nameOf(a)} and ${nameOf(grp[1])} arrived from the road and asked to stay.` : `${nameOf(a)} arrived from the road and asked to stay.`, "life");
 }
 function regrowTrees() {
-  const tries = Math.round(W * H / 45);
+  const tries = Math.round(W * (town.h0 || H) / 45);
   let made = 0;
   const okG = /* @__PURE__ */ new Set([T.GRASS, T.TREE, T.WATER, T.SAND, T.ROCK, T.MOUNTAIN]);
   for (let t = 0; t < tries; t++) {
-    const x = ri(Math.random, 2, W - 3), y = ri(Math.random, 2, H - 3);
+    const x = ri(Math.random, 2, W - 3), y = ri(Math.random, 2, GH() - 3);
     if (grid[y][x] !== T.GRASS || roomAt[y][x] >= 0 || town.siteAt[y * W + x] || town.nodeMap.has(y * W + x) || nearGrave(x, y)) continue;
     if (marketDist(x, y) < 14) continue;
     let near = 0, bad = false;
@@ -16155,7 +16184,7 @@ function tsLab() {
   const LW = 46, LH = 32;
   let ox = -1, oy = -1;
   for (let t = 0; t < 4e3 && ox < 0; t++) {
-    const x = 4 + Math.floor(Math.random() * (W - LW - 8)), y = 4 + Math.floor(Math.random() * (H - LH - 8));
+    const x = 4 + Math.floor(Math.random() * (W - LW - 8)), y = 4 + Math.floor(Math.random() * (GH() - LH - 8));
     let ok = true;
     for (let j = y - 1; j < y + LH + 1 && ok; j++) for (let i = x - 1; i < x + LW + 1; i++) {
       const g = grid[j][i];
@@ -20579,7 +20608,7 @@ const SH_CAP = 90;
 const shroomAt = (x, y) => (town.shrooms || []).find((s) => s.x === x && s.y === y);
 function shroomSpot(R, nearTree) {
   for (let t = 0; t < 400; t++) {
-    const x = 4 + Math.floor(R() * (W - 8)), y = 4 + Math.floor(R() * (H - 8));
+    const x = 4 + Math.floor(R() * (W - 8)), y = 4 + Math.floor(R() * (GH() - 8));
     if (grid[y][x] !== T.GRASS || roomAt[y][x] >= 0 || town.siteAt && town.siteAt[y * W + x] || town.nodeMap && town.nodeMap.has(y * W + x) || lfPropAt(x, y) || shroomAt(x, y) || typeof reach !== "undefined" && reach && !reach[y * W + x]) continue;
     if (Math.hypot(x - town.cx, y - town.cy) < 6) continue;
     if (nearTree) {
@@ -23157,7 +23186,7 @@ function lf2TrystPlan(n, tod) {
   if (sp && !(h >= 21 || h < 1) && Math.random() < 0.7) return null;
   let spot = null;
   for (let i = 0; i < 25 && !spot; i++) {
-    const x = 3 + Math.floor(Math.random() * (W - 6)), y = 3 + Math.floor(Math.random() * (H - 6));
+    const x = 3 + Math.floor(Math.random() * (W - 6)), y = 3 + Math.floor(Math.random() * (GH() - 6));
     if (walkable(x, y) && roomAt[y][x] < 0 && lf2Watchers(x, y, [n, c]) < 0.15 && findPath(n.tx, n.ty, x, y)) spot = { x, y };
   }
   if (!spot) return null;
@@ -30191,6 +30220,10 @@ function isleRestore(text) {
   SB.count = o.sb && o.sb.count || {};
   SB.pair = o.sb && o.sb.pair || /* @__PURE__ */ new Map();
   SB.presim = !!(o.sb && o.sb.presim);
+  if (!town.h0) growSky();
+  else {
+    H = town.h0 * 2;
+  }
   reach = new Uint8Array(W * H);
   tileOwner = /* @__PURE__ */ new Map();
   pairCool.clear();

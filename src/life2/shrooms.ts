@@ -6,7 +6,7 @@ const SH_CAP = 90;     // how many may stand on the island at once
 const shroomAt = (x: number, y: number) => (town.shrooms || []).find(s => s.x === x && s.y === y);
 function shroomSpot(R: () => number, nearTree: boolean) {
   for (let t = 0; t < 400; t++) {
-    const x = 4 + Math.floor(R() * (W - 8)), y = 4 + Math.floor(R() * (H - 8));
+    const x = 4 + Math.floor(R() * (W - 8)), y = 4 + Math.floor(R() * (GH() - 8));
     if (grid[y][x] !== T.GRASS || roomAt[y][x] >= 0 || (town.siteAt && town.siteAt[y * W + x]) || (town.nodeMap && town.nodeMap.has(y * W + x)) || lfPropAt(x, y) || shroomAt(x, y) || (typeof reach !== 'undefined' && reach && !reach[y * W + x])) continue;
     if (Math.hypot(x - town.cx, y - town.cy) < 6) continue;
     if (nearTree) { let tr = false; for (let dy = -2; dy <= 2 && !tr; dy++) for (let dx = -2; dx <= 2; dx++) if (grid[y + dy] && grid[y + dy][x + dx] === T.TREE) { tr = true; break; } if (!tr) continue; }

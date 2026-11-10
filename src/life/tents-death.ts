@@ -48,7 +48,7 @@ function rockfall() {
   const cap = Math.max(30, Math.round((town.rockCap || 40) * 0.6)); if (nb >= cap) return;
   let made = 0;
   for (let t = 0; t < 4000 && made < 3 && nb + made < cap; t++) {
-    const x = 2 + Math.floor(Math.random() * (W - 4)), y = 2 + Math.floor(Math.random() * (H - 4));
+    const x = 2 + Math.floor(Math.random() * (W - 4)), y = 2 + Math.floor(Math.random() * (GH() - 4));
     if (grid[y][x] !== T.GRASS || roomAt[y][x] >= 0 || town.siteAt[y * W + x] || town.nodeMap.has(y * W + x) || (town.block && town.block[y * W + x]) || nearGrave(x, y)) continue;
     let mt = 0; for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (grid[y + j][x + i] === T.MOUNTAIN) mt++;
     if (!mt || npcs.some(n => n.tx === x && n.ty === y)) continue;
@@ -148,10 +148,10 @@ function settlerArrives() {
 
 /* ---------- the forest grows back ---------- */
 function regrowTrees() {
-  const tries = Math.round(W * H / 45); let made = 0;
+  const tries = Math.round(W * (town.h0 || H) / 45); let made = 0;
   const okG = new Set([T.GRASS, T.TREE, T.WATER, T.SAND, T.ROCK, T.MOUNTAIN]);
   for (let t = 0; t < tries; t++) {
-    const x = ri(Math.random, 2, W - 3), y = ri(Math.random, 2, H - 3);
+    const x = ri(Math.random, 2, W - 3), y = ri(Math.random, 2, GH() - 3);
     if (grid[y][x] !== T.GRASS || roomAt[y][x] >= 0 || town.siteAt[y * W + x] || town.nodeMap.has(y * W + x) || nearGrave(x, y)) continue;
     if (marketDist(x, y) < 14) continue;
     let near = 0, bad = false;

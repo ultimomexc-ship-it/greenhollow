@@ -1,7 +1,7 @@
 /* ---------- gatherable plants ---------- */
 function spawnNodes(n) {
   for (let t = 0; t < n * 14 && n > 0; t++) {
-    const x = ri(Math.random, 3, W - 4), y = ri(Math.random, 3, H - 4), d = marketDist(x, y);
+    const x = ri(Math.random, 3, W - 4), y = ri(Math.random, 3, GH() - 4), d = marketDist(x, y);
     if (d < 8 || d > 34 || !tileFree(x, y) || !reach[y * W + x]) continue;
     let ok = true; for (let j = -2; j <= 2 && ok; j++) for (let i = -2; i <= 2; i++) { const xx = x + i, yy = y + j; if (xx > 0 && yy > 0 && xx < W && yy < H && (roomAt[yy][xx] >= 0 || town.siteAt[yy * W + xx] || grid[yy][xx] === T.PATH)) { ok = false; break; } }
     if (!ok) continue;

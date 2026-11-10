@@ -196,7 +196,7 @@ function lf2TrystPlan(n, tod) {
   if (!mutual) { if (Math.random() < 0.5) return null; return [goS(() => { const b = besideTile(c.tx, c.ty, null); return b ? { x: b.x, y: b.y, face: { dx: Math.sign(c.tx - b.x), dy: Math.sign(c.ty - b.y) } } : null; }, `Finding an excuse to see ${c.first}`), waitS(4, 'stand', `Blushing at ${c.first}`, { social: true, nopie: true, onEnd(nn) { if (lfDist(nn, c) > 3) return; bumpAff(nn, c, 2, 5); say(nn, c, [[nn, anyOf(['Oh! Hello. I was just... passing.', 'You look nice today. I mean, you always... never mind.'])], [c, anyOf(['Er, thanks?', 'Hello, ' + nn.first + '.'])]]); } })]; }
   if (sp && !(h >= 21 || h < 1) && Math.random() < 0.7) return null;
   // somewhere quiet, away from eyes
-  let spot = null; for (let i = 0; i < 25 && !spot; i++) { const x = 3 + Math.floor(Math.random() * (W - 6)), y = 3 + Math.floor(Math.random() * (H - 6)); if (walkable(x, y) && roomAt[y][x] < 0 && lf2Watchers(x, y, [n, c]) < 0.15 && findPath(n.tx, n.ty, x, y)) spot = { x, y }; }
+  let spot = null; for (let i = 0; i < 25 && !spot; i++) { const x = 3 + Math.floor(Math.random() * (W - 6)), y = 3 + Math.floor(Math.random() * (GH() - 6)); if (walkable(x, y) && roomAt[y][x] < 0 && lf2Watchers(x, y, [n, c]) < 0.15 && findPath(n.tx, n.ty, x, y)) spot = { x, y }; }
   if (!spot) return null; const s2 = besideTile(spot.x, spot.y, null); if (!s2) return null;
   if (c.hunger >= 60 || n.hunger >= 60) return null;
   recruit(c, [goS(s2, sp ? 'Slipping out quietly' : `Meeting ${n.first}`), waitS(35, 'stand', sp ? `Meeting ${n.first} in secret` : `Walking out with ${n.first}`, { social: true, nopie: true })], game.time + 90);

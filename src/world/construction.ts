@@ -36,6 +36,16 @@ function refreshShore() {
   town.shoreSpots = shoreTiles;
 }
 
+/** The second level: the map is doubled downwards. Row y + town.h0 is the level above row y: a roof deck over a building (T.DECK), nothing elsewhere (T.SKY). Everything that works on the ground works up there
+    unchanged (building, sealing, props, rooms, walking, TrueSight), because it is only more map; stairs link the two (town.portals). Safe to call twice. */
+function growSky() {
+  if (town.h0) return; const H0 = H; town.h0 = H0; H = H0 * 2;
+  for (let y = H0; y < H; y++) { grid.push(Array(W).fill(T.SKY)); roomAt.push(Array(W).fill(-1)); }
+  const ext = (a, Ctor) => { if (!a) return a; const b = new Ctor(W * H); b.set(a); return b; };
+  town.siteAt = ext(town.siteAt, Uint16Array); town.block = ext(town.block, Uint8Array); if (town.pblock) town.pblock = ext(town.pblock, Uint8Array);
+  town.portals = new Map(); town.stairs = [];
+  reach = new Uint8Array(W * H); town.gridV = (town.gridV || 0) + 1;
+}
 function generateTown(seed, size) {
   setSize(size || 'M');
   const R = rng(seed >>> 0); NEXT_ID = 1; resetWorld();
@@ -78,6 +88,7 @@ function generateTown(seed, size) {
   // the founding families
   startPeople(R);
   townName(R);
+  growSky();
   refreshReach(); refreshShore(); spawnNodes(18);
   return town;
 }
