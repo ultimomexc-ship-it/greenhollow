@@ -24866,11 +24866,12 @@ function cvOpen(c) {
     const b = cvBusy(c);
     if (b) return { text: b, hooks: [], end: true };
   }
-  if (c.close === "cold") return { text: anyOf(["What.", "Not now.", "*looks straight through you*", "I have nothing to say to you."]), hooks: [{ k: "cold", key: "cold", label: "that" }] };
+  if (c.close === "cold" && !cvKinOf(c)) return { text: anyOf(["What.", "Not now.", "*looks straight through you*", "I have nothing to say to you."]), hooks: [{ k: "cold", key: "cold", label: "that" }] };
   const cb = cvCallback(c);
   c.mem.talks++;
   c.mem.last = game.time;
-  const greet = cb ? cb.text : c.mem.talks > 1 && game.time - c.mem.last < 90 ? "" : cvGreetLine(o, p, c.close);
+  const kg = cvKinGreet(c);
+  const greet = cb ? cb.text : kg ? kg : c.mem.talks > 1 && game.time - c.mem.last < 90 ? "" : cvGreetLine(o, p, c.close);
   c.pool = cvPool(c);
   let utt = null;
   const chatty = Math.random() < 0.3 + v.chat * 0.65;
@@ -24881,6 +24882,32 @@ function cvOpen(c) {
   if (!utt) utt = cvTellAct(c);
   return { text: [greet, utt.text].filter(Boolean).join(" "), hooks: utt.hooks };
 }
+function cvKinOf(c) {
+  const w = kinWord(c.p, c.o);
+  return w && ["wife", "husband", "son", "daughter", "mother", "father", "brother", "sister", "grandmother", "grandfather", "granddaughter", "grandson"].includes(w) ? w : null;
+}
+const CV_KINSAY = {
+  spouse: ["There you are. I was beginning to think the island had you.", "Hello, {p}. I put something by for you. It is on the shelf, behind the other things.", "{p}. Good. I was about to talk to the wall, and the wall has stopped answering.", "You look tired. Sit for a minute. The island will manage without you for a minute.", "Oh, it is you. I have been saying your name to nobody in particular all morning.", "Come here. No reason.", "You have sand on your sleeve. You have had sand on your sleeve since the day we met. I would not know you without it."],
+  childYoung: ["{Dad}! {Dad}! You are here!", "{Dad}, look. No, look. You missed it.", "{Dad}, can we do something? Anything. It does not have to be big.", "{Dad}, I had a dream that the island was a boat. Do you think it is?", "{Dad}! I counted the stairs. There are not any stairs. I counted anyway."],
+  childOlder: ["Oh. Hi, {Dad}.", "Hello, {Dad}. You look like you want to ask me something.", "{Dad}. I was just thinking about you. Not in a bad way.", "You always turn up when I am in the middle of something. I do not mind.", "Hi, {Dad}. I am fine. That was going to be your first question."],
+  parent: ["{p}, there you are. Have you eaten? No. Come here.", "My {child}. Sit. You are standing like somebody who has not sat all day.", "{p}. I was just thinking of you, and here you are. That is how it goes with {children}.", "Look at you. I would know that walk anywhere, even here."],
+  sibling: ["Oh, it is you. Good. I was bored of everybody else.", "{p}. You look the way you did when we were small and had broken something.", "Hello, {p}. Do not tell me anything clever. I am not ready."],
+  grand: ["{p}! Come and sit by me. Tell me nothing. Just sit.", "There you are. I was telling the sand about you."]
+};
+function cvKinGreet(c) {
+  const k = cvKinOf(c);
+  if (!k) return null;
+  if (c.mem.talks > 1 && game.time - c.mem.last < 90) return "";
+  const o = c.o, p = c.p;
+  let bank;
+  if (k === "wife" || k === "husband") bank = CV_KINSAY.spouse;
+  else if (k === "son" || k === "daughter") bank = o.age < 12 ? CV_KINSAY.childYoung : CV_KINSAY.childOlder;
+  else if (k === "mother" || k === "father") bank = CV_KINSAY.parent;
+  else if (k === "brother" || k === "sister") bank = CV_KINSAY.sibling;
+  else bank = CV_KINSAY.grand;
+  const dad = p.female ? "Mum" : "Dad", ln = cvLine(o, bank, p, "kin" + k);
+  return ln.replace(/\{Dad\}/g, dad).replace(/\{p\}/g, p.first).replace(/\{child\}/g, o.female ? "daughter" : "son").replace(/\{children\}/g, "children");
+}
 function cvBusyWhy(c) {
   const o = c.o, s = c.status || "", ill = o.ill && o.ill.until > game.time, shop = o.shop || c.activity === "stall";
   return ill ? "ill" : (o.bladder || 0) > 85 || cvToPrivy(s) ? "privy" : (o.hunger || 0) > 88 ? "hungry" : /hurry|rush|late|fetch|Taking .* home|for food|bite to eat|Going to bed with a fever/i.test(s) ? "rush" : (c.act === "work" || ["farm", "build", "smith"].includes(c.activity)) && !shop && !c.kid ? "work" : null;
@@ -24889,6 +24916,13 @@ function cvBusy(c) {
   const why = cvBusyWhy(c);
   if (!why) return null;
   const fr = c.close === "close" || c.close === "friend";
+  const kin = cvKinOf(c);
+  if (kin && (why === "work" || why === "rush")) {
+    const kids = kin === "son" || kin === "daughter", B = kids ? ["I am in the middle of something, but you can stay and watch.", "Not now. Well. A little now. Talk while I work."] : ["Walk with me. My hands are busy, my ears are not.", "Hold on, {p}. Two minutes. Stay where I can see you.", "I am rushing, but say it quickly, I will pretend I am not."];
+    const l = cvFreshest(c.p, B.map((x) => x.replace("{p}", c.p.first)));
+    cvMarkHeard(c.p, l);
+    return l;
+  }
   const L = {
     ill: ["*coughs* Not today. Please.", "I'm not fit for company. Come back when I'm on my feet.", "Keep back. Whatever I've got, you don't want it."],
     privy: ["Not. Now.", "Later! Much later!", "Can't. Stop. Talking."],

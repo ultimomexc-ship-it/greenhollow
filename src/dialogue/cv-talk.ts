@@ -51,15 +51,39 @@ function cvOpen(c): CvUtt {
   if (o.job === 'Guard' && lf2Wanted()[p.id]) return { text: anyOf(['Stop right there, ' + p.first + '.', 'We need to talk about what happened.', 'I have been looking for you.']), hooks: [{ k: 'arrest', key: 'arrest', label: 'that' }] };
   if (c.activity === 'privy') return { text: anyOf(CV_ACTV.privy.say), hooks: [] };
   { const b = cvBusy(c); if (b) return { text: b, hooks: [], end: true }; }
-  if (c.close === 'cold') return { text: anyOf(['What.', 'Not now.', '*looks straight through you*', 'I have nothing to say to you.']), hooks: [{ k: 'cold', key: 'cold', label: 'that' }] };
+  if (c.close === 'cold' && !cvKinOf(c)) return { text: anyOf(['What.', 'Not now.', '*looks straight through you*', 'I have nothing to say to you.']), hooks: [{ k: 'cold', key: 'cold', label: 'that' }] };
   const cb = cvCallback(c); c.mem.talks++; c.mem.last = game.time;
-  const greet = cb ? cb.text : (c.mem.talks > 1 && game.time - c.mem.last < 90 ? '' : cvGreetLine(o, p, c.close));
+  const kg = cvKinGreet(c);
+  const greet = cb ? cb.text : kg ? kg : (c.mem.talks > 1 && game.time - c.mem.last < 90 ? '' : cvGreetLine(o, p, c.close));
   c.pool = cvPool(c);
   let utt: CvUtt | null = null;
   const chatty = Math.random() < 0.3 + v.chat * 0.65;
   if (chatty && c.pool.length) { const t = cvChoose(c, c.pool); utt = cvTell(c, t, 0); }
   if (!utt) utt = cvTellAct(c);
   return { text: [greet, utt.text].filter(Boolean).join(' '), hooks: utt.hooks };
+}
+/* ---------------- family: they know you ---------------- */
+/** what the player is to this person's family: 'wife' | 'husband' | 'son' | 'daughter' | 'mother' | 'father' | 'brother' | 'sister' ... (the speaker's relation to the player) */
+function cvKinOf(c): string | null {
+  const w = kinWord(c.p, c.o); return w && ['wife', 'husband', 'son', 'daughter', 'mother', 'father', 'brother', 'sister', 'grandmother', 'grandfather', 'granddaughter', 'grandson'].includes(w) ? w : null;
+}
+const CV_KINSAY: any = {
+  spouse: ['There you are. I was beginning to think the island had you.', 'Hello, {p}. I put something by for you. It is on the shelf, behind the other things.', '{p}. Good. I was about to talk to the wall, and the wall has stopped answering.', 'You look tired. Sit for a minute. The island will manage without you for a minute.', 'Oh, it is you. I have been saying your name to nobody in particular all morning.', 'Come here. No reason.', 'You have sand on your sleeve. You have had sand on your sleeve since the day we met. I would not know you without it.'],
+  childYoung: ['{Dad}! {Dad}! You are here!', '{Dad}, look. No, look. You missed it.', '{Dad}, can we do something? Anything. It does not have to be big.', '{Dad}, I had a dream that the island was a boat. Do you think it is?', '{Dad}! I counted the stairs. There are not any stairs. I counted anyway.'],
+  childOlder: ['Oh. Hi, {Dad}.', 'Hello, {Dad}. You look like you want to ask me something.', '{Dad}. I was just thinking about you. Not in a bad way.', 'You always turn up when I am in the middle of something. I do not mind.', 'Hi, {Dad}. I am fine. That was going to be your first question.'],
+  parent: ['{p}, there you are. Have you eaten? No. Come here.', 'My {child}. Sit. You are standing like somebody who has not sat all day.', '{p}. I was just thinking of you, and here you are. That is how it goes with {children}.', 'Look at you. I would know that walk anywhere, even here.'],
+  sibling: ['Oh, it is you. Good. I was bored of everybody else.', '{p}. You look the way you did when we were small and had broken something.', 'Hello, {p}. Do not tell me anything clever. I am not ready.'],
+  grand: ['{p}! Come and sit by me. Tell me nothing. Just sit.', 'There you are. I was telling the sand about you.'],
+};
+function cvKinGreet(c): string | null {
+  const k = cvKinOf(c); if (!k) return null; if (c.mem.talks > 1 && game.time - c.mem.last < 90) return '';
+  const o = c.o, p = c.p; let bank: string[];
+  if (k === 'wife' || k === 'husband') bank = CV_KINSAY.spouse;
+  else if (k === 'son' || k === 'daughter') bank = o.age < 12 ? CV_KINSAY.childYoung : CV_KINSAY.childOlder;
+  else if (k === 'mother' || k === 'father') bank = CV_KINSAY.parent;
+  else if (k === 'brother' || k === 'sister') bank = CV_KINSAY.sibling; else bank = CV_KINSAY.grand;
+  const dad = p.female ? 'Mum' : 'Dad', ln = cvLine(o, bank, p, 'kin' + k);
+  return ln.replace(/\{Dad\}/g, dad).replace(/\{p\}/g, p.first).replace(/\{child\}/g, o.female ? 'daughter' : 'son').replace(/\{children\}/g, 'children');
 }
 /** too busy to talk: one line and they are gone (null when they have a moment) */
 /** why they cannot talk right now ('ill', 'privy', 'hungry', 'rush', 'work'), or null */
@@ -68,7 +92,8 @@ function cvBusyWhy(c): string | null {
   return ill ? 'ill' : (o.bladder || 0) > 85 || cvToPrivy(s) ? 'privy' : (o.hunger || 0) > 88 ? 'hungry' : /hurry|rush|late|fetch|Taking .* home|for food|bite to eat|Going to bed with a fever/i.test(s) ? 'rush' : (c.act === 'work' || ['farm', 'build', 'smith'].includes(c.activity)) && !shop && !c.kid ? 'work' : null;
 }
 function cvBusy(c): string | null {
-  const why = cvBusyWhy(c); if (!why) return null; const fr = c.close === 'close' || c.close === 'friend';
+  const why = cvBusyWhy(c); if (!why) return null; const fr = c.close === 'close' || c.close === 'friend'; const kin = cvKinOf(c);
+  if (kin && (why === 'work' || why === 'rush')) { const kids = kin === 'son' || kin === 'daughter', B = kids ? ['I am in the middle of something, but you can stay and watch.', 'Not now. Well. A little now. Talk while I work.'] : ['Walk with me. My hands are busy, my ears are not.', 'Hold on, {p}. Two minutes. Stay where I can see you.', 'I am rushing, but say it quickly, I will pretend I am not.']; const l = cvFreshest(c.p, B.map(x => x.replace('{p}', c.p.first))); cvMarkHeard(c.p, l); return l; }
   const L: any = { ill: ['*coughs* Not today. Please.', 'I\'m not fit for company. Come back when I\'m on my feet.', 'Keep back. Whatever I\'ve got, you don\'t want it.'], privy: ['Not. Now.', 'Later! Much later!', 'Can\'t. Stop. Talking.'], hungry: ['I need to eat something before I fall over. Later.', 'Food first. Then talk.', 'If I don\'t eat now, I\'ll bite somebody. Later.'],
     rush: fr ? ['Can\'t stop, sorry! Later!', 'Running late. Find me after.', 'I\'d love to, but I\'m late. Walk faster next time!'] : ['Sorry, can\'t stop.', 'Not now, I\'m in a hurry.', 'Can\'t. Late.'], work: fr ? ['Busy, busy. Catch me when I\'m done?', 'Hands full. Later, I promise.', 'Not now, love. Later, when this is done.'] : ['I\'m working.', 'Busy. Another time.', '*keeps working*', 'Can it wait? It\'ll have to.'] };
   const ln = cvFreshest(c.p, L[why]); cvMarkHeard(c.p, ln); return ln;
