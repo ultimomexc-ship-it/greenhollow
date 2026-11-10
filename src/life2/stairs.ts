@@ -67,9 +67,8 @@ function stairAction(n, x: number, y: number) {
   const k = y * W + x, st = (town.stairs || []).find(q => q.s0 === k || q.s1 === k); if (!st) return null;
   const fromA = st.s0 === k, land = fromA ? st.l0 : st.l1, up = st.kind === 'up' ? fromA : !fromA;
   if (n.tx !== land % W || n.ty !== ((land / W) | 0)) return { msg: 'Stairs up are climbed from the south, stairs down from the north.' };
-  if (n.stairFresh && n.stairFresh.land === land && n.walked === n.stairFresh.walked) return null;   // (you have only just come out here: step off the landing and back to use these stairs, so holding the key does not take you straight back)
   return { key: 'stair' + x + ',' + y, min: 0.08, text: up ? 'Going up' : 'Going down', tool: null, run(nn) {
-    const t = fromA ? st.l1 : st.l0, [tx, ty] = stairArrivalTile(t, nn), sk = fromA ? st.s1 : st.s0; teleportTo(nn, tx, ty); nn.stairFresh = { land: ty * W + tx, walked: nn.walked };
+    const t = fromA ? st.l1 : st.l0, [tx, ty] = stairArrivalTile(t, nn), sk = fromA ? st.s1 : st.s0; teleportTo(nn, tx, ty);
     if (nn.player) { const pp = nn.player; pp.stairHold = {}; for (const d of ['up', 'down', 'left', 'right']) if (pp.keys[d]) pp.stairHold[d] = true; pp.keys = {}; pp.order = []; }   // (you arrive ON the landing: a key still held does not walk you off it)
     nn.face = { dx: -Math.sign((sk % W) - tx), dy: -Math.sign(((sk / W) | 0) - ty) };   // (turned away from the stair you came out of)
     playerSay(nn, st.kind === 'down' ? (fromA ? 'Underground.' : 'Daylight.') : (up ? 'The roof.' : 'Downstairs.')); } };

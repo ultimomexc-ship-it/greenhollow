@@ -14431,7 +14431,7 @@ function targetAt0(n, x, y) {
       eatShroom(nn, sh);
     } };
   }
-  if ((g === T.STAIR || g === T.STAIRD || g === T.STAIRM || g === T.STAIRU) && !itBuildOn(n)) {
+  if ((g === T.STAIR || g === T.STAIRD || g === T.STAIRM || g === T.STAIRU) && !(itBuildOn(n) && n.build.sel === 1)) {
     const sa = stairAction(n, x, y);
     if (sa) return sa;
   }
@@ -20271,11 +20271,9 @@ function stairAction(n, x, y) {
   if (!st) return null;
   const fromA = st.s0 === k, land = fromA ? st.l0 : st.l1, up = st.kind === "up" ? fromA : !fromA;
   if (n.tx !== land % W || n.ty !== (land / W | 0)) return { msg: "Stairs up are climbed from the south, stairs down from the north." };
-  if (n.stairFresh && n.stairFresh.land === land && n.walked === n.stairFresh.walked) return null;
   return { key: "stair" + x + "," + y, min: 0.08, text: up ? "Going up" : "Going down", tool: null, run(nn) {
     const t = fromA ? st.l1 : st.l0, [tx, ty] = stairArrivalTile(t, nn), sk = fromA ? st.s1 : st.s0;
     teleportTo(nn, tx, ty);
-    nn.stairFresh = { land: ty * W + tx, walked: nn.walked };
     if (nn.player) {
       const pp = nn.player;
       pp.stairHold = {};
