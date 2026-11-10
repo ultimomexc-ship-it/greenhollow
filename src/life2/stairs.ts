@@ -19,6 +19,13 @@ function teleportTo(n, x: number, y: number) {
   n.tx = x; n.ty = y; n.x = x; n.y = y; n.t = 0; n.slide = null; n.walked = (n.walked || 0) + 1; tileOwner.set(tkey(x, y), n);
   if (n.path && n.path.length && n.path[0].x === x && n.path[0].y === y) n.path.shift();
 }
+/** which way the arrow on a stair tile points (0 north, 1 east, 2 south, 3 west): from its landing into the stair, the one way in */
+function stairRot(x: number, y: number): number {
+  const k = y * W + x; for (const st of town.stairs || []) { const l = st.s0 === k ? st.l0 : st.s1 === k ? st.l1 : -1; if (l < 0) continue; const dx = x - (l % W), dy = y - ((l / W) | 0); return dy < 0 ? 0 : dx > 0 ? 1 : dy > 0 ? 2 : 3; }
+  return 0;
+}
+/** the sprite of a stair tile (the up and down kinds, turned to its arrow) */
+const stairSpriteId = (t: number, x: number, y: number) => ((t === T.STAIR || t === T.STAIRU) ? 'stair_up' : 'stair_down') + (stairRot(x, y) ? '_' + stairRot(x, y) : '');
 const stairClear = (x: number, y: number) => x >= 3 && y >= 3 && x < W - 3 && y < H - 3 && walkable(x, y) && !lfPropAt(x, y) && !tileOwner.get(y * W + x) && !town.siteAt[y * W + x] && !town.nodeMap.has(y * W + x) && [T.GRASS, T.PATH, T.SAND, T.FLOOR, T.DIRTF, T.DECK].includes(grid[y][x]);
 function stairLink(s0: number, l0: number, s1: number, l1: number, kind: string) {
   town.portals = town.portals || new Map(); town.stairs = town.stairs || []; town.portals.set(l0, l1); town.portals.set(l1, l0); town.stairs.push({ s0, l0, s1, l1, kind });
@@ -27,17 +34,19 @@ function stairLink(s0: number, l0: number, s1: number, l1: number, kind: string)
 function stairMake(sx: number, sy: number, lx: number, ly: number, down: boolean) {
   const h0 = town.h0;
   if (down) {
-    const shift = lvlOf(ly) === 0 ? LV_MINE * h0 : h0, l1y = ly + shift, s1y = sy + shift;
+    const shift = lvlOf(ly) === 0 ? LV_MINE * h0 : h0, l1y = ly + shift, s1x = lx - (sx - lx), s1y = l1y - (sy - ly);   // the stair at the other end stands on the far side of its landing: you come out facing away from it
     for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const x = lx + i, y = l1y + j; setT(x, y, T.DIRTF); town.ore[y * W + x] = 0; roomAt[y][x] = -1; }
-    setT(sx, sy, T.STAIRM); setT(sx, s1y, T.STAIRU);
-    stairLink(sy * W + sx, ly * W + lx, s1y * W + sx, l1y * W + lx, 'down');
+    setT(sx, sy, T.STAIRM); setT(s1x, s1y, T.STAIRU);
+    stairLink(sy * W + sx, ly * W + lx, s1y * W + s1x, l1y * W + lx, 'down');
     town.gridV = (town.gridV || 0) + 1; markDirty(sx - 1, sy - 1, 3, 3); markDirty(lx - 2, l1y - 2, 5, 5); refreshReach(); return;
   }
   const r = rooms[roomAt[sy][sx]], fp = stairFootprint(r);
   for (const [x, y] of fp) if (grid[y + h0][x] === T.SKY) setT(x, y + h0, T.DECK);
-  setT(sx, sy, T.STAIR); setT(sx, sy + h0, T.STAIRD);
-  stairLink(sy * W + sx, ly * W + lx, (sy + h0) * W + sx, (ly + h0) * W + lx, 'up');
-  markDirty(sx - 1, sy - 1, 3, 3); for (const [x, y] of fp) markDirty(x, y + h0, 1, 1); markDirty(sx, sy + h0 - 1, 3, 3);
+  const s1x = lx - (sx - lx), s1y = ly - (sy - ly) + h0;
+  for (const [x, y] of [[s1x, s1y]]) if (grid[y][x] === T.SKY) setT(x, y, T.DECK);
+  setT(sx, sy, T.STAIR); setT(s1x, s1y, T.STAIRD);
+  stairLink(sy * W + sx, ly * W + lx, s1y * W + s1x, (ly + h0) * W + lx, 'up');
+  markDirty(sx - 1, sy - 1, 3, 3); for (const [x, y] of fp) markDirty(x, y + h0, 1, 1); markDirty(s1x - 1, s1y - 1, 3, 3);
   town.gridV = (town.gridV || 0) + 1; town.lfPV = (town.lfPV || 0) + 1; refreshReach();
 }
 /** build mode: put a staircase on the floor in front of you. You stand on its landing. `down`: into the earth. */
@@ -47,6 +56,7 @@ function stairPlace(n, down = false) {
   if (down) {
     if (L !== 0 && L !== LV_MINE) { playerSay(n, 'Stairs down go on the ground, or deep in a mine.'); return null; }
     if (!stairClear(sx, sy) || !walkable(lx, ly)) { playerSay(n, 'The ground in front of you has to be clear.'); return null; }
+    if (town.portals && town.portals.has(ly * W + lx)) { playerSay(n, 'You are standing on the landing of another staircase. Step away from it.'); return null; }
     const l1y = ly + (L === 0 ? LV_MINE * h0 : h0);
     for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const x = lx + i, y = l1y + j; if (x < 3 || x >= W - 3 || y >= H - 3) { playerSay(n, 'The earth is too thin here.'); return null; } }
     stairMake(sx, sy, lx, ly, true); kitTake(kit); playerSay(n, 'A staircase. It goes down into the earth.'); return { stair: true };
@@ -55,13 +65,18 @@ function stairPlace(n, down = false) {
   const ri = roomAt[sy] && roomAt[sy][sx];
   if (!(ri >= 0) || ri !== roomAt[ly][lx] || !rooms[ri] || rooms[ri].dead) { playerSay(n, 'Stairs up go on the floor of a room, with you standing beside them.'); return null; }
   if (grid[sy][sx] !== T.FLOOR || lfPropAt(sx, sy) || tileOwner.get(sy * W + sx) || grid[ly][lx] !== T.FLOOR) { playerSay(n, 'The floor in front of you has to be clear.'); return null; }
+  if (town.portals && town.portals.has(ly * W + lx)) { playerSay(n, 'You are standing on the landing of another staircase. Step away from it.'); return null; }
   stairMake(sx, sy, lx, ly, false); kitTake(kit); playerSay(n, 'A staircase. It goes up to the roof.'); return { stair: true };
 }
-/** the action for walking into a stair: up or down */
+/** walking into a stair: only from its landing, following the arrow; a straight cut to the landing at the other end (the next floor). From anywhere else the stair is just a solid thing with a message. */
 function stairAction(n, x: number, y: number) {
   const k = y * W + x, st = (town.stairs || []).find(q => q.s0 === k || q.s1 === k); if (!st) return null;
-  const fromA = st.s0 === k, up = st.kind === 'up' ? fromA : !fromA;
-  return { key: 'stair' + x + ',' + y, min: 0.5, text: up ? 'Going up' : 'Going down', tool: null, run(nn) { const t = fromA ? st.l1 : st.l0; teleportTo(nn, t % W, (t / W) | 0); playerSay(nn, st.kind === 'down' ? (fromA ? 'Underground.' : 'Daylight.') : (up ? 'The roof.' : 'Downstairs.')); } };
+  const fromA = st.s0 === k, land = fromA ? st.l0 : st.l1, up = st.kind === 'up' ? fromA : !fromA;
+  if (n.tx !== land % W || n.ty !== ((land / W) | 0)) return { msg: 'Stairs are entered from their landing, following the arrow.' };
+  return { key: 'stair' + x + ',' + y, min: 0.08, text: up ? 'Going up' : 'Going down', tool: null, run(nn) {
+    const t = fromA ? st.l1 : st.l0, tx = t % W, ty = (t / W) | 0, sk = fromA ? st.s1 : st.s0; teleportTo(nn, tx, ty);
+    nn.face = { dx: -Math.sign((sk % W) - tx), dy: -Math.sign(((sk / W) | 0) - ty) };   // (turned away from the stair you came out of)
+    playerSay(nn, st.kind === 'down' ? (fromA ? 'Underground.' : 'Daylight.') : (up ? 'The roof.' : 'Downstairs.')); } };
 }
 /** the hammer on solid earth: dig it out. Some of it is ore. */
 function digAction(n, x: number, y: number) {

@@ -35,11 +35,11 @@ function gaTerrain(g, x, y, wt) {
         for (let i = 0; i < 5; i++) { g.fillStyle = i % 2 ? 'rgba(20,12,6,.5)' : 'rgba(150,120,90,.35)'; g.fillRect(X + 2 + hh(20 + i) * 18, Y + 2 + hh(30 + i) * 18, 2 + hh(40 + i) * 2.4, 1.6 + hh(50 + i) * 2); }
         const o = town.ore && town.ore[y * W + x]; if (o) { const col = o === 1 ? '#d27a3e' : o === 2 ? '#38c2a0' : '#f4cc38'; for (let i = 0; i < 5; i++) { g.fillStyle = '#1d1410'; g.fillRect(X + 3 + hh(60 + i) * 15, Y + 3 + hh(70 + i) * 15, 4.2, 3.6); g.fillStyle = col; g.fillRect(X + 3.5 + hh(60 + i) * 15, Y + 3.4 + hh(70 + i) * 15, 3.2, 2.6); } } return; }
       g.drawImage(ART.terr('path', v), X, Y, TS, TS); g.fillStyle = 'rgba(24,14,8,.4)'; g.fillRect(X, Y, TS, TS);
-      if (t === T.STAIRU) { const it = ART.BYID['stair_up']; if (it) g.drawImage(ART.frameOf(it, 0), X, Y, TS, TS); }
+      if (t === T.STAIRU) { const it = ART.BYID[stairSpriteId(t, x, y)]; if (it) g.drawImage(ART.frameOf(it, 0), X, Y, TS, TS); }
       return;
     }
     g.drawImage(ART.terr('stone', 1), X, Y, TS, TS);
-    if (t === T.STAIRD) { const it = ART.BYID['stair_down']; if (it) g.drawImage(ART.frameOf(it, 0), X, Y, TS, TS); }
+    if (t === T.STAIRD) { const it = ART.BYID[stairSpriteId(t, x, y)]; if (it) g.drawImage(ART.frameOf(it, 0), X, Y, TS, TS); }
     return;
   }
   const X = x * TS, Y = y * TS, v = (ART.h32(x, y, GA.seed, 4) * 4) | 0, D = im => g.drawImage(im, X, Y, TS, TS);
@@ -62,7 +62,7 @@ function gaFurniture(r, x, y, t) {
     case T.BED: { const b = (r.beds || []).find(q => q.x === x && q.y === y); return `bed_head_${(r.side === 'b') !== !!(b && b.flip) ? 'up' : 'down'}_${b && !(b.owner && !b.owner.dead) ? 5 : (hh(60) * 5) | 0}`; }
     case T.SEAT: { if (r.kind === 'privy') return 'toilet'; const s = (r.seats || []).find(q => q.x === x && q.y === y), f = s && s.face ? s.face : { dx: 0, dy: 1 }; return 'seat_' + (f.dy > 0 ? 'down' : f.dy < 0 ? 'up' : f.dx > 0 ? 'right' : 'left'); }
     case T.TABLE: { const l = grid[y][x - 1] === T.TABLE, rr = grid[y][x + 1] === T.TABLE, part = l && rr ? 'mid' : l ? 'right' : rr ? 'left' : 'single', d = hh(71); return `table_${part}_${d < 0.35 ? 'plate' : d < 0.5 ? 'vase' : 'plain'}`; }
-    case T.STAIR: return 'stair_up'; case T.STAIRM: return 'stair_down';
+    case T.STAIR: case T.STAIRM: return stairSpriteId(t, x, y);
     case T.BARREL: return 'barrel'; case T.SHELF: return 'shelf_' + ((x + y) & 1); case T.RUG: return ['rug', 'rug_1', 'rug_2'][Math.floor(hh(72) * 3)];
     case T.COUNTER: return 'counter_' + (hh(70) < 0.6 ? 0 : 1); case T.PEW: return 'pew'; case T.ALTAR: return (x + y) % 3 === 0 ? 'altar_1' : 'altar_0';
     case T.FORGE: return 'forge'; case T.ANVIL: return 'anvil'; case T.LOOM: return 'loom'; case T.OVEN: return 'oven';
@@ -93,7 +93,7 @@ function gaFreeTile(g, r, x, y, t, X, Y, v, fk, P) {
     P(k === '' ? 'cap_plain' : 'cap_' + k); if (town.winS && town.winS.has(y * W + x)) P('window_side'); return;   // (a window in a side wall: the glass is set across the top of the wall)
   }
   g.drawImage(ART.terr(fk, v), X, Y, TS, TS);
-  if (t === T.STAIR || t === T.STAIRM) { const it = ART.BYID[t === T.STAIR ? 'stair_up' : 'stair_down']; if (it) g.drawImage(ART.frameOf(it, 0), X, Y, TS, TS); }   // (a staircase in a room you built)
+  if (t === T.STAIR || t === T.STAIRM) { const it = ART.BYID[stairSpriteId(t, x, y)]; if (it) g.drawImage(ART.frameOf(it, 0), X, Y, TS, TS); }   // (a staircase in a room you built)
 }
 function gaRoomShade(g, r, k) {                      // the walls hold their own shade inside, and the furniture sits on the floor
   if (r.free) return;
@@ -142,7 +142,7 @@ function gaPaintRect(g, x0, y0, w, h, k, wt) {
     if (any) g.fill(); g.restore(); }
   for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (roomAt[y][x] >= 0) gaRoomTile(g, x, y);
   for (const r of near) { gaRoomShade(g, r, k); if (r.free) continue; const ri = rooms.indexOf(r); g.save(); ART.roomDress(g, r, ri, doors.filter(d => d.room === ri).map(d => d.x), GA.seed); g.restore(); }
-  for (let y = y0; y <= Math.min(H - 1, y1); y++) for (let x = x0; x < x1; x++) { if (roomAt[y][x] >= 0) continue; const t = grid[y][x]; if (t === T.TREE || t === T.ROCK || t === T.MOUNTAIN || t === T.TENT || t === T.STALL || t === T.GRAVE) gaStand(g, x, y, t); else if ((t === T.STAIR || t === T.STAIRM) && lvlOf(y) === 0) { const it = ART.BYID[t === T.STAIR ? 'stair_up' : 'stair_down']; if (it) g.drawImage(ART.frameOf(it, 0), x * TS, y * TS, TS, TS); } }
+  for (let y = y0; y <= Math.min(H - 1, y1); y++) for (let x = x0; x < x1; x++) { if (roomAt[y][x] >= 0) continue; const t = grid[y][x]; if (t === T.TREE || t === T.ROCK || t === T.MOUNTAIN || t === T.TENT || t === T.STALL || t === T.GRAVE) gaStand(g, x, y, t); else if ((t === T.STAIR || t === T.STAIRM) && lvlOf(y) === 0) { const it = ART.BYID[stairSpriteId(t, x, y)]; if (it) g.drawImage(ART.frameOf(it, 0), x * TS, y * TS, TS, TS); } }
   const wl = town.well; if (wl && wl.x + 2 > x0 && wl.x < x1 && wl.y + 2 > y0 && wl.y < y1) gaWell(g);
   g.restore();
 }
