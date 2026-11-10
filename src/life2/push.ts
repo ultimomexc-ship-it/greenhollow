@@ -96,17 +96,18 @@ function lf2PushLine(n, x, y, dx, dy): true | string | null {
     if (!pushFurnitureOK(last.f, nx, ny, true)) return pushSwap(n, line[0]);
     if (!pushRoomConnected(r, line.map(p => [p.x, p.y, p.x + dx, p.y + dy] as [number, number, number, number]))) return 'That would block the way in the ' + (r.kind === 'house' ? 'house' : 'room') + '.';
   } else {
-    const stuck = line.some(p => p.kind === 'person' && pushSettled(p.who)), endOK = last.kind === 'person' ? pushPersonOK(nx, ny) : pushLooseOK(nx, ny);
+    const stairTo = last.kind === 'person' || last.kind === 'prop' ? stairPushTarget(last.x, last.y, dx, dy) : null;   // (a person or a thing on a landing, pushed into its stair, goes up or down)
+    const stuck = line.some(p => p.kind === 'person' && pushSettled(p.who)), endOK = stairTo ? true : last.kind === 'person' ? pushPersonOK(nx, ny) : pushLooseOK(nx, ny);
     if (stuck || !endOK) return pushSwap(n, line[0]);
   }
   if (line.length > PUSH_MAX) return 'Too much to push at once.';
   // move from the front, so each piece lands on the tile the next one has just left
   const moved: any[] = [];
   for (let i = line.length - 1; i >= 0; i--) {
-    const p = line[i];
-    if (p.kind === 'person') { pushMovePerson(n, p.who, p.x + dx, p.y + dy); continue; }
+    const p = line[i], via = i === line.length - 1 ? ((last.kind === 'person' || last.kind === 'prop') ? stairPushTarget(p.x, p.y, dx, dy) : null) : null;
+    if (p.kind === 'person') { if (via) { pushMovePerson(n, p.who, via[0], via[1]); p.who.slide = null; } else pushMovePerson(n, p.who, p.x + dx, p.y + dy); continue; }
     if (p.kind === 'rock') { const pr = pushRockToProp(p.x, p.y); if (!pr) return 'It won\'t budge.'; p.pr = pr; p.kind = 'prop'; }
-    if (p.kind === 'prop') { pushMoveProp(p.pr, dx, dy, n); moved.push(p.pr); } else { const pr = pushMoveFurniture(p.f, dx, dy, n); if (pr) moved.push(pr); }
+    if (p.kind === 'prop') { if (via) { pushMoveProp(p.pr, via[0] - p.pr.x, via[1] - p.pr.y, n); p.pr.fx = p.pr.x; p.pr.fy = p.pr.y; p.pr.follow = null; p.pr.st = 0; } else pushMoveProp(p.pr, dx, dy, n); moved.push(p.pr); } else { const pr = pushMoveFurniture(p.f, dx, dy, n); if (pr) moved.push(pr); }
   }
   if (typeof refreshReach === 'function') refreshReach();
   for (const pr of moved) if (typeof lf2AfterPush === 'function' && lfPropAt(pr.x, pr.y) === pr) lf2AfterPush(n, pr);

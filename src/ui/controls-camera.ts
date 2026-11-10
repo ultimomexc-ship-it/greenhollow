@@ -165,9 +165,11 @@ window.addEventListener('keydown', e => {
   let p = game.player && game.player.player;
   if (!p && /^[wasdWASD]$/.test(e.key)) p = steerAgain();   // arrow keys keep panning the camera while nobody is steering
   if (!p) return;
+  if (p.stairHold && p.stairHold[d] && e.repeat) { e.preventDefault(); return; }   // (a key still held from before you used a stair does not walk you off the landing)
+  if (p.stairHold) delete p.stairHold[d];
   p.keys[d] = true; p.lastKey = performance.now(); setFollow(true); e.preventDefault();
 });
-window.addEventListener('keyup', e => { const p = game.player && game.player.player; if (!p) return; const d = KEYDIR[e.key] || KEYDIR[(e.key || '').toLowerCase()]; if (d) p.keys[d] = false; });
+window.addEventListener('keyup', e => { const p = game.player && game.player.player; if (!p) return; const d = KEYDIR[e.key] || KEYDIR[(e.key || '').toLowerCase()]; if (d) { p.keys[d] = false; if (p.stairHold) delete p.stairHold[d]; } });
 window.addEventListener('blur', () => { const p = game.player && game.player.player; if (p) p.keys = {}; });
 document.querySelectorAll('#dpad button').forEach((b: any) => {
   const on = v => e => { let p = game.player && game.player.player; if (!p && v) p = steerAgain(); if (p) { p.keys[b.dataset.d] = v; p.lastKey = performance.now(); } e.preventDefault(); };

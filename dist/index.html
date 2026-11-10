@@ -19136,15 +19136,19 @@ function lf2PushLine(n, x, y, dx, dy) {
     if (!pushFurnitureOK(last2.f, nx, ny, true)) return pushSwap(n, line[0]);
     if (!pushRoomConnected(r, line.map((p) => [p.x, p.y, p.x + dx, p.y + dy]))) return "That would block the way in the " + (r.kind === "house" ? "house" : "room") + ".";
   } else {
-    const stuck = line.some((p) => p.kind === "person" && pushSettled(p.who)), endOK = last2.kind === "person" ? pushPersonOK(nx, ny) : pushLooseOK(nx, ny);
+    const stairTo = last2.kind === "person" || last2.kind === "prop" ? stairPushTarget(last2.x, last2.y, dx, dy) : null;
+    const stuck = line.some((p) => p.kind === "person" && pushSettled(p.who)), endOK = stairTo ? true : last2.kind === "person" ? pushPersonOK(nx, ny) : pushLooseOK(nx, ny);
     if (stuck || !endOK) return pushSwap(n, line[0]);
   }
   if (line.length > PUSH_MAX) return "Too much to push at once.";
   const moved = [];
   for (let i = line.length - 1; i >= 0; i--) {
-    const p = line[i];
+    const p = line[i], via = i === line.length - 1 ? last2.kind === "person" || last2.kind === "prop" ? stairPushTarget(p.x, p.y, dx, dy) : null : null;
     if (p.kind === "person") {
-      pushMovePerson(n, p.who, p.x + dx, p.y + dy);
+      if (via) {
+        pushMovePerson(n, p.who, via[0], via[1]);
+        p.who.slide = null;
+      } else pushMovePerson(n, p.who, p.x + dx, p.y + dy);
       continue;
     }
     if (p.kind === "rock") {
@@ -19154,7 +19158,13 @@ function lf2PushLine(n, x, y, dx, dy) {
       p.kind = "prop";
     }
     if (p.kind === "prop") {
-      pushMoveProp(p.pr, dx, dy, n);
+      if (via) {
+        pushMoveProp(p.pr, via[0] - p.pr.x, via[1] - p.pr.y, n);
+        p.pr.fx = p.pr.x;
+        p.pr.fy = p.pr.y;
+        p.pr.follow = null;
+        p.pr.st = 0;
+      } else pushMoveProp(p.pr, dx, dy, n);
       moved.push(p.pr);
     } else {
       const pr = pushMoveFurniture(p.f, dx, dy, n);
@@ -20236,9 +20246,16 @@ function stairAction(n, x, y) {
   if (n.tx !== land % W || n.ty !== (land / W | 0)) return { msg: "Stairs up are climbed from the south, stairs down from the north." };
   if (n.stairFresh && n.stairFresh.land === land && n.walked === n.stairFresh.walked) return null;
   return { key: "stair" + x + "," + y, min: 0.08, text: up ? "Going up" : "Going down", tool: null, run(nn) {
-    const t = fromA ? st.l1 : st.l0, tx = t % W, ty = t / W | 0, sk = fromA ? st.s1 : st.s0;
+    const t = fromA ? st.l1 : st.l0, [tx, ty] = stairArrivalTile(t, nn), sk = fromA ? st.s1 : st.s0;
     teleportTo(nn, tx, ty);
-    nn.stairFresh = { land: t, walked: nn.walked };
+    nn.stairFresh = { land: ty * W + tx, walked: nn.walked };
+    if (nn.player) {
+      const pp = nn.player;
+      pp.stairHold = {};
+      for (const d of ["up", "down", "left", "right"]) if (pp.keys[d]) pp.stairHold[d] = true;
+      pp.keys = {};
+      pp.order = [];
+    }
     nn.face = { dx: -Math.sign(sk % W - tx), dy: -Math.sign((sk / W | 0) - ty) };
     playerSay(nn, st.kind === "down" ? fromA ? "Underground." : "Daylight." : up ? "The roof." : "Downstairs.");
   } };
@@ -20324,6 +20341,23 @@ function prebuildLevels() {
   }
   if (typeof visHomes === "function") visHomes();
   refreshReach();
+}
+function stairArrivalTile(t, self) {
+  const tx = t % W, ty = t / W | 0, ok = (x, y) => walkable(x, y) && !lfPropAt(x, y) && (!tileOwner.get(tkey(x, y)) || tileOwner.get(tkey(x, y)) === self);
+  if (ok(tx, ty)) return [tx, ty];
+  for (let r = 1; r <= 2; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (Math.abs(dx) + Math.abs(dy) === r && ok(tx + dx, ty + dy) && lvlOf(ty + dy) === lvlOf(ty)) return [tx + dx, ty + dy];
+  return [tx, ty];
+}
+function stairPushTarget(px, py, dx, dy) {
+  const sx = px + dx, sy = py + dy, g = grid[sy] && grid[sy][sx];
+  if (g !== T.STAIR && g !== T.STAIRD && g !== T.STAIRM && g !== T.STAIRU) return null;
+  const k = sy * W + sx, st = (town.stairs || []).find((q) => q.s0 === k || q.s1 === k);
+  if (!st) return null;
+  const fromA = st.s0 === k, land = fromA ? st.l0 : st.l1;
+  if (land !== py * W + px) return null;
+  const to = fromA ? st.l1 : st.l0, [ax, ay] = stairArrivalTile(to);
+  if (!walkable(ax, ay) || lfPropAt(ax, ay) || tileOwner.get(tkey(ax, ay))) return null;
+  return [ax, ay];
 }
 const VIS_FIRST_DAY = 1, VIS_GAP = [3, 5];
 const VIS_ORD = [
@@ -30511,6 +30545,11 @@ window.addEventListener("keydown", (e) => {
   let p = game.player && game.player.player;
   if (!p && /^[wasdWASD]$/.test(e.key)) p = steerAgain();
   if (!p) return;
+  if (p.stairHold && p.stairHold[d] && e.repeat) {
+    e.preventDefault();
+    return;
+  }
+  if (p.stairHold) delete p.stairHold[d];
   p.keys[d] = true;
   p.lastKey = performance.now();
   setFollow(true);
@@ -30520,7 +30559,10 @@ window.addEventListener("keyup", (e) => {
   const p = game.player && game.player.player;
   if (!p) return;
   const d = KEYDIR[e.key] || KEYDIR[(e.key || "").toLowerCase()];
-  if (d) p.keys[d] = false;
+  if (d) {
+    p.keys[d] = false;
+    if (p.stairHold) delete p.stairHold[d];
+  }
 });
 window.addEventListener("blur", () => {
   const p = game.player && game.player.player;

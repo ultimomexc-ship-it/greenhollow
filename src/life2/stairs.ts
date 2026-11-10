@@ -69,7 +69,8 @@ function stairAction(n, x: number, y: number) {
   if (n.tx !== land % W || n.ty !== ((land / W) | 0)) return { msg: 'Stairs up are climbed from the south, stairs down from the north.' };
   if (n.stairFresh && n.stairFresh.land === land && n.walked === n.stairFresh.walked) return null;   // (you have only just come out here: step off the landing and back to use these stairs, so holding the key does not take you straight back)
   return { key: 'stair' + x + ',' + y, min: 0.08, text: up ? 'Going up' : 'Going down', tool: null, run(nn) {
-    const t = fromA ? st.l1 : st.l0, tx = t % W, ty = (t / W) | 0, sk = fromA ? st.s1 : st.s0; teleportTo(nn, tx, ty); nn.stairFresh = { land: t, walked: nn.walked };
+    const t = fromA ? st.l1 : st.l0, [tx, ty] = stairArrivalTile(t, nn), sk = fromA ? st.s1 : st.s0; teleportTo(nn, tx, ty); nn.stairFresh = { land: ty * W + tx, walked: nn.walked };
+    if (nn.player) { const pp = nn.player; pp.stairHold = {}; for (const d of ['up', 'down', 'left', 'right']) if (pp.keys[d]) pp.stairHold[d] = true; pp.keys = {}; pp.order = []; }   // (you arrive ON the landing: a key still held does not walk you off it)
     nn.face = { dx: -Math.sign((sk % W) - tx), dy: -Math.sign(((sk / W) | 0) - ty) };   // (turned away from the stair you came out of)
     playerSay(nn, st.kind === 'down' ? (fromA ? 'Underground.' : 'Daylight.') : (up ? 'The roof.' : 'Downstairs.')); } };
 }
@@ -112,4 +113,20 @@ function prebuildLevels() {
     done = true;
   }
   if (typeof visHomes === 'function') visHomes(); refreshReach();
+}
+
+/** a free tile at (or next to) a landing, for somebody to arrive on when somebody else is already standing on it */
+function stairArrivalTile(t: number, self?: any): [number, number] {
+  const tx = t % W, ty = (t / W) | 0, ok = (x: number, y: number) => walkable(x, y) && !lfPropAt(x, y) && (!tileOwner.get(tkey(x, y)) || tileOwner.get(tkey(x, y)) === self);
+  if (ok(tx, ty)) return [tx, ty];
+  for (let r = 1; r <= 2; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (Math.abs(dx) + Math.abs(dy) === r && ok(tx + dx, ty + dy) && lvlOf(ty + dy) === lvlOf(ty)) return [tx + dx, ty + dy];
+  return [tx, ty];
+}
+/** pushing something that stands on a landing into its stair sends it to the landing at the other end (the next floor): where it would arrive, or null when that is not a stair push or the way is blocked */
+function stairPushTarget(px: number, py: number, dx: number, dy: number): [number, number] | null {
+  const sx = px + dx, sy = py + dy, g = grid[sy] && grid[sy][sx]; if (g !== T.STAIR && g !== T.STAIRD && g !== T.STAIRM && g !== T.STAIRU) return null;
+  const k = sy * W + sx, st = (town.stairs || []).find(q => q.s0 === k || q.s1 === k); if (!st) return null;
+  const fromA = st.s0 === k, land = fromA ? st.l0 : st.l1; if (land !== py * W + px) return null;
+  const to = fromA ? st.l1 : st.l0, [ax, ay] = stairArrivalTile(to); if (!walkable(ax, ay) || lfPropAt(ax, ay) || tileOwner.get(tkey(ax, ay))) return null;
+  return [ax, ay];
 }
