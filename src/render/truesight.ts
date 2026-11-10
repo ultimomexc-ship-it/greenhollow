@@ -49,7 +49,7 @@ function tsBuild() {
     } else if (win(x, y)) {   // a window: the wall is solid but for the hole (the back wall, so it runs along x)
       const H = TS_HOLES.window; for (const yy of [H.y0, H.y1]) { addH(y + yy, x, x + H.x0); addH(y + yy, x + H.x1, x + 1); }
       if (!hard(x - 1, y)) addV(x, y, y + 1); if (!hard(x + 1, y)) addV(x + 1, y, y + 1);
-      walls.push({ x, y, pts: [[x + 0.5, y + H.y0], [x + H.x0 / 2, y + H.y0], [x + (1 + H.x1) / 2, y + H.y0], [x + 0.5, y + H.y1]] });
+      walls.push({ x, y, win: true, pts: [[x + 0.5, y + H.y0], [x + H.x0 / 2, y + H.y0], [x + (1 + H.x1) / 2, y + H.y0], [x + 0.5, y + H.y1]] });
     }
   }
   // merge the straight edges along each line into single segments
@@ -128,6 +128,10 @@ function tsFaces(ex, ey, pts, G = tsGeo(), depth = 1) {
       corner(a, -ux, -uy); corner(b, ux, uy); }
     quads.push([a0, a1, b0, b1, b0 + nx * (dep + o), b1 + ny * (dep + o), a0 + nx * (dep + o), a1 + ny * (dep + o)]);
   }
+  // a window tile shows its whole face wherever its outer line can be seen (the wall beside it may hide the recessed glass, never the face of the tile)
+  for (const w of G.walls) { if (!w.win || Math.abs(w.x + 0.5 - ex) > 60 || Math.abs(w.y + 0.5 - ey) > 60) continue; const north = ey < w.y, south = ey > w.y + 1; if (!north && !south) continue;
+    const ly = north ? w.y : w.y + 1, dir = north ? 1 : -1;
+    for (let k = 0; k < 8; k++) { const x0 = w.x + k / 8, x1 = w.x + (k + 1) / 8; if (!tsClear(G, ex, ey, (x0 + x1) / 2, ly - dir * 0.03, 0)) continue; quads.push([x0 - 0.01, ly - dir * 0.03, x1 + 0.01, ly - dir * 0.03, x1 + 0.01, ly + dir * 1.03, x0 - 0.01, ly + dir * 1.03]); } }
   return quads;
 }
 /** is the point (tile coords) in a clear line from the eye? (nothing of any building between them) */

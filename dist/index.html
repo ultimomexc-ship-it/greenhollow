@@ -15690,7 +15690,7 @@ function tsBuild() {
       }
       if (!hard(x - 1, y)) addV(x, y, y + 1);
       if (!hard(x + 1, y)) addV(x + 1, y, y + 1);
-      walls.push({ x, y, pts: [[x + 0.5, y + H2.y0], [x + H2.x0 / 2, y + H2.y0], [x + (1 + H2.x1) / 2, y + H2.y0], [x + 0.5, y + H2.y1]] });
+      walls.push({ x, y, win: true, pts: [[x + 0.5, y + H2.y0], [x + H2.x0 / 2, y + H2.y0], [x + (1 + H2.x1) / 2, y + H2.y0], [x + 0.5, y + H2.y1]] });
     }
   }
   const seg = [], merge = (m, horiz) => {
@@ -15852,6 +15852,17 @@ function tsFaces(ex, ey, pts, G = tsGeo(), depth = 1) {
       corner(b, ux, uy);
     }
     quads.push([a0, a1, b0, b1, b0 + nx * (dep + o), b1 + ny * (dep + o), a0 + nx * (dep + o), a1 + ny * (dep + o)]);
+  }
+  for (const w of G.walls) {
+    if (!w.win || Math.abs(w.x + 0.5 - ex) > 60 || Math.abs(w.y + 0.5 - ey) > 60) continue;
+    const north = ey < w.y, south = ey > w.y + 1;
+    if (!north && !south) continue;
+    const ly = north ? w.y : w.y + 1, dir = north ? 1 : -1;
+    for (let k = 0; k < 8; k++) {
+      const x0 = w.x + k / 8, x1 = w.x + (k + 1) / 8;
+      if (!tsClear(G, ex, ey, (x0 + x1) / 2, ly - dir * 0.03, 0)) continue;
+      quads.push([x0 - 0.01, ly - dir * 0.03, x1 + 0.01, ly - dir * 0.03, x1 + 0.01, ly + dir * 1.03, x0 - 0.01, ly + dir * 1.03]);
+    }
   }
   return quads;
 }
