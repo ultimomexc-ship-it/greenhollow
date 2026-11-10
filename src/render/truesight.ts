@@ -26,8 +26,9 @@ function tsTile(x, y) {
 
 /* ---------------- the geometry: segments in a grid, so a ray only meets the ones near it ---------------- */
 const TS_CELL = 2;
-/** the window opening across its tile: the glass in the wall sprite runs from 8 to 16 of 24 pixels */
-const TS_WIN0 = 8 / 24, TS_WIN1 = 16 / 24;
+/** the see-through holes in a wall tile, as fractions of the tile (x0..x1 across, y0..y1 down the sprite). A window is the glass of its sprite: from 8 to 16 across and 11.8 to 17.6 down, of 24 pixels.
+    The hole is two thin plates, one at its top edge and one at its bottom edge, each solid except for the hole's width, so sight passes only through the hole, and only from where the hole is. Another hole shape is another entry. */
+const TS_HOLES: any = { window: { x0: 8 / 24, x1: 16 / 24, y0: 11.8 / 24, y1: 17.6 / 24 } };
 /** segments (x1, y1, x2, y2 ... flat), the wall tiles to show when seen, and a cell grid over the map.
     Walls are as thick as they are drawn: every wall tile is a solid square, and the segments are the straight edges of the solid parts, merged along each wall.
     So a building's outer corner casts from the outermost point of its corner tile, and a doorway is a real opening between two door jambs: the beam through
@@ -45,10 +46,10 @@ function tsBuild() {
       if (!hard(x, y - 1)) { addH(y, x, x + 1); pts.push([x + 0.5, y], [x + 0.15, y], [x + 0.85, y]); } if (!hard(x, y + 1)) { addH(y + 1, x, x + 1); pts.push([x + 0.5, y + 1], [x + 0.15, y + 1], [x + 0.85, y + 1]); }
       if (!hard(x - 1, y)) { addV(x, y, y + 1); pts.push([x, y + 0.5], [x, y + 0.15], [x, y + 0.85]); } if (!hard(x + 1, y)) { addV(x + 1, y, y + 1); pts.push([x + 1, y + 0.5], [x + 1, y + 0.15], [x + 1, y + 0.85]); }
       walls.push({ x, y, pts: pts.length ? pts : [[x + 0.5, y + 0.5]] });
-    } else if (win(x, y)) {   // a window: a solid piece either side of a gap in the middle (the back wall, so it runs along x)
-      addH(y, x, x + TS_WIN0); addH(y + 1, x, x + TS_WIN0); addV(x + TS_WIN0, y, y + 1); addH(y, x + TS_WIN1, x + 1); addH(y + 1, x + TS_WIN1, x + 1); addV(x + TS_WIN1, y, y + 1);
+    } else if (win(x, y)) {   // a window: the wall is solid but for the hole (the back wall, so it runs along x)
+      const H = TS_HOLES.window; for (const yy of [H.y0, H.y1]) { addH(y + yy, x, x + H.x0); addH(y + yy, x + H.x1, x + 1); }
       if (!hard(x - 1, y)) addV(x, y, y + 1); if (!hard(x + 1, y)) addV(x + 1, y, y + 1);
-      walls.push({ x, y, pts: [[x + 0.5, y + 0.5], [x + TS_WIN0 / 2, y], [x + (1 + TS_WIN1) / 2, y], [x + TS_WIN0 / 2, y + 1], [x + (1 + TS_WIN1) / 2, y + 1]] });
+      walls.push({ x, y, pts: [[x + 0.5, y + H.y0], [x + H.x0 / 2, y + H.y0], [x + (1 + H.x1) / 2, y + H.y0], [x + 0.5, y + H.y1]] });
     }
   }
   // merge the straight edges along each line into single segments
@@ -111,7 +112,8 @@ function tsFaces(ex, ey, pts, G = tsGeo(), depth = 1) {
     const a = pts[i], b = pts[j]; if (Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) < 1e-5) continue;
     let nx = -(seg[s + 3] - seg[s + 1]), ny = seg[s + 2] - seg[s], l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
     if ((ex - a[0]) * nx + (ey - a[1]) * ny > 0) { nx = -nx; ny = -ny; }   // pointing away from you, into the wall
-    { const mx = (a[0] + b[0]) / 2 + nx * 0.5, my = (a[1] + b[1]) / 2 + ny * 0.5; if (tsTile(Math.floor(mx), Math.floor(my)) === 0) continue; }   // you are inside the wall's thickness (standing in a doorway): this is the wall's far side, not a face you look at
+    const pmx = (a[0] + b[0]) / 2, pmy = (a[1] + b[1]) / 2, plate = tsTile(Math.floor(pmx), Math.floor(pmy)) === 2 && Math.abs(pmy - Math.round(pmy)) > 1e-4, dep = plate ? (ny > 0 ? Math.floor(pmy) + 1 - pmy : pmy - Math.floor(pmy)) : depth;   // a window plate lights only the rest of its own tile
+    if (!plate) { const mx = (a[0] + b[0]) / 2 + nx * 0.5, my = (a[1] + b[1]) / 2 + ny * 0.5; if (tsTile(Math.floor(mx), Math.floor(my)) === 0) continue; }   // you are inside the wall's thickness (standing in a doorway): this is the wall's far side, not a face you look at
     // a hair of overlap (along the face and back into the lit floor) so neighbouring strips and the polygon never show a seam
     let tx = b[0] - a[0], ty = b[1] - a[1]; const tl = Math.hypot(tx, ty) || 1; tx = tx / tl * 0.03; ty = ty / tl * 0.03; const o = 0.03;
     // standing in a doorway: the jambs and the wall blocks beside you stay dark (the strip would sit right against you)
@@ -124,7 +126,7 @@ function tsFaces(ex, ey, pts, G = tsGeo(), depth = 1) {
       const corner = (p, dx, dy) => { if (!ends.some(q => at(p, q)) || !hard(p[0] + dx * 0.5 + nx * 0.5, p[1] + dy * 0.5 + ny * 0.5) || !hard(p[0] + dx * 0.5 - nx * 0.5, p[1] + dy * 0.5 - ny * 0.5)) return;
         const cx = Math.floor(p[0] + dx * 0.5 + nx * 0.5), cy = Math.floor(p[1] + dy * 0.5 + ny * 0.5); quads.push([cx, cy, cx + 1, cy, cx + 1, cy + 1, cx, cy + 1]); };
       corner(a, -ux, -uy); corner(b, ux, uy); }
-    quads.push([a0, a1, b0, b1, b0 + nx * (depth + o), b1 + ny * (depth + o), a0 + nx * (depth + o), a1 + ny * (depth + o)]);
+    quads.push([a0, a1, b0, b1, b0 + nx * (dep + o), b1 + ny * (dep + o), a0 + nx * (dep + o), a1 + ny * (dep + o)]);
   }
   return quads;
 }

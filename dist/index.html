@@ -15645,7 +15645,7 @@ function tsTile(x, y) {
   return tsWindow(x, y) ? 2 : 1;
 }
 const TS_CELL = 2;
-const TS_WIN0 = 8 / 24, TS_WIN1 = 16 / 24;
+const TS_HOLES = { window: { x0: 8 / 24, x1: 16 / 24, y0: 11.8 / 24, y1: 17.6 / 24 } };
 function tsBuild() {
   const full = (x, y) => x >= 0 && y >= 0 && x < W && y < H && (grid[y][x] === T.WALL && !tsWindow(x, y) || grid[y][x] === T.DOOR && !tsDoorOpen(x, y));
   const win = (x, y) => x >= 0 && y >= 0 && x < W && y < H && grid[y][x] === T.WALL && tsWindow(x, y);
@@ -15683,15 +15683,14 @@ function tsBuild() {
       }
       walls.push({ x, y, pts: pts.length ? pts : [[x + 0.5, y + 0.5]] });
     } else if (win(x, y)) {
-      addH(y, x, x + TS_WIN0);
-      addH(y + 1, x, x + TS_WIN0);
-      addV(x + TS_WIN0, y, y + 1);
-      addH(y, x + TS_WIN1, x + 1);
-      addH(y + 1, x + TS_WIN1, x + 1);
-      addV(x + TS_WIN1, y, y + 1);
+      const H2 = TS_HOLES.window;
+      for (const yy of [H2.y0, H2.y1]) {
+        addH(y + yy, x, x + H2.x0);
+        addH(y + yy, x + H2.x1, x + 1);
+      }
       if (!hard(x - 1, y)) addV(x, y, y + 1);
       if (!hard(x + 1, y)) addV(x + 1, y, y + 1);
-      walls.push({ x, y, pts: [[x + 0.5, y + 0.5], [x + TS_WIN0 / 2, y], [x + (1 + TS_WIN1) / 2, y], [x + TS_WIN0 / 2, y + 1], [x + (1 + TS_WIN1) / 2, y + 1]] });
+      walls.push({ x, y, pts: [[x + 0.5, y + H2.y0], [x + H2.x0 / 2, y + H2.y0], [x + (1 + H2.x1) / 2, y + H2.y0], [x + 0.5, y + H2.y1]] });
     }
   }
   const seg = [], merge = (m, horiz) => {
@@ -15826,7 +15825,8 @@ function tsFaces(ex, ey, pts, G = tsGeo(), depth = 1) {
       nx = -nx;
       ny = -ny;
     }
-    {
+    const pmx = (a[0] + b[0]) / 2, pmy = (a[1] + b[1]) / 2, plate = tsTile(Math.floor(pmx), Math.floor(pmy)) === 2 && Math.abs(pmy - Math.round(pmy)) > 1e-4, dep = plate ? ny > 0 ? Math.floor(pmy) + 1 - pmy : pmy - Math.floor(pmy) : depth;
+    if (!plate) {
       const mx = (a[0] + b[0]) / 2 + nx * 0.5, my = (a[1] + b[1]) / 2 + ny * 0.5;
       if (tsTile(Math.floor(mx), Math.floor(my)) === 0) continue;
     }
@@ -15851,7 +15851,7 @@ function tsFaces(ex, ey, pts, G = tsGeo(), depth = 1) {
       corner(a, -ux, -uy);
       corner(b, ux, uy);
     }
-    quads.push([a0, a1, b0, b1, b0 + nx * (depth + o), b1 + ny * (depth + o), a0 + nx * (depth + o), a1 + ny * (depth + o)]);
+    quads.push([a0, a1, b0, b1, b0 + nx * (dep + o), b1 + ny * (dep + o), a0 + nx * (dep + o), a1 + ny * (dep + o)]);
   }
   return quads;
 }
