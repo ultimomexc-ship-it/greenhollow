@@ -44,10 +44,12 @@ deedReply('deed_sorry', ['deed_forgive', 'deed_cold'], (c, sp, li) => { lfAff(li
 deedReply('deed_defend', ['deed_cold'], (c, sp, li) => { lfAff(li, sp, -3, 'did not think it was wrong'); }, deedGuilty);
 deedReply('deed_deny', ['deed_believe', 'deed_doubt'], (c, sp, li) => { c.deedLie = deedGuilty(c, sp); }, () => true, (c, sp) => deedGuilty(c, sp) ? 1 : 4);
 deedReply('deed_shrug', ['deed_cold'], (c, sp, li) => { lfAff(li, sp, -4, 'shrugged it off'); }, deedGuilty);
+const blameWho = (c: any, sp: any, li: any) => { const cands = npcs.filter((o: any) => !o.dead && !o.infant && o.age >= 12 && o !== sp && o !== li && o.id !== c.deed.ev.target); return cands.filter((o: any) => (sp.aff[o.id] || 0) < -10)[0] || cands[Math.floor(Math.random() * cands.length)]; };
 deedReply('deed_blame', ['deed_believe', 'deed_doubt'], (c, sp, li) => {
-  const cands = npcs.filter((o: any) => !o.dead && !o.infant && o.age >= 12 && o !== sp && o !== li && o.id !== c.deed.ev.target); const X = cands.filter((o: any) => (sp.aff[o.id] || 0) < -10)[0] || cands[Math.floor(Math.random() * cands.length)];
+  const X = c.blameCand && c.blameCand !== sp && c.blameCand !== li ? c.blameCand : blameWho(c, sp, li); c.blameCand = null;
   if (!X) return; c.blamed = X; c.aboutName = X.first; c.deedLie = true; c.deed.m.ver = Object.assign({}, c.deed.m.ver, { who: X.id, suspect: true }); c.deed.m.conf = 0.55; c.deed.m.raised = false;
   lfAff(li, X, -6, 'was said to have done it'); }, (c, sp) => deedGuilty(c, sp) && npcs.length > 3, (c, sp) => (sp.player ? 1 : 0.7));
+ACTS.deed_blame.preview = (c: any, sp: any, li: any) => { const X = blameWho(c, sp, li); c.blameCand = X; return { about: X ? X.first : '' }; };
 const deedAnswer = (id: string, ok: (c: any, sp: any, li: any) => boolean, fx?: (c: any, sp: any, li: any) => void) => { ACTS[id] = { kind: 'deed', stage: 'topic', reply: true, when: (c: any, sp: any, li: any) => !!c.deed && ok(c, sp, li), w: () => 1, apply: (c: any, sp: any, li: any) => { if (fx) fx(c, sp, li); }, replies: [] }; };
 deedAnswer('deed_forgive', (c, sp, li) => (sp.aff[li.id] || 0) > -28, (c, sp, li) => { lfAff(sp, li, 4, 'forgave me'); });
 deedAnswer('deed_cold', (c, sp, li) => (sp.aff[li.id] || 0) <= -28 || (c.deedAnswer !== 'deed_sorry'));

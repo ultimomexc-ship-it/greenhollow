@@ -35,7 +35,7 @@ function ptOptions(S: any): any[] {
 }
 function ptMenu(S: any, say: string): any {
   const c = S.c, o = S.o, p = S.p;
-  if (S.closing) return { say, opts: [['bye', 'Goodbye.']] };
+  if (S.closing) return { say, opts: [['bye', serviceLeave(p, o)]] };
   const polite = c.left[o.id] <= 0.5;
   if (polite) { talkTurn(c, o, p, 'pre_close'); say += '\n' + talkWords(c.turns[c.turns.length - 1], p, o); S.closing = true; S.pending = null; return { say, opts: [['bye', serviceLeave(p, o)]] }; }
   S.opts = ptOptions(S);
@@ -46,7 +46,7 @@ const serviceLeave = (p: any, o: any) => lxSay('farewell', p, o, {}) || 'Goodbye
 /** the player picks option `key`: their act is said, the villager answers (by their own chooser) and may bring something up */
 function ptStep(key: string): any {
   const S = PT.s; if (!S) return { close: true }; const c = S.c, o = S.o, p = S.p;
-  if (key === 'bye') { if (!S.closing) { const t = talkTurn(c, p, o, 'pre_close'), f = talkTurn(c, o, p, 'farewell'); S.closing = true; return { say: talkWords(f, p, o), opts: [['bye', 'Goodbye.']] }; } return { close: true }; }
+  if (key === 'bye') { if (!S.closing) { const t = talkTurn(c, p, o, 'pre_close'), f = talkTurn(c, o, p, 'farewell'); S.closing = true; return { say: talkWords(f, p, o), opts: [['bye', serviceLeave(p, o)]] }; } return { close: true }; }
   const i = +String(key).slice(1), q = S.opts[i]; if (!q) return { close: true };
   c.life = q.snap.life; c.news = q.snap.news; c.priceItem = q.snap.priceItem;
   talkTurn(c, p, o, q.id); S.pending = null; c.left[o.id] -= 0.6; const said: string[] = [];

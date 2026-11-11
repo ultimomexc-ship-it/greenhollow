@@ -28783,7 +28783,7 @@ ACTS.ask_opinion = {
   },
   replies: ["give_opinion", "no_view"]
 };
-ACTS.give_opinion = { kind: "person", stage: "topic", reply: true, when: (c, sp) => !!c.about && (Math.abs(sp.aff[c.about.id] || 0) >= 6 || (sp.know[c.about.id] || 0) > 12), apply: (c, sp, li) => {
+ACTS.give_opinion = { kind: "person", stage: "topic", reply: true, preview: (c, sp) => c.about ? { about: c.about.first, op: peopleWord(sp, c.about), reason: peopleReason(sp, c.about) } : {}, when: (c, sp) => !!c.about && (Math.abs(sp.aff[c.about.id] || 0) >= 6 || (sp.know[c.about.id] || 0) > 12), apply: (c, sp, li) => {
   peopleSet(c, sp, c.about);
   c.aboutName = c.about.first;
   peopleHear(li, sp, c.about, c.op, c.reason);
@@ -28841,7 +28841,7 @@ ACTS.ask_family = {
   },
   replies: ["answer_family"]
 };
-ACTS.answer_family = { kind: "person", stage: "topic", reply: true, when: (c) => !!c.about, apply: (c) => {
+ACTS.answer_family = { kind: "person", stage: "topic", reply: true, preview: (c) => c.about ? { about: c.about.first, state: c.famState || talkState(c.about) || "fine" } : {}, when: (c) => !!c.about, apply: (c) => {
   c.state = c.famState || talkState(c.about) || "fine";
   c.aboutName = c.about.first;
 }, replies: [] };
@@ -29008,9 +29008,13 @@ deedReply("deed_deny", ["deed_believe", "deed_doubt"], (c, sp, li) => {
 deedReply("deed_shrug", ["deed_cold"], (c, sp, li) => {
   lfAff(li, sp, -4, "shrugged it off");
 }, deedGuilty);
-deedReply("deed_blame", ["deed_believe", "deed_doubt"], (c, sp, li) => {
+const blameWho = (c, sp, li) => {
   const cands = npcs.filter((o) => !o.dead && !o.infant && o.age >= 12 && o !== sp && o !== li && o.id !== c.deed.ev.target);
-  const X = cands.filter((o) => (sp.aff[o.id] || 0) < -10)[0] || cands[Math.floor(Math.random() * cands.length)];
+  return cands.filter((o) => (sp.aff[o.id] || 0) < -10)[0] || cands[Math.floor(Math.random() * cands.length)];
+};
+deedReply("deed_blame", ["deed_believe", "deed_doubt"], (c, sp, li) => {
+  const X = c.blameCand && c.blameCand !== sp && c.blameCand !== li ? c.blameCand : blameWho(c, sp, li);
+  c.blameCand = null;
   if (!X) return;
   c.blamed = X;
   c.aboutName = X.first;
@@ -29020,6 +29024,11 @@ deedReply("deed_blame", ["deed_believe", "deed_doubt"], (c, sp, li) => {
   c.deed.m.raised = false;
   lfAff(li, X, -6, "was said to have done it");
 }, (c, sp) => deedGuilty(c, sp) && npcs.length > 3, (c, sp) => sp.player ? 1 : 0.7);
+ACTS.deed_blame.preview = (c, sp, li) => {
+  const X = blameWho(c, sp, li);
+  c.blameCand = X;
+  return { about: X ? X.first : "" };
+};
 const deedAnswer = (id, ok, fx) => {
   ACTS[id] = { kind: "deed", stage: "topic", reply: true, when: (c, sp, li) => !!c.deed && ok(c, sp, li), w: () => 1, apply: (c, sp, li) => {
     if (fx) fx(c, sp, li);
@@ -29288,7 +29297,7 @@ ACTS.ask_preference = {
   },
   replies: ["tell_preference"]
 };
-ACTS.tell_preference = { kind: "gift", stage: "topic", reply: true, when: (c) => !!c.prefItem, w: () => 1, apply: (c) => {
+ACTS.tell_preference = { kind: "gift", stage: "topic", reply: true, preview: (c) => ({ item: c.prefItem ? giftName(c.prefItem) : "", how: c.prefLike ? "like" : "dislike" }), when: (c) => !!c.prefItem, w: () => 1, apply: (c) => {
   c.newsHow = c.prefLike ? "like" : "dislike";
 }, replies: [] };
 ACTS.hint_gift = {
@@ -30326,9 +30335,12 @@ ACTS.ask_where = {
   },
   replies: ["tell_where", "dont_know_where"]
 };
-ACTS.tell_where = { kind: "person", stage: "topic", reply: true, when: (c, sp) => !!c.whereObj && lfDist(sp, c.whereObj) <= 30 && lvlOf(sp.ty) === lvlOf(c.whereObj.ty), w: () => 3, apply: (c) => {
-  const pl = String(placeOf(c.whereObj) || "").replace(/^(in|at)\s+/, "");
-  c.reason = !pl ? "about somewhere" : /^the /.test(pl) ? "at " + pl : "in " + pl;
+const whereText = (X) => {
+  const pl = String(placeOf(X) || "").replace(/^(in|at)\s+/, "");
+  return !pl ? "about somewhere" : /^the /.test(pl) ? "at " + pl : "in " + pl;
+};
+ACTS.tell_where = { kind: "person", stage: "topic", reply: true, preview: (c) => ({ about: c.whereObj ? c.whereObj.first : "", reason: c.whereObj ? whereText(c.whereObj) : "" }), when: (c, sp) => !!c.whereObj && lfDist(sp, c.whereObj) <= 30 && lvlOf(sp.ty) === lvlOf(c.whereObj.ty), w: () => 3, apply: (c) => {
+  c.reason = whereText(c.whereObj);
 }, replies: [] };
 ACTS.dont_know_where = { kind: "person", stage: "topic", reply: true, when: (c, sp) => !!c.whereObj && !(lfDist(sp, c.whereObj) <= 30 && lvlOf(sp.ty) === lvlOf(c.whereObj.ty)), w: () => 3, apply: () => {
 }, replies: [] };
@@ -30581,6 +30593,30 @@ kidi("remark_time", "Is it lunch yet? It feels like lunch.");
 kidi("remark_time", "It is a long day when you are small.");
 kidi("remark_place", "I like it here. There is room to run, and nobody has said not to.");
 kidi("remark_work", "I am helping. Mostly I am watching. It is also work.");
+for (const t of ["Good to see you, {li}.", "Oh, {li}. How are things?", "Hey, {li}.", "Well met, {li}.", "{li}! Just the person.", "Ah, {li}.", "Busy day, {li}?", "Hello there, {li}.", "Is that you, {li}? It is."]) lx("greet", "plain", t);
+for (const t of ["Hello to you.", "Ah, hello.", "Oh! Hello, {li}.", "Good to see you too.", "Hello, hello.", "There you are.", "Hello. How are you?", "Hey.", "Well. Hello."]) lx("greet_back", "plain", t);
+for (const t of ["I'd better get on.", "Well. Work waits.", "Must dash.", "I won't keep you.", "That's me, then.", "Right. Off I go.", "Mustn't stand about.", "Time I wasn't here.", "I should leave you to it."]) lx("pre_close", "plain", t);
+for (const t of ["Take care, {li}.", "Until next time.", "Safe on your way.", "Good day to you.", "Be well.", "Mind how you go.", "Cheerio.", "Look after yourself.", "All the best."]) lx("farewell", "plain", t);
+for (const t of ["And you.", "Take care.", "Be well.", "Right you are.", "Goodbye, then.", "Off you go.", "See you around.", "Cheers.", "Until then."]) lx("farewell_back", "plain", t);
+for (const t of ["I know.", "Quite.", "True enough.", "That's right.", "Exactly so.", "I'd say so.", "Yes. Quite.", "Without a doubt.", "You're not wrong."]) lx("agree", "plain", t);
+for (const t of ["Hello. I did not expect to see you, and yet.", "Ah, {li}. I was just thinking of something else.", "Good. You are here. I was about to start talking to myself.", "Hello. It is a day of some kind.", "{li}. Yes. There you are.", "Ah. Company. I had been preparing for none.", "Hello, {li}. I will say it first this time.", "Hello. I see you have arrived, as one does.", "{li}. Good. I had a thought and nobody to give it to."]) lxi("greet", t);
+for (const t of ["Hello. I was about to say that.", "Ah. Hello. I had a feeling.", "Hello. I am pleased and slightly startled.", "Yes. Hello. It is that time.", "Hello. Come to think of it, I was hoping.", "Hello to you, in return.", "Good. Hello. That is out of the way.", "Hello. I have been standing here on purpose.", "Ah, {li}. The island does arrange things."]) lxi("greet_back", t);
+for (const t of ["I should get on. The day has noticed me.", "Well. That is that, for now.", "I will leave you to it. You were doing something.", "That is the end of what I had.", "I should go. I will pretend I have a reason.", "I have a few things to be near. I will go and be near them.", "Right. The afternoon will want me soon.", "I will let the conversation end here. It has had a good run.", "Off I go. I will not look back, which is a lie."]) lxi("pre_close", t);
+for (const t of ["Take care, {li}. The island is small but it has edges.", "Until next time. I will be somewhere.", "Be well. I mean it in the ordinary way.", "Goodbye, {li}. It was a good length.", "Mind how you go. There is a lot of ground.", "Look after yourself. Somebody has to, and I am here.", "All the best. I have no better phrase.", "Good day to you. It is, so far.", "See you. I say it as a matter of course."]) lxi("farewell", t);
+for (const t of ["And you.", "Yes. Goodbye.", "Be well, then.", "Off you go. I will watch for a moment.", "See you. I will be here, or near.", "Goodbye. It was good.", "Quite. Goodbye.", "Right. Until then.", "And the same to you, exactly."]) lxi("farewell_back", t);
+for (const t of ["Yes. I was going to say that.", "Quite. It is what I think too.", "That is right. I am glad somebody said it.", "True. It does not make it simpler.", "I agree. I wish I did not.", "Yes. That is it exactly.", "Mm. Yes. I would put it that way.", "You are right. I have been thinking so since Tuesday.", "Agreed. That is a rare thing."]) lxi("agree", t);
+for (const t of ["Fine, thanks. You?", "Can't grumble.", "Getting by.", "Not bad. Not bad at all.", "Same as ever.", "Well enough.", "Mustn't complain.", "Fair to middling."]) lx("answer_how", "plain", t, { state: "fine" });
+for (const t of ["Fine. I looked into it and there is nothing to report.", "Fine. The day has not asked much of me.", "Well enough. I have checked.", "About a five. A good, honest five.", "Fine. There is a small noise in my left knee, which is the news.", "Fine. I was going to say I was well and it is true, which surprised me.", "Steady. That is the word I have settled on.", "Not bad. I say that and wait for the day to hear me."]) lxi("answer_how", t, { state: "fine" });
+for (const t of ["Better than I deserve.", "Grand, really.", "On top of the world, nearly.", "Very well, as it happens."]) lx("answer_how", "plain", t, { state: "glad" });
+for (const t of ["Good. I would like to say why. I cannot.", "Very well. I have decided to enjoy it before it is noticed.", "Better than I expected. I recalibrated my expectations on the way here.", "Well. In a way that does not need explaining."]) lxi("answer_how", t, { state: "glad" });
+for (const t of ["Not great, to be honest.", "Low. It'll pass.", "I've had better days.", "Could be better."]) lx("answer_how", "plain", t, { state: "low" });
+for (const t of ["Low. It has no address, so I cannot send it back.", "Not well. It is a grey kind of not well, not an interesting one.", "I have had better days. I could name three.", "Flat. Like a field after rain, if the field had opinions."]) lxi("answer_how", t, { state: "low" });
+for (const t of ["Hungry! Starving, nearly.", "Hungry, to be honest. My stomach's been talking.", "Starving. Is there bread?"]) lx("answer_how", "plain", t, { state: "hungry" });
+for (const t of ["Hungry. It is a precise feeling and I recognise it.", "Hungry. My stomach has started to make announcements.", "Hungry. I have thought about bread more than is dignified."]) lxi("answer_how", t, { state: "hungry" });
+for (const t of ["Tired. Could sleep standing.", "Worn out, honestly.", "Weary to the bone."]) lx("answer_how", "plain", t, { state: "tired" });
+for (const t of ["Tired. I could sleep standing. I may be.", "Worn out. The kind that sits behind the eyes.", "Tired in a way that sleep might help."]) lxi("answer_how", t, { state: "tired" });
+for (const t of ["How are things?", "How's the day treating you?", "Keeping well?", "And how are you?", "How've you been keeping?"]) lx("ask_how", "plain", t);
+for (const t of ["How are you holding up?", "How is the day treating you? I mean honestly.", "Are you keeping well? I ask in case.", "How have you been, since last time? Give me the short version.", "And you? How are things on your side of the island?"]) lxi("ask_how", t);
 TALK.log = [];
 TALK.words = false;
 TALK.running = true;
@@ -30793,7 +30829,7 @@ function ptOptions(S) {
 }
 function ptMenu(S, say2) {
   const c = S.c, o = S.o, p = S.p;
-  if (S.closing) return { say: say2, opts: [["bye", "Goodbye."]] };
+  if (S.closing) return { say: say2, opts: [["bye", serviceLeave(p, o)]] };
   const polite = c.left[o.id] <= 0.5;
   if (polite) {
     talkTurn(c, o, p, "pre_close");
@@ -30816,7 +30852,7 @@ function ptStep(key) {
     if (!S.closing) {
       const t = talkTurn(c, p, o, "pre_close"), f = talkTurn(c, o, p, "farewell");
       S.closing = true;
-      return { say: talkWords(f, p, o), opts: [["bye", "Goodbye."]] };
+      return { say: talkWords(f, p, o), opts: [["bye", serviceLeave(p, o)]] };
     }
     return { close: true };
   }

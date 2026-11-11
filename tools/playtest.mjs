@@ -39,10 +39,10 @@ await page.evaluate(([scenario]) => {
       const P = game.player; const free = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => ({ x: o.tx + dx, y: o.ty + dy })).find(s => walkable(s.x, s.y) && !tileOwner.get(tkey(s.x, s.y)));
       if (free) { P.tx = P.x = free.x; P.ty = P.y = free.y; P.moving = false; P.path = []; rebuildOcc(); }
       o.talkUntil = 0; const rec = { t: game.time, with: o.first, rel: '', exch: [] };
-      openTalk(o); let say = talkUI.say, opts = (talkUI.opts || []).map(x => [x[0], x[1]]); rec.open = say;
+      openTalk(o); let say = talkUI.say, opts = (talkUI.opts || []).map(x => [x[0], x[1]]); rec.open = say; const seeMenu = () => { for (const q of (PT.s && PT.s.opts) || []) (window.__M = window.__M || []).push(q.id + ' :: ' + q.label); }; seeMenu();
       for (let i = 0; i < steps && opts.length; i++) {
-        const pick = BOT.choose(opts, say); if (!pick) break; const st = ptStep(pick[0]); rec.exch.push({ me: pick[1], they: st.say || '' });
-        if (st.close) break; say = st.say; opts = (st.opts || []).map(x => [x[0], x[1]]); if (pick[0] === 'bye') break;
+        const pick = BOT.choose(opts, say); if (!pick) break; const qid = PT.s && PT.s.opts && PT.s.opts[+String(pick[0]).slice(1)] ? PT.s.opts[+String(pick[0]).slice(1)].id : pick[0]; const st = ptStep(pick[0]); rec.exch.push({ me: pick[1], they: st.say || '', id: qid });
+        if (st.close) break; say = st.say; opts = (st.opts || []).map(x => [x[0], x[1]]); seeMenu(); if (pick[0] === 'bye') break;
       }
       try { closeTalk(); } catch (e) {} window.__B.push(rec); return rec;
     },
@@ -109,25 +109,26 @@ const data = await page.evaluate(() => {
   const acts = {}; for (const t of T) for (const a of t.acts) acts[a] = (acts[a] || 0) + 1;
   const all = Object.keys(ACTS), blamed = [], deeds = lf2Ev().filter(e => e.actor === P.id && ['wall_removed', 'home_destroyed', 'building_down', 'bed_moved', 'furniture_removed', 'person_pushed', 'caught_on_privy'].includes(e.kind));
   for (const e of deeds) { const who = {}; for (const o of npcs) { const m = (o.tmem || []).find(q => q.ev === e.id && q.kind !== 'did'); if (m && m.ver && m.ver.who != null) who[m.ver.who === P.id ? 'you' : (byId(m.ver.who) || {}).first] = (who[m.ver.who === P.id ? 'you' : (byId(m.ver.who) || {}).first] || 0) + 1; } blamed.push({ ev: e.kind, anon: !!e.anon, blamed: who, knew: npcs.filter(o => (o.tmem || []).some(q => q.ev === e.id)).length }); }
-  return { T, B, people, acts, unused: all.filter(a => !acts[a] && !ACTS[a].reply === false || (!acts[a])).filter(a => !['cry_deed', 'mutter', 'call_child', 'gift_from_nobody', 'gift_anon_reply'].includes(a)), blamed, rep: repVillage(P), pairs: window.__pairs || [], pack: town.pack, logLen: TALK.log.length, chron: (town.chron || []).slice(-30).map(c => c.text), player: P.first };
+  return { T, B, people, acts, unused: all.filter(a => !acts[a] && !ACTS[a].reply === false || (!acts[a])).filter(a => !['cry_deed', 'mutter', 'call_child', 'gift_from_nobody', 'gift_anon_reply'].includes(a)), blamed, rep: repVillage(P), pairs: window.__pairs || [], menu: window.__M || [], pack: town.pack, logLen: TALK.log.length, chron: (town.chron || []).slice(-30).map(c => c.text), player: P.first };
 });
 await browser.close();
 
 /* ---- lint ---- */
 const lines = []; for (const t of data.T) for (const l of t.lines) lines.push({ t, text: l.replace(/^[^:]+: /, ''), who: l.split(':')[0] });
-const bots = []; for (const b of data.B) if (b.exch) for (const e of b.exch) { bots.push({ text: e.me, who: data.player, bot: true }); if (e.they) for (const s of String(e.they).split('\n').filter(Boolean)) bots.push({ text: s, who: b.with, bot: true }); }
+const bots = []; for (const b of data.B) if (b.exch) for (const e of b.exch) { bots.push({ text: e.me, who: data.player, bot: true, act: e.id }); if (e.they) for (const s of String(e.they).split('\n').filter(Boolean)) bots.push({ text: s, who: b.with, bot: true }); }
 const rules = [
   ['placeholder', /[{}]|undefined|NaN|\[object|null/],
   ['stray punctuation', /\s[,.!?;:]|[,;:][.,;:]|\.\.(?!\.)/],
   ['lowercase sentence start', /(?:^|[.!?]\s+)[a-z]/],
   ['a/an', /\ba [aeiouAEIOU]\w|\ban [bcdfgjklmnpqrstvwxzBCDFGJKLMNPQRSTVWXZ]\w/],
-  ['a + plural', /\b(?:a|an) \w+s\b(?! of)/],
+  ['a + plural', /\b(?:a|an) \w+[^s\W]s\b(?! of)/],
   ['doubled word', /\b(\w{3,}) \1\b/i],
   ['very long', /^.{230,}$/],
   ['exclamation in island voice', data.pack === 'island' ? /!/ : /(?!x)x/],
   ['empty', /^\s*$/]
 ];
-const issues = {}; for (const r of [...lines, ...bots]) for (const [name, rx] of rules) if (rx.test(r.text)) (issues[name] = issues[name] || []).push(r.text);
+const menuLines = [...new Set(data.menu)].map(m => ({ text: m.split(' :: ').slice(1).join(' :: '), act: m.split(' :: ')[0], menu: true }));
+const issues = {}; for (const r of [...lines, ...bots, ...menuLines]) for (const [name, rx] of rules) if (rx.test(r.text)) (issues[name] = issues[name] || []).push(name === 'empty' ? 'acts: ' + (r.t ? r.t.acts.join(',') : r.menu ? 'menu ' + r.act : 'bot ' + (r.act || '')) : (r.menu ? '[menu ' + r.act + '] ' : '') + r.text);
 const freq = {}; for (const l of lines) freq[l.text] = (freq[l.text] || 0) + 1; const stale = Object.entries(freq).filter(([, n]) => n >= 6).sort((a, b) => b[1] - a[1]).slice(0, 12);
 const uniq = new Set(lines.map(l => l.text)).size;
 let runs = 0; const runEx = []; for (const t of data.T) { let prev = '', n = 0; for (const l of t.lines) { const w = l.split(':')[0]; if (w === prev) { n++; if (n === 2) { runs++; if (runEx.length < 3) runEx.push(t.lines.slice(0, 6).join(' / ')); } } else { prev = w; n = 0; } } }
@@ -148,8 +149,8 @@ if (scenario === 'meddle') {
   ok('an unseen deed was blamed on somebody', data.blamed.some(b => b.anon && Object.keys(b.blamed).some(k => k !== 'you')), JSON.stringify(data.blamed.filter(b => b.anon)));
   ok('a reputation formed', Object.keys(data.rep).length > 0, JSON.stringify(data.rep));
 }
-if (scenario === 'romance') md_pairs = data.pairs; ok('romance acts fired', ['flirt', 'declare', 'ask_to_walk', 'propose'].some(has), JSON.stringify(['flirt', 'declare', 'ask_to_walk', 'propose'].map(a => [a, data.acts[a] || 0])));
-if (scenario === 'social') { ok('the bot got answers every time', data.B.every(b => !b.exch || b.exch.filter(e => !/Goodbye|^Leave|Say nothing/.test(e.me)).every(e => e.they)), ''); ok('people told the bot things (news/opinion/day)', ['share_news', 'give_opinion', 'report_day', 'answer_family'].some(has)); }
+if (scenario === 'romance') ok('romance acts fired', ['flirt', 'declare', 'ask_to_walk', 'propose'].some(has), JSON.stringify(['flirt', 'declare', 'ask_to_walk', 'propose'].map(a => [a, data.acts[a] || 0])));
+if (scenario === 'social') { const mute = data.B.flatMap(b => (b.exch || []).filter(e => e.id !== 'bye' && !/Goodbye|^Leave|Say nothing/.test(e.me) && !e.they).map(e => e.id + ': ' + e.me)); ok('the bot got answers every time', mute.length === 0, mute.slice(0, 4).join(' | ')); ok('people told the bot things (news/opinion/day)', ['share_news', 'give_opinion', 'report_day', 'answer_family'].some(has)); }
 
 /* ---- write ---- */
 const fmt = t => { const m = Math.floor(t % 1440), d = Math.floor(t / 1440); return `d${d} ${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
