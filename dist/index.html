@@ -17279,6 +17279,7 @@ function lfEmit(kind, o) {
     }
   }
   if (o.chron !== false && (ev.sev >= 2 || o.chron) && w.length) chron(lf2Cap(ev.text) + ".", ev.tags.includes("crime") ? "note" : o.chronKind || "life");
+  if (typeof TE !== "undefined") TE.onEmit(ev);
   for (const f of LF2.react) {
     try {
       if (f.emit) f.emit(ev);
@@ -19468,6 +19469,7 @@ function visArrive() {
   }
   const a = grp[0];
   chron(grp.length > 1 ? `${nameOf(a)} and ${nameOf(grp[1])} came ashore, looking as though they had just woken up. ${a.first} ${a.back}.` : `${nameOf(a)} came ashore, looking as though they had just woken up. ${a.first} ${a.back}.`, "life");
+  lfEmit("arrival", { actor: a, tags: ["news"], sev: 1.6, loud: true, chron: false, text: `${a.first} came ashore` });
   housingTick();
   for (const n of grp) {
     if (!n.homeRoom) n.homeless = true;
@@ -26177,8 +26179,14 @@ function vcHTML(n) {
     return f ? `<li>${f} ${esc(r.o.first)}${l ? ' <span class="dim">\xB7 ' + esc(String(l).replace(r.o.first, "").replace(/\s+/g, " ").trim().replace(/ (to|of|with)$/, "")) + "</span>" : ""}</li>` : "";
   }).join("");
   const lately = (n.log || []).slice(-6, -1).reverse().map((e) => `<li><span class="dim">${fmtTime(e.t)}</span> ${esc(String(e.text).replace(/\.$/, ""))}</li>`).join("");
+  const heard = (n.tmem || []).filter((m) => m.ev != null && m.kind !== "did").slice(-3).reverse().map((m) => {
+    const ev = lf2Ev().find((q) => q.id === m.ev);
+    if (!ev) return "";
+    const src = m.kind === "saw" ? "saw it" : m.kind === "felt" ? "it happened to them" : m.kind === "overheard" ? "overheard it" : "heard it from " + (m.from != null && byId(m.from) ? byId(m.from).first : "someone");
+    return `<li>${esc(TE.text(ev, m.ver))} <span class="dim">\xB7 ${src}${m.conf < 0.5 ? ", not sure" : ""}</span></li>`;
+  }).join("");
   const news = (town.chron || []).filter((c) => c.text.indexOf(n.first) >= 0).slice(-3).reverse().map((c) => `<li>${esc(c.text)}</li>`).join("");
-  return `<b>${esc(typeof nameOf === "function" ? nameOf(n) : n.first)}</b>${n.player ? ' <span class="dim">(you)</span>' : ""}<div class="dim">${n.age}${n.role ? " \xB7 " + esc(n.role) : ""}${here ? " \xB7 " + esc(here) : ""}</div><div class="vcrow"><span class="dim">Right now</span> ${esc(doing)}</div><div class="vcrow"><span class="dim">Feeling</span> ${esc(mood || "fine")}${hints.length ? " \xB7 " + esc(hints.join(", ")) : ""}</div>` + (rel ? `<div class="vch">Company</div><ul>${rel}</ul>` : "") + (news ? `<div class="vch">Said about them</div><ul>${news}</ul>` : "") + (lately ? `<div class="vch">Before that</div><ul>${lately}</ul>` : "");
+  return `<b>${esc(typeof nameOf === "function" ? nameOf(n) : n.first)}</b>${n.player ? ' <span class="dim">(you)</span>' : ""}<div class="dim">${n.age}${n.role ? " \xB7 " + esc(n.role) : ""}${here ? " \xB7 " + esc(here) : ""}</div><div class="vcrow"><span class="dim">Right now</span> ${esc(doing)}</div><div class="vcrow"><span class="dim">Feeling</span> ${esc(mood || "fine")}${hints.length ? " \xB7 " + esc(hints.join(", ")) : ""}</div>` + (rel ? `<div class="vch">Company</div><ul>${rel}</ul>` : "") + (heard ? `<div class="vch">Knows</div><ul>${heard}</ul>` : "") + (news ? `<div class="vch">Said about them</div><ul>${news}</ul>` : "") + (lately ? `<div class="vch">Before that</div><ul>${lately}</ul>` : "");
 }
 function openVillagerCard(n) {
   VCARD = n || null;
@@ -26863,6 +26871,137 @@ const TM = {
   },
   count(a, kind) {
     return (a.tmem || []).filter((m) => m.kind === kind).length;
+  },
+  /** remember an event: how (saw | did | felt | told | overheard), how sure, from whom, and *my version* of it (who I think did it, how bad) */
+  addEv(n, ev, how, conf, from, hop, ver) {
+    if (TM.ofEv(n, ev.id)) return null;
+    return TM.add(n, { kind: how, ev: ev.id, evk: ev.kind, conf, imp: TE.importance(n, ev), from: from ? from.id : null, hop: hop || 0, ver: ver || { who: ev.actor, sev: ev.sev }, told: [] });
+  },
+  ofEv(n, evId) {
+    const mem = n.tmem;
+    if (!mem) return null;
+    for (let i = mem.length - 1; i >= 0; i--) if (mem[i].ev === evId) return mem[i];
+    return null;
+  }
+};
+const TE = {
+  /** how much it matters to this person: how bad or good, how juicy, and whether it touches somebody they know */
+  importance(n, ev) {
+    let spice = 0, v = 0;
+    for (const tag of ev.tags || []) {
+      const d = typeof LF2_TAGS !== "undefined" ? LF2_TAGS[tag] : null;
+      if (d) {
+        spice = Math.max(spice, d.spice);
+        v += Math.abs(d.v);
+      }
+    }
+    const a = ev.actor != null ? n.aff[ev.actor] || 0 : 0, t = ev.target != null ? n.aff[ev.target] || 0 : 0, kin = Math.abs(a) > 30 || Math.abs(t) > 30 ? 0.2 : 0;
+    return Math.max(0.05, Math.min(1, spice * 0.2 + v * 0.2 + (ev.sev || 1) * 0.05 + kin));
+  },
+  onEmit(ev) {
+    const a = ev.actor != null ? lf2By(ev.actor) : null;
+    if (a && !a.dead) TM.addEv(a, ev, "did", 1);
+    for (const id of ev.witnesses || []) {
+      const w = lf2By(id);
+      if (!w || w.dead || w === a) continue;
+      TM.addEv(w, ev, id === ev.target ? "felt" : "saw", 1);
+    }
+  },
+  /** the words for an event in a version of it (who is blamed may differ from who did it) */
+  text(ev, ver) {
+    const who = ver && ver.who !== void 0 ? ver.who : ev.actor, a = who != null ? lf2By(who) : null, t = ev.target != null ? lf2By(ev.target) : null;
+    const tpl = LEX.filter((e) => e.act === "ev:" + ev.kind && e.pack === "plain");
+    if (tpl.length) {
+      const e = tpl[ev.id % tpl.length];
+      return e.text.replace(/\{a\}/g, a ? a.first : "someone").replace(/\{t\}/g, t ? t.first : "someone");
+    }
+    let tx = String(ev.text || ev.kind);
+    const real = ev.actor != null ? lf2By(ev.actor) : null;
+    if (real && a !== real) tx = tx.replace(new RegExp("\\b" + real.first + "\\b", "g"), a ? a.first : "someone");
+    return tx.charAt(0).toLowerCase() === tx.charAt(0) ? tx : tx.charAt(0) + tx.slice(1);
+  },
+  /** the best thing for sp to tell li now, or null: important, recent, new to the listener, not about either of them */
+  pick(sp, li, c) {
+    const mem = sp.tmem;
+    if (!mem) return null;
+    const gossip = talkHas(sp, "gossipy") ? 1.4 : talkHas(sp, "shy") ? 0.7 : 1;
+    let best = null, bs = 0.1;
+    for (const m of mem) {
+      if (m.ev == null || m.conf < 0.25 || m.kind === "did" && Math.random() < 0.8) continue;
+      const ev = lf2Ev().find((q) => q.id === m.ev);
+      if (!ev) continue;
+      if (ev.actor === li.id || ev.target === li.id || ev.actor === sp.id || ev.target === sp.id || TM.ofEv(li, m.ev) || c && c.sharedEv && c.sharedEv.includes(m.ev) || (m.told || []).includes(li.id)) continue;
+      const age = (game.time - m.t) / 1440, rel = 0.6 + (li.aff[ev.actor] != null || li.aff[ev.target] != null ? 0.5 : 0) + (li.know && (li.know[ev.actor] > 10 || li.know[ev.target] > 10) ? 0.3 : 0);
+      const sc = m.imp * Math.exp(-age / 3) * rel * gossip * (0.8 + Math.random() * 0.4);
+      if (sc > bs) {
+        bs = sc;
+        best = { m, ev, score: sc };
+      }
+    }
+    return best;
+  },
+  /** sp tells li: li gets a version a little less sure than sp's, changed now and then by the way sp tells it */
+  tell(sp, li, pk, c) {
+    const { m, ev } = pk, ver = Object.assign({}, m.ver), notes = [];
+    const credit = Math.max(0.55, Math.min(1, 0.72 + (li.aff[sp.id] || 0) / 150 + (li.trust && li.trust[sp.id] ? li.trust[sp.id] / 200 : 0)));
+    let conf = Math.min(1, m.conf * credit * 0.93);
+    const friend = ver.who != null && (sp.aff[ver.who] || 0) > 30, foe = ver.who != null && (sp.aff[ver.who] || 0) < -30;
+    if (Math.random() < (talkHas(sp, "gossipy") ? 0.3 : 0.12)) {
+      ver.sev = Math.min(3, (ver.sev || 1) * 1.4);
+      notes.push("bigger");
+    } else if (friend && Math.random() < 0.35) {
+      ver.sev = Math.max(0.3, (ver.sev || 1) * 0.6);
+      notes.push("softer");
+    }
+    if (foe && ver.who === ev.actor && Math.random() < 0.15) {
+      conf = Math.min(1, conf + 0.05);
+      notes.push("harder");
+    }
+    if (Math.random() < 0.08) {
+      ver.who = null;
+      notes.push("nameless");
+      conf *= 0.9;
+    } else if (m.kind !== "saw" && m.kind !== "did" && m.kind !== "felt" && Math.random() < 0.06) {
+      const other = npcs.filter((q) => q !== sp && q !== li && !q.dead && q.age >= 14 && (sp.aff[q.id] || 0) < -10);
+      if (other.length) {
+        ver.who = other[Math.floor(Math.random() * other.length)].id;
+        notes.push("shifted");
+        conf *= 0.85;
+      }
+    }
+    ver.note = notes.join(",") || void 0;
+    const mem = TM.addEv(li, ev, "told", conf, sp, (m.hop || 0) + 1, ver);
+    (m.told = m.told || []).push(li.id);
+    const j = TE.appraise(li, ev, ver, conf, sp), actor = ver.who != null ? lf2By(ver.who) : null;
+    if (actor && actor !== li && j.v !== 0) lfAff(li, actor, j.v * conf * 3, "heard what " + actor.first + " did");
+    return { mem, ver, conf, react: j.react, text: TE.text(ev, ver) };
+  },
+  /** how a listener takes a piece of news: one of shock, amused, sympathy, doubt, delight, unmoved */
+  appraise(li, ev, ver, conf, sp) {
+    let v = 0, pity = 0, funny = false;
+    for (const tag of ev.tags || []) {
+      const d = LF2_TAGS[tag];
+      if (d) {
+        v += d.v;
+        pity += d.pity;
+        if (tag === "funny" || tag === "prank" || tag === "embarrass") funny = true;
+      }
+    }
+    v *= 0.55 + 0.45 * Math.min(2, ver.sev || 1) / 1;
+    const t = ev.target != null ? lf2By(ev.target) : null, fond = t ? li.aff[t.id] || 0 : 0;
+    let react = "unmoved";
+    if (conf < 0.45 || (li.aff[sp.id] || 0) < -25) react = "doubt";
+    else if (funny && (talkHas(li, "sociable") || talkHas(li, "jovial") || Math.random() < 0.5)) react = "amused";
+    else if (v <= -0.5) react = pity > 0.6 && fond > 15 ? "sympathy" : "shock";
+    else if (v >= 0.5) react = "delight";
+    return { v, react };
+  },
+  /** people close by hear it too, less surely, and without being told */
+  overhear(c, sp, li, pk) {
+    for (const o of npcs) {
+      if (o === sp || o === li || o.dead || o.infant || o.age < 6 || o.pose === "sleep" || o.player || lfDist(o, sp) > 6 || TM.ofEv(o, pk.ev.id) || Math.random() > 0.5) continue;
+      TM.addEv(o, pk.ev, "overheard", Math.min(0.7, pk.m.conf * 0.6), sp, (pk.m.hop || 0) + 1, Object.assign({}, pk.m.ver));
+    }
   }
 };
 const talkHas = (n, t) => (n.traits || []).includes(t);
@@ -26900,6 +27039,41 @@ const ACTS = {
   answer_how: { kind: "small", stage: "topic", reply: true, when: () => true, apply: (c, sp) => {
     c.state = talkState(sp) || "fine";
   }, replies: [] },
+  /* ---- world: news and what people make of it ---- */
+  ask_news: { kind: "world", stage: "topic", when: (c, sp, li) => !c.done.ask_news && !c.done.share_news && !TE.pick(sp, li, c), w: (c, sp) => 0.7 + (talkHas(sp, "curious") || talkHas(sp, "gossipy") ? 0.8 : 0), apply: (c) => {
+    c.done.ask_news = 1;
+  }, replies: ["share_news", "no_news"] },
+  no_news: { kind: "world", stage: "topic", reply: true, when: (c, sp, li) => !TE.pick(sp, li, c), apply: () => {
+  }, replies: [] },
+  share_news: {
+    kind: "world",
+    stage: "topic",
+    when: (c, sp, li) => (c.done.share_news || 0) < 2 && !!(c.news = TE.pick(sp, li, c)),
+    w: (c) => 1 + 4 * Math.min(1, c.news ? c.news.score : 0),
+    apply: (c, sp, li) => {
+      const pk = c.news;
+      c.told = TE.tell(sp, li, pk, c);
+      c.newsHow = pk.m.kind;
+      c.newsConf = pk.m.conf > 0.7 ? "high" : "low";
+      c.newsWho = pk.ev.target != null ? lf2By(pk.ev.target) : null;
+      c.done.share_news = (c.done.share_news || 0) + 1;
+      (c.sharedEv || (c.sharedEv = [])).push(pk.ev.id);
+      TE.overhear(c, sp, li, pk);
+    },
+    replies: ["react_shock", "react_amused", "react_sympathy", "react_doubt", "react_delight", "react_unmoved"]
+  },
+  react_shock: { kind: "world", stage: "topic", reply: true, when: (c) => !!c.told && c.told.react === "shock", apply: () => {
+  }, replies: [] },
+  react_amused: { kind: "world", stage: "topic", reply: true, when: (c) => !!c.told && c.told.react === "amused", apply: () => {
+  }, replies: [] },
+  react_sympathy: { kind: "world", stage: "topic", reply: true, when: (c) => !!c.told && c.told.react === "sympathy", apply: () => {
+  }, replies: [] },
+  react_doubt: { kind: "world", stage: "topic", reply: true, when: (c) => !!c.told && c.told.react === "doubt", apply: () => {
+  }, replies: [] },
+  react_delight: { kind: "world", stage: "topic", reply: true, when: (c) => !!c.told && c.told.react === "delight", apply: () => {
+  }, replies: [] },
+  react_unmoved: { kind: "world", stage: "topic", reply: true, when: (c) => !!c.told && c.told.react === "unmoved", apply: () => {
+  }, replies: [] },
   agree: { kind: "small", stage: "topic", reply: true, when: () => true, apply: () => {
   }, replies: [] }
 };
@@ -26922,8 +27096,8 @@ lx("greet", "plain", "Hello, {li}.");
 lx("greet", "plain", "{li}. Good to see you.", { rel: "friend" });
 lx("greet", "plain", "{li}! There you are.", { rel: "friend" });
 lx("greet", "plain", "Hello. I don't think we've talked much.", { rel: "stranger" });
-lx("greet_back", "plain", "Hello, {sp}.");
-lx("greet_back", "plain", "{sp}. Hello.");
+lx("greet_back", "plain", "Hello, {li}.");
+lx("greet_back", "plain", "{li}. Hello.");
 lx("greet_back", "plain", "Morning.", { band: "morning" });
 lx("greet_back", "plain", "Good to see you too.", { rel: "friend" });
 lx("greet_back", "plain", "Evening.", { band: "evening" });
@@ -26971,16 +27145,69 @@ lx("pre_close", "plain", "Well. I should get on.");
 lx("pre_close", "plain", "Anyway. Things to do.");
 lx("pre_close", "plain", "I'd better go.");
 lx("pre_close", "plain", "I'll let you get back to it.");
-lx("farewell", "plain", "See you, {sp}.");
+lx("farewell", "plain", "See you, {li}.");
 lx("farewell", "plain", "Take care.");
 lx("farewell", "plain", "Bye for now.");
 lx("farewell", "plain", "Goodbye.", { rel: "stranger" });
 lx("farewell_back", "plain", "You too.");
 lx("farewell_back", "plain", "See you.");
 lx("farewell_back", "plain", "Bye.");
+lx("ask_news", "plain", "Any news?");
+lx("ask_news", "plain", "Heard anything lately?");
+lx("ask_news", "plain", "What's the word today?");
+lx("ask_news", "plain", "Has anything happened?", { rel: "friend" });
+lx("no_news", "plain", "Nothing much.");
+lx("no_news", "plain", "Not a thing.");
+lx("no_news", "plain", "Quiet lately.");
+lx("no_news", "plain", "Nothing I'd call news.");
+lx("share_news", "plain", "Did you hear? {news}.", { conf: "high" });
+lx("share_news", "plain", "I saw it myself: {news}.", { how: "saw" });
+lx("share_news", "plain", "I was there. {news}.", { how: "saw", rel: "friend" });
+lx("share_news", "plain", "I heard that {news}.", { how: "told" });
+lx("share_news", "plain", "They're saying {news}.", { how: "overheard" });
+lx("share_news", "plain", "I'm not sure it's true, but I heard {news}.", { conf: "low" });
+lx("share_news", "plain", "You didn't hear it from me, but {news}.", { rel: "friend", conf: "low" });
+lx("share_news", "plain", "Listen. {news}.", { rel: "friend" });
+lx("share_news", "plain", "Have you heard? {news}.");
+lx("react_shock", "plain", "No!");
+lx("react_shock", "plain", "That's terrible.");
+lx("react_shock", "plain", "I can't believe it.");
+lx("react_shock", "plain", "Really? That's awful.");
+lx("react_amused", "plain", "Ha! Good for them.");
+lx("react_amused", "plain", "That's almost funny.");
+lx("react_amused", "plain", "I wish I'd seen it.");
+lx("react_amused", "plain", "Oh, that's too good.");
+lx("react_sympathy", "plain", "Poor {who}.");
+lx("react_sympathy", "plain", "That's hard on {who}.");
+lx("react_sympathy", "plain", "I feel for {who}.");
+lx("react_doubt", "plain", "Is that really true?");
+lx("react_doubt", "plain", "I'd want to hear it twice.");
+lx("react_doubt", "plain", "Hm. Who told you that?");
+lx("react_doubt", "plain", "I'll believe it when I see it.");
+lx("react_delight", "plain", "That's lovely to hear.");
+lx("react_delight", "plain", "Good for them.");
+lx("react_delight", "plain", "Well. That cheers me up.");
+lx("react_unmoved", "plain", "Hm.");
+lx("react_unmoved", "plain", "Is that so.");
+lx("react_unmoved", "plain", "Well.");
+lx("react_unmoved", "plain", "I see.");
+lx("ev:arrival", "plain", "{a} turned up on the beach this morning");
+lx("ev:arrival", "plain", "{a} came ashore with no explanation");
+lx("ev:theft", "plain", "{a} stole from {t}");
+lx("ev:theft", "plain", "{a} walked off with something of {t}'s");
+lx("ev:quarrel", "plain", "{a} and {t} had words");
+lx("ev:brawl", "plain", "{a} and {t} came to blows");
+lx("ev:shove", "plain", "{a} pushed {t} around");
+lx("ev:gift", "plain", "{a} gave {t} a gift");
+lx("ev:help", "plain", "{a} helped {t} out");
+lx("ev:charity", "plain", "{a} gave to {t} when {t} had nothing");
+lx("ev:arrest", "plain", "{a} was taken in by the watch");
+lx("ev:jealous", "plain", "{a} is jealous of {t}");
+lx("ev:crush", "plain", "{a} has a soft spot for {t}");
+lx("ev:rumour", "plain", "{a} has been telling tales about {t}");
 function lxContext(sp, li, c) {
   const rel = sp.fam && (sp.fam.spouse === li.id || (sp.fam.kids || []).includes(li.id) || sp.fam.mother === li.id || sp.fam.father === li.id) ? "kin" : sp.rel && sp.rel[li.id] === "friend" || (sp.aff[li.id] || 0) > 30 ? "friend" : sp.know && (sp.know[li.id] || 0) > 10 ? "acquaintance" : "stranger";
-  return { band: todBand(game.time), rel, state: c.state || talkState(sp) || "fine", trait: (sp.traits || [])[0] };
+  return { band: todBand(game.time), rel, state: c.state || talkState(sp) || "fine", trait: (sp.traits || [])[0], how: c.how, conf: c.conf };
 }
 function lxSay(act, sp, li, c) {
   const ctx2 = lxContext(sp, li, c);
@@ -27000,7 +27227,8 @@ function lxSay(act, sp, li, c) {
   heard[act + "|" + best.text] = game.time;
   const place = String(placeOf(sp) || "").replace(/^(in|at)\s+/, "");
   const inP = /^the /.test(place) ? "at " + place : place ? "in " + place : "here";
-  return placeWords(best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || "daily").toLowerCase()).replace(/\{state\}/g, ctx2.state));
+  const raw = best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || "daily").toLowerCase()).replace(/\{state\}/g, ctx2.state).replace(/\{news\}/g, c.news || "").replace(/\{who\}/g, c.who || "them");
+  return placeWords(raw.replace(/(^|[.!?]\s+)([a-z])/g, (_m, a, b) => a + b.toUpperCase()));
 }
 TALK.log = [];
 TALK.words = false;
@@ -27032,7 +27260,7 @@ function talkRun(a, b, listened) {
   const say2 = (sp2, li2, id) => {
     const A = ACTS[id];
     A.apply(c, sp2, li2);
-    c.turns.push({ by: sp2.id, act: id });
+    c.turns.push({ by: sp2.id, act: id, x: { state: c.state, how: c.newsHow, conf: c.newsConf, news: c.told && c.told.text, who: c.newsWho ? c.newsWho.first : "them" } });
     c.last = id;
   };
   let sp = a, li = b;
@@ -27047,7 +27275,7 @@ function talkRun(a, b, listened) {
     say2(sp, li, id);
     c.left[sp.id] -= 1;
     let reply = ACTS[id].replies.length ? talkChoose(c, li, sp, ACTS[id].replies) : null;
-    if (reply && ACTS[reply].kind === "small" && ACTS[reply].w === void 0 && Math.random() < 0.3) reply = null;
+    if (reply === "agree" && Math.random() < 0.3) reply = null;
     if (reply) {
       say2(li, sp, reply);
       c.left[li.id] -= 0.4;
@@ -27073,7 +27301,7 @@ function talkRun(a, b, listened) {
     lfAff(x, y, 1, "chatted");
   }
   const lines = listened || TALK.words ? c.turns.map((t) => {
-    const s = t.by === a.id ? a : b, o = s === a ? b : a, text = lxSay(t.act, s, o, c);
+    const s = t.by === a.id ? a : b, o = s === a ? b : a, text = lxSay(t.act, s, o, t.x || {});
     return text ? { who: s, text } : null;
   }).filter(Boolean) : null;
   TALK.log.push({ t: game.time, a: a.id, b: b.id, acts: c.turns.slice(), lines: lines ? lines.map((l) => l.who.first + ": " + l.text) : null });
