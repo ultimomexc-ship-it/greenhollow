@@ -489,7 +489,7 @@ const ART = (function() {
     g.restore();
   }
   function cel(g, shapes, P, o = {}) {
-    const smooth2 = o.smooth !== false, lx = o.lx ?? -5, ly = o.ly ?? -7, rim = o.rim ?? 1.7;
+    const smooth2 = o.smooth !== false, lx2 = o.lx ?? -5, ly = o.ly ?? -7, rim = o.rim ?? 1.7;
     if (o.ink !== false) {
       if (o.ow !== void 0) inkStroke(g, shapes, smooth2, o.ow, o.os ?? 0, o.inkCol || INK);
       else inkUnion(g, shapes, smooth2, o.inkW || inkW(), o.inkCol || INK);
@@ -508,12 +508,12 @@ const ART = (function() {
       g.fillRect(-500, -500, 1200, 1200);
       g.fillStyle = P.base;
       g.beginPath();
-      trace(g, shift(s, lx, ly), smooth2);
+      trace(g, shift(s, lx2, ly), smooth2);
       g.fill();
       if (P.hi) {
         g.fillStyle = P.hi;
         g.beginPath();
-        trace(g, shift(scl(s, o.hs ?? 0.5), lx * 1.9, ly * 1.9), smooth2);
+        trace(g, shift(scl(s, o.hs ?? 0.5), lx2 * 1.9, ly * 1.9), smooth2);
         g.fill();
       }
       if (o.detail) o.detail(g, s);
@@ -772,16 +772,16 @@ const ART = (function() {
   }
   function paintWood(v) {
     const c = pixels(S, S, (x, y) => {
-      const pi = Math.floor(x / 24), lx = x % 24, tone = h32(pi, v, 81, 1);
+      const pi = Math.floor(x / 24), lx2 = x % 24, tone = h32(pi, v, 81, 1);
       let col = mixc([160, 114, 74], [190, 140, 92], tone);
       col = mixc(col, [126, 88, 58], 0.14 * vn(x / S, y / S * 0.3, 14, 82 + pi) + 0.1 * vn(x / S, y / S, 24, 83));
       const cs = h32(pi, v, 84, 2), cy = 14 + Math.floor(cs * 3) * 28 + h32(pi, v, 85, 2) * 14, dy = y - cy;
       if (cs < 0.66 && dy >= 0 && dy < 3.4) col = [96, 62, 46];
       else if (cs < 0.66 && dy >= 3.4 && dy < 5.4) col = mixc(col, [236, 196, 140], 0.35);
       else if (cs < 0.66 && dy < 0 && dy > -6) col = kage(col, 0.4);
-      if (lx >= 21.2) col = [96, 62, 46];
-      else if (lx < 3.4) col = mixc(col, [236, 196, 140], 0.28);
-      else if (lx > 17) col = kage(col, 0.35);
+      if (lx2 >= 21.2) col = [96, 62, 46];
+      else if (lx2 < 3.4) col = mixc(col, [236, 196, 140], 0.28);
+      else if (lx2 > 17) col = kage(col, 0.35);
       return grain(col, x, y, 6);
     });
     const g = c.getContext("2d");
@@ -801,13 +801,13 @@ const ART = (function() {
   }
   function paintStone(v) {
     const c = pixels(S, S, (x, y) => {
-      const row = Math.floor(y / 48), off = 0, col0 = Math.floor(wrapI(x + off, S) / 48), lx = wrapI(x + off, S) % 48, ly = y % 48;
+      const row = Math.floor(y / 48), off = 0, col0 = Math.floor(wrapI(x + off, S) / 48), lx2 = wrapI(x + off, S) % 48, ly = y % 48;
       const tone = h32(col0, row, 91, v);
       let col = mixc([150, 148, 140], [186, 180, 166], tone);
       col = mixc(col, [128, 132, 140], 0.25 * vn(x / S, y / S, 6, 92 + v));
-      if (lx < 2 || ly < 2) col = [88, 84, 98];
-      else if (lx < 4 || ly < 4) col = mixc(col, [230, 224, 208], 0.5);
-      else if (lx > 44 || ly > 44) col = kage(col, 0.75);
+      if (lx2 < 2 || ly < 2) col = [88, 84, 98];
+      else if (lx2 < 4 || ly < 4) col = mixc(col, [230, 224, 208], 0.5);
+      else if (lx2 > 44 || ly > 44) col = kage(col, 0.75);
       return grain(col, x, y, 8);
     });
     return c;
@@ -8411,7 +8411,7 @@ function generateTown(seed, size) {
   spawnNodes(18);
   return town;
 }
-const TALK = { engine: "none", on: { world: true, person: true, small: true, romance: true, gift: true } };
+const TALK = { engine: "new", on: { ritual: true, small: true, world: true, person: true, feeling: true, economy: true, gift: true, romance: true, family: true, law: true } };
 const anyOf = (a) => a[Math.floor(Math.random() * a.length)];
 const dayN = () => Math.floor(game.time / 1440);
 const personById = (id) => byId(id) || (town.dead || []).find((r) => r.id === id) || null;
@@ -9299,9 +9299,9 @@ function completeSite(site, instant) {
       town.stalls.push(st);
       mk.stalls.push(st);
     });
-    [[x, y + h - 1], [x + w - 1, y + h - 1]].forEach(([lx, ly]) => {
-      setT(lx, ly, T.LAMP);
-      lamps.push({ x: lx, y: ly });
+    [[x, y + h - 1], [x + w - 1, y + h - 1]].forEach(([lx2, ly]) => {
+      setT(lx2, ly, T.LAMP);
+      lamps.push({ x: lx2, y: ly });
     });
     for (let j = y + 1; j < y + h; j++) for (let i = x; i < x + w; i++) if (grid[j][i] === T.PATH) mk.plaza.push({ x: i, y: j });
     queueRoad(site.route);
@@ -10157,7 +10157,7 @@ function faceTo(a, b) {
   if (!a.face.dx && !a.face.dy) a.face = { dx: 0, dy: 1 };
 }
 function bumpTalk(a, b, intent) {
-  if (TALK.engine === "none") return false;
+  return false;
   if (!(a.player || b.player) && typeof focusOn === "function" && focusOn()) return false;
   if (a.dead || b.dead || a.infant || b.infant || a.age < 3 || b.age < 3) return false;
   if (a.pose === "sleep" || b.pose === "sleep") return false;
@@ -15020,10 +15020,10 @@ function tsFaces(ex, ey, pts, G = tsGeo(), depth = 1) {
     } else {
       const west = ex < w.x, east = ex > w.x + 1;
       if (!west && !east) continue;
-      const lx = west ? w.x : w.x + 1, dir = west ? 1 : -1;
+      const lx2 = west ? w.x : w.x + 1, dir = west ? 1 : -1;
       for (let k = 0; k < N; k++) {
         const y0 = w.y + k / N, y1 = w.y + (k + 1) / N;
-        if (!tsClear(G, ex, ey, lx - dir * 0.03, (y0 + y1) / 2, 0)) continue;
+        if (!tsClear(G, ex, ey, lx2 - dir * 0.03, (y0 + y1) / 2, 0)) continue;
         const inHole = (k + 0.5) / N > H2.x0 && (k + 0.5) / N < H2.x1, xs = inHole ? [[0, H2.y0], [H2.y1, 1]] : [[0, 1]];
         for (const [t0, t1] of xs) {
           const xa = w.x + t0 - (t0 === 0 ? 0.03 : 0), xb = w.x + t1 + (t1 === 1 ? 0.03 : 0);
@@ -19052,10 +19052,10 @@ function stairLink(s0, l0, s1, l1, kind) {
   town.portals.set(l1, l0);
   town.stairs.push({ s0, l0, s1, l1, kind });
 }
-function stairMake(lx, ly, down) {
+function stairMake(lx2, ly, down) {
   const h0 = town.h0;
   if (down) {
-    const sx2 = lx, sy2 = ly + 1, shift = lvlOf(ly) === 0 ? LV_MINE * h0 : h0, s1y2 = sy2 + shift, l1y2 = s1y2 + 1;
+    const sx2 = lx2, sy2 = ly + 1, shift = lvlOf(ly) === 0 ? LV_MINE * h0 : h0, s1y2 = sy2 + shift, l1y2 = s1y2 + 1;
     for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
       const x = sx2 + i, y = s1y2 + j;
       setT(x, y, T.DIRTF);
@@ -19064,19 +19064,19 @@ function stairMake(lx, ly, down) {
     }
     setT(sx2, sy2, T.STAIRM);
     setT(sx2, s1y2, T.STAIRU);
-    stairLink(sy2 * W + sx2, ly * W + lx, s1y2 * W + sx2, l1y2 * W + sx2, "down");
+    stairLink(sy2 * W + sx2, ly * W + lx2, s1y2 * W + sx2, l1y2 * W + sx2, "down");
     town.gridV = (town.gridV || 0) + 1;
     markDirty(sx2 - 1, sy2 - 1, 3, 3);
     markDirty(sx2 - 2, s1y2 - 2, 5, 5);
     refreshReach();
     return;
   }
-  const sx = lx, sy = ly - 1, ri2 = roomAt[sy][sx], fp = stairFootprint(rooms[ri2]), s1y = sy + h0, l1y = s1y - 1;
+  const sx = lx2, sy = ly - 1, ri2 = roomAt[sy][sx], fp = stairFootprint(rooms[ri2]), s1y = sy + h0, l1y = s1y - 1;
   for (const [x, y] of fp) if (grid[y + h0][x] === T.SKY) setT(x, y + h0, T.DECK);
   if (grid[l1y][sx] === T.SKY) setT(sx, l1y, T.DECK);
   setT(sx, sy, T.STAIR);
   setT(sx, s1y, T.STAIRD);
-  stairLink(sy * W + sx, ly * W + lx, s1y * W + sx, l1y * W + sx, "up");
+  stairLink(sy * W + sx, ly * W + lx2, s1y * W + sx, l1y * W + sx, "up");
   markDirty(sx - 1, sy - 1, 3, 3);
   for (const [x, y] of fp) markDirty(x, y + h0, 1, 1);
   markDirty(sx - 1, l1y - 1, 3, 4);
@@ -19085,10 +19085,10 @@ function stairMake(lx, ly, down) {
   refreshReach();
 }
 function stairPlace(n, down = false) {
-  const lx = n.tx, ly = n.ty, h0 = town.h0;
+  const lx2 = n.tx, ly = n.ty, h0 = town.h0;
   if (!h0) return null;
-  const L = lvlOf(ly), kit = down ? "stairdown" : "stair", sx = lx, sy = down ? ly + 1 : ly - 1;
-  if (town.portals && town.portals.has(ly * W + lx)) {
+  const L = lvlOf(ly), kit = down ? "stairdown" : "stair", sx = lx2, sy = down ? ly + 1 : ly - 1;
+  if (town.portals && town.portals.has(ly * W + lx2)) {
     playerSay(n, "You are standing on the landing of another staircase. Step away from it.");
     return null;
   }
@@ -19097,7 +19097,7 @@ function stairPlace(n, down = false) {
       playerSay(n, "Stairs down go on the ground, or deep in a mine.");
       return null;
     }
-    if (!stairClear(sx, sy) || !walkable(lx, ly)) {
+    if (!stairClear(sx, sy) || !walkable(lx2, ly)) {
       playerSay(n, "Stairs down go just south of you: that ground has to be clear.");
       return null;
     }
@@ -19106,7 +19106,7 @@ function stairPlace(n, down = false) {
       playerSay(n, "The earth is too thin here.");
       return null;
     }
-    stairMake(lx, ly, true);
+    stairMake(lx2, ly, true);
     kitTake(kit);
     sndPlace();
     playerSay(n, "A staircase. It goes down into the earth.");
@@ -19116,16 +19116,16 @@ function stairPlace(n, down = false) {
     playerSay(n, "There is nothing higher to climb to.");
     return null;
   }
-  const ri2 = roomAt[sy] && roomAt[sy][sx], inRoom = ri2 >= 0 && ri2 === roomAt[ly][lx] && rooms[ri2] && !rooms[ri2].dead;
+  const ri2 = roomAt[sy] && roomAt[sy][sx], inRoom = ri2 >= 0 && ri2 === roomAt[ly][lx2] && rooms[ri2] && !rooms[ri2].dead;
   if (!inRoom) {
     playerSay(n, "Stairs up go on the floor of a room, just north of where you stand.");
     return null;
   }
-  if (inRoom && (grid[sy][sx] !== T.FLOOR || grid[ly][lx] !== T.FLOOR) || lfPropAt(sx, sy) || tileOwner.get(sy * W + sx)) {
+  if (inRoom && (grid[sy][sx] !== T.FLOOR || grid[ly][lx2] !== T.FLOOR) || lfPropAt(sx, sy) || tileOwner.get(sy * W + sx)) {
     playerSay(n, "The floor just north of you has to be clear.");
     return null;
   }
-  stairMake(lx, ly, false);
+  stairMake(lx2, ly, false);
   kitTake(kit);
   sndPlace();
   playerSay(n, "A staircase. It goes up to the roof.");
@@ -19196,12 +19196,12 @@ function prebuildLevels() {
       if (ok(x, y) && ok(x, y - 1)) st = [x, y];
     }
     if (!st) continue;
-    const [lx, ly] = st;
-    stairMake(lx, ly, false);
+    const [lx2, ly] = st;
+    stairMake(lx2, ly, false);
     const y0 = r.y, hitY = (b) => b >= y0 && b <= y0 + 5;
     for (const x0 of [r.x, r.x + r.w - 5]) {
       const hit = (a) => a >= x0 - 1 && a <= x0 + 5;
-      if (hit(lx) && (hitY(ly) || hitY(ly - 2))) continue;
+      if (hit(lx2) && (hitY(ly) || hitY(ly - 2))) continue;
       hut(x0, y0 + h0, 2);
       break;
     }
@@ -19209,27 +19209,27 @@ function prebuildLevels() {
   }
   let done = false;
   for (let d = 5; d < 24 && !done; d++) for (let a = 0; a < 16 && !done; a++) {
-    const ang = a * Math.PI / 8, lx = Math.round(cx + Math.cos(ang) * d), ly = Math.round(cy + Math.sin(ang) * d * 0.8);
-    if (!stairClear(lx, ly) || !stairClear(lx, ly + 1) || [-1, 0, 1, 2].some((dy) => [-1, 0, 1].some((dx) => roomAt[ly + dy] && roomAt[ly + dy][lx + dx] >= 0))) continue;
+    const ang = a * Math.PI / 8, lx2 = Math.round(cx + Math.cos(ang) * d), ly = Math.round(cy + Math.sin(ang) * d * 0.8);
+    if (!stairClear(lx2, ly) || !stairClear(lx2, ly + 1) || [-1, 0, 1, 2].some((dy) => [-1, 0, 1].some((dx) => roomAt[ly + dy] && roomAt[ly + dy][lx2 + dx] >= 0))) continue;
     const my = ly + LV_MINE * h0;
-    if (lx < 14 || lx > W - 18) continue;
-    stairMake(lx, ly, true);
+    if (lx2 < 14 || lx2 > W - 18) continue;
+    stairMake(lx2, ly, true);
     for (let j = -4; j <= 6; j++) for (let i = -4; i <= 9; i++) {
-      const x = lx + i, y = my + j;
+      const x = lx2 + i, y = my + j;
       if (grid[y][x] === T.EARTH) {
         setT(x, y, T.DIRTF);
         town.ore[y * W + x] = 0;
       }
     }
     for (let i = 10; i <= 17; i++) {
-      const x = lx + i, y = my + 1;
+      const x = lx2 + i, y = my + 1;
       if (grid[y][x] === T.EARTH) {
         setT(x, y, T.DIRTF);
         town.ore[y * W + x] = 0;
       }
     }
-    hut(lx + 4, my - 3, 2);
-    for (const [tx, ty] of [[lx - 2, my - 2], [lx + 2, my + 4], [lx + 6, my + 4], [lx + 12, my], [lx + 16, my + 2]]) if (!lfPropAt(tx, ty) && grid[ty][tx] === T.DIRTF) lfAddProp("torch", tx, ty);
+    hut(lx2 + 4, my - 3, 2);
+    for (const [tx, ty] of [[lx2 - 2, my - 2], [lx2 + 2, my + 4], [lx2 + 6, my + 4], [lx2 + 12, my], [lx2 + 16, my + 2]]) if (!lfPropAt(tx, ty) && grid[ty][tx] === T.DIRTF) lfAddProp("torch", tx, ty);
     done = true;
   }
   if (typeof visHomes === "function") visHomes();
@@ -24679,12 +24679,9 @@ function splitSpeech(text, max) {
   return out;
 }
 function drainEvents(now) {
-  if (TALK.engine === "none") {
-    game.events.length = 0;
-    return;
-  }
   while (game.events.length) {
     const ev = game.events.shift();
+    if (!ev.talk) continue;
     for (const l of ev.lines) l.text = cvSpeak(l.text);
     if (!ev.focus && !ev.self && ev.lines.length && ev.lines[0].who && ev.lines[0].who.player) continue;
     if (ev.a.player || ev.b.player) {
@@ -26794,6 +26791,357 @@ window.addEventListener("keydown", (e) => {
   if (!box || box.hidden || box.style.display === "none" || !box.querySelector("[data-heir]")) return;
   menuNav(e, [...box.querySelectorAll("[data-heir]")], null);
 }, true);
+const WORLD = {
+  has(kind, id) {
+    if (!town) return false;
+    switch (kind) {
+      case "feature":
+        if (id === "tavern") return !!town.tavern;
+        if (id === "church" || id === "chapel") return !!town.church;
+        return rooms.some((r) => !r.dead && (r.kind === id || r.fn === id));
+      case "item":
+        return typeof GOODS !== "undefined" && !!GOODS[id];
+      case "place":
+        return true;
+      case "person": {
+        const p = personById(id);
+        return !!p && !p.dead;
+      }
+      case "job":
+        return true;
+    }
+    return false;
+  },
+  /** the name of a thing in the current voice (the island says "the camp fire" for a tavern that was never built) */
+  name(kind, id) {
+    switch (kind) {
+      case "feature":
+        return placeWords("the " + (id === "church" ? "chapel" : id));
+      case "item":
+        return typeof GOODS !== "undefined" && GOODS[id] ? String(GOODS[id].name).toLowerCase() : String(id);
+      case "person": {
+        const p = personById(id);
+        return p ? p.first : "somebody";
+      }
+      case "place":
+        return placeWords(String(id));
+    }
+    return String(id);
+  },
+  /** every requirement of a lexicon line, like 'feature:tavern', must be met */
+  ok(reqs) {
+    return !reqs || reqs.every((q) => {
+      const i = q.indexOf(":");
+      return WORLD.has(q.slice(0, i), q.slice(i + 1));
+    });
+  }
+};
+const TM = {
+  max: 120,
+  add(n, m) {
+    const mem = n.tmem || (n.tmem = []);
+    mem.push(Object.assign({ t: game.time, conf: 1, imp: 0.3 }, m));
+    if (mem.length > TM.max) {
+      let k = 0, best = 1e9;
+      for (let i = 0; i < mem.length; i++) {
+        const s = mem[i].imp * 1e3 - (game.time - mem[i].t) / 60;
+        if (s < best) {
+          best = s;
+          k = i;
+        }
+      }
+      mem.splice(k, 1);
+    }
+    return m;
+  },
+  /** when did a last talk with b (minutes of game time), or -Infinity */
+  lastTalk(a, b) {
+    const mem = a.tmem;
+    if (!mem) return -Infinity;
+    for (let i = mem.length - 1; i >= 0; i--) if (mem[i].kind === "talked" && mem[i].with === b.id) return mem[i].t;
+    return -Infinity;
+  },
+  count(a, kind) {
+    return (a.tmem || []).filter((m) => m.kind === kind).length;
+  }
+};
+const talkHas = (n, t) => (n.traits || []).includes(t);
+const ACTS = {
+  /* ---- ritual: openings, pre-closings, farewells ---- */
+  greet: { kind: "ritual", stage: "open", when: (c) => !c.done.greet, apply: (c) => {
+    c.done.greet = 1;
+  }, replies: ["greet_back"] },
+  greet_back: { kind: "ritual", stage: "open", reply: true, when: () => true, apply: () => {
+  }, replies: [] },
+  pre_close: { kind: "ritual", stage: "close", when: (c) => !c.done.pre_close, apply: (c) => {
+    c.done.pre_close = 1;
+  }, replies: ["farewell"] },
+  farewell: { kind: "ritual", stage: "close", reply: true, when: () => true, apply: () => {
+  }, replies: ["farewell_back"] },
+  farewell_back: { kind: "ritual", stage: "close", reply: true, when: () => true, apply: () => {
+  }, replies: [] },
+  /* ---- small talk: remarks that maintain the bond ---- */
+  remark_time: { kind: "small", stage: "topic", when: (c) => !c.done.remark_time, w: () => 1.2, apply: (c) => {
+    c.done.remark_time = 1;
+  }, replies: ["agree"] },
+  remark_place: { kind: "small", stage: "topic", when: (c, sp) => !c.done.remark_place && !!placeOf(sp), w: () => 1, apply: (c) => {
+    c.done.remark_place = 1;
+  }, replies: ["agree"] },
+  remark_work: { kind: "small", stage: "topic", when: (c, sp) => !c.done.remark_work && !!sp.job, w: (c, sp) => 1.3 + (sp.pose === "work" ? 0.5 : 0), apply: (c) => {
+    c.done.remark_work = 1;
+  }, replies: ["agree"] },
+  remark_state: { kind: "small", stage: "topic", when: (c, sp) => !c.done.remark_state && !!talkState(sp), w: () => 1.4, apply: (c, sp) => {
+    c.done.remark_state = 1;
+    c.state = talkState(sp);
+  }, replies: ["agree"] },
+  ask_how: { kind: "small", stage: "topic", when: (c) => !c.done.ask_how, w: (c, sp, li) => 1 + Math.max(0, sp.aff[li.id] || 0) / 60, apply: (c) => {
+    c.done.ask_how = 1;
+  }, replies: ["answer_how"] },
+  answer_how: { kind: "small", stage: "topic", reply: true, when: () => true, apply: (c, sp) => {
+    c.state = talkState(sp) || "fine";
+  }, replies: [] },
+  agree: { kind: "small", stage: "topic", reply: true, when: () => true, apply: () => {
+  }, replies: [] }
+};
+function talkState(n) {
+  if (n.hunger > 70) return "hungry";
+  if (n.energy != null && n.energy < 30) return "tired";
+  if (n.mood != null && n.mood > 78) return "glad";
+  if (n.mood != null && n.mood < 32) return "low";
+  return void 0;
+}
+const LEX = [];
+const lx = (act, pack, text, tags, requires) => LEX.push({ act, pack, text, tags: tags || {}, requires });
+const TALK_PACK = { cur: "plain" };
+lx("greet", "plain", "Morning, {li}.", { band: "morning" });
+lx("greet", "plain", "Up early, {li}.", { band: "morning" });
+lx("greet", "plain", "Afternoon, {li}.", { band: "day" });
+lx("greet", "plain", "Evening, {li}.", { band: "evening" });
+lx("greet", "plain", "Still about, {li}?", { band: "night" });
+lx("greet", "plain", "Hello, {li}.");
+lx("greet", "plain", "{li}. Good to see you.", { rel: "friend" });
+lx("greet", "plain", "{li}! There you are.", { rel: "friend" });
+lx("greet", "plain", "Hello. I don't think we've talked much.", { rel: "stranger" });
+lx("greet_back", "plain", "Hello, {sp}.");
+lx("greet_back", "plain", "{sp}. Hello.");
+lx("greet_back", "plain", "Morning.", { band: "morning" });
+lx("greet_back", "plain", "Good to see you too.", { rel: "friend" });
+lx("greet_back", "plain", "Evening.", { band: "evening" });
+lx("remark_time", "plain", "Morning goes quickly.", { band: "morning" });
+lx("remark_time", "plain", "Half the day gone already.", { band: "day" });
+lx("remark_time", "plain", "It'll be dark soon.", { band: "evening" });
+lx("remark_time", "plain", "Late to be about, isn't it.", { band: "night" });
+lx("remark_time", "plain", "The days feel long lately.");
+lx("remark_time", "plain", "Time passes strangely here.");
+lx("remark_place", "plain", "Quiet {place} today.");
+lx("remark_place", "plain", "I always end up {place} around now.");
+lx("remark_place", "plain", "Nice enough, {place}.");
+lx("remark_place", "plain", "It's something, being {place}.");
+lx("remark_work", "plain", "The {job} work never ends.");
+lx("remark_work", "plain", "Busy with the {job} work.");
+lx("remark_work", "plain", "I'm getting better at the {job} work. Slowly.");
+lx("remark_work", "plain", "Can't complain about the {job} work.", { state: "glad" });
+lx("remark_state", "plain", "I'm starving.", { state: "hungry" });
+lx("remark_state", "plain", "I could eat a whole loaf.", { state: "hungry" });
+lx("remark_state", "plain", "I'm worn out.", { state: "tired" });
+lx("remark_state", "plain", "I could sleep standing up.", { state: "tired" });
+lx("remark_state", "plain", "I'm in a good mood, actually.", { state: "glad" });
+lx("remark_state", "plain", "Can't stop smiling today.", { state: "glad" });
+lx("remark_state", "plain", "Not my best day.", { state: "low" });
+lx("remark_state", "plain", "I've felt better.", { state: "low" });
+lx("ask_how", "plain", "How are you?");
+lx("ask_how", "plain", "How have you been?");
+lx("ask_how", "plain", "How are things with you, {li}?", { rel: "friend" });
+lx("answer_how", "plain", "Fine, thanks.", { state: "fine" });
+lx("answer_how", "plain", "Can't complain.", { state: "fine" });
+lx("answer_how", "plain", "Hungry, mostly.", { state: "hungry" });
+lx("answer_how", "plain", "Tired. You?", { state: "tired" });
+lx("answer_how", "plain", "Better than I expected.", { state: "glad" });
+lx("answer_how", "plain", "Good, actually.", { state: "glad" });
+lx("answer_how", "plain", "Not great.", { state: "low" });
+lx("answer_how", "plain", "Getting by.", { state: "low" });
+lx("agree", "plain", "Mm.");
+lx("agree", "plain", "True.");
+lx("agree", "plain", "I know what you mean.");
+lx("agree", "plain", "Yes.");
+lx("agree", "plain", "It is.");
+lx("agree", "plain", "Same here.");
+lx("agree", "plain", "Right.");
+lx("pre_close", "plain", "Well. I should get on.");
+lx("pre_close", "plain", "Anyway. Things to do.");
+lx("pre_close", "plain", "I'd better go.");
+lx("pre_close", "plain", "I'll let you get back to it.");
+lx("farewell", "plain", "See you, {sp}.");
+lx("farewell", "plain", "Take care.");
+lx("farewell", "plain", "Bye for now.");
+lx("farewell", "plain", "Goodbye.", { rel: "stranger" });
+lx("farewell_back", "plain", "You too.");
+lx("farewell_back", "plain", "See you.");
+lx("farewell_back", "plain", "Bye.");
+function lxContext(sp, li, c) {
+  const rel = sp.fam && (sp.fam.spouse === li.id || (sp.fam.kids || []).includes(li.id) || sp.fam.mother === li.id || sp.fam.father === li.id) ? "kin" : sp.rel && sp.rel[li.id] === "friend" || (sp.aff[li.id] || 0) > 30 ? "friend" : sp.know && (sp.know[li.id] || 0) > 10 ? "acquaintance" : "stranger";
+  return { band: todBand(game.time), rel, state: c.state || talkState(sp) || "fine", trait: (sp.traits || [])[0] };
+}
+function lxSay(act, sp, li, c) {
+  const ctx2 = lxContext(sp, li, c);
+  const heard = li.heard || (li.heard = {});
+  const pool = (pack) => LEX.filter((e) => e.act === act && e.pack === pack && WORLD.ok(e.requires) && Object.keys(e.tags).every((k) => k === "trait" ? (sp.traits || []).includes(e.tags[k]) : e.tags[k] === ctx2[k]));
+  let cands = pool(TALK_PACK.cur);
+  if (!cands.length) cands = pool("plain");
+  if (!cands.length) return "";
+  let best = null, bs = -1e9;
+  for (const e of cands) {
+    const id = act + "|" + e.text, s = Object.keys(e.tags).length * 2 - (heard[id] != null ? 4 - Math.min(3, (game.time - heard[id]) / 600) : 0) + Math.random() * 1.5;
+    if (s > bs) {
+      bs = s;
+      best = e;
+    }
+  }
+  heard[act + "|" + best.text] = game.time;
+  const place = String(placeOf(sp) || "").replace(/^(in|at)\s+/, "");
+  const inP = /^the /.test(place) ? "at " + place : place ? "in " + place : "here";
+  return placeWords(best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || "daily").toLowerCase()).replace(/\{state\}/g, ctx2.state));
+}
+TALK.log = [];
+TALK.words = false;
+TALK.running = true;
+function talkBudget(n, o) {
+  let b = 2.6 + (talkHas(n, "sociable") ? 1.5 : 0) + (talkHas(n, "gossipy") ? 0.6 : 0) - (talkHas(n, "shy") ? 1 : 0) - (talkHas(n, "grumpy") ? 0.6 : 0);
+  b += Math.max(-1, Math.min(1.5, (n.aff[o.id] || 0) / 50)) + (100 - (n.social == null ? 50 : n.social)) / 60 + Math.random() * 1.2;
+  if (n.hunger > 80) b -= 1;
+  return Math.max(1, b);
+}
+function talkChoose(c, sp, li, ids) {
+  const opts = [];
+  for (const id of ids) {
+    const A = ACTS[id];
+    if (!A || !TALK.on[A.kind] || !A.when(c, sp, li)) continue;
+    opts.push([id, Math.max(0.05, (A.w ? A.w(c, sp, li) : 1) * (0.8 + Math.random() * 0.4))]);
+  }
+  if (!opts.length) return null;
+  let r = Math.random() * opts.reduce((s, o) => s + o[1], 0);
+  for (const [id, w] of opts) {
+    r -= w;
+    if (r <= 0) return id;
+  }
+  return opts[opts.length - 1][0];
+}
+const TALK_TOPICS = () => Object.keys(ACTS).filter((k) => ACTS[k].stage === "topic" && !ACTS[k].reply);
+function talkRun(a, b, listened) {
+  const c = { a, b, stage: "open", done: {}, turns: [], left: { [a.id]: talkBudget(a, b), [b.id]: talkBudget(b, a) }, last: null, t0: game.time };
+  const say2 = (sp2, li2, id) => {
+    const A = ACTS[id];
+    A.apply(c, sp2, li2);
+    c.turns.push({ by: sp2.id, act: id });
+    c.last = id;
+  };
+  let sp = a, li = b;
+  if (TALK.on.ritual) {
+    say2(sp, li, "greet");
+    say2(li, sp, "greet_back");
+  }
+  c.stage = "topic";
+  while (c.turns.length < 26 && c.left[sp.id] > 1 && c.left[li.id] > 0.5) {
+    const id = talkChoose(c, sp, li, TALK_TOPICS());
+    if (!id) break;
+    say2(sp, li, id);
+    c.left[sp.id] -= 1;
+    let reply = ACTS[id].replies.length ? talkChoose(c, li, sp, ACTS[id].replies) : null;
+    if (reply && ACTS[reply].kind === "small" && ACTS[reply].w === void 0 && Math.random() < 0.3) reply = null;
+    if (reply) {
+      say2(li, sp, reply);
+      c.left[li.id] -= 0.4;
+      const back = ACTS[reply].replies.length ? talkChoose(c, sp, li, ACTS[reply].replies) : null;
+      if (back) say2(sp, li, back);
+    }
+    if (c.left[li.id] > c.left[sp.id]) {
+      const t = sp;
+      sp = li;
+      li = t;
+    }
+  }
+  c.stage = "close";
+  if (TALK.on.ritual) {
+    const closer = c.left[a.id] <= c.left[b.id] ? a : b, other = closer === a ? b : a;
+    say2(closer, other, "pre_close");
+    say2(other, closer, "farewell");
+    say2(closer, other, "farewell_back");
+  }
+  for (const [x, y] of [[a, b], [b, a]]) {
+    TM.add(x, { kind: "talked", with: y.id, imp: 0.2, n: c.turns.length });
+    x.social = Math.min(100, (x.social == null ? 50 : x.social) + 5 + c.turns.length);
+    lfAff(x, y, 1, "chatted");
+  }
+  const lines = listened || TALK.words ? c.turns.map((t) => {
+    const s = t.by === a.id ? a : b, o = s === a ? b : a, text = lxSay(t.act, s, o, c);
+    return text ? { who: s, text } : null;
+  }).filter(Boolean) : null;
+  TALK.log.push({ t: game.time, a: a.id, b: b.id, acts: c.turns.slice(), lines: lines ? lines.map((l) => l.who.first + ": " + l.text) : null });
+  if (TALK.log.length > 300) TALK.log.shift();
+  if (lines && lines.length) game.events.push({ time: game.time, a, b, place: placeOf(a), topic: "talk", quiet: false, talk: true, lines });
+  else {
+    const hold = game.time + c.turns.length * 0.7;
+    a.talkUntil = Math.max(a.talkUntil || 0, hold);
+    b.talkUntil = Math.max(b.talkUntil || 0, hold);
+  }
+  return c;
+}
+TALK.range = 10;
+TALK.earshot = 16;
+function talkIdle(n) {
+  if (n.dead || n.player || n.infant || n.age < 6 || n.pose === "sleep" || n.trapped || n.jail) return false;
+  if ((n.talkUntil || 0) > game.time || (n.talkBusy || 0) > game.time) return false;
+  const st = n.plan && n.plan[n.si];
+  return !st || !!n.roaming || st.k === "wait" && (st.act === "stand" || st.act === "leisure");
+}
+function talkPartner(a) {
+  let best = null, bw = 0;
+  for (const b of npcs) {
+    if (b === a || !talkIdle(b) || b.moving || lvlOf(a.ty) !== lvlOf(b.ty) || lfDist(a, b) > TALK.range) continue;
+    const gap = game.time - TM.lastTalk(a, b), close = a.aff[b.id] || 0;
+    if (gap < 60 + Math.max(0, 120 - close * 2)) continue;
+    if (!visNearTile(b)) continue;
+    const w = (1 + Math.max(0, close) / 40 + (a.fam && (a.fam.spouse === b.id || a.fam.kids.includes(b.id) || a.fam.mother === b.id || a.fam.father === b.id) ? 0.8 : 0)) * (0.5 + Math.random());
+    if (w > bw) {
+      bw = w;
+      best = b;
+    }
+  }
+  return best;
+}
+function talkApproach(a, b) {
+  b.talkBusy = a.talkBusy = game.time + 16;
+  b.talkUntil = Math.max(b.talkUntil || 0, game.time + 9);
+  const rest = a.plan ? a.plan.slice(a.si) : [];
+  abortPlan(a);
+  a.plan = [
+    goS(() => visNearTile(b) || { x: b.tx, y: b.ty, face: null }, "Going over to " + b.first),
+    waitS(1, "stand", "Talking with " + b.first, { onEnd(nn) {
+      if (b.dead || b.pose === "sleep" || lfDist(nn, b) > 3) {
+        nn.talkBusy = b.talkBusy = 0;
+        return;
+      }
+      faceTo(nn, b);
+      faceTo(b, nn);
+      const pl = game.player, near = !!pl && (lfDist(nn, pl) <= TALK.earshot || lfDist(b, pl) <= TALK.earshot);
+      talkRun(nn, b, near);
+      nn.talkBusy = b.talkBusy = 0;
+    } })
+  ].concat(rest);
+  a.si = 0;
+  a.stepStarted = false;
+}
+function talkTick() {
+  if (!town || !TALK.running || !game.player) return;
+  for (const a of npcs) {
+    if ((a.talkNext || 0) > game.time) continue;
+    a.talkNext = game.time + (8 + Math.random() * 16) / (talkHas(a, "sociable") ? 1.5 : talkHas(a, "shy") ? 0.7 : 1);
+    if (!talkIdle(a)) continue;
+    const b = talkPartner(a);
+    if (b) talkApproach(a, b);
+  }
+}
+LF2.tickers.push(talkTick);
 
 </script>
 </body>

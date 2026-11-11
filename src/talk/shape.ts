@@ -1,0 +1,48 @@
+/* The conversation: open -> topics -> pre-close -> farewell (docs/talk-engine.md, section 6), and the villager chooser (section 8).
+   `talkRun(a, b)` plays one whole conversation as a list of turns { by, act }. Each act's `apply` runs, the words are looked up only when somebody can hear
+   (`TALK.words` forces them, for tests), and the result is logged in `TALK.log`. */
+
+TALK.log = [] as any[]; TALK.words = false; TALK.running = true;
+
+/** how much a person has to say to this one: interest in the talk (their patience) */
+function talkBudget(n: any, o: any): number {
+  let b = 2.6 + (talkHas(n, 'sociable') ? 1.5 : 0) + (talkHas(n, 'gossipy') ? 0.6 : 0) - (talkHas(n, 'shy') ? 1 : 0) - (talkHas(n, 'grumpy') ? 0.6 : 0);
+  b += Math.max(-1, Math.min(1.5, (n.aff[o.id] || 0) / 50)) + (100 - (n.social == null ? 50 : n.social)) / 60 + Math.random() * 1.2;
+  if (n.hunger > 80) b -= 1; return Math.max(1, b);
+}
+/** the villager chooser: among the acts that fit this moment, a weighted pick (not the best one) */
+function talkChoose(c: any, sp: any, li: any, ids: string[]): string | null {
+  const opts: [string, number][] = [];
+  for (const id of ids) { const A = ACTS[id]; if (!A || !TALK.on[A.kind] || !A.when(c, sp, li)) continue; opts.push([id, Math.max(0.05, (A.w ? A.w(c, sp, li) : 1) * (0.8 + Math.random() * 0.4))]); }
+  if (!opts.length) return null; let r = Math.random() * opts.reduce((s, o) => s + o[1], 0); for (const [id, w] of opts) { r -= w; if (r <= 0) return id; } return opts[opts.length - 1][0];
+}
+const TALK_TOPICS = () => Object.keys(ACTS).filter(k => ACTS[k].stage === 'topic' && !ACTS[k].reply);
+
+function talkRun(a: any, b: any, listened?: boolean): any {
+  const c: any = { a, b, stage: 'open', done: {}, turns: [], left: { [a.id]: talkBudget(a, b), [b.id]: talkBudget(b, a) }, last: null, t0: game.time };
+  const say = (sp: any, li: any, id: string) => { const A = ACTS[id]; A.apply(c, sp, li); c.turns.push({ by: sp.id, act: id }); c.last = id; };
+  let sp = a, li = b;
+  /* opening */
+  if (TALK.on.ritual) { say(sp, li, 'greet'); say(li, sp, 'greet_back'); }
+  /* topics: the speaker raises one; the listener answers (or lets it pass); the turn then goes to whoever has more left */
+  c.stage = 'topic';
+  while (c.turns.length < 26 && c.left[sp.id] > 1 && c.left[li.id] > 0.5) {
+    const id = talkChoose(c, sp, li, TALK_TOPICS()); if (!id) break;
+    say(sp, li, id); c.left[sp.id] -= 1;
+    let reply = ACTS[id].replies.length ? talkChoose(c, li, sp, ACTS[id].replies) : null;
+    if (reply && ACTS[reply].kind === 'small' && ACTS[reply].w === undefined && Math.random() < 0.3) reply = null;   // (a nod is optional; an answer is not)
+    if (reply) { say(li, sp, reply); c.left[li.id] -= 0.4; const back = ACTS[reply].replies.length ? talkChoose(c, sp, li, ACTS[reply].replies) : null; if (back) say(sp, li, back); }
+    if (c.left[li.id] > c.left[sp.id]) { const t = sp; sp = li; li = t; }   // whoever has more left to say goes on
+  }
+  /* pre-closing and farewell: said by whoever ran out first */
+  c.stage = 'close';
+  if (TALK.on.ritual) { const closer = c.left[a.id] <= c.left[b.id] ? a : b, other = closer === a ? b : a; say(closer, other, 'pre_close'); say(other, closer, 'farewell'); say(closer, other, 'farewell_back'); }
+  /* what stays: both remember it, they know each other a little better, and the need for company is met */
+  for (const [x, y] of [[a, b], [b, a]]) { TM.add(x, { kind: 'talked', with: y.id, imp: 0.2, n: c.turns.length }); x.social = Math.min(100, (x.social == null ? 50 : x.social) + 5 + c.turns.length); lfAff(x, y, 1, 'chatted'); }
+  /* the words, only when somebody can hear */
+  const lines = listened || TALK.words ? c.turns.map((t: any) => { const s = t.by === a.id ? a : b, o = s === a ? b : a, text = lxSay(t.act, s, o, c); return text ? { who: s, text } : null; }).filter(Boolean) : null;
+  TALK.log.push({ t: game.time, a: a.id, b: b.id, acts: c.turns.slice(), lines: lines ? lines.map((l: any) => l.who.first + ': ' + l.text) : null }); if (TALK.log.length > 300) TALK.log.shift();
+  if (lines && lines.length) game.events.push({ time: game.time, a, b, place: placeOf(a), topic: 'talk', quiet: false, talk: true, lines });
+  else { const hold = game.time + c.turns.length * 0.7; a.talkUntil = Math.max(a.talkUntil || 0, hold); b.talkUntil = Math.max(b.talkUntil || 0, hold); }
+  return c;
+}

@@ -1059,6 +1059,69 @@ test('villager card: clicking a villager opens a card with what they are doing, 
   return 'villager card';
 });
 
+test('talk engine (phase 1): villagers walk up, greet, chat about small things, pre-close and part; the log is acts, the wording is looked up', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await page.evaluate(() => { TALK.words = true; });
+  await simulate(page, 1440 + 10 * 60);
+  const r = await page.evaluate(() => {
+    const L = TALK.log, bad = [];
+    for (const l of L) {
+      const ids = l.acts.map(x => x.act);
+      if (ids[0] !== 'greet' || ids[1] !== 'greet_back') bad.push('opening ' + ids.slice(0, 2));
+      if (ids[ids.length - 3] !== 'pre_close' || ids[ids.length - 2] !== 'farewell' || ids[ids.length - 1] !== 'farewell_back') bad.push('closing ' + ids.slice(-3));
+      if (ids.length < 6 || ids.length > 30) bad.push('length ' + ids.length);
+      if (!l.lines || l.lines.length !== ids.length || l.lines.some(x => /[{}]|undefined|NaN/.test(x))) bad.push('words ' + JSON.stringify(l.lines && l.lines.slice(0, 2)));
+      if (l.a === l.b) bad.push('self');
+    }
+    const a = L.length ? byId(L[0].a) : null;
+    return { n: L.length, bad: bad.slice(0, 3), mem: a ? (a.tmem || []).some(m => m.kind === 'talked') : false, pairs: new Set(L.map(l => Math.min(l.a, l.b) + '-' + Math.max(l.a, l.b))).size, heard: L.slice(0, 2).map(l => l.lines.join(' / ')) };
+  });
+  check(r.n >= 15, 'villagers talk through the day: ' + r.n);
+  check(r.bad.length === 0, 'every conversation opens with a greeting, ends with a pre-close and a farewell, has words and no holes: ' + JSON.stringify(r.bad));
+  check(r.mem && r.pairs >= 8, 'both remember it, and many different pairs talk: ' + r.pairs);
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return r.n + ' conversations, ' + r.pairs + ' pairs';
+});
+
+test('talk engine (phase 1): a kind of talk can be switched off, and a line about something that does not exist is never said', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(async () => {
+    const out = {}; TALK.words = true;
+    // a line that needs a castle: there is none, so it is never chosen even though it is the most specific there is
+    lx('remark_place', 'plain', 'The castle looks grand today.', { band: 'day' }, ['feature:castle']);
+    const a = npcs.find(q => !q.dead && !q.player && q.age >= 18), c = npcs.find(q => q !== a && !q.dead && !q.player && q.age >= 18);
+    let seen = false; for (let i = 0; i < 400; i++) if (/castle/.test(lxSay('remark_place', a, c, { done: {} }))) seen = true; out.castleSaid = seen;
+    out.has = [WORLD.has('feature', 'castle'), WORLD.has('item', 'barley'), WORLD.has('person', a.id)];
+    // with small talk off, a conversation is only the rituals
+    TALK.on.small = false; const cv = talkRun(a, c, true); out.ritualOnly = cv.turns.every(t => ACTS[t.act].kind === 'ritual') && cv.turns.length === 5; TALK.on.small = true;
+    return out; });
+  check(!r.castleSaid, 'a line that needs a feature that does not exist is never said');
+  check(r.has[0] === false && r.has[2] === true, 'the registry knows what exists: ' + JSON.stringify(r.has));
+  check(r.ritualOnly, 'with small talk switched off, a conversation is only greeting and farewell');
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return 'registry and switches';
+});
+
+test('talk engine (phase 1): the one who starts walks up to the other, they stand side by side, and what the first was doing carries on', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await simulate(page, 10 * 60);
+  const r = await page.evaluate(() => {
+    const free = npcs.filter(q => !q.dead && !q.player && q.age >= 18 && !q.moving && q.pose !== 'sleep'); const a = free[0], c = free[1]; if (!a || !c) return { skip: true };
+    const spot = (x, y) => { for (let r = 0; r < 12; r++) for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) { const tx = x + dx, ty = y + dy; if (walkable(tx, ty) && !lfPropAt(tx, ty) && !npcs.some(o => o.tx === tx && o.ty === ty)) return { x: tx, y: ty }; } return null; };
+    const P = game.player || (startPlaying(npcs.find(canControl)), game.player), sa = spot(P.tx + 3, P.ty), sb = sa && spot(sa.x + 3, sa.y); if (!sa || !sb) return { skip: true };
+    for (const [n, s] of [[a, sa], [c, sb]]) { abortPlan(n); n.tx = n.x = s.x; n.ty = n.y = s.y; n.pose = 'stand'; n.talkUntil = 0; n.talkBusy = 0; }
+    rebuildOcc(); const n0 = TALK.log.length; talkApproach(a, c); window.__pair = [a.id, c.id, n0]; return { first: a.plan[0].text, d0: lfDist(a, c) };
+  });
+  if (!r.skip) {
+    check(/Going over to/.test(r.first), 'the first sets out to meet the other: ' + JSON.stringify(r));
+    await simulate(page, 20);
+    const d = await page.evaluate(() => { const [x, y, n0] = window.__pair, a = byId(x), c = byId(y); return { d: lfDist(a, c), talked: TALK.log.slice(n0).some(l => (l.a === x && l.b === y)) }; });
+    check(d.talked && d.d <= 2, 'they stood side by side and talked: ' + JSON.stringify(d));
+  }
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return 'approach';
+});
+
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {
@@ -1307,7 +1370,7 @@ test('truesight: the solid wall beside a window is never inside what you can see
     if (!game.player) startPlaying(canControl(byId(game.steer)) ? byId(game.steer) : npcs.find(canControl));
     const L = tsLab(), P = game.player; const inPoly = (poly, x, y) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], q = poly[j]; if ((a[1] > y) !== (q[1] > y) && x < (q[0] - a[0]) * (y - a[1]) / (q[1] - a[1]) + a[0]) c = !c; } return c; };
     const wins = []; for (let y = L.oy; y < L.oy + 40; y++) for (let x = L.ox; x < L.ox + 46; x++) if (grid[y][x] === T.WALL && tsWindow(x, y)) wins.push([x, y]);
-    const w = wins.find(q => grid[q[1]][q[0] - 1] === T.WALL && grid[q[1]][q[0] + 1] === T.WALL) || wins[0]; let leaks = 0, views = 0;
+    const clearAbove = q => [1, 2, 3].every(d => walkable(q[0], q[1] - d)), w = wins.find(q => grid[q[1]][q[0] - 1] === T.WALL && grid[q[1]][q[0] + 1] === T.WALL && clearAbove(q)) || wins.find(clearAbove) || wins[0]; let leaks = 0, views = 0;
     for (let ex = -5; ex <= 5; ex += 2) for (let ey = -5; ey <= -1; ey++) { P.tx = P.x = w[0] + ex; P.ty = P.y = w[1] + ey; P.path = []; P.slide = null; if (grid[P.ty][P.tx] === T.WALL) continue; rebuildOcc(); cam.follow = false; cam.z = 2; clampCam(); cam.x = w[0] * TS - cam.cw / cam.z / 2; cam.y = w[1] * TS - cam.ch / cam.z / 2; clampCam(); render(performance.now(), 0.016, 12); views++;
       for (let ty = w[1] - 2; ty < w[1] + 8; ty++) for (let tx = w[0] - 6; tx < w[0] + 8; tx++) { if (grid[ty][tx] !== T.WALL || tsWindow(tx, ty)) continue; for (const [fx, fy] of [[0.5, 0.5], [0.2, 0.5], [0.8, 0.5], [0.5, 0.2], [0.5, 0.8]]) if (inPoly(TSIGHT.poly, tx + fx, ty + fy)) { leaks++; break; } } }
     const ex = w[0] + 0.5, ey = w[1] - 3, panes = { left: tsLine(ex, ey, w[0] + 0.3, w[1] + 4), right: tsLine(ex, ey, w[0] + 0.7, w[1] + 4), divider: tsLine(ex, ey, w[0] + 0.5, w[1] + 4), frame: tsLine(ex, ey, w[0] + 0.1, w[1] + 4) };
