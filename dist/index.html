@@ -8416,7 +8416,7 @@ function generateTown(seed, size) {
   spawnNodes(18);
   return town;
 }
-const TALK = { engine: "new", on: { ritual: true, small: true, world: true, life: true, trade: true, person: true, feeling: true, economy: true, gift: true, romance: true, family: true, law: true } };
+const TALK = { engine: "new", on: { ritual: true, small: true, world: true, life: true, trade: true, person: true, deed: true, feeling: true, economy: true, gift: true, romance: true, family: true, law: true } };
 const anyOf = (a) => a[Math.floor(Math.random() * a.length)];
 const dayN = () => Math.floor(game.time / 1440);
 const personById = (id) => byId(id) || (town.dead || []).find((r) => r.id === id) || null;
@@ -11770,6 +11770,7 @@ function updateSim(dt) {
     updateFrozen(dt);
     return;
   }
+  if (town && town.meddleQ && town.meddleQ.length) meddleFlush();
   game.ft = clk() + dt;
   game.time += dt;
   if (typeof holdForPlayer === "function") holdForPlayer(dt);
@@ -18123,9 +18124,13 @@ LF2.tickers.push(() => {
     for (let yy = -3; yy <= 3; yy++) for (let xx = -3; xx <= 3; xx++) if (grid[who.ty + yy] && grid[who.ty + yy][who.tx + xx] === T.TREE) trees++;
     const where = ri2 >= 0 ? "in somebody else's house" : trees >= 6 ? "in the middle of the forest" : grid[who.ty][who.tx] === T.PATH ? "in the middle of the road" : trees >= 2 ? "under a tree" : "in a field";
     const bad = sh.pose === "sleep" ? ["WHAT?! Where am I?!", "My bed! Where is my roof?", "Is that... a tree? Who moved my bed?!", "By Jupiter, I went to sleep indoors!"] : ["Who has carried off my chair?", "How did I get out here?!", "I was sitting down just now!"];
-    lfShout(who, anyOf(bad));
+    if (game.player && TALK.on.deed !== false) {
+      const c = { a: who, b: game.player, done: {}, turns: [{ by: who.id, act: "cry_deed", x: { how: sh.pose === "sleep" ? "bed" : "chair" } }], stage: "topic", t0: game.time };
+      talkFinish(c, who, game.player, true);
+    }
     who.mood = Math.max(0, (who.mood == null ? 60 : who.mood) - 8);
     const by = null;
+    if (sh.pose === "sleep") lfEmit("bed_moved", { actor: sh.by != null ? lf2By(sh.by) : null, target: who, x: who.tx, y: who.ty, sev: 2, tags: ["nuisance", "embarrass"], anon: true, sawActor: [], witnessIds: [who.id], chron: false, loud: true, text: `${who.first} was carried out of the house in bed` });
     chron(`${who.first} ${sh.pose === "sleep" ? "woke up" : "got up"} ${where}, ${sh.pose === "sleep" ? "bed" : "chair"} and all.`, "life");
   }
 });
@@ -18316,6 +18321,64 @@ function lf2BreakRock(n, pr) {
   town.lfPV = (town.lfPV || 0) + 1;
   bagGet(n, "stone");
   if (typeof itRockOre === "function" && itRockOre(n)) playerSay(n, "Iron ore in the rock!");
+}
+const MEDDLE = { range: 8 };
+function meddleResidents(r) {
+  if (!r) return [];
+  return npcs.filter((n) => !n.dead && !n.player && !n.infant && (n.homeRoom === r || n.bed && (r.beds || []).includes(n.bed)));
+}
+function meddleNote(kind, x, y, by, o = {}) {
+  if (!by || !by.player || typeof town === "undefined" || !town) return;
+  const q = town.meddleQ || (town.meddleQ = []), res = o.residents || [], people = [];
+  for (const n of npcs) {
+    if (n.dead || n.player || n.infant || lvlOf(n.ty) !== lvlOf(y)) continue;
+    const d = Math.hypot(n.tx - x, n.ty - y), inRoom = o.room != null && o.room >= 0 && roomAt[n.ty] && roomAt[n.ty][n.tx] === o.room, home = res.includes(n);
+    if (!inRoom && !home && d > MEDDLE.range) continue;
+    const asleep = n.pose === "sleep", s = n.plan && n.plan[n.si], privy = !!(s && s.priv) && !n.moving && inRoom;
+    const sawYou = !asleep && d <= MEDDLE.range + 2 && tsLine(n.tx, n.ty, by.tx, by.ty), sees = !asleep && (inRoom || sawYou || d <= MEDDLE.range && tsLine(n.tx, n.ty, x, y));
+    people.push({ id: n.id, asleep, privy, inRoom, home, sawYou: !!sawYou, sees: !!sees });
+  }
+  if (!people.length && !res.length) return;
+  q.push({ kind, x, y, by: by.id, t: game.time, place: o.place || "", people });
+}
+function meddleFlush() {
+  const q = town.meddleQ;
+  if (!q || !q.length) return;
+  town.meddleQ = [];
+  const P = game.player;
+  for (const r of q) {
+    const by = lf2By(r.by) || P, ps = r.people, victims = ps.filter((p) => p.home), main = lf2By((victims[0] || ps.find((p) => p.inRoom) || {}).id) || null;
+    const seen = ps.filter((p) => p.sawYou).map((p) => p.id), wit = [...new Set(ps.filter((p) => p.sees || p.home).map((p) => p.id))];
+    const tags = r.kind === "home_destroyed" || r.kind === "building_down" ? ["harm", "nuisance"] : r.kind === "bed_moved" ? ["nuisance", "embarrass"] : ["nuisance", "embarrass"];
+    const ev = lfEmit(r.kind, { actor: by, target: main, x: r.x, y: r.y, sev: r.kind === "home_destroyed" ? 3 : 2, tags, anon: !seen.length, sawActor: seen, witnessIds: wit, place: r.place || void 0, chron: false, loud: true, text: `${by.first} ${r.kind}` });
+    const privy = ps.filter((p) => p.privy);
+    for (const p of privy) {
+      const v = lf2By(p.id);
+      if (!v) continue;
+      lfEmit("caught_on_privy", { actor: by, target: v, x: v.tx, y: v.ty, sev: 2, tags: ["embarrass", "scandal"], anon: !seen.length, sawActor: seen, witnessIds: wit, chron: true, loud: true, text: `${v.first} was caught on the privy when ${by.first} knocked the wall out` });
+      v.mood = Math.max(0, (v.mood == null ? 60 : v.mood) - 10);
+    }
+    const cried = [];
+    for (const p of ps) {
+      const n = lf2By(p.id);
+      if (!n || n.dead) continue;
+      const hurt = p.home || p.privy;
+      if (hurt) n.mood = Math.max(0, (n.mood == null ? 60 : n.mood) - (r.kind === "home_destroyed" ? 18 : 8));
+      if (p.sawYou) {
+        lfAff(n, by, hurt ? -9 : -3, r.kind === "home_destroyed" ? "pulled down a house" : p.privy ? "knocked the wall out while I was on the privy" : r.kind === "bed_moved" ? "moved a bed" : "knocked a wall down");
+        cried.push({ n, p });
+      }
+    }
+    for (const { n, p } of cried.slice(0, 2)) {
+      const how = p.privy ? "privy" : r.kind === "home_destroyed" ? "home" : p.home ? "wall_home" : "wall";
+      if (TALK.on.deed !== false) {
+        const c = { a: n, b: by, done: {}, turns: [{ by: n.id, act: "cry_deed", x: { how } }], stage: "topic", t0: game.time };
+        faceTo(n, by);
+        talkFinish(c, n, by, true);
+      }
+    }
+    if (typeof town.meddleCount === "number" || true) town.meddleCount = (town.meddleCount || 0) + 1;
+  }
 }
 const YARD_ITEMS = [
   { kind: "bwall", stand: "yd_wall", art: "blk_wall", noun: "wall block", name: "Wall" },
@@ -18921,6 +18984,11 @@ function bldBreak(x, y, by) {
   const own = roomAt[y][x] >= 0 ? rooms[roomAt[y][x]] : null;
   if (own && own.free && !own.dead) aff.add(own);
   const before = rooms.filter((q) => q.free && !q.dead).length;
+  {
+    const rs = [...aff];
+    const res = rs.flatMap(meddleResidents);
+    meddleNote("wall_removed", x, y, by, { room: rs.length ? rooms.indexOf(rs[0]) : -1, residents: res });
+  }
   doors = doors.filter((d) => !(d.x === x && d.y === y));
   setT(x, y, bldBare(y));
   roomAt[y][x] = -1;
@@ -19003,6 +19071,10 @@ function bldDeleteFurniture(x, y) {
 function bldDemolish(r, hx, hy, by) {
   if (!r || r.dead || r.free) return false;
   const ri2 = rooms.indexOf(r);
+  {
+    const res = meddleResidents(r);
+    meddleNote(res.length ? "home_destroyed" : "building_down", hx, hy, by, { room: ri2, residents: res, place: r.name });
+  }
   r.dead = true;
   const out = (x, y, kind, extra) => {
     if (lfPropAt(x, y)) return null;
@@ -26765,6 +26837,11 @@ function jrHTML() {
   if (!p) return "<i>Nobody to remember for.</i>";
   const rows2 = (p.tmem || []).filter((m) => ["opinion", "price", "told_life"].includes(m.kind) || m.ev != null && m.kind !== "life" && m.kind !== "did").slice(-40).reverse().map((m) => ({ m, t: jrText(m) })).filter((r) => r.t);
   const groups = { "The news": rows2.filter((r) => r.m.ev != null), "What people say about each other": rows2.filter((r) => r.m.kind === "opinion"), "Prices": rows2.filter((r) => r.m.kind === "price"), "How people are": rows2.filter((r) => r.m.kind === "told_life") };
+  const mine = lf2Ev().filter((e) => e.actor === p.id && ["wall_removed", "home_destroyed", "building_down", "bed_moved", "caught_on_privy"].includes(e.kind)).slice(-6).reverse().map((e) => {
+    const know = npcs.filter((o) => !o.dead && (o.tmem || []).some((m) => m.ev === e.id && m.ver && m.ver.who === p.id)).length, heard = npcs.filter((o) => !o.dead && (o.tmem || []).some((m) => m.ev === e.id)).length;
+    return { m: { t: e.t }, t: TE.text(e, { who: p.id }).replace(/^./, (c) => c.toUpperCase()) + (know ? ` \u2014 ${know} know it was you` : heard ? " \u2014 nobody knows it was you" : " \u2014 nobody knows") };
+  });
+  groups["What you did"] = mine;
   const out = Object.keys(groups).filter((k) => groups[k].length).map((k) => `<div class="vch">${k}</div><ul>${groups[k].slice(0, 8).map((r) => `<li>${esc(r.t)} <span class="dim">\xB7 ${stamp(r.m.t)}</span></li>`).join("")}</ul>`).join("");
   return out || '<p class="dim">Nothing yet. Talk to people: ask them for news, what they think of someone, what things cost.</p>';
 }
@@ -27459,6 +27536,8 @@ EVK("moved_house", "home", { tell: 0.6 });
 EVK("wall_removed", "meddle", { needs: ["place"], tell: 0.9, tags: ["embarrass", "nuisance"] });
 EVK("bed_moved", "meddle", { tell: 0.7, tags: ["nuisance"] });
 EVK("home_destroyed", "meddle", { tell: 1, tags: ["harm"] });
+EVK("building_down", "meddle", { tell: 0.9, tags: ["harm"] });
+EVK("caught_on_privy", "meddle", { tell: 1, tags: ["embarrass", "scandal"] });
 if (typeof GOODS !== "undefined") for (const g of Object.keys(GOODS)) REG.define("item", g, { name: String(GOODS[g].name || g).toLowerCase(), category: "good" });
 if (typeof IT_SEEDS !== "undefined") for (const k of Object.keys(IT_SEEDS)) REG.define("seed", k, { name: String(IT_SEEDS[k].word || k), category: "seed" });
 const LIFE_TROUBLE = { slept_rough: "slept rough", no_privy: "could not find a privy", bladder_emergency: "only just made it", went_hungry: "went hungry", starving: "are starving", could_not_afford: "could not afford something", out_of_stock: "found it out of stock", tool_broke: "broke a tool", lost_bed: "lost their bed", ill: "fell ill", crop_failed: "lost a crop" };
@@ -27664,7 +27743,7 @@ const TE = {
     for (const id of ev.witnesses || []) {
       const w = lf2By(id);
       if (!w || w.dead || w === a) continue;
-      TM.addEv(w, ev, id === ev.target ? "felt" : "saw", 1);
+      TM.addEv(w, ev, id === ev.target ? "felt" : "saw", 1, null, 0, ev.anon && !(ev.sawActor || []).includes(w.id) ? { who: null, sev: ev.sev } : void 0);
     }
   },
   /** the words for an event in a version of it (who is blamed may differ from who did it) */
@@ -27673,7 +27752,7 @@ const TE = {
     const tpl = LEX.filter((e) => e.act === "ev:" + ev.kind && e.pack === "plain");
     if (tpl.length) {
       const e = tpl[ev.id % tpl.length];
-      return e.text.replace(/\{a\}/g, a ? a.first : "someone").replace(/\{t\}/g, t ? t.first : "someone");
+      return e.text.replace(/\{a\}/g, a ? a.first : "someone").replace(/\{t\}/g, t ? t.first : "someone").replace(/\{place\}/g, ev.place || "a building");
     }
     let tx = String(ev.text || ev.kind);
     const real = ev.actor != null ? lf2By(ev.actor) : null;
@@ -28154,7 +28233,7 @@ function lxSay(act, sp, li, c) {
   LX_RECENT[act + "|" + best.text] = game.time;
   const place = String(placeOf(sp) || "").replace(/^(in|at)\s+/, "");
   const inP = /^the /.test(place) ? "at " + place : place ? "in " + place : "here";
-  const raw = best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || "daily").toLowerCase()).replace(/\{state\}/g, ctx2.state).replace(/\{clock\}/g, lxClock()).replace(/\{money\}/g, lxMoney(c.price)).replace(/\{price\}/g, c.price != null ? String(c.price) : "").replace(/\{about\}/g, c.about || "them").replace(/\{reason\}/g, c.reason || "").replace(/\{shop\}/g, c.shop || "stall").replace(/\{things\}/g, lxCount(c.qty, c.item)).replace(/\{qty\}/g, c.qty != null ? String(c.qty) : "").replace(/\{item\}/g, c.item || c.pitem || "").replace(/\{news\}/g, c.news || "").replace(/\{who\}/g, c.who || "them");
+  const raw = best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || "daily").toLowerCase()).replace(/\{state\}/g, ctx2.state).replace(/\{clock\}/g, lxClock()).replace(/\{money\}/g, lxMoney(c.price)).replace(/\{price\}/g, c.price != null ? String(c.price) : "").replace(/\{about\}/g, c.about || "them").replace(/\{reason\}/g, c.reason || "").replace(/\{shop\}/g, c.shop || "stall").replace(/\{things\}/g, lxCount(c.qty, c.item)).replace(/\{qty\}/g, c.qty != null ? String(c.qty) : "").replace(/\{item\}/g, c.item || c.pitem || "").replace(/\{news\}/g, c.news || "").replace(/\{deed\}/g, c.deed || "").replace(/\{who\}/g, c.who || "them");
   return placeWords(lxTic(sp, act, pk, raw).replace(/\s{2,}/g, " ").replace(/\s+$/, "").replace(/(^|[.!?]\s+)([a-z])/g, (_m, a, b) => a + b.toUpperCase()));
 }
 function lxCount(qty, name) {
@@ -28586,6 +28665,172 @@ lxi("answer_family", "{about} is hungry, mostly. We are working on it.", { state
 lxi("answer_family", "{about} is worn out. I keep telling them to sit down.", { state: "tired" });
 lxi("answer_family", "{about} is in a good mood. I have decided not to question it.", { state: "glad" });
 lxi("answer_family", "{about} has been low. It is not anything I can fix by talking, so I stay close.", { state: "low" });
+const DEED_TAGS = ["harm", "nuisance", "embarrass", "scandal", "violence", "theft"];
+function deedYou(ev, sp) {
+  const t = ev.target != null ? lf2By(ev.target) : null, me = t === sp, they = t ? t.first : "somebody";
+  switch (ev.kind) {
+    case "wall_removed":
+      return me ? "knocked a wall out of my house" : t ? "knocked a wall out of " + they + "'s house" : "knocked a wall down";
+    case "home_destroyed":
+      return me ? "pulled my house down" : t ? "pulled " + they + "'s house down" : "pulled a house down";
+    case "building_down":
+      return "pulled down " + (ev.place || "a building");
+    case "bed_moved":
+      return me ? "carried me out of my house in my sleep" : t ? "carried " + they + " out of the house in their sleep" : "moved a bed with somebody in it";
+    case "caught_on_privy":
+      return me ? "knocked the wall out while I was on the privy" : "knocked the wall out while " + they + " was on the privy";
+    default:
+      return TE.text(ev, { who: null }).replace(/^someone /, "");
+  }
+}
+function deedPick(sp, li) {
+  let best = null, bs = 0;
+  for (const m of sp.tmem || []) {
+    if (m.ev == null || m.raised || m.conf < 0.5 || !["saw", "felt", "told", "overheard"].includes(m.kind)) continue;
+    const ev = lf2Ev().find((q) => q.id === m.ev);
+    if (!ev || ev.actor !== li.id || m.ver && m.ver.who !== void 0 && m.ver.who !== li.id) continue;
+    if (!(ev.tags || []).some((t) => DEED_TAGS.includes(t))) continue;
+    if (game.time - m.t > 1440 * 8) continue;
+    const s = m.imp + (ev.target === sp.id ? 1 : 0) + (m.kind === "saw" || m.kind === "felt" ? 0.3 : 0);
+    if (s > bs) {
+      bs = s;
+      best = { m, ev };
+    }
+  }
+  return best;
+}
+const deedSet = (c, sp, d) => {
+  c.deed = d;
+  c.deedText = deedYou(d.ev, sp);
+  c.newsHow = d.ev.target === sp.id ? "victim" : d.m.kind === "told" ? "told" : "saw";
+};
+ACTS.raise_deed = {
+  kind: "deed",
+  stage: "topic",
+  preview: (c) => ({ deed: c.deedText, how: c.newsHow }),
+  when: (c, sp, li) => !c.done.raise_deed && !!deedPick(sp, li) && !(li.player && false),
+  w: (c, sp, li) => {
+    const d = deedPick(sp, li);
+    return d && d.ev.target === sp.id ? 8 : 2.5;
+  },
+  apply: (c, sp, li) => {
+    const d = deedPick(sp, li);
+    deedSet(c, sp, d);
+    d.m.raised = true;
+    c.done.raise_deed = 1;
+  },
+  replies: ["deed_sorry", "deed_defend", "deed_deny", "deed_shrug"]
+};
+ACTS.cry_deed = { kind: "deed", stage: "topic", when: () => false, apply: () => {
+}, replies: [] };
+const deedReply = (id, next, fx) => {
+  ACTS[id] = { kind: "deed", stage: "topic", reply: true, when: (c) => !!c.deed, w: () => 1, apply: (c, sp, li) => {
+    c.deedAnswer = id;
+    fx(c, sp, li);
+  }, replies: next };
+};
+deedReply("deed_sorry", ["deed_forgive", "deed_cold"], (c, sp, li) => {
+  lfAff(li, sp, 3, "said sorry");
+});
+deedReply("deed_defend", ["deed_cold"], (c, sp, li) => {
+  lfAff(li, sp, -3, "did not think it was wrong");
+});
+deedReply("deed_deny", ["deed_believe", "deed_doubt"], (c, sp, li) => {
+});
+deedReply("deed_shrug", ["deed_cold"], (c, sp, li) => {
+  lfAff(li, sp, -4, "shrugged it off");
+});
+const deedAnswer = (id, ok, fx) => {
+  ACTS[id] = { kind: "deed", stage: "topic", reply: true, when: (c, sp, li) => !!c.deed && ok(c, sp, li), w: () => 1, apply: (c, sp, li) => {
+    if (fx) fx(c, sp, li);
+  }, replies: [] };
+};
+deedAnswer("deed_forgive", (c, sp, li) => (sp.aff[li.id] || 0) > -28, (c, sp, li) => {
+  lfAff(sp, li, 4, "forgave me");
+});
+deedAnswer("deed_cold", (c, sp, li) => (sp.aff[li.id] || 0) <= -28 || c.deedAnswer !== "deed_sorry");
+deedAnswer("deed_believe", (c) => !!c.deed && c.deed.m.kind !== "saw" && c.deed.m.kind !== "felt", (c, sp, li) => {
+  lfAff(sp, li, 2, "said it was not them");
+});
+deedAnswer("deed_doubt", (c) => !!c.deed, (c, sp, li) => {
+  lfAff(sp, li, -3, "lied to me");
+});
+lx("raise_deed", "plain", "You {deed}. I would like to know why.", { how: "victim" });
+lx("raise_deed", "plain", "I know it was you. You {deed}.", { how: "victim" });
+lx("raise_deed", "plain", "You {deed}. I was there.", { how: "victim" });
+lx("raise_deed", "plain", "I saw what you did. You {deed}.", { how: "saw" });
+lx("raise_deed", "plain", "That was you, wasn't it? You {deed}.", { how: "saw" });
+lx("raise_deed", "plain", "I heard you {deed}. Is it true?", { how: "told" });
+lx("raise_deed", "plain", "People say you {deed}.", { how: "told" });
+lx("deed_sorry", "plain", "I'm sorry. I shouldn't have done it.");
+lx("deed_sorry", "plain", "You're right. I'm sorry.");
+lx("deed_defend", "plain", "It had to be done.");
+lx("deed_defend", "plain", "It was for the best. Believe me.");
+lx("deed_deny", "plain", "That wasn't me.");
+lx("deed_deny", "plain", "You've got the wrong person.");
+lx("deed_shrug", "plain", "So what if I did?");
+lx("deed_shrug", "plain", "Walls come down. It happens.");
+lx("deed_forgive", "plain", "Well. Don't do it again.");
+lx("deed_forgive", "plain", "All right. I'll let it go.");
+lx("deed_cold", "plain", "I won't forget it.");
+lx("deed_cold", "plain", "Keep away from my house.");
+lx("deed_believe", "plain", "Then I must have heard wrong.");
+lx("deed_believe", "plain", "Hm. Maybe it was someone else.");
+lx("deed_doubt", "plain", "I don't believe you.");
+lx("deed_doubt", "plain", "Somebody saw you. Don't lie.");
+lx("cry_deed", "plain", "What are you doing?", { how: "wall" });
+lx("cry_deed", "plain", "Hey! That wall was holding something up.", { how: "wall" });
+lx("cry_deed", "plain", "Hey! That's my wall!", { how: "wall_home" });
+lx("cry_deed", "plain", "My house! What are you doing to my house?", { how: "wall_home" });
+lx("cry_deed", "plain", "Occupied! I am occupied!", { how: "privy" });
+lx("cry_deed", "plain", "Do you mind? I was in the middle of something!", { how: "privy" });
+lx("cry_deed", "plain", "My home! Stop!", { how: "home" });
+lx("cry_deed", "plain", "You've pulled down my house!", { how: "home" });
+lxi("raise_deed", "You {deed}. I have thought about little else.", { how: "victim" });
+lxi("raise_deed", "It was you. You {deed}. I would like an explanation, if one exists.", { how: "victim" });
+lxi("raise_deed", "I saw you. You {deed}. I did not say anything at the time.", { how: "saw" });
+lxi("raise_deed", "You {deed}. I was standing right there.", { how: "saw" });
+lxi("raise_deed", "I was told you {deed}. I would rather hear it from you.", { how: "told" });
+lxi("raise_deed", "People say you {deed}. People say many things here.", { how: "told" });
+lxi("deed_sorry", "I am sorry. I do not know what came over me.");
+lxi("deed_sorry", "I am sorry. It looked different from the other side.");
+lxi("deed_defend", "It needed doing. I cannot explain it better than that.");
+lxi("deed_defend", "I had a reason. It seemed to be a good one.");
+lxi("deed_deny", "It was not me. I was somewhere else. I am nearly sure.");
+lxi("deed_deny", "No. You are thinking of somebody else.");
+lxi("deed_shrug", "It is a wall. There are others.");
+lxi("deed_shrug", "I did. I am not sure what you want me to say.");
+lxi("deed_forgive", "Very well. We will not mention it again. I will, but not today.");
+lxi("deed_forgive", "All right. I have had worse mornings. Not many.");
+lxi("deed_cold", "I will remember this. I remember most things.");
+lxi("deed_cold", "No. I do not think I will forget that.");
+lxi("deed_believe", "Then I was misinformed. It happens on an island this size.");
+lxi("deed_believe", "Ah. Then it was someone who looks like you.");
+lxi("deed_doubt", "I do not believe you. I would like to.");
+lxi("deed_doubt", "You are not a good liar. It is not an insult.");
+lxi("cry_deed", "What are you doing?", { how: "wall" });
+lxi("cry_deed", "That wall was in use.", { how: "wall" });
+lxi("cry_deed", "That is my wall.", { how: "wall_home" });
+lxi("cry_deed", "That is my house. I am standing in it.", { how: "wall_home" });
+lxi("cry_deed", "I am using this. I am using this right now.", { how: "privy" });
+lxi("cry_deed", "There was a wall there. A moment ago there was a wall.", { how: "privy" });
+lxi("cry_deed", "That was my house. It was there this morning.", { how: "home" });
+lxi("cry_deed", "My house. You have taken my house down.", { how: "home" });
+lx("ev:wall_removed", "plain", "{a} knocked a wall out of {t}'s house");
+lx("ev:wall_removed", "plain", "{t}'s wall was knocked down, and {a} did it");
+lx("ev:home_destroyed", "plain", "{a} pulled {t}'s house down");
+lx("ev:home_destroyed", "plain", "{t}'s house came down, and {a} was there");
+lx("ev:building_down", "plain", "{a} pulled down {place}");
+lx("ev:bed_moved", "plain", "{t} was carried out of the house in their sleep");
+lx("ev:bed_moved", "plain", "{t} woke up outdoors, bed and all");
+lx("ev:caught_on_privy", "plain", "{t} was caught on the privy when the wall came down");
+lx("ev:caught_on_privy", "plain", "{a} knocked the wall out while {t} was on the privy");
+lx("cry_deed", "plain", "Where am I? That was my bed!", { how: "bed" });
+lx("cry_deed", "plain", "Is that a tree? Who moved my bed?", { how: "bed" });
+lx("cry_deed", "plain", "Who has carried off my chair?", { how: "chair" });
+lxi("cry_deed", "I went to sleep indoors. I am nearly certain of that.", { how: "bed" });
+lxi("cry_deed", "There is a tree where the ceiling was.", { how: "bed" });
+lxi("cry_deed", "I was sitting down just now. I was indoors.", { how: "chair" });
 TALK.log = [];
 TALK.words = false;
 TALK.running = true;
@@ -28611,7 +28856,7 @@ function talkChoose(c, sp, li, ids) {
   return opts[opts.length - 1][0];
 }
 const TALK_TOPICS = () => Object.keys(ACTS).filter((k) => ACTS[k].stage === "topic" && !ACTS[k].reply);
-const talkX = (c) => ({ state: c.state, how: c.newsHow, conf: c.newsConf, news: c.told && c.told.text, who: c.newsWho ? c.newsWho.first : "them", line: c.lifeLine, qty: c.lifeQty, item: c.lifeItem, shop: c.lifeShop, price: c.priceUnit, pitem: c.priceName, about: c.aboutName, op: c.op, reason: c.reason });
+const talkX = (c) => ({ state: c.state, how: c.newsHow, conf: c.newsConf, news: c.told && c.told.text, who: c.newsWho ? c.newsWho.first : "them", line: c.lifeLine, qty: c.lifeQty, item: c.lifeItem, shop: c.lifeShop, price: c.priceUnit, pitem: c.priceName, about: c.aboutName, op: c.op, reason: c.reason, deed: c.deedText });
 function talkTurn(c, sp, li, id) {
   const A = ACTS[id];
   A.apply(c, sp, li);
@@ -28740,7 +28985,14 @@ function ptBegin(o, p) {
   talkTurn(c, p, o, "greet");
   const back = talkTurn(c, o, p, "greet_back");
   c.stage = "topic";
-  return ptMenu(S, talkWords(back, p, o));
+  let say2 = talkWords(back, p, o);
+  if (TALK.on.deed !== false && TALK.on.deed !== void 0 && ACTS.raise_deed.when(c, o, p)) {
+    const t = talkTurn(c, o, p, "raise_deed");
+    say2 += "\n" + talkWords(t, p, o);
+    S.pending = ACTS.raise_deed.replies.slice();
+    c.left[o.id] -= 1;
+  }
+  return ptMenu(S, say2);
 }
 function ptOptions(S) {
   const c = S.c, p = S.p, o = S.o, out = [];

@@ -176,6 +176,7 @@ function bldBreak(x: number, y: number, by?: any) {
   const k = x + y * W; town.bldWall = town.bldWall || new Map();   // (any wall of a house or a room you built; the tile is simply deleted)
   const aff = new Set<any>(); for (const [dx, dy] of BLD_D8) { const r = bldFreeRoom(x + dx, y + dy); if (r) aff.add(r); } const own = roomAt[y][x] >= 0 ? rooms[roomAt[y][x]] : null; if (own && own.free && !own.dead) aff.add(own);
   const before = rooms.filter(q => q.free && !q.dead).length;
+  { const rs = [...aff]; const res = rs.flatMap(meddleResidents); meddleNote('wall_removed', x, y, by, { room: rs.length ? rooms.indexOf(rs[0]) : -1, residents: res }); }
   doors = doors.filter(d => !(d.x === x && d.y === y)); setT(x, y, bldBare(y)); roomAt[y][x] = -1; town.bldWall.delete(k); if (town.win) town.win.delete(k); if (town.winS) town.winS.delete(k); markDirty(x - 1, y - 1, 3, 3); town.treeDirty = true;
   if (by) workFx('split', x, y, by);
   let spots: [number, number][] = ([[x, y]] as [number, number][]).concat(bldDissolve([...aff]));
@@ -218,7 +219,7 @@ function bldDeleteFurniture(x: number, y: number) {
     Whoever lived there is homeless (a tent goes up for each). Sealed rooms of yours that leaned on its walls are looked at again. No other consequences yet. */
 function bldDemolish(r: any, hx: number, hy: number, by?: any) {
   if (!r || r.dead || r.free) return false;
-  const ri = rooms.indexOf(r); r.dead = true;
+  const ri = rooms.indexOf(r); { const res = meddleResidents(r); meddleNote(res.length ? 'home_destroyed' : 'building_down', hx, hy, by, { room: ri, residents: res, place: r.name }); } r.dead = true;
   const out = (x, y, kind, extra?) => { if (lfPropAt(x, y)) return null; const p: any = lfAddProp(kind, x, y); if (kind === 'bed') p.v = Math.floor(Math.random() * 5); if (extra) Object.assign(p, extra); return p; };
   const loose: [number, number][] = [];
   for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {

@@ -137,8 +137,10 @@ LF2.tickers.push(() => {
     let trees = 0; for (let yy = -3; yy <= 3; yy++) for (let xx = -3; xx <= 3; xx++) if (grid[who.ty + yy] && grid[who.ty + yy][who.tx + xx] === T.TREE) trees++;
     const where = ri >= 0 ? 'in somebody else\'s house' : trees >= 6 ? 'in the middle of the forest' : grid[who.ty][who.tx] === T.PATH ? 'in the middle of the road' : trees >= 2 ? 'under a tree' : 'in a field';
     const bad = sh.pose === 'sleep' ? ['WHAT?! Where am I?!', 'My bed! Where is my roof?', 'Is that... a tree? Who moved my bed?!', 'By Jupiter, I went to sleep indoors!'] : ['Who has carried off my chair?', 'How did I get out here?!', 'I was sitting down just now!'];
-    lfShout(who, anyOf(bad)); who.mood = Math.max(0, (who.mood == null ? 60 : who.mood) - 8);
+    if (game.player && TALK.on.deed !== false) { const c: any = { a: who, b: game.player, done: {}, turns: [{ by: who.id, act: 'cry_deed', x: { how: sh.pose === 'sleep' ? 'bed' : 'chair' } }], stage: 'topic', t0: game.time }; talkFinish(c, who, game.player, true); }
+    who.mood = Math.max(0, (who.mood == null ? 60 : who.mood) - 8);
     const by = null;   // nobody knows who did it, only that it happened
+    if (sh.pose === 'sleep') lfEmit('bed_moved', { actor: sh.by != null ? lf2By(sh.by) : null, target: who, x: who.tx, y: who.ty, sev: 2, tags: ['nuisance', 'embarrass'], anon: true, sawActor: [], witnessIds: [who.id], chron: false, loud: true, text: `${who.first} was carried out of the house in bed` });
     chron(`${who.first} ${sh.pose === 'sleep' ? 'woke up' : 'got up'} ${where}, ${sh.pose === 'sleep' ? 'bed' : 'chair'} and all.`, 'life');
   }
 });

@@ -19,7 +19,7 @@ function talkChoose(c: any, sp: any, li: any, ids: string[]): string | null {
 const TALK_TOPICS = () => Object.keys(ACTS).filter(k => ACTS[k].stage === 'topic' && !ACTS[k].reply);
 
 /** what a turn's words need, as it is at this moment (words are looked up later, so each turn keeps its own copy) */
-const talkX = (c: any) => ({ state: c.state, how: c.newsHow, conf: c.newsConf, news: c.told && c.told.text, who: c.newsWho ? c.newsWho.first : 'them', line: c.lifeLine, qty: c.lifeQty, item: c.lifeItem, shop: c.lifeShop, price: c.priceUnit, pitem: c.priceName, about: c.aboutName, op: c.op, reason: c.reason });
+const talkX = (c: any) => ({ state: c.state, how: c.newsHow, conf: c.newsConf, news: c.told && c.told.text, who: c.newsWho ? c.newsWho.first : 'them', line: c.lifeLine, qty: c.lifeQty, item: c.lifeItem, shop: c.lifeShop, price: c.priceUnit, pitem: c.priceName, about: c.aboutName, op: c.op, reason: c.reason, deed: c.deedText });
 /** one act said by sp to li: its effects happen now; the turn is kept */
 function talkTurn(c: any, sp: any, li: any, id: string): any { const A = ACTS[id]; A.apply(c, sp, li); const t = { by: sp.id, act: id, x: talkX(c) }; c.turns.push(t); c.last = id; return t; }
 /** the words of a turn (a and b are the two people of the conversation, in any order) */

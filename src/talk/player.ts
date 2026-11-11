@@ -14,7 +14,9 @@ function ptBegin(o: any, p: any): any {
   const S: any = PT.s = { c, o, p, pending: null, opts: [], closing: false };
   talkS = { pt: S };
   talkTurn(c, p, o, 'greet'); const back = talkTurn(c, o, p, 'greet_back'); c.stage = 'topic';
-  return ptMenu(S, talkWords(back, p, o));
+  let say = talkWords(back, p, o);
+  if (TALK.on.deed !== false && TALK.on.deed !== undefined && ACTS.raise_deed.when(c, o, p)) { const t = talkTurn(c, o, p, 'raise_deed'); say += '\n' + talkWords(t, p, o); S.pending = ACTS.raise_deed.replies.slice(); c.left[o.id] -= 1; }   // (somebody with a grievance against you does not wait to be asked)
+  return ptMenu(S, say);
 }
 /** what the player could say now: the answers to what was just asked, or the topics they could raise; never more than five, always a way out */
 function ptOptions(S: any): any[] {

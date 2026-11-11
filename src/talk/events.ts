@@ -12,13 +12,13 @@ const TE = {
   },
   onEmit(ev: any) {
     const a = ev.actor != null ? lf2By(ev.actor) : null; if (a && !a.dead) TM.addEv(a, ev, 'did', 1);
-    for (const id of ev.witnesses || []) { const w = lf2By(id); if (!w || w.dead || w === a) continue; TM.addEv(w, ev, id === ev.target ? 'felt' : 'saw', 1); }
+    for (const id of ev.witnesses || []) { const w = lf2By(id); if (!w || w.dead || w === a) continue; TM.addEv(w, ev, id === ev.target ? 'felt' : 'saw', 1, null, 0, ev.anon && !(ev.sawActor || []).includes(w.id) ? { who: null, sev: ev.sev } : undefined); }   // (an unseen deed has no name in the memory of those who only know it happened)
   },
   /** the words for an event in a version of it (who is blamed may differ from who did it) */
   text(ev: any, ver?: any): string {
     const who = ver && ver.who !== undefined ? ver.who : ev.actor, a = who != null ? lf2By(who) : null, t = ev.target != null ? lf2By(ev.target) : null;
     const tpl = LEX.filter(e => e.act === 'ev:' + ev.kind && e.pack === 'plain');
-    if (tpl.length) { const e = tpl[ev.id % tpl.length]; /* the same event reads the same way every time it is shown */ return e.text.replace(/\{a\}/g, a ? a.first : 'someone').replace(/\{t\}/g, t ? t.first : 'someone'); }
+    if (tpl.length) { const e = tpl[ev.id % tpl.length]; /* the same event reads the same way every time it is shown */ return e.text.replace(/\{a\}/g, a ? a.first : 'someone').replace(/\{t\}/g, t ? t.first : 'someone').replace(/\{place\}/g, ev.place || 'a building'); }
     // an event kind with no template yet: the old sentence, with the blamed name put in
     let tx = String(ev.text || ev.kind); const real = ev.actor != null ? lf2By(ev.actor) : null;
     if (real && a !== real) tx = tx.replace(new RegExp('\\b' + real.first + '\\b', 'g'), a ? a.first : 'someone');

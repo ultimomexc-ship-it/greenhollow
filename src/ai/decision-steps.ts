@@ -214,6 +214,7 @@ function updateFrozen(dt) {
 }
 function updateSim(dt) {
   if (buildFrozen()) { updateFrozen(dt); return; }
+  if (town && town.meddleQ && town.meddleQ.length) meddleFlush();   // (what you did while time stood still is settled now)
   game.ft = clk() + dt;
   game.time += dt;
   if (typeof holdForPlayer === 'function') holdForPlayer(dt);

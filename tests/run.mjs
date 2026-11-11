@@ -1486,6 +1486,47 @@ test('people: villagers ask what others make of someone, pass the opinion round 
   return JSON.stringify({ ops: r.ops, why: r.why });
 });
 
+test('meddling: what you do in build mode is settled when time runs again; those who saw you cry out and hold it against you, the news travels, and they bring it up when they talk to you', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    const out = {}; TALK.words = true;
+    const homes = () => rooms.filter(q => !q.free && !q.dead && q.kind === 'house' && meddleResidents(q).length);
+    startPlaying(npcs.find(n => !n.dead && n.age >= 18 && !n.infant)); const P = game.player;
+    const R = homes().find(q => !meddleResidents(q).includes(P)) || homes()[0]; const res = meddleResidents(R).filter(n => n !== P)[0]; out.res = !!res; if (!res) return out;
+    // the resident is in the house, awake and on the privy step; you stand in the doorway
+    res.tx = res.x = R.x + 1; res.ty = res.y = R.y + 1; res.pose = 'stand'; res.moving = false; res.plan = [{ k: 'wait', priv: true, text: 'On the privy' }]; res.si = 0; rebuildOcc();
+    P.tx = P.x = R.x + 2; P.ty = P.y = R.y + 1; P.mode = 'push';
+    const x0 = R.x + R.w - 1, y0 = R.y + 1; const aff0 = res.aff[P.id] || 0;
+    meddleNote('wall_removed', x0, y0, P, { room: rooms.indexOf(R), residents: meddleResidents(R) });
+    out.queued = (town.meddleQ || []).length; meddleFlush();
+    const evs = lf2Ev(); out.kinds = evs.slice(-4).map(e => e.kind); out.named = evs.slice(-4).some(e => e.kind === 'wall_removed' && e.actor === P.id && !e.anon);
+    out.privy = evs.some(e => e.kind === 'caught_on_privy' && e.target === res.id);
+    out.mem = (res.tmem || []).filter(m => ['saw', 'felt'].includes(m.kind)).length; out.aff = (res.aff[P.id] || 0) - aff0;
+    out.cry = TALK.log.some(l => l.acts.some(a => a.act === 'cry_deed'));
+    // they raise it when they talk to you, and the words read
+    const c = { done: {}, turns: [] }; out.when = ACTS.raise_deed.when(c, res, P); ACTS.raise_deed.apply(c, res, P); out.line = lxSay('raise_deed', res, P, talkX(c)); out.sorry = lxSay('deed_sorry', P, res, talkX(c));
+    out.again = ACTS.raise_deed.when(c, res, P);
+    // in the real talk menu: they open with it, and your answer changes what they think of you
+    res.mood = 60; res.pose = 'stand'; const before = res.aff[P.id] || 0; openTalk(res); out.open = talkUI.say; out.opts = talkUI.opts.map(o => o[1]);
+    const k = talkUI.opts.findIndex(o => /sorry/.test(o[1])); const st = k >= 0 ? ptStep(talkUI.opts[k][0]) : null; out.answer = st && st.say; out.moved = (res.aff[P.id] || 0) - before; closeTalk();
+    // an unseen deed: the sleeper is carried out; nobody knows who
+    const W = npcs.find(n => n !== P && n !== res && !n.dead && n.age >= 18); town.meddleQ = [];
+    W.pose = 'sleep'; meddleNote('wall_removed', W.tx + 1, W.ty, P, { room: -1, residents: [W] }); const n0 = lf2Ev().length; meddleFlush(); const ev2 = lf2Ev().slice(n0)[0];
+    out.anon = !!(ev2 && ev2.anon); out.unnamed = ev2 ? !(W.tmem || []).some(m => m.ev === ev2.id && m.ver && m.ver.who === P.id) : false;
+    // the switch
+    TALK.on.deed = false; const n1 = TALK.log.length; meddleNote('wall_removed', x0, y0, P, { room: rooms.indexOf(R), residents: meddleResidents(R) }); res.pose = 'stand'; meddleFlush(); out.quiet = !TALK.log.slice(n1).some(l => l.acts.some(a => a.act === 'cry_deed')); TALK.on.deed = true;
+    return out; });
+  check(r.res && r.queued === 1, 'a deed is noted while time stands still: ' + JSON.stringify([r.res, r.queued]));
+  check(r.named && r.privy, 'when time runs the deed is an event with your name, and the one on the privy has a second, worse one: ' + JSON.stringify(r.kinds));
+  check(r.mem >= 1 && r.aff < 0 && r.cry, 'the one who saw remembers, thinks worse of you and cries out: ' + JSON.stringify([r.mem, r.aff, r.cry]));
+  check(r.when && /you/i.test(r.line) && /wall|house|privy/.test(r.line) && r.sorry && !r.again, 'they raise it once per talk when they talk to you, in words that name the deed: ' + r.line + ' | ' + r.sorry);
+  check(/You .*wall|You .*house|privy/.test(r.open || '') && r.opts.some(o => /sorry/.test(o)) && r.answer && r.moved > 0, 'in the talk menu the villager opens with it and your apology is heard: ' + JSON.stringify([r.open, r.opts, r.answer, r.moved]));
+  check(r.anon && r.unnamed, 'if nobody saw you, nobody knows it was you: ' + JSON.stringify([r.anon, r.unnamed]));
+  check(r.quiet, 'the deed talk can be switched off');
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return JSON.stringify(r.kinds);
+});
+
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {
