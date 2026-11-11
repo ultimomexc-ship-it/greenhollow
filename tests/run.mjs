@@ -1716,6 +1716,45 @@ test('meddling reactions: furniture and people are deeds too, being caught bathi
   return JSON.stringify(r.plans);
 });
 
+test('tastes, hints, gifts sent by another hand, apologies and jealousy: people like particular things and others find out, gifts land well or badly, a gift can arrive from nobody and be credited to the wrong person, sorry is said unasked, jealousy is confronted', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    const out = {}; newTown('taste-test', 'farm'); MODS.all(); TALK.words = true; const ps = npcs.filter(n => !n.dead && !n.player && n.age >= 18 && !n.infant); const A = ps[0], B = ps.find(n => n !== A && !isKin(A, n) && (n.fam.spouse !== A.id)), rest = ps.filter(n => n !== A && n !== B && !isKin(A, n) && !isKin(B, n)), C = rest[0], D = rest[1]; const fresh = () => ({ done: {}, turns: [], left: {} });
+    const tA = giftTastes(A), tB = giftTastes(B); out.tastes = tA.like.length >= 1 && tA.dislike.length === 1 && JSON.stringify(giftTastes(A)) === JSON.stringify(tA) && ps.slice(0, 8).some(n => JSON.stringify(giftTastes(n)) !== JSON.stringify(tA));
+    // ask and tell
+    A.know[B.id] = 30; B.know[A.id] = 30; A.tmem = (A.tmem || []).filter(m => m.kind !== 'pref'); A.askPrefT = {}; let c = fresh(); out.ask = ACTS.ask_preference.when(c, A, B); talkTurn(c, A, B, 'ask_preference'); talkTurn(c, B, A, 'tell_preference');
+    out.learned = (A.tmem || []).some(m => m.kind === 'pref' && m.about === B.id && m.item === c.prefItem); out.askLine = lxSay('tell_preference', B, A, talkX(c));
+    // a hint
+    B.tmem = (B.tmem || []).filter(m => m.kind !== 'pref'); A.aff[B.id] = 40; B.aff[A.id] = 40; A.hintT = {}; c = fresh(); out.hint = ACTS.hint_gift.when(c, A, B); talkTurn(c, A, B, 'hint_gift'); out.hinted = (B.tmem || []).some(m => m.kind === 'pref' && m.about === A.id && m.like && giftTastes(A).like.includes(m.item));
+    // a known like beats a dearer thing
+    const likeItem = tB.like[0], other = giftPool().find(k => !tB.like.includes(k) && !tB.dislike.includes(k) && (GOODS[k].base || 1) >= (GOODS[likeItem].base || 1)); A.inv = {}; A.inv[likeItem] = 6; if (other) A.inv[other] = 6; A.tmem = A.tmem.filter(m => m.kind !== 'pref'); giftLearn(A, B, likeItem, true); A.hunger = 10; B.hunger = 10; out.picks = giftChoose(A, B) === likeItem;
+    // loved lands well, disliked badly
+    B.aff[A.id] = 0; A.giftT = -1e9; c = fresh(); const a0 = B.aff[A.id]; talkTurn(c, A, B, 'offer_gift'); out.loved = c.giftResult === 'loved' && B.aff[A.id] > a0 && ACTS.gift_loved.when(c, B, A);
+    const bad = tB.dislike[0]; A.inv[bad] = 6; A.tmem = A.tmem.filter(m => m.kind !== 'pref'); A.giftT = -1e9; A.owes = {}; const hateOnly = Object.assign({}, A.inv); A.inv = {}; A.inv[bad] = 6; c = fresh(); const a1 = B.aff[A.id]; talkTurn(c, A, B, 'offer_gift'); out.hated = c.giftResult === 'disliked' && B.aff[A.id] < a1 + 1 && giftKnown(A, B).dislike.includes(bad);
+    // owed: B now owes A and returns it
+    out.owes = !!(B.owes && B.owes[A.id]); B.inv = {}; B.inv.grain = 8; B.giftT = -1e9; c = fresh(); talkTurn(c, B, A, 'offer_gift'); out.returned = c.newsHow === 'return';
+    // a gift sent through another hand
+    A.inv = {}; A.inv.flowers = 4; A.crush = C.id; A.aff[C.id] = 40; A.aff[D.id] = 20; D.aff[A.id] = 20; D.parcel = null; A.sendT = -1e9; c = fresh();
+    out.send = ACTS.send_gift.when(c, A, D); if (out.send) { talkTurn(c, A, D, 'send_gift'); out.target = c.parcel && c.parcel.to; talkTurn(c, D, A, 'deliver_yes'); out.carrying = !!D.parcel && A.inv.flowers === 3;
+      const X = lf2By(D.parcel.to); X.tx = X.x = D.tx + 1; X.ty = X.y = D.ty; X.inv = X.inv || {}; const n0 = X.inv.flowers || 0, e0 = lf2Ev().length; parcelGive(D);
+      out.delivered = (X.inv.flowers || 0) === n0 + 1 && !D.parcel; const ge = lf2Ev().slice(e0).find(e => e.kind === 'gift' && e.anon); out.anonEvent = !!ge && ge.sawActor.includes(D.id) && !!TM.ofEv(X, ge.id); }
+    // sorry unasked
+    const ps2 = npcs.filter(n => !n.dead && !n.player && n.age >= 12 && !n.infant); const P = ps2[ps2.length - 1], V = ps2[ps2.length - 2]; const ev = lfEmit('furniture_removed', { actor: P, target: V, sev: 2, tags: ['nuisance'], anon: false, witnessIds: [V.id], chron: false, text: 'x' }); V.aff[P.id] = -20; c = fresh();
+    out.sorryWhen = ACTS.apologise.when(c, P, V); talkTurn(c, P, V, 'apologise'); const f0 = V.aff[P.id]; talkTurn(c, V, P, 'accept_apology'); out.accepted = V.aff[P.id] > f0 && (V.tmem || []).some(m => m.ev === ev.id && m.forgiven); out.sorryOnce = ACTS.apologise.when(fresh(), P, V);
+    // jealousy
+    const S = ps2[ps2.length - 3], L = ps2[ps2.length - 4], Y = ps2[ps2.length - 5]; S.crush = L.id; const cev = lfEmit('courting', { actor: L, target: Y, sev: 1, tags: ['romance'], witnessIds: [S.id], chron: false, text: 'x' }); c = fresh();
+    out.jealWhen = ACTS.confront_jealous.when(c, S, L); talkTurn(c, S, L, 'confront_jealous'); out.jealLine = lxSay('confront_jealous', S, L, talkX(c)); out.jealOnce = ACTS.confront_jealous.when(fresh(), S, L); out.explain = ACTS.jealous_explain.when(c, L, S) || ACTS.jealous_defiant.when(c, L, S);
+    return out; });
+  check(r.tastes && r.ask && r.learned && /./.test(r.askLine), 'everyone has tastes that differ, and asking finds one out: ' + JSON.stringify([r.tastes, r.ask, r.learned, r.askLine]));
+  check(r.hint && r.hinted && r.picks, 'a hint teaches the listener, and a known like is chosen over something dearer: ' + JSON.stringify([r.hint, r.hinted, r.picks]));
+  check(r.loved && r.hated && r.owes && r.returned, 'a liked gift lands well, a disliked one badly (and is learned), and a return gift is a return: ' + JSON.stringify([r.loved, r.hated, r.owes, r.returned]));
+  check(r.send && r.carrying && r.delivered && r.anonEvent, 'a gift can be sent through another hand, arriving from nobody: ' + JSON.stringify([r.send, r.carrying, r.delivered, r.anonEvent]));
+  check(r.sorryWhen && r.accepted && !r.sorryOnce, 'sorry is said unasked, once, and accepted: ' + JSON.stringify([r.sorryWhen, r.accepted, r.sorryOnce]));
+  check(r.jealWhen && !r.jealOnce && r.explain && /./.test(r.jealLine), 'jealousy is confronted once: ' + JSON.stringify([r.jealWhen, r.jealOnce, r.explain, r.jealLine]));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return r.askLine;
+});
+
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

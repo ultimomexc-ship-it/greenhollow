@@ -76,6 +76,7 @@
   "talk/people.ts",
   "talk/deeds.ts",
   "talk/gifts.ts",
+  "talk/amends.ts",
   "talk/requests.ts",
   "talk/secrets.ts",
   "talk/romance.ts",

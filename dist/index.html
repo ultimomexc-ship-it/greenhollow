@@ -29002,13 +29002,35 @@ lx("ev:caught_bathing", "plain", "{a} knocked the wall out while {t} was bathing
 lx("ev:caught_praying", "plain", "{t} was praying when the wall came down");
 lx("ev:caught_praying", "plain", "{a} took the wall down while {t} was at prayer");
 const giftName = (k) => GOODS[k] && GOODS[k].name || (WORLD.has("item", k) ? WORLD.name("item", k) : k);
+const giftPool = () => Object.keys(GOODS).filter((k) => !/^seed_/.test(k)).sort();
+function giftTastes(n) {
+  const pool = giftPool();
+  if (!pool.length) return { like: [], dislike: [] };
+  const h = Math.imul((n.id | 0) + 7, 2654435761) >>> 0;
+  const a = pool[h % pool.length], b = pool[(h >>> 8) % pool.length], d = pool.filter((k) => k !== a && k !== b)[(h >>> 16) % Math.max(1, pool.length - 2)];
+  return { like: [.../* @__PURE__ */ new Set([a, b])], dislike: d ? [d] : [] };
+}
+function giftKnown(sp, li) {
+  const out = { like: [], dislike: [] };
+  for (const m of sp.tmem || []) if (m.kind === "pref" && m.about === li.id) (m.like ? out.like : out.dislike).push(m.item);
+  if (sp.fam && (sp.fam.spouse === li.id || sp.fam.mother === li.id || sp.fam.father === li.id || (sp.fam.kids || []).includes(li.id)) && !out.like.length) out.like.push(giftTastes(li).like[0]);
+  return out;
+}
+const giftLearn = (sp, li, item, like) => {
+  if (!item) return;
+  const k = giftKnown(sp, li);
+  if ((like ? k.like : k.dislike).includes(item)) return;
+  TM.add(sp, { kind: "pref", about: li.id, item, like, conf: 1, imp: 0.3 });
+};
 function giftChoose(p, o) {
   let best = null, bs = 0;
   const keep = p.player ? 0 : 3;
   for (const k of Object.keys(p.inv || {})) {
     const q = p.inv[k];
     if (!(q > keep) || !GOODS[k] || /^seed_/.test(k) || !p.player && GOODS[k].sat && (p.hunger || 0) > 50) continue;
-    const s = (GOODS[k].base || 1) + (GOODS[k].sat && (o.hunger || 0) > 55 ? 4 : 0) + (k === "flowers" ? 3 : 0);
+    const kn = giftKnown(p, o);
+    if (kn.dislike.includes(k)) continue;
+    const s = (GOODS[k].base || 1) + (GOODS[k].sat && (o.hunger || 0) > 55 ? 4 : 0) + (k === "flowers" ? 3 : 0) + (kn.like.includes(k) ? 9 : 0);
     if (s > bs) {
       bs = s;
       best = k;
@@ -29027,7 +29049,7 @@ ACTS.offer_gift = {
   w: (c, sp, li) => {
     if (sp.player) return 0.5;
     const k = giftChoose(sp, li), hungry = k && GOODS[k].sat && (li.hunger || 0) > 60, a = sp.aff[li.id] || 0;
-    return 0.15 + (hungry && a > -10 ? 1.5 : 0) + (a > 30 ? 0.5 : 0) + (sp.know && sp.know[li.id] > 20 ? 0.1 : 0) + ((sp.tmem || []).some((m) => m.kind === "did" && m.ev != null && !m.forgiven && (lf2Ev().find((q) => q.id === m.ev) || {}).target === li.id && (a < 0 || Math.random() < 0.3)) ? 1.2 : 0);
+    return 0.15 + ((sp.owes || {})[li.id] ? 1.4 : 0) + (k && giftKnown(sp, li).like.includes(k) ? 0.8 : 0) + (hungry && a > -10 ? 1.5 : 0) + (a > 30 ? 0.5 : 0) + (sp.know && sp.know[li.id] > 20 ? 0.1 : 0) + ((sp.tmem || []).some((m) => m.kind === "did" && m.ev != null && !m.forgiven && (lf2Ev().find((q) => q.id === m.ev) || {}).target === li.id && (a < 0 || Math.random() < 0.3)) ? 1.2 : 0);
   },
   apply: (c, sp, li) => {
     c.done.offer_gift = 1;
@@ -29049,8 +29071,13 @@ ACTS.offer_gift = {
     sp.inv[k]--;
     li.inv = li.inv || {};
     li.inv[k] = (li.inv[k] || 0) + 1;
-    const value = GOODS[k].base || 1, wanted = GOODS[k].sat && (li.hunger || 0) > 55 || k === "flowers";
-    lfAff(li, sp, 0.35 * (2 + value * 0.8 + (wanted ? 3 : 0) + (grievance ? value * 0.8 + 4 : 0)), "gave me " + c.lifeItem);
+    const value = GOODS[k].base || 1, wanted = GOODS[k].sat && (li.hunger || 0) > 55 || k === "flowers", ta = giftTastes(li), loved = ta.like.includes(k), hated = ta.dislike.includes(k), returning = !!(sp.owes && sp.owes[li.id]);
+    lfAff(li, sp, 0.35 * (2 + value * 0.8 + (wanted ? 3 : 0) + (loved ? 7 : 0) - (hated ? 9 : 0) + (grievance ? value * 0.8 + 4 : 0)), "gave me " + c.lifeItem);
+    if (loved) giftLearn(sp, li, k, true);
+    else if (hated) giftLearn(sp, li, k, false);
+    if (sp.owes) delete sp.owes[li.id];
+    (li.owes || (li.owes = {}))[sp.id] = game.time;
+    c.newsHow = returning ? "return" : "plain";
     for (const m of bad) m.forgiven = true;
     for (const m of sp.tmem || []) if (m.kind === "did" && m.ev != null) {
       const ev = lf2Ev().find((q) => q.id === m.ev);
@@ -29059,15 +29086,17 @@ ACTS.offer_gift = {
     if (typeof reqDone === "function") {
       for (const q of li.reqs || []) if (q.kind === "item" && q.item === k && q.state !== "done" && q.state !== "failed") reqDone(li, sp, "item", "gave me what I needed");
     }
-    c.giftResult = grievance ? "amends" : wanted ? "wanted" : "plain";
-    lfEmit("gift", { actor: sp, target: li, sev: 1, tags: ["kindness", "generous"], chron: false, text: `${sp.first} gave ${li.first} ${c.lifeItem}` });
+    c.giftResult = hated ? "disliked" : grievance ? "amends" : loved ? "loved" : wanted ? "wanted" : "plain";
+    lfEmit("gift", { actor: sp, target: li, sev: 1, tags: hated ? [] : ["kindness", "generous"], chron: false, text: `${sp.first} gave ${li.first} ${c.lifeItem}` });
   },
-  replies: ["gift_thanks", "gift_delight", "gift_amends", "gift_refuse"]
+  replies: ["gift_thanks", "gift_delight", "gift_amends", "gift_refuse", "gift_loved", "gift_disliked"]
 };
 const giftReply = (id, res) => {
   ACTS[id] = { kind: "gift", stage: "topic", reply: true, when: (c) => c.giftResult === res, w: () => 1, apply: () => {
   }, replies: [] };
 };
+giftReply("gift_loved", "loved");
+giftReply("gift_disliked", "disliked");
 giftReply("gift_thanks", "plain");
 giftReply("gift_delight", "wanted");
 giftReply("gift_amends", "amends");
@@ -29093,6 +29122,304 @@ lxi("gift_amends", "It does not undo it. It does help. I am noting that it helps
 lxi("gift_amends", "That is {item}. I accept it. I will stop being angry on Thursday.");
 lxi("gift_refuse", "No. I would rather not owe you anything.");
 lxi("gift_refuse", "I do not want that. Please take it back.");
+ACTS.ask_preference = {
+  kind: "gift",
+  stage: "topic",
+  preview: () => ({}),
+  w: (c, sp, li) => 0.6 + ((sp.aff[li.id] || 0) > 25 ? 0.6 : 0),
+  when: (c, sp, li) => !c.done.ask_preference && !li.infant && li.age >= 8 && (sp.know[li.id] || 0) > 12 && !giftKnown(sp, li).like.length && game.time - ((sp.askPrefT || {})[li.id] || -1e9) > 2880,
+  apply: (c, sp, li) => {
+    c.done.ask_preference = 1;
+    (sp.askPrefT || (sp.askPrefT = {}))[li.id] = game.time;
+    const t = giftTastes(li), like = Math.random() < 0.8;
+    c.prefItem = like ? t.like[Math.floor(Math.random() * t.like.length)] : t.dislike[0];
+    c.prefLike = like && !!c.prefItem;
+    if (!c.prefItem) {
+      c.prefItem = t.like[0];
+      c.prefLike = true;
+    }
+    c.lifeItem = giftName(c.prefItem);
+    giftLearn(sp, li, c.prefItem, c.prefLike);
+  },
+  replies: ["tell_preference"]
+};
+ACTS.tell_preference = { kind: "gift", stage: "topic", reply: true, when: (c) => !!c.prefItem, w: () => 1, apply: (c) => {
+  c.newsHow = c.prefLike ? "like" : "dislike";
+}, replies: [] };
+ACTS.hint_gift = {
+  kind: "gift",
+  stage: "topic",
+  preview: () => ({}),
+  w: (c, sp, li) => 0.5 + (sp.crush === li.id ? 1.2 : 0),
+  when: (c, sp, li) => !c.done.hint_gift && !li.infant && li.age >= 12 && ((sp.aff[li.id] || 0) > 22 || sp.crush === li.id) && !giftKnown(li, sp).like.length && game.time - ((sp.hintT || {})[li.id] || -1e9) > 2880,
+  apply: (c, sp, li) => {
+    c.done.hint_gift = 1;
+    (sp.hintT || (sp.hintT = {}))[li.id] = game.time;
+    const k = giftTastes(sp).like[0];
+    c.lifeItem = giftName(k);
+    giftLearn(li, sp, k, true);
+  },
+  replies: ["hint_noted"]
+};
+ACTS.hint_noted = { kind: "gift", stage: "topic", reply: true, when: () => true, w: () => 1, apply: () => {
+}, replies: [] };
+lx("ask_preference", "plain", "What do you like, if you had your choice? Anything at all.");
+lx("ask_preference", "plain", "What would please you, do you think? I'm curious.");
+lx("tell_preference", "plain", "I'm fond of {item}. Always have been.", { how: "like" });
+lx("tell_preference", "plain", "Give me {item} and I'm happy.", { how: "like" });
+lx("tell_preference", "plain", "I can't abide {item}, if I'm honest.", { how: "dislike" });
+lx("hint_gift", "plain", "I'm very fond of {item}, you know. Very fond.");
+lx("hint_gift", "plain", "There's nothing I like better than {item}. Just so you know.");
+lx("hint_noted", "plain", "Is that so. I'll remember.");
+lx("hint_noted", "plain", "Noted. I'm listening.");
+lx("gift_loved", "plain", "{item}! How did you know? It's my favourite.");
+lx("gift_loved", "plain", "Oh, that's exactly what I'd have chosen. Thank you.");
+lx("gift_disliked", "plain", "Oh. {item}. ... Thank you. It's the thought.");
+lx("gift_disliked", "plain", "That's... kind. I'm not very fond of it, to be honest.");
+lx("offer_gift", "plain", "This is for you, for the other day. We're even now.", { how: "return" });
+lx("offer_gift", "plain", "I haven't forgotten that you gave me something. Here.", { how: "return" });
+lxi("ask_preference", "What do you like? I am not asking for a reason. I am collecting.");
+lxi("ask_preference", "If you could have one thing, which would it be? I am only asking.");
+lxi("tell_preference", "I like {item}. That has been true for a long time.", { how: "like" });
+lxi("tell_preference", "{item}. If you are asking. I rarely say it aloud.", { how: "like" });
+lxi("tell_preference", "I do not like {item}. It is not a strong feeling. It is a stable one.", { how: "dislike" });
+lxi("hint_gift", "I am fond of {item}. I mention it only because it is true.");
+lxi("hint_gift", "I like {item} very much. It is the sort of thing a person might remember.");
+lxi("hint_noted", "Noted. I will remember that. I remember things.");
+lxi("hint_noted", "Is that so. I have written it down in my head.");
+lxi("gift_loved", "That is {item}. It is my favourite. I do not know how you found out.");
+lxi("gift_loved", "Exactly right. I want to say more, and I have run out of words.");
+lxi("gift_disliked", "Ah. {item}. Thank you. I will find somebody to give it to.");
+lxi("gift_disliked", "It is kind. I do not like it. Both of those are true.");
+lxi("offer_gift", "This is for the other day. I do not like to be owed things.", { how: "return" });
+lxi("offer_gift", "You gave me something. I am returning the favour in kind. Almost in kind.", { how: "return" });
+function sendTarget(sp, li) {
+  const cands = npcs.filter((o) => o !== sp && o !== li && !o.dead && !o.infant && o.age >= 12 && ((sp.aff[o.id] || 0) > 22 || sp.crush === o.id) && !!giftChoose(sp, o));
+  cands.sort((a, b) => (sp.crush === b.id ? 100 : 0) + (sp.aff[b.id] || 0) - ((sp.crush === a.id ? 100 : 0) + (sp.aff[a.id] || 0)));
+  return cands[0] || null;
+}
+ACTS.send_gift = {
+  kind: "gift",
+  stage: "topic",
+  preview: (c, sp, li) => {
+    const X = sendTarget(sp, li), k = X ? giftChoose(sp, X) : null;
+    return { item: k ? giftName(k) : "", about: X ? X.first : "" };
+  },
+  w: (c, sp) => sp.player ? 0.4 : 0.35,
+  when: (c, sp, li) => !c.done.send_gift && !li.infant && li.age >= 12 && !li.parcel && (sp.player || sp.crush != null && game.time - (sp.sendT || -1e9) > 2880) && (li.aff[sp.id] || 0) > -10 && !!sendTarget(sp, li),
+  apply: (c, sp, li) => {
+    c.done.send_gift = 1;
+    sp.sendT = game.time;
+    const X = sendTarget(sp, li), k = giftChoose(sp, X);
+    c.parcel = { item: k, to: X.id, from: sp.id };
+    c.lifeItem = giftName(k);
+    c.aboutName = X.first;
+  },
+  replies: ["deliver_yes", "deliver_no"]
+};
+ACTS.deliver_yes = {
+  kind: "gift",
+  stage: "topic",
+  reply: true,
+  when: (c, sp) => !!c.parcel && !sp.parcel && (sp.aff[c.parcel.from] || 0) >= 0,
+  w: () => 2,
+  apply: (c, sp, li) => {
+    const g = lf2By(c.parcel.from);
+    if (!g || !g.inv || !(g.inv[c.parcel.item] > 0)) return;
+    g.inv[c.parcel.item]--;
+    sp.parcel = { item: c.parcel.item, to: c.parcel.to, from: c.parcel.from, t: game.time };
+  },
+  replies: []
+};
+ACTS.deliver_no = { kind: "gift", stage: "topic", reply: true, when: (c, sp) => !!c.parcel, w: () => 0.5, apply: () => {
+}, replies: [] };
+function parcelBack(n) {
+  const g = lf2By(n.parcel.from);
+  if (g && !g.dead) {
+    g.inv = g.inv || {};
+    g.inv[n.parcel.item] = (g.inv[n.parcel.item] || 0) + 1;
+  }
+  n.parcel = null;
+}
+function parcelGive(n) {
+  const P = n.parcel;
+  if (!P) return;
+  const X = lf2By(P.to), g = lf2By(P.from);
+  n.parcel = null;
+  if (!X || X.dead || lfDist(n, X) > 3) {
+    n.parcel = P;
+    return;
+  }
+  X.inv = X.inv || {};
+  X.inv[P.item] = (X.inv[P.item] || 0) + 1;
+  const ta = giftTastes(X), loved = ta.like.includes(P.item), hated = ta.dislike.includes(P.item), value = GOODS[P.item] && GOODS[P.item].base || 1;
+  const ev = lfEmit("gift", { actor: g, target: X, x: X.tx, y: X.ty, sev: 1, tags: ["kindness", "generous"], anon: true, sawActor: [n.id], witnessIds: [n.id, X.id], chron: false, text: `${g ? g.first : "Somebody"} sent ${X.first} ${giftName(P.item)}` });
+  const m = TM.ofEv(X, ev.id), guess = m && m.ver && m.ver.who != null ? lf2By(m.ver.who) : null;
+  const gain = 0.35 * (2 + value * 0.8 + (loved ? 7 : 0) - (hated ? 9 : 0));
+  if (guess) lfAff(X, guess, gain, "left me a gift");
+  X.mood = Math.min(100, (X.mood == null ? 50 : X.mood) + (hated ? -2 : 4));
+  if (g && g.aff) lfAff(X, g, 0, "");
+  if (g) {
+    if (loved) giftLearn(g, X, P.item, true);
+    else if (hated) giftLearn(g, X, P.item, false);
+  }
+  const c = { a: n, b: X, done: {}, turns: [{ by: n.id, act: "gift_from_nobody", x: { item: giftName(P.item), how: "plain" } }, { by: X.id, act: "gift_anon_reply", x: { item: giftName(P.item), how: loved ? "like" : hated ? "dislike" : "plain" } }], stage: "topic", t0: game.time };
+  faceTo(n, X);
+  talkFinish(c, n, X, talkListened(n, X));
+}
+ACTS.gift_from_nobody = { kind: "gift", stage: "topic", when: () => false, apply: () => {
+}, replies: [] };
+ACTS.gift_anon_reply = { kind: "gift", stage: "topic", when: () => false, apply: () => {
+}, replies: [] };
+LF2.dec.push(function(n) {
+  const P = n.parcel;
+  if (!P || n.player) return null;
+  if (game.time - P.t > 2880) {
+    parcelBack(n);
+    return null;
+  }
+  const X = lf2By(P.to);
+  if (!X || X.dead) {
+    parcelBack(n);
+    return null;
+  }
+  return [goS(() => {
+    const b = besideTile(X.tx, X.ty, null);
+    return b ? { x: b.x, y: b.y, face: { dx: Math.sign(X.tx - b.x), dy: Math.sign(X.ty - b.y) } } : null;
+  }, `Taking something to ${X.first}`), waitS(1, "stand", `Handing ${X.first} something`, { nopie: true, onEnd(nn) {
+    parcelGive(nn);
+  } })];
+});
+const wrongs = (sp, li) => (sp.tmem || []).filter((m) => m.kind === "did" && m.ev != null && !m.forgiven && !m.sorry && game.time - m.t < 1440 * 10 && (() => {
+  const ev = lf2Ev().find((q) => q.id === m.ev);
+  return !!ev && ev.target === li.id && (ev.tags || []).some((t) => ["harm", "nuisance", "embarrass", "deceit", "theft"].includes(t));
+})());
+ACTS.apologise = {
+  kind: "feeling",
+  stage: "topic",
+  preview: () => ({}),
+  w: (c, sp) => sp.player ? 0.6 : 0.5 + (talkHas(sp, "kind") || talkHas(sp, "devout") ? 1 : 0),
+  when: (c, sp, li) => !c.done.apologise && !li.infant && wrongs(sp, li).length > 0,
+  apply: (c, sp, li) => {
+    c.done.apologise = 1;
+    for (const m of wrongs(sp, li)) m.sorry = true;
+    c.sorryFor = wrongs(sp, li).length;
+  },
+  replies: ["accept_apology", "reject_apology"]
+};
+ACTS.accept_apology = {
+  kind: "feeling",
+  stage: "topic",
+  reply: true,
+  when: (c, sp, li) => (sp.aff[li.id] || 0) > -40,
+  w: () => 2,
+  apply: (c, sp, li) => {
+    lfAff(sp, li, 6, "said sorry");
+    lfAff(li, sp, 2, "forgave me");
+    for (const m of li.tmem || []) if (m.ev != null && !m.forgiven) {
+      const ev = lf2Ev().find((q) => q.id === m.ev);
+      if (ev && ev.actor === li.id && ev.target === sp.id) m.forgiven = true;
+    }
+    for (const m of sp.tmem || []) if (m.ev != null && !m.forgiven) {
+      const ev = lf2Ev().find((q) => q.id === m.ev);
+      if (ev && ev.actor === li.id && ev.target === sp.id) m.forgiven = true;
+    }
+  },
+  replies: []
+};
+ACTS.reject_apology = { kind: "feeling", stage: "topic", reply: true, when: (c, sp, li) => (sp.aff[li.id] || 0) <= -40, w: () => 2, apply: (c, sp, li) => {
+  lfAff(sp, li, -1, "would not hear me out");
+}, replies: [] };
+const jealousFor = (sp, li) => {
+  for (const m of sp.tmem || []) {
+    if (m.ev == null || m.raisedJ || !["saw", "told", "overheard", "felt"].includes(m.kind) || game.time - m.t > 1440 * 6) continue;
+    const ev = lf2Ev().find((q) => q.id === m.ev);
+    if (!ev || !["courting", "tryst", "crush"].includes(ev.kind)) continue;
+    const other = ev.actor === li.id ? ev.target : ev.target === li.id ? ev.actor : null;
+    if (other != null && other !== sp.id) return { m, ev, Y: lf2By(other) };
+  }
+  return null;
+};
+ACTS.confront_jealous = {
+  kind: "romance",
+  stage: "topic",
+  preview: () => ({}),
+  w: () => 3,
+  when: (c, sp, li) => !c.done.confront_jealous && (sp.crush === li.id || sp.fam.partner === li.id) && !!jealousFor(sp, li),
+  apply: (c, sp, li) => {
+    const j = jealousFor(sp, li);
+    j.m.raisedJ = true;
+    c.done.confront_jealous = 1;
+    c.aboutName = j.Y ? j.Y.first : "someone";
+    c.jealousY = j.Y;
+    sp.mood = Math.max(0, (sp.mood == null ? 50 : sp.mood) - 4);
+  },
+  replies: ["jealous_explain", "jealous_defiant", "jealous_deny"]
+};
+ACTS.jealous_explain = { kind: "romance", stage: "topic", reply: true, when: (c, sp) => !c.jealousY || sp.fam.partner !== c.jealousY.id, w: () => 2, apply: (c, sp, li) => {
+  lfAff(li, sp, 3, "explained");
+}, replies: [] };
+ACTS.jealous_defiant = {
+  kind: "romance",
+  stage: "topic",
+  reply: true,
+  when: (c, sp) => !!c.jealousY && (sp.fam.partner === c.jealousY.id || Math.random() < 0.4),
+  w: () => 2,
+  apply: (c, sp, li) => {
+    lfAff(li, sp, -8, "does as they please");
+    if (li.fam.partner === sp.id && Math.random() < 0.5) {
+      li.fam.partner = sp.fam.partner = null;
+      li.rel[sp.id] = sp.rel[li.id] = "friend";
+      chron(`${li.first} and ${sp.first} have stopped walking out together.`, "love");
+    }
+  },
+  replies: []
+};
+ACTS.jealous_deny = { kind: "romance", stage: "topic", reply: true, when: () => true, w: () => 0.8, apply: (c, sp, li) => {
+  lfAff(li, sp, -1, "did not believe me");
+}, replies: [] };
+lx("send_gift", "plain", "Could you give {item} to {about} for me? Without saying it's from me?");
+lx("send_gift", "plain", "I've something for {about}. {item}. Would you take it over? Don't say who.");
+lx("deliver_yes", "plain", "All right. My lips are sealed.");
+lx("deliver_yes", "plain", "I'll take it over. I won't say a word.");
+lx("deliver_no", "plain", "I'd rather not get in the middle of it.");
+lx("deliver_no", "plain", "Sorry. Do it yourself.");
+lx("gift_from_nobody", "plain", "This is for you. I can't say who from.");
+lx("gift_from_nobody", "plain", "Somebody asked me to give you this. That's all I know.");
+lx("gift_anon_reply", "plain", "Who on earth would leave me this? ... Well. Thank you, whoever it was.", { how: "plain" });
+lx("gift_anon_reply", "plain", "It's my favourite! Somebody knows me well.", { how: "like" });
+lx("gift_anon_reply", "plain", "Hm. I don't much care for it. But it's a kind thing to do.", { how: "dislike" });
+lx("apologise", "plain", "I've been meaning to say. I'm sorry for what I did.");
+lx("apologise", "plain", "I owe you an apology. I wasn't fair to you.");
+lx("accept_apology", "plain", "Thank you for saying it. Let's leave it there.");
+lx("accept_apology", "plain", "It takes something to say that. All right.");
+lx("reject_apology", "plain", "Words are cheap. Leave me be.");
+lx("reject_apology", "plain", "No. Not yet. Maybe not ever.");
+lx("confront_jealous", "plain", "I heard you were with {about}. Is it true?");
+lx("confront_jealous", "plain", "People say you and {about}... What is going on?");
+lx("jealous_explain", "plain", "It's nothing like that. I promise you.");
+lx("jealous_explain", "plain", "We only talked. Don't be like that.");
+lx("jealous_defiant", "plain", "And if it is? I'll do as I like.");
+lx("jealous_defiant", "plain", "I don't owe you an account of myself.");
+lx("jealous_deny", "plain", "Who told you that? It's not true.");
+lxi("send_gift", "Could you take {item} to {about}? Without saying it is from me. I realise this is a strange request.");
+lxi("send_gift", "I have {item} for {about}. I would like it to arrive without a name on it.");
+lxi("deliver_yes", "I will take it. I will not say who. I am good at not saying who.");
+lxi("deliver_no", "I would rather not. I would rather not be in the middle of anything today.");
+lxi("gift_from_nobody", "This is for you. I was asked not to say who. I am honouring that.");
+lxi("gift_from_nobody", "Somebody wanted you to have this. I will say no more than that.");
+lxi("gift_anon_reply", "Who would leave me this? I have a few ideas. I will check them against each other.", { how: "plain" });
+lxi("gift_anon_reply", "It is my favourite. Whoever it was has paid attention.", { how: "like" });
+lxi("gift_anon_reply", "I do not like it. It is thoughtful anyway. Those are separate things.", { how: "dislike" });
+lxi("apologise", "I have been thinking about what I did. I am sorry. It is a short sentence and it took me a while.");
+lxi("apologise", "I owe you an apology. I am delivering it as promptly as I could manage.");
+lxi("accept_apology", "Thank you. I accept it. I am relieved to have somewhere to put it.");
+lxi("reject_apology", "No. I am not ready. I may be later.");
+lxi("confront_jealous", "I heard about you and {about}. I am asking you directly, because it seemed better than not.");
+lxi("confront_jealous", "People say you and {about} are close. I did not know. I would like to.");
+lxi("jealous_explain", "It is not what it sounds like. It is a smaller thing than that.");
+lxi("jealous_defiant", "And if it were? I am allowed. I thought I should say it.");
+lxi("jealous_deny", "That is not true. I do not know where you heard it.");
 const REQ_FOOD = ["fish", "berries", "grain"];
 function reqWant(n) {
   if (n.dead || n.infant || n.age < 6) return null;
