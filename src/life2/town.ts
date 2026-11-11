@@ -127,7 +127,7 @@ function lf2Buy(n, r, g, qty) {
   return got;
 }
 /* the larder pays the people who fill it (the grain dole stays free to eat) */
-function lf2Paid(n, tot) { if (LF2.on('economy') && n) n.coin += tot * 0.5; }
+function lf2Paid(n, tot) { if (town.farmEcon) return; if (LF2.on('economy') && n) n.coin += tot * 0.5; }   // (in the farming economy the shop really pays: `pay`)
 
 /* ---------------- the working day ---------------- */
 function lf2GoWork(r, key, text, min, act, o?) { const s = lf2Spot(r, key); if (!s) return null; return [goS(s, text), waitS(min, act || 'stand', text, o)]; }

@@ -10332,7 +10332,8 @@ function moveSellersIndoors() {
     }
   }
 }
-function makeMerchant(n, mk) {
+function makeMerchant(n, mk, def) {
+  const D = def || MERCH_DEF;
   let stall = hallStalls().find((s) => !s.owner);
   if (!stall && mk) stall = mk.stalls.find((s) => !s.owner && !s.gone);
   if (!stall) {
@@ -10342,8 +10343,8 @@ function makeMerchant(n, mk) {
   if (!stall) return null;
   n.stall = stall;
   stall.owner = n;
-  const m = { n, role: "Trader", def: MERCH_DEF, buys: MERCH_DEF.buys, sells: MERCH_DEF.sells, stock: {}, post: stall, front: { x: stall.front.x, y: stall.front.y, face: stall.face }, serving: false, sales: 0, revenue: 0, outlay: 0 };
-  for (const g of Object.keys(MERCH_DEF.buys)) m.stock[g] = Math.floor(MERCH_DEF.buys[g] * (0.12 + Math.random() * 0.15));
+  const m = { n, role: "Trader", def: D, buys: D.buys, sells: D.sells, stock: {}, post: stall, front: { x: stall.front.x, y: stall.front.y, face: stall.face }, serving: false, sales: 0, revenue: 0, outlay: 0 };
+  for (const g of Object.keys(D.buys)) m.stock[g] = Math.floor(D.buys[g] * (0.12 + Math.random() * 0.15));
   n.coin += 60;
   n.shop = m;
   merchants.push(m);
@@ -10403,6 +10404,10 @@ function logTrade(buyer, seller, g, q, total, verb) {
   if (game.trades.length > 200) game.trades.splice(0, 50);
 }
 function pay(from, to, amt) {
+  if (town && town.farmEcon && from && to) {
+    from.coin -= amt;
+    to.coin += amt;
+  }
 }
 function consume(n, g, q) {
   if (g === "herbs") n.health = Math.min(100, n.health + 55);
@@ -10411,8 +10416,16 @@ function consume(n, g, q) {
 function doBuy(n, m, g, qty) {
   if (!m.serving || Math.abs(n.x - m.front.x) + Math.abs(n.y - m.front.y) > 1.5) return 0;
   let got = 0, tot = 0;
+  if (!(m.stock[g] >= 1) && typeof LIFE !== "undefined" && !n.player && (n.lifeOut || {})[g] !== Math.floor(game.time / 60)) {
+    (n.lifeOut || (n.lifeOut = {}))[g] = Math.floor(game.time / 60);
+    LIFE.emit("out_of_stock", n, { item: g, place: m.def.noun });
+  }
   while (got < qty && (m.stock[g] || 0) >= 1) {
     const p = sellPrice(m, g);
+    if (town.farmEcon && n.coin < p) {
+      if (!n.player) LIFE.emit("could_not_afford", n, { item: g, place: m.def.noun });
+      break;
+    }
     pay(n, m.n, p);
     m.stock[g]--;
     m.sales++;
@@ -10430,6 +10443,7 @@ function doSell(n, m, g, qty) {
   while (got < qty && (n.inv[g] || 0) >= 1) {
     const p = buyPrice(m, g);
     if (p <= 0) break;
+    if (town.farmEcon && m.n.coin < p) break;
     pay(m.n, n, p);
     m.stock[g] = (m.stock[g] || 0) + 1;
     n.inv[g]--;
@@ -10705,7 +10719,7 @@ function foodShopPlan(n) {
   const hh = hhOf(n).filter((o) => !o.infant).length, need = 3 * hh * 100 - foodSat(pantryOf(n));
   if (need < 40) return null;
   const steps = [];
-  let left = need, spend = 1e9, bought = false;
+  let left = need, spend = town.farmEcon ? Math.max(0, n.coin) : 1e9, bought = false;
   const tried = /* @__PURE__ */ new Set();
   for (let k = 0; k < 2 && left > 20 && spend >= 1; k++) {
     let best = null, bs = 1e9;
@@ -10863,6 +10877,11 @@ function farmPlan(n) {
   const steps = [];
   let cx = n.tx, cy = n.ty, prev = { x: -9, y: -9 };
   const txt = { harvest: "Harvesting grain", sow: "Sowing seed", plow: "Ploughing the field" }[kind];
+  if (kind === "sow" && town.farmEcon) {
+    const buy = farmSeedBuy(n, Math.min(8, list.length));
+    steps.push(...buy);
+    if (!buy.length && !farmSeedCount(n)) return null;
+  }
   for (let i = 0; i < 8 && list.length; i++) {
     let bi = 0, bd = 1e9;
     list.forEach((c2, j) => {
@@ -10899,9 +10918,11 @@ function farmPlan(n) {
         if (c.st && cropStage(c) === 4) itHarvest(n2, c);
       } else if (kind === "sow") {
         if (!c.st && c.pl && fieldPlowed(c)) {
+          const sk = town.farmEcon ? farmSow(n2) : farmSeed(n2);
+          if (!sk) return;
           c.st = 1;
           c.t0 = game.time;
-          c.seed = farmSeed(n2);
+          c.seed = sk;
           if (!n2.player) LIFE.emit("planted", n2, { seed: c.seed, qty: 1 });
         }
       } else c.pl = 1;
@@ -11099,6 +11120,10 @@ function demandFor(g) {
 const CROP_YIELD = 3;
 function farmSeed(n) {
   const food = Object.keys(IT_SEEDS).filter((k) => k !== "barley" && !IT_SEEDS[k].flower), r = n.rand ? n.rand() : Math.random();
+  if (town.farmEcon && r > 0.88) {
+    const fl = Object.keys(IT_SEEDS).filter((k) => IT_SEEDS[k].flower);
+    return fl[(n.id * 5 + Math.floor(r * 1e3)) % fl.length];
+  }
   if (r < 0.5) return "barley";
   const fav = food[n.id * 7 % food.length], fav2 = food[(n.id * 7 + 3) % food.length], q = (r - 0.5) * 2;
   return q < 0.35 ? fav : q < 0.55 ? fav2 : food[Math.floor(q * 997 % food.length)];
@@ -11817,14 +11842,16 @@ function loadTown(seed, size, scenario) {
   initEconomy();
   makeTownIndex2();
   if (scenario === "blank") blankStart();
+  else if (scenario === "farm") farmStart();
   else {
     prebuildVillage();
     prebuildLevels();
     housingTick();
     growthProjects();
   }
-  town.scenario = scenario === "blank" ? "blank" : "village";
+  town.scenario = scenario === "blank" ? "blank" : scenario === "farm" ? "farm" : "village";
   shroomScatter();
+  if (typeof MODS !== "undefined") MODS.sync();
   return town;
 }
 function blankStart() {
@@ -16911,7 +16938,8 @@ function lfBuild(kind, w, h, o) {
   refreshReach();
   return s;
 }
-function prebuildVillage() {
+function prebuildVillage(o) {
+  const farm = !!(o && o.farm);
   lfInitProps();
   lfBuild("market", 9, 7, { first: true });
   const seen = /* @__PURE__ */ new Set(), all = npcs.filter((n) => n.age >= 3);
@@ -16931,11 +16959,15 @@ function prebuildVillage() {
     }
     const group = [...fam];
     group.forEach((p) => seen.add(p.id));
-    const beds = Math.min(6, group.length + 1), d = houseDims(beds), o = { beds, owners: group.slice(0, 6), surname: adult.surname };
-    for (const x of [{}, { tight: true }, { clear: true }, { tight: true, clear: true }]) if (lfBuild("house", d.w, d.h, Object.assign({}, o, x))) break;
+    const beds = Math.min(6, group.length + 1), d = houseDims(beds), o2 = { beds, owners: group.slice(0, 6), surname: adult.surname };
+    for (const x of [{}, { tight: true }, { clear: true }, { tight: true, clear: true }]) if (lfBuild("house", d.w, d.h, Object.assign({}, o2, x))) break;
   });
-  for (const [w, h, tight, clear] of [[15, 11], [15, 11, false, true], [13, 9, false, true], [11, 8, true, true]]) if (lfBuild("church", w, h, { tight: !!tight, clear: !!clear })) break;
-  for (const [w, h, tight, clear] of [[10, 7], [9, 6], [9, 6, true], [9, 6, true, true]]) if (lfBuild("tavern", w, h, { tight: !!tight, clear: !!clear })) break;
+  if (!farm) {
+    for (const [w, h, tight, clear] of [[15, 11], [15, 11, false, true], [13, 9, false, true], [11, 8, true, true]]) if (lfBuild("church", w, h, { tight: !!tight, clear: !!clear })) break;
+  }
+  if (!farm) {
+    for (const [w, h, tight, clear] of [[10, 7], [9, 6], [9, 6, true], [9, 6, true, true]]) if (lfBuild("tavern", w, h, { tight: !!tight, clear: !!clear })) break;
+  }
   for (let i = 0; i < 2; i++) lfBuild("field", 10, 5, {}) || lfBuild("field", 8, 4, {});
   const homes = rooms.filter((r) => r.kind === "house" && !r.dead), R = rng(town.seed + 99);
   for (let k = 0; k < Math.max(3, Math.ceil(homes.length * 1.2)); k++) {
@@ -16954,7 +16986,7 @@ function prebuildVillage() {
   refreshReach();
   refreshShore();
   syncTents();
-  staffMarkets();
+  if (!farm) staffMarkets();
   npcs.forEach((n) => {
     if (n.homeRoom) n.inv = {};
   });
@@ -16963,9 +16995,9 @@ function prebuildVillage() {
   const want = ["Farmer", "Fisher", "Farmer", "Gatherer"];
   if (!shoreTiles.length) want.splice(1, 1);
   ws.forEach((n, i) => {
-    n.job = want[i] || lfFirstJob(n);
+    n.job = farm ? "Farmer" : want[i] || lfFirstJob(n);
   });
-  lf2Prebuild();
+  if (!farm) lf2Prebuild();
   npcs.forEach((n) => {
     if (n.homeRoom && n.bed && n.bed.x != null) {
       n.x = n.tx = n.bed.x;
@@ -21364,6 +21396,7 @@ function lf2Buy(n, r, g, qty) {
   return got;
 }
 function lf2Paid(n, tot) {
+  if (town.farmEcon) return;
   if (LF2.on("economy") && n) n.coin += tot * 0.5;
 }
 function lf2GoWork(r, key, text, min, act, o) {
@@ -22998,12 +23031,13 @@ function lf2Stories(force) {
 FIRST_M.splice(0, FIRST_M.length, "Marcus", "Gaius", "Lucius", "Titus", "Quintus", "Decimus", "Aulus", "Gnaeus", "Publius", "Sextus", "Servius", "Tiberius", "Manius", "Spurius", "Numerius", "Faustus", "Felix", "Rufus", "Silvanus", "Crispus", "Varro", "Brutus", "Corvus", "Cato", "Drusus", "Paullus", "Nero", "Seneca", "Galba", "Otho");
 FIRST_F.splice(0, FIRST_F.length, "Livia", "Prisca", "Severa", "Faustina", "Camilla", "Lucilla", "Sabina", "Agrippina", "Drusilla", "Octavia", "Aemilia", "Tertia", "Secunda", "Paulina", "Marcella", "Lucia", "Gaia", "Rufina", "Albina", "Felicitas", "Fortunata", "Vitalia", "Urbica", "Junilla", "Nonna", "Crispina", "Galla", "Vibiana", "Quinta", "Saturnina");
 SURNAMES.splice(0, SURNAMES.length, "Aurelius", "Cornelius", "Valerius", "Flavius", "Claudius", "Antonius", "Fabius", "Tullius", "Marcius", "Domitius", "Junius", "Caecilius", "Licinius", "Sempronius", "Sergius", "Pompeius", "Vibius", "Horatius", "Quinctius", "Petronius", "Lucretius", "Plautius", "Calpurnius", "Hortensius", "Sulpicius", "Furius", "Manlius", "Postumius", "Septimius", "Terentius");
-const MODS = { defs: {}, off: {} };
+const MODS = { defs: {}, g: {} };
+const modsOff = () => typeof town !== "undefined" && town ? town.modsOff || (town.modsOff = {}) : MODS.g;
 MODS.define = (id, label, kind, needs) => {
   MODS.defs[id] = { id, label, kind, needs: needs || [] };
 };
 const modOn = (id) => {
-  if (MODS.off[id]) return false;
+  if (modsOff()[id]) return false;
   const d = MODS.defs[id];
   if (d) {
     for (const q of d.needs) if (!modOn(q)) return false;
@@ -23011,18 +23045,17 @@ const modOn = (id) => {
   return true;
 };
 MODS.set = (id, on) => {
-  if (on) delete MODS.off[id];
-  else MODS.off[id] = true;
-  MODS.save();
-  if (id.startsWith("sys.")) LF2.feat[id.slice(4)] = on;
-  if (id.startsWith("talk.") && typeof TALK !== "undefined") TALK.on[id.slice(5)] = on;
+  if (on) delete modsOff()[id];
+  else modsOff()[id] = true;
+  MODS.apply(id);
 };
-MODS.save = () => {
-  if (window.GH_NOSAVE) return;
-  try {
-    localStorage.setItem("gh_mods", JSON.stringify(MODS.off));
-  } catch (e) {
-  }
+MODS.apply = (id) => {
+  const off = !!modsOff()[id];
+  if (id.startsWith("sys.")) LF2.feat[id.slice(4)] = !off;
+  if (id.startsWith("talk.") && typeof TALK !== "undefined") TALK.on[id.slice(5)] = !off;
+};
+MODS.sync = () => {
+  for (const k of Object.keys(MODS.defs)) if (k.startsWith("sys.") || k.startsWith("talk.")) MODS.apply(k);
 };
 MODS.only = (ids) => {
   const keep = /* @__PURE__ */ new Set();
@@ -23044,18 +23077,9 @@ if (typeof LF_GATH !== "undefined") for (const k of Object.keys(LF_GATH)) MODS.d
 MODS.define("event.wedding", "Weddings", "event", ["sys.romance"]);
 MODS.define("event.funeral", "Funerals", "event");
 MODS.define("event.birthday", "Coming-of-age parties", "event");
-for (const k of Object.keys(LF2.feat)) MODS.define("sys." + k, typeof LF2_FEATN !== "undefined" && LF2_FEATN[k] || k, "system");
+for (const k of Object.keys(LF2.feat)) if (k !== "nightlocks") MODS.define("sys." + k, typeof LF2_FEATN !== "undefined" && LF2_FEATN[k] || k, "system");
 for (const k of Object.keys(TALK.on)) MODS.define("talk." + k, "Talk: " + k, "talk");
-for (const k of Object.keys(LF2.feat)) if (LF2.feat[k] === false) MODS.off["sys." + k] = true;
-try {
-  if (!window.GH_NOSAVE) {
-    const s = JSON.parse(localStorage.getItem("gh_mods") || "null");
-    if (s) {
-      for (const k in s) if (MODS.defs[k]) MODS.set(k, false);
-    }
-  }
-} catch (e) {
-}
+LF2.hourly.push(() => MODS.sync());
 (function() {
   const stage = canvas.parentNode;
   if (!stage) return;
@@ -24999,10 +25023,11 @@ const itGrow = (c) => GROW * (IT_SEEDS[c.seed] || IT_SEEDS.barley).grow;
 function itHarvest(n, c) {
   town.tut = town.tut || { harvests: 0 };
   town.tut.harvests++;
-  const S = IT_SEEDS[c.seed] || IT_SEEDS.barley;
-  n.inv[S.yield] = (n.inv[S.yield] || 0) + S.q;
+  const S = IT_SEEDS[c.seed] || IT_SEEDS.barley, Y = S.flower ? "flowers" : S.yield, Q = S.flower ? 4 : S.q;
+  n.inv[Y] = (n.inv[Y] || 0) + Q;
   c.st = 0;
-  if (!n.player) LIFE.emit("harvested", n, { item: S.yield, qty: S.q, crop: c.seed || "barley" });
+  if (!n.player) LIFE.emit("harvested", n, { item: Y, qty: Q, crop: c.seed || "barley" });
+  if (!n.player && town.farmEcon) n.inv["seed_" + (c.seed || "barley")] = (n.inv["seed_" + (c.seed || "barley")] || 0) + 1;
   if (n.player) sndPick();
   let back = 0;
   if (n.player) {
@@ -25144,6 +25169,205 @@ function itMillerLogs(n, r) {
       nn.inv.wood = 0;
     }
   } })]);
+}
+const FARM_SEED_PRICE = { barley: 1, turnip: 2, bean: 2, carrot: 2, potato: 2, cabbage: 3, tomato: 3, corn: 3, strawberry: 4, pumpkin: 4, daisy: 2, marigold: 2, poppy: 2, lavender: 3, rose: 5 };
+for (const k of Object.keys(IT_SEEDS)) GOODS["seed_" + k] = { base: FARM_SEED_PRICE[k] || 3, name: k + " seeds", seed: k };
+GOODS.flowers = { base: 3, name: "flowers" };
+const FARM_YIELDS = Object.keys(IT_SEEDS).filter((k) => !IT_SEEDS[k].flower && IT_SEEDS[k].yield && IT_SEEDS[k].yield !== "grain").map((k) => IT_SEEDS[k].yield);
+for (const g of FARM_YIELDS) {
+  if (!SELLABLE.includes(g)) SELLABLE.push(g);
+  if (GOODS[g] && GOODS[g].sat && !FOODS.includes(g)) FOODS.push(g);
+}
+if (!SELLABLE.includes("flowers")) SELLABLE.push("flowers");
+const FARM_SEED_ORDER = ["barley", "turnip", "bean", "carrot", "potato", "cabbage", "daisy", "tomato", "corn", "marigold", "pumpkin", "strawberry", "poppy", "lavender", "rose"];
+const farmSeedRange = () => {
+  const d = Math.floor(game.time / 1440) - (town.farmDay0 || 0);
+  return FARM_SEED_ORDER.slice(0, Math.min(FARM_SEED_ORDER.length, 4 + Math.floor(d / 2) + (d >= 1 ? 1 : 0)));
+};
+const SEED_DEF = { buys: {}, sells: {}, open: [6.5, 17], tool: "wipe", noun: "seed stall" };
+for (const k of FARM_SEED_ORDER) SEED_DEF.sells["seed_" + k] = IT_SEEDS[k] && IT_SEEDS[k].flower ? 14 : 30;
+const GROCER_DEF = { buys: { grain: 30, flowers: 24 }, sells: { grain: 30, flowers: 24 }, open: [7, 18.5], tool: "wipe", noun: "greengrocer" };
+for (const g of FARM_YIELDS) {
+  GROCER_DEF.buys[g] = 24;
+  GROCER_DEF.sells[g] = 24;
+}
+const farmSeller = () => merchants.find((m) => m.def === SEED_DEF);
+const farmGrocer = () => merchants.find((m) => m.def === GROCER_DEF);
+const farmSeedsOf = (n) => Object.keys(n.inv || {}).filter((g) => g.startsWith("seed_") && n.inv[g] > 0).map((g) => [g.slice(5), n.inv[g]]);
+const farmSeedCount = (n) => farmSeedsOf(n).reduce((s, [, q]) => s + q, 0);
+function farmSeedPick(n) {
+  const have = farmSeedsOf(n);
+  if (!have.length) return null;
+  const want = farmSeed(n);
+  const hit = have.find(([k]) => k === want);
+  if (hit) return hit[0];
+  return have.sort((a, b) => b[1] - a[1])[0][0];
+}
+function farmSeedBuy(n, need) {
+  const m = farmSeller();
+  if (!m || !isOpen(m)) return [];
+  const short = need - farmSeedCount(n);
+  if (short <= 0) return [];
+  return [goS(m.front, "Walking to the seed stall"), waitS(2, "stand", "Buying seed", { nopie: true, onEnd(nn) {
+    const stocked = farmSeedRange().filter((k) => (m.stock["seed_" + k] || 0) > 0);
+    if (!stocked.length) {
+      if (!nn.player) LIFE.emit("out_of_stock", nn, { item: "seed_barley", place: m.def.noun });
+      return;
+    }
+    for (const g of Object.keys(m.newStock || {})) {
+      const seen = nn.seenStock || (nn.seenStock = {});
+      if ((seen[g] || 0) < m.newStock[g]) {
+        seen[g] = m.newStock[g];
+        LIFE.emit("new_in_stock", nn, { item: g, place: m.def.noun });
+      }
+    }
+    let left = short;
+    for (let i = 0; i < short * 2 && left > 0; i++) {
+      const k = farmSeed(nn);
+      const pick2 = stocked.includes(k) ? k : stocked[(nn.id + i) % stocked.length], g = "seed_" + pick2;
+      if (!(m.stock[g] >= 1)) continue;
+      const p = sellPrice(m, g);
+      if (nn.coin < p) {
+        LIFE.emit("could_not_afford", nn, { item: g, place: m.def.noun });
+        break;
+      }
+      pay(nn, m.n, p);
+      m.stock[g]--;
+      m.sales++;
+      m.revenue += p;
+      nn.inv[g] = (nn.inv[g] || 0) + 1;
+      logTrade(nn, m.n, g, 1, p, "buy");
+      left--;
+    }
+  } })];
+}
+function farmSow(n) {
+  const k = farmSeedPick(n);
+  if (!k) return null;
+  n.inv["seed_" + k]--;
+  return k;
+}
+function farmRestock() {
+  if (!town || !town.farmEcon) return;
+  const m = farmSeller();
+  if (!m) return;
+  const range = farmSeedRange(), t = game.time;
+  for (const k of range) {
+    const g = "seed_" + k, cap0 = m.sells[g], first = m.stock[g] == null, was = m.stock[g] || 0;
+    if (was >= cap0 * 0.9) continue;
+    m.stock[g] = Math.round(cap0 * (0.8 + Math.random() * 0.2));
+    m.newStock || (m.newStock = {});
+    if (first || was < 1) {
+      m.newStock[g] = t;
+      if (m.n && !m.n.dead) LIFE.emit("new_in_stock", m.n, { item: g, place: m.def.noun });
+    }
+    m.n.coin -= Math.min(Math.max(0, m.n.coin), Math.round((m.stock[g] - was) * GOODS[g].base * 0.4));
+  }
+  const gr = farmGrocer();
+  if (gr) for (const g of Object.keys(gr.buys)) {
+    const keep = gr.buys[g] * 0.7, over = (gr.stock[g] || 0) - keep;
+    if (over >= 3) {
+      const q = Math.floor(over / 2);
+      gr.stock[g] -= q;
+      gr.n.coin += Math.round(q * GOODS[g].base * 0.7);
+      town.eco.exported += q;
+    }
+  }
+  for (const x of [m, gr]) if (x && x.n.coin < 25) x.n.coin += 25;
+  for (const x of [m, gr]) if (x) {
+    const prev = x.pp || (x.pp = {});
+    let said = 0;
+    for (const g of Object.keys(x.sells)) {
+      if (!((x.stock[g] || 0) >= 1)) continue;
+      const p = sellPrice(x, g);
+      if (prev[g] != null && said < 2 && p !== prev[g]) {
+        LIFE.emit(p > prev[g] ? "price_up" : "price_down", x.n, { item: g, place: x.def.noun });
+        said++;
+      }
+      prev[g] = p;
+    }
+  }
+}
+LF2.hourly.push((h) => {
+  if (h === 6) farmRestock();
+});
+function farmFlowerBuyers() {
+  if (!town || !town.farmEcon) return;
+  const gr = farmGrocer();
+  if (!gr || !isOpen(gr) || !((gr.stock.flowers || 0) >= 1)) return;
+  const adults = npcs.filter((n) => !n.dead && !n.player && n.age >= 16 && !n.shop && n.coin >= 6 && Math.random() < 0.05);
+  const b = adults[0];
+  if (!b) return;
+  const p = sellPrice(gr, "flowers");
+  if (b.coin < p) return;
+  pay(b, gr.n, p);
+  gr.stock.flowers--;
+  gr.sales++;
+  gr.revenue += p;
+  logTrade(b, gr.n, "flowers", 1, p, "buy");
+}
+LF2.hourly.push(() => farmFlowerBuyers());
+const FARM_RECIPE_BASE = ["job.Farmer", "sys.economy", "sys.couples"];
+function farmStart() {
+  town.farmEcon = true;
+  town.farmDay0 = Math.floor(game.time / 1440);
+  town.eco.exported = town.eco.exported || 0;
+  prebuildVillage({ farm: true });
+  housingTick();
+  refreshReach();
+  MODS.only(FARM_RECIPE_BASE.concat(Object.keys(MODS.defs).filter((k) => k.startsWith("talk."))));
+  MODS.sync();
+  farmSetup();
+}
+function farmSetup() {
+  const R = rng(town.seed + 5151), mk = town.markets[0];
+  for (const n of npcs.slice()) {
+    if (n.role === "Trader" || n.shop) {
+      if (n.shop) dropMerchant(n);
+      setRole(n, "Worker");
+      n.job = "Farmer";
+    }
+  }
+  merchants = [];
+  const adults = npcs.filter((n) => !n.dead && !n.player && n.role === "Worker" && n.age >= 18 && n.age < 58 && !n.shop);
+  const pick2 = (k) => adults.splice(Math.floor(R() * adults.length), 1)[0];
+  const sellerP = pick2(0), grocerP = pick2(1);
+  if (grocerP) {
+    setRole(grocerP, "Trader", mk);
+    const m = grocerP.shop;
+    if (m) {
+      m.def = GROCER_DEF;
+      m.buys = GROCER_DEF.buys;
+      m.sells = GROCER_DEF.sells;
+      m.stock = {};
+      for (const g of Object.keys(GROCER_DEF.buys)) m.stock[g] = Math.floor(GROCER_DEF.buys[g] * (0.1 + R() * 0.2));
+      m.n.coin = 90;
+    }
+  }
+  if (sellerP) {
+    setRole(sellerP, "Trader", mk);
+    const m = sellerP.shop;
+    if (m) {
+      m.def = SEED_DEF;
+      m.buys = SEED_DEF.buys;
+      m.sells = SEED_DEF.sells;
+      m.stock = {};
+      m.newStock = {};
+      m.n.coin = 40;
+      farmRestock();
+      m.newStock = {};
+    }
+  }
+  for (const n of npcs) {
+    if (n.dead || n.shop || n.age < 14) continue;
+    n.coin = 22 + Math.floor(R() * 20);
+    n.inv = n.inv || {};
+    if (n.role === "Worker") {
+      n.inv.seed_barley = 5;
+      n.inv.seed_turnip = 2;
+      n.inv.seed_bean = 2;
+    }
+  }
 }
 function carpWant(needs) {
   if (!town || !kitOn()) return null;
@@ -25364,7 +25588,7 @@ function newTown(seedText, scenario) {
       startPlaying(pn);
     }
   }
-  el("legend").textContent = (scenario === "blank" ? "blank island" : "ready village") + " \xB7 " + W + "\xD7" + H;
+  el("legend").textContent = (scenario === "blank" ? "blank island" : scenario === "farm" ? "ready farming village" : "ready village") + " \xB7 " + W + "\xD7" + H;
 }
 el("seedForm").addEventListener("submit", (e) => {
   e.preventDefault();
@@ -26044,7 +26268,8 @@ async function isleLoad(id) {
     select(pn || npcs[0]);
     updateUI(true);
     updateMarket(true);
-    el("legend").textContent = (town.scenario === "blank" ? "blank island" : "ready village") + " \xB7 " + W + "\xD7" + H;
+    el("legend").textContent = (town.scenario === "blank" ? "blank island" : town.scenario === "farm" ? "ready farming village" : "ready village") + " \xB7 " + W + "\xD7" + H;
+    if (typeof MODS !== "undefined") MODS.sync();
     if (pn && canControl(pn)) startPlaying(pn);
     isleLabel();
     return true;
@@ -26093,9 +26318,9 @@ async function isleShow(first) {
   const rows2 = list.map((m) => {
     const nm = ISLE.renaming === m.id ? `<input class="islren" data-irentxt="${m.id}" value="${esc(m.name)}" maxlength="40" spellcheck="false"> <button type="button" class="btn primary" data-irenok="${m.id}">Save name</button>` : `<b>${esc(m.name)}</b> <button type="button" class="islpen" data-iren="${m.id}" title="Rename">rename</button>`;
     const btns = ISLE.confirmDel === m.id ? `<button type="button" class="btn danger" data-idelyes="${m.id}">Yes, delete</button><button type="button" class="btn" data-idelno="1">Keep</button>` : `<button type="button" class="btn primary" data-icont="${m.id}">${m.id === ISLE.id ? "Resume" : "Continue"}</button><button type="button" class="btn" data-iexp="${m.id}" title="Download this island as a file (to send it for a look)">Export</button><button type="button" class="btn" data-idel="${m.id}">Delete</button>`;
-    return `<div class="islrow"><div>${nm} <span class="dim">${m.scenario === "blank" ? "blank island" : "ready village"}</span><br><span class="dim">day ${m.day} \xB7 ${m.pop} ${m.pop === 1 ? "person" : "people"}${m.you ? " \xB7 you: " + esc(m.you) : ""} \xB7 ${isleAgo(m.savedAt)}</span></div><div class="islbtns">${btns}</div></div>`;
+    return `<div class="islrow"><div>${nm} <span class="dim">${m.scenario === "blank" ? "blank island" : m.scenario === "farm" ? "ready farming village" : "ready village"}</span><br><span class="dim">day ${m.day} \xB7 ${m.pop} ${m.pop === 1 ? "person" : "people"}${m.you ? " \xB7 you: " + esc(m.you) : ""} \xB7 ${isleAgo(m.savedAt)}</span></div><div class="islbtns">${btns}</div></div>`;
   }).join("");
-  box.innerHTML = `<div class="bgwrap isl"><div class="bghead"><b>Islands</b>${ISLE.id || !first ? '<button type="button" class="bgx" data-iclose="1" title="Close">\xD7</button>' : ""}</div>` + (err ? `<p class="sub">${esc(err)}</p>` : "") + (rows2 ? `<div class="bglab">Your islands \xB7 each one is saved automatically</div>${rows2}` : '<p class="sub">No islands yet. Start one below.</p>') + `<div class="bglab">New island</div><div class="islnew"><label><input type="radio" name="isc" value="blank" checked> <b>Blank island</b> <span class="dim">you alone, an empty island: build it up</span></label><label><input type="radio" name="isc" value="village"> <b>Ready village</b> <span class="dim">a built village with people (for trying things)</span></label><div class="islseed"><label>Name <input id="islname" type="text" autocomplete="off" spellcheck="false" maxlength="40" placeholder="your island's name"></label></div><div class="islseed"><label>Seed <input id="islseed" type="text" autocomplete="off" spellcheck="false" placeholder="random"></label><button type="button" class="btn primary" data-inew="1">Start</button></div></div></div>`;
+  box.innerHTML = `<div class="bgwrap isl"><div class="bghead"><b>Islands</b>${ISLE.id || !first ? '<button type="button" class="bgx" data-iclose="1" title="Close">\xD7</button>' : ""}</div>` + (err ? `<p class="sub">${esc(err)}</p>` : "") + (rows2 ? `<div class="bglab">Your islands \xB7 each one is saved automatically</div>${rows2}` : '<p class="sub">No islands yet. Start one below.</p>') + `<div class="bglab">New island</div><div class="islnew"><label><input type="radio" name="isc" value="blank" checked> <b>Blank island</b> <span class="dim">you alone, an empty island: build it up</span></label><label><input type="radio" name="isc" value="village"> <b>Ready village</b> <span class="dim">a built village with people (for trying things)</span></label><label><input type="radio" name="isc" value="farm"> <b>Ready farming village</b> <span class="dim">only what farming needs: fields, a seed seller, a greengrocer (for testing the farm economy)</span></label><div class="islseed"><label>Name <input id="islname" type="text" autocomplete="off" spellcheck="false" maxlength="40" placeholder="your island's name"></label></div><div class="islseed"><label>Seed <input id="islseed" type="text" autocomplete="off" spellcheck="false" placeholder="random"></label><button type="button" class="btn primary" data-inew="1">Start</button></div></div></div>`;
 }
 function isleHide() {
   const b = document.getElementById("islands");
@@ -27048,8 +27273,9 @@ EVK("bought", "trade", { needs: ["item", "qty"], tell: 0.25 });
 EVK("sold", "trade", { needs: ["item", "qty"], tell: 0.2 });
 EVK("could_not_afford", "trade", { needs: ["item"], tell: 0.4 });
 EVK("out_of_stock", "trade", { needs: ["item"], tell: 0.4 });
-EVK("new_in_stock", "trade", { needs: ["item"], tell: 0.5 });
-EVK("price_changed", "trade", { needs: ["item"], tell: 0.4 });
+EVK("new_in_stock", "trade", { needs: ["item"], tell: 0.55 });
+EVK("price_up", "trade", { needs: ["item"], tell: 0.4 });
+EVK("price_down", "trade", { needs: ["item"], tell: 0.4 });
 EVK("planted", "farm", { needs: ["qty"], tell: 0.25 });
 EVK("harvested", "farm", { needs: ["qty"], tell: 0.35 });
 EVK("crop_failed", "farm", { tell: 0.6 });
@@ -27456,6 +27682,7 @@ const ACTS = {
     apply: (c, sp, li) => {
       const g = c.life;
       c.lifeLine = "life:" + g.kind;
+      c.lifeShop = g.data.place || "";
       c.lifeQty = g.data.qty || 1;
       c.lifeTrouble = g.trouble;
       c.lifeItem = g.data.seed ? WORLD.name("seed", g.data.seed) : g.data.item ? WORLD.name("item", g.data.item) : "";
@@ -27638,6 +27865,17 @@ lx("life:bought", "plain", "Picked up {things}.");
 lx("life:sold", "plain", "I sold {things} today.");
 lx("life:planted", "plain", "I planted {things} today.");
 lx("life:planted", "plain", "Put in {things} this morning.");
+lx("life:new_in_stock", "plain", "The {shop} has {item} in now.");
+lx("life:new_in_stock", "plain", "Did you know the {shop} is selling {item} now?");
+lx("life:new_in_stock", "plain", "The {shop} finally has {item}.");
+lx("life:out_of_stock", "plain", "The {shop} had no {item} left.");
+lx("life:out_of_stock", "plain", "Went for {item} and the {shop} was out.");
+lx("life:could_not_afford", "plain", "I couldn't afford {item} today.");
+lx("life:could_not_afford", "plain", "Money is tight. I had to leave the {item}.");
+lx("life:could_not_afford", "plain", "Everything costs more than I have.");
+lx("life:price_up", "plain", "{item} has gone up at the {shop}.");
+lx("life:price_down", "plain", "{item} is cheaper at the {shop} now.");
+lx("life:price_down", "plain", "You can get {item} for less at the {shop} today.");
 lx("life:harvested", "plain", "I brought in {things}.");
 lx("life:harvested", "plain", "Harvested {things} today.");
 function lxContext(sp, li, c) {
@@ -27662,7 +27900,7 @@ function lxSay(act, sp, li, c) {
   heard[act + "|" + best.text] = game.time;
   const place = String(placeOf(sp) || "").replace(/^(in|at)\s+/, "");
   const inP = /^the /.test(place) ? "at " + place : place ? "in " + place : "here";
-  const raw = best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || "daily").toLowerCase()).replace(/\{state\}/g, ctx2.state).replace(/\{things\}/g, lxCount(c.qty, c.item)).replace(/\{qty\}/g, c.qty != null ? String(c.qty) : "").replace(/\{item\}/g, c.item || "").replace(/\{news\}/g, c.news || "").replace(/\{who\}/g, c.who || "them");
+  const raw = best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || "daily").toLowerCase()).replace(/\{state\}/g, ctx2.state).replace(/\{shop\}/g, c.shop || "stall").replace(/\{things\}/g, lxCount(c.qty, c.item)).replace(/\{qty\}/g, c.qty != null ? String(c.qty) : "").replace(/\{item\}/g, c.item || "").replace(/\{news\}/g, c.news || "").replace(/\{who\}/g, c.who || "them");
   return placeWords(raw.replace(/(^|[.!?]\s+)([a-z])/g, (_m, a, b) => a + b.toUpperCase()));
 }
 function lxCount(qty, name) {
@@ -27704,7 +27942,7 @@ function talkRun(a, b, listened) {
   const say2 = (sp2, li2, id) => {
     const A = ACTS[id];
     A.apply(c, sp2, li2);
-    c.turns.push({ by: sp2.id, act: id, x: { state: c.state, how: c.newsHow, conf: c.newsConf, news: c.told && c.told.text, who: c.newsWho ? c.newsWho.first : "them", line: c.lifeLine, qty: c.lifeQty, item: c.lifeItem } });
+    c.turns.push({ by: sp2.id, act: id, x: { state: c.state, how: c.newsHow, conf: c.newsConf, news: c.told && c.told.text, who: c.newsWho ? c.newsWho.first : "them", line: c.lifeLine, qty: c.lifeQty, item: c.lifeItem, shop: c.lifeShop } });
     c.last = id;
   };
   let sp = a, li = b;

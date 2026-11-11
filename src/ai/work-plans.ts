@@ -6,6 +6,7 @@ function farmPlan(n) {
   if (!list.length) { list = free.filter(c => !c.pl); kind = 'plow'; }
   if (!list.length) return null;
   const steps = []; let cx = n.tx, cy = n.ty, prev = { x: -9, y: -9 }; const txt = { harvest: 'Harvesting grain', sow: 'Sowing seed', plow: 'Ploughing the field' }[kind];
+  if (kind === 'sow' && town.farmEcon) { const buy = farmSeedBuy(n, Math.min(8, list.length)); steps.push(...buy); if (!buy.length && !farmSeedCount(n)) return null; }   // (seed is bought, and kept back from the harvest; with none and the stall shut there is nothing to sow)
   for (let i = 0; i < 8 && list.length; i++) {
     let bi = 0, bd = 1e9; list.forEach((c, j) => { const d = Math.abs(c.x - cx) + Math.abs(c.y - cy); if (d < bd) { bd = d; bi = j; } });
     const c = list.splice(bi, 1)[0]; c.claim = n; n.claims.push(c); cx = c.x; cy = c.y;
@@ -17,7 +18,7 @@ function farmPlan(n) {
     prev = { x: c.x, y: c.y };
     steps.push(waitS(kind === 'plow' ? 3 : kind === 'harvest' ? 4 : 7, 'work', txt, { tool: 'hoe', onEnd(n) {
       if (kind === 'harvest') { if (c.st && cropStage(c) === 4) itHarvest(n, c); }
-      else if (kind === 'sow') { if (!c.st && c.pl && fieldPlowed(c)) { c.st = 1; c.t0 = game.time; c.seed = farmSeed(n); if (!n.player) LIFE.emit('planted', n, { seed: c.seed, qty: 1 }); } }
+      else if (kind === 'sow') { if (!c.st && c.pl && fieldPlowed(c)) { const sk = town.farmEcon ? farmSow(n) : farmSeed(n); if (!sk) return; c.st = 1; c.t0 = game.time; c.seed = sk; if (!n.player) LIFE.emit('planted', n, { seed: c.seed, qty: 1 }); } }
       else c.pl = 1;
     } }));
   }
@@ -121,7 +122,9 @@ function demandFor(g) {
 const CROP_YIELD = 3;
 /** what a farmer sows: mostly barley (the staple the bakery needs), the rest a mix of the other food crops; the same villager keeps a liking for one or two */
 function farmSeed(n) {
-  const food = Object.keys(IT_SEEDS).filter(k => k !== 'barley' && !IT_SEEDS[k].flower), r = n.rand ? n.rand() : Math.random(); if (r < 0.5) return 'barley';
+  const food = Object.keys(IT_SEEDS).filter(k => k !== 'barley' && !IT_SEEDS[k].flower), r = n.rand ? n.rand() : Math.random();
+  if (town.farmEcon && r > 0.88) { const fl = Object.keys(IT_SEEDS).filter(k => IT_SEEDS[k].flower); return fl[(n.id * 5 + Math.floor(r * 1000)) % fl.length]; }   // (a few plots of flowers for the stall)
+  if (r < 0.5) return 'barley';
   const fav = food[(n.id * 7) % food.length], fav2 = food[(n.id * 7 + 3) % food.length], q = (r - 0.5) * 2;   // 0..1 over the other half
   return q < 0.35 ? fav : q < 0.55 ? fav2 : food[Math.floor((q * 997) % food.length)];
 }

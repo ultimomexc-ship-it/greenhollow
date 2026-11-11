@@ -20,7 +20,7 @@ const TALK_TOPICS = () => Object.keys(ACTS).filter(k => ACTS[k].stage === 'topic
 
 function talkRun(a: any, b: any, listened?: boolean): any {
   const c: any = { a, b, stage: 'open', done: {}, turns: [], left: { [a.id]: talkBudget(a, b), [b.id]: talkBudget(b, a) }, last: null, t0: game.time };
-  const say = (sp: any, li: any, id: string) => { const A = ACTS[id]; A.apply(c, sp, li); c.turns.push({ by: sp.id, act: id, x: { state: c.state, how: c.newsHow, conf: c.newsConf, news: c.told && c.told.text, who: c.newsWho ? c.newsWho.first : 'them', line: c.lifeLine, qty: c.lifeQty, item: c.lifeItem } }); c.last = id; };   // (x: what the words need, as it was at this turn)
+  const say = (sp: any, li: any, id: string) => { const A = ACTS[id]; A.apply(c, sp, li); c.turns.push({ by: sp.id, act: id, x: { state: c.state, how: c.newsHow, conf: c.newsConf, news: c.told && c.told.text, who: c.newsWho ? c.newsWho.first : 'them', line: c.lifeLine, qty: c.lifeQty, item: c.lifeItem, shop: c.lifeShop } }); c.last = id; };   // (x: what the words need, as it was at this turn)
   let sp = a, li = b;
   /* opening */
   if (TALK.on.ritual) { say(sp, li, 'greet'); say(li, sp, 'greet_back'); }

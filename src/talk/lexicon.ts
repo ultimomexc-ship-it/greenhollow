@@ -58,6 +58,10 @@ lx('life:tired', 'plain', 'I\'m worn out. All day on my feet.');
 lx('life:ate', 'plain', 'Had a decent meal at last.');
 lx('life:bought', 'plain', 'I bought {things} today.'); lx('life:bought', 'plain', 'Picked up {things}.'); lx('life:sold', 'plain', 'I sold {things} today.');
 lx('life:planted', 'plain', 'I planted {things} today.'); lx('life:planted', 'plain', 'Put in {things} this morning.');
+lx('life:new_in_stock', 'plain', 'The {shop} has {item} in now.'); lx('life:new_in_stock', 'plain', 'Did you know the {shop} is selling {item} now?'); lx('life:new_in_stock', 'plain', 'The {shop} finally has {item}.');
+lx('life:out_of_stock', 'plain', 'The {shop} had no {item} left.'); lx('life:out_of_stock', 'plain', 'Went for {item} and the {shop} was out.');
+lx('life:could_not_afford', 'plain', 'I couldn\'t afford {item} today.'); lx('life:could_not_afford', 'plain', 'Money is tight. I had to leave the {item}.'); lx('life:could_not_afford', 'plain', 'Everything costs more than I have.');
+lx('life:price_up', 'plain', '{item} has gone up at the {shop}.'); lx('life:price_down', 'plain', '{item} is cheaper at the {shop} now.'); lx('life:price_down', 'plain', 'You can get {item} for less at the {shop} today.');
 lx('life:harvested', 'plain', 'I brought in {things}.'); lx('life:harvested', 'plain', 'Harvested {things} today.');
 
 /** what a speaker's line may be conditioned on, for this act */
@@ -74,7 +78,7 @@ function lxSay(act: string, sp: any, li: any, c: any): string {
   for (const e of cands) { const id = act + '|' + e.text, s = Object.keys(e.tags).length * 2 - (heard[id] != null ? 4 - Math.min(3, (game.time - heard[id]) / 600) : 0) + Math.random() * 1.5; if (s > bs) { bs = s; best = e; } }
   heard[act + '|' + best.text] = game.time;
   const place = String(placeOf(sp) || '').replace(/^(in|at)\s+/, ''); const inP = /^the /.test(place) ? 'at ' + place : place ? 'in ' + place : 'here';
-  const raw = best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || 'daily').toLowerCase()).replace(/\{state\}/g, ctx.state).replace(/\{things\}/g, lxCount(c.qty, c.item)).replace(/\{qty\}/g, c.qty != null ? String(c.qty) : '').replace(/\{item\}/g, c.item || '').replace(/\{news\}/g, c.news || '').replace(/\{who\}/g, c.who || 'them');
+  const raw = best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || 'daily').toLowerCase()).replace(/\{state\}/g, ctx.state).replace(/\{shop\}/g, c.shop || 'stall').replace(/\{things\}/g, lxCount(c.qty, c.item)).replace(/\{qty\}/g, c.qty != null ? String(c.qty) : '').replace(/\{item\}/g, c.item || '').replace(/\{news\}/g, c.news || '').replace(/\{who\}/g, c.who || 'them');
   return placeWords(raw.replace(/(^|[.!?]\s+)([a-z])/g, (_m: string, a: string, b: string) => a + b.toUpperCase()));
 }
 

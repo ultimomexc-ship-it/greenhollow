@@ -68,7 +68,7 @@ function haulPlan(n) {
 function foodShopPlan(n) {
   const hh = hhOf(n).filter(o => !o.infant).length, need = 3 * hh * 100 - foodSat(pantryOf(n));
   if (need < 40) return null;
-  const steps = []; let left = need, spend = 1e9, bought = false; const tried = new Set();
+  const steps = []; let left = need, spend = town.farmEcon ? Math.max(0, n.coin) : 1e9, bought = false; const tried = new Set();
   for (let k = 0; k < 2 && left > 20 && spend >= 1; k++) {
     let best = null, bs = 1e9;
     for (const g of FOODS) {

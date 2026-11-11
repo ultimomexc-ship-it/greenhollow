@@ -1284,6 +1284,34 @@ test('world modules: a job, an event or a system can be switched off to test the
   return r.n + ' modules';
 });
 
+test('ready farming village: only what farming needs; farmers buy seed from the seed seller with real money, keep seed back, sell what they grow to the greengrocer, and talk about it', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('farm-test', 'farm'); TALK.words = true; const out = {};
+    out.scen = town.scenario; out.eco = !!town.farmEcon; out.kinds = [...new Set(rooms.filter(q => !q.dead).map(q => q.kind))].sort().join(',');
+    out.merch = merchants.map(m => m.def.noun).sort().join(','); out.mods = [modOn('job.Farmer'), modOn('job.Miner'), modOn('gath.fishing'), modOn('event.wedding'), modOn('sys.law')]; out.fields = town.crops.length > 40;
+    out.range0 = farmSeedRange().length; return out; });
+  check(r.scen === 'farm' && r.eco, 'the scenario is the ready farming village');
+  check(r.kinds === 'house,privy', 'only houses and privies are built (no church, tavern, bakery, smithy, jail): ' + r.kinds);
+  check(r.merch === 'greengrocer,seed stall', 'exactly two stalls, the greengrocer and the seed seller: ' + r.merch);
+  check(r.mods[0] === true && r.mods.slice(1).every(v => v === false), 'everything but farming is switched off for this island: ' + JSON.stringify(r.mods));
+  await simulate(page, 6 * 1440);
+  const r2 = await page.evaluate(() => {
+    const st = LIFE.stream, seedBuys = st.filter(e => e.kind === 'bought' && String(e.data.item).startsWith('seed_')).length, produceSold = st.filter(e => e.kind === 'sold' && !String(e.data.item).startsWith('seed_')).length;
+    const lines = TALK.log.filter(l => l.lines).flatMap(l => l.lines).filter(t => /seed|planted|Put in|brought in|Harvested|sold|bought|afford|in stock|in now/i.test(t));
+    const dg = LIFE.digest(6).kinds; return { dead: npcs.filter(n => n.dead).length, planted: dg.planted || 0, harvested: dg.harvested || 0, seedBuys, produceSold, stock: dg.new_in_stock || 0, range: farmSeedRange().length, lines: lines.length, sample: lines.slice(0, 3), hungry: npcs.filter(n => !n.dead && n.hunger > 95).length, coins: Math.round(npcs.reduce((a, n) => a + (n.coin || 0), 0)) }; });
+  check(r2.dead === 0 && r2.hungry === 0, 'nobody starves in six days: ' + JSON.stringify([r2.dead, r2.hungry]));
+  check(r2.planted >= 30 && r2.harvested >= 20, 'farmers plant and harvest: ' + JSON.stringify([r2.planted, r2.harvested]));
+  check(r2.seedBuys >= 5 && r2.produceSold >= 5, 'seed is bought from the seed stall and produce is sold to the greengrocer: ' + JSON.stringify([r2.seedBuys, r2.produceSold]));
+  check(r2.stock >= 3 && r2.range > r.range0, 'new seeds turn up on the stall and it is noticed: ' + JSON.stringify([r2.stock, r2.range, r.range0]));
+  check(r2.lines >= 3, 'villagers talk about it (what they bought, planted, harvested, could not afford): ' + JSON.stringify(r2.sample));
+  // another island is untouched
+  const r3 = await page.evaluate(() => { newTown('village-test', 'village'); return [town.scenario, !!town.farmEcon, modOn('job.Miner'), modOn('sys.law'), LF2.feat.law]; });
+  check(r3[0] === 'village' && r3[1] === false && r3[2] === true && r3[3] === true && r3[4] === true, 'a different island keeps all its modules on: ' + JSON.stringify(r3));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return JSON.stringify(r2);
+});
+
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

@@ -1,16 +1,20 @@
 /* World modules: switch whole parts of the game on and off (docs/world-modules.md). A module is one job, shop, event or system, so a world can be built and balanced one piece at a time
    ("a world of only farmers", "just mining", "no weddings"). `modOn(id)` is what the game asks; a module is on when it is not switched off and everything it needs is on.
    Ids: job.<Agenda or Job> (job.Farmer, job.Miner, job.Baker ...), gath.<kind> (gath.fishing, gath.songs ...), event.wedding / event.funeral / event.birthday, sys.<LF2 feature> (sys.romance ...), talk.<kind>.
-   The panel is on J. The choice is remembered in the browser (`gh_mods`), except under test. */
+   The panel is on J. The choice is kept with the island (`town.modsOff`). */
 
-const MODS: any = { defs: {} as any, off: {} as any };
+const MODS: any = { defs: {} as any, g: {} as any };
+/** what is switched off lives with the island (`town.modsOff`), so every island keeps its own recipe */
+const modsOff = (): any => (typeof town !== 'undefined' && town) ? (town.modsOff || (town.modsOff = {})) : MODS.g;
 MODS.define = (id: string, label: string, kind: string, needs?: string[]) => { MODS.defs[id] = { id, label, kind, needs: needs || [] }; };
 const modOn = (id: string): boolean => {
-  if (MODS.off[id]) return false; const d = MODS.defs[id]; if (d) for (const q of d.needs) if (!modOn(q)) return false;
+  if (modsOff()[id]) return false; const d = MODS.defs[id]; if (d) for (const q of d.needs) if (!modOn(q)) return false;
   return true;
 };
-MODS.set = (id: string, on: boolean) => { if (on) delete MODS.off[id]; else MODS.off[id] = true; MODS.save(); if (id.startsWith('sys.')) LF2.feat[id.slice(4)] = on; if (id.startsWith('talk.') && typeof TALK !== 'undefined') TALK.on[id.slice(5)] = on; };
-MODS.save = () => { if ((window as any).GH_NOSAVE) return; try { localStorage.setItem('gh_mods', JSON.stringify(MODS.off)); } catch (e) {} };
+MODS.set = (id: string, on: boolean) => { if (on) delete modsOff()[id]; else modsOff()[id] = true; MODS.apply(id); };
+/** the game's own flags follow the switches (LF2 features and talk kinds) */
+MODS.apply = (id: string) => { const off = !!modsOff()[id]; if (id.startsWith('sys.')) LF2.feat[id.slice(4)] = !off; if (id.startsWith('talk.') && typeof TALK !== 'undefined') TALK.on[id.slice(5)] = !off; };
+MODS.sync = () => { for (const k of Object.keys(MODS.defs)) if (k.startsWith('sys.') || k.startsWith('talk.')) MODS.apply(k); };
 /** a world recipe: everything off except what is listed (and what those need) */
 MODS.only = (ids: string[]) => { const keep = new Set<string>(); const add = (i: string) => { if (keep.has(i)) return; keep.add(i); const d = MODS.defs[i]; if (d) d.needs.forEach(add); }; ids.forEach(add); for (const k of Object.keys(MODS.defs)) MODS.set(k, keep.has(k)); };
 MODS.all = () => { for (const k of Object.keys(MODS.defs)) MODS.set(k, true); };
@@ -20,10 +24,9 @@ for (const [j, l] of [['Farmer', 'Farming'], ['Fisher', 'Fishing'], ['Gatherer',
 for (const [j, l] of [['Baker', 'Baker'], ['Cook', 'Cook'], ['Smith', 'Smith'], ['Shopkeeper', 'Shopkeeper'], ['Weaver', 'Weaver'], ['Guard', 'Watch'], ['BathKeeper', 'Bath keeper'], ['Carpenter', 'Carpenter'], ['Builder', 'Builders'], ['Labourer', 'Labourers']]) MODS.define('job.' + j, l, 'job');
 if (typeof LF_GATH !== 'undefined') for (const k of Object.keys(LF_GATH)) MODS.define('gath.' + k, LF_GATH[k].label.replace(/^an? /, '').replace(/^./, (c: string) => c.toUpperCase()), 'event');
 MODS.define('event.wedding', 'Weddings', 'event', ['sys.romance']); MODS.define('event.funeral', 'Funerals', 'event'); MODS.define('event.birthday', 'Coming-of-age parties', 'event');
-for (const k of Object.keys(LF2.feat)) MODS.define('sys.' + k, (typeof LF2_FEATN !== 'undefined' && LF2_FEATN[k]) || k, 'system');
+for (const k of Object.keys(LF2.feat)) if (k !== 'nightlocks') MODS.define('sys.' + k, (typeof LF2_FEATN !== 'undefined' && LF2_FEATN[k]) || k, 'system');
 for (const k of Object.keys(TALK.on)) MODS.define('talk.' + k, 'Talk: ' + k, 'talk');
-for (const k of Object.keys(LF2.feat)) if (LF2.feat[k] === false) MODS.off['sys.' + k] = true;   // (the systems that start switched off show as off)
-try { if (!(window as any).GH_NOSAVE) { const s = JSON.parse(localStorage.getItem('gh_mods') || 'null'); if (s) for (const k in s) if (MODS.defs[k]) MODS.set(k, false); } } catch (e) {}
+LF2.hourly.push(() => MODS.sync());
 
 /* ---- the panel (J): modules by kind, with a switch each; a switched-off need shows its dependants greyed ---- */
 (function () {
