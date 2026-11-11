@@ -11208,7 +11208,7 @@ function workPlan(n, tod) {
   if (n.role === "Worker") {
     const r = pickAgenda(n);
     const mats = 0;
-    const load = carried(n) - ((n.inv.wood || 0) + (n.inv.stone || 0)), thr = { Farmer: 12, Fisher: 6, Woodcutter: 99, Stonecutter: 99, Miner: 99, Gatherer: 8 }[r] || 8;
+    const load = carried(n) - ((n.inv.wood || 0) + (n.inv.stone || 0)), thr0 = { Farmer: 12, Fisher: 6, Woodcutter: 99, Stonecutter: 99, Miner: 99, Gatherer: 8 }[r] || 8, thr = town.farmEcon && n.coin < 12 ? Math.min(thr0, 4) : thr0;
     if (load >= thr || (load > 0 || mats > 0) && left < 200) {
       if (game.time >= n.sellCool || (n.inv.wood || 0) + (n.inv.stone || 0) > 0) {
         const hp = haulPlan(n);
@@ -13373,8 +13373,9 @@ function targetAt0(n, x, y) {
     const m = stallTrade(n, x, y);
     if (!m) return { msg: "Nobody is at this stall." };
     if (!m.serving) return { msg: "The stall is closed right now." };
-    return { key: "stall" + m.n.id, min: 0.8, text: "Stepping up to the larder", tool: null, run(n2) {
-      if (typeof openShop === "function") openShop(m);
+    return { key: "stall" + m.n.id, min: 0.8, text: "Stepping up to the " + (town.farmEcon ? m.def.noun : "larder"), tool: null, run(n2) {
+      if (town.farmEcon && typeof farmShopDialog === "function") farmShopDialog(m);
+      else if (typeof openShop === "function") openShop(m);
     } };
   }
   if (itBuildOn(n) && n.build.sel === 1) {
@@ -25027,7 +25028,7 @@ function itHarvest(n, c) {
   n.inv[Y] = (n.inv[Y] || 0) + Q;
   c.st = 0;
   if (!n.player) LIFE.emit("harvested", n, { item: Y, qty: Q, crop: c.seed || "barley" });
-  if (!n.player && town.farmEcon) n.inv["seed_" + (c.seed || "barley")] = (n.inv["seed_" + (c.seed || "barley")] || 0) + 1;
+  if (!n.player && town.farmEcon && farmSeedCount(n) < 12) n.inv["seed_" + (c.seed || "barley")] = (n.inv["seed_" + (c.seed || "barley")] || 0) + 1;
   if (n.player) sndPick();
   let back = 0;
   if (n.player) {
@@ -25269,7 +25270,7 @@ function farmRestock() {
     if (over >= 3) {
       const q = Math.floor(over / 2);
       gr.stock[g] -= q;
-      gr.n.coin += Math.round(q * GOODS[g].base * 0.7);
+      gr.n.coin += Math.round(q * GOODS[g].base * 0.5);
       town.eco.exported += q;
     }
   }
@@ -25368,6 +25369,62 @@ function farmSetup() {
       n.inv.seed_bean = 2;
     }
   }
+}
+function farmShopDialog(m) {
+  const n = game.player;
+  if (!n || !m) return;
+  const money = () => Math.floor(n.coin) + " denarii";
+  const buy = (g, q) => () => {
+    const p = sellPrice(m, g);
+    let got = 0;
+    while (got < q && (m.stock[g] || 0) >= 1 && n.coin >= p) {
+      pay(n, m.n, p);
+      m.stock[g]--;
+      m.sales++;
+      m.revenue += p;
+      got++;
+      if (g.startsWith("seed_")) itGiveStack(n, g, 1);
+      else n.inv[g] = (n.inv[g] || 0) + 1;
+    }
+    if (got) logTrade(n, m.n, g, got, got * p, "buy");
+    return { say: got ? `Here. ${got} ${GOODS[g].name}. You have ${money()} left.` : n.coin < p ? `That's ${p} each, and you have ${money()}.` : `I'm out of ${GOODS[g].name}.`, opts: menu() };
+  };
+  const sell = (g) => () => {
+    const q = n.inv[g] || 0, p0 = buyPrice(m, g);
+    let got = 0, tot = 0;
+    while (got < q) {
+      const p = buyPrice(m, g);
+      if (p <= 0 || m.n.coin < p) break;
+      pay(m.n, n, p);
+      m.stock[g] = (m.stock[g] || 0) + 1;
+      n.inv[g]--;
+      tot += p;
+      got++;
+    }
+    if (got) logTrade(m.n, n, g, got, tot, "sell");
+    return { say: got ? `${got} ${GOODS[g].name}, ${tot} denarii. You have ${money()}.` : p0 <= 0 ? `I've enough ${GOODS[g].name} already.` : `I can't pay for any more today.`, opts: menu() };
+  };
+  const menu = () => {
+    const o = [];
+    for (const g of Object.keys(m.sells)) {
+      if (!((m.stock[g] || 0) >= 1)) continue;
+      const p = sellPrice(m, g);
+      if (g.startsWith("seed_")) {
+        if (!farmSeedRange().includes(g.slice(5))) continue;
+        o.push([`Buy a ${GOODS[g].name.replace(/s$/, "")} (${p})`, buy(g, 1)]);
+        if (n.coin >= p * 5 && m.stock[g] >= 5) o.push([`Buy 5 ${GOODS[g].name} (${p * 5})`, buy(g, 5)]);
+      } else o.push([`Buy ${GOODS[g].name} (${p})`, buy(g, 1)]);
+    }
+    for (const g of Object.keys(m.buys)) {
+      const q = n.inv[g] || 0;
+      if (q < 1) continue;
+      const p = buyPrice(m, g);
+      if (p > 0) o.push([`Sell your ${q} ${GOODS[g].name} (${p} each)`, sell(g)]);
+    }
+    o.push(["Leave", () => null]);
+    return o;
+  };
+  lf2Dialog(m.n, `${m.n.first}: What can I do for you? (You have ${money()}.)`, menu());
 }
 function carpWant(needs) {
   if (!town || !kitOn()) return null;
