@@ -1589,6 +1589,32 @@ test('requests and feelings: the hungry ask for food and the homeless for a bed,
   return JSON.stringify([r.say]);
 });
 
+test('secrets: friends confide what few know, a secret is not gossip, the gossipy and the player can pass it on, and a leak comes back as a betrayal the keeper raises', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    const out = {}; newTown('secret-test', 'farm'); TALK.words = true; const ps = npcs.filter(n => !n.dead && !n.player && n.age >= 18 && !n.infant); const A = ps[0], B = ps[1], C = ps[2], D = ps[3];
+    // A did something small and unseen
+    const ev = lfEmit('theft', { actor: A, target: D, sev: 2, tags: ['theft'], anon: true, sawActor: [], witnessIds: [], chron: false, text: A.first + ' took something' });
+    out.has = !!secretPick(A, B); A.aff[B.id] = 60; A.know[B.id] = 50; const c = { done: {}, turns: [], left: {} };
+    out.when = ACTS.confide.when(c, A, B); talkTurn(c, A, B, 'confide'); const mem = (B.tmem || []).find(m => m.ev === ev.id);
+    out.kept = !!(mem && mem.secret && mem.keeper === A.id && mem.ver.who === A.id); out.reply = ACTS.secret_alarmed.when(c, B, A) || ACTS.secret_keep.when(c, B, A);
+    out.line = lxSay('confide', A, B, talkX(c));
+    out.once = ACTS.confide.when({ done: {}, turns: [] }, A, B);   // told once
+    // ordinary gossip skips it
+    B.traits = ['shy']; let picked = 0; for (let i = 0; i < 60; i++) { const pk = TE.pick(B, C, { done: {} }); if (pk && pk.m.secret) picked++; } out.gossip = picked;
+    // the player can pass it on; the leak comes back a day later as a betrayal
+    const l0 = (town.leaks || []).length; TE.tell(B, C, { m: mem, ev }, { done: {} }); out.queued = (town.leaks || []).length === l0 + 1;
+    const a0 = A.aff[B.id]; town.leaks[town.leaks.length - 1].t = game.time - 800; for (const f of LF2.hourly) { try { f(8); } catch (e) {} }
+    const bet = lf2Ev().find(e => e.kind === 'betrayal' && e.actor === B.id && e.target === A.id); out.betrayal = !!bet; out.cooled = A.aff[B.id] < a0;
+    const hold = deedPick(A, B); out.raises = !!hold && deedYou(hold.ev, A).indexOf('secret') >= 0;
+    return out; });
+  check(r.has && r.when && r.kept && r.reply && !r.once && /Please keep|Nobody else|stay with you|first person/.test(r.line), 'a friend confides a deed nobody knows, once, and the listener keeps it: ' + JSON.stringify([r.has, r.when, r.kept, r.reply, r.once, r.line]));
+  check(r.gossip === 0, 'a secret is not gossip: ' + r.gossip);
+  check(r.queued && r.betrayal && r.cooled && r.raises, 'passing it on is a leak that comes back as a betrayal, thought the worse of and raised: ' + JSON.stringify([r.queued, r.betrayal, r.cooled, r.raises]));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return r.line;
+});
+
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

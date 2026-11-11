@@ -28,7 +28,8 @@ const TE = {
   pick(sp: any, li: any, c?: any): any {
     const mem = sp.tmem; if (!mem) return null; const gossip = talkHas(sp, 'gossipy') ? 1.4 : talkHas(sp, 'shy') ? 0.7 : 1; let best: any = null, bs = 0.1;
     for (const m of mem) {
-      if (m.ev == null || m.conf < 0.25 || (m.kind === 'did' && Math.random() < 0.8) || (m.secret && !sp.player && !(talkHas(sp, 'gossipy') && Math.random() < 0.12))) continue;   // (a secret is not gossip, unless the gossipy let it slip) const ev = lf2Ev().find((q: any) => q.id === m.ev); if (!ev) continue;
+      if (m.ev == null || m.conf < 0.25 || (m.kind === 'did' && Math.random() < 0.8) || (m.secret && !sp.player && !(talkHas(sp, 'gossipy') && Math.random() < 0.12))) continue;
+      const ev = lf2Ev().find((q: any) => q.id === m.ev); if (!ev) continue;   // (a secret is not gossip, unless the gossipy let it slip)
       if (ev.actor === li.id || ev.target === li.id || ev.actor === sp.id || ev.target === sp.id || TM.ofEv(li, m.ev) || (c && c.sharedEv && c.sharedEv.includes(m.ev)) || (m.told || []).includes(li.id)) continue;
       const age = (game.time - m.t) / 1440, rel = 0.6 + (li.aff[ev.actor] != null || li.aff[ev.target] != null ? 0.5 : 0) + (li.know && (li.know[ev.actor] > 10 || li.know[ev.target] > 10) ? 0.3 : 0);
       const sc = m.imp * Math.exp(-age / 3) * rel * gossip * (0.8 + Math.random() * 0.4); if (sc > bs) { bs = sc; best = { m, ev, score: sc }; }
