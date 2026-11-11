@@ -1064,7 +1064,7 @@ test('talk engine (phase 1): villagers walk up, greet, chat about small things, 
   await page.evaluate(() => { TALK.words = true; });
   await simulate(page, 1440 + 10 * 60);
   const r = await page.evaluate(() => {
-    const L = TALK.log.filter(l => l.acts[0].act !== 'shop_greet'), bad = [];   // (stall encounters have their own shape: the shop talk test)
+    const L = TALK.log.filter(l => l.acts[0].act !== 'shop_greet' && l.acts[0].act !== 'keeper_call'), bad = [];   // (stall encounters and calls have their own shape: the shop talk tests)
     for (const l of L) {
       const ids = l.acts.map(x => x.act);
       if (ids[0] !== 'greet' || ids[1] !== 'greet_back') bad.push('opening ' + ids.slice(0, 2));
@@ -1106,9 +1106,9 @@ test('talk engine (phase 1): the one who starts walks up to the other, they stan
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   await simulate(page, 10 * 60);
   const r = await page.evaluate(() => {
-    const free = npcs.filter(q => !q.dead && !q.player && q.age >= 18 && !q.moving && q.pose !== 'sleep'); const a = free[0], c = free[1]; if (!a || !c) return { skip: true };
-    const spot = (x, y) => { for (let r = 0; r < 12; r++) for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) { const tx = x + dx, ty = y + dy; if (walkable(tx, ty) && !lfPropAt(tx, ty) && !npcs.some(o => o.tx === tx && o.ty === ty)) return { x: tx, y: ty }; } return null; };
-    const P = game.player || (startPlaying(npcs.find(canControl)), game.player), sa = spot(P.tx + 3, P.ty), sb = sa && spot(sa.x + 3, sa.y); if (!sa || !sb) return { skip: true };
+    const free = npcs.filter(q => !q.dead && !q.player && q.age >= 18 && !q.moving && q.pose !== 'sleep' && !q.job && !q.shop); const a = free[0], c = free[1]; if (!a || !c) return { skip: true };   // (people with no job of their own: a workday plan is not what is being tested)
+    let sa = null, sb = null; scan: for (let r = 0; r < 25; r++) for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) { const x = town.cx + dx, y = town.cy + dy; let ok = true; for (let i = -1; i <= 5 && ok; i++) for (let j = -1; j <= 1 && ok; j++) { const tx = x + i, ty = y + j; if (!walkable(tx, ty) || lfPropAt(tx, ty) || roomAt[ty][tx] >= 0 || npcs.some(o => o.tx === tx && o.ty === ty)) ok = false; } if (ok) { const pth = findPath(x, y, x + 3, y); if (pth && pth.length > 0 && pth.length <= 4) { sa = { x, y }; sb = { x: x + 4, y }; break scan; } } }   // (open ground you can really walk straight across)
+    if (!sa) return { skip: true };
     for (const [n, s] of [[a, sa], [c, sb]]) { abortPlan(n); n.tx = n.x = s.x; n.ty = n.y = s.y; n.pose = 'stand'; n.talkUntil = 0; n.talkBusy = 0; }
     rebuildOcc(); const n0 = TALK.log.length; talkApproach(a, c); window.__pair = [a.id, c.id, n0]; return { first: a.plan[0].text, d0: lfDist(a, c) };
   });
@@ -1292,7 +1292,7 @@ test('ready farming village: only what farming needs; farmers buy seed from the 
     out.merch = merchants.map(m => m.def.noun).sort().join(','); out.mods = [modOn('job.Farmer'), modOn('job.Miner'), modOn('gath.fishing'), modOn('event.wedding'), modOn('sys.law')]; out.fields = town.crops.length > 40;
     out.range0 = farmSeedRange().length; return out; });
   check(r.scen === 'farm' && r.eco, 'the scenario is the ready farming village');
-  check(r.kinds === 'house,privy', 'only houses and privies are built (no church, tavern, bakery, smithy, jail): ' + r.kinds);
+  check(r.kinds === 'bakery,house,privy', 'only houses, privies and a bakery are built (no church, tavern, smithy, jail): ' + r.kinds);
   check(r.merch === 'greengrocer,seed stall', 'exactly two stalls, the greengrocer and the seed seller: ' + r.merch);
   check(r.mods[0] === true && r.mods.slice(1).every(v => v === false), 'everything but farming is switched off for this island: ' + JSON.stringify(r.mods));
   await simulate(page, 6 * 1440);
@@ -1331,7 +1331,7 @@ test('shop talk: customers and keepers talk at the stall in bubbles (greeting, a
     out.good = ok.length; out.paid = sh.filter(l => l.acts.some(a => a.act === 'quote_price' || a.act === 'bid_price') && l.lines.some(t => /denarii|denarius/.test(t))).length;
     out.sample = sh.slice(0, 2).map(l => l.lines.join(' | '));
     // each encounter is between a villager and the keeper of a stall
-    const keepers = new Set(merchants.map(m => m.n.id)); out.keeperInvolved = sh.every(l => keepers.has(l.a) || keepers.has(l.b));
+    const keepers = new Set(merchants.map(m => m.n.id).concat(npcs.filter(n => n.job === 'Baker').map(n => n.id))); out.keeperInvolved = sh.every(l => keepers.has(l.a) || keepers.has(l.b));
     // prices travel: the asker learns what the other paid
     const pr = TALK.log.filter(l => l.acts.some(a => a.act === 'tell_price')); out.priceTalks = pr.length; out.learned = npcs.some(n => (n.tmem || []).some(m => m.kind === 'price' && m.unit > 0));
     // the player's stall menu speaks with the keeper's own lines
