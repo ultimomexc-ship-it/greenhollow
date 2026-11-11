@@ -21,3 +21,6 @@ Each job is a *supply chain*; a recipe generates a town with exactly that chain,
 | **Fishing** | shore, rods, a fishmonger | fish | catches, the weather, trips |
 Order: farming first (seed seller, real seed buying, new-in-stock and price events), balanced alone for a few days of play; then mining; then fishing; then the social events (outings, weddings, funerals, parties) one at a time on top of a world that already has a working day.
 Everything a module owns registers its life-event kinds and lexicon lines with it, so a world without the module is also silent about it.
+
+## Status
+Modules and the J panel are in. **Ready Farming Village** is the first recipe made into a world (CLAUDE.md, "Ready Farming Village"). Next in this line: balance the farm economy by playing it (prices, seed cost, how much grain a household needs), then a baker (grain to bread), then mining as the second world.

@@ -243,8 +243,8 @@ function loadTown(seed, size, scenario?) {
   if(!ok) throw new Error('town generation failed');
   initEconomy();
   makeTownIndex2();
-  if (scenario === 'blank') blankStart(); else { prebuildVillage(); prebuildLevels(); housingTick(); growthProjects(); }
-  town.scenario = scenario === 'blank' ? 'blank' : 'village'; shroomScatter();
+  if (scenario === 'blank') blankStart(); else if (scenario === 'farm') farmStart(); else { prebuildVillage(); prebuildLevels(); housingTick(); growthProjects(); }
+  town.scenario = scenario === 'blank' ? 'blank' : scenario === 'farm' ? 'farm' : 'village'; shroomScatter(); if (typeof MODS !== 'undefined') MODS.sync();   // (the switches follow this island)
   return town;
 }
 /** the blank island: you alone, with a tent in the empty camp; nobody else yet (visitors come later) */

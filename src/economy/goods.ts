@@ -52,14 +52,15 @@ function moveSellersIndoors() {
   for (const mk of town.markets) for (const st of mk.stalls) { if (st.owner || st.gone) continue; st.gone = true;
     for (const t of st.tiles || []) if (grid[t.y][t.x] === T.STALL) { setT(t.x, t.y, T.PATH); if (typeof markDirty === 'function') markDirty(t.x, t.y, 1, 1); } }
 }
-function makeMerchant(n, mk?) {
+function makeMerchant(n, mk?, def?) {
+  const D = def || MERCH_DEF;
   let stall = hallStalls().find(s => !s.owner);
   if (!stall && mk) stall = mk.stalls.find(s => !s.owner && !s.gone);
   if (!stall) { const opts = town.markets.filter(m => m.stalls.some(s => !s.owner && !s.gone)).map(m => ({ m, sc: m.stalls.filter(s => s.owner).length * 40 + marketDist2(n, m) })).sort((a, c) => a.sc - c.sc); stall = opts.length ? opts[0].m.stalls.find(s => !s.owner && !s.gone) : null; }
   if (!stall) return null;
   n.stall = stall; stall.owner = n;
-  const m = { n, role: 'Trader', def: MERCH_DEF, buys: MERCH_DEF.buys, sells: MERCH_DEF.sells, stock: {}, post: stall, front: { x: stall.front.x, y: stall.front.y, face: stall.face }, serving: false, sales: 0, revenue: 0, outlay: 0 };
-  for (const g of Object.keys(MERCH_DEF.buys)) m.stock[g] = Math.floor(MERCH_DEF.buys[g] * (0.12 + Math.random() * 0.15));
+  const m = { n, role: 'Trader', def: D, buys: D.buys, sells: D.sells, stock: {}, post: stall, front: { x: stall.front.x, y: stall.front.y, face: stall.face }, serving: false, sales: 0, revenue: 0, outlay: 0 };
+  for (const g of Object.keys(D.buys)) m.stock[g] = Math.floor(D.buys[g] * (0.12 + Math.random() * 0.15));
   n.coin += 60; n.shop = m; merchants.push(m); return m;
 }
 function dropMerchant(n) {
@@ -90,13 +91,15 @@ function logTrade(buyer, seller, g, q, total, verb) {
   game.trades.push({ time: game.time, buyer, seller, g, q, total, verb });
   if (game.trades.length > 200) game.trades.splice(0, 50);
 }
-function pay(from, to, amt) { /* nothing changes hands but the goods */ }
+function pay(from, to, amt) { if (town && town.farmEcon && from && to) { from.coin -= amt; to.coin += amt; } /* (in the farming economy money changes hands; elsewhere only the goods do) */ }
 function consume(n, g, q) { if (g === 'herbs') n.health = Math.min(100, n.health + 55); else n.inv[g] = (n.inv[g] || 0) + q; }
 function doBuy(n, m, g, qty) {
   if (!m.serving || Math.abs(n.x - m.front.x) + Math.abs(n.y - m.front.y) > 1.5) return 0;
   let got = 0, tot = 0;
+  if (!(m.stock[g] >= 1) && typeof LIFE !== 'undefined' && !n.player && (n.lifeOut || {})[g] !== Math.floor(game.time / 60)) { (n.lifeOut || (n.lifeOut = {}))[g] = Math.floor(game.time / 60); LIFE.emit('out_of_stock', n, { item: g, place: m.def.noun }); }
   while (got < qty && (m.stock[g] || 0) >= 1) {
     const p = sellPrice(m, g);
+    if (town.farmEcon && n.coin < p) { if (!n.player) LIFE.emit('could_not_afford', n, { item: g, place: m.def.noun }); break; }
     pay(n, m.n, p); m.stock[g]--; m.sales++; m.revenue += p; tot += p; got++; consume(n, g, 1);
   }
   if (got) logTrade(n, m.n, g, got, tot, 'buy');
@@ -107,6 +110,7 @@ function doSell(n, m, g, qty) {
   let got = 0, tot = 0;
   while (got < qty && (n.inv[g] || 0) >= 1) {
     const p = buyPrice(m, g); if (p <= 0) break;
+    if (town.farmEcon && m.n.coin < p) break;   // (the shop cannot pay for any more today)
     pay(m.n, n, p); m.stock[g] = (m.stock[g] || 0) + 1; n.inv[g]--; m.outlay += p; tot += p; got++;
   }
   if (got) { logTrade(m.n, n, g, got, tot, 'sell'); lf2Paid(n, tot); }

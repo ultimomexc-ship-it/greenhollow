@@ -192,7 +192,8 @@ function lfBuild(kind, w, h, o) {
   town.sites.filter(q => q.kind === 'road').forEach(q => completeSite(q, true));
   refreshReach(); return s;
 }
-function prebuildVillage() {
+function prebuildVillage(o?: any) {
+  const farm = !!(o && o.farm);
   lfInitProps();
   // a green with a larder, a chapel and a tavern, then houses for every family, fields and privies
   lfBuild('market', 9, 7, { first: true });
@@ -206,22 +207,22 @@ function prebuildVillage() {
     const beds = Math.min(6, group.length + 1), d = houseDims(beds), o = { beds, owners: group.slice(0, 6), surname: adult.surname };
     for (const x of [{}, { tight: true }, { clear: true }, { tight: true, clear: true }]) if (lfBuild('house', d.w, d.h, Object.assign({}, o, x))) break;
   });
-  for (const [w, h, tight, clear] of [[15, 11], [15, 11, false, true], [13, 9, false, true], [11, 8, true, true]]) if (lfBuild('church', w, h, { tight: !!tight, clear: !!clear })) break;
-  for (const [w, h, tight, clear] of [[10, 7], [9, 6], [9, 6, true], [9, 6, true, true]]) if (lfBuild('tavern', w, h, { tight: !!tight, clear: !!clear })) break;
+  if (!farm) for (const [w, h, tight, clear] of [[15, 11], [15, 11, false, true], [13, 9, false, true], [11, 8, true, true]]) if (lfBuild('church', w, h, { tight: !!tight, clear: !!clear })) break;
+  if (!farm) for (const [w, h, tight, clear] of [[10, 7], [9, 6], [9, 6, true], [9, 6, true, true]]) if (lfBuild('tavern', w, h, { tight: !!tight, clear: !!clear })) break;
   for (let i = 0; i < 2; i++) lfBuild('field', 10, 5, {}) || lfBuild('field', 8, 4, {});
   const homes = rooms.filter(r => r.kind === 'house' && !r.dead), R = rng(town.seed + 99);
   for (let k = 0; k < Math.max(3, Math.ceil(homes.length * 1.2)); k++) { const hm = homes[k % Math.max(1, homes.length)]; if (hm) lfBuild('privy', 3, 3, { tight: true, near: { x: hm.x + hm.w / 2 + (R() - 0.5) * 8, y: hm.y + hm.h / 2 + (R() - 0.5) * 8 } }); }
   // stocked larders, a few days' worth
   const seenR = new Set();
   npcs.forEach(n => { if (!n.homeRoom || seenR.has(n.homeRoom)) return; seenR.add(n.homeRoom); const k = hhOf(n).length, p = n.homeRoom.pantry; p.berries = Math.round(k * (3 + R() * 2)); p.fish = Math.round(k * (2 + R() * 2)); p.grain = Math.round(k * (1 + R() * 2)); });
-  refreshReach(); refreshShore(); syncTents(); staffMarkets();
+  refreshReach(); refreshShore(); syncTents(); if (!farm) staffMarkets();
   npcs.forEach(n => { if (n.homeRoom) n.inv = {}; });
   lfPlaceProps();
   // everyone has something of their own to do
   const ws = npcs.filter(n => n.role === 'Worker' && n.age >= 16 && n.age < 60 && !n.shop);
   const want = ['Farmer', 'Fisher', 'Farmer', 'Gatherer']; if (!shoreTiles.length) want.splice(1, 1);
-  ws.forEach((n, i) => { n.job = want[i] || lfFirstJob(n); });
-  lf2Prebuild();
+  ws.forEach((n, i) => { n.job = farm ? 'Farmer' : (want[i] || lfFirstJob(n)); });
+  if (!farm) lf2Prebuild();
   npcs.forEach(n => { if (n.homeRoom && n.bed && n.bed.x != null) { n.x = n.tx = n.bed.x; n.y = n.ty = n.bed.y; n.path = []; n.moving = false; } });
 }
 

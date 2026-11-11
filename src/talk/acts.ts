@@ -36,7 +36,7 @@ const ACTS: any = {
   nothing_much: { kind: 'life', stage: 'topic', reply: true, when: (c: any, sp: any, li: any) => !LIFE.recent(sp, li).length, apply: () => {}, replies: [] },
   report_day: { kind: 'life', stage: 'topic', when: (c: any, sp: any, li: any) => (c.done.report_day || 0) < 2 && !!(c.life = LIFE.recent(sp, li)[0]), w: (c: any) => 0.9 + 2 * Math.min(1, c.life ? c.life.score : 0),
     apply: (c: any, sp: any, li: any) => {
-      const g = c.life; c.lifeLine = 'life:' + g.kind; c.lifeQty = g.data.qty || 1; c.lifeTrouble = g.trouble;
+      const g = c.life; c.lifeLine = 'life:' + g.kind; c.lifeShop = g.data.place || ''; c.lifeQty = g.data.qty || 1; c.lifeTrouble = g.trouble;
       c.lifeItem = g.data.seed ? WORLD.name('seed', g.data.seed) : g.data.item ? WORLD.name('item', g.data.item) : '';
       c.done.report_day = (c.done.report_day || 0) + 1; (li.heardLife || (li.heardLife = {}))[sp.id + ':' + g.ids[g.ids.length - 1]] = 1;
       TM.add(li, { kind: 'told_life', with: sp.id, lk: g.kind, data: g.data, conf: 0.9, imp: Math.min(0.6, g.def.tell) });   // (and now they know something about how the other one is doing)

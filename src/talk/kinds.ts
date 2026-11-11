@@ -18,7 +18,7 @@ EVK('arrival', 'place', { tell: 0.9 });
 /* ---- the everyday life the talk will be made of (emitters arrive one system at a time; the kind is defined first so the contract can be checked) ---- */
 // trade
 EVK('bought', 'trade', { needs: ['item', 'qty'], tell: 0.25 }); EVK('sold', 'trade', { needs: ['item', 'qty'], tell: 0.2 }); EVK('could_not_afford', 'trade', { needs: ['item'], tell: 0.4 });
-EVK('out_of_stock', 'trade', { needs: ['item'], tell: 0.4 }); EVK('new_in_stock', 'trade', { needs: ['item'], tell: 0.5 }); EVK('price_changed', 'trade', { needs: ['item'], tell: 0.4 });
+EVK('out_of_stock', 'trade', { needs: ['item'], tell: 0.4 }); EVK('new_in_stock', 'trade', { needs: ['item'], tell: 0.55 }); EVK('price_up', 'trade', { needs: ['item'], tell: 0.4 }); EVK('price_down', 'trade', { needs: ['item'], tell: 0.4 });
 // farm and work
 EVK('planted', 'farm', { needs: ['qty'], tell: 0.25 }); EVK('harvested', 'farm', { needs: ['qty'], tell: 0.35 }); EVK('crop_failed', 'farm', { tell: 0.6 });
 EVK('worked_shift', 'farm', { tell: 0.1 }); EVK('tool_worn', 'farm', { tell: 0.3 }); EVK('tool_broke', 'farm', { tell: 0.5 });
