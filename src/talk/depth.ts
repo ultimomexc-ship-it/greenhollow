@@ -270,6 +270,7 @@ function stateWhy(n: any, state: string): string {
   if (felt.includes('home_destroyed')) return 'has not been the same since the house came down';
   if (felt.includes('caught_on_privy') || felt.includes('caught_bathing')) return 'is still not over being walked in on';
   if (felt.includes('furniture_removed') || felt.includes('bed_moved')) return 'had the bed taken from under them, more or less';
+  if (n.ill) return 'has a fever';
   if (n.homeless || !n.bed || n.bed.x == null) return 'has no bed to go to';
   if (log.includes('starving') || log.includes('went_hungry')) return 'has not had a proper meal in days';
   if (log.includes('could_not_afford')) return 'could not pay for what was needed';
@@ -292,3 +293,42 @@ LXP('explain_unknown', ["I couldn\'t tell you. {about} won\'t say.", "No idea. I
 LXI('explain_unknown', ["I do not know. {about} has not said, and I have stopped asking.", "Nobody knows. {about} least of all."]);
 LXP('ask_more_day', ["And besides that?", "Anything else?", "And the rest of the day?"]);
 LXI('ask_more_day', ["And apart from that? I am interested in the whole of it.", "Anything else? I have time for a second thing.", "And after that?"]);
+
+/* ---- the small things of a day (life2/smalllife.ts): the words ---- */
+LXL('worked_with', ["Worked alongside {about} today. Good company in a field.", "{about} and I got through a fair bit together today.", "Spent the day working next to {about}."], ["I worked beside {about} today. We said about nine words. They were the right ones.", "{about} and I worked the same ground today. It goes faster with two, or it feels as though it does.", "I spent the day next to {about}. I know how {about} breathes when the work is hard now."]);
+LXL('ate_with', ["Had a bite with {about} earlier.", "Ate with {about} today. Makes a change from eating alone.", "{about} and I shared a table at midday."], ["I ate with {about}. Neither of us mentioned it. It was pleasant.", "{about} and I had a meal at the same time, in the same place. I am calling it lunch together.", "I shared a table with {about}. The bread was ordinary and I remember it."]);
+LXL('found', ["Found {item} this morning. No idea whose.", "Look what I picked up: {item}.", "I found {item} by the path. Keeping it."], ["I found {item}. I do not know what it is for. I have decided it is mine.", "There was {item} on the ground. I picked it up before I had thought about it.", "I found {item} today. It was not there yesterday. I have asked nobody."]);
+LXL('ill', ["I\'m not well. Something\'s got hold of me.", "Feeling rough. Fever, I think.", "I\'m under the weather. Keep your distance."], ["I am unwell. It arrived in the night, like the rest of us.", "I have a fever. I am told it is the ordinary kind. I do not find that comforting.", "I am not well. I am upright, which I am counting."]);
+LXL('recovered', ["I\'m over it. Back on my feet.", "Feeling myself again, thank goodness.", "The fever\'s gone. I could eat a horse."], ["I am better. I woke up and it had gone, without a word.", "The fever has left. I did not see it go. I am not going to look for it.", "I am well again. Everything tastes of something."]);
+LXP('answer_how', ["Not well. Fever.", "Rough, to be honest. I\'m ill.", "Poorly. I\'ll be all right."], { state: 'ill' });
+LXI('answer_how', ["Unwell. I have a fever and an opinion about it.", "Not well. I am upright. That is the summary.", "Ill. It is the ordinary kind, I am told, by people who do not have it."], { state: 'ill' });
+LXP('answer_family', ["{about} is ill. A fever.", "{about}\'s poorly. In bed, mostly."], { state: 'ill' });
+LXI('answer_family', ["{about} is ill. A fever. I have been bringing water and being told to go away.", "{about} is unwell. It is not serious. It is not nothing."], { state: 'ill' });
+LXP('sympathise_how', ["You should be in bed. Go on.", "Oh, you poor thing. Rest. I mean it."], { state: 'ill' });
+LXI('sympathise_how', ["You should be lying down. I will say it again if you are still here in a minute.", "I am sorry. Rest. The island will manage without you for a day. It managed before."], { state: 'ill' });
+LXP('vent', ["I feel dreadful. Hot and cold at once."], { state: 'ill' });
+LXI('vent', ["I feel dreadful. I am hot and cold, and I cannot decide which to complain about."], { state: 'ill' });
+LXP('remark_state', ["I shouldn\'t be out. I\'m not well."], { state: 'ill' });
+LXI('remark_state', ["I should not be out. I am ill. I wanted to see whether the day was still here."], { state: 'ill' });
+ACTS.sympathise_how.when = (c: any) => ['low', 'tired', 'hungry', 'ill'].includes(c.state);
+{ const w0 = ACTS.vent.when; ACTS.vent.when = (c: any, sp: any, li: any) => w0(c, sp, li) || (!c.done.vent && talkState(sp) === 'ill' && ((sp.aff[li.id] || 0) > 8 || sp.player)); }
+
+/* ---- a snapped word: somebody at the end of their patience says so; it is over in two lines and the people near enough heard it ---- */
+ACTS.snap = { kind: 'feeling', stage: 'topic', preview: () => ({}), w: (c: any, sp: any) => 1.2 + (talkHas(sp, 'prickly') || talkHas(sp, 'grumpy') ? 1.5 : 0),
+  when: (c: any, sp: any, li: any) => !c.done.snap && !sp.player && sp.age >= 12 && ['low', 'tired', 'hungry', 'ill'].includes(talkState(sp) as string) && (sp.aff[li.id] || 0) < 25 && (talkHas(sp, 'prickly') || talkHas(sp, 'grumpy') || (sp.mood != null && sp.mood < 22)) && game.time - (sp.snapT || -1e9) > 1440,
+  apply: (c: any, sp: any, li: any) => {
+    c.done.snap = 1; sp.snapT = game.time; c.left[sp.id] = 0; c.left[li.id] = Math.min(c.left[li.id], 0.9);
+    lfAff(li, sp, -3, 'snapped at me');
+    lfEmit('quarrel', { actor: sp, target: li, sev: 1, tags: ['nuisance'], chron: false, text: `${sp.first} snapped at ${li.first}` });
+  }, replies: ['snap_back', 'let_it_go'] };
+ACTS.snap_back = { kind: 'feeling', stage: 'topic', reply: true, when: (c: any, sp: any, li: any) => talkHas(sp, 'prickly') || talkHas(sp, 'proud') || (sp.aff[li.id] || 0) < 0, w: () => 2, apply: (c: any, sp: any, li: any) => { lfAff(li, sp, -2, 'snapped back'); }, replies: [] };
+ACTS.let_it_go = { kind: 'feeling', stage: 'topic', reply: true, when: () => true, w: () => 1.5, apply: () => {}, replies: [] };
+LXP('snap', ["Not now. I\'ve no patience left today.", "Oh, leave it, will you.", "Do I look like I want to talk?"]);
+LXI('snap', ["Not now. I have used up my patience and it is not yet noon.", "Please. Not today. I am holding the day together with one hand.", "I do not want to talk. I want that to be enough."]);
+LXP('snap_back', ["No need for that.", "Charming. I was only asking.", "Suit yourself."]);
+LXI('snap_back', ["There was no need for that. I will remember there was no need.", "I was only asking. I will ask somebody else, then, about everything.", "Very well. I withdraw the hello."]);
+LXP('let_it_go', ["All right. Another time.", "Fair enough. I\'ll leave you be."]);
+LXI('let_it_go', ["All right. Another time. There is plenty of it.", "I will leave you be. It is the thing I am best at."]);
+
+lx('ev:lent_hand', 'plain', '{a} lent {t} a hand with the work'); lx('ev:lent_hand', 'island', '{a} did an hour of {t}\'s work, unasked');
+lx('ev:sick_visit', 'plain', '{a} looked in on {t}, who is ill'); lx('ev:sick_visit', 'island', '{a} sat with {t}, who is ill');

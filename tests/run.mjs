@@ -1805,6 +1805,30 @@ test('conversation depth: topics link or start afresh, stories have a preface an
   return r.storyWords;
 });
 
+test('small life: working beside somebody and eating with them are remembered as reasons and as something to tell; "any news?" can be answered with your own day', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('small-test', 'farm'); MODS.all();
+    const ps = npcs.filter(n => !n.dead && !n.player && n.age >= 16 && !n.infant); const [a, b, c2] = ps;
+    const put = (n, x, y, act) => { n.tx = x; n.ty = y; n.x = x; n.y = y; n.moving = false; n.plan = [{ k: 'wait', act, t: 600, text: 'x' }]; n.si = 0; };
+    const x0 = a.tx, y0 = a.ty; a.job = b.job = 'Farmer'; put(a, x0, y0, 'work'); put(b, x0 + 1, y0, 'work');
+    for (const n of ps) if (n !== a && n !== b) put(n, n.tx, n.ty, 'none');
+    smallLifeHour(10);
+    const why1 = JSON.stringify((a.why || {})[b.id] || {});
+    const rec = LIFE.recent(a, c2) || [];
+    put(a, x0, y0, 'eat'); put(b, x0 + 1, y0, 'eat'); smallLifeHour(12);
+    const why2 = JSON.stringify((a.why || {})[b.id] || {});
+    smallLifeHour(12); const why3 = JSON.stringify((a.why || {})[b.id] || {});
+    return { why1, why2, same: why2 === why3, kinds: rec.map(g => g.kind), replies: ACTS.ask_news.replies };
+  });
+  check(/worked beside me/.test(r.why1), 'working side by side is a reason in the ledger: ' + r.why1);
+  check(r.kinds.includes('worked_with'), 'and something to tell about the day: ' + r.kinds);
+  check(/ate with me/.test(r.why2) && r.same, 'a shared meal counts once a day: ' + r.why2);
+  check(r.replies.includes('report_day'), 'somebody with no news can answer with their day');
+  check(!errors.length, 'no errors: ' + errors.join(' | '));
+  await page.close();
+});
+
 test('bindings: asking whether something could be said never changes what is being said; a question and its answer are about the same person; a menu option says what it will say; no line is spoken with a gap in it', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

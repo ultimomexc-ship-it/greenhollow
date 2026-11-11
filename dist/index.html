@@ -18506,6 +18506,75 @@ LF2.dec.push(function(n) {
   }
   return null;
 });
+LF2.feat.smalllife = true;
+const SMALL_FINDS = ["a shell with a hole in it", "a smooth green stone", "a coin nobody recognises", "a gull feather", "a button", "a key that fits nothing", "a piece of blue glass", "a very straight stick"];
+const smallAct = (n) => {
+  const s = n.plan && n.plan[n.si];
+  return s && s.k === "wait" && !n.moving ? s.act : "";
+};
+const smallOnce = (a, key) => {
+  const d = Math.floor(game.time / 1440), m = a.smallDay && a.smallDay.d === d ? a.smallDay : a.smallDay = { d, k: {} };
+  if (m.k[key]) return false;
+  m.k[key] = 1;
+  return true;
+};
+function smallLifeHour(h) {
+  if (!town || !LF2.feat.smalllife) return;
+  const ps = npcs.filter((n) => !n.dead && !n.infant && !n.inShip && n.age >= 8);
+  for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) {
+    const a = ps[i], b = ps[j];
+    if (lvlOf(a.ty) !== lvlOf(b.ty) || lfDist(a, b) > 7) continue;
+    const aa = smallAct(a), ab = smallAct(b), near = lfDist(a, b) <= 3;
+    if (aa === "work" && ab === "work" && a.job && a.job === b.job && smallOnce(a, "w" + b.id) && smallOnce(b, "w" + a.id)) {
+      lfAff(a, b, 1.5, "worked beside me");
+      lfAff(b, a, 1.5, "worked beside me");
+      if (!a.player) LIFE.emit("worked_with", a, { with: b.id });
+      if (!b.player) LIFE.emit("worked_with", b, { with: a.id });
+    }
+    if (near && aa === "eat" && ab === "eat" && smallOnce(a, "e" + b.id) && smallOnce(b, "e" + a.id)) {
+      lfAff(a, b, 1, "ate with me");
+      lfAff(b, a, 1, "ate with me");
+      const kin = typeof isKin === "function" && isKin(a, b);
+      if (!kin) {
+        if (!a.player) LIFE.emit("ate_with", a, { with: b.id });
+        if (!b.player) LIFE.emit("ate_with", b, { with: a.id });
+      }
+    }
+    for (const [w, h2] of [[a, b], [b, a]]) {
+      if (smallAct(w) !== "work" || !["leisure", "stand"].includes(smallAct(h2)) || h2.player || h2.age < 12 || (h2.aff[w.id] || 0) < 0 || Math.random() > 0.04 || !smallOnce(h2, "h" + w.id)) continue;
+      lfAff(w, h2, 4, "lent me a hand");
+      lfEmit("lent_hand", { actor: h2, target: w, sev: 1, tags: ["help", "kindness"], chron: false, text: `${h2.first} lent ${w.first} a hand with the work` });
+    }
+    for (const [sick, v] of [[a, b], [b, a]]) {
+      if (!sick.ill || v.ill || v.player || v.age < 12 || (v.aff[sick.id] || 0) < 20 || !near || !smallOnce(v, "v" + sick.id)) continue;
+      lfAff(sick, v, 4, "came to see me when I was ill");
+      sick.mood = Math.min(100, (sick.mood == null ? 50 : sick.mood) + 4);
+      lfEmit("sick_visit", { actor: v, target: sick, sev: 1, tags: ["kindness"], chron: false, text: `${v.first} looked in on ${sick.first}, who is ill` });
+    }
+  }
+  for (const n of ps) {
+    if (n.player) continue;
+    if (h >= 8 && h <= 19 && n.pose !== "sleep" && roomAt[n.ty] && roomAt[n.ty][n.tx] < 0 && Math.random() < 0.012) {
+      const thing = SMALL_FINDS[Math.floor(Math.random() * SMALL_FINDS.length)];
+      n.trinket = thing;
+      LIFE.emit("found", n, { thing });
+      n.mood = Math.min(100, (n.mood == null ? 50 : n.mood) + 3);
+    }
+    if (n.ill && game.time >= n.ill.until) {
+      n.ill = null;
+      LIFE.emit("recovered", n, {});
+      n.mood = Math.min(100, (n.mood == null ? 50 : n.mood) + 6);
+    } else if (!n.ill && h === 7 && n.age >= 6 && Math.random() < 0.012) {
+      n.ill = { since: game.time, until: game.time + 1440 * (1.5 + Math.random() * 2) };
+      LIFE.emit("ill", n, {});
+    }
+    if (n.ill) {
+      n.mood = Math.max(0, (n.mood == null ? 50 : n.mood) - 0.4);
+      if (n.energy != null) n.energy = Math.max(5, n.energy - 0.6);
+    }
+  }
+}
+LF2.hourly.push(smallLifeHour);
 LF2.hourly.push(() => {
   for (const n of npcs) {
     if (n.dead || n.player || n.pose !== "sleep" || (n.hunger || 0) < 95) continue;
@@ -25605,7 +25674,7 @@ function farmFlowerBuyers() {
   logTrade(b, gr.n, "flowers", 1, p, "buy");
 }
 LF2.hourly.push(() => farmFlowerBuyers());
-const FARM_RECIPE_BASE = ["job.Farmer", "job.Baker", "sys.economy", "sys.couples", "sys.cooking"];
+const FARM_RECIPE_BASE = ["job.Farmer", "job.Baker", "sys.economy", "sys.couples", "sys.cooking", "sys.smalllife"];
 function farmStart() {
   town.farmEcon = true;
   town.farmDay0 = Math.floor(game.time / 1440);
@@ -27747,6 +27816,7 @@ const WORLD = {
 const EVK = (id, family, o) => REG.define("event", id, Object.assign({ family, needs: [], tell: 0.3, tags: [] }, o || {}));
 for (const k of ["theft", "breakin", "pickpocket", "robbed", "cheat", "bribe", "escape", "arrest", "fined", "sabotage", "snoop", "blockdoor", "shutin"]) EVK(k, "crime", { tell: 0.7 });
 for (const k of ["quarrel", "brawl", "shove", "confront", "jealous", "rumour", "report"]) EVK(k, "social", { tell: 0.6 });
+for (const k of ["lent_hand", "sick_visit"]) EVK(k, "people", { tell: 0.25 });
 for (const k of ["gift", "help", "charity", "dole", "repair", "distract"]) EVK(k, "people", { tell: 0.4 });
 for (const k of ["crush", "courting", "tryst"]) EVK(k, "romance", { tell: 0.7 });
 for (const k of ["dice", "sing", "stumble", "smelly", "newclothes", "knock", "wake"]) EVK(k, "daily", { tell: 0.2 });
@@ -27782,6 +27852,10 @@ EVK("no_privy", "body", { tell: 0.6, tags: ["misfortune"] });
 EVK("washed", "body", { tell: 0.1 });
 EVK("tired", "body", { tell: 0.2 });
 EVK("ill", "body", { tell: 0.6, tags: ["health"] });
+EVK("recovered", "body", { tell: 0.5 });
+EVK("worked_with", "people", { needs: ["with"], tell: 0.3 });
+EVK("ate_with", "people", { needs: ["with"], tell: 0.3 });
+EVK("found", "daily", { needs: ["thing"], tell: 0.6 });
 EVK("got_bed", "home", { tell: 0.5 });
 EVK("lost_bed", "home", { tell: 0.7, tags: ["misfortune"] });
 EVK("moved_house", "home", { tell: 0.6 });
@@ -27908,7 +27982,7 @@ LIFE.recent = function(n, listener) {
     const def = REG.get("event", e.kind);
     if (!def || e.data && e.data.ev != null) continue;
     if (!LEX.some((l) => l.act === "life:" + e.kind)) continue;
-    const key = e.kind + "|" + (e.data.item || e.data.seed || e.data.where || ""), g = groups[key] || (groups[key] = { kind: e.kind, def, data: Object.assign({}, e.data, { qty: 0 }), ids: [], t: e.t, trouble: (def.tags || []).includes("misfortune") });
+    const key = e.kind + "|" + (e.data.item || e.data.seed || e.data.where || e.data.with || e.data.thing || ""), g = groups[key] || (groups[key] = { kind: e.kind, def, data: Object.assign({}, e.data, { qty: 0 }), ids: [], t: e.t, trouble: (def.tags || []).includes("misfortune") });
     g.data.qty += e.data.qty || 1;
     g.ids.push(e.id);
     g.t = Math.max(g.t, e.t);
@@ -28149,7 +28223,7 @@ const ACTS = {
   /* ---- world: news and what people make of it ---- */
   ask_news: { kind: "world", stage: "topic", when: (c, sp, li) => !c.done.ask_news && !c.done.share_news && !TE.pick(sp, li, c), w: (c, sp) => 0.7 + (talkHas(sp, "curious") || talkHas(sp, "gossipy") ? 0.8 : 0), apply: (c) => {
     c.done.ask_news = 1;
-  }, replies: ["share_news", "no_news"] },
+  }, replies: ["share_news", "report_day", "no_news"] },
   no_news: { kind: "world", stage: "topic", reply: true, when: (c, sp, li) => !TE.pick(sp, li, c), apply: () => {
   }, replies: [] },
   share_news: {
@@ -28195,7 +28269,8 @@ const ACTS = {
     stage: "topic",
     preview: (c) => {
       const g = c.life;
-      return { line: "life:" + g.kind, qty: g.data.qty || 1, item: g.data.seed ? WORLD.name("seed", g.data.seed) : g.data.item ? WORLD.name("item", g.data.item) : "", shop: g.data.place || "" };
+      const wo = g.data.with != null ? byId(g.data.with) : null;
+      return { line: "life:" + g.kind, qty: g.data.qty || 1, item: g.data.thing || (g.data.seed ? WORLD.name("seed", g.data.seed) : g.data.item ? WORLD.name("item", g.data.item) : ""), shop: g.data.place || "", about: wo ? wo.first : void 0 };
     },
     when: (c, sp, li) => (c.done.report_day || 0) < 2 && !!(c.life = LIFE.recent(sp, li)[0]),
     w: (c) => 0.9 + 2 * Math.min(1, c.life ? c.life.score : 0),
@@ -28210,7 +28285,11 @@ const ACTS = {
       c.lifeShop = g.data.place || "";
       c.lifeQty = g.data.qty || 1;
       c.lifeTrouble = g.trouble;
-      c.lifeItem = g.data.seed ? WORLD.name("seed", g.data.seed) : g.data.item ? WORLD.name("item", g.data.item) : "";
+      c.lifeItem = g.data.thing || (g.data.seed ? WORLD.name("seed", g.data.seed) : g.data.item ? WORLD.name("item", g.data.item) : "");
+      {
+        const wo = g.data.with != null ? byId(g.data.with) : null;
+        c.aboutName = wo ? wo.first : void 0;
+      }
       c.done.report_day = (c.done.report_day || 0) + 1;
       (li.heardLife || (li.heardLife = {}))[sp.id + ":" + g.ids[g.ids.length - 1]] = 1;
       TM.add(li, { kind: "told_life", with: sp.id, lk: g.kind, data: g.data, conf: 0.9, imp: Math.min(0.6, g.def.tell) });
@@ -28226,6 +28305,7 @@ const ACTS = {
   }, replies: [] }
 };
 function talkState(n) {
+  if (n.ill) return "ill";
   if (n.hunger > 70) return "hungry";
   if (n.energy != null && n.energy < 30) return "tired";
   if (n.mood != null && n.mood > 78) return "glad";
@@ -30854,6 +30934,7 @@ function stateWhy(n, state2) {
   if (felt.includes("home_destroyed")) return "has not been the same since the house came down";
   if (felt.includes("caught_on_privy") || felt.includes("caught_bathing")) return "is still not over being walked in on";
   if (felt.includes("furniture_removed") || felt.includes("bed_moved")) return "had the bed taken from under them, more or less";
+  if (n.ill) return "has a fever";
   if (n.homeless || !n.bed || n.bed.x == null) return "has no bed to go to";
   if (log.includes("starving") || log.includes("went_hungry")) return "has not had a proper meal in days";
   if (log.includes("could_not_afford")) return "could not pay for what was needed";
@@ -30881,6 +30962,57 @@ LXP("explain_unknown", ["I couldn't tell you. {about} won't say.", "No idea. I'v
 LXI("explain_unknown", ["I do not know. {about} has not said, and I have stopped asking.", "Nobody knows. {about} least of all."]);
 LXP("ask_more_day", ["And besides that?", "Anything else?", "And the rest of the day?"]);
 LXI("ask_more_day", ["And apart from that? I am interested in the whole of it.", "Anything else? I have time for a second thing.", "And after that?"]);
+LXL("worked_with", ["Worked alongside {about} today. Good company in a field.", "{about} and I got through a fair bit together today.", "Spent the day working next to {about}."], ["I worked beside {about} today. We said about nine words. They were the right ones.", "{about} and I worked the same ground today. It goes faster with two, or it feels as though it does.", "I spent the day next to {about}. I know how {about} breathes when the work is hard now."]);
+LXL("ate_with", ["Had a bite with {about} earlier.", "Ate with {about} today. Makes a change from eating alone.", "{about} and I shared a table at midday."], ["I ate with {about}. Neither of us mentioned it. It was pleasant.", "{about} and I had a meal at the same time, in the same place. I am calling it lunch together.", "I shared a table with {about}. The bread was ordinary and I remember it."]);
+LXL("found", ["Found {item} this morning. No idea whose.", "Look what I picked up: {item}.", "I found {item} by the path. Keeping it."], ["I found {item}. I do not know what it is for. I have decided it is mine.", "There was {item} on the ground. I picked it up before I had thought about it.", "I found {item} today. It was not there yesterday. I have asked nobody."]);
+LXL("ill", ["I'm not well. Something's got hold of me.", "Feeling rough. Fever, I think.", "I'm under the weather. Keep your distance."], ["I am unwell. It arrived in the night, like the rest of us.", "I have a fever. I am told it is the ordinary kind. I do not find that comforting.", "I am not well. I am upright, which I am counting."]);
+LXL("recovered", ["I'm over it. Back on my feet.", "Feeling myself again, thank goodness.", "The fever's gone. I could eat a horse."], ["I am better. I woke up and it had gone, without a word.", "The fever has left. I did not see it go. I am not going to look for it.", "I am well again. Everything tastes of something."]);
+LXP("answer_how", ["Not well. Fever.", "Rough, to be honest. I'm ill.", "Poorly. I'll be all right."], { state: "ill" });
+LXI("answer_how", ["Unwell. I have a fever and an opinion about it.", "Not well. I am upright. That is the summary.", "Ill. It is the ordinary kind, I am told, by people who do not have it."], { state: "ill" });
+LXP("answer_family", ["{about} is ill. A fever.", "{about}'s poorly. In bed, mostly."], { state: "ill" });
+LXI("answer_family", ["{about} is ill. A fever. I have been bringing water and being told to go away.", "{about} is unwell. It is not serious. It is not nothing."], { state: "ill" });
+LXP("sympathise_how", ["You should be in bed. Go on.", "Oh, you poor thing. Rest. I mean it."], { state: "ill" });
+LXI("sympathise_how", ["You should be lying down. I will say it again if you are still here in a minute.", "I am sorry. Rest. The island will manage without you for a day. It managed before."], { state: "ill" });
+LXP("vent", ["I feel dreadful. Hot and cold at once."], { state: "ill" });
+LXI("vent", ["I feel dreadful. I am hot and cold, and I cannot decide which to complain about."], { state: "ill" });
+LXP("remark_state", ["I shouldn't be out. I'm not well."], { state: "ill" });
+LXI("remark_state", ["I should not be out. I am ill. I wanted to see whether the day was still here."], { state: "ill" });
+ACTS.sympathise_how.when = (c) => ["low", "tired", "hungry", "ill"].includes(c.state);
+{
+  const w0 = ACTS.vent.when;
+  ACTS.vent.when = (c, sp, li) => w0(c, sp, li) || !c.done.vent && talkState(sp) === "ill" && ((sp.aff[li.id] || 0) > 8 || sp.player);
+}
+ACTS.snap = {
+  kind: "feeling",
+  stage: "topic",
+  preview: () => ({}),
+  w: (c, sp) => 1.2 + (talkHas(sp, "prickly") || talkHas(sp, "grumpy") ? 1.5 : 0),
+  when: (c, sp, li) => !c.done.snap && !sp.player && sp.age >= 12 && ["low", "tired", "hungry", "ill"].includes(talkState(sp)) && (sp.aff[li.id] || 0) < 25 && (talkHas(sp, "prickly") || talkHas(sp, "grumpy") || sp.mood != null && sp.mood < 22) && game.time - (sp.snapT || -1e9) > 1440,
+  apply: (c, sp, li) => {
+    c.done.snap = 1;
+    sp.snapT = game.time;
+    c.left[sp.id] = 0;
+    c.left[li.id] = Math.min(c.left[li.id], 0.9);
+    lfAff(li, sp, -3, "snapped at me");
+    lfEmit("quarrel", { actor: sp, target: li, sev: 1, tags: ["nuisance"], chron: false, text: `${sp.first} snapped at ${li.first}` });
+  },
+  replies: ["snap_back", "let_it_go"]
+};
+ACTS.snap_back = { kind: "feeling", stage: "topic", reply: true, when: (c, sp, li) => talkHas(sp, "prickly") || talkHas(sp, "proud") || (sp.aff[li.id] || 0) < 0, w: () => 2, apply: (c, sp, li) => {
+  lfAff(li, sp, -2, "snapped back");
+}, replies: [] };
+ACTS.let_it_go = { kind: "feeling", stage: "topic", reply: true, when: () => true, w: () => 1.5, apply: () => {
+}, replies: [] };
+LXP("snap", ["Not now. I've no patience left today.", "Oh, leave it, will you.", "Do I look like I want to talk?"]);
+LXI("snap", ["Not now. I have used up my patience and it is not yet noon.", "Please. Not today. I am holding the day together with one hand.", "I do not want to talk. I want that to be enough."]);
+LXP("snap_back", ["No need for that.", "Charming. I was only asking.", "Suit yourself."]);
+LXI("snap_back", ["There was no need for that. I will remember there was no need.", "I was only asking. I will ask somebody else, then, about everything.", "Very well. I withdraw the hello."]);
+LXP("let_it_go", ["All right. Another time.", "Fair enough. I'll leave you be."]);
+LXI("let_it_go", ["All right. Another time. There is plenty of it.", "I will leave you be. It is the thing I am best at."]);
+lx("ev:lent_hand", "plain", "{a} lent {t} a hand with the work");
+lx("ev:lent_hand", "island", "{a} did an hour of {t}'s work, unasked");
+lx("ev:sick_visit", "plain", "{a} looked in on {t}, who is ill");
+lx("ev:sick_visit", "island", "{a} sat with {t}, who is ill");
 TALK.log = [];
 TALK.words = false;
 TALK.running = true;
@@ -30890,7 +31022,7 @@ function talkBudget(n, o) {
   if (n.hunger > 80) b -= 1;
   return Math.max(1, b);
 }
-const TALK_PURPOSE = ["raise_deed", "ask_favour", "chase_favour", "confront_jealous", "declare", "ask_to_walk", "propose", "flirt", "confide", "story_preface", "share_news", "warn", "apologise", "send_gift", "offer_gift", "callback", "report_day", "ask_day"];
+const TALK_PURPOSE = ["raise_deed", "ask_favour", "chase_favour", "confront_jealous", "declare", "ask_to_walk", "propose", "flirt", "confide", "story_preface", "share_news", "warn", "apologise", "send_gift", "offer_gift", "callback", "report_day", "ask_day", "snap"];
 function talkBind(c, sp, li, id) {
   const A = ACTS[id];
   if (!A) return null;
@@ -31166,7 +31298,7 @@ ACTS.ask_price = { kind: "trade", stage: "topic", preview: (c) => ({ pitem: WORL
   c.done.ask_price = 1;
   c.priceName = WORLD.has("item", c.priceItem) ? WORLD.name("item", c.priceItem) : GOODS[c.priceItem].name;
 }, replies: ["tell_price"] };
-ACTS.tell_price = { kind: "trade", stage: "topic", reply: true, when: (c, sp) => !!c.priceItem && LIFE.lastPrice(sp, c.priceItem) != null, apply: (c, sp, li) => {
+ACTS.tell_price = { kind: "trade", stage: "topic", reply: true, preview: (c, sp) => ({ price: LIFE.lastPrice(sp, c.priceItem) }), when: (c, sp) => !!c.priceItem && LIFE.lastPrice(sp, c.priceItem) != null, apply: (c, sp, li) => {
   c.priceUnit = LIFE.lastPrice(sp, c.priceItem);
   TM.add(li, { kind: "price", item: c.priceItem, unit: c.priceUnit, from: sp.id, conf: 0.8, imp: 0.15 });
 }, replies: ["react_price"] };

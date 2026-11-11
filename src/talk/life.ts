@@ -64,7 +64,7 @@ LIFE.recent = function (n: any, listener?: any): any[] {
   const t0 = game.time - LIFE_TELL_HOURS * 60, groups: any = {};
   for (const e of n.day || []) {
     if (e.t < t0) continue; const def = REG.get('event', e.kind); if (!def || e.data && e.data.ev != null) continue; if (!LEX.some((l: any) => l.act === 'life:' + e.kind)) continue;
-    const key = e.kind + '|' + (e.data.item || e.data.seed || e.data.where || ''), g = groups[key] || (groups[key] = { kind: e.kind, def, data: Object.assign({}, e.data, { qty: 0 }), ids: [], t: e.t, trouble: (def.tags || []).includes('misfortune') });
+    const key = e.kind + '|' + (e.data.item || e.data.seed || e.data.where || e.data.with || e.data.thing || ''), g = groups[key] || (groups[key] = { kind: e.kind, def, data: Object.assign({}, e.data, { qty: 0 }), ids: [], t: e.t, trouble: (def.tags || []).includes('misfortune') });
     g.data.qty += e.data.qty || 1; g.ids.push(e.id); g.t = Math.max(g.t, e.t);
   }
   const out = Object.keys(groups).map(k => groups[k]).filter(g => !(listener && (listener.heardLife || {})[n.id + ':' + g.ids[g.ids.length - 1]]));

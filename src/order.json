@@ -31,6 +31,7 @@
   "life2/actions.ts",
   "life2/push.ts",
   "life2/meddle.ts",
+  "life2/smalllife.ts",
   "life2/hunger-guard.ts",
   "life2/yard.ts",
   "life2/sealing.ts",

@@ -185,3 +185,10 @@ F. **One event system.** Fold `lfEmit`/`lf2Learn`/`kn` into `LIFE.emit` and the 
 A first (a few days of careful work, no visible change except the wrong-subject bug). Tasks 1 to 15 can run
 alongside in any order except 13, which should follow A to avoid moving the same lines twice.
 Then B and C together, measured with the harness. D once B and C make conversations worth reading. E last.
+
+
+## Progress
+- **A (bindings)**: done and merged.
+- **B (agenda and thread)**: done. `talkRitual`, `talkAgenda`, `talkStale`/`talkNote`, `talkAnswers`, `A.follow`. Six days of the farming village: about 80% of conversations have a purpose, median 8 lines.
+- **C (things worth saying)**: done. `life2/smalllife.ts` (worked beside, ate with, lent a hand, sick visits, finds, illness) and the `snap` acts. Still thin: "any news?" seldom finds an answer in a quiet village, and about a quarter of opinions still give "we have talked" as the reason.
+- **D, E, F**: to do.

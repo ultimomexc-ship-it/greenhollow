@@ -19,7 +19,7 @@ function talkBudget(n: any, o: any): number {
 }
 
 /** what a conversation is *for*: the acts that come from a real reason (a grudge, a request, a crush, news, something owed). The first topic is one of these when there is one. */
-const TALK_PURPOSE = ['raise_deed', 'ask_favour', 'chase_favour', 'confront_jealous', 'declare', 'ask_to_walk', 'propose', 'flirt', 'confide', 'story_preface', 'share_news', 'warn', 'apologise', 'send_gift', 'offer_gift', 'callback', 'report_day', 'ask_day'];
+const TALK_PURPOSE = ['raise_deed', 'ask_favour', 'chase_favour', 'confront_jealous', 'declare', 'ask_to_walk', 'propose', 'flirt', 'confide', 'story_preface', 'share_news', 'warn', 'apologise', 'send_gift', 'offer_gift', 'callback', 'report_day', 'ask_day', 'snap'];
 
 /** could sp say this act to li now, and about what? Returns the binding (what `when` worked out), or null. The conversation itself is not touched. */
 function talkBind(c: any, sp: any, li: any, id: string): any {

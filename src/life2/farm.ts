@@ -79,7 +79,7 @@ function farmFlowerBuyers() {
 LF2.hourly.push(() => farmFlowerBuyers());
 
 /* ---- the Ready Farming Village: a world with only what farming needs (docs/world-modules.md) ---- */
-const FARM_RECIPE_BASE = ['job.Farmer', 'job.Baker', 'sys.economy', 'sys.couples', 'sys.cooking'];
+const FARM_RECIPE_BASE = ['job.Farmer', 'job.Baker', 'sys.economy', 'sys.couples', 'sys.cooking', 'sys.smalllife'];
 function farmStart() {
   town.farmEcon = true; town.farmDay0 = Math.floor(game.time / 1440); town.eco.exported = town.eco.exported || 0;
   prebuildVillage({ farm: true }); housingTick(); refreshReach();
