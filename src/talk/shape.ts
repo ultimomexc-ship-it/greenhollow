@@ -18,9 +18,16 @@ function talkChoose(c: any, sp: any, li: any, ids: string[]): string | null {
 }
 const TALK_TOPICS = () => Object.keys(ACTS).filter(k => ACTS[k].stage === 'topic' && !ACTS[k].reply);
 
+/** what a turn's words need, as it is at this moment (words are looked up later, so each turn keeps its own copy) */
+const talkX = (c: any) => ({ state: c.state, how: c.newsHow, conf: c.newsConf, news: c.told && c.told.text, who: c.newsWho ? c.newsWho.first : 'them', line: c.lifeLine, qty: c.lifeQty, item: c.lifeItem, shop: c.lifeShop, price: c.priceUnit, pitem: c.priceName });
+/** one act said by sp to li: its effects happen now; the turn is kept */
+function talkTurn(c: any, sp: any, li: any, id: string): any { const A = ACTS[id]; A.apply(c, sp, li); const t = { by: sp.id, act: id, x: talkX(c) }; c.turns.push(t); c.last = id; return t; }
+/** the words of a turn (a and b are the two people of the conversation, in any order) */
+function talkWords(t: any, a: any, b: any): string { const s = t.by === a.id ? a : b, o = s === a ? b : a; return lxSay(t.act === 'report_day' && t.x && t.x.line ? t.x.line : t.act, s, o, t.x || {}); }
+
 function talkRun(a: any, b: any, listened?: boolean): any {
   const c: any = { a, b, stage: 'open', done: {}, turns: [], left: { [a.id]: talkBudget(a, b), [b.id]: talkBudget(b, a) }, last: null, t0: game.time };
-  const say = (sp: any, li: any, id: string) => { const A = ACTS[id]; A.apply(c, sp, li); c.turns.push({ by: sp.id, act: id, x: { state: c.state, how: c.newsHow, conf: c.newsConf, news: c.told && c.told.text, who: c.newsWho ? c.newsWho.first : 'them', line: c.lifeLine, qty: c.lifeQty, item: c.lifeItem, shop: c.lifeShop, price: c.priceUnit, pitem: c.priceName } }); c.last = id; };   // (x: what the words need, as it was at this turn)
+  const say = (sp: any, li: any, id: string) => { talkTurn(c, sp, li, id); };
   let sp = a, li = b;
   /* opening */
   if (TALK.on.ritual) { say(sp, li, 'greet'); say(li, sp, 'greet_back'); }
@@ -45,7 +52,7 @@ function talkRun(a: any, b: any, listened?: boolean): any {
 
 /** the words (only when somebody can hear), the log, the bubbles, and the hold on both people: shared by conversations and shop encounters */
 function talkFinish(c: any, a: any, b: any, listened?: boolean) {
-  const lines = listened || TALK.words ? c.turns.map((t: any) => { const s = t.by === a.id ? a : b, o = s === a ? b : a, text = lxSay(t.act === 'report_day' && t.x && t.x.line ? t.x.line : t.act, s, o, t.x || {}); return text ? { who: s, text } : null; }).filter(Boolean) : null;
+  const lines = listened || TALK.words ? c.turns.map((t: any) => { const s = t.by === a.id ? a : b, o = s === a ? b : a, text = talkWords(t, a, b); return text ? { who: s, text } : null; }).filter(Boolean) : null;
   TALK.log.push({ t: game.time, a: a.id, b: b.id, d: lfDist(a, b), acts: c.turns.slice(), lines: lines ? lines.map((l: any) => l.who.first + ': ' + l.text) : null }); if (TALK.log.length > 300) TALK.log.shift();
   if (lines && lines.length) game.events.push({ time: game.time, a, b, place: placeOf(a), topic: 'talk', quiet: false, talk: true, lines });
   else { const hold = game.time + c.turns.length * 0.7; a.talkUntil = Math.max(a.talkUntil || 0, hold); b.talkUntil = Math.max(b.talkUntil || 0, hold); }

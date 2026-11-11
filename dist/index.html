@@ -8444,7 +8444,6 @@ const kinWord = (_n, _o) => "";
 const himHer = (o) => o && o.female ? "her" : "him";
 const HeShe = (o) => o && o.female ? "She" : "He";
 const TRAIT_SEEN = {};
-const closenessWord = (_n, _p) => "";
 const SB = { presim: false, pair: /* @__PURE__ */ new Map(), count: {}, feat: {} };
 const sbPresim = (..._a) => {
 };
@@ -8470,15 +8469,7 @@ const hasNews = (_n) => false;
 const talkMarks = (_p) => /* @__PURE__ */ new Map();
 const refreshMarks = () => {
 };
-const brushOff = (_n, _p) => null;
-const voiced = (_n, t) => t;
 let talkS = null;
-const talkBegin = (_o, _p) => null;
-const talkStep = (_k) => ({ close: true });
-const convBegin = (_o, _p) => null;
-const bubbleChat = null;
-const startFocus = (..._a) => {
-};
 const talkPaused = (n) => (n.talkUntil || 0) > game.time && n.pose !== "sleep";
 const angDiff = (a, b) => {
   let d = (a - b) % 6.2832;
@@ -13731,8 +13722,9 @@ function tickPlayer0(n, dt) {
     if (occ && occ !== n && !occ.infant && !pushed) {
       if (occ.pose === "sleep") tg = { msg: occ.first + " is asleep." };
       else if (!itTalking(n)) tg = { msg: occ.first + ": " + itWant(n, "talk") };
-      else if (occ.shop && occ.shop.serving && Math.abs(occ.shop.front.x - n.tx) + Math.abs(occ.shop.front.y - n.ty) <= 1.5) tg = { key: "stall" + occ.id, min: 0.8, text: "Stepping up to the larder", tool: null, run(n2) {
-        if (typeof openShop === "function") openShop(occ.shop);
+      else if (occ.shop && occ.shop.serving && Math.abs(occ.shop.front.x - n.tx) + Math.abs(occ.shop.front.y - n.ty) <= 1.5) tg = { key: "stall" + occ.id, min: 0.8, text: "Stepping up to the " + (town.farmEcon ? occ.shop.def.noun : "larder"), tool: null, run(n2) {
+        if (town.farmEcon && typeof farmShopDialog === "function") farmShopDialog(occ.shop);
+        else if (typeof openShop === "function") openShop(occ.shop);
       } };
       else tg = { key: "talk" + occ.id, min: 2, text: "Talking to " + occ.first, tool: null, run(n2) {
         if (typeof openTalk === "function" && occ.age >= 3) openTalk(occ);
@@ -20532,6 +20524,7 @@ function itGate(n, tg, walkOn) {
         if (c && c.st && !was) {
           c.seed = seed;
           nn.bag[hk] = Math.max(0, (nn.bag[hk] || 0) - 1);
+          LIFE.emit("planted", nn, { seed, qty: 1 });
         }
       } });
     }
@@ -22811,7 +22804,7 @@ function lf2Dialog(o, say2, opts) {
 }
 function lf2TalkFallback(o, p) {
   if (!o || o.player || o.infant || o.age < 5) return null;
-  return convBegin(o, p);
+  return null;
 }
 function lf2TalkStep(key) {
   const S = talkS;
@@ -25029,7 +25022,7 @@ function itHarvest(n, c) {
   const S = IT_SEEDS[c.seed] || IT_SEEDS.barley, Y = S.flower ? "flowers" : S.yield, Q = S.flower ? 4 : S.q;
   n.inv[Y] = (n.inv[Y] || 0) + Q;
   c.st = 0;
-  if (!n.player) LIFE.emit("harvested", n, { item: Y, qty: Q, crop: c.seed || "barley" });
+  LIFE.emit("harvested", n, { item: Y, qty: Q, crop: c.seed || "barley" });
   if (!n.player && town.farmEcon && farmSeedCount(n) < 12) n.inv["seed_" + (c.seed || "barley")] = (n.inv["seed_" + (c.seed || "barley")] || 0) + 1;
   if (n.player) sndPick();
   let back = 0;
@@ -27017,40 +27010,18 @@ const talkUI = { o: null, say: "", q: "", prev: "2", opts: [], dy: 0 };
 function openTalk(o) {
   const n = game.player;
   if (!n || !o || o.dead) return;
+  if (o.age < 3 || o.infant || o.pose === "sleep") {
+    playerSay(n, o.pose === "sleep" ? o.first + " is asleep." : o.first + " gurgles.");
+    return;
+  }
   if (!talkUI.o) {
     const cur = document.querySelector('[data-speed][aria-pressed="true"]');
     talkUI.prev = cur ? cur.dataset.speed : "2";
     const ps = document.querySelector('[data-speed="0"]');
     if (ps) ps.click();
   }
-  const r = talkBegin(o, n) || lf2TalkFallback(o, n);
-  if (!r && typeof bubbleChat === "function") {
-    if (!talkUI.o) {
-      const b = document.querySelector('[data-speed="' + talkUI.prev + '"]');
-      if (b) b.click();
-    }
-    let ls = bubbleChat(o, n);
-    if (!ls) {
-      if (bumpTalk(n, o, true)) {
-        game.focus = { a: o.id, b: n.id, until: game.time + 4 * 2.7 * gmPerSec() };
-        return;
-      }
-      ls = [[o, brushOff(o, n)]];
-    }
-    startFocus(o, n, ls);
-    return;
-  }
-  if (!r) {
-    if (typeof refreshMarks === "function") refreshMarks();
-    if (!talkUI.o) {
-      const b = document.querySelector('[data-speed="' + talkUI.prev + '"]');
-      if (b) b.click();
-    }
-    faceTo(o, n);
-    o.talkUntil = game.time + 3 * gmPerSec();
-    game.events.push({ time: game.time, a: o, b: n, place: "", topic: "greet", quiet: true, lines: [{ who: o, text: brushOff(o, n) }] });
-    return;
-  }
+  if (PT.s) ptEnd();
+  const r = ptBegin(o, n);
   talkUI.o = o;
   talkUI.q = "";
   o.talkUntil = game.time + 1e6;
@@ -27065,6 +27036,7 @@ function openTalk(o) {
 function closeTalk() {
   const o = talkUI.o;
   if (!o) return;
+  if (typeof ptEnd === "function") ptEnd();
   talkUI.o = null;
   el("talk").hidden = true;
   talkS = null;
@@ -27083,17 +27055,13 @@ function closeTalk() {
 }
 function talkPick(key, label) {
   if (!talkUI.o || !talkS) return;
-  if (key === "bye") {
-    closeTalk();
-    return;
-  }
-  const r = talkStep(key);
+  const r = talkS.custom ? key === "bye" ? null : lf2TalkStep(key) : ptStep(key);
   if (!r || r.close) {
     closeTalk();
     return;
   }
   if (r.say !== void 0) {
-    talkUI.say = talkS && talkS.conv ? r.say : voiced(talkUI.o, r.say);
+    talkUI.say = r.say;
     talkUI.q = label || "";
   }
   talkUI.opts = r.opts;
@@ -27724,6 +27692,7 @@ const ACTS = {
   share_news: {
     kind: "world",
     stage: "topic",
+    preview: (c) => ({ news: TE.text(c.news.ev, c.news.m.ver), how: c.news.m.kind, conf: c.news.m.conf > 0.7 ? "high" : "low" }),
     when: (c, sp, li) => (c.done.share_news || 0) < 2 && !!(c.news = TE.pick(sp, li, c)),
     w: (c) => 1 + 4 * Math.min(1, c.news ? c.news.score : 0),
     apply: (c, sp, li) => {
@@ -27759,6 +27728,10 @@ const ACTS = {
   report_day: {
     kind: "life",
     stage: "topic",
+    preview: (c) => {
+      const g = c.life;
+      return { line: "life:" + g.kind, qty: g.data.qty || 1, item: g.data.seed ? WORLD.name("seed", g.data.seed) : g.data.item ? WORLD.name("item", g.data.item) : "", shop: g.data.place || "" };
+    },
     when: (c, sp, li) => (c.done.report_day || 0) < 2 && !!(c.life = LIFE.recent(sp, li)[0]),
     w: (c) => 0.9 + 2 * Math.min(1, c.life ? c.life.score : 0),
     apply: (c, sp, li) => {
@@ -28087,13 +28060,23 @@ function talkChoose(c, sp, li, ids) {
   return opts[opts.length - 1][0];
 }
 const TALK_TOPICS = () => Object.keys(ACTS).filter((k) => ACTS[k].stage === "topic" && !ACTS[k].reply);
+const talkX = (c) => ({ state: c.state, how: c.newsHow, conf: c.newsConf, news: c.told && c.told.text, who: c.newsWho ? c.newsWho.first : "them", line: c.lifeLine, qty: c.lifeQty, item: c.lifeItem, shop: c.lifeShop, price: c.priceUnit, pitem: c.priceName });
+function talkTurn(c, sp, li, id) {
+  const A = ACTS[id];
+  A.apply(c, sp, li);
+  const t = { by: sp.id, act: id, x: talkX(c) };
+  c.turns.push(t);
+  c.last = id;
+  return t;
+}
+function talkWords(t, a, b) {
+  const s = t.by === a.id ? a : b, o = s === a ? b : a;
+  return lxSay(t.act === "report_day" && t.x && t.x.line ? t.x.line : t.act, s, o, t.x || {});
+}
 function talkRun(a, b, listened) {
   const c = { a, b, stage: "open", done: {}, turns: [], left: { [a.id]: talkBudget(a, b), [b.id]: talkBudget(b, a) }, last: null, t0: game.time };
   const say2 = (sp2, li2, id) => {
-    const A = ACTS[id];
-    A.apply(c, sp2, li2);
-    c.turns.push({ by: sp2.id, act: id, x: { state: c.state, how: c.newsHow, conf: c.newsConf, news: c.told && c.told.text, who: c.newsWho ? c.newsWho.first : "them", line: c.lifeLine, qty: c.lifeQty, item: c.lifeItem, shop: c.lifeShop, price: c.priceUnit, pitem: c.priceName } });
-    c.last = id;
+    talkTurn(c, sp2, li2, id);
   };
   let sp = a, li = b;
   if (TALK.on.ritual) {
@@ -28137,7 +28120,7 @@ function talkRun(a, b, listened) {
 }
 function talkFinish(c, a, b, listened) {
   const lines = listened || TALK.words ? c.turns.map((t) => {
-    const s = t.by === a.id ? a : b, o = s === a ? b : a, text = lxSay(t.act === "report_day" && t.x && t.x.line ? t.x.line : t.act, s, o, t.x || {});
+    const s = t.by === a.id ? a : b, o = s === a ? b : a, text = talkWords(t, a, b);
     return text ? { who: s, text } : null;
   }).filter(Boolean) : null;
   TALK.log.push({ t: game.time, a: a.id, b: b.id, d: lfDist(a, b), acts: c.turns.slice(), lines: lines ? lines.map((l) => l.who.first + ": " + l.text) : null });
@@ -28174,7 +28157,7 @@ function serviceSay(act, speaker, other, d) {
   return lxSay(act, speaker, other, { item: d.item, qty: d.qty, price: d.price, shop: d.shop || "" });
 }
 const PRICE_ITEMS = () => Object.keys(GOODS).filter((g) => GOODS[g].base);
-ACTS.ask_price = { kind: "trade", stage: "topic", when: (c, sp, li) => {
+ACTS.ask_price = { kind: "trade", stage: "topic", preview: (c) => ({ pitem: WORLD.has("item", c.priceItem) ? WORLD.name("item", c.priceItem) : GOODS[c.priceItem].name }), when: (c, sp, li) => {
   if (c.done.ask_price) return false;
   const items = PRICE_ITEMS().filter((g) => LIFE.lastPrice(li, g) != null && LIFE.lastPrice(sp, g) == null);
   if (!items.length) return false;
@@ -28190,6 +28173,131 @@ ACTS.tell_price = { kind: "trade", stage: "topic", reply: true, when: (c, sp) =>
 }, replies: ["react_price"] };
 ACTS.react_price = { kind: "trade", stage: "topic", reply: true, when: () => true, apply: () => {
 }, replies: [] };
+const PT = { s: null };
+function closenessWord(o, p) {
+  const rel = o.rel && o.rel[p.id], a = o.aff[p.id] || 0, k = o.know[p.id] || 0;
+  if (rel && ["spouse", "partner", "parent", "child", "sibling"].includes(rel)) return rel;
+  if (a >= 40 && k >= 30) return "friend";
+  if (a <= -25) return "not a friend";
+  if (k > 25) return "acquaintance";
+  return k > 4 ? "met before" : "stranger";
+}
+function ptBegin(o, p) {
+  const c = { a: p, b: o, stage: "open", done: {}, turns: [], left: { [p.id]: 99, [o.id]: talkBudget(o, p) + 1.5 }, last: null, t0: game.time, player: true };
+  const S = PT.s = { c, o, p, pending: null, opts: [], closing: false };
+  talkS = { pt: S };
+  talkTurn(c, p, o, "greet");
+  const back = talkTurn(c, o, p, "greet_back");
+  c.stage = "topic";
+  return ptMenu(S, talkWords(back, p, o));
+}
+function ptOptions(S) {
+  const c = S.c, p = S.p, o = S.o, out = [];
+  const seen = /* @__PURE__ */ new Set();
+  const ids = S.pending ? S.pending.slice() : TALK_TOPICS();
+  for (const id of ids) {
+    const A = ACTS[id];
+    if (!A || seen.has(id) || !TALK.on[A.kind]) continue;
+    c.life = c.news = c.priceItem = void 0;
+    let ok = false;
+    try {
+      ok = !!A.when(c, p, o);
+    } catch (e) {
+      ok = false;
+    }
+    if (!ok) continue;
+    const snap = { life: c.life, news: c.news, priceItem: c.priceItem }, x = A.preview ? A.preview(c, p, o) : {};
+    const label = lxSay(x.line || id, p, o, Object.assign({}, x, { state: talkState(p) || "fine" }));
+    if (!label) continue;
+    seen.add(id);
+    out.push({ id, snap, label, kind: A.kind, w: Math.random() + (A.kind !== "small" ? 0.6 : 0) });
+  }
+  out.sort((a, b) => b.w - a.w);
+  const keep = out.slice(0, 5);
+  if (!keep.some((q) => q.kind === "small") && out.some((q) => q.kind === "small")) keep[keep.length - 1] = out.find((q) => q.kind === "small");
+  return keep;
+}
+function ptMenu(S, say2) {
+  const c = S.c, o = S.o, p = S.p;
+  if (S.closing) return { say: say2, opts: [["bye", "Goodbye."]] };
+  const polite = c.left[o.id] <= 0.5;
+  if (polite) {
+    talkTurn(c, o, p, "pre_close");
+    say2 += "\n" + talkWords(c.turns[c.turns.length - 1], p, o);
+    S.closing = true;
+    S.pending = null;
+    return { say: say2, opts: [["bye", serviceLeave(p, o)]] };
+  }
+  S.opts = ptOptions(S);
+  const opts = S.opts.map((q, i) => ["o" + i, q.label]);
+  opts.push(["bye", S.pending ? "Say nothing, and leave." : "Leave."]);
+  return { say: say2, opts };
+}
+const serviceLeave = (p, o) => lxSay("farewell", p, o, {}) || "Goodbye.";
+function ptStep(key) {
+  const S = PT.s;
+  if (!S) return { close: true };
+  const c = S.c, o = S.o, p = S.p;
+  if (key === "bye") {
+    if (!S.closing) {
+      const t = talkTurn(c, p, o, "pre_close"), f = talkTurn(c, o, p, "farewell");
+      S.closing = true;
+      return { say: talkWords(f, p, o), opts: [["bye", "Goodbye."]] };
+    }
+    return { close: true };
+  }
+  const i = +String(key).slice(1), q = S.opts[i];
+  if (!q) return { close: true };
+  c.life = q.snap.life;
+  c.news = q.snap.news;
+  c.priceItem = q.snap.priceItem;
+  talkTurn(c, p, o, q.id);
+  S.pending = null;
+  c.left[o.id] -= 0.6;
+  const said = [];
+  const reps = ACTS[q.id].replies;
+  if (reps && reps.length) {
+    const rid = talkChoose(c, o, p, reps);
+    if (rid) {
+      const t = talkTurn(c, o, p, rid);
+      said.push(talkWords(t, p, o));
+      c.left[o.id] -= 0.3;
+    }
+  }
+  if (c.left[o.id] > 0.5 && (!said.length || c.left[o.id] > 1.2 && Math.random() < 0.55)) {
+    const tid = talkChoose(c, o, p, TALK_TOPICS());
+    if (tid) {
+      const t = talkTurn(c, o, p, tid);
+      said.push(talkWords(t, p, o));
+      c.left[o.id] -= 1;
+      S.pending = ACTS[tid].replies && ACTS[tid].replies.length ? ACTS[tid].replies.slice() : null;
+    }
+  }
+  const r = ptMenu(S, said.filter(Boolean).join("\n") || "\u2026");
+  if (S.pending && !r.opts.some((x) => x[0] !== "bye")) {
+    S.pending = null;
+    const r2 = ptMenu(S, r.say);
+    return r2;
+  }
+  return r;
+}
+function ptEnd() {
+  const S = PT.s;
+  if (!S) return;
+  PT.s = null;
+  const c = S.c, o = S.o, p = S.p;
+  if (talkS && talkS.pt) talkS = null;
+  for (const [x, y] of [[o, p], [p, o]]) {
+    TM.add(x, { kind: "talked", with: y.id, imp: 0.25, n: c.turns.length });
+    x.social = Math.min(100, (x.social == null ? 50 : x.social) + 6 + c.turns.length);
+  }
+  lfAff(o, p, 1, "talked with me");
+  lfAff(p, o, 1, "talked with me");
+  o.know[p.id] = Math.min(100, (o.know[p.id] || 0) + 3);
+  p.know[o.id] = Math.min(100, (p.know[o.id] || 0) + 3);
+  TALK.log.push({ t: game.time, a: p.id, b: o.id, d: lfDist(p, o), acts: c.turns.slice(), lines: c.turns.map((t) => (t.by === p.id ? p : o).first + ": " + talkWords(t, p, o)), player: true });
+  if (TALK.log.length > 300) TALK.log.shift();
+}
 TALK.range = 10;
 TALK.earshot = 16;
 TALK.stroll = true;

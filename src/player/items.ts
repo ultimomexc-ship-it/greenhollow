@@ -83,7 +83,7 @@ function itGate(n, tg, walkOn: boolean) {
   if (!tg || !tg.key || !n.belt) return tg; const need = itNeedOf(tg.key);
   if (itFits(n, need)) {
     if (need === 'seed') { const hk = IT_AUTO && !itBuildOn(n) ? itActiveSeed(n) : itHeld(n).kind, m = tg.key.match(/^crop(\d+),(\d+)s$/), c = m && cropAt(+m[1], +m[2]), run0 = tg.run, seed = IT_STACKS[hk].seed;
-      return Object.assign({}, tg, { key: tg.key + ':' + seed, text: 'Sowing ' + seed, run(nn) { const was = c && c.st; run0(nn); if (c && c.st && !was) { c.seed = seed; nn.bag[hk] = Math.max(0, (nn.bag[hk] || 0) - 1); } } }); }
+      return Object.assign({}, tg, { key: tg.key + ':' + seed, text: 'Sowing ' + seed, run(nn) { const was = c && c.st; run0(nn); if (c && c.st && !was) { c.seed = seed; nn.bag[hk] = Math.max(0, (nn.bag[hk] || 0) - 1); LIFE.emit('planted', nn, { seed, qty: 1 }); } } }); }
     if (IT_WEAR[need] && tg.run) { const run0 = tg.run; return Object.assign({}, tg, { run(nn) { run0(nn); if (IT_AUTO && !itBuildOn(nn)) itWearTool(nn, need); else itWearHeld(nn); } }); }   // tools wear as they are used (life2/items-trade.ts)
     return tg;
   }

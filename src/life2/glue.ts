@@ -10,7 +10,7 @@ function lf2Dialog(o, say, opts) {
 /* when someone has nothing particular to say, you can still talk to them (and do "something else") */
 function lf2TalkFallback(o, p) {
   if (!o || o.player || o.infant || o.age < 5) return null;
-  return convBegin(o, p);       // what they say now comes from what they are doing and what is on their mind (dialogue/conversation.ts)
+  return null;       // (the conversation engine opens talk now: talk/player.ts)
 }
 function lf2TalkStep(key) {
   const S = talkS; if (key === 'bye') return null; const i = +String(key).slice(1), fn = S.fns && S.fns[i]; if (!fn) return null;

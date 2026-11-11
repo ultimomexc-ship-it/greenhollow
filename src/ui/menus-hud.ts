@@ -2,17 +2,17 @@
 const talkUI = { o: null, say: '', q: '', prev: '2', opts: [], dy: 0 };
 function openTalk(o) {
   const n = game.player; if (!n || !o || o.dead) return;
+  if (o.age < 3 || o.infant || o.pose === 'sleep') { playerSay(n, o.pose === 'sleep' ? o.first + ' is asleep.' : o.first + ' gurgles.'); return; }
   if (!talkUI.o) { const cur: any = document.querySelector('[data-speed][aria-pressed="true"]'); talkUI.prev = cur ? cur.dataset.speed : '2'; const ps: any = document.querySelector('[data-speed="0"]'); if (ps) ps.click(); }
-  const r = talkBegin(o, n) || lf2TalkFallback(o, n);
-  if (!r && typeof bubbleChat === 'function') { if (!talkUI.o) { const b: any = document.querySelector('[data-speed="' + talkUI.prev + '"]'); if (b) b.click(); } let ls = bubbleChat(o, n); if (!ls) { if (bumpTalk(n, o, true)) { game.focus = { a: o.id, b: n.id, until: game.time + 4 * 2.7 * gmPerSec() }; return; } ls = [[o, brushOff(o, n)]]; } startFocus(o, n, ls); return; }
-  if (!r) { if (typeof refreshMarks === 'function') refreshMarks(); if (!talkUI.o) { const b: any = document.querySelector('[data-speed="' + talkUI.prev + '"]'); if (b) b.click(); } faceTo(o, n); o.talkUntil = game.time + 3 * gmPerSec(); game.events.push({ time: game.time, a: o, b: n, place: '', topic: 'greet', quiet: true, lines: [{ who: o, text: brushOff(o, n) }] }); return; }
+  if (PT.s) ptEnd();
+  const r = ptBegin(o, n);   // the same engine the villagers use (talk/player.ts)
   talkUI.o = o; talkUI.q = '';
   o.talkUntil = game.time + 1e6; faceTo(o, n); faceTo(n, o); if (o.moving) o.pose = 'stand';
   if (n.player) n.player.keys = {};
   talkUI.say = r.say; talkUI.opts = r.opts; renderTalk();
 }
 function closeTalk() {
-  const o = talkUI.o; if (!o) return; talkUI.o = null; el('talk').hidden = true; talkS = null; if (typeof refreshMarks === 'function') refreshMarks();
+  const o = talkUI.o; if (!o) return; if (typeof ptEnd === 'function') ptEnd(); talkUI.o = null; el('talk').hidden = true; talkS = null; if (typeof refreshMarks === 'function') refreshMarks();
   o.talkUntil = game.time + 3; const n = game.player; if (n) { o.social = Math.min(100, o.social + 12); n.social = Math.min(100, n.social + 12); }
   pairCool.set(Math.min(n ? n.id : 0, o.id) * 1000 + Math.max(n ? n.id : 0, o.id), game.time + 60);
   const b: any = document.querySelector('[data-speed="' + talkUI.prev + '"]'); if (b) b.click();
@@ -20,9 +20,9 @@ function closeTalk() {
 }
 function talkPick(key, label) {
   if (!talkUI.o || !talkS) return;
-  if (key === 'bye') { closeTalk(); return; }
-  const r: any = talkStep(key); if (!r || r.close) { closeTalk(); return; }
-  if (r.say !== undefined) { talkUI.say = talkS && talkS.conv ? r.say : voiced(talkUI.o, r.say); talkUI.q = label || ''; }
+  const r: any = talkS.custom ? (key === 'bye' ? null : lf2TalkStep(key)) : ptStep(key);   // (a stall's own menu, or the conversation engine)
+  if (!r || r.close) { closeTalk(); return; }
+  if (r.say !== undefined) { talkUI.say = r.say; talkUI.q = label || ''; }
   talkUI.opts = r.opts; renderTalk();
 }
 /* ---------- every menu works with WASD: W and S move, D picks, A backs out (the mouse still works too) ---------- */
