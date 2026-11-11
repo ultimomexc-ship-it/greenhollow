@@ -21,8 +21,8 @@ crime and a town watch, drawn on a canvas. The owner is hands-off with GitHub: d
   **last** one wins everywhere. Don't declare a function twice; replace it in place.
 - `art/painters.ts` is a sealed IIFE (`const ART = ...`) holding all sprite and tile painting; the game reaches it only through `ART.*`.
 - Folders: `world/` generation and island, `life/` and `life2/` village life (life2 = the Roman layer: events,
-  gossip, trades, law, daily life, grudges), `ai/` villager plans and decisions, `social/` and `dialogue/`
-  conversations, `ceremonies/`, `player/` controlling a villager, `render/` drawing, `ui/` panels, input and the main loop.
+  gossip, trades, law, daily life, grudges), `ai/` villager plans and decisions, `social/` village
+  social life, `talk/` the new conversation engine (in progress), `ceremonies/`, `player/` controlling a villager, `render/` drawing, `ui/` panels, input and the main loop.
 - Types are loose for now (`strict: false`, many `: any` from the JS conversion). Tighten gradually: prefer
   adding real interfaces (Person, Town, Game) over more `any`.
 
@@ -105,56 +105,9 @@ About 40 magic mushrooms are scattered when an island is made (`shroomScatter`, 
 ## Your own heart is yours (src/life/aging-romance.ts, ui/hud-needs.ts)
 Nobody courts or marries the villager you steer unless you say so. When the village's romance would pair someone with you, `askCourtship` / `askMarriage` set `town.decision` instead: a card in the middle of the screen (Yes / Not yet / No) and **time stands still until you answer** (`answerDecision`; the frame loop skips the sim while `town.decision` is set). Yes starts a courtship (`startCourtship`) or schedules the wedding; Not yet asks again in 6 days (courting) or 8 (marrying); No ends it, costs some affection and is remembered (`refusedAt`, 20 days). Villagers' own romances are unchanged. Tides are gone: `tideLevel()` stands at its middle level and the tide talk and legends are removed. Every privy seat in a closed room with a free tile beside it is a privy (`r.pseats`, `lfPrivies`); seats outside a room are counted as loose (`looseSeats`) and explained in the request. TrueSight adds the points where a wall crosses the edge of the view (`tsPolygon`), so nothing visible is left in shadow when zoomed in.
 
-## Voice and places (Murakami; src/dialogue/place-words.ts, tools/blankwords.mjs)
-The island's text is written in the voice of *The Elephant Vanishes*: ordinary people calmly accepting an impossible situation (an ordinary moment, then sand), dry, specific, understated, no exclamation marks, numbers kept exact. That covers arrivals, the requests (`islandNeeds`), shouts, thoughts, signs, chronicle lines and hints. On a blank island nobody talks about places that are not there: `placeWords` (called from `cvSpeak`, `chron`, `goS`, `waitS`) turns the old village's words into what exists (tavern -> the camp fire unless a tavern is built, chapel/church -> the clearing unless built, square -> the clearing, street/lane/road -> the path, the well -> the shore, market/stalls -> the beach, town/village -> island); nobody takes holy orders before a chapel exists. `node tools/blankwords.mjs [days] [people]` runs a blank island with a hut and arrivals, records every spoken, shouted and chronicled line plus conversations, and lists lines that mention a place that may not be there. The generic conversation banks are still the village's: read samples with `node tools/talk.mjs`.
-
-## Conversation (src/dialogue/cv-*.ts)
-Talking is generated from the village, not from a menu. You say whole sentences; the attitude (a joke, sympathy, an insult, a probe,
-a flirt, gossip, a lie) is part of the sentence, and the person answers the attitude as well as the words. There is no tone selector and no Goodbye reply (a small Leave control instead).
-- `cv-world.ts`: the village behind the talk. `cvLife(o)` (ambition, regret, pride, fear, maybe a secret), `cvWorld()` (old stories tying people together: debts, feuds, old flames,
-  who knows what; legends), `cvMem(o,p)` (what they remember of you: trust, moments with your own words), `cvKnows(p)` (your journal), `cvSaw` (harmless sightings, e.g. you pushed someone).
-  Generated lazily per town seed, so a seed gives the same village; it also nudges the sim (debtors repay, feuds sour opinions).
-- `cv-voice.ts`: nine ways of talking (`cvVoice`: talkative, reserved, nosy, cynic, sunny, wary, prickly, smooth, lonely) and their banks (greetings, reactions, deflections, gossip lead-ins).
-- `cv-topics.ts`: `cvPool(c)` = everything they might bring up (events they know, people, old stories, their own life, legends, the day, the tide, shops, the chronicle, things about you), weighted;
-  `cvWilling` = how much they will tell (trust, who they are, what you have done this talk).
-- `cv-tell.ts`: `cvTell(c, topic, layer)` turns a topic into words, layer by layer (0 a hint, 1 the story, 2-3 what they do not usually say). Every layer names things you can follow up.
-- `cv-talk.ts`: options (`cvFollowUps`, `cvObserve`, `cvShare`, `cvSpecial`; each option has an `intent`), `cvEffect` (what each attitude does to opinion, trust, patience, events, memory),
-  `cvRespond` / `cvDeepen` / `cvPivotUtt` (go deeper, wander to a related topic, they ask you something), `cvClose` (they have somewhere to be; walk with them), `convBegin` (entry point).
-- Authored scenes (`dialogue/opinions-scenes.ts`) still fire first when they apply; after a scene reply the conversation carries on here (`cvAfterScene`).
-- To add content: a bit of activity talk in `CV_ACTV`, a thing on their mind in `CV_STATES`, a legend in `CV_LEGENDS`, a secret/regret/fear in `cv-world.ts`, new option lines in `cvFollowUps`.
-  Avoid generic filler ("That is interesting", "It is complicated", "Anything else?"): `CV_BANNED` and the tests reject it.
-- `node tools/talk.mjs [seed] [people] [turns] [random|first]` prints real conversations; read them after every content change.
-- `node tools/longevity.mjs [days] [talks/day] [turns] [seed] [--file=other.html]` measures freshness (new templates, new facts per day) and readability over many days; `node tools/sift.mjs [days]` counts story-shaped patterns the village produces on its own. Findings are in NOTES.md.
-- Speak events through `cvMe(o, sbText(o, ev))`, not `ev.text`: it gives the speaker's own version and turns their name into I/me and the player's into you.
-- `cv-rules.ts`: lines chosen by the facts of the moment (most specific rule wins) with fill-ins; every line is chosen by what the *listener* heard least recently.
-- `cv-speech.ts`: `cvSpeak(text)` contracts speech on the way out ("do not" -> "don't", "is it not" -> "isn't it"; not at a clause end, not "I have a ...").
-  Every speech surface calls it (talk box and options in `renderTalk`, bubbles and Overheard in `drainEvents`, `playerSay`). Banks may be written either way.
-- `cv-answers.ts`: every follow-up option has its own `then` answer (what somebody is like, how they are taking it, how you know, how it started ...);
-  an option without one only deepens its subject. Ask-about (`cvAskAbout`): people, news, old stories and places the player knows; "never heard of it"
-  gives a `tellit` hook so you can tell them. New follow-ups need an answer function, not a fall-through.
-- Never name the speaker or the player in the third person in speech: run event/chronicle text through `cvSpeechOf(o, text, listener)` (first names,
-  no clock times, the speaker as I, the listener as you).
-- `node tools/lintalk.mjs [days] [talks] [turns] [seed]` flags what reads wrong (self/player in the third person, repeats, clunky pivots, infants as topics,
-  full names, clock times, child lines from adults, uncontracted speech, broken grammar, news told about the listener, repeated overheard pairs) and prints
-  question -> answer pairs to read. A test runs it.
-
-## The social simulation (src/social2/sb-*.ts; design in docs/social-simulation.md)
-The village lives without the player: the simulation owns the truth (events), each villager owns what they believe, conversation expresses it.
-- `sb-core.ts`: each person's **version** of an event (`o.kn[id]`: `who` they blame, `ext` extra detail, `sev2`, `m` times changed, `hop`, `sus` = only a suspicion),
-  `sbKind` (own / fact / hearsay / rumour), importance and forgetting (`sbImp`, `sbTrim`), distortion when retold (`sbPassOn`: exaggerate, soften for a friend, pin it on someone
-  they dislike, lose the name), second-order beliefs (`o.sbRel['a:b']` = what they think a feels about b, and why), the reason ledger (`o.why[id]`, written by `lfAff(a, b, v, why)`),
-  trust and respect (`o.trust`, `o.resp`), `sbWhyText` (a reason in the speaker's words).
-- `sb-exchange.ts`: background exchanges between people who are near each other and free (`SBX`: small talk, news, vent, praise, console, shop/rivalry, family/row,
-  argue, court, borrow, repay, confide, leak). Each has consequences; every exchange is voiced as speech bubbles. `sbCompat` is a pair's chemistry. Loans live in `town.sbLoans`.
-- `sb-voice.ts`: the words. `sbSayIfNear(a, b, kind, facts)` voices an exchange with its facts (who, why, how much, what the row is about); `sbNewsLines` is gossip
-  in the teller's version; `sbSmallTalk(a, b)` is what people say when they bump into each other (also `makeConvo`), drawn from their lives (family by name,
-  where somebody is, shared news, work, prices, the tide). `sbPick` chooses what the player has heard least recently.
-- `sb-life.ts`: life events once a day (illness and sick visits, lost and found coins, pilfering with a suspect, windfalls, catches, a business week, deliveries),
-  ill people in bed, parents fetching food for a hungry child.
-- `sb-presim.ts`: 60 days of abstract village life before arrival (meals, work, the street, the tavern), seeded by the town seed, money-neutral, ~25 ms.
-- Conversation side: `dialogue/cv-social.ts` (hedges, `cvMe`/`cvYou` first-person rewriting, "who cannot stand whom" and "today I talked to…" topics,
-  contradicting a version with "I heard it was X").
-- Measure with `node tools/network.mjs [days] [seed]` (the village at arrival, how news travels, versions, wrong blame) and `node tools/sift.mjs [days]`.
+## Talk (being rebuilt from scratch: docs/talk-engine.md, src/talk/)
+All the old chat engines are gone (`dialogue/*`: the player conversation, authored scenes, banks; `social2/*`: beliefs, background exchanges and their words; the walk-by chatter; the gossip speech). **Nobody talks for now**: `say()` is a no-op, `bumpTalk` returns false while `TALK.engine === 'none'`, `drainEvents` drops everything pushed, and `openTalk` finds nobody with anything to say. `src/talk/base.ts` holds the plain helpers the rest of the game still uses (`anyOf`, `dayN`, `cvPron`, `placeWords`) and quiet stand-ins for the old calls (`cvSpeak`, `sbTrust`, `sbPassOn`, ...), each a no-op or pass-through: delete a stand-in when the call site is rewritten. Still standing from the old layers and not yet rebuilt: `life2/core.ts` events and word of mouth (`lfEmit`, `lf2Learn`, `lf2Tell`), `social/social-life.ts` and the `think`/`lfShout` lines, which now say nothing; the bubble drawing (`bubbles`, `drainEvents`), the talk box (`talkUI`, `renderTalk`) and the villager card.
+The design (three layers: acts, lexicon, world registry; one conversation shape for villagers and player; per-kind on/off switches `TALK.on`) is in `docs/talk-engine.md`. The Murakami voice rules for island text still apply to whatever is written next: ordinary people calmly accepting an impossible situation, dry, specific, understated, no exclamation marks, exact numbers.
 
 ## Tests
 - `tests/lib.mjs` loads `dist/index.html` deterministically: seeded `Math.random`, a fake clock, frame loop
@@ -162,7 +115,7 @@ The village lives without the player: the simulation owns the truth (events), ea
 - Current suite: load and run a day, render without errors, nobody starves in 12 days (three towns),
   the controls (Q cycles the hand modes, 1-9 the belt, Shift and old keys do nothing; Push pushes people and swaps against a wall, Talk talks; crates pushed in Push (Sokoban: at your pace, in lines of three, swapping at a wall, people as pieces of the line, no invisible walls, over fields, through doors; furniture out and back in; villagers move nothing) and searched in Search; rocks pushed and broken; chairs, beds and the barrel moved; trees need the axe; the hoe ploughs and seeds sow; sleepers), conversations (specific openers, long random talks without dead ends or repeats, insults and sympathy, unlocking layers, memory, witnesses, the arrest), sim speed under 3 s per game-day (about 0.7 s now),
   the social simulation (the pre-simulation is deterministic, fast and leaves nobody a blank slate; news spreads gradually and changes; talk uses beliefs and you can contradict a version),
-  readability and a week of freshness, items in the economy (villager tools, wear and the smith, iron, seeds and the garden, lockpicks, the sawmill), the dialogue lint, every follow-up answered and ask-about, overheard small talk from real lives (88 tests, about 4 minutes).
+  readability and a week of freshness, items in the economy (villager tools, wear and the smith, iron, seeds and the garden, lockpicks, the sawmill), the dialogue lint, every follow-up answered and ask-about, (about 71 tests now that the old dialogue tests are gone).
 - The random stream is shared, so any change shifts every later random draw: a test that suddenly fails in one town is often exposing a real
   weakness that luck was hiding (that is how children starving with dole grain in their pockets was found). Find the cause before changing the test.
 - When behaviour changes on purpose, tests may need new expectations; when it changes by accident, they catch it.
@@ -210,9 +163,9 @@ All sound is synthesised in the browser with the Web Audio API (no files): `sndT
 - **Roof gardens**: the field brush works on a deck, so a roof can be a garden (`bldBrushStep`); farmers work any plot they can walk to, on any level; digging a plot back leaves `bldBare(y)`.
 - **Farmers sow a mix** (`farmSeed` in ai/work-plans.ts): half barley (the staple), the rest the other food crops, each villager with a favourite or two; flowers are left to you. Plots remember their seed (`c.seed`) and grow and give their own food (`itGrow`, `itHarvest`).
 
-## Seeing what villagers are doing (src/ui/hud-villager.ts, sbMeet in social2/sb-exchange.ts)
+## Seeing what villagers are doing (src/ui/hud-villager.ts)
 - **Villager card**: click a villager on the canvas (`openVillagerCard`, Esc or x closes; it refreshes twice a second). It reads `n.status` (what the plan is doing now, so any step's text should say something a player can follow), mood and plain-word need hints, `Company` (the four strongest ties from `n.aff`/`n.know`/`relLabel`, in words, no numbers), lines the chronicle says about them and `n.log` (the steps before). Numbers stay in `npcDebug` (build-mode hover). New systems (gifts, courtship) should give their plan steps readable texts and write chronicle or `lfAff` reasons so the card shows them.
-- **Meetings**: with both villagers idle (standing or at leisure; nobody is called away from work, a walk to it, a meal or bed), a background exchange (`sbTick`) is no longer said across the room: `sbMeet` sends the first villager to the tile beside the other ("Going over to X"), both face each other, and then the exchange runs and its bubbles hold them still (`talkUntil` in `drainEvents`). Every exchange is voiced and walked out wherever it happens (`sbNear` is just 'not the pre-simulation'; bubbles out of view are not drawn). `SB.feat.meet = false` turns it off.
+- **Meetings** (walking up and standing face to face before talking, resuming the interrupted plan after) were part of the old exchange code and go back in with the new engine: `docs/talk-engine.md`, "Where it runs".
 
 ## Performance tools
 - `node tools/profile.mjs <seconds> <zoom> [--pan] [--cpu] [--file=other.html]`: the real frame loop, with per-stage times, frame-time percentiles and optional panning / CPU profile. Headless Chromium paints in software, so compare before/after rather than against 60 fps.
