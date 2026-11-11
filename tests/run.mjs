@@ -1064,7 +1064,7 @@ test('talk engine (phase 1): villagers walk up, greet, chat about small things, 
   await page.evaluate(() => { TALK.words = true; });
   await simulate(page, 1440 + 10 * 60);
   const r = await page.evaluate(() => {
-    const L = TALK.log, bad = [];
+    const L = TALK.log.filter(l => l.acts[0].act !== 'shop_greet'), bad = [];   // (stall encounters have their own shape: the shop talk test)
     for (const l of L) {
       const ids = l.acts.map(x => x.act);
       if (ids[0] !== 'greet' || ids[1] !== 'greet_back') bad.push('opening ' + ids.slice(0, 2));
