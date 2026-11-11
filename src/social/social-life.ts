@@ -19,7 +19,7 @@ const MEM_REPLY = {
 const parentWord = (kid, p) => p.female ? 'Mum' : 'Dad';
 const isParentOf = (p, k) => k.fam.mother === p.id || k.fam.father === p.id;
 const eventsBusy = () => { const w = town.wedding, f = town.funeral, fe = town.feast, t = game.time; return (w && t >= w.at - 60 && t < w.end) || (f && t >= f.at - 60 && t < f.end) || (fe && t >= fe.at - 30 && t < fe.end) || (typeof activeParty === 'function' && !!activeParty()); };
-const say = (a, b, lines, quiet?) => { game.events.push({ time: game.time, a, b: b || a, place: placeOf(a), topic: 'life', quiet: !!quiet, lines: lines.filter(l => l && l[1]).map(([who, text]) => ({ who, text })) }); if (game.events.length > 300) game.events.splice(0, game.events.length - 300); };
+const say = (_a?: any, _b?: any, _lines?: any, _quiet?: boolean) => {};   // silent until the new talk engine (docs/talk-engine.md)
 
 /* ---------- memories ---------- */
 function addMem(n, kind, me, we, withId) {
