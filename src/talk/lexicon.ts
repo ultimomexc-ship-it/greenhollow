@@ -109,7 +109,7 @@ function lxSlots(sp: any, li: any, c: any, ctx: any): any {
     place: /^the /.test(place) ? 'at ' + place : place ? 'in ' + place : 'here',
     job: String(sp.job || 'daily').toLowerCase(),
     state: ctx.state, clock: lxClock(),
-    money: lxMoney(c.price), price: c.price != null ? String(c.price) : undefined,
+    money: c.price != null ? lxMoney(c.price) : undefined, price: c.price != null ? String(c.price) : undefined,
     about: c.about || undefined, reason: c.reason || '',
     them: !c.about ? undefined : aboutP ? (aboutP.female ? 'her' : 'him') : 'them',
     shop: c.shop || 'stall',

@@ -1068,9 +1068,14 @@ test('talk engine (phase 1): villagers walk up, greet, chat about small things, 
     const L = TALK.log.filter(l => !['shop_greet', 'keeper_call', 'call_child', 'mutter'].includes(l.acts[0].act)), bad = [];   // (stall encounters and calls have their own shape: the shop talk tests)
     for (const l of L) {
       const ids = l.acts.map(x => x.act);
-      if (ids[0] !== 'greet' || ids[1] !== 'greet_back') bad.push('opening ' + ids.slice(0, 2));
-      if (ids[ids.length - 3] !== 'pre_close' || ids[ids.length - 2] !== 'farewell' || ids[ids.length - 1] !== 'farewell_back') bad.push('closing ' + ids.slice(-3));
-      if (ids.length < 6 || ids.length > 30) bad.push('length ' + ids.length);
+      // as much ceremony as the two of them need: none (they spoke lately or live together), a greeting and a goodbye, or the full opening and closing; never half of one
+      const greeted = ids[0] === 'greet', full = ids.includes('pre_close');
+      if (greeted && ids[1] !== 'greet_back') bad.push('opening ' + ids.slice(0, 2));
+      if (full && !(greeted && ids[ids.length - 3] === 'pre_close' && ids[ids.length - 2] === 'farewell' && ids[ids.length - 1] === 'farewell_back')) bad.push('closing ' + ids.slice(-3));
+      if (greeted && !full && !['farewell', 'farewell_back'].includes(ids[ids.length - 1])) bad.push('goodbye ' + ids.slice(-2));
+      if (!greeted && ids.some(x => ['pre_close', 'farewell', 'farewell_back', 'greet_back'].includes(x))) bad.push('ceremony without a greeting ' + ids);
+      if (!ids.some(x => ACTS[x].stage === 'topic')) bad.push('nothing said ' + ids);
+      if (ids.length < 2 || ids.length > 30) bad.push('length ' + ids.length);
       if (!l.lines || l.lines.length !== ids.length || l.lines.some(x => /[{}]|undefined|NaN/.test(x))) bad.push('words ' + JSON.stringify(l.lines && l.lines.slice(0, 2)));
       if (l.a === l.b) bad.push('self');
     }
@@ -1094,7 +1099,7 @@ test('talk engine (phase 1): a kind of talk can be switched off, and a line abou
     let seen = false; for (let i = 0; i < 400; i++) if (/castle/.test(lxSay('remark_place', a, c, { done: {} }))) seen = true; out.castleSaid = seen;
     out.has = [WORLD.has('feature', 'castle'), WORLD.has('item', 'barley'), WORLD.has('person', a.id)];
     // with small talk off, a conversation is only the rituals
-    const onKeep = Object.assign({}, TALK.on); for (const k of Object.keys(TALK.on)) TALK.on[k] = k === 'ritual'; const cv = talkRun(a, c, true); out.ritualOnly = cv.turns.every(t => ACTS[t.act].kind === 'ritual') && cv.turns.length === 5; Object.assign(TALK.on, onKeep);
+    const onKeep = Object.assign({}, TALK.on); for (const k of Object.keys(TALK.on)) TALK.on[k] = k === 'ritual'; a.tmem = (a.tmem || []).filter(m => !(m.kind === 'talked' && m.with === c.id)); a.homeRoom = null; a.aff[c.id] = 0; const cv = talkRun(a, c, true); out.ritualOnly = cv.turns.every(t => ACTS[t.act].kind === 'ritual') && cv.turns.length === 5;   // (two people who have not spoken: the whole ceremony, and with nothing else switched on, nothing else) Object.assign(TALK.on, onKeep);
     return out; });
   check(!r.castleSaid, 'a line that needs a feature that does not exist is never said');
   check(r.has[0] === false && r.has[2] === true, 'the registry knows what exists: ' + JSON.stringify(r.has));
@@ -1207,7 +1212,7 @@ test('talk and needs: while two people talk their hunger, bladder and tiredness 
   await simulate(page, 9 * 60);
   const r = await page.evaluate(() => {
     const out = {}; const free = npcs.filter(q => !q.dead && !q.player && q.age >= 18 && q.pose !== 'sleep'), a = free[0], c = free[1];
-    for (const n of [a, c]) { n.hunger = 40; n.bladder = 30; n.energy = 70; n.talkUntil = game.time + 30; }
+    for (const n of [a, c]) { n.hunger = 40; n._h = 40; n.bladder = 30; n.energy = 70; n.talkUntil = game.time + 30; }
     const h0 = [a.hunger, a.bladder, a.energy]; tickEcon(10); out.held = [a.hunger, a.bladder, a.energy].every((v, i) => v === h0[i]);
     a.talkUntil = 0; const h1 = a.hunger; tickEcon(10); out.runs = a.hunger > h1;
     // the next tile, facing

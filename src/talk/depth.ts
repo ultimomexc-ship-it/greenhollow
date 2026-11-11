@@ -261,3 +261,34 @@ LXI('shop_greet_back', ["Hello. Tell me what you want and I will tell you what I
 for (const t of ['I\'m glad. I was nervous.', 'Good. Good. I wasn\'t sure.', 'Well. That\'s a weight off.']) lx('glad_courtship', 'plain', t);
 for (const t of ['Good. I had rehearsed a second answer in case. I will keep it.', 'I am glad. I was a little frightened. That is private.', 'Well. That has gone better than the version in my head.']) lxi('glad_courtship', t);
 ACTS.glad_courtship = { kind: 'romance', stage: 'topic', reply: true, when: () => true, w: () => 1, apply: () => {}, replies: [] };
+
+/* ---- the thread: one thing more about what was just said ---- */
+/** why somebody is the way they are, from what has really happened to them ('' when nothing explains it) */
+function stateWhy(n: any, state: string): string {
+  const log = (n.day || []).filter((e: any) => game.time - e.t < 2880).map((e: any) => e.kind);
+  const felt = (n.tmem || []).filter((m: any) => m.kind === 'felt' && game.time - m.t < 1440 * 5).map((m: any) => m.evk);
+  if (felt.includes('home_destroyed')) return 'has not been the same since the house came down';
+  if (felt.includes('caught_on_privy') || felt.includes('caught_bathing')) return 'is still not over being walked in on';
+  if (felt.includes('furniture_removed') || felt.includes('bed_moved')) return 'had the bed taken from under them, more or less';
+  if (n.homeless || !n.bed || n.bed.x == null) return 'has no bed to go to';
+  if (log.includes('starving') || log.includes('went_hungry')) return 'has not had a proper meal in days';
+  if (log.includes('could_not_afford')) return 'could not pay for what was needed';
+  if (log.includes('slept_rough')) return 'slept on the ground last night';
+  if (log.includes('no_privy')) return 'could not find a privy when it mattered';
+  if (state === 'tired' && n.job) return 'has been at the ' + String(n.job).toLowerCase() + ' work since first light';
+  return '';
+}
+ACTS.ask_why_state = { kind: 'person', stage: 'topic', reply: true, when: (c: any) => !!c.about && ['low', 'tired', 'hungry'].includes(c.state), w: () => 1, apply: () => {}, replies: ['explain_state', 'explain_unknown'] };
+ACTS.explain_state = { kind: 'person', stage: 'topic', reply: true, when: (c: any) => !!c.about && !!stateWhy(c.about, c.state), w: () => 3, apply: (c: any) => { c.reason = stateWhy(c.about, c.state); }, replies: [] };
+ACTS.explain_unknown = { kind: 'person', stage: 'topic', reply: true, when: (c: any) => !!c.about && !stateWhy(c.about, c.state), w: () => 3, apply: () => {}, replies: [] };
+ACTS.ask_family.follow = ['ask_why_state'];
+ACTS.ask_more_day = { kind: 'life', stage: 'topic', reply: true, when: (c: any, sp: any, li: any) => (c.done.report_day || 0) === 1 && LIFE.recent(li, sp).length > 0, w: () => 1, apply: () => {}, replies: ['report_day'] };
+ACTS.ask_day.follow = ['ask_more_day'];
+LXP('ask_why_state', ["Why? What\'s happened?", "Oh? What\'s the matter?", "Is something wrong?"]);
+LXI('ask_why_state', ["Why? What happened? You can give me the short version.", "What is the matter? I would rather know.", "Is something wrong? I mean in particular."]);
+LXP('explain_state', ["{about} {reason}.", "Well. {about} {reason}. That\'ll do it.", "{about} {reason}, that\'s why."]);
+LXI('explain_state', ["{about} {reason}. I do not think there is more to it than that.", "{about} {reason}. It would do it to anyone.", "It is simple. {about} {reason}."]);
+LXP('explain_unknown', ["I couldn\'t tell you. {about} won\'t say.", "No idea. I\'ve asked."]);
+LXI('explain_unknown', ["I do not know. {about} has not said, and I have stopped asking.", "Nobody knows. {about} least of all."]);
+LXP('ask_more_day', ["And besides that?", "Anything else?", "And the rest of the day?"]);
+LXI('ask_more_day', ["And apart from that? I am interested in the whole of it.", "Anything else? I have time for a second thing.", "And after that?"]);
