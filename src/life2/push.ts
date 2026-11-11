@@ -117,7 +117,7 @@ function lf2PushLine(n, x, y, dx, dy): true | string | null {
 }
 /** a person pushed along: they stumble one tile (harmless: no crime, no gossip beyond "you pushed somebody") */
 function pushMovePerson(n, who, tx, ty) {
-  if (who.pose === 'sleep') pushCarry(who, tx, ty, n); else lf2Relocate(who, tx, ty); cvSaw(n, who, 'push'); if (!who.player && Math.random() < 0.3) lfShout(who, anyOf(PUSH_WORDS));
+  if (who.pose === 'sleep') pushCarry(who, tx, ty, n); else { if (n && n.player) meddleNote('person_pushed', who.tx, who.ty, n, { room: -1, residents: [who] }); lf2Relocate(who, tx, ty); } cvSaw(n, who, 'push'); if (!who.player && Math.random() < 0.3) lfShout(who, anyOf(PUSH_WORDS));
 }
 /** move somebody one tile without waking or standing them: a sleeper in a bed, a sitter on a chair, a sleeper on the ground. Their plan carries on; they remember who did it and where they were. */
 function pushCarry(who, tx, ty, by?) {

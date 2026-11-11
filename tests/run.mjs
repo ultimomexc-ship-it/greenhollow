@@ -1688,6 +1688,34 @@ test('suspicion and reputation: an unseen deed is guessed at (so an innocent can
   return JSON.stringify([r.sus, r.line, r.blameLine, r.tellLine]);
 });
 
+test('meddling reactions: furniture and people are deeds too, being caught bathing or praying is its own story, and people react by staring, fleeing, telling a friend or coming to have it out', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    const out = {}; TALK.words = true; startPlaying(npcs.find(n => !n.dead && n.age >= 18 && !n.infant)); const P = game.player;
+    const houses = rooms.filter(q => !q.free && !q.dead && q.kind === 'house' && meddleResidents(q).some(n => n !== P && !n.player)); const R = houses[0], res = meddleResidents(R).filter(n => n !== P);
+    const V = res[0]; V.tx = V.x = R.x + 1; V.ty = V.y = R.y + 1; V.pose = 'stand'; V.moving = false; P.tx = P.x = R.x + 2; P.ty = P.y = R.y + 1; rebuildOcc();
+    // furniture
+    const bed = V.bed && V.bed.x != null ? V.bed : (R.beds || [])[0]; const ev0 = lf2Ev().length;
+    meddleNote('furniture_removed', bed ? bed.x : R.x + 1, bed ? bed.y : R.y + 1, P, { room: rooms.indexOf(R), residents: [V], place: 'bed' }); meddleFlush();
+    const fe = lf2Ev().slice(ev0).find(e => e.kind === 'furniture_removed'); out.furniture = !!fe && fe.target === V.id && !!(V.tmem || []).find(m => m.ev === fe.id); out.furnLine = fe ? TE.text(fe, { who: P.id }) : '';
+    out.react = !!V.react || res.concat(npcs).some(n => n.react);
+    // a pushed person
+    const W = npcs.find(n => n !== P && n !== V && !n.dead && n.age >= 12 && !n.infant); const ev1 = lf2Ev().length; meddleNote('person_pushed', W.tx, W.ty, P, { room: -1, residents: [W] }); meddleFlush(); out.pushed = lf2Ev().slice(ev1).some(e => e.kind === 'person_pushed' && e.target === W.id);
+    // bathing and praying
+    for (const [txt, kind] of [['Taking a bath', 'caught_bathing'], ['Praying at the altar', 'caught_praying']]) { const X = npcs.find(n => n !== P && n !== V && n !== W && !n.dead && n.age >= 12 && !n.infant && n.pose !== 'sleep' && !kind.includes(n.id)); X.pose = 'stand'; X.moving = false; X.plan = [{ k: 'wait', text: txt }]; X.si = 0; X.tx = X.x = P.tx + 2; X.ty = X.y = P.ty; rebuildOcc(); const e2 = lf2Ev().length; meddleNote('wall_removed', P.tx + 1, P.ty, P, { room: -1, residents: [] }); meddleFlush(); out[kind] = lf2Ev().slice(e2).some(e => e.kind === kind && e.target === X.id); }
+    // reactions: each type makes a plan, a friend is told at once
+    const dec = LF2.dec.find(f => String(f).includes('n.react')); const A = npcs.find(n => n !== P && !n.dead && n.age >= 14 && !n.infant && n.pose !== 'sleep' && n !== V), F = npcs.find(n => n !== P && n !== A && n !== V && !n.dead && n.age >= 14 && !n.infant);
+    A.aff[F.id] = 40; const plans = {}; for (const type of ['stare', 'confront', 'flee', 'tell']) { A.react = { type, x: P.tx, y: P.ty, by: P.id, until: game.time + 200, ev: 'x' }; F.tx = F.x = A.tx + 3; F.ty = F.y = A.ty; F.pose = 'stand'; const p = dec(A); plans[type] = p ? p.map(s => s.text).join(' | ') : null; }
+    out.plans = plans;
+    const ev3 = lf2Ev().find(e => e.kind === 'furniture_removed'); const mem = TM.ofEv(V, ev3.id); mem.t = game.time + 5; F.tmem = (F.tmem || []).filter(m => m.ev !== ev3.id); V.aff[F.id] = 30; meddleTell(V, F); out.told = !!TM.ofEv(F, ev3.id);
+    return out; });
+  check(r.furniture && /furniture/.test(r.furnLine), 'taking a bed or chair from a home is a deed the owner feels: ' + JSON.stringify([r.furniture, r.furnLine]));
+  check(r.pushed && r.caught_bathing && r.caught_praying, 'pushing somebody about, and catching them bathing or praying, are their own stories: ' + JSON.stringify([r.pushed, r.caught_bathing, r.caught_praying]));
+  check(Object.values(r.plans).every(Boolean) && r.told, 'people stare, confront, flee, or go and tell a friend, who hears it at once: ' + JSON.stringify([r.plans, r.told]));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return JSON.stringify(r.plans);
+});
+
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

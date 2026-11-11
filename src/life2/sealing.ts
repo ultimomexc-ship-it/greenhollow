@@ -195,8 +195,9 @@ function bldBreak(x: number, y: number, by?: any) {
 /** what the hammer can hit: any wall, and (with the hammer in hand you cannot walk through it) any door. Every building can be destroyed. */
 function bldHammerWall(x: number, y: number, hammer?: boolean) { const g = grid[y][x]; return g === T.WALL || (g === T.DOOR && !!hammer); }
 /** the hammer deletes a loose thing (a block, crate, barrel, bed, chair, table or stool) outright */
-function bldDeleteProp(pr: any) {
+function bldDeleteProp(pr: any, by?: any) {
   if (!pr || pr.fixed || !town.props.includes(pr)) return false;
+  if (by && (pr.kind === 'bed' || pr.kind === 'chair') && (pr.ownerId != null || (pr.owner && pr.owner.id != null))) { const ow = lf2By(pr.ownerId != null ? pr.ownerId : pr.owner.id); if (ow) meddleNote('furniture_removed', pr.x, pr.y, by, { room: -1, residents: [ow], place: pr.kind }); }
   kitGive(pr.kind);
   town.pblock[pr.y * W + pr.x] = 0; town.propAt.delete(pr.y * W + pr.x); town.props = town.props.filter(q => q !== pr); town.lfPV = (town.lfPV || 0) + 1;
   if (pr.rider) { pr.rider = null; }
@@ -205,8 +206,9 @@ function bldDeleteProp(pr: any) {
   if (typeof refreshReach === 'function') refreshReach(); return true;
 }
 /** the hammer deletes a piece of furniture standing in a house (a bed, chair, table or the family barrel): the tile goes back to bare floor and the room forgets it; the owner of a deleted bed has no bed any more */
-function bldDeleteFurniture(x: number, y: number) {
-  const f = typeof pushFurniture === 'function' ? pushFurniture(x, y) : null; if (!f) return false; const r = f.r, o = f.o; kitGive(f.type === 'seat' ? 'chair' : f.type);
+function bldDeleteFurniture(x: number, y: number, by?: any) {
+  const f = typeof pushFurniture === 'function' ? pushFurniture(x, y) : null; if (!f) return false; const r = f.r, o = f.o;
+  if (by && (f.type === 'bed' || f.type === 'seat' || f.type === 'barrel')) { const own = f.type === 'bed' ? npcs.filter((n: any) => n.bed === o) : meddleResidents(r); meddleNote('furniture_removed', x, y, by, { room: rooms.indexOf(r), residents: own.length ? own : meddleResidents(r), place: f.type === 'seat' ? 'chair' : f.type }); } kitGive(f.type === 'seat' ? 'chair' : f.type);
   if (f.type === 'bed') { r.beds = r.beds.filter(b => b !== o); for (const n of npcs) if (n.bed === o) { n.bed = { owner: null }; n.homeless = true; abortPlan(n); } }
   else if (f.type === 'seat') { r.seats = r.seats.filter(b => b !== o); for (const n of npcs) if (n.seat === o) n.seat = null; }
   else if (f.type === 'barrel') { o.out = true; o.gone = true; }

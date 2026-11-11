@@ -10,6 +10,10 @@ function deedYou(ev: any, sp: any): string {
     case 'wall_removed': return me ? 'knocked a wall out of my house' : t ? 'knocked a wall out of ' + they + '\'s house' : 'knocked a wall down';
     case 'home_destroyed': return me ? 'pulled my house down' : t ? 'pulled ' + they + '\'s house down' : 'pulled a house down';
     case 'betrayal': return me ? 'told somebody my secret' : t ? 'told ' + they + '\'s secret' : 'told a secret';
+    case 'furniture_removed': return me ? 'took my ' + (ev.place || 'furniture') + ' away' : t ? 'took ' + they + '\'s ' + (ev.place || 'furniture') + ' away' : 'took some furniture away';
+    case 'person_pushed': return me ? 'pushed me about' : t ? 'pushed ' + they + ' about' : 'pushed somebody about';
+    case 'caught_bathing': return me ? 'knocked the wall out while I was bathing' : 'knocked the wall out while ' + they + ' was bathing';
+    case 'caught_praying': return me ? 'knocked the wall out while I was praying' : 'knocked the wall out while ' + they + ' was praying';
     case 'building_down': return 'pulled down ' + (ev.place || 'a building');
     case 'bed_moved': return me ? 'carried me out of my house in my sleep' : t ? 'carried ' + they + ' out of the house in their sleep' : 'moved a bed with somebody in it';
     case 'caught_on_privy': return me ? 'knocked the wall out while I was on the privy' : 'knocked the wall out while ' + they + ' was on the privy';
@@ -94,3 +98,9 @@ lx('ev:building_down', 'plain', '{a} pulled down {place}'); lx('ev:bed_moved', '
 lx('ev:caught_on_privy', 'plain', '{t} was caught on the privy when the wall came down'); lx('ev:caught_on_privy', 'plain', '{a} knocked the wall out while {t} was on the privy');
 lx('cry_deed', 'plain', 'Where am I? That was my bed!', { how: 'bed' }); lx('cry_deed', 'plain', 'Is that a tree? Who moved my bed?', { how: 'bed' }); lx('cry_deed', 'plain', 'Who has carried off my chair?', { how: 'chair' });
 lxi('cry_deed', 'I went to sleep indoors. I am nearly certain of that.', { how: 'bed' }); lxi('cry_deed', 'There is a tree where the ceiling was.', { how: 'bed' }); lxi('cry_deed', 'I was sitting down just now. I was indoors.', { how: 'chair' });
+lx('cry_deed', 'plain', 'Is that my bed? Where is it going?', { how: 'furniture' }); lx('cry_deed', 'plain', 'Put that back!', { how: 'furniture' }); lx('cry_deed', 'plain', 'Hey! Hands off me!', { how: 'pushed' }); lx('cry_deed', 'plain', 'What is this? Put me down!', { how: 'pushed' });
+lx('cry_deed', 'plain', 'I am bathing! Do you mind!', { how: 'bath' }); lx('cry_deed', 'plain', 'Not now! I am praying!', { how: 'pray' });
+lxi('cry_deed', 'That was mine. It was there a moment ago.', { how: 'furniture' }); lxi('cry_deed', 'I would like that back. I know where it was.', { how: 'furniture' }); lxi('cry_deed', 'I am being moved. I would like it noted.', { how: 'pushed' }); lxi('cry_deed', 'Please stop pushing me. I was going somewhere.', { how: 'pushed' });
+lxi('cry_deed', 'I am bathing. I was. The wall was there when I started.', { how: 'bath' }); lxi('cry_deed', 'I was praying. I do not think it was heard.', { how: 'pray' });
+lx('ev:furniture_removed', 'plain', '{a} took {t}\'s furniture away'); lx('ev:furniture_removed', 'plain', '{t} came home and the furniture was gone'); lx('ev:person_pushed', 'plain', '{a} pushed {t} around'); lx('ev:person_pushed', 'plain', '{t} was shoved about, and {a} did it');
+lx('ev:caught_bathing', 'plain', '{t} was caught bathing when the wall came down'); lx('ev:caught_bathing', 'plain', '{a} knocked the wall out while {t} was bathing'); lx('ev:caught_praying', 'plain', '{t} was praying when the wall came down'); lx('ev:caught_praying', 'plain', '{a} took the wall down while {t} was at prayer');
