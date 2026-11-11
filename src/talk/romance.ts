@@ -24,7 +24,7 @@ ACTS.declare = { kind: 'romance', stage: 'topic', preview: () => ({}), w: (c: an
   when: (c: any, sp: any, li: any) => !c.done.declare && romOK(sp, li) && !romCool(sp, 'declare' + li.id, 0) && (sp.crush === li.id) && (sp.know[li.id] || 0) > 25 && !c.done.flirt,
   apply: (c: any, sp: any, li: any) => { c.done.declare = 1; romSet(sp, 'declare' + li.id, 12); lfEmit('crush', { actor: sp, target: li, sev: 1, tags: ['romance'], chron: false, text: `${sp.first} told ${li.first} how they feel` }); }, replies: ['declare_return', 'declare_gentle'] };
 ACTS.declare_return = { kind: 'romance', stage: 'topic', reply: true, when: (c: any, sp: any, li: any) => (sp.aff[li.id] || 0) >= 30 || sp.crush === li.id, w: () => 2,
-  apply: (c: any, sp: any, li: any) => { sp.crush = li.id; lfAff(sp, li, 6, 'told me how they feel'); lfAff(li, sp, 6, 'felt the same'); romMood(sp, 8); romMood(li, 10); }, replies: [] };
+  apply: (c: any, sp: any, li: any) => { sp.crush = li.id; lfAff(sp, li, 6, 'told me how they feel'); lfAff(li, sp, 6, 'felt the same'); romMood(sp, 8); romMood(li, 10); }, replies: ['ask_to_walk'] };   // (and then the asking comes straight after, not three topics later)
 ACTS.declare_gentle = { kind: 'romance', stage: 'topic', reply: true, when: (c: any, sp: any, li: any) => (sp.aff[li.id] || 0) < 30 && sp.crush !== li.id, w: () => 2,
   apply: (c: any, sp: any, li: any) => { lfAff(li, sp, -3, 'did not feel the same'); romMood(li, -10); if (Math.random() < 0.6) li.crush = null; li.refusedAt = game.time; }, replies: [] };
 
