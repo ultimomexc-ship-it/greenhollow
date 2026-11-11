@@ -172,7 +172,7 @@ function workPlan(n, tod) {
   if (n.role === 'Worker') {
     const r = pickAgenda(n);
     const mats = 0;
-    const load = carried(n) - ((n.inv.wood || 0) + (n.inv.stone || 0)), thr = { Farmer: 12, Fisher: 6, Woodcutter: 99, Stonecutter: 99, Miner: 99, Gatherer: 8 }[r] || 8;
+    const load = carried(n) - ((n.inv.wood || 0) + (n.inv.stone || 0)), thr0 = { Farmer: 12, Fisher: 6, Woodcutter: 99, Stonecutter: 99, Miner: 99, Gatherer: 8 }[r] || 8, thr = town.farmEcon && n.coin < 12 ? Math.min(thr0, 4) : thr0;   // (a farmer short of money takes the crop to market sooner)
     if (load >= thr || ((load > 0 || mats > 0) && left < 200)) { if (game.time >= n.sellCool || (n.inv.wood || 0) + (n.inv.stone || 0) > 0) { const hp = haulPlan(n); if (hp && hp.length) return hp; } }
     if (r === 'Farmer') return farmPlan(n) || (n.curUntil = 0, null);
     if (r === 'Fisher') return fishPlan(n) || (n.curUntil = 0, null);

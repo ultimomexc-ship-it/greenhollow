@@ -1305,6 +1305,15 @@ test('ready farming village: only what farming needs; farmers buy seed from the 
   check(r2.seedBuys >= 5 && r2.produceSold >= 5, 'seed is bought from the seed stall and produce is sold to the greengrocer: ' + JSON.stringify([r2.seedBuys, r2.produceSold]));
   check(r2.stock >= 3 && r2.range > r.range0, 'new seeds turn up on the stall and it is noticed: ' + JSON.stringify([r2.stock, r2.range, r.range0]));
   check(r2.lines >= 3, 'villagers talk about it (what they bought, planted, harvested, could not afford): ' + JSON.stringify(r2.sample));
+  // the player at the stalls: buy seed with real money, sell what they grew
+  const r4 = await page.evaluate(() => {
+    const P = game.player || (startPlaying(npcs.find(canControl)), game.player), se = farmSeller(), gr = farmGrocer(); const out = {};
+    P.coin = 50; farmRestock(); P.bag = P.bag || {}; const before = P.bag.seed_turnip || 0, st0 = se.stock.seed_turnip;
+    farmShopDialog(se); const labels = (talkUI.opts || []).map(o => o[1]); out.menu = labels.slice(0, 3);
+    const i = labels.findIndex(l => /turnip/i.test(l) && /^Buy a/.test(l)); const step = lf2TalkStep('c' + i); out.said = step && step.say; out.bought = (P.bag.seed_turnip || 0) === before + 1 && se.stock.seed_turnip === st0 - 1 && P.coin < 50;
+    closeTalk && closeTalk(); const c1 = P.coin; P.inv.turnip = 6; gr.n.coin = 100; gr.stock.turnip = 0; farmShopDialog(gr); const l2 = (talkUI.opts || []).map(o => o[1]); const j = l2.findIndex(l => /^Sell your 6 turnips/.test(l)); const st2 = lf2TalkStep('c' + j); out.sold = (P.inv.turnip || 0) === 0 && P.coin > c1; out.said2 = st2 && st2.say; closeTalk && closeTalk();
+    return out; });
+  check(r4.bought && r4.sold, 'the player buys seed (it goes in the bag, the money goes) and sells produce at the stalls: ' + JSON.stringify(r4));
   // another island is untouched
   const r3 = await page.evaluate(() => { newTown('village-test', 'village'); return [town.scenario, !!town.farmEcon, modOn('job.Miner'), modOn('sys.law'), LF2.feat.law]; });
   check(r3[0] === 'village' && r3[1] === false && r3[2] === true && r3[3] === true && r3[4] === true, 'a different island keeps all its modules on: ' + JSON.stringify(r3));

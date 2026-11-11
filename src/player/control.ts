@@ -67,7 +67,7 @@ function targetAt0(n, x, y) {
     const m = stallTrade(n, x, y);
     if (!m) return { msg: 'Nobody is at this stall.' };
     if (!m.serving) return { msg: 'The stall is closed right now.' };
-    return { key: 'stall' + m.n.id, min: 0.8, text: 'Stepping up to the larder', tool: null, run(n) { if (typeof openShop === 'function') openShop(m); } };
+    return { key: 'stall' + m.n.id, min: 0.8, text: 'Stepping up to the ' + (town.farmEcon ? m.def.noun : 'larder'), tool: null, run(n) { if (town.farmEcon && typeof farmShopDialog === 'function') farmShopDialog(m); else if (typeof openShop === 'function') openShop(m); } };
   }
   if (itBuildOn(n) && n.build.sel === 1) {   // (build mode, destroy: lamp posts, fires and tents go too)
     if (g === T.LAMP) return { key: 'wallL' + x + ',' + y, min: 6, text: 'Smashing the lamp post', tool: 'hammer', run(nn) { bldDeleteLamp(x, y); playerSay(nn, 'Gone.'); } };

@@ -58,7 +58,7 @@ function farmRestock() {
     m.n.coin -= Math.min(Math.max(0, m.n.coin), Math.round((m.stock[g] - was) * GOODS[g].base * 0.4));   // (what the seed cost them at the wholesaler)
   }
   const gr = farmGrocer();
-  if (gr) for (const g of Object.keys(gr.buys)) { const keep = gr.buys[g] * 0.7, over = (gr.stock[g] || 0) - keep; if (over >= 3) { const q = Math.floor(over / 2); gr.stock[g] -= q; gr.n.coin += Math.round(q * GOODS[g].base * 0.7); town.eco.exported += q; } }   // (the carter takes what the town cannot use, so the grocer can pay the farmers)
+  if (gr) for (const g of Object.keys(gr.buys)) { const keep = gr.buys[g] * 0.7, over = (gr.stock[g] || 0) - keep; if (over >= 3) { const q = Math.floor(over / 2); gr.stock[g] -= q; gr.n.coin += Math.round(q * GOODS[g].base * 0.5); town.eco.exported += q; } }   // (the carter takes what the town cannot use at half price, so the grocer can pay the farmers)
   for (const x of [m, gr]) if (x && x.n.coin < 25) x.n.coin += 25;   // (a float from the wholesaler, so no stall is ever without change)
   for (const x of [m, gr]) if (x) {   // the keeper notices when a price has moved since yesterday
     const prev = x.pp || (x.pp = {}); let said = 0;
@@ -94,4 +94,29 @@ function farmSetup() {
   if (sellerP) { setRole(sellerP, 'Trader', mk); const m = sellerP.shop; if (m) { m.def = SEED_DEF; m.buys = SEED_DEF.buys; m.sells = SEED_DEF.sells; m.stock = {}; m.newStock = {}; m.n.coin = 40; farmRestock(); m.newStock = {}; } }
   // farmers start with a little seed and a little money
   for (const n of npcs) { if (n.dead || n.shop || n.age < 14) continue; n.coin = 22 + Math.floor(R() * 20); n.inv = n.inv || {}; if (n.role === 'Worker') { n.inv.seed_barley = 5; n.inv.seed_turnip = 2; n.inv.seed_bean = 2; } }
+}
+
+/* ---- the player at a stall in the farming economy: buy seed, sell what you grew, buy flowers or vegetables; real money ---- */
+function farmShopDialog(m: any) {
+  const n = game.player; if (!n || !m) return;
+  const money = () => Math.floor(n.coin) + ' denarii';
+  const buy = (g: string, q: number) => () => {
+    const p = sellPrice(m, g); let got = 0;
+    while (got < q && (m.stock[g] || 0) >= 1 && n.coin >= p) { pay(n, m.n, p); m.stock[g]--; m.sales++; m.revenue += p; got++; if (g.startsWith('seed_')) itGiveStack(n, g, 1); else n.inv[g] = (n.inv[g] || 0) + 1; }
+    if (got) logTrade(n, m.n, g, got, got * p, 'buy');
+    return { say: got ? `Here. ${got} ${GOODS[g].name}. You have ${money()} left.` : (n.coin < p ? `That's ${p} each, and you have ${money()}.` : `I'm out of ${GOODS[g].name}.`), opts: menu() };
+  };
+  const sell = (g: string) => () => {
+    const q = n.inv[g] || 0, p0 = buyPrice(m, g); let got = 0, tot = 0;
+    while (got < q) { const p = buyPrice(m, g); if (p <= 0 || m.n.coin < p) break; pay(m.n, n, p); m.stock[g] = (m.stock[g] || 0) + 1; n.inv[g]--; tot += p; got++; }
+    if (got) logTrade(m.n, n, g, got, tot, 'sell');
+    return { say: got ? `${got} ${GOODS[g].name}, ${tot} denarii. You have ${money()}.` : (p0 <= 0 ? `I've enough ${GOODS[g].name} already.` : `I can't pay for any more today.`), opts: menu() };
+  };
+  const menu = (): any[] => {
+    const o: any[] = [];
+    for (const g of Object.keys(m.sells)) { if (!((m.stock[g] || 0) >= 1)) continue; const p = sellPrice(m, g); if (g.startsWith('seed_')) { if (!farmSeedRange().includes(g.slice(5))) continue; o.push([`Buy a ${GOODS[g].name.replace(/s$/, '')} (${p})`, buy(g, 1)]); if (n.coin >= p * 5 && m.stock[g] >= 5) o.push([`Buy 5 ${GOODS[g].name} (${p * 5})`, buy(g, 5)]); } else o.push([`Buy ${GOODS[g].name} (${p})`, buy(g, 1)]); }
+    for (const g of Object.keys(m.buys)) { const q = n.inv[g] || 0; if (q < 1) continue; const p = buyPrice(m, g); if (p > 0) o.push([`Sell your ${q} ${GOODS[g].name} (${p} each)`, sell(g)]); }
+    o.push(['Leave', () => null]); return o;
+  };
+  lf2Dialog(m.n, `${m.n.first}: What can I do for you? (You have ${money()}.)`, menu());
 }
