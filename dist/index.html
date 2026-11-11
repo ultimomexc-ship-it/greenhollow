@@ -28154,7 +28154,7 @@ const TE = {
     (m.told = m.told || []).push(li.id);
     if (m.secret && typeof secretLeak === "function") secretLeak(m, sp, li, ev);
     const j = TE.appraise(li, ev, ver, conf, sp), actor = ver.who != null ? lf2By(ver.who) : null;
-    if (actor && actor !== li && j.v !== 0) lfAff(li, actor, j.v * conf * 3, "heard what " + actor.first + " did");
+    if (actor && actor !== li && j.v !== 0) lfAff(li, actor, j.v * conf * 3, ver.who === ev.actor ? "ev:" + ev.id : "heard what " + actor.first + " did");
     return { mem, ver, conf, react: j.react, text: TE.text(ev, ver) };
   },
   /** how a listener takes a piece of news: one of shock, amused, sympathy, doubt, delight, unmoved */
@@ -28596,6 +28596,10 @@ function lxSlots(sp, li, c, ctx2) {
 }
 const LX_MISS = {};
 const lxSlotsOf = (e) => e.sl || (e.sl = (e.text.match(/\{(\w+)\}/g) || []).map((x) => x.slice(1, -1)));
+const lxMarked = (t) => {
+  const u = t.replace(/\{(news|reason)\}[.?]?/g, "").replace(/^\s*(\{li\}|[A-Z][a-z]+)[.,]\s+/, "").trim();
+  return /[.?!…:]\s+\S/.test(u) || u.split(/\s+/).length > 11;
+};
 function lxSay(act, sp, li, c) {
   const ctx2 = lxContext(sp, li, c);
   const slots = lxSlots(sp, li, c, ctx2);
@@ -28613,6 +28617,11 @@ function lxSay(act, sp, li, c) {
   let cands = pool(pk);
   if (!cands.length) cands = pool("plain");
   if (!cands.length) return "";
+  const spare = c.menu || sp.sinceAside != null && sp.sinceAside < 3;
+  if (spare && !act.startsWith("ev:")) {
+    const short = cands.filter((e) => !lxMarked(e.text));
+    if (short.length) cands = short;
+  }
   let best = null, bs = -1e9;
   for (const e of cands) {
     const id = act + "|" + e.text, g = LX_RECENT[id];
@@ -28626,7 +28635,9 @@ function lxSay(act, sp, li, c) {
   heard[act + "|" + best.text] = game.time;
   LX_RECENT[act + "|" + best.text] = game.time;
   const raw = best.text.replace(/\{(\w+)\}/g, (_m, k) => slots[k] != null ? slots[k] : "");
-  const voiced = c.menu ? raw : lxVoice(sp, li, act, pk, lxTic(sp, act, pk, raw));
+  const plainNow = spare || lxMarked(best.text);
+  const voiced = c.menu ? raw : plainNow && lxRegister(sp) === "chatty" ? raw : lxVoice(sp, li, act, pk, plainNow ? raw : lxTic(sp, act, pk, raw));
+  if (!c.menu && !act.startsWith("ev:")) sp.sinceAside = lxMarked(best.text) || voiced.length > raw.length + 8 ? 0 : (sp.sinceAside == null ? 3 : sp.sinceAside) + 1;
   return placeWords(voiced.replace(/\s{2,}/g, " ").replace(/\s+$/, "").replace(/(^|[.!?]\s+)([a-z])/g, (_m, a, b) => a + b.toUpperCase()));
 }
 function lxCount(qty, name) {
@@ -28904,7 +28915,7 @@ function peopleReason(a, b) {
   const L = a.why && a.why[b.id] || [], sgn = Math.sign(a.aff[b.id] || 0);
   const rf = a.refl && a.refl[b.id];
   if (rf && (rf.w === "good" && sgn >= 0 || rf.w === "unkind" && sgn <= 0) && Math.random() < 0.6) return (b.female ? "She" : "He") + (rf.w === "good" ? " is always good to me." : " is never kind to me.");
-  const best = L.filter((x) => !PEOPLE_GENERIC.includes(x.why) && (sgn === 0 || Math.sign(x.v) === sgn)).sort((x, y) => Math.abs(y.v) - Math.abs(x.v))[0];
+  const best = L.filter((x) => !PEOPLE_GENERIC.includes(x.why) && (sgn === 0 || Math.sign(x.v) === sgn)).sort((x, y) => Math.abs(y.v) * (/^heard/.test(y.why) ? 0.4 : 1) - Math.abs(x.v) * (/^heard/.test(x.why) ? 0.4 : 1))[0];
   const f = a.fam || {}, g = b.fam || {}, rel = f.spouse === b.id ? "spouse" : f.partner === b.id ? "partner" : (f.kids || []).includes(b.id) ? "child" : f.mother === b.id || f.father === b.id ? "parent" : f.mother != null && f.mother === g.mother || f.father != null && f.father === g.father ? "sibling" : a.rel && a.rel[b.id], gender = b.female ? "She" : "He";
   if (best) {
     if (/^ev:/.test(best.why)) {
@@ -28927,7 +28938,7 @@ function peopleAbout(sp, li, need) {
 function peopleHear(li, from, about, word, reason) {
   TM.add(li, { kind: "opinion", about: about.id, from: from.id, word, reason, conf: 0.8, imp: 0.3 });
   const dir = word === "fond" ? 1.5 : word === "like" ? 0.8 : word === "dislike" ? -1.5 : word === "wary" ? -0.8 : 0;
-  if (dir && li.aff) lfAff(li, about, dir * (0.5 + Math.max(0, li.aff[from.id] || 0) / 100), "heard what " + from.first + " thinks of " + about.first);
+  if (dir && li.aff) lfAff(li, about, dir * (0.5 + Math.max(0, li.aff[from.id] || 0) / 100), "heard that " + from.first + (dir > 0 ? " thinks well of " : " thinks little of ") + (about.female ? "her" : "him"));
 }
 const peopleYou = (text, li) => !li || !text ? text : text.replace(new RegExp("what " + li.first + " thinks", "g"), "what you think").replace(new RegExp("\\b" + li.first + "\\b", "g"), "you");
 const peopleSet = (c, sp, about, li) => {
@@ -31013,6 +31024,69 @@ lx("ev:lent_hand", "plain", "{a} lent {t} a hand with the work");
 lx("ev:lent_hand", "island", "{a} did an hour of {t}'s work, unasked");
 lx("ev:sick_visit", "plain", "{a} looked in on {t}, who is ill");
 lx("ev:sick_visit", "island", "{a} sat with {t}, who is ill");
+{
+  const S = (act, lines, tags = {}) => {
+    for (const t of lines) lxi(act, t, tags);
+  };
+  S("greet", ["Hello, {li}.", "Morning.", "There you are.", "{li}.", "Good day.", "Hello."]);
+  S("greet_back", ["Hello.", "Hello, {li}.", "Morning.", "Good day.", "Yes. Hello."]);
+  S("farewell", ["Goodbye.", "I will go on, then.", "See you, {li}.", "I should get back.", "Until later.", "Be well.", "That is me.", "Right. Goodbye."]);
+  S("farewell_back", ["Goodbye.", "See you.", "Go well."]);
+  S("pre_close", ["I should get on.", "Well. I have things to see to.", "I will let you go.", "That is all I had.", "I must go."]);
+  S("remark_time", ["It is later than I thought.", "The day is going.", "It is early yet."]);
+  S("remark_place", ["It is quiet here.", "This is a good spot.", "Nobody about.", "The path wants mending.", "I like this corner."]);
+  S("remark_work", ["There is plenty to do.", "The work goes on.", "I am behind, a little.", "It was a full morning.", "The work is the same as yesterday."]);
+  S("remark_state", ["I am hungry.", "I could eat."], { state: "hungry" });
+  S("remark_state", ["I am tired.", "I want to sit down."], { state: "tired" });
+  S("remark_state", ["I feel well today.", "It is a good day."], { state: "glad" });
+  S("remark_state", ["I am a little low.", "It is not my best day."], { state: "low" });
+  S("remark_state", ["I am not well.", "I have a fever."], { state: "ill" });
+  S("ask_how", ["How are you?", "How are you keeping?", "Are you well?", "How is it with you?"]);
+  S("ask_news", ["Any news?", "What is being said?", "Has anything happened?", "What have I missed?"]);
+  S("no_news", ["Nothing.", "No. Nothing.", "Not that I have heard.", "It has been quiet.", "Nothing new."]);
+  S("share_news", ["{news}.", "You will not have heard. {news}.", "There is this. {news}."]);
+  S("share_news", ["I saw this. {news}.", "{news}. I was there."], { how: "saw" });
+  S("share_news", ["I am told {news}.", "They say {news}."], { how: "told" });
+  S("share_news", ["I overheard this. {news}."], { how: "overheard" });
+  S("share_news", ["I am not sure of it. {news}.", "Possibly. {news}."], { conf: "low" });
+  S("react_shock", ["No.", "That is bad.", "I did not expect that."]);
+  S("react_amused", ["Ha.", "That is quite funny.", "I should not laugh."]);
+  S("react_sympathy", ["Poor soul.", "That is hard.", "I am sorry to hear it."]);
+  S("react_doubt", ["Are you sure?", "I doubt that.", "Who says so?"]);
+  S("react_delight", ["Good.", "I am glad.", "That is good to hear.", "Well. Good.", "That was kind."]);
+  S("ask_day", ["How was your day?", "What did you do today?", "What have you been at?", "Busy day?"]);
+  S("nothing_much", ["Not much.", "Very little.", "The usual.", "Nothing to speak of."]);
+  S("empathise", ["I am sorry.", "That is hard.", "That is a bad day.", "I know."]);
+  S("acknowledge", ["Good.", "Well done.", "That is a fair day."]);
+  S("agree_opinion", ["I think so too.", "Yes. The same.", "That is how I find them."]);
+  S("ask_opinion", ["What do you make of {about}?", "How do you find {about}?", "Do you know {about}?"]);
+  S("ask_family", ["How is {about}?", "Is {about} well?", "How is {about} keeping?"]);
+  for (const [st, ls] of [["fine", ["{about} is well.", "{about} is fine."]], ["hungry", ["{about} is hungry."]], ["tired", ["{about} is tired.", "{about} is worn out."]], ["glad", ["{about} is in good spirits."]], ["low", ["{about} is low.", "{about} has been quiet."]], ["ill", ["{about} is ill.", "{about} has a fever."]]]) S("answer_family", ls, { state: st });
+  for (const [st, ls] of [["fine", ["Well enough.", "I am well.", "Fine."]], ["hungry", ["Hungry.", "I have not eaten."]], ["tired", ["Tired.", "I am worn out."]], ["glad", ["Well. Very well.", "It is a good day."]], ["low", ["Not at my best.", "A little low."]], ["ill", ["Not well.", "I have a fever."]]]) S("answer_how", ls, { state: st });
+  const L = (k, ls) => S("life:" + k, ls);
+  L("slept", ["I slept well.", "I had a full night."]);
+  L("slept_rough", ["I slept on the ground.", "I slept outside again.", "I had no bed last night."]);
+  L("no_privy", ["I could not find a privy.", "There was no privy free."]);
+  L("went_hungry", ["I have not eaten today.", "I went without a meal."]);
+  L("starving", ["I have not eaten in two days."]);
+  L("tired", ["I am worn out.", "I have been on my feet all day."]);
+  L("ate", ["I had a proper meal.", "I ate well today."]);
+  L("planted", ["I planted {things}.", "I put in {things} today.", "{things}, in the ground."]);
+  L("harvested", ["I harvested {things}.", "I brought in {things}.", "{things}, out of the ground."]);
+  L("bought", ["I bought {things}.", "I got {things} at the market."]);
+  L("sold", ["I sold {things}.", "I took {things} to the stall."]);
+  L("baked", ["I baked {things}.", "{things}, out of the oven."]);
+  L("new_in_stock", ["The {shop} has {item} now.", "There is {item} at the {shop}."]);
+  L("out_of_stock", ["The {shop} is out of {item}.", "There was no {item} to be had."]);
+  L("could_not_afford", ["I could not afford {item}.", "I had not the money for {item}."]);
+  L("price_up", ["{item} has gone up.", "{item} costs more at the {shop} now."]);
+  L("price_down", ["{item} has come down.", "{item} is cheaper at the {shop} now."]);
+  L("worked_with", ["I worked beside {about} today.", "{about} and I did the same rows."]);
+  L("ate_with", ["I ate with {about}.", "{about} and I shared a table."]);
+  L("found", ["I found {item}.", "I picked up {item} today."]);
+  L("ill", ["I am not well.", "I have a fever."]);
+  L("recovered", ["I am better.", "The fever has gone."]);
+}
 TALK.log = [];
 TALK.words = false;
 TALK.running = true;
