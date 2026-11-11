@@ -33,7 +33,6 @@ const kinWord = (_n: any, _o: any) => '';
 const himHer = (o: any) => o && o.female ? 'her' : 'him';
 const HeShe = (o: any) => o && o.female ? 'She' : 'He';
 const TRAIT_SEEN: any = {};
-const closenessWord = (_n: any, _p: any) => '';
 const SB: any = { presim: false, pair: new Map(), count: {}, feat: {} };
 const sbPresim = (..._a: any[]) => {};
 const sbWhy = (..._a: any[]) => {};
@@ -52,14 +51,7 @@ const focusOn = () => false;
 const hasNews = (_n: any) => false;
 const talkMarks = (_p: any) => new Map();
 const refreshMarks = () => {};
-const brushOff = (_n?: any, _p?: any): any => null;
-const voiced = (_n: any, t: string) => t;
 let talkS: any = null;
-const talkBegin = (_o: any, _p: any): any => null;
-const talkStep = (_k: any): any => ({ close: true });
-const convBegin = (_o: any, _p: any): any => null;
-const bubbleChat = null;
-const startFocus = (..._a: any[]) => {};
 
 /** while somebody is in a conversation their needs stand still (nobody starves or wets themselves mid-chat, and long talks do not throw the day off) */
 const talkPaused = (n: any) => (n.talkUntil || 0) > game.time && n.pose !== 'sleep';

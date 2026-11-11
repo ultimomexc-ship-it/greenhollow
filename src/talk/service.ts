@@ -31,7 +31,7 @@ function serviceSay(act: string, speaker: any, other: any, d: any): string { ret
 
 /* ---- prices: what things cost, passed on in conversation (people learn what others paid) ---- */
 const PRICE_ITEMS = () => Object.keys(GOODS).filter(g => (GOODS as any)[g].base);
-ACTS.ask_price = { kind: 'trade', stage: 'topic', when: (c: any, sp: any, li: any) => {
+ACTS.ask_price = { kind: 'trade', stage: 'topic', preview: (c: any) => ({ pitem: WORLD.has('item', c.priceItem) ? WORLD.name('item', c.priceItem) : (GOODS as any)[c.priceItem].name }), when: (c: any, sp: any, li: any) => {
     if (c.done.ask_price) return false; const items = PRICE_ITEMS().filter(g => LIFE.lastPrice(li, g) != null && LIFE.lastPrice(sp, g) == null); if (!items.length) return false;
     c.priceItem = items[Math.floor(Math.random() * items.length)]; return true; }, w: () => 0.7, apply: (c: any) => { c.done.ask_price = 1; c.priceName = WORLD.has('item', c.priceItem) ? WORLD.name('item', c.priceItem) : (GOODS as any)[c.priceItem].name; }, replies: ['tell_price'] };
 ACTS.tell_price = { kind: 'trade', stage: 'topic', reply: true, when: (c: any, sp: any) => !!c.priceItem && LIFE.lastPrice(sp, c.priceItem) != null, apply: (c: any, sp: any, li: any) => { c.priceUnit = LIFE.lastPrice(sp, c.priceItem); TM.add(li, { kind: 'price', item: c.priceItem, unit: c.priceUnit, from: sp.id, conf: 0.8, imp: 0.15 }); }, replies: ['react_price'] };

@@ -1347,6 +1347,44 @@ test('shop talk: customers and keepers talk at the stall in bubbles (greeting, a
   return r.n + ' stall encounters, ' + r.priceTalks + ' price talks';
 });
 
+test('player talk: walking into a villager in the real game opens the talk box; the options are things the player could say; the villager answers and asks back; telling and asking change what they know; it ends with a goodbye', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 1, live: true, viewport: { width: 1000, height: 640 } });
+  await page.waitForTimeout(1200);
+  const setup = await page.evaluate(() => {
+    if (!game.player) startPlaying(npcs.find(canControl)); const P = game.player;
+    const o = npcs.find(q => q !== P && !q.dead && q.age >= 18 && q.pose !== 'sleep'); const free = (x, y) => walkable(x, y) && !lfPropAt(x, y) && !npcs.some(z => z.tx === x && z.ty === y);
+    let s = null; for (let r = 0; r < 20 && !s; r++) for (let dx = -r; dx <= r && !s; dx++) for (let dy = -r; dy <= r && !s; dy++) { const x = town.cx + dx, y = town.cy + dy; if (free(x, y) && free(x - 1, y) && free(x - 2, y)) s = { x, y }; }
+    abortPlan(o); o.tx = o.x = s.x; o.ty = o.y = s.y; o.pose = 'stand'; o.path = []; o.moving = false; o.talkUntil = game.time + 900; teleportTo(P, s.x - 2, s.y); P.face = { dx: 1, dy: 0 }; rebuildOcc();
+    window.__o = o.id; window.__p = P.id; P.day = []; o.day = []; LIFE.emit('planted', P, { seed: 'turnip', qty: 4 }); LIFE.emit('slept_rough', P, { where: 'rough' });
+    const ev = lfEmit('theft', { actor: npcs.find(q => q !== P && q !== o && !q.dead), target: npcs.find(q => q !== P && q !== o && !q.dead && q.id !== npcs[0].id), tags: ['theft', 'crime'], sev: 2, witnessIds: [P.id], text: 'x' }); window.__ev = ev.id; return { name: o.first }; });
+  await page.focus('#c'); await page.keyboard.down('ArrowRight');
+  for (let i = 0; i < 40; i++) { await page.waitForTimeout(100); if (await page.evaluate(() => !!talkUI.o)) break; }
+  await page.keyboard.up('ArrowRight');
+  const open = await page.evaluate(() => ({ open: !!talkUI.o, shown: !document.getElementById('talk').hidden, head: document.querySelector('#talk .nm b') && document.querySelector('#talk .nm b').innerText, say: talkUI.say, opts: talkUI.opts.map(o => o[1]) }));
+  check(open.open && open.shown && open.head, 'walking into a villager opens the conversation: ' + JSON.stringify(open));
+  check(open.opts.length >= 3 && open.opts[open.opts.length - 1] === 'Leave.' && open.say.length > 0 && !open.opts.some(t => /[{}]|undefined/.test(t)), 'the villager greets you and you have things to say and a way out: ' + JSON.stringify(open.opts));
+  // play several turns by clicking the options the way a player would; try to tell the news and report the day when offered
+  let told = false, reported = false, answered = 0, lines = [];
+  for (let k = 0; k < 8; k++) {
+    const st = await page.evaluate(() => ({ open: !!talkUI.o, opts: talkUI.opts.map(o => o[1]), say: talkUI.say }));
+    if (!st.open) break; lines.push(st.say);
+    let idx = st.opts.findIndex(t => /stole|walked off|saw it myself|I heard that|Did you hear/.test(t)); if (idx >= 0) told = true;
+    if (idx < 0) { idx = st.opts.findIndex(t => /planted|Put in|slept rough|Another night/.test(t)); if (idx >= 0) reported = true; }
+    if (idx < 0) idx = 0; if (idx >= st.opts.length - 1 && st.opts.length > 1) idx = 0;
+    await page.click('#talk [data-k]:nth-of-type(' + (idx + 1) + ')'); await page.waitForTimeout(150); answered++;
+  }
+  const mid = await page.evaluate(() => ({ open: !!talkUI.o, o: byId(window.__o), told: !!(byId(window.__o).tmem || []).find(m => m.ev === window.__ev && m.from === window.__p), talkedLog: TALK.log.length }));
+  // leave politely
+  for (let k = 0; k < 4 && (await page.evaluate(() => !!talkUI.o)); k++) { const n = await page.evaluate(() => talkUI.opts.length); await page.click('#talk [data-k]:nth-of-type(' + n + ')'); await page.waitForTimeout(150); }
+  const end = await page.evaluate(() => { const o = byId(window.__o), P = game.player, last = TALK.log[TALK.log.length - 1]; return { closed: !talkUI.o && document.getElementById('talk').hidden, mem: (o.tmem || []).some(m => m.kind === 'talked' && m.with === P.id), acts: last && last.player ? last.acts.map(a => a.act) : null, lines: last && last.player ? last.lines : null, knowsP: (byId(window.__o).tmem || []).some(m => m.kind === 'told_life' && m.with === window.__p) }; });
+  check(answered >= 4, 'the conversation goes on for several turns: ' + answered);
+  check(end.closed && end.mem, 'it ends and both remember it: ' + JSON.stringify([end.closed, end.mem]));
+  check(end.acts && end.acts[0] === 'greet' && end.acts.includes('pre_close') || (end.acts && end.acts.includes('farewell')), 'the log has the acts of a real conversation: ' + JSON.stringify(end.acts));
+  check(told ? mid.told : true, 'telling the news gave the villager a told version from you');
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return answered + ' turns; told=' + told + ' reported=' + reported + ' ' + JSON.stringify(lines.slice(0, 3));
+});
+
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

@@ -20,7 +20,7 @@ const ACTS: any = {
   /* ---- world: news and what people make of it ---- */
   ask_news: { kind: 'world', stage: 'topic', when: (c: any, sp: any, li: any) => !c.done.ask_news && !c.done.share_news && !TE.pick(sp, li, c), w: (c: any, sp: any) => 0.7 + (talkHas(sp, 'curious') || talkHas(sp, 'gossipy') ? 0.8 : 0), apply: (c: any) => { c.done.ask_news = 1; }, replies: ['share_news', 'no_news'] },
   no_news: { kind: 'world', stage: 'topic', reply: true, when: (c: any, sp: any, li: any) => !TE.pick(sp, li, c), apply: () => {}, replies: [] },
-  share_news: { kind: 'world', stage: 'topic', when: (c: any, sp: any, li: any) => (c.done.share_news || 0) < 2 && !!(c.news = TE.pick(sp, li, c)), w: (c: any) => 1 + 4 * Math.min(1, c.news ? c.news.score : 0),
+  share_news: { kind: 'world', stage: 'topic', preview: (c: any) => ({ news: TE.text(c.news.ev, c.news.m.ver), how: c.news.m.kind, conf: c.news.m.conf > 0.7 ? 'high' : 'low' }), when: (c: any, sp: any, li: any) => (c.done.share_news || 0) < 2 && !!(c.news = TE.pick(sp, li, c)), w: (c: any) => 1 + 4 * Math.min(1, c.news ? c.news.score : 0),
     apply: (c: any, sp: any, li: any) => {
       const pk = c.news; c.told = TE.tell(sp, li, pk, c); c.newsHow = pk.m.kind; c.newsConf = pk.m.conf > 0.7 ? 'high' : 'low'; c.newsWho = pk.ev.target != null ? lf2By(pk.ev.target) : null;
       c.done.share_news = (c.done.share_news || 0) + 1; (c.sharedEv || (c.sharedEv = [])).push(pk.ev.id); TE.overhear(c, sp, li, pk);
@@ -34,7 +34,7 @@ const ACTS: any = {
   /* ---- life: the ordinary day, told from what really happened (talk/life.ts) ---- */
   ask_day: { kind: 'life', stage: 'topic', when: (c: any, sp: any, li: any) => !c.done.ask_day && !c.done.report_day && !LIFE.recent(sp, li).length && LIFE.recent(li, sp).length > 0, w: (c: any, sp: any) => 0.8 + (talkHas(sp, 'curious') || talkHas(sp, 'sociable') ? 0.6 : 0), apply: (c: any) => { c.done.ask_day = 1; }, replies: ['report_day', 'nothing_much'] },
   nothing_much: { kind: 'life', stage: 'topic', reply: true, when: (c: any, sp: any, li: any) => !LIFE.recent(sp, li).length, apply: () => {}, replies: [] },
-  report_day: { kind: 'life', stage: 'topic', when: (c: any, sp: any, li: any) => (c.done.report_day || 0) < 2 && !!(c.life = LIFE.recent(sp, li)[0]), w: (c: any) => 0.9 + 2 * Math.min(1, c.life ? c.life.score : 0),
+  report_day: { kind: 'life', stage: 'topic', preview: (c: any) => { const g = c.life; return { line: 'life:' + g.kind, qty: g.data.qty || 1, item: g.data.seed ? WORLD.name('seed', g.data.seed) : g.data.item ? WORLD.name('item', g.data.item) : '', shop: g.data.place || '' }; }, when: (c: any, sp: any, li: any) => (c.done.report_day || 0) < 2 && !!(c.life = LIFE.recent(sp, li)[0]), w: (c: any) => 0.9 + 2 * Math.min(1, c.life ? c.life.score : 0),
     apply: (c: any, sp: any, li: any) => {
       const g = c.life; c.lifeLine = 'life:' + g.kind; c.lifeShop = g.data.place || ''; c.lifeQty = g.data.qty || 1; c.lifeTrouble = g.trouble;
       c.lifeItem = g.data.seed ? WORLD.name('seed', g.data.seed) : g.data.item ? WORLD.name('item', g.data.item) : '';
