@@ -17,7 +17,7 @@ function farmPlan(n) {
     prev = { x: c.x, y: c.y };
     steps.push(waitS(kind === 'plow' ? 3 : kind === 'harvest' ? 4 : 7, 'work', txt, { tool: 'hoe', onEnd(n) {
       if (kind === 'harvest') { if (c.st && cropStage(c) === 4) itHarvest(n, c); }
-      else if (kind === 'sow') { if (!c.st && c.pl && fieldPlowed(c)) { c.st = 1; c.t0 = game.time; c.seed = farmSeed(n); } }
+      else if (kind === 'sow') { if (!c.st && c.pl && fieldPlowed(c)) { c.st = 1; c.t0 = game.time; c.seed = farmSeed(n); if (!n.player) LIFE.emit('planted', n, { seed: c.seed, qty: 1 }); } }
       else c.pl = 1;
     } }));
   }

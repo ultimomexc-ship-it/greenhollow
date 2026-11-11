@@ -1185,7 +1185,7 @@ test('life events (the contract): kinds are registered, data is required, events
     out.rec = !!rec && LIFE.stream.length === n0 + 1 && LIFE.digest(1).kinds.bought === d0 + 1 && LIFE.today(n).some(e => e.kind === 'bought') && (n.tmem || []).some(m => m.kind === 'life' && m.lk === 'bought');
     const s0 = LIFE.stream.length; const ev = lfEmit('theft', { actor: n, tags: ['theft'], sev: 1, text: 'x' }); out.legacy = LIFE.stream.length === s0 + 1 && LIFE.stream[LIFE.stream.length - 1].legacy === true && LIFE.today(n).some(e => e.kind === 'theft');
     // everything a line may name is defined: an 'ev:' line is a registered kind, any other line is a defined act, and every requirement resolves to a known kind of thing
-    const badLines = LEX.filter(e => e.act.startsWith('ev:') ? !REG.has('event', e.act.slice(3)) : !ACTS[e.act]).map(e => e.act); out.badLines = [...new Set(badLines)];
+    const badLines = LEX.filter(e => e.act.startsWith('ev:') ? !REG.has('event', e.act.slice(3)) : e.act.startsWith('life:') ? !REG.has('event', e.act.slice(5)) : !ACTS[e.act]).map(e => e.act); out.badLines = [...new Set(badLines)];
     const kinds = REG.all('event'); out.kinds = kinds.length; out.badKinds = kinds.filter(k => !k.family || k.tell == null).map(k => k.id);
     // deleting a definition makes the lint above fail for its lines (so removing a feature forces the clean-up)
     REG.remove('event', 'arrival'); out.afterRemove = [...new Set(LEX.filter(e => e.act.startsWith('ev:') && !REG.has('event', e.act.slice(3))).map(e => e.act))]; REG.define('event', 'arrival', { family: 'place', needs: [], tell: 0.9, tags: [] });
@@ -1211,20 +1211,49 @@ test('talk and needs: while two people talk their hunger, bladder and tiredness 
     a.talkUntil = 0; const h1 = a.hunger; tickEcon(10); out.runs = a.hunger > h1;
     // the next tile, facing
     const sp = (x, y) => { for (let r = 0; r < 12; r++) for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) { const tx = x + dx, ty = y + dy; if (walkable(tx, ty) && !lfPropAt(tx, ty) && !npcs.some(o => o.tx === tx && o.ty === ty)) return { x: tx, y: ty }; } return null; };
-    const sa = sp(town.cx - 2, town.cy + 2), sb = sp(sa.x + 5, sa.y); for (const [n, s] of [[a, sa], [c, sb]]) { abortPlan(n); n.tx = n.x = s.x; n.ty = n.y = s.y; n.pose = 'stand'; n.moving = false; n.talkUntil = 0; n.talkBusy = 0; n.hunger = 30; n.bladder = 20; } rebuildOcc();
+    let sa = null, sb = null; scan: for (let r = 0; r < 25; r++) for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) { const x = town.cx + dx, y = town.cy + dy; let ok = true; for (let i = -1; i <= 5 && ok; i++) for (let j = -1; j <= 1 && ok; j++) { const tx = x + i, ty = y + j; if (!walkable(tx, ty) || lfPropAt(tx, ty) || roomAt[ty][tx] >= 0 || npcs.some(o => o.tx === tx && o.ty === ty)) ok = false; } if (ok) { const pth = findPath(x, y, x + 3, y); if (pth && pth.length > 0 && pth.length <= 4) { sa = { x, y }; sb = { x: x + 4, y }; break scan; } } }   // (open ground you can really walk straight across)
+    for (const [n, s] of [[a, sa], [c, sb]]) { abortPlan(n); n.tx = n.x = s.x; n.ty = n.y = s.y; n.pose = 'stand'; n.moving = false; n.talkUntil = 0; n.talkBusy = 0; n.hunger = 30; n.bladder = 20; } rebuildOcc(); out.place = [sa, sb, a.tx, a.ty, c.tx, c.ty];
     const spot = talkSpot(c, a); out.orth = !!spot && Math.abs(spot.x - c.tx) + Math.abs(spot.y - c.ty) === 1 && (spot.x === c.tx || spot.y === c.ty);
+    a.tx = a.x = spot.x; a.ty = a.y = spot.y; rebuildOcc();   // (the walk itself is tested elsewhere: here the one who walks over has arrived on that tile)
     const n0 = TALK.log.length; talkApproach(a, c); window.__ac = [a.id, c.id, n0]; out.first = a.plan[0].text;
     // bubble sides: you north of them = above (tail below), south = below (tail above), east = right, west = left
     out.sides = [bubbleSide(0, -5), bubbleSide(0, 5), bubbleSide(6, 1), bubbleSide(-6, -1), bubbleSide(0, 3, true)];
     return out; });
   check(r.held && r.runs, 'needs stand still while talking and run again afterwards: ' + JSON.stringify([r.held, r.runs]));
-  check(r.orth, 'the spot to talk from is the whole tile next to them, never a diagonal');
+  check(r.orth, 'the spot to talk from is the whole tile next to them, never a diagonal: ' + JSON.stringify(r.place));
   check(JSON.stringify(r.sides) === JSON.stringify(['above', 'below', 'right', 'left', 'above']), 'the bubble sits on the side that faces you: ' + JSON.stringify(r.sides));
   await simulate(page, 25);
   const d = await page.evaluate(() => { const [x, y, n0] = window.__ac, e = TALK.log.slice(n0).find(l => l.a === x && l.b === y); const a = byId(x), c = byId(y); return { talked: !!e, d: e ? e.d : 99, st: a.status, pos: [a.tx, a.ty, c.tx, c.ty], plan: (a.plan || []).map(q => q.text).slice(0, 3) }; });
-  check(d.talked && d.d === 1, 'they talked standing on the next tile: ' + JSON.stringify(d));
+  check(d.talked && d.d === 1, 'they talked standing on the next tile: ' + JSON.stringify([d, r.place]));
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
   return 'needs pause, next tile, bubble sides';
+});
+
+test('life slice: farming, trade and needs report real events; villagers tell their day from them, listeners sympathise with troubles, and the town panel counts what people suffered', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await simulate(page, 2 * 1440);
+  const r = await page.evaluate(() => {
+    const out = {}; const dg = LIFE.digest(3).kinds; out.real = { planted: dg.planted || 0, bought: dg.bought || 0, sold: dg.sold || 0, harvested: dg.harvested || 0 };
+    out.count = [lxCount(1, 'cabbages'), lxCount(7, 'barley'), lxCount(1, 'strawberries'), lxCount(1, 'corn'), lxCount(12, 'turnips')];
+    out.troubleKinds = Object.keys(LIFE_TROUBLE).every(k => REG.has('event', k));
+    // a person with a bad night and a busy morning tells a friend
+    TALK.words = true; TALK.running = false; const adults = npcs.filter(q => !q.dead && !q.player && q.age >= 18), A = adults[0], B = adults[1];
+    A.day = []; B.day = []; LIFE.emit('slept_rough', A, { where: 'rough' }); for (let i = 0; i < 6; i++) LIFE.emit('planted', A, { seed: 'turnip', qty: 1 });
+    const rec = LIFE.recent(A, B); out.recent = rec.map(g => g.kind + ':' + g.data.qty);
+    let told = null; for (let i = 0; i < 20 && !told; i++) { const cv = talkRun(A, B, true), l = TALK.log[TALK.log.length - 1]; if (cv.turns.some(t => t.act === 'report_day')) told = l; }
+    out.lines = told ? told.lines : null; out.acts = told ? told.acts.map(a => a.act) : null;
+    out.memB = (B.tmem || []).some(m => m.kind === 'told_life' && m.with === A.id);
+    out.troubles = LIFE.troubles(2).map(t => t.kind + ':' + t.people);
+    // the panel
+    return out; });
+  check(r.real.planted > 5 && r.real.bought >= 1 && r.real.harvested >= 1, 'a normal two days reports planting, trade and harvest from the game itself: ' + JSON.stringify(r.real));
+  check(r.count.join('|') === 'a cabbage|7 barley|a strawberry|a little corn|12 turnips', 'counts are said the way people say them: ' + r.count.join('|'));
+  check(r.recent.length >= 2 && r.recent[0].startsWith('slept_rough'), 'the day is grouped (six plantings are one line) and the worst comes first: ' + JSON.stringify(r.recent));
+  check(r.lines && r.acts.includes('report_day') && r.lines.some(l => /rough|ground|bed of my own|sand|planted|Put in/.test(l)), 'they tell it in words: ' + JSON.stringify(r.lines && r.lines.slice(0, 8)));
+  check(r.memB, 'the listener now knows how the other one has been');
+  check(r.troubles.some(t => t.startsWith('slept_rough')) && r.troubleKinds, 'troubles are counted by kind and by person: ' + JSON.stringify(r.troubles));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return JSON.stringify(r.real) + ' ' + JSON.stringify(r.troubles);
 });
 
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {

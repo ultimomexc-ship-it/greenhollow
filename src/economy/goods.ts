@@ -85,6 +85,8 @@ function initEconomy() {
 
 function logTrade(buyer, seller, g, q, total, verb) {
   town.eco.trades++;
+  if (buyer && buyer.id != null && !buyer.dead) LIFE.emit('bought', buyer, { item: g, qty: q, price: total, from: seller && seller.id != null ? seller.id : null });
+  if (seller && seller.id != null && !seller.dead) LIFE.emit('sold', seller, { item: g, qty: q, price: total, to: buyer && buyer.id != null ? buyer.id : null });
   game.trades.push({ time: game.time, buyer, seller, g, q, total, verb });
   if (game.trades.length > 200) game.trades.splice(0, 50);
 }

@@ -2,7 +2,7 @@
    the rest of the game still needs and quiet stand-ins for the calls that used to speak, until the new engine (acts, lexicon, registry) takes over.
    Nobody talks in the meantime: `say` and the other speech producers do nothing, and `drainEvents` drops whatever is still pushed. */
 
-const TALK: any = { engine: 'new', on: { ritual: true, small: true, world: true, person: true, feeling: true, economy: true, gift: true, romance: true, family: true, law: true } };   // on[kind]: switch a whole kind of talk off for testing
+const TALK: any = { engine: 'new', on: { ritual: true, small: true, world: true, life: true, person: true, feeling: true, economy: true, gift: true, romance: true, family: true, law: true } };   // on[kind]: switch a whole kind of talk off for testing
 
 /* ---- plain helpers (they lived in the old dialogue files) ---- */
 const anyOf = (a: any[]) => a[Math.floor(Math.random() * a.length)];
