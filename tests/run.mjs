@@ -1115,8 +1115,8 @@ test('talk engine (phase 1): the one who starts walks up to the other, they stan
   if (!r.skip) {
     check(/Going over to/.test(r.first), 'the first sets out to meet the other: ' + JSON.stringify(r));
     await simulate(page, 20);
-    const d = await page.evaluate(() => { const [x, y, n0] = window.__pair, a = byId(x), c = byId(y); return { d: lfDist(a, c), talked: TALK.log.slice(n0).some(l => (l.a === x && l.b === y)) }; });
-    check(d.talked && d.d <= 2, 'they stood side by side and talked: ' + JSON.stringify(d));
+    const d = await page.evaluate(() => { const [x, y, n0] = window.__pair, a = byId(x), c = byId(y); return { d: lfDist(a, c), talked: TALK.log.slice(n0).some(l => (l.a === x && l.b === y)), d: (TALK.log.slice(n0).find(l => l.a === x && l.b === y) || { d: 99 }).d }; });
+    check(d.talked && d.d <= 2, 'they stood side by side (when they talked) and talked: ' + JSON.stringify(d));
   }
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
   return 'approach';

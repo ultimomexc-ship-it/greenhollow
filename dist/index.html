@@ -27342,7 +27342,7 @@ function talkRun(a, b, listened) {
     const s = t.by === a.id ? a : b, o = s === a ? b : a, text = lxSay(t.act, s, o, t.x || {});
     return text ? { who: s, text } : null;
   }).filter(Boolean) : null;
-  TALK.log.push({ t: game.time, a: a.id, b: b.id, acts: c.turns.slice(), lines: lines ? lines.map((l) => l.who.first + ": " + l.text) : null });
+  TALK.log.push({ t: game.time, a: a.id, b: b.id, d: lfDist(a, b), acts: c.turns.slice(), lines: lines ? lines.map((l) => l.who.first + ": " + l.text) : null });
   if (TALK.log.length > 300) TALK.log.shift();
   if (lines && lines.length) game.events.push({ time: game.time, a, b, place: placeOf(a), topic: "talk", quiet: false, talk: true, lines });
   else {
