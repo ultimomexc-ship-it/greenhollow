@@ -1074,7 +1074,7 @@ test('talk engine (phase 1): villagers walk up, greet, chat about small things, 
       if (l.a === l.b) bad.push('self');
     }
     const a = L.length ? byId(L[0].a) : null;
-    return { n: L.length, bad: bad.slice(0, 3), mem: a ? (a.mem || []).some(m => m.kind === 'talked') : false, pairs: new Set(L.map(l => Math.min(l.a, l.b) + '-' + Math.max(l.a, l.b))).size, heard: L.slice(0, 2).map(l => l.lines.join(' / ')) };
+    return { n: L.length, bad: bad.slice(0, 3), mem: a ? (a.tmem || []).some(m => m.kind === 'talked') : false, pairs: new Set(L.map(l => Math.min(l.a, l.b) + '-' + Math.max(l.a, l.b))).size, heard: L.slice(0, 2).map(l => l.lines.join(' / ')) };
   });
   check(r.n >= 15, 'villagers talk through the day: ' + r.n);
   check(r.bad.length === 0, 'every conversation opens with a greeting, ends with a pre-close and a farewell, has words and no holes: ' + JSON.stringify(r.bad));
@@ -1370,7 +1370,7 @@ test('truesight: the solid wall beside a window is never inside what you can see
     if (!game.player) startPlaying(canControl(byId(game.steer)) ? byId(game.steer) : npcs.find(canControl));
     const L = tsLab(), P = game.player; const inPoly = (poly, x, y) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], q = poly[j]; if ((a[1] > y) !== (q[1] > y) && x < (q[0] - a[0]) * (y - a[1]) / (q[1] - a[1]) + a[0]) c = !c; } return c; };
     const wins = []; for (let y = L.oy; y < L.oy + 40; y++) for (let x = L.ox; x < L.ox + 46; x++) if (grid[y][x] === T.WALL && tsWindow(x, y)) wins.push([x, y]);
-    const w = wins.find(q => grid[q[1]][q[0] - 1] === T.WALL && grid[q[1]][q[0] + 1] === T.WALL) || wins[0]; let leaks = 0, views = 0;
+    const clearAbove = q => [1, 2, 3].every(d => walkable(q[0], q[1] - d)), w = wins.find(q => grid[q[1]][q[0] - 1] === T.WALL && grid[q[1]][q[0] + 1] === T.WALL && clearAbove(q)) || wins.find(clearAbove) || wins[0]; let leaks = 0, views = 0;
     for (let ex = -5; ex <= 5; ex += 2) for (let ey = -5; ey <= -1; ey++) { P.tx = P.x = w[0] + ex; P.ty = P.y = w[1] + ey; P.path = []; P.slide = null; if (grid[P.ty][P.tx] === T.WALL) continue; rebuildOcc(); cam.follow = false; cam.z = 2; clampCam(); cam.x = w[0] * TS - cam.cw / cam.z / 2; cam.y = w[1] * TS - cam.ch / cam.z / 2; clampCam(); render(performance.now(), 0.016, 12); views++;
       for (let ty = w[1] - 2; ty < w[1] + 8; ty++) for (let tx = w[0] - 6; tx < w[0] + 8; tx++) { if (grid[ty][tx] !== T.WALL || tsWindow(tx, ty)) continue; for (const [fx, fy] of [[0.5, 0.5], [0.2, 0.5], [0.8, 0.5], [0.5, 0.2], [0.5, 0.8]]) if (inPoly(TSIGHT.poly, tx + fx, ty + fy)) { leaks++; break; } } }
     const ex = w[0] + 0.5, ey = w[1] - 3, panes = { left: tsLine(ex, ey, w[0] + 0.3, w[1] + 4), right: tsLine(ex, ey, w[0] + 0.7, w[1] + 4), divider: tsLine(ex, ey, w[0] + 0.5, w[1] + 4), frame: tsLine(ex, ey, w[0] + 0.1, w[1] + 4) };

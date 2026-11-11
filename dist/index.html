@@ -26839,7 +26839,7 @@ const WORLD = {
 const TM = {
   max: 120,
   add(n, m) {
-    const mem = n.mem || (n.mem = []);
+    const mem = n.tmem || (n.tmem = []);
     mem.push(Object.assign({ t: game.time, conf: 1, imp: 0.3 }, m));
     if (mem.length > TM.max) {
       let k = 0, best = 1e9;
@@ -26856,13 +26856,13 @@ const TM = {
   },
   /** when did a last talk with b (minutes of game time), or -Infinity */
   lastTalk(a, b) {
-    const mem = a.mem;
+    const mem = a.tmem;
     if (!mem) return -Infinity;
     for (let i = mem.length - 1; i >= 0; i--) if (mem[i].kind === "talked" && mem[i].with === b.id) return mem[i].t;
     return -Infinity;
   },
   count(a, kind) {
-    return (a.mem || []).filter((m) => m.kind === kind).length;
+    return (a.tmem || []).filter((m) => m.kind === kind).length;
   }
 };
 const talkHas = (n, t) => (n.traits || []).includes(t);
