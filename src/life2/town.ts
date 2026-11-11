@@ -122,8 +122,10 @@ function lf2Server(r) {
 }
 function lf2Buy(n, r, g, qty) {
   const s = lf2Stock(r); let got = 0, paid = 0;
-  while (got < qty && (s[g] || 0) > 0) { const p = lf2Price(r, g, n); if (n.coin < p) break; n.coin -= p; r.till = (r.till || 0) + p; s[g]--; got++; paid += p; }
-  if (got) { n.inv[g] = (n.inv[g] || 0) + got; (town.lf2Sales = town.lf2Sales || []).push({ t: game.time, g, q: got, p: paid, who: n.id, r: r.kind }); if (town.lf2Sales.length > 300) town.lf2Sales.shift(); }
+  const keeper = lf2Server(r); let poor = false;
+  while (got < qty && (s[g] || 0) > 0) { const p = lf2Price(r, g, n); if (n.coin < p) { poor = true; break; } n.coin -= p; r.till = (r.till || 0) + p; if (town.farmEcon && keeper && keeper !== n) keeper.coin += p; s[g]--; got++; paid += p; }
+  if (!n.player && keeper && keeper !== n && typeof talkService === 'function') talkService(n, keeper, { mode: 'buy', item: g, qty: got || qty, price: paid || lf2Price(r, g, n) * qty, result: got ? 'ok' : (poor ? 'poor' : 'none'), shop: r.kind === 'bakery' ? 'bakery' : r.name });
+  if (got) { if (keeper && keeper !== n) { LIFE.emit('sold', keeper, { item: g, qty: got, price: paid, to: n.id }); } LIFE.emit('bought', n, { item: g, qty: got, price: paid, from: keeper ? keeper.id : null }); n.inv[g] = (n.inv[g] || 0) + got; (town.lf2Sales = town.lf2Sales || []).push({ t: game.time, g, q: got, p: paid, who: n.id, r: r.kind }); if (town.lf2Sales.length > 300) town.lf2Sales.shift(); }
   return got;
 }
 /* the larder pays the people who fill it (the grain dole stays free to eat) */
@@ -137,7 +139,7 @@ function lf2FetchPlan(n, r, need) {
   const spare = (m, g) => Math.floor((m.stock[g] || 0) - lf2Reserve(g));
   const m = merchants.filter(m => Object.keys(need).some(g => spare(m, g) >= 2))[0]; if (!m) return lf2PantryFetch(n, r, need);
   return [goS(m.front, `Fetching ${Object.keys(need).join(' and ')} from the larder`), waitS(2, 'stand', 'Loading up at the larder', { nopie: true, onEnd(nn) {
-    for (const g in need) { const q = Math.min(need[g], spare(m, g)); if (q > 0) { m.stock[g] -= q; nn.inv[g] = (nn.inv[g] || 0) + q; } } } }),
+    for (const g in need) { let q = Math.min(need[g], spare(m, g)); if (town.farmEcon && q > 0) { const p = Math.max(1, Math.round(GOODS[g].base * 0.8)); q = Math.min(q, Math.floor(Math.max(0, nn.coin) / p)); if (q > 0) pay(nn, m.n, p * q); } if (q > 0) { m.stock[g] -= q; nn.inv[g] = (nn.inv[g] || 0) + q; } } } }),
     goS(lf2Spot(r, 'front') || lf2Spot(r, LF2_JOBS[n.job] ? LF2_JOBS[n.job].spot : 'front'), 'Carrying it back to ' + r.name), waitS(1, 'stand', 'Unloading', { nopie: true, onEnd(nn) { const s = lf2Stock(r); for (const g in need) { const q = nn.inv[g] || 0; if (q > 0) { s[g] = (s[g] || 0) + q; nn.inv[g] = 0; } } } })];
 }
 /** no larder merchants (a built bakery on a blank island): the baker collects what the households can spare from their pantries, more than three portions a head */
@@ -155,7 +157,7 @@ function lf2Craft(n, r, J) {
   return lf2GoWork(r, J.spot, J.text, R.min, 'work', { tool: J.tool, onEnd(nn) {
     if (r.broken) return; if (!Object.keys(R.in).every(g => (s[g] || 0) >= R.in[g])) return;
     for (const g in R.in) s[g] -= R.in[g]; for (const g in R.out) s[g] = (s[g] || 0) + R.out[g];
-    nn.made = (nn.made || 0) + 1;
+    nn.made = (nn.made || 0) + 1; { const og = Object.keys(R.out)[0]; LIFE.emit(({ Baker: 'baked', Miller: 'sawed', Cook: 'cooked', Smith: 'forged', Weaver: 'woven' } as any)[nn.job] || 'baked', nn, { item: og, qty: R.out[og] }); }
   } });
 }
 const lf2Full = (r, g) => (lf2Stock(r)[g] || 0) >= ((LF2_SELL[r.kind] || {})[g] || 6) * 1.4;
@@ -218,7 +220,7 @@ function lf2ShopPlan(n, tod) {
   n.lf2Shop = game.time + 45; const h = tod / 60;
   const go = (r, g, q, text, after?) => { const f = lf2Spot(r, 'front'); if (!f) return null; return [goS(f, text), waitS(2, 'stand', 'Buying ' + GOODS[g].name, { nopie: true, onEnd(nn) {
     if (!lf2Server(r) && r.kind !== 'shop') { lfShout(nn, anyOf(['Nobody serving? Typical.', 'Closed again!'])); return; }
-    if (!(lf2Stock(r)[g] > 0)) { lfShout(nn, anyOf([`No ${GOODS[g].name} left?!`, `Sold out of ${GOODS[g].name}. Again.`])); lfMod(nn, 'soldout', `cross that the ${GOODS[g].name} ran out`, -4, 300); (town.lf2Short = town.lf2Short || {})[g] = game.time; return; }
+    if (!(lf2Stock(r)[g] > 0)) { if (lf2Server(r)) { LIFE.emit('out_of_stock', nn, { item: g, place: r.kind === 'bakery' ? 'bakery' : r.name }); talkService(nn, lf2Server(r), { mode: 'buy', item: g, qty: q, result: 'none', shop: r.kind === 'bakery' ? 'bakery' : r.name }); } lfMod(nn, 'soldout', `cross that the ${GOODS[g].name} ran out`, -4, 300); (town.lf2Short = town.lf2Short || {})[g] = game.time; return; }
     const got = lf2Buy(nn, r, g, q); if (got && after) after(nn, got); } })].concat(after && after.eat ? [] : []); };
   // bread for the household, once a morning
   const bk = lf2Room('bakery');
@@ -251,10 +253,11 @@ function lf2TradeDialog(n, r) {
   let menu = () => {
     const s = lf2Stock(r), goods = Object.keys(LF2_SELL[r.kind] || {});
     const o = goods.flatMap(g => itOffers(n, r, g, menu) || [[`${lf2Cap(GOODS[g].name)}: ${s[g] > 0 ? lf2Price(r, g, n) + LF2_COIN + ' (' + s[g] + ' left)' : 'sold out'}`, () => {
-      if (!(s[g] > 0)) return { say: `We are out of ${GOODS[g].name}. ${g === 'bread' ? 'The oven has not caught up.' : 'Come back tomorrow.'}`, opts: menu() };
-      const p = lf2Price(r, g, n); if (n.coin < p) return { say: `That is ${p} denarii, and you have ${Math.floor(n.coin)}.`, opts: menu() };
+      const dd = { item: GOODS[g].name, qty: 1, price: lf2Price(r, g, n), shop: r.kind === 'bakery' ? 'bakery' : r.name };
+      if (!(s[g] > 0)) return { say: `${k.first}: ${serviceSay('no_stock', k, n, dd)}${g === 'bread' ? ' The oven has not caught up.' : ''}`, opts: menu() };
+      const p = lf2Price(r, g, n); if (n.coin < p) return { say: `${k.first}: ${serviceSay('quote_price', k, n, dd)} (You have ${Math.floor(n.coin)}.)`, opts: menu() };
       lf2Buy(n, r, g, 1); if (g === 'tools') { n.inv.tools--; itNpcNewTool(n); }
-      return { say: anyOf(['There you are.', 'Enjoy it.', 'Pleasure doing business.']) + (s[g] < 2 ? ` That was nearly the last of the ${GOODS[g].name}.` : ''), opts: menu() };
+      return { say: `${k.first}: ${serviceSay('quote_price', k, n, dd)} ${serviceSay('thank_shop', k, n, dd)}` + (s[g] < 2 ? ` That was nearly the last of the ${GOODS[g].name}.` : ''), opts: menu() };
     }]]).concat(itExtras(n, r, menu));
     return o;
   };

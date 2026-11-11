@@ -21375,16 +21375,27 @@ function lf2Server(r) {
 function lf2Buy(n, r, g, qty) {
   const s = lf2Stock(r);
   let got = 0, paid = 0;
+  const keeper = lf2Server(r);
+  let poor = false;
   while (got < qty && (s[g] || 0) > 0) {
     const p = lf2Price(r, g, n);
-    if (n.coin < p) break;
+    if (n.coin < p) {
+      poor = true;
+      break;
+    }
     n.coin -= p;
     r.till = (r.till || 0) + p;
+    if (town.farmEcon && keeper && keeper !== n) keeper.coin += p;
     s[g]--;
     got++;
     paid += p;
   }
+  if (!n.player && keeper && keeper !== n && typeof talkService === "function") talkService(n, keeper, { mode: "buy", item: g, qty: got || qty, price: paid || lf2Price(r, g, n) * qty, result: got ? "ok" : poor ? "poor" : "none", shop: r.kind === "bakery" ? "bakery" : r.name });
   if (got) {
+    if (keeper && keeper !== n) {
+      LIFE.emit("sold", keeper, { item: g, qty: got, price: paid, to: n.id });
+    }
+    LIFE.emit("bought", n, { item: g, qty: got, price: paid, from: keeper ? keeper.id : null });
     n.inv[g] = (n.inv[g] || 0) + got;
     (town.lf2Sales = town.lf2Sales || []).push({ t: game.time, g, q: got, p: paid, who: n.id, r: r.kind });
     if (town.lf2Sales.length > 300) town.lf2Sales.shift();
@@ -21414,7 +21425,12 @@ function lf2FetchPlan(n, r, need) {
     goS(m.front, `Fetching ${Object.keys(need).join(" and ")} from the larder`),
     waitS(2, "stand", "Loading up at the larder", { nopie: true, onEnd(nn) {
       for (const g in need) {
-        const q = Math.min(need[g], spare(m, g));
+        let q = Math.min(need[g], spare(m, g));
+        if (town.farmEcon && q > 0) {
+          const p = Math.max(1, Math.round(GOODS[g].base * 0.8));
+          q = Math.min(q, Math.floor(Math.max(0, nn.coin) / p));
+          if (q > 0) pay(nn, m.n, p * q);
+        }
         if (q > 0) {
           m.stock[g] -= q;
           nn.inv[g] = (nn.inv[g] || 0) + q;
@@ -21471,6 +21487,10 @@ function lf2Craft(n, r, J) {
     for (const g in R.in) s[g] -= R.in[g];
     for (const g in R.out) s[g] = (s[g] || 0) + R.out[g];
     nn.made = (nn.made || 0) + 1;
+    {
+      const og = Object.keys(R.out)[0];
+      LIFE.emit({ Baker: "baked", Miller: "sawed", Cook: "cooked", Smith: "forged", Weaver: "woven" }[nn.job] || "baked", nn, { item: og, qty: R.out[og] });
+    }
   } });
 }
 const lf2Full = (r, g) => (lf2Stock(r)[g] || 0) >= ((LF2_SELL[r.kind] || {})[g] || 6) * 1.4;
@@ -21588,7 +21608,10 @@ function lf2ShopPlan(n, tod) {
         return;
       }
       if (!(lf2Stock(r)[g] > 0)) {
-        lfShout(nn, anyOf([`No ${GOODS[g].name} left?!`, `Sold out of ${GOODS[g].name}. Again.`]));
+        if (lf2Server(r)) {
+          LIFE.emit("out_of_stock", nn, { item: g, place: r.kind === "bakery" ? "bakery" : r.name });
+          talkService(nn, lf2Server(r), { mode: "buy", item: g, qty: q, result: "none", shop: r.kind === "bakery" ? "bakery" : r.name });
+        }
         lfMod(nn, "soldout", `cross that the ${GOODS[g].name} ran out`, -4, 300);
         (town.lf2Short = town.lf2Short || {})[g] = game.time;
         return;
@@ -21657,15 +21680,16 @@ function lf2TradeDialog(n, r) {
   let menu = () => {
     const s = lf2Stock(r), goods = Object.keys(LF2_SELL[r.kind] || {});
     const o = goods.flatMap((g) => itOffers(n, r, g, menu) || [[`${lf2Cap(GOODS[g].name)}: ${s[g] > 0 ? lf2Price(r, g, n) + LF2_COIN + " (" + s[g] + " left)" : "sold out"}`, () => {
-      if (!(s[g] > 0)) return { say: `We are out of ${GOODS[g].name}. ${g === "bread" ? "The oven has not caught up." : "Come back tomorrow."}`, opts: menu() };
+      const dd = { item: GOODS[g].name, qty: 1, price: lf2Price(r, g, n), shop: r.kind === "bakery" ? "bakery" : r.name };
+      if (!(s[g] > 0)) return { say: `${k.first}: ${serviceSay("no_stock", k, n, dd)}${g === "bread" ? " The oven has not caught up." : ""}`, opts: menu() };
       const p = lf2Price(r, g, n);
-      if (n.coin < p) return { say: `That is ${p} denarii, and you have ${Math.floor(n.coin)}.`, opts: menu() };
+      if (n.coin < p) return { say: `${k.first}: ${serviceSay("quote_price", k, n, dd)} (You have ${Math.floor(n.coin)}.)`, opts: menu() };
       lf2Buy(n, r, g, 1);
       if (g === "tools") {
         n.inv.tools--;
         itNpcNewTool(n);
       }
-      return { say: anyOf(["There you are.", "Enjoy it.", "Pleasure doing business."]) + (s[g] < 2 ? ` That was nearly the last of the ${GOODS[g].name}.` : ""), opts: menu() };
+      return { say: `${k.first}: ${serviceSay("quote_price", k, n, dd)} ${serviceSay("thank_shop", k, n, dd)}` + (s[g] < 2 ? ` That was nearly the last of the ${GOODS[g].name}.` : ""), opts: menu() };
     }]]).concat(itExtras(n, r, menu));
     return o;
   };
@@ -25314,7 +25338,7 @@ function farmFlowerBuyers() {
   logTrade(b, gr.n, "flowers", 1, p, "buy");
 }
 LF2.hourly.push(() => farmFlowerBuyers());
-const FARM_RECIPE_BASE = ["job.Farmer", "sys.economy", "sys.couples"];
+const FARM_RECIPE_BASE = ["job.Farmer", "job.Baker", "sys.economy", "sys.couples", "sys.cooking"];
 function farmStart() {
   town.farmEcon = true;
   town.farmDay0 = Math.floor(game.time / 1440);
@@ -25363,6 +25387,21 @@ function farmSetup() {
       m.n.coin = 40;
       farmRestock();
       m.newStock = {};
+    }
+  }
+  {
+    let ok = null;
+    for (const [w, h] of [[7, 7], [7, 6]]) {
+      for (const o of [{}, { tight: true }, { clear: true }, { tight: true, clear: true }]) {
+        ok = lfBuild("bakery", w, h, Object.assign({}, o));
+        if (ok) break;
+      }
+      if (ok) break;
+    }
+    const bk = lf2Room("bakery");
+    if (bk) {
+      Object.assign(lf2Stock(bk), { grain: 6, bread: 8 });
+      lf2AssignJobs(true);
     }
   }
   for (const n of npcs) {
@@ -27322,7 +27361,10 @@ EVK("crop_failed", "farm", { tell: 0.6 });
 EVK("worked_shift", "farm", { tell: 0.1 });
 EVK("tool_worn", "farm", { tell: 0.3 });
 EVK("tool_broke", "farm", { tell: 0.5 });
-EVK("baked", "make", { tell: 0.2 });
+EVK("baked", "make", { tell: 0.3 });
+EVK("cooked", "make", { tell: 0.25 });
+EVK("forged", "make", { tell: 0.25 });
+EVK("woven", "make", { tell: 0.2 });
 EVK("sawed", "make", { tell: 0.15 });
 EVK("mined", "make", { tell: 0.2 });
 EVK("built", "make", { tell: 0.4 });
@@ -27931,6 +27973,11 @@ lx("life:could_not_afford", "plain", "Everything costs more than I have.");
 lx("life:price_up", "plain", "{item} has gone up at the {shop}.");
 lx("life:price_down", "plain", "{item} is cheaper at the {shop} now.");
 lx("life:price_down", "plain", "You can get {item} for less at the {shop} today.");
+lx("life:baked", "plain", "I baked {things} this morning.");
+lx("life:baked", "plain", "The oven gave me {things} today.");
+lx("life:cooked", "plain", "I made {things} today.");
+lx("life:forged", "plain", "I turned out {things} today.");
+lx("life:woven", "plain", "I finished {things} on the loom.");
 lx("life:harvested", "plain", "I brought in {things}.");
 lx("life:harvested", "plain", "Harvested {things} today.");
 lx("shop_greet", "plain", "Morning.", { band: "morning" });
@@ -27996,9 +28043,22 @@ lx("react_price", "plain", "Hm. Good to know.");
 lx("react_price", "plain", "That's more than I thought.");
 lx("react_price", "plain", "Fair enough. Thanks.");
 lx("react_price", "plain", "I'll see if it's cheaper elsewhere.");
+lx("keeper_call", "plain", "New in this week: {item}.", { call: "new" });
+lx("keeper_call", "plain", "Come and see the {item}. Just in.", { call: "new" });
+lx("keeper_call", "plain", "We've {item} now. First of the season.", { call: "new" });
+lx("keeper_call", "plain", "{item} are cheap today. {money} each.", { call: "cheap" });
+lx("keeper_call", "plain", "Cheap {item} today, {money} each.", { call: "cheap" });
+lx("keeper_call", "plain", "Fresh {item}, {money} each.");
+lx("keeper_call", "plain", "Get your {item} here.");
+lx("keeper_call", "plain", "{item}, {money}. Come and look.");
+lx("keeper_call", "plain", "Anyone need {item}?");
+lx("call_reply", "plain", "Maybe later.");
+lx("call_reply", "plain", "Not today, thanks.");
+lx("call_reply", "plain", "I'll be back.");
+lx("call_reply", "plain", "Not now, I'm busy.");
 function lxContext(sp, li, c) {
   const rel = sp.fam && (sp.fam.spouse === li.id || (sp.fam.kids || []).includes(li.id) || sp.fam.mother === li.id || sp.fam.father === li.id) ? "kin" : sp.rel && sp.rel[li.id] === "friend" || (sp.aff[li.id] || 0) > 30 ? "friend" : sp.know && (sp.know[li.id] || 0) > 10 ? "acquaintance" : "stranger";
-  return { band: todBand(game.time), rel, state: c.state || talkState(sp) || "fine", trait: (sp.traits || [])[0], how: c.how, conf: c.conf };
+  return { band: todBand(game.time), rel, state: c.state || talkState(sp) || "fine", trait: (sp.traits || [])[0], how: c.how, conf: c.conf, call: c.call };
 }
 function lxSay(act, sp, li, c) {
   const ctx2 = lxContext(sp, li, c);
@@ -28298,6 +28358,48 @@ function ptEnd() {
   TALK.log.push({ t: game.time, a: p.id, b: o.id, d: lfDist(p, o), acts: c.turns.slice(), lines: c.turns.map((t) => (t.by === p.id ? p : o).first + ": " + talkWords(t, p, o)), player: true });
   if (TALK.log.length > 300) TALK.log.shift();
 }
+for (const id of ["keeper_call", "call_reply"]) ACTS[id] = { kind: "trade", stage: "topic", reply: true, when: () => true, apply: () => {
+}, replies: [] };
+function keeperCallFor(K) {
+  if (K.stall) {
+    const m = K.stall, goods = Object.keys(m.sells).filter((g3) => (m.stock[g3] || 0) >= 2 && !(g3.startsWith("seed_") && !farmSeedRange().includes(g3.slice(5))));
+    if (!goods.length) return null;
+    const fresh = goods.filter((g3) => m.newStock && m.newStock[g3] && game.time - m.newStock[g3] < 2 * 1440);
+    const cheap = goods.filter((g3) => sellPrice(m, g3) < GOODS[g3].base);
+    const g2 = fresh.length ? fresh[Math.floor(Math.random() * fresh.length)] : cheap.length && Math.random() < 0.6 ? cheap[Math.floor(Math.random() * cheap.length)] : goods[Math.floor(Math.random() * goods.length)];
+    return { item: g2, price: sellPrice(m, g2), call: fresh.includes(g2) ? "new" : cheap.includes(g2) ? "cheap" : "plain", shop: m.def.noun };
+  }
+  const r = K.room, st = lf2Stock(r);
+  const g = Object.keys(LF2_SELL[r.kind] || {}).find((x) => (st[x] || 0) >= 3);
+  if (!g) return null;
+  return { item: g, price: lf2Price(r, g, K.n), call: "plain", shop: r.kind === "bakery" ? "bakery" : r.name };
+}
+function keeperCalls() {
+  if (!town || !TALK.running || !TALK.on.trade || !game.player) return;
+  const keepers = merchants.filter((m) => m.n && !m.n.dead).map((m) => ({ n: m.n, stall: m }));
+  if (typeof lf2Room === "function") for (const k of ["bakery"]) {
+    const r = lf2Room(k);
+    const s = r && lf2Server(r);
+    if (s) keepers.push({ n: s, room: r });
+  }
+  for (const K of keepers) {
+    const n = K.n;
+    if ((n.callNext || 0) > game.time) continue;
+    n.callNext = game.time + 25 + Math.random() * 40;
+    if (n.pose === "sleep" || (n.talkUntil || 0) > game.time || K.stall && !K.stall.serving) continue;
+    const near = npcs.filter((o) => o !== n && !o.dead && !o.player && o.age >= 10 && o.pose !== "sleep" && !(o.talkUntil > game.time) && !o.shop && lvlOf(o.ty) === lvlOf(n.ty) && lfDist(o, n) >= 2 && lfDist(o, n) <= 8);
+    if (!near.length) continue;
+    const passer = near[Math.floor(Math.random() * near.length)];
+    const call = keeperCallFor(K);
+    if (!call) continue;
+    const name = WORLD.has("item", call.item) ? WORLD.name("item", call.item) : String(call.item), x = { item: name, price: call.price, call: call.call, shop: call.shop };
+    const c = { a: n, b: passer, done: {}, turns: [{ by: n.id, act: "keeper_call", x }], stage: "topic", t0: game.time };
+    if (Math.random() < 0.4) c.turns.push({ by: passer.id, act: "call_reply", x });
+    faceTo(n, passer);
+    talkFinish(c, n, passer, talkListened(n, passer));
+  }
+}
+LF2.tickers.push(keeperCalls);
 TALK.range = 10;
 TALK.earshot = 16;
 TALK.stroll = true;

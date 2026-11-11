@@ -1385,6 +1385,56 @@ test('player talk: walking into a villager in the real game opens the talk box; 
   return answered + ' turns; told=' + told + ' reported=' + reported + ' ' + JSON.stringify(lines.slice(0, 3));
 });
 
+test('stalls and the bakery, from the villagers\' side: keepers call out to passers-by from the real stock and prices, the baker bakes and sells bread over the counter, and customers talk to the baker too', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await page.evaluate(() => { newTown('farm-bake-test', 'farm'); TALK.words = true; });
+  const r0 = await page.evaluate(() => ({ kinds: [...new Set(rooms.filter(q => !q.dead).map(q => q.kind))].sort().join(','), baker: npcs.filter(n => n.job === 'Baker').length, bakerOn: modOn('job.Baker') }));
+  check(r0.kinds === 'bakery,house,privy' && r0.baker === 1 && r0.bakerOn, 'the farming village has a bakery and a baker: ' + JSON.stringify(r0));
+  await simulate(page, 5 * 1440);
+  const r = await page.evaluate(() => {
+    const calls = TALK.log.filter(l => l.acts.some(a => a.act === 'keeper_call')), keepers = new Set(merchants.map(m => m.n.id).concat(npcs.filter(n => n.job === 'Baker').map(n => n.id)));
+    const bread = TALK.log.filter(l => l.acts.some(a => a.act === 'shop_greet') && l.lines && l.lines.some(t => /bread/.test(t)));
+    const dg = LIFE.digest(5).kinds, bk = lf2Room('bakery');
+    return { calls: calls.length, callsOk: calls.every(l => keepers.has(l.a) && l.lines && l.lines[0] && !/[{}]|undefined/.test(l.lines[0])), sample: calls.slice(0, 2).map(l => l.lines.join(' | ')), bread: bread.length, baked: dg.baked || 0, breadBought: LIFE.stream.filter(e => e.kind === 'bought' && e.data.item === 'bread').length, dead: npcs.filter(n => n.dead).length, stock: bk && lf2Stock(bk).bread };
+  });
+  check(r.calls >= 3 && r.callsOk, 'keepers call out to people passing: ' + r.calls + ' ' + JSON.stringify(r.sample));
+  check(r.baked >= 2 && r.breadBought >= 2, 'bread is baked and bought: ' + JSON.stringify([r.baked, r.breadBought]));
+  check(r.bread >= 1, 'customers talk to the baker over the counter: ' + r.bread);
+  check(r.dead === 0, 'nobody dies');
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return JSON.stringify(r);
+});
+
+test('stalls and the bakery, from the player\'s side, in the real game: walk into the stall and the keeper greets you with a menu; buy seed with real money; the baker\'s counter sells bread; the keeper\'s lines are the villagers\' lines', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 1, live: true, viewport: { width: 1000, height: 640 } });
+  await page.waitForTimeout(800);
+  const setup = await page.evaluate(() => {
+    newTown('farm-ui-test', 'farm'); startPlaying(npcs.find(canControl)); const P = game.player, m = farmSeller(); farmRestock();
+    Object.defineProperty(m, 'serving', { get: () => true, set: () => {} });   // (the keeper is at the counter)
+    const k = m.n, post = m.post, fr = m.front; abortPlan(k); k.tx = k.x = post.x; k.ty = k.y = post.y; k.talkUntil = game.time + 1e5;
+    teleportTo(P, fr.x, fr.y); P.coin = 40; P.bag = P.bag || {}; P.bag.seed_turnip = 0; const dx = Math.sign(post.x - fr.x), dy = Math.sign(post.y - fr.y); P.face = { dx, dy }; rebuildOcc(); window.__dir = { dx, dy };
+    return { keeper: k.first, front: [fr.x, fr.y], post: [post.x, post.y], dir: [dx, dy], coin: P.coin };
+  });
+  const key = setup.dir[0] > 0 ? 'ArrowRight' : setup.dir[0] < 0 ? 'ArrowLeft' : setup.dir[1] > 0 ? 'ArrowDown' : 'ArrowUp';
+  await page.focus('#c'); await page.keyboard.down(key);
+  for (let i = 0; i < 40; i++) { await page.waitForTimeout(100); if (await page.evaluate(() => !!talkUI.o)) break; }
+  await page.keyboard.up(key);
+  const open = await page.evaluate(() => ({ open: !!talkUI.o, who: talkUI.o && talkUI.o.first, say: talkUI.say, opts: talkUI.opts.map(o => o[1]) }));
+  check(open.open && open.who === setup.keeper && /^.+: /.test(open.say), 'walking into the stall opens the keeper\'s menu with a greeting: ' + JSON.stringify([open.who, open.say]));
+  check(open.opts.some(t => /^Buy a .*seed/.test(t)) && open.opts[open.opts.length - 1] === 'Leave', 'there are seeds to buy and a way out: ' + JSON.stringify(open.opts.slice(0, 4)));
+  const idx = open.opts.findIndex(t => /^Buy a turnip seed/.test(t));
+  if (idx >= 0) await page.click('#talk [data-k]:nth-of-type(' + (idx + 1) + ')'); await page.waitForTimeout(200);
+  const after = await page.evaluate(() => ({ say: talkUI.say, coin: game.player.coin, seeds: game.player.bag.seed_turnip || 0 }));
+  check(after.seeds === 1 && after.coin < 40 && /denarii|denarius/.test(after.say), 'buying a seed costs money, gives the seed, and the keeper quotes the price and thanks you: ' + JSON.stringify(after));
+  const closed = await page.evaluate(() => { closeTalk(); return !talkUI.o && document.getElementById('talk').hidden; });
+  check(closed, 'leaving closes the menu');
+  // the baker's counter (the baker at the oven spot, so somebody is serving)
+  const bk = await page.evaluate(() => { const P = game.player, r = lf2Room('bakery'), k = npcs.find(n => n.job === 'Baker'), sp = lf2Spot(r, LF2_JOBS.Baker.spot); abortPlan(k); k.pose = 'stand'; k.tx = k.x = sp.x; k.ty = k.y = sp.y; rebuildOcc(); lf2Stock(r).bread = 6; P.coin = 30; lf2TradeDialog(P, r); return { open: !!talkUI.o, opts: talkUI.opts.map(o => o[1]), who: k && k.first, say: talkUI.say }; });
+  check(bk.open && bk.opts.some(t => /Bread/i.test(t)), 'the baker\'s counter offers bread: ' + JSON.stringify(bk.opts.slice(0, 3)));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return 'player at the stalls';
+});
+
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {
