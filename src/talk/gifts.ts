@@ -3,7 +3,7 @@
 
 const giftName = (k: string) => (GOODS[k] && GOODS[k].name) || (WORLD.has('item', k) ? WORLD.name('item', k) : k);
 /* ---- tastes: everybody likes two things and dislikes one (fixed by who they are); others learn them by asking, by hints, by a gift going down well or badly ---- */
-const giftPool = () => Object.keys(GOODS).filter(k => !/^seed_/.test(k)).sort();
+const giftPool = () => Object.keys(GOODS).filter(k => !/^seed_/.test(k) && !/wood|plank|iron|ore$|stone|timber|tool|lock|copper|gold|coal|brick|rope/i.test(k)).sort();   // (things a person might be pleased to be given)
 function giftTastes(n: any): { like: string[]; dislike: string[] } {
   const pool = giftPool(); if (!pool.length) return { like: [], dislike: [] }; const h = Math.imul((n.id | 0) + 7, 2654435761) >>> 0;
   const a = pool[h % pool.length], b = pool[(h >>> 8) % pool.length], d = pool.filter(k => k !== a && k !== b)[(h >>> 16) % Math.max(1, pool.length - 2)];
@@ -58,7 +58,7 @@ lxi('gift_amends', 'It does not undo it. It does help. I am noting that it helps
 lxi('gift_refuse', 'No. I would rather not owe you anything.'); lxi('gift_refuse', 'I do not want that. Please take it back.');
 
 /* ---- finding out what somebody likes ---- */
-ACTS.ask_preference = { kind: 'gift', stage: 'topic', preview: () => ({}), w: (c: any, sp: any, li: any) => 0.6 + ((sp.aff[li.id] || 0) > 25 ? 0.6 : 0),
+ACTS.ask_preference = { kind: 'gift', stage: 'topic', preview: () => ({}), w: (c: any, sp: any, li: any) => 0.3 + ((sp.aff[li.id] || 0) > 25 ? 0.4 : 0),
   when: (c: any, sp: any, li: any) => !c.done.ask_preference && !li.infant && li.age >= 8 && (sp.know[li.id] || 0) > 12 && !giftKnown(sp, li).like.length && game.time - ((sp.askPrefT || {})[li.id] || -1e9) > 2880,
   apply: (c: any, sp: any, li: any) => { c.done.ask_preference = 1; (sp.askPrefT || (sp.askPrefT = {}))[li.id] = game.time; const t = giftTastes(li), like = Math.random() < 0.8; c.prefItem = like ? t.like[Math.floor(Math.random() * t.like.length)] : t.dislike[0]; c.prefLike = like && !!c.prefItem; if (!c.prefItem) { c.prefItem = t.like[0]; c.prefLike = true; } c.lifeItem = giftName(c.prefItem); giftLearn(sp, li, c.prefItem, c.prefLike); }, replies: ['tell_preference'] };
 ACTS.tell_preference = { kind: 'gift', stage: 'topic', reply: true, preview: (c: any) => ({ item: c.prefItem ? giftName(c.prefItem) : '', how: c.prefLike ? 'like' : 'dislike' }), when: (c: any) => !!c.prefItem, w: () => 1, apply: (c: any) => { c.newsHow = c.prefLike ? 'like' : 'dislike'; }, replies: [] };

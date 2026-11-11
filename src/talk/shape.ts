@@ -11,9 +11,11 @@ function talkBudget(n: any, o: any): number {
   if (n.hunger > 80) b -= 1; return Math.max(1, b);
 }
 /** the villager chooser: among the acts that fit this moment, a weighted pick (not the best one) */
+/** what a conversation is *for*: the acts that come from a real reason (a grudge, a request, a crush, news, something owed). The first topic is one of these when there is one. */
+const TALK_PURPOSE = ['raise_deed', 'ask_favour', 'chase_favour', 'confront_jealous', 'declare', 'ask_to_walk', 'propose', 'flirt', 'confide', 'story_preface', 'share_news', 'warn', 'apologise', 'send_gift', 'offer_gift', 'callback', 'report_day', 'ask_day'];
 function talkChoose(c: any, sp: any, li: any, ids: string[]): string | null {
-  const opts: [string, number][] = [];
-  for (const id of ids) { const A = ACTS[id]; if (!A || !TALK.on[A.kind] || !A.when(c, sp, li)) continue; opts.push([id, Math.max(0.05, (A.w ? A.w(c, sp, li) : 1) * (0.8 + Math.random() * 0.4))]); }
+  const opts: [string, number][] = [], first = !c.turns.some((t: any) => ACTS[t.act] && ACTS[t.act].stage === 'topic' && !ACTS[t.act].reply);
+  for (const id of ids) { const A = ACTS[id]; if (!A || !TALK.on[A.kind] || !A.when(c, sp, li)) continue; opts.push([id, Math.max(0.05, (A.w ? A.w(c, sp, li) : 1) * (0.8 + Math.random() * 0.4) * (first && !A.reply && TALK_PURPOSE.includes(id) ? 5 : 1))]); }
   if (!opts.length) return null; let r = Math.random() * opts.reduce((s, o) => s + o[1], 0); for (const [id, w] of opts) { r -= w; if (r <= 0) return id; } return opts[opts.length - 1][0];
 }
 const TALK_TOPICS = () => Object.keys(ACTS).filter(k => ACTS[k].stage === 'topic' && !ACTS[k].reply);
@@ -21,12 +23,12 @@ const TALK_TOPICS = () => Object.keys(ACTS).filter(k => ACTS[k].stage === 'topic
 /** what a turn's words need, as it is at this moment (words are looked up later, so each turn keeps its own copy) */
 const talkX = (c: any) => ({ state: c.state, how: c.newsHow, conf: c.newsConf, news: c.told && c.told.text, who: c.newsWho ? c.newsWho.first : 'them', line: c.lifeLine, qty: c.lifeQty, item: c.lifeItem, shop: c.lifeShop, price: c.priceUnit, pitem: c.priceName, about: c.aboutName, op: c.op, reason: c.reason, deed: c.deedText, evId: c.newsEvId, ver: c.told && c.told.ver });
 /** one act said by sp to li: its effects happen now; the turn is kept */
-function talkTurn(c: any, sp: any, li: any, id: string): any { const A = ACTS[id]; if (A.stage === 'topic' && !A.reply) { c.aboutName = c.lifeItem = c.reason = c.lifeQty = undefined; }   /* (each topic has its own subject) */ A.apply(c, sp, li); const t: any = { by: sp.id, act: id, x: talkX(c) }; if (A.stage === 'topic' && !A.reply && !c.player && c.last !== 'story_invite' && typeof talkLinkOf === 'function') { const lk = talkLinkOf(c); if (lk) t.x.link = lk; } c.turns.push(t); c.last = id; return t; }
+function talkTurn(c: any, sp: any, li: any, id: string): any { const A = ACTS[id]; if (A.stage === 'topic' && !A.reply) { c.aboutName = c.lifeItem = c.reason = c.lifeQty = undefined; }   /* (each topic has its own subject) */ A.apply(c, sp, li); const t: any = { by: sp.id, act: id, x: talkX(c) }; if (A.stage === 'topic' && !A.reply && !c.player && c.last !== 'story_invite' && !(c.last && ACTS[c.last] && ACTS[c.last].replies.includes(id)) && typeof talkLinkOf === 'function') { const lk = talkLinkOf(c); if (lk) t.x.link = lk; } c.turns.push(t); c.last = id; return t; }
 /** the words of a turn (a and b are the two people of the conversation, in any order) */
 function talkWords(t: any, a: any, b: any): string { const s = t.by === a.id ? a : b, o = s === a ? b : a; const txt = lxSay(t.act === 'report_day' && t.x && t.x.line ? t.x.line : t.act, s, o, t.x || {}); return t.x && t.x.link && txt && typeof lxLink === 'function' ? lxLink(txt, t.x.link) : txt; }
 
 function talkRun(a: any, b: any, listened?: boolean, short?: boolean): any {
-  const c: any = { a, b, stage: 'open', done: {}, turns: [], short: !!short, left: short ? { [a.id]: 1.6, [b.id]: 1.6 } : { [a.id]: talkBudget(a, b), [b.id]: talkBudget(b, a) }, last: null, t0: game.time };   // (short: a word in passing, one topic)
+  const c: any = { a, b, stage: 'open', done: {}, turns: [], short: !!short, left: short ? { [a.id]: 1.6, [b.id]: 1.6 } : (() => { const r = Math.random(), f = r < 0.25 ? 0.5 : r > 0.85 ? 1.5 : 1; return { [a.id]: talkBudget(a, b) * f, [b.id]: talkBudget(b, a) * f }; })(), last: null, t0: game.time };   // (some talks are two lines, some run on)   // (short: a word in passing, one topic)
   const say = (sp: any, li: any, id: string) => { talkTurn(c, sp, li, id); };
   let sp = a, li = b;
   /* opening */

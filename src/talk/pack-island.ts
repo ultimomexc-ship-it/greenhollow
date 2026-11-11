@@ -3,8 +3,8 @@
 
 const lxi = (act: string, text: string, tags?: any, requires?: string[]) => lx(act, 'island', text, tags, requires);
 /* ritual */
-lxi('greet', 'Morning, {li}. It is {clock}.', { band: 'morning' }); lxi('greet', 'Good morning. I woke at some point before this and have been waiting for someone to say it to.', { band: 'morning' });
-lxi('greet', 'Afternoon, {li}.', { band: 'day' }); lxi('greet', 'It is {clock}. Hello, {li}.', { band: 'day' }); lxi('greet', 'Evening, {li}.', { band: 'evening' }); lxi('greet', 'The light is going. Hello, {li}.', { band: 'evening' });
+lxi('greet', 'Morning, {li}.', { band: 'morning' }); lxi('greet', 'Good morning. I woke at some point before this and have been waiting for someone to say it to.', { band: 'morning' });
+lxi('greet', 'Afternoon, {li}.', { band: 'day' }); lxi('greet', 'Evening, {li}.', { band: 'evening' }); lxi('greet', 'The light is going. Hello, {li}.', { band: 'evening' });
 lxi('greet', 'You are up late, {li}. So am I. I do not know what that proves.', { band: 'night' }); lxi('greet', 'Hello, {li}.'); lxi('greet', '{li}. Good. I was about to go and look for you. For no particular reason.', { rel: 'friend' });
 lxi('greet', 'Hello. We have met, I think. Or I have dreamed it, which is possible here.', { rel: 'stranger' }); lxi('greet', '{li}. There you are. Exactly where I expected.', { rel: 'friend' });
 lxi('greet_back', 'Hello.'); lxi('greet_back', 'Morning. I was thinking about nothing in particular.', { band: 'morning' }); lxi('greet_back', '{li}. Yes. Hello.'); lxi('greet_back', 'Hello, {li}. I was hoping it would be you.', { rel: 'friend' }); lxi('greet_back', 'Evening. It has been an evening for a while now.', { band: 'evening' });

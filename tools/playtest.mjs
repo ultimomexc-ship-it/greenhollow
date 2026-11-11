@@ -125,10 +125,18 @@ const rules = [
   ['doubled word', /\b(\w{3,}) \1\b/i],
   ['very long', /^.{230,}$/],
   ['exclamation in island voice', data.pack === 'island' ? /!/ : /(?!x)x/],
+  ['connective doubled', /\b(?:Oh, and|And) and\b|\b(\w+), \1\b/],
+  ['hedge with a stray comma', /\b(I suppose|I think|Probably|Perhaps|Maybe), (?:the|a|it|I|we|you|there)\b/],
   ['empty', /^\s*$/]
 ];
 const menuLines = [...new Set(data.menu)].map(m => ({ text: m.split(' :: ').slice(1).join(' :: '), act: m.split(' :: ')[0], menu: true }));
 const issues = {}; for (const r of [...lines, ...bots, ...menuLines]) for (const [name, rx] of rules) if (rx.test(r.text)) (issues[name] = issues[name] || []).push(name === 'empty' ? 'acts: ' + (r.t ? r.t.acts.join(',') : r.menu ? 'menu ' + r.act : 'bot ' + (r.act || '')) : (r.menu ? '[menu ' + r.act + '] ' : '') + r.text);
+// the listener named in the third person ("I heard what Agrippina thinks" said to Agrippina)
+const persp = []; for (const t of data.T) for (const l of t.lines) { const who = l.split(':')[0], text = l.replace(/^[^:]+: /, ''), other = who === t.a ? t.b : t.a; if (other && other !== who && new RegExp('(?:thinks of|heard what|fond of|soft spot for|about|like|what) ' + other + '\\b').test(text)) persp.push(`${who} to ${other}: ${text}`); }
+if (persp.length) issues['listener named in the third person'] = persp;
+const PURPOSE = /^(raise_deed|ask_favour|chase_favour|confront_jealous|declare|ask_to_walk|propose|flirt|confide|story_preface|share_news|warn|apologise|send_gift|offer_gift|callback|report_day|ask_day|ask_news|ask_price|tell_price|keeper_call|shop_greet)$/;
+const talkConvs = data.T.filter(t => t.kind === 'npc' && t.acts.includes('farewell')); const purposeful = talkConvs.filter(t => t.acts.some(a => PURPOSE.test(a))).length;
+const lens = talkConvs.map(t => t.lines.length).sort((a, b) => a - b), medLen = lens[Math.floor(lens.length / 2)] || 0;
 const freq = {}; for (const l of lines) freq[l.text] = (freq[l.text] || 0) + 1; const stale = Object.entries(freq).filter(([, n]) => n >= 6).sort((a, b) => b[1] - a[1]).slice(0, 12);
 const uniq = new Set(lines.map(l => l.text)).size;
 let runs = 0; const runEx = []; for (const t of data.T) { let prev = '', n = 0; for (const l of t.lines) { const w = l.split(':')[0]; if (w === prev) { n++; if (n === 2) { runs++; if (runEx.length < 3) runEx.push(t.lines.slice(0, 6).join(' / ')); } } else { prev = w; n = 0; } } }
@@ -158,6 +166,7 @@ const md = [];
 md.push(`# Playtest: ${scenario} (${days} days, seed ${seed}, voice ${data.pack})`, '', `Bot villager: **${data.player}**`, '', ...(data.pairs && data.pairs.length ? ['Couples in the making: ' + data.pairs.map(p => p.join(' & ')).join('; '), ''] : []));
 md.push('## Verdict', '', ...expect.map(e => `- ${e.pass ? 'PASS' : 'WARN'}  ${e.name}${e.detail ? '  (' + e.detail + ')' : ''}`), '');
 md.push('## Numbers', '', `- conversations and barks: ${data.T.length}; spoken lines: ${lines.length}; unique: ${uniq} (${(100 * uniq / Math.max(1, lines.length)).toFixed(0)}%)`, `- conversations with nothing but greeting and goodbye: ${empties}`, `- runs of three lines by one speaker: ${runs}${runEx.length ? ' e.g. ' + runEx[0] : ''}`);
+md.push(`- conversations with a real purpose (news, a grudge, a favour, the day, romance): ${purposeful} of ${talkConvs.length} (${(100 * purposeful / Math.max(1, talkConvs.length)).toFixed(0)}%); median length ${medLen} lines, shortest ${lens[0] || 0}, longest ${lens[lens.length - 1] || 0}`);
 md.push(`- acts used: ${Object.keys(data.acts).length} of ${Object.keys(data.acts).length + data.unused.length}`, `- most used: ${Object.entries(data.acts).sort((a, b) => b[1] - a[1]).slice(0, 14).map(([k, v]) => k + ' ' + v).join(', ')}`, `- never used: ${data.unused.join(', ')}`, '');
 if (stale.length) md.push('## Said too often', '', ...stale.map(([t, n]) => `- x${n}: ${t}`), '');
 if (Object.keys(issues).length) md.push('## Text slips', '', ...Object.entries(issues).map(([k, v]) => `- **${k}** (${v.length}): ${[...new Set(v)].slice(0, 4).map(s => '"' + s.slice(0, 120) + '"').join('; ')}`), '');

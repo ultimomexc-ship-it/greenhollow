@@ -26,7 +26,7 @@ function ptOptions(S: any): any[] {
     const A = ACTS[id]; if (!A || seen.has(id) || !TALK.on[A.kind]) continue; c.life = c.news = c.priceItem = undefined;
     let ok = false; try { ok = !!A.when(c, p, o); } catch (e) { ok = false; } if (!ok) continue;
     const snap = { life: c.life, news: c.news, priceItem: c.priceItem }, x = A.preview ? A.preview(c, p, o) : {};
-    const label = lxSay(x.line || id, p, o, Object.assign({}, talkX(c), x, { state: talkState(p) || 'fine' }));   // (what the conversation has set, plus what the act says it needs) if (!label) continue;
+    const label = lxSay(x.line || id, p, o, Object.assign({}, talkX(c), x, { state: talkState(p) || 'fine', menu: true }));   // (what the conversation has set, plus what the act says it needs) if (!label) continue;
     seen.add(id); out.push({ id, snap, label, kind: A.kind, w: Math.random() + (A.kind !== 'small' ? 0.6 : 0) });
   }
   out.sort((a, b) => b.w - a.w); const keep = out.slice(0, S.pending ? 6 : 5);

@@ -32,7 +32,7 @@ ACTS.ask_to_walk = { kind: 'romance', stage: 'topic', preview: () => ({}), w: (c
   when: (c: any, sp: any, li: any) => !c.done.ask_to_walk && romOK(sp, li) && romAff(sp, li) >= 30 && Math.min(sp.know[li.id] || 0, li.know[sp.id] || 0) >= 22 && !romCool(sp, 'walk' + li.id, 0) && !(li.refusedAt && li.refusedAt > game.time - 20 * 1440 && sp.player),
   apply: (c: any, sp: any, li: any) => { c.done.ask_to_walk = 1; romSet(sp, 'walk' + li.id, 6); }, replies: ['walk_yes', 'walk_later', 'walk_no'] };
 ACTS.walk_yes = { kind: 'romance', stage: 'topic', reply: true, when: (c: any, sp: any, li: any) => romOK(sp, li), w: (c: any, sp: any, li: any) => 1 + Math.max(0, romAff(sp, li)) / 25,
-  apply: (c: any, sp: any, li: any) => { startCourtship(li, sp); c.courted = true; }, replies: [] };
+  apply: (c: any, sp: any, li: any) => { startCourtship(li, sp); c.courted = true; }, replies: ['glad_courtship'] };
 ACTS.walk_later = { kind: 'romance', stage: 'topic', reply: true, when: (c: any, sp: any, li: any) => romOK(sp, li), w: () => 0.8, apply: (c: any, sp: any, li: any) => { romSet(li, 'walk' + sp.id, 6); li.waitCourt = game.time + 6 * 1440; }, replies: [] };
 ACTS.walk_no = { kind: 'romance', stage: 'topic', reply: true, when: (c: any, sp: any, li: any) => true, w: (c: any, sp: any, li: any) => romAff(sp, li) < 30 ? 2 : 0.4,
   apply: (c: any, sp: any, li: any) => { lfAff(li, sp, -6, 'turned me down'); romMood(li, -8); li.refusedAt = game.time; chron(`${li.first} asked ${sp.first} to walk out with them, and ${sp.first} said no.`, 'love'); }, replies: [] };

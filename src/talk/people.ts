@@ -22,12 +22,12 @@ function peopleReason(a: any, b: any): string {
     if (/^ev:/.test(best.why)) { const ev = lf2Ev().find((q: any) => q.id === +best.why.slice(3)); if (ev) return TE.text(ev, { who: ev.actor }).replace(/^./, (c: string) => c.toUpperCase()) + '.'; }
     else if (/^heard/.test(best.why)) return 'I ' + best.why + '.'; else return gender + ' ' + best.why + '.';
   }
-  if (rel && PEOPLE_RELS[rel]) return gender + ' is ' + PEOPLE_RELS[rel] + '.'; if (rel === 'friend') return 'We get on.'; if (a.job && a.job === b.job) return 'We work side by side.';
+  if (rel && PEOPLE_RELS[rel]) return gender + ' is ' + (rel === 'child' ? (b.female ? 'my daughter' : 'my son') : rel === 'parent' ? (b.female ? 'my mother' : 'my father') : rel === 'sibling' ? (b.female ? 'my sister' : 'my brother') : rel === 'spouse' ? (b.female ? 'my wife' : 'my husband') : PEOPLE_RELS[rel]) + '.'; if (rel === 'friend') return 'We get on.'; if (a.job && a.job === b.job) return 'We work side by side.';
   const anyL = L[0]; if (anyL) return 'We have talked a few times.'; return '';
 }
 /** somebody this person has a view of, who is not one of the two talking */
 function peopleAbout(sp: any, li: any, need: 'view' | 'strong'): any {
-  const cands = npcs.filter((o: any) => o !== sp && o !== li && !o.dead && !o.infant && o.age >= 6 && !o.player && (need === 'strong' ? Math.abs(sp.aff[o.id] || 0) >= 20 : (Math.abs(sp.aff[o.id] || 0) >= 6 || (sp.know[o.id] || 0) > 12)));
+  const cands = npcs.filter((o: any) => o !== sp && o !== li && !o.dead && !o.infant && o.age >= 6 && !o.player && (need === 'strong' ? Math.abs(sp.aff[o.id] || 0) >= 20 : (Math.abs(sp.aff[o.id] || 0) >= 14)));
   return cands.length ? cands[Math.floor(Math.random() * cands.length)] : null;
 }
 /** hearing an opinion: kept as a memory and moves the listener a little toward it */
@@ -35,16 +35,17 @@ function peopleHear(li: any, from: any, about: any, word: string, reason: string
   TM.add(li, { kind: 'opinion', about: about.id, from: from.id, word, reason, conf: 0.8, imp: 0.3 });
   const dir = word === 'fond' ? 1.5 : word === 'like' ? 0.8 : word === 'dislike' ? -1.5 : word === 'wary' ? -0.8 : 0; if (dir && li.aff) lfAff(li, about, dir * (0.5 + Math.max(0, (li.aff[from.id] || 0)) / 100), 'heard what ' + from.first + ' thinks of ' + about.first);
 }
-const peopleSet = (c: any, sp: any, about: any) => { c.about = about; c.op = peopleWord(sp, about); c.reason = peopleReason(sp, about); };
+const peopleYou = (text: string, li: any) => !li || !text ? text : text.replace(new RegExp('what ' + li.first + ' thinks', 'g'), 'what you think').replace(new RegExp('\\b' + li.first + '\\b', 'g'), 'you');   // (said to somebody, they are "you", not a name)
+const peopleSet = (c: any, sp: any, about: any, li?: any) => { c.about = about; c.op = peopleWord(sp, about); c.reason = peopleYou(peopleReason(sp, about), li); };
 
 for (const id of ['ask_opinion', 'give_opinion', 'gossip_person', 'agree_opinion', 'differ_opinion', 'no_view', 'ask_family', 'answer_family'])
   ACTS[id] = { kind: 'person', stage: 'topic', reply: !['ask_opinion', 'gossip_person', 'ask_family'].includes(id), when: () => true, apply: () => {}, replies: [] };
 ACTS.ask_opinion = { kind: 'person', stage: 'topic', preview: (c: any) => ({ about: c.about.first }), w: () => 0.8, when: (c: any, sp: any, li: any) => { if (c.done.ask_opinion) return false; const o = peopleAbout(sp, li, 'view'); if (!o || !((li.know[o.id] || 0) > 8 || Math.abs(li.aff[o.id] || 0) >= 6)) return false; c.about = o; return true; },
   apply: (c: any) => { c.done.ask_opinion = 1; c.aboutName = c.about.first; }, replies: ['give_opinion', 'no_view'] };
-ACTS.give_opinion = { kind: 'person', stage: 'topic', reply: true, preview: (c: any, sp: any) => c.about ? { about: c.about.first, op: peopleWord(sp, c.about), reason: peopleReason(sp, c.about) } : {}, when: (c: any, sp: any) => !!c.about && (Math.abs(sp.aff[c.about.id] || 0) >= 6 || (sp.know[c.about.id] || 0) > 12), apply: (c: any, sp: any, li: any) => { peopleSet(c, sp, c.about); c.aboutName = c.about.first; peopleHear(li, sp, c.about, c.op, c.reason); }, replies: [] };
+ACTS.give_opinion = { kind: 'person', stage: 'topic', reply: true, preview: (c: any, sp: any) => c.about ? { about: c.about.first, op: peopleWord(sp, c.about), reason: peopleReason(sp, c.about) } : {}, when: (c: any, sp: any) => !!c.about && (Math.abs(sp.aff[c.about.id] || 0) >= 6 || (sp.know[c.about.id] || 0) > 12), apply: (c: any, sp: any, li: any) => { peopleSet(c, sp, c.about, li); c.aboutName = c.about.first; peopleHear(li, sp, c.about, c.op, c.reason); }, replies: [] };
 ACTS.no_view = { kind: 'person', stage: 'topic', reply: true, when: (c: any, sp: any) => !!c.about && !(Math.abs(sp.aff[c.about.id] || 0) >= 6 || (sp.know[c.about.id] || 0) > 12), apply: (c: any) => { c.aboutName = c.about.first; c.op = 'none'; }, replies: [] };
 ACTS.gossip_person = { kind: 'person', stage: 'topic', preview: (c: any, sp: any) => ({ about: c.about.first, op: peopleWord(sp, c.about), reason: peopleReason(sp, c.about) }), w: (c: any, sp: any) => 0.5 + (talkHas(sp, 'gossipy') ? 1.2 : 0), when: (c: any, sp: any, li: any) => { if ((c.done.gossip_person || 0) >= 1) return false; const o = peopleAbout(sp, li, 'strong'); if (!o) return false; c.about = o; return true; },
-  apply: (c: any, sp: any, li: any) => { c.done.gossip_person = 1; peopleSet(c, sp, c.about); c.aboutName = c.about.first; peopleHear(li, sp, c.about, c.op, c.reason); c.listenerView = Math.sign(li.aff[c.about.id] || 0); }, replies: ['agree_opinion', 'differ_opinion', 'no_view_g'] };
+  apply: (c: any, sp: any, li: any) => { c.done.gossip_person = 1; peopleSet(c, sp, c.about, li); c.aboutName = c.about.first; peopleHear(li, sp, c.about, c.op, c.reason); c.listenerView = Math.sign(li.aff[c.about.id] || 0); }, replies: ['agree_opinion', 'differ_opinion', 'no_view_g'] };
 ACTS.agree_opinion.when = (c: any, sp: any) => !!c.about && Math.sign(sp.aff[c.about.id] || 0) === Math.sign(c.op === 'fond' || c.op === 'like' ? 1 : c.op === 'dislike' || c.op === 'wary' ? -1 : 0) && Math.abs(sp.aff[c.about.id] || 0) >= 6;
 ACTS.differ_opinion.when = (c: any, sp: any) => !!c.about && Math.abs(sp.aff[c.about.id] || 0) >= 6 && Math.sign(sp.aff[c.about.id]) === -Math.sign(c.op === 'fond' || c.op === 'like' ? 1 : c.op === 'dislike' || c.op === 'wary' ? -1 : 0);
 ACTS.no_view_g = { kind: 'person', stage: 'topic', reply: true, when: (c: any, sp: any) => !!c.about && !(Math.abs(sp.aff[c.about.id] || 0) >= 6), apply: () => {}, replies: [] };

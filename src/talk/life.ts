@@ -68,7 +68,7 @@ LIFE.recent = function (n: any, listener?: any): any[] {
     g.data.qty += e.data.qty || 1; g.ids.push(e.id); g.t = Math.max(g.t, e.t);
   }
   const out = Object.keys(groups).map(k => groups[k]).filter(g => !(listener && (listener.heardLife || {})[n.id + ':' + g.ids[g.ids.length - 1]]));
-  for (const g of out) g.score = g.def.tell * (g.trouble ? 1.6 : 1) * (0.6 + 0.4 * Math.exp(-(game.time - g.t) / 600)) * (0.8 + Math.random() * 0.4);
+  for (const g of out) { g.score = g.def.tell * (g.trouble ? 1.6 : 1) * (0.6 + 0.4 * Math.exp(-(game.time - g.t) / 600)) * (0.8 + Math.random() * 0.4); const tt = (town.lifeTold || {})[g.kind + '|' + (g.data.item || g.data.seed || g.data.where || '')]; if (tt && game.time - tt.t < 720) g.score *= Math.pow(0.5, tt.n); }   // (what the whole village has been saying all day is worth less each time)
   return out.filter(g => g.score >= 0.16).sort((a, b) => b.score - a.score);   // (the unremarkable is not worth saying)
 };
 /** the troubles people have had lately, with how many and how many different people, for the town panel and for tuning */

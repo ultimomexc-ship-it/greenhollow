@@ -97,7 +97,7 @@ lx('call_reply', 'plain', 'Maybe later.'); lx('call_reply', 'plain', 'Not today,
 function lxContext(sp: any, li: any, c: any) {
   const f = sp.fam || {}, g = li.fam || {};
   const rel = f.spouse === li.id ? 'spouse' : f.partner === li.id ? 'partner' : (f.kids || []).includes(li.id) ? 'child' : (f.mother === li.id || f.father === li.id) ? 'parent' : ((f.mother != null && f.mother === g.mother) || (f.father != null && f.father === g.father)) ? 'sibling' : (typeof isKin === 'function' && isKin(sp, li)) ? 'kin' : (sp.rel && sp.rel[li.id] === 'friend') || (sp.aff[li.id] || 0) > 30 ? 'friend' : (sp.know && (sp.know[li.id] || 0) > 10) ? 'acquaintance' : 'stranger';
-  return { band: todBand(game.time), rel, state: c.state || talkState(sp) || 'fine', trait: (sp.traits || [])[0], how: c.how, conf: c.conf, call: c.call, op: c.op, rep: typeof repWord === 'function' ? repWord(sp, li) : undefined, age: sp.age < 12 ? 'child' : undefined };
+  return { band: todBand(game.time), rel, state: c.state || talkState(sp) || 'fine', trait: (sp.traits || [])[0], how: c.how, conf: c.conf, call: c.call, op: c.op, rep: typeof repWord === 'function' ? repWord(sp, li) : undefined, age: sp.age < 12 ? 'child' : undefined, kid: li.age < 14 ? 'yes' : undefined, menu: c.menu };
 }
 /** choose the wording of an act: the pack's lines that fit and whose things exist, the more specific the better, what the listener heard lately worse */
 function lxSay(act: string, sp: any, li: any, c: any): string {
@@ -108,8 +108,8 @@ function lxSay(act: string, sp: any, li: any, c: any): string {
   for (const e of cands) { const id = act + '|' + e.text, g = LX_RECENT[id], s = Object.keys(e.tags).length * 2 - (heard[id] != null ? 4 - Math.min(3, (game.time - heard[id]) / 600) : 0) - (g != null && game.time - g < 180 ? 2.2 : 0) + Math.random() * 1.5; if (s > bs) { bs = s; best = e; } }
   heard[act + '|' + best.text] = game.time; LX_RECENT[act + '|' + best.text] = game.time;   // (what was said lately, by anyone, is less likely to be said again)
   const place = String(placeOf(sp) || '').replace(/^(in|at)\s+/, ''); const inP = /^the /.test(place) ? 'at ' + place : place ? 'in ' + place : 'here';
-  const raw = best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || 'daily').toLowerCase()).replace(/\{state\}/g, ctx.state).replace(/\{clock\}/g, lxClock()).replace(/\{money\}/g, lxMoney(c.price)).replace(/\{price\}/g, c.price != null ? String(c.price) : '').replace(/\{about\}/g, c.about || 'them').replace(/\{reason\}/g, c.reason || '').replace(/\{shop\}/g, c.shop || 'stall').replace(/\{things\}/g, lxCount(c.qty, c.item)).replace(/\{qty\}/g, c.qty != null ? String(c.qty) : '').replace(/\{item\}/g, c.item || c.pitem || '').replace(/\{news\}/g, c.news || '').replace(/\{deed\}/g, c.deed || '').replace(/\{who\}/g, c.who || 'them');
-  return placeWords(lxTic(sp, act, pk, raw).replace(/\s{2,}/g, ' ').replace(/\s+$/, '').replace(/(^|[.!?]\s+)([a-z])/g, (_m: string, a: string, b: string) => a + b.toUpperCase()));
+  const raw = best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || 'daily').toLowerCase()).replace(/\{state\}/g, ctx.state).replace(/\{clock\}/g, lxClock()).replace(/\{money\}/g, lxMoney(c.price)).replace(/\{price\}/g, c.price != null ? String(c.price) : '').replace(/\{about\}/g, c.about || 'them').replace(/\{reason\}/g, c.reason || '').replace(/\{shop\}/g, c.shop || 'stall').replace(/\{things\}/g, lxCount(c.qty, c.item)).replace(/\{qty\}/g, c.qty != null ? String(c.qty) : '').replace(/\{item\}/g, c.item || c.pitem || '').replace(/\{news\}/g, c.news || '').replace(/\{deed\}/g, c.deed || '').replace(/\{them\}/g, (() => { const P = npcs.find((n: any) => n.first === c.about); return P ? (P.female ? 'her' : 'him') : 'them'; })()).replace(/\{who\}/g, c.who || 'them');
+  return placeWords((c.menu ? raw : lxVoice(sp, li, act, pk, lxTic(sp, act, pk, raw))).replace(/\s{2,}/g, ' ').replace(/\s+$/, '').replace(/(^|[.!?]\s+)([a-z])/g, (_m: string, a: string, b: string) => a + b.toUpperCase()));
 }
 
 /** a count of something, said the way people say it: "a cabbage", "7 barley", "12 turnips" (a plural name drops its s for one; a mass noun is "a little") */
@@ -125,10 +125,25 @@ function lxMoney(n: any): string { if (n == null) return 'a few denarii'; n = Ma
 function lxClock(): string { const m = Math.floor(game.time % 1440); return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0'); }
 /** a verbal habit: each person has none or one of the pack's small openers and now and then uses it on a statement, so people are recognisable by how they talk */
 const LX_TICS: any = {
-  plain: ['you know,', 'honestly,', 'mind you,', 'I suppose,', 'as it happens,'],
-  island: ['as far as I know,', 'more or less,', 'I think,', 'for what it is worth,', 'in my experience,', 'probably,', 'to be fair,']
+  plain: ['you know,', 'honestly,', 'mind you,', 'I suppose', 'as it happens,'],
+  island: ['as far as I know,', 'more or less,', 'I think', 'for what it is worth,', 'in my experience,', 'probably', 'to be fair,']
 };
 const LX_TIC_ACTS = /^(remark_|share_news|answer_how|report_day|life:|tell_price|nothing_much)/;
+/* ---- registers: how a person sounds (fixed by who they are). Most speak in the island's dry voice; some are terse (the first sentence is all they give), warm (a pet word), formal (no contractions, stiff greetings) or chatty (they run on). */
+const LX_REG = ['dry', 'dry', 'dry', 'dry', 'dry', 'dry', 'dry', 'dry', 'dry', 'terse', 'terse', 'terse', 'warm', 'warm', 'warm', 'formal', 'formal', 'chatty', 'chatty', 'chatty'];
+const lxRegister = (n: any): string => LX_REG[(Math.imul((n.id | 0) + 11, 2246822519) >>> 0) % LX_REG.length];
+const LX_RUNON: any = { plain: ['But I do go on.', 'Anyway, enough about me.', 'Mind you, that is just me.', 'I could say more.'], island: ['Ignore me. I run on.', 'I could say more. I am choosing not to, for now.', 'That is just how it looks from here.', 'But I go on. I do that.'] };
+const LX_FORMAL: [RegExp, string][] = [[/\bHello\b/g, 'Good day'], [/\bHi\b/g, 'Good day'], [/\bBye\b/g, 'Farewell'], [/\bGoodbye\b/g, 'Farewell'], [/\bSee you\b/g, 'Until we meet again'], [/\bI'm\b/g, 'I am'], [/\bdon't\b/g, 'do not'], [/\bcan't\b/g, 'cannot'], [/\bit's\b/gi, 'it is'], [/\bI'd\b/g, 'I would'], [/\bI'll\b/g, 'I shall'], [/\bwon't\b/g, 'will not'], [/\bisn't\b/g, 'is not'], [/\bthat's\b/gi, 'that is'], [/\bwe've\b/g, 'we have'], [/\bI've\b/g, 'I have']];
+function lxVoice(sp: any, li: any, act: string, pack: string, text: string): string {
+  const reg = lxRegister(sp); if (reg === 'dry' || !text) return text;
+  const ritual = /^(greet|greet_back|farewell|farewell_back|pre_close)$/.test(act), statement = LX_TIC_ACTS.test(act) || /^(answer_how|answer_work|callback_answer|acknowledge|agree|joke|wonder|brag_child|tell_back|give_advice|share_gladness|sympathise_how)$/.test(act);
+  if (!ritual && !statement) return text;
+  if (reg === 'terse') { const first = text.split(/(?<=[.!?])\s+/)[0]; return first.length >= 5 ? first : text; }
+  if (reg === 'warm') { if (!ritual || text.length > 22 || sp.age < 12 || Math.random() > 0.55 || /friend|love|dear/.test(text) || (li && text.indexOf(li.first) >= 0)) return text; const addr = li.fam && (li.fam.spouse === sp.id || sp.fam.spouse === li.id) ? 'love' : (sp.fam && (sp.fam.kids || []).includes(li.id)) ? 'dear' : 'friend'; return text.replace(/([.!?])\s*$/, ', ' + addr + '$1'); }
+  if (reg === 'formal') { let t = text; for (const [r, s] of LX_FORMAL) t = t.replace(r, s); return t; }
+  if (reg === 'chatty') { if (statement && !ritual && Math.random() < 0.4) { const L = LX_RUNON[pack] || LX_RUNON.plain; return text.replace(/\s*$/, ' ') + L[Math.floor(Math.random() * L.length)]; } return text; }
+  return text;
+}
 const LX_RECENT: any = {};
 function lxTic(sp: any, act: string, pack: string, text: string): string {
   const list = LX_TICS[pack] || LX_TICS.plain; if (!LX_TIC_ACTS.test(act) || text.length < 28 || text.split(/[.?]/)[0].length < 18) return text;

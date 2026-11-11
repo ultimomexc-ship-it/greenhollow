@@ -11,7 +11,7 @@ const ACTS: any = {
   farewell: { kind: 'ritual', stage: 'close', reply: true, when: () => true, apply: () => {}, replies: ['farewell_back'] },
   farewell_back: { kind: 'ritual', stage: 'close', reply: true, when: () => true, apply: () => {}, replies: [] },
   /* ---- small talk: remarks that maintain the bond ---- */
-  remark_time: { kind: 'small', stage: 'topic', when: (c: any) => !c.done.remark_time, w: () => 1.2, apply: (c: any) => { c.done.remark_time = 1; }, replies: ['agree'] },
+  remark_time: { kind: 'small', stage: 'topic', when: (c: any) => !c.done.remark_time, w: () => 0.4, apply: (c: any) => { c.done.remark_time = 1; }, replies: ['agree'] },
   remark_place: { kind: 'small', stage: 'topic', when: (c: any, sp: any) => !c.done.remark_place && !!placeOf(sp), w: () => 1, apply: (c: any) => { c.done.remark_place = 1; }, replies: ['agree'] },
   remark_work: { kind: 'small', stage: 'topic', when: (c: any, sp: any) => !c.done.remark_work && !!sp.job, w: (c: any, sp: any) => 1.3 + (sp.pose === 'work' ? 0.5 : 0), apply: (c: any) => { c.done.remark_work = 1; }, replies: ['agree'] },
   remark_state: { kind: 'small', stage: 'topic', when: (c: any, sp: any) => !c.done.remark_state && !!talkState(sp), w: () => 1.4, apply: (c: any, sp: any) => { c.done.remark_state = 1; c.state = talkState(sp); }, replies: ['agree'] },
@@ -36,7 +36,7 @@ const ACTS: any = {
   nothing_much: { kind: 'life', stage: 'topic', reply: true, when: (c: any, sp: any, li: any) => !LIFE.recent(sp, li).length, apply: () => {}, replies: [] },
   report_day: { kind: 'life', stage: 'topic', preview: (c: any) => { const g = c.life; return { line: 'life:' + g.kind, qty: g.data.qty || 1, item: g.data.seed ? WORLD.name('seed', g.data.seed) : g.data.item ? WORLD.name('item', g.data.item) : '', shop: g.data.place || '' }; }, when: (c: any, sp: any, li: any) => (c.done.report_day || 0) < 2 && !!(c.life = LIFE.recent(sp, li)[0]), w: (c: any) => 0.9 + 2 * Math.min(1, c.life ? c.life.score : 0),
     apply: (c: any, sp: any, li: any) => {
-      const g = c.life; c.lifeLine = 'life:' + g.kind; c.lifeShop = g.data.place || ''; c.lifeQty = g.data.qty || 1; c.lifeTrouble = g.trouble;
+      const g = c.life; { const tk = g.kind + '|' + (g.data.item || g.data.seed || g.data.where || ''), tl = town.lifeTold || (town.lifeTold = {}), tt = tl[tk]; tl[tk] = { n: (tt && game.time - tt.t < 720 ? tt.n : 0) + 1, t: game.time }; } c.newsHow = ['harvested', 'baked', 'cooked', 'forged', 'woven', 'sawed', 'sold', 'got_bed', 'planted'].includes(g.kind) ? 'good' : 'neutral'; c.lifeLine = 'life:' + g.kind; c.lifeShop = g.data.place || ''; c.lifeQty = g.data.qty || 1; c.lifeTrouble = g.trouble;
       c.lifeItem = g.data.seed ? WORLD.name('seed', g.data.seed) : g.data.item ? WORLD.name('item', g.data.item) : '';
       c.done.report_day = (c.done.report_day || 0) + 1; (li.heardLife || (li.heardLife = {}))[sp.id + ':' + g.ids[g.ids.length - 1]] = 1;
       TM.add(li, { kind: 'told_life', with: sp.id, lk: g.kind, data: g.data, conf: 0.9, imp: Math.min(0.6, g.def.tell) });   // (and now they know something about how the other one is doing)
