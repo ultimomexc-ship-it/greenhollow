@@ -739,6 +739,15 @@ async function talkScene(rng, fn) {
 const BANNED = /that'?s interesting|i see what you mean|it'?s complicated|anything else (you'?d like|you want) to know|that'?s life in the village|^goodbye\.?$|^anything else\??$/i;
 const GENERIC = /^(Hello\.|Yes\?|What is it\?|Mm\?|Oh, hello [A-Za-z]+\.|Hm\? I am working\.|Busy, but go on\.|Make it quick\.)$/;
 
+/* ---------------------------------------------------------------------------------------------- */
+// The social simulation (src/social2): the village has a past before the player arrives, news travels and changes, people talk from what they believe.
+
+
+/* ---------------------------------------------------------------------------------------------- */
+// TrueSight (src/render/truesight.ts): the player sees only what their character could see from where they stand.
+import { truesightRun } from '../tools/truesight.mjs';
+
+
 test('truesight: building walls, shut doors, corners and windows hide what they should, and trees hide nothing', async () => {
   const r = await truesightRun({ shots: null }), bad = [];
   check(r.errors.length === 0, 'page errors: ' + r.errors.slice(0, 3).join(' | '));
@@ -765,7 +774,19 @@ test('truesight: the view is a polygon, recomputed quickly even zoomed out', asy
 });
 
 /* ---------------------------------------------------------------------------------------------- */
-// Longevity and readability (tools/longevity.mjs runs the long version: node tools/longevity.mjs 30)
+
+/* ---------------------------------------------------------------------------------------------- */
+// Items in the economy (src/life2/items-trade.ts): real tools for everyone, wear, the smith and iron, seeds and the garden, lockpicks, the sawmill.
+async function itemScene(fn, days = 3) {
+  return async browser => {
+    const { page, errors } = await openGame(browser, GAME, { rng: 5, town: 'items' });
+    await simulate(page, days * DAY);
+    await page.evaluate(() => { if (!game.player) startPlaying(canControl(byId(game.steer)) ? byId(game.steer) : npcs.find(canControl)); });
+    const r = await fn(page);
+    check(errors.length === 0, 'page errors:\n    ' + errors.slice(0, 5).join('\n    '));
+    await page.close(); return r;
+  };
+}
 
 test('items: villagers own real work tools that wear as they work and are replaced when bought', await itemScene(async page => {
   const r = await page.evaluate(() => {
@@ -853,7 +874,6 @@ test('items: the sawmill saws logs into planks and sells them; planks count as t
 }, 5));
 
 /* ---------------------------------------------------------------------------------------------- */
-// The dialogue lint (tools/lintalk.mjs): plays days of talk and listens to the village, then flags what reads wrong.
 test('islands: an island saves and restores exactly, and the village carries on afterwards', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   await simulate(page, 2 * 1440);
