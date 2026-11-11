@@ -215,6 +215,7 @@ test('push: rocks can be pushed (and chained) and become loose rocks you can bui
 test('push: loose things can be pushed through a doorway and into a house', await controlScene('doorway', 41, async page => {
   const r = await page.evaluate(() => {
     const house = rooms.find(q => !q.dead && q.kind === 'house' && q.side === 'b'), crate = town.props[0], P = game.player, trail = [];
+    for (const n of npcs) if (n !== P) { n.tx = n.x = 3; n.ty = n.y = 3; n.moving = false; } rebuildOcc();   // (nobody about to stand in the way)
     town.pblock[crate.y * W + crate.x] = 0; town.propAt.delete(crate.y * W + crate.x); crate.x = house.doorX; crate.y = house.doorY + 1; town.pblock[crate.y * W + crate.x] = 1; town.propAt.set(crate.y * W + crate.x, crate); itBuildToggle(P, true);
     __place(P, house.doorX, house.doorY + 2, { dx: 0, dy: -1 });
     for (let i = 0; i < 3; i++) { const res = lf2PushLine(P, crate.x, crate.y, 0, -1); trail.push({ res, y: crate.y, inside: roomAt[crate.y][crate.x] === rooms.indexOf(house) }); if (res !== true) break; __place(P, crate.x, crate.y + 1, { dx: 0, dy: -1 }); }
@@ -335,7 +336,7 @@ test('push: villagers leave things where they are (no tidying, shoving or haulin
 
 test('push: furniture can be pushed out of the door (it becomes a loose thing) and back in (it is furniture again)', await controlScene('outdoor', 41, async page => {
   const r = await page.evaluate(() => {
-    const hs = rooms.find(q => !q.dead && q.kind === 'house' && q.seats.length && q.beds.length && q.barrel && q.side === 'b'), P = game.player; itBuildToggle(P, true);
+    const hs = rooms.find(q => !q.dead && q.kind === 'house' && q.seats.length && q.beds.length && q.barrel && q.side === 'b'), P = game.player; itBuildToggle(P, true); for (const n of npcs) if (n !== P) { n.tx = n.x = 3; n.ty = n.y = 3; n.moving = false; } rebuildOcc();   // (nobody about to stand in the way)
     const seat = hs.seats[0], din = { x: hs.doorX, y: hs.doorY - 1 }, res = {}; const t0 = [seat.x, seat.y];
     setT(seat.x, seat.y, T.FLOOR); seat.x = din.x; seat.y = din.y; setT(din.x, din.y, T.SEAT); rebuildOcc();            // stand the chair just inside the door
     __place(P, din.x, din.y - 1, { dx: 0, dy: 1 }); res.out1 = lf2PushLine(P, din.x, din.y, 0, 1);
@@ -1093,7 +1094,7 @@ test('talk engine (phase 1): a kind of talk can be switched off, and a line abou
     let seen = false; for (let i = 0; i < 400; i++) if (/castle/.test(lxSay('remark_place', a, c, { done: {} }))) seen = true; out.castleSaid = seen;
     out.has = [WORLD.has('feature', 'castle'), WORLD.has('item', 'barley'), WORLD.has('person', a.id)];
     // with small talk off, a conversation is only the rituals
-    TALK.on.small = false; TALK.on.world = false; TALK.on.person = false; const cv = talkRun(a, c, true); out.ritualOnly = cv.turns.every(t => ACTS[t.act].kind === 'ritual') && cv.turns.length === 5; TALK.on.small = true; TALK.on.world = true; TALK.on.person = true;
+    const onKeep = Object.assign({}, TALK.on); for (const k of Object.keys(TALK.on)) TALK.on[k] = k === 'ritual'; const cv = talkRun(a, c, true); out.ritualOnly = cv.turns.every(t => ACTS[t.act].kind === 'ritual') && cv.turns.length === 5; Object.assign(TALK.on, onKeep);
     return out; });
   check(!r.castleSaid, 'a line that needs a feature that does not exist is never said');
   check(r.has[0] === false && r.has[2] === true, 'the registry knows what exists: ' + JSON.stringify(r.has));
@@ -1532,7 +1533,7 @@ test('gifts: you can give something in a talk; food is welcome when hungry, flow
   const r = await page.evaluate(() => {
     const out = {}; TALK.words = true; startPlaying(npcs.find(n => !n.dead && n.age >= 18 && !n.infant)); const P = game.player;
     const R = rooms.find(q => !q.free && !q.dead && q.kind === 'house' && meddleResidents(q).some(n => n !== P)); const o = meddleResidents(R).find(n => n !== P);
-    o.tx = o.x = P.tx + 1; o.ty = o.y = P.ty; o.pose = 'stand'; o.hunger = 80; rebuildOcc(); P.inv.grain = 3; P.inv.flowers = 2; o.aff[P.id] = 0;
+    o.tx = o.x = P.tx + 1; o.ty = o.y = P.ty; o.pose = 'stand'; o.hunger = 80; o.inv.fish = 5; rebuildOcc(); P.inv.grain = 3; P.inv.flowers = 2; o.aff[P.id] = 0;
     const give = () => { openTalk(o); const k = talkUI.opts.findIndex(x => /brought|Here\.|could use/.test(x[1])); if (k < 0) { closeTalk(); return null; } const a0 = o.aff[P.id] || 0; const st = ptStep(talkUI.opts[k][0]); const r = { say: st.say, d: (o.aff[P.id] || 0) - a0 }; closeTalk(); return r; };
     out.food = give(); out.grain = P.inv.grain; out.theirs = o.inv && o.inv.grain;
     // a deed, then an amends
