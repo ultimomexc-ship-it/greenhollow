@@ -41,7 +41,7 @@ Four things hold the text back, in order of how much they matter:
 
 | Seen in the transcript | Cause |
 |---|---|
-| "What do you make of Secunda?" answered "Quinta is one of the good ones." | `when()` of `ask_opinion`, `gossip_person`, `ask_family`, `ask_where`, `warn`, `brag_child`, `tell_rep`, `story_preface` write `c.about` and friends. The chooser calls every `when`, so the last one checked wins. |
+| "What do you make of Secunda?" answered "Quinta is one of the good ones." | `when()` of `ask_opinion`, `gossip_person`, `ask_family`, `ask_where`, `warn`, `brag_child`, `tell_rep`, `story_preface` write `c.about` and friends. Every candidate's `when` was run on the live conversation, so the last one checked won. Measured on the old build: in the player's menu, 49 of 99 options about a person said something about a different person when picked. Between villagers the question and answer still agreed with each other; what was corrupted there was which subject got talked about. **Fixed (task A).** |
 | Varro says "I am fond of Corvus. He was kind about me." twice in a row | `give_opinion` then `gossip_person` on the same person; no record of what was just said. |
 | A father asks the mother "What is your view of Varro?" (their son) | Opinion acts ignore how the asker and the person asked relate to the subject. |
 | A seven-year-old: "You make the island more bearable." and "What does flowers cost these days?" | The child voice covers a few acts; children can use every adult act. |
@@ -152,7 +152,7 @@ Each is independent unless it says otherwise. "Check" is how to know it is done;
 
 ### For design judgement (I would take these)
 
-A. **Bindings instead of a shared bag.** `when(c, sp, li)` returns the act's arguments (`{ about, item, ev, ... }`)
+A. **(Done, first step.)** **Bindings instead of a shared bag.** `when` now runs against a view of the conversation (`talkBind`), the chooser and the menu keep the binding of what was picked, and `lxSay` refuses a line with an unfilled slot and counts it (`LX_MISS`). Left for later, as cleanup: acts still write their binding on the view instead of returning it, and `talkX` is still a hand-kept list. Original description:  `when(c, sp, li)` returns the act's arguments (`{ about, item, ev, ... }`)
    or nothing, and never writes to `c`. The chooser keeps the arguments of the act it picked; `apply(c, sp, li, args)`
    and the lexicon get them. Each act declares the slots it supplies, and a test fails when a line uses a slot its
    act does not supply. This removes the wrong-subject bug, `talkX`, the `preview` duplication and the menu's

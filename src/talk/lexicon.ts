@@ -99,17 +99,59 @@ function lxContext(sp: any, li: any, c: any) {
   const rel = f.spouse === li.id ? 'spouse' : f.partner === li.id ? 'partner' : (f.kids || []).includes(li.id) ? 'child' : (f.mother === li.id || f.father === li.id) ? 'parent' : ((f.mother != null && f.mother === g.mother) || (f.father != null && f.father === g.father)) ? 'sibling' : (typeof isKin === 'function' && isKin(sp, li)) ? 'kin' : (sp.rel && sp.rel[li.id] === 'friend') || (sp.aff[li.id] || 0) > 30 ? 'friend' : (sp.know && (sp.know[li.id] || 0) > 10) ? 'acquaintance' : 'stranger';
   return { band: todBand(game.time), rel, state: c.state || talkState(sp) || 'fine', trait: (sp.traits || [])[0], how: c.how, conf: c.conf, call: c.call, op: c.op, rep: typeof repWord === 'function' ? repWord(sp, li) : undefined, age: sp.age < 12 ? 'child' : undefined, kid: li.age < 14 ? 'yes' : undefined, menu: c.menu };
 }
-/** choose the wording of an act: the pack's lines that fit and whose things exist, the more specific the better, what the listener heard lately worse */
+/** the values a line can use, from the speaker, the listener and what the turn carries. A slot with no value is undefined: a line that needs it is not said. */
+function lxSlots(sp: any, li: any, c: any, ctx: any): any {
+  const place = String(placeOf(sp) || '').replace(/^(in|at)\s+/, '');
+  const item = c.item || c.pitem || undefined;
+  const aboutP = c.about ? npcs.find((n: any) => n.first === c.about) : null;
+  return {
+    li: li.first, sp: sp.first,
+    place: /^the /.test(place) ? 'at ' + place : place ? 'in ' + place : 'here',
+    job: String(sp.job || 'daily').toLowerCase(),
+    state: ctx.state, clock: lxClock(),
+    money: lxMoney(c.price), price: c.price != null ? String(c.price) : undefined,
+    about: c.about || undefined, reason: c.reason || '',
+    them: !c.about ? undefined : aboutP ? (aboutP.female ? 'her' : 'him') : 'them',
+    shop: c.shop || 'stall',
+    item, things: item ? lxCount(c.qty, item) : undefined, qty: c.qty != null ? String(c.qty) : undefined,
+    news: c.news || undefined, deed: c.deed || undefined, who: c.who || 'them'
+  };
+}
+/** slots a line may leave empty (they have a default, or the sentence reads without them) */
+const LX_MISS: any = {};   // act:slot -> how often a line could not be said for want of a value (the bindings test reads this)
+const lxSlotsOf = (e: any): string[] => e.sl || (e.sl = (e.text.match(/\{(\w+)\}/g) || []).map((x: string) => x.slice(1, -1)));
+
+/** choose the wording of an act: the pack's lines that fit, whose things exist and whose slots all have values; the more specific the better, what the listener heard lately worse */
 function lxSay(act: string, sp: any, li: any, c: any): string {
-  const ctx: any = lxContext(sp, li, c); const heard = li.heard || (li.heard = {});
-  const pool = (pack: string) => LEX.filter(e => e.act === act && e.pack === pack && WORLD.ok(e.requires) && Object.keys(e.tags).every(k => k === 'trait' ? (sp.traits || []).includes(e.tags[k]) : k === 'rel' && e.tags[k] === 'kin' ? ['kin', 'spouse', 'partner', 'child', 'parent', 'sibling'].includes(ctx.rel) : k === 'rel' && e.tags[k] === 'partner' ? ['partner', 'spouse'].includes(ctx.rel) : e.tags[k] === ctx[k]));   // (a line for kin fits any relative; one for a partner fits a spouse)
-  const pk = (typeof town !== 'undefined' && town && town.pack) || TALK_PACK.cur; let cands = pool(pk); if (!cands.length) cands = pool('plain'); if (!cands.length) return '';
+  const ctx: any = lxContext(sp, li, c);
+  const slots = lxSlots(sp, li, c, ctx);
+  const heard = li.heard || (li.heard = {});
+  const fits = (e: any) => Object.keys(e.tags).every(k =>
+    k === 'trait' ? (sp.traits || []).includes(e.tags[k])
+      : k === 'rel' && e.tags[k] === 'kin' ? ['kin', 'spouse', 'partner', 'child', 'parent', 'sibling'].includes(ctx.rel)   // a line for kin fits any relative
+        : k === 'rel' && e.tags[k] === 'partner' ? ['partner', 'spouse'].includes(ctx.rel)                                // one for a partner fits a spouse
+          : e.tags[k] === ctx[k]);
+  const filled = (e: any) => {
+    for (const k of lxSlotsOf(e)) if (slots[k] === undefined) { LX_MISS[act + ':' + k] = (LX_MISS[act + ':' + k] || 0) + 1; return false; }
+    return true;
+  };
+  const pool = (pack: string) => LEX.filter(e => e.act === act && e.pack === pack && WORLD.ok(e.requires) && fits(e) && filled(e));
+  const pk = (typeof town !== 'undefined' && town && town.pack) || TALK_PACK.cur;
+  let cands = pool(pk);
+  if (!cands.length) cands = pool('plain');
+  if (!cands.length) return '';
   let best: any = null, bs = -1e9;
-  for (const e of cands) { const id = act + '|' + e.text, g = LX_RECENT[id], s = Object.keys(e.tags).length * 2 - (heard[id] != null ? 4 - Math.min(3, (game.time - heard[id]) / 600) : 0) - (g != null && game.time - g < 180 ? 2.2 : 0) + Math.random() * 1.5; if (s > bs) { bs = s; best = e; } }
-  heard[act + '|' + best.text] = game.time; LX_RECENT[act + '|' + best.text] = game.time;   // (what was said lately, by anyone, is less likely to be said again)
-  const place = String(placeOf(sp) || '').replace(/^(in|at)\s+/, ''); const inP = /^the /.test(place) ? 'at ' + place : place ? 'in ' + place : 'here';
-  const raw = best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || 'daily').toLowerCase()).replace(/\{state\}/g, ctx.state).replace(/\{clock\}/g, lxClock()).replace(/\{money\}/g, lxMoney(c.price)).replace(/\{price\}/g, c.price != null ? String(c.price) : '').replace(/\{about\}/g, c.about || 'them').replace(/\{reason\}/g, c.reason || '').replace(/\{shop\}/g, c.shop || 'stall').replace(/\{things\}/g, lxCount(c.qty, c.item)).replace(/\{qty\}/g, c.qty != null ? String(c.qty) : '').replace(/\{item\}/g, c.item || c.pitem || '').replace(/\{news\}/g, c.news || '').replace(/\{deed\}/g, c.deed || '').replace(/\{them\}/g, (() => { const P = npcs.find((n: any) => n.first === c.about); return P ? (P.female ? 'her' : 'him') : 'them'; })()).replace(/\{who\}/g, c.who || 'them');
-  return placeWords((c.menu ? raw : lxVoice(sp, li, act, pk, lxTic(sp, act, pk, raw))).replace(/\s{2,}/g, ' ').replace(/\s+$/, '').replace(/(^|[.!?]\s+)([a-z])/g, (_m: string, a: string, b: string) => a + b.toUpperCase()));
+  for (const e of cands) {
+    const id = act + '|' + e.text, g = LX_RECENT[id];
+    const heardPenalty = heard[id] != null ? 4 - Math.min(3, (game.time - heard[id]) / 600) : 0;
+    const s = Object.keys(e.tags).length * 2 - heardPenalty - (g != null && game.time - g < 180 ? 2.2 : 0) + Math.random() * 1.5;
+    if (s > bs) { bs = s; best = e; }
+  }
+  heard[act + '|' + best.text] = game.time;
+  LX_RECENT[act + '|' + best.text] = game.time;   // what was said lately, by anyone, is less likely to be said again
+  const raw = best.text.replace(/\{(\w+)\}/g, (_m: string, k: string) => slots[k] != null ? slots[k] : '');
+  const voiced = c.menu ? raw : lxVoice(sp, li, act, pk, lxTic(sp, act, pk, raw));
+  return placeWords(voiced.replace(/\s{2,}/g, ' ').replace(/\s+$/, '').replace(/(^|[.!?]\s+)([a-z])/g, (_m: string, a: string, b: string) => a + b.toUpperCase()));
 }
 
 /** a count of something, said the way people say it: "a cabbage", "7 barley", "12 turnips" (a plural name drops its s for one; a mass noun is "a little") */

@@ -23,7 +23,7 @@ await page.evaluate(([scenario]) => {
   newTown('playtest', world); if (scenario === 'romance' || scenario === 'meddle' || scenario === 'social') MODS.all();
   TALK.words = true; window.__T = []; window.__B = [];
   const orig = talkFinish;
-  talkFinish = function (c, a, b, listened) { const n0 = TALK.log.length; orig(c, a, b, listened); const e = TALK.log[TALK.log.length - 1]; if (e && TALK.log.length >= n0) window.__T.push({ t: game.time, a: a.first, b: b.first, place: (typeof placeOf === 'function' ? placeOf(a) : ''), acts: e.acts.map(x => x.act), lines: e.lines || [], kind: e.player ? 'player' : 'npc' }); };
+  talkFinish = function (c, a, b, listened) { const n0 = TALK.log.length; orig(c, a, b, listened); const e = TALK.log[TALK.log.length - 1]; if (e && TALK.log.length >= n0) window.__T.push({ t: game.time, a: a.first, b: b.first, place: (typeof placeOf === 'function' ? placeOf(a) : ''), acts: e.acts.map(x => x.act), subj: e.acts.map(x => x.x && x.x.about), lines: e.lines || [], kind: e.player ? 'player' : 'npc' }); };
   startPlaying(npcs.filter(n => !n.dead && n.age >= 18 && !n.infant)[0]);
   if (scenario === 'romance') {   // three couples in the making: one-sided, mutual, and one already walking out a while
     const singles = npcs.filter(n => !n.dead && !n.player && n.age >= 17 && n.age < 45); const ms = singles.filter(n => !n.female), fs = singles.filter(n => n.female), pairs = [];
@@ -109,7 +109,7 @@ const data = await page.evaluate(() => {
   const acts = {}; for (const t of T) for (const a of t.acts) acts[a] = (acts[a] || 0) + 1;
   const all = Object.keys(ACTS), blamed = [], deeds = lf2Ev().filter(e => e.actor === P.id && ['wall_removed', 'home_destroyed', 'building_down', 'bed_moved', 'furniture_removed', 'person_pushed', 'caught_on_privy'].includes(e.kind));
   for (const e of deeds) { const who = {}; for (const o of npcs) { const m = (o.tmem || []).find(q => q.ev === e.id && q.kind !== 'did'); if (m && m.ver && m.ver.who != null) who[m.ver.who === P.id ? 'you' : (byId(m.ver.who) || {}).first] = (who[m.ver.who === P.id ? 'you' : (byId(m.ver.who) || {}).first] || 0) + 1; } blamed.push({ ev: e.kind, anon: !!e.anon, blamed: who, knew: npcs.filter(o => (o.tmem || []).some(q => q.ev === e.id)).length }); }
-  return { T, B, people, acts, unused: all.filter(a => !acts[a] && !ACTS[a].reply === false || (!acts[a])).filter(a => !['cry_deed', 'mutter', 'call_child', 'gift_from_nobody', 'gift_anon_reply'].includes(a)), blamed, rep: repVillage(P), pairs: window.__pairs || [], menu: window.__M || [], pack: town.pack, logLen: TALK.log.length, chron: (town.chron || []).slice(-30).map(c => c.text), player: P.first };
+  return { T, B, people, acts, unused: all.filter(a => !acts[a] && !ACTS[a].reply === false || (!acts[a])).filter(a => !['cry_deed', 'mutter', 'call_child', 'gift_from_nobody', 'gift_anon_reply'].includes(a)), blamed, rep: repVillage(P), miss: (typeof LX_MISS !== 'undefined' ? LX_MISS : {}), pairs: window.__pairs || [], menu: window.__M || [], pack: town.pack, logLen: TALK.log.length, chron: (town.chron || []).slice(-30).map(c => c.text), player: P.first };
 });
 await browser.close();
 
@@ -137,6 +137,8 @@ if (persp.length) issues['listener named in the third person'] = persp;
 const PURPOSE = /^(raise_deed|ask_favour|chase_favour|confront_jealous|declare|ask_to_walk|propose|flirt|confide|story_preface|share_news|warn|apologise|send_gift|offer_gift|callback|report_day|ask_day|ask_news|ask_price|tell_price|keeper_call|shop_greet)$/;
 const talkConvs = data.T.filter(t => t.kind === 'npc' && t.acts.includes('farewell')); const purposeful = talkConvs.filter(t => t.acts.some(a => PURPOSE.test(a))).length;
 const lens = talkConvs.map(t => t.lines.length).sort((a, b) => a - b), medLen = lens[Math.floor(lens.length / 2)] || 0;
+const qa = []; for (const t of data.T) for (let i = 0; i + 1 < t.acts.length; i++) { const pair = { ask_opinion: 'give_opinion', ask_family: 'answer_family', ask_where: 'tell_where' }[t.acts[i]]; if (pair && t.acts[i + 1] === pair && t.subj && t.subj[i] && t.subj[i + 1] && t.subj[i] !== t.subj[i + 1]) qa.push(t.lines[i] + ' / ' + t.lines[i + 1]); }
+if (qa.length) issues['answer about somebody else'] = qa;
 const freq = {}; for (const l of lines) freq[l.text] = (freq[l.text] || 0) + 1; const stale = Object.entries(freq).filter(([, n]) => n >= 6).sort((a, b) => b[1] - a[1]).slice(0, 12);
 const uniq = new Set(lines.map(l => l.text)).size;
 let runs = 0; const runEx = []; for (const t of data.T) { let prev = '', n = 0; for (const l of t.lines) { const w = l.split(':')[0]; if (w === prev) { n++; if (n === 2) { runs++; if (runEx.length < 3) runEx.push(t.lines.slice(0, 6).join(' / ')); } } else { prev = w; n = 0; } } }
@@ -150,6 +152,7 @@ const ok = (name, cond, detail = '') => expect.push({ name, pass: !!cond, detail
 ok('conversations happen (>=20/day)', data.T.length >= 20 * days, data.T.length + ' in ' + days + ' days');
 ok('no engine errors', errors.length === 0, errors.slice(0, 2).join(' | '));
 ok('no text slips', Object.keys(issues).length === 0, Object.entries(issues).map(([k, v]) => k + ' x' + v.length).join(', '));
+ok('every act supplies what its lines need', Object.keys(data.miss).length === 0, Object.entries(data.miss).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k, v]) => k + ' x' + v).join(', '));
 ok('variety (unique lines >= 30%)', uniq / Math.max(1, lines.length) >= 0.3, (uniq / Math.max(1, lines.length)).toFixed(2));
 if (scenario === 'meddle') {
   ok('people cried out', has('cry_deed')); ok('somebody raised a deed with the bot', has('raise_deed') || data.B.some(b => /You .*(wall|house|privy|bed)/i.test(b.open || '')), 'raise_deed ' + (data.acts.raise_deed || 0));

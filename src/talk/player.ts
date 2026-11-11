@@ -13,23 +13,46 @@ function ptBegin(o: any, p: any): any {
   const c: any = { a: p, b: o, stage: 'open', done: {}, turns: [], left: { [p.id]: 99, [o.id]: talkBudget(o, p) + 1.5 }, last: null, t0: game.time, player: true };
   const S: any = PT.s = { c, o, p, pending: null, opts: [], closing: false };
   talkS = { pt: S };
-  talkTurn(c, p, o, 'greet'); const back = talkTurn(c, o, p, 'greet_back'); c.stage = 'topic';
+  talkTurn(c, p, o, 'greet');
+  const back = talkTurn(c, o, p, 'greet_back');
+  c.stage = 'topic';
   let say = talkWords(back, p, o);
-  for (const id of ['raise_deed', 'ask_favour']) if (TALK.on[ACTS[id].kind] && !S.pending && ACTS[id].when(c, o, p)) { const t = talkTurn(c, o, p, id); say += '\n' + talkWords(t, p, o); S.pending = ACTS[id].replies.slice(); c.left[o.id] -= 1; }   // (somebody with a grievance against you does not wait to be asked)
+  // somebody with a grievance against you, or something to ask of you, does not wait to be asked
+  for (const id of ['raise_deed', 'ask_favour']) {
+    if (S.pending || !TALK.on[ACTS[id].kind]) continue;
+    const bind = talkBind(c, o, p, id);
+    if (!bind) continue;
+    const t = talkTurn(c, o, p, id, bind);
+    say += '\n' + talkWords(t, p, o);
+    S.pending = ACTS[id].replies.slice();
+    c.left[o.id] -= 1;
+  }
   return ptMenu(S, say);
 }
-/** what the player could say now: the answers to what was just asked, or the topics they could raise; never more than five, always a way out */
+/** what the player could say now: the answers to what was just asked, or the topics they could raise; never more than five (six answers), always a way out.
+    Each option keeps its binding (what the act would be about), so what the label says is what is said when it is picked. */
 function ptOptions(S: any): any[] {
-  const c = S.c, p = S.p, o = S.o, out: any[] = []; const seen = new Set<string>();
+  const c = S.c, p = S.p, o = S.o, out: any[] = [];
+  const seen = new Set<string>();
   const ids: string[] = S.pending ? S.pending.slice() : TALK_TOPICS();
   for (const id of ids) {
-    const A = ACTS[id]; if (!A || seen.has(id) || !TALK.on[A.kind]) continue; c.life = c.news = c.priceItem = undefined;
-    let ok = false; try { ok = !!A.when(c, p, o); } catch (e) { ok = false; } if (!ok) continue;
-    const snap = { life: c.life, news: c.news, priceItem: c.priceItem }, x = A.preview ? A.preview(c, p, o) : {};
-    const label = lxSay(x.line || id, p, o, Object.assign({}, talkX(c), x, { state: talkState(p) || 'fine', menu: true }));   // (what the conversation has set, plus what the act says it needs) if (!label) continue;
-    seen.add(id); out.push({ id, snap, label, kind: A.kind, w: Math.random() + (A.kind !== 'small' ? 0.6 : 0) });
+    const A = ACTS[id];
+    if (!A || seen.has(id) || !TALK.on[A.kind]) continue;
+    let bind: any = null;
+    try { bind = talkBind(c, p, o, id); } catch (e) { bind = null; }
+    if (!bind) continue;
+    // the label is worked out on a view: a new topic starts with no subject of its own; an answer keeps the subject of what was asked
+    const view = talkView(c, bind);
+    if (A.stage === 'topic' && !A.reply) for (const k of ['aboutName', 'lifeItem', 'reason', 'lifeQty']) if (!(k in bind)) view[k] = undefined;
+    const x = A.preview ? A.preview(view, p, o) : {};
+    for (const k of Object.keys(view)) if (view[k] !== undefined) bind[k] = view[k];   // (what the preview settled on, e.g. whom to blame, is part of the option)
+    const label = lxSay(x.line || id, p, o, Object.assign({}, talkX(view), x, { state: talkState(p) || 'fine', menu: true }));
+    if (!label) continue;
+    seen.add(id);
+    out.push({ id, bind, label, kind: A.kind, w: Math.random() + (A.kind !== 'small' ? 0.6 : 0) });
   }
-  out.sort((a, b) => b.w - a.w); const keep = out.slice(0, S.pending ? 6 : 5);
+  out.sort((a, b) => b.w - a.w);
+  const keep = out.slice(0, S.pending ? 6 : 5);
   if (!keep.some(q => q.kind === 'small') && out.some(q => q.kind === 'small')) keep[keep.length - 1] = out.find(q => q.kind === 'small');
   return keep;
 }
@@ -48,8 +71,7 @@ function ptStep(key: string): any {
   const S = PT.s; if (!S) return { close: true }; const c = S.c, o = S.o, p = S.p;
   if (key === 'bye') { if (!S.closing) { const t = talkTurn(c, p, o, 'pre_close'), f = talkTurn(c, o, p, 'farewell'); S.closing = true; return { say: talkWords(f, p, o), opts: [['bye', serviceLeave(p, o)]] }; } return { close: true }; }
   const i = +String(key).slice(1), q = S.opts[i]; if (!q) return { close: true };
-  c.life = q.snap.life; c.news = q.snap.news; c.priceItem = q.snap.priceItem;
-  talkTurn(c, p, o, q.id); S.pending = null; c.left[o.id] -= 0.6; const said: string[] = [];
+  talkTurn(c, p, o, q.id, q.bind); S.pending = null; c.left[o.id] -= 0.6; const said: string[] = [];
   // the villager answers what was said
   const reps = ACTS[q.id].replies; let cont: string[] | null = null; if (reps && reps.length) { const rid = talkChoose(c, o, p, reps); if (rid) { const t = talkTurn(c, o, p, rid); said.push(talkWords(t, p, o)); c.left[o.id] -= 0.3; if ((rid === 'story_invite' || rid === 'share_news') && ACTS[rid].replies.length) cont = ACTS[rid].replies.slice(); } }   // (a story carries on: the player tells it, or answers it)
   // and sometimes brings something up of their own, which the player then answers

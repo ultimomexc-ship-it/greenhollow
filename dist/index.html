@@ -28489,17 +28489,55 @@ function lxContext(sp, li, c) {
   const rel = f.spouse === li.id ? "spouse" : f.partner === li.id ? "partner" : (f.kids || []).includes(li.id) ? "child" : f.mother === li.id || f.father === li.id ? "parent" : f.mother != null && f.mother === g.mother || f.father != null && f.father === g.father ? "sibling" : typeof isKin === "function" && isKin(sp, li) ? "kin" : sp.rel && sp.rel[li.id] === "friend" || (sp.aff[li.id] || 0) > 30 ? "friend" : sp.know && (sp.know[li.id] || 0) > 10 ? "acquaintance" : "stranger";
   return { band: todBand(game.time), rel, state: c.state || talkState(sp) || "fine", trait: (sp.traits || [])[0], how: c.how, conf: c.conf, call: c.call, op: c.op, rep: typeof repWord === "function" ? repWord(sp, li) : void 0, age: sp.age < 12 ? "child" : void 0, kid: li.age < 14 ? "yes" : void 0, menu: c.menu };
 }
+function lxSlots(sp, li, c, ctx2) {
+  const place = String(placeOf(sp) || "").replace(/^(in|at)\s+/, "");
+  const item = c.item || c.pitem || void 0;
+  const aboutP = c.about ? npcs.find((n) => n.first === c.about) : null;
+  return {
+    li: li.first,
+    sp: sp.first,
+    place: /^the /.test(place) ? "at " + place : place ? "in " + place : "here",
+    job: String(sp.job || "daily").toLowerCase(),
+    state: ctx2.state,
+    clock: lxClock(),
+    money: lxMoney(c.price),
+    price: c.price != null ? String(c.price) : void 0,
+    about: c.about || void 0,
+    reason: c.reason || "",
+    them: !c.about ? void 0 : aboutP ? aboutP.female ? "her" : "him" : "them",
+    shop: c.shop || "stall",
+    item,
+    things: item ? lxCount(c.qty, item) : void 0,
+    qty: c.qty != null ? String(c.qty) : void 0,
+    news: c.news || void 0,
+    deed: c.deed || void 0,
+    who: c.who || "them"
+  };
+}
+const LX_MISS = {};
+const lxSlotsOf = (e) => e.sl || (e.sl = (e.text.match(/\{(\w+)\}/g) || []).map((x) => x.slice(1, -1)));
 function lxSay(act, sp, li, c) {
   const ctx2 = lxContext(sp, li, c);
+  const slots = lxSlots(sp, li, c, ctx2);
   const heard = li.heard || (li.heard = {});
-  const pool = (pack) => LEX.filter((e) => e.act === act && e.pack === pack && WORLD.ok(e.requires) && Object.keys(e.tags).every((k) => k === "trait" ? (sp.traits || []).includes(e.tags[k]) : k === "rel" && e.tags[k] === "kin" ? ["kin", "spouse", "partner", "child", "parent", "sibling"].includes(ctx2.rel) : k === "rel" && e.tags[k] === "partner" ? ["partner", "spouse"].includes(ctx2.rel) : e.tags[k] === ctx2[k]));
+  const fits = (e) => Object.keys(e.tags).every((k) => k === "trait" ? (sp.traits || []).includes(e.tags[k]) : k === "rel" && e.tags[k] === "kin" ? ["kin", "spouse", "partner", "child", "parent", "sibling"].includes(ctx2.rel) : k === "rel" && e.tags[k] === "partner" ? ["partner", "spouse"].includes(ctx2.rel) : e.tags[k] === ctx2[k]);
+  const filled = (e) => {
+    for (const k of lxSlotsOf(e)) if (slots[k] === void 0) {
+      LX_MISS[act + ":" + k] = (LX_MISS[act + ":" + k] || 0) + 1;
+      return false;
+    }
+    return true;
+  };
+  const pool = (pack) => LEX.filter((e) => e.act === act && e.pack === pack && WORLD.ok(e.requires) && fits(e) && filled(e));
   const pk = typeof town !== "undefined" && town && town.pack || TALK_PACK.cur;
   let cands = pool(pk);
   if (!cands.length) cands = pool("plain");
   if (!cands.length) return "";
   let best = null, bs = -1e9;
   for (const e of cands) {
-    const id = act + "|" + e.text, g = LX_RECENT[id], s = Object.keys(e.tags).length * 2 - (heard[id] != null ? 4 - Math.min(3, (game.time - heard[id]) / 600) : 0) - (g != null && game.time - g < 180 ? 2.2 : 0) + Math.random() * 1.5;
+    const id = act + "|" + e.text, g = LX_RECENT[id];
+    const heardPenalty = heard[id] != null ? 4 - Math.min(3, (game.time - heard[id]) / 600) : 0;
+    const s = Object.keys(e.tags).length * 2 - heardPenalty - (g != null && game.time - g < 180 ? 2.2 : 0) + Math.random() * 1.5;
     if (s > bs) {
       bs = s;
       best = e;
@@ -28507,13 +28545,9 @@ function lxSay(act, sp, li, c) {
   }
   heard[act + "|" + best.text] = game.time;
   LX_RECENT[act + "|" + best.text] = game.time;
-  const place = String(placeOf(sp) || "").replace(/^(in|at)\s+/, "");
-  const inP = /^the /.test(place) ? "at " + place : place ? "in " + place : "here";
-  const raw = best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || "daily").toLowerCase()).replace(/\{state\}/g, ctx2.state).replace(/\{clock\}/g, lxClock()).replace(/\{money\}/g, lxMoney(c.price)).replace(/\{price\}/g, c.price != null ? String(c.price) : "").replace(/\{about\}/g, c.about || "them").replace(/\{reason\}/g, c.reason || "").replace(/\{shop\}/g, c.shop || "stall").replace(/\{things\}/g, lxCount(c.qty, c.item)).replace(/\{qty\}/g, c.qty != null ? String(c.qty) : "").replace(/\{item\}/g, c.item || c.pitem || "").replace(/\{news\}/g, c.news || "").replace(/\{deed\}/g, c.deed || "").replace(/\{them\}/g, (() => {
-    const P = npcs.find((n) => n.first === c.about);
-    return P ? P.female ? "her" : "him" : "them";
-  })()).replace(/\{who\}/g, c.who || "them");
-  return placeWords((c.menu ? raw : lxVoice(sp, li, act, pk, lxTic(sp, act, pk, raw))).replace(/\s{2,}/g, " ").replace(/\s+$/, "").replace(/(^|[.!?]\s+)([a-z])/g, (_m, a, b) => a + b.toUpperCase()));
+  const raw = best.text.replace(/\{(\w+)\}/g, (_m, k) => slots[k] != null ? slots[k] : "");
+  const voiced = c.menu ? raw : lxVoice(sp, li, act, pk, lxTic(sp, act, pk, raw));
+  return placeWords(voiced.replace(/\s{2,}/g, " ").replace(/\s+$/, "").replace(/(^|[.!?]\s+)([a-z])/g, (_m, a, b) => a + b.toUpperCase()));
 }
 function lxCount(qty, name) {
   name = name || "something";
@@ -30824,31 +30858,73 @@ function talkBudget(n, o) {
   return Math.max(1, b);
 }
 const TALK_PURPOSE = ["raise_deed", "ask_favour", "chase_favour", "confront_jealous", "declare", "ask_to_walk", "propose", "flirt", "confide", "story_preface", "share_news", "warn", "apologise", "send_gift", "offer_gift", "callback", "report_day", "ask_day"];
+function talkBind(c, sp, li, id) {
+  const A = ACTS[id];
+  if (!A) return null;
+  const view2 = Object.create(c);
+  if (!A.when(view2, sp, li)) return null;
+  const bind = {};
+  for (const k of Object.keys(view2)) bind[k] = view2[k];
+  return bind;
+}
+function talkView(c, bind) {
+  return Object.assign(Object.create(c), bind || {});
+}
 function talkChoose(c, sp, li, ids) {
-  const opts = [], first = !c.turns.some((t) => ACTS[t.act] && ACTS[t.act].stage === "topic" && !ACTS[t.act].reply);
+  const first = !c.turns.some((t) => ACTS[t.act] && ACTS[t.act].stage === "topic" && !ACTS[t.act].reply);
+  const opts = [];
   for (const id of ids) {
     const A = ACTS[id];
-    if (!A || !TALK.on[A.kind] || !A.when(c, sp, li)) continue;
-    opts.push([id, Math.max(0.05, (A.w ? A.w(c, sp, li) : 1) * (0.8 + Math.random() * 0.4) * (first && !A.reply && TALK_PURPOSE.includes(id) ? 5 : 1))]);
+    if (!A || !TALK.on[A.kind]) continue;
+    const bind = talkBind(c, sp, li, id);
+    if (!bind) continue;
+    const base = A.w ? A.w(talkView(c, bind), sp, li) : 1;
+    const purpose = first && !A.reply && TALK_PURPOSE.includes(id) ? 5 : 1;
+    opts.push({ id, bind, w: Math.max(0.05, base * (0.8 + Math.random() * 0.4) * purpose) });
   }
   if (!opts.length) return null;
-  let r = Math.random() * opts.reduce((s, o) => s + o[1], 0);
-  for (const [id, w] of opts) {
-    r -= w;
-    if (r <= 0) return id;
+  let r = Math.random() * opts.reduce((s, o) => s + o.w, 0), pick2 = opts[opts.length - 1];
+  for (const o of opts) {
+    r -= o.w;
+    if (r <= 0) {
+      pick2 = o;
+      break;
+    }
   }
-  return opts[opts.length - 1][0];
+  c.bound = { id: pick2.id, bind: pick2.bind };
+  return pick2.id;
 }
 const TALK_TOPICS = () => Object.keys(ACTS).filter((k) => ACTS[k].stage === "topic" && !ACTS[k].reply);
-const talkX = (c) => ({ state: c.state, how: c.newsHow, conf: c.newsConf, news: c.told && c.told.text, who: c.newsWho ? c.newsWho.first : "them", line: c.lifeLine, qty: c.lifeQty, item: c.lifeItem, shop: c.lifeShop, price: c.priceUnit, pitem: c.priceName, about: c.aboutName, op: c.op, reason: c.reason, deed: c.deedText, evId: c.newsEvId, ver: c.told && c.told.ver });
-function talkTurn(c, sp, li, id) {
+const talkX = (c) => ({
+  state: c.state,
+  how: c.newsHow,
+  conf: c.newsConf,
+  news: c.told && c.told.text,
+  who: c.newsWho ? c.newsWho.first : "them",
+  line: c.lifeLine,
+  qty: c.lifeQty,
+  item: c.lifeItem,
+  shop: c.lifeShop,
+  price: c.priceUnit,
+  pitem: c.priceName,
+  about: c.aboutName,
+  op: c.op,
+  reason: c.reason,
+  deed: c.deedText,
+  evId: c.newsEvId,
+  ver: c.told && c.told.ver
+});
+function talkTurn(c, sp, li, id, bind) {
   const A = ACTS[id];
-  if (A.stage === "topic" && !A.reply) {
-    c.aboutName = c.lifeItem = c.reason = c.lifeQty = void 0;
-  }
+  const b = bind || (c.bound && c.bound.id === id ? c.bound.bind : null);
+  c.bound = null;
+  const topic = A.stage === "topic" && !A.reply;
+  if (topic) c.aboutName = c.lifeItem = c.reason = c.lifeQty = void 0;
+  if (b) Object.assign(c, b);
   A.apply(c, sp, li);
   const t = { by: sp.id, act: id, x: talkX(c) };
-  if (A.stage === "topic" && !A.reply && !c.player && c.last !== "story_invite" && !(c.last && ACTS[c.last] && ACTS[c.last].replies.includes(id)) && typeof talkLinkOf === "function") {
+  const chained = c.last === "story_invite" || c.last && ACTS[c.last] && ACTS[c.last].replies.includes(id);
+  if (topic && !c.player && !chained && typeof talkLinkOf === "function") {
     const lk = talkLinkOf(c);
     if (lk) t.x.link = lk;
   }
@@ -30858,14 +30934,14 @@ function talkTurn(c, sp, li, id) {
 }
 function talkWords(t, a, b) {
   const s = t.by === a.id ? a : b, o = s === a ? b : a;
-  const txt = lxSay(t.act === "report_day" && t.x && t.x.line ? t.x.line : t.act, s, o, t.x || {});
+  const act = t.act === "report_day" && t.x && t.x.line ? t.x.line : t.act;
+  const txt = lxSay(act, s, o, t.x || {});
   return t.x && t.x.link && txt && typeof lxLink === "function" ? lxLink(txt, t.x.link) : txt;
 }
 function talkRun(a, b, listened, short) {
-  const c = { a, b, stage: "open", done: {}, turns: [], short: !!short, left: short ? { [a.id]: 1.6, [b.id]: 1.6 } : (() => {
-    const r = Math.random(), f = r < 0.25 ? 0.5 : r > 0.85 ? 1.5 : 1;
-    return { [a.id]: talkBudget(a, b) * f, [b.id]: talkBudget(b, a) * f };
-  })(), last: null, t0: game.time };
+  const r = Math.random(), f = r < 0.25 ? 0.5 : r > 0.85 ? 1.5 : 1;
+  const left = short ? { [a.id]: 1.6, [b.id]: 1.6 } : { [a.id]: talkBudget(a, b) * f, [b.id]: talkBudget(b, a) * f };
+  const c = { a, b, stage: "open", done: {}, turns: [], short: !!short, left, last: null, t0: game.time };
   const say2 = (sp2, li2, id) => {
     talkTurn(c, sp2, li2, id);
   };
@@ -30917,21 +30993,28 @@ function talkRun(a, b, listened, short) {
   return c;
 }
 function talkFinish(c, a, b, listened) {
-  const lines = listened || TALK.words ? c.turns.map((t) => {
-    const s = t.by === a.id ? a : b, o = s === a ? b : a, text = talkWords(t, a, b);
-    return text ? { who: s, text } : null;
-  }).filter(Boolean) : null;
+  let lines = null;
+  if (listened || TALK.words) {
+    lines = c.turns.map((t) => {
+      const s = t.by === a.id ? a : b, text = talkWords(t, a, b);
+      return text ? { who: s, text } : null;
+    }).filter(Boolean);
+  }
   TALK.log.push({ t: game.time, a: a.id, b: b.id, d: lfDist(a, b), acts: c.turns.slice(), lines: lines ? lines.map((l) => l.who.first + ": " + l.text) : null });
   if (TALK.log.length > 300) TALK.log.shift();
-  if (lines && lines.length && game.player && a !== game.player && b !== game.player && (lfDist(game.player, a) <= TALK.earshot || lfDist(game.player, b) <= TALK.earshot)) {
-    for (const t of c.turns) if (t.act === "share_news" && t.x && t.x.evId != null) {
+  const pl = game.player;
+  if (lines && lines.length && pl && a !== pl && b !== pl && (lfDist(pl, a) <= TALK.earshot || lfDist(pl, b) <= TALK.earshot)) {
+    for (const t of c.turns) {
+      if (t.act !== "share_news" || !t.x || t.x.evId == null) continue;
       const ev = lf2Ev().find((q) => q.id === t.x.evId);
-      if (ev && !TM.ofEv(game.player, ev.id) && ev.actor !== game.player.id) TM.addEv(game.player, ev, "overheard", 0.6, t.by === a.id ? a : b, 1, t.x.ver ? { who: t.x.ver.who, sev: t.x.ver.sev } : void 0);
+      if (!ev || TM.ofEv(pl, ev.id) || ev.actor === pl.id) continue;
+      TM.addEv(pl, ev, "overheard", 0.6, t.by === a.id ? a : b, 1, t.x.ver ? { who: t.x.ver.who, sev: t.x.ver.sev } : void 0);
     }
   }
-  if (!lines && game.player && typeof sndMurmur === "function") sndMurmur(a);
-  if (lines && lines.length) game.events.push({ time: game.time, a, b, place: placeOf(a), topic: "talk", quiet: false, talk: true, lines });
-  else {
+  if (!lines && pl && typeof sndMurmur === "function") sndMurmur(a);
+  if (lines && lines.length) {
+    game.events.push({ time: game.time, a, b, place: placeOf(a), topic: "talk", quiet: false, talk: true, lines });
+  } else {
     const hold = game.time + c.turns.length * (c.short ? 0.2 : 0.7);
     a.talkUntil = Math.max(a.talkUntil || 0, hold);
     b.talkUntil = Math.max(b.talkUntil || 0, hold);
@@ -30995,8 +31078,11 @@ function ptBegin(o, p) {
   const back = talkTurn(c, o, p, "greet_back");
   c.stage = "topic";
   let say2 = talkWords(back, p, o);
-  for (const id of ["raise_deed", "ask_favour"]) if (TALK.on[ACTS[id].kind] && !S.pending && ACTS[id].when(c, o, p)) {
-    const t = talkTurn(c, o, p, id);
+  for (const id of ["raise_deed", "ask_favour"]) {
+    if (S.pending || !TALK.on[ACTS[id].kind]) continue;
+    const bind = talkBind(c, o, p, id);
+    if (!bind) continue;
+    const t = talkTurn(c, o, p, id, bind);
     say2 += "\n" + talkWords(t, p, o);
     S.pending = ACTS[id].replies.slice();
     c.left[o.id] -= 1;
@@ -31010,18 +31096,23 @@ function ptOptions(S) {
   for (const id of ids) {
     const A = ACTS[id];
     if (!A || seen.has(id) || !TALK.on[A.kind]) continue;
-    c.life = c.news = c.priceItem = void 0;
-    let ok = false;
+    let bind = null;
     try {
-      ok = !!A.when(c, p, o);
+      bind = talkBind(c, p, o, id);
     } catch (e) {
-      ok = false;
+      bind = null;
     }
-    if (!ok) continue;
-    const snap = { life: c.life, news: c.news, priceItem: c.priceItem }, x = A.preview ? A.preview(c, p, o) : {};
-    const label = lxSay(x.line || id, p, o, Object.assign({}, talkX(c), x, { state: talkState(p) || "fine", menu: true }));
+    if (!bind) continue;
+    const view2 = talkView(c, bind);
+    if (A.stage === "topic" && !A.reply) {
+      for (const k of ["aboutName", "lifeItem", "reason", "lifeQty"]) if (!(k in bind)) view2[k] = void 0;
+    }
+    const x = A.preview ? A.preview(view2, p, o) : {};
+    for (const k of Object.keys(view2)) if (view2[k] !== void 0) bind[k] = view2[k];
+    const label = lxSay(x.line || id, p, o, Object.assign({}, talkX(view2), x, { state: talkState(p) || "fine", menu: true }));
+    if (!label) continue;
     seen.add(id);
-    out.push({ id, snap, label, kind: A.kind, w: Math.random() + (A.kind !== "small" ? 0.6 : 0) });
+    out.push({ id, bind, label, kind: A.kind, w: Math.random() + (A.kind !== "small" ? 0.6 : 0) });
   }
   out.sort((a, b) => b.w - a.w);
   const keep = out.slice(0, S.pending ? 6 : 5);
@@ -31059,10 +31150,7 @@ function ptStep(key) {
   }
   const i = +String(key).slice(1), q = S.opts[i];
   if (!q) return { close: true };
-  c.life = q.snap.life;
-  c.news = q.snap.news;
-  c.priceItem = q.snap.priceItem;
-  talkTurn(c, p, o, q.id);
+  talkTurn(c, p, o, q.id, q.bind);
   S.pending = null;
   c.left[o.id] -= 0.6;
   const said = [];

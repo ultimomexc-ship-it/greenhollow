@@ -1800,6 +1800,38 @@ test('conversation depth: topics link or start afresh, stories have a preface an
   return r.storyWords;
 });
 
+test('bindings: asking whether something could be said never changes what is being said; a question and its answer are about the same person; a menu option says what it will say; no line is spoken with a gap in it', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    const out = {}; newTown('bind-test', 'farm'); MODS.all(); TALK.words = true; for (const k of Object.keys(LX_MISS)) delete LX_MISS[k];
+    const ps = npcs.filter(n => !n.dead && !n.player && n.age >= 14 && !n.infant);
+    // 1. binding leaves the conversation alone
+    const A = ps[0], B = ps[1]; const c = { a: A, b: B, stage: 'topic', done: {}, turns: [], left: { [A.id]: 3, [B.id]: 3 }, last: null, t0: game.time };
+    const shape = () => JSON.stringify(Object.keys(c).sort().map(k => [k, typeof c[k] === 'object' && c[k] ? Object.keys(c[k]).length : String(c[k])]));
+    const before = shape(); let bound = 0; for (let i = 0; i < 20; i++) for (const id of TALK_TOPICS()) { const bd = talkBind(c, A, B, id); if (bd && Object.keys(bd).length) bound++; }
+    out.untouched = shape() === before; out.bound = bound;
+    // 2. question and answer agree, over many conversations
+    const pairs = { ask_opinion: 'give_opinion', ask_family: 'answer_family', ask_where: 'tell_where' }; let seen = 0, wrong = [];
+    for (let i = 0; i < 400; i++) { const x = ps[i % ps.length], y = ps[(i * 7 + 3) % ps.length]; if (x === y) continue; game.time += 200; const cv = talkRun(x, y, true);
+      for (let k = 0; k + 1 < cv.turns.length; k++) { const want = pairs[cv.turns[k].act]; if (!want || cv.turns[k + 1].act !== want) continue; seen++; if (cv.turns[k].x.about !== cv.turns[k + 1].x.about) wrong.push(cv.turns[k].act + ':' + cv.turns[k].x.about + '/' + cv.turns[k + 1].x.about); } }
+    out.seen = seen; out.wrong = wrong.slice(0, 4);
+    // 3. the menu: the label names the person the act will be about
+    startPlaying(npcs.find(n => !n.dead && n.age >= 18 && !n.infant)); const P = game.player; let opts = 0, off = [];
+    for (let i = 0; i < 40; i++) { const o = ps[i % ps.length]; if (o === P || o.player) continue; game.time += 300; o.talkUntil = 0; openTalk(o); const S = PT.s;
+      for (let k = 0; k < S.opts.length; k++) { const q = S.opts[k]; if (!['ask_opinion', 'ask_family', 'ask_where', 'gossip_person'].includes(q.id)) continue; opts++; const who = (q.bind.about && q.bind.about.first) || (q.bind.whereObj && q.bind.whereObj.first); if (who && q.label.indexOf(who) < 0) off.push(q.id + ': ' + q.label + ' (' + who + ')');
+        if (k === 0 && who) { ptStep('o0'); const mine = PT.s.c.turns.filter(t => t.by === P.id).pop(); if (mine.act === q.id && mine.x.about !== who) off.push('said ' + mine.x.about + ' for ' + who); break; } }
+      closeTalk(); }
+    out.opts = opts; out.off = off.slice(0, 4);
+    out.miss = Object.keys(LX_MISS).slice(0, 8);
+    return out; });
+  check(r.untouched && r.bound > 20, 'checking what could be said leaves the conversation as it was (' + r.bound + ' bindings made)');
+  check(r.seen > 30 && r.wrong.length === 0, 'a question and its answer are about the same person (' + r.seen + ' pairs): ' + JSON.stringify(r.wrong));
+  check(r.opts > 10 && r.off.length === 0, 'a menu option names who it will be about, and says so when picked (' + r.opts + ' options): ' + JSON.stringify(r.off));
+  check(r.miss.length === 0, 'no line was left unsaid for want of a value: ' + JSON.stringify(r.miss));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return r.seen + ' question-and-answer pairs, ' + r.opts + ' menu options';
+});
+
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {
