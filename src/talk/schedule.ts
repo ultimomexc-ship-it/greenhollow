@@ -49,6 +49,7 @@ function talkApproach(a: any, b: any) {
   if (b.moving || (b.plan && b.plan[b.si] && b.plan[b.si].k === 'go')) { const rb = b.plan ? b.plan.slice(b.si) : []; abortPlan(b); b.plan = [waitS(1, 'stand', 'Stopping to talk with ' + a.first, { nopie: true })].concat(rb); b.si = 0; b.stepStarted = false; }   // (somebody on a walk stops, and goes on afterwards)
   b.talkUntil = Math.max(b.talkUntil || 0, game.time + 8 + 3 * lfDist(a, b));   // (waits for the one who is walking over)
   const rest = a.plan ? a.plan.slice(a.si) : []; abortPlan(a);
+  a.chatTarget = null;   // (somebody who was wandering after an old acquaintance stops chasing them: the walk is to b now)
   a.plan = [goS(() => talkSpot(b, a) || { x: b.tx, y: b.ty, face: null }, 'Going over to ' + b.first),
     waitS(1, 'stand', 'Talking with ' + b.first, { nopie: true, onEnd(nn: any) {
       if (b.dead || b.pose === 'sleep' || lfDist(nn, b) !== 1) { nn.talkBusy = b.talkBusy = 0; return; }   // (only side by side, on the next tile)

@@ -19,7 +19,7 @@ function talkBudget(n: any, o: any): number {
 }
 
 /** what a conversation is *for*: the acts that come from a real reason (a grudge, a request, a crush, news, something owed). The first topic is one of these when there is one. */
-const TALK_PURPOSE = ['raise_deed', 'ask_favour', 'chase_favour', 'confront_jealous', 'declare', 'ask_to_walk', 'propose', 'flirt', 'confide', 'story_preface', 'share_news', 'warn', 'apologise', 'send_gift', 'offer_gift', 'callback', 'report_day', 'ask_day'];
+const TALK_PURPOSE = ['raise_deed', 'ask_favour', 'chase_favour', 'confront_jealous', 'declare', 'ask_to_walk', 'propose', 'flirt', 'confide', 'story_preface', 'share_news', 'warn', 'apologise', 'send_gift', 'offer_gift', 'callback', 'report_day', 'ask_day', 'snap'];
 
 /** could sp say this act to li now, and about what? Returns the binding (what `when` worked out), or null. The conversation itself is not touched. */
 function talkBind(c: any, sp: any, li: any, id: string): any {
@@ -44,7 +44,7 @@ function talkChoose(c: any, sp: any, li: any, ids: string[]): string | null {
     const A = ACTS[id];
     if (!A || !TALK.on[A.kind]) continue;
     const bind = talkBind(c, sp, li, id);
-    if (!bind) continue;
+    if (!bind || talkStale(c, sp, li, id, bind)) continue;
     const base = A.w ? A.w(talkView(c, bind), sp, li) : 1;
     const purpose = first && !A.reply && TALK_PURPOSE.includes(id) ? 5 : 1;
     opts.push({ id, bind, w: Math.max(0.05, base * (0.8 + Math.random() * 0.4) * purpose) });
@@ -82,9 +82,54 @@ function talkTurn(c: any, sp: any, li: any, id: string, bind?: any): any {
     const lk = talkLinkOf(c);
     if (lk) t.x.link = lk;
   }
+  if (topic) talkNote(c, sp, li, id);
   c.turns.push(t);
   c.last = id;
   return t;
+}
+
+/* ---- shared ground: what one person has lately said to another is not said again, and a talk does not go over the same person twice ---- */
+const TALK_AGAIN: any = { small: 720, person: 4320, feeling: 720, gift: 1440, world: 360, life: 240 };   // minutes before the same thing is raised with the same person again
+const talkKey = (c: any, id: string) => id + '|' + (c.aboutName || (c.about && c.about.first) || c.lifeItem || '');
+function talkNote(c: any, sp: any, li: any, id: string) {
+  const all = sp.saidTo || (sp.saidTo = {}), mine = all[li.id] || (all[li.id] = {});
+  mine[talkKey(c, id)] = game.time;
+  const about = c.about && c.about.id != null ? c.about.id : null;
+  if (about != null) (c.aboutSeen || (c.aboutSeen = [])).push(about);
+  const keys = Object.keys(mine);
+  if (keys.length > 60) for (const k of keys) if (game.time - mine[k] > 7200) delete mine[k];
+}
+/** has sp said this (act and subject) to li too lately, or has this talk already been about that person? */
+function talkStale(c: any, sp: any, li: any, id: string, bind: any): boolean {
+  const A = ACTS[id];
+  if (!A || A.reply || A.stage !== 'topic') return false;
+  const v = talkView(c, bind), about = v.about && v.about.id != null ? v.about.id : null;
+  if (about != null && (c.aboutSeen || []).includes(about)) return true;
+  const again = TALK_AGAIN[A.kind];
+  if (!again) return false;
+  const t = ((sp.saidTo || {})[li.id] || {})[id + '|' + ((v.about && v.about.first) || '')];
+  return t != null && game.time - t < again;
+}
+
+/* ---- how much ceremony: people who live together, or spoke a moment ago, do not greet and part like strangers ---- */
+function talkRitual(a: any, b: any): number {
+  const gap = game.time - TM.lastTalk(a, b), house = !!a.homeRoom && a.homeRoom === b.homeRoom && !a.homeRoom.dead;
+  if (gap < 180 || (house && gap < 720)) return 0;
+  if (house || gap < 1440 || (a.aff[b.id] || 0) > 40) return 1;
+  return 2;
+}
+
+/* ---- the agenda: what each of them came to say (from memory: something to tell, to ask, to settle, to give), best first, two at most ---- */
+function talkAgenda(c: any, sp: any, li: any): any[] {
+  const out: any[] = [];
+  for (const id of TALK_PURPOSE) {
+    const A = ACTS[id];
+    if (!A || A.reply || !TALK.on[A.kind]) continue;
+    const bind = talkBind(c, sp, li, id);
+    if (!bind || talkStale(c, sp, li, id, bind)) continue;
+    out.push({ id, w: (A.w ? A.w(talkView(c, bind), sp, li) : 1) * (0.8 + Math.random() * 0.4) });
+  }
+  return out.sort((x, y) => y.w - x.w).slice(0, 2).map(x => x.id);
 }
 
 /** the words of a turn (a and b are the two people of the conversation, in any order) */
@@ -95,52 +140,72 @@ function talkWords(t: any, a: any, b: any): string {
   return t.x && t.x.link && txt && typeof lxLink === 'function' ? lxLink(txt, t.x.link) : txt;
 }
 
-/** one whole conversation between a and b. `short`: a word in passing, one topic. */
+/** one whole conversation between a and b. `short`: a word in passing.
+    Shape: as much greeting as the two of them need (`talkRitual`), then what each came to say (`talkAgenda`), each thing answered and now and then followed up,
+    then small talk while patience lasts, then as much goodbye as the greeting was. Two people with nothing to say who spoke lately say nothing. */
 function talkRun(a: any, b: any, listened?: boolean, short?: boolean): any {
-  // some talks are two lines, some run on
-  const r = Math.random(), f = r < 0.25 ? 0.5 : r > 0.85 ? 1.5 : 1;
+  const r = Math.random(), f = r < 0.25 ? 0.5 : r > 0.85 ? 1.5 : 1;   // some talks are short, some run on
   const left = short ? { [a.id]: 1.6, [b.id]: 1.6 } : { [a.id]: talkBudget(a, b) * f, [b.id]: talkBudget(b, a) * f };
-  const c: any = { a, b, stage: 'open', done: {}, turns: [], short: !!short, left, last: null, t0: game.time };
-  const say = (sp: any, li: any, id: string) => { talkTurn(c, sp, li, id); };
-  let sp = a, li = b;
+  const c: any = { a, b, stage: 'topic', done: {}, turns: [], short: !!short, left, last: null, t0: game.time };
+  const ritual = TALK.on.ritual ? Math.min(talkRitual(a, b), short ? 1 : 2) : 0;
+  const agenda: any = { [a.id]: talkAgenda(c, a, b), [b.id]: talkAgenda(c, b, a) };
+  if (ritual === 0 && !agenda[a.id].length && !agenda[b.id].length) return c;   // nothing to say, and they spoke not long ago
+  const say = (sp: any, li: any, id: string, bind?: any) => talkTurn(c, sp, li, id, bind);
 
   /* opening */
-  if (TALK.on.ritual) {
-    say(sp, li, 'greet');
-    say(li, sp, 'greet_back');
+  if (ritual >= 1) {
+    c.stage = 'open';
+    say(a, b, 'greet');
+    say(b, a, 'greet_back');
+    c.stage = 'topic';
   }
 
-  /* topics: the speaker raises one; the listener answers (or lets it pass); the turn then goes to whoever has more left */
-  c.stage = 'topic';
+  /* topics */
+  let sp = a, li = b, small = 0;
+  const smallMax = ritual === 0 ? 0 : short ? 1 : 2;
   while (c.turns.length < 26 && c.left[sp.id] > 1 && c.left[li.id] > 0.5) {
-    const id = talkChoose(c, sp, li, TALK_TOPICS());
-    if (!id) break;
-    say(sp, li, id);
+    // what the speaker came to say comes first; then the other one's; then small talk, a little
+    let id: string | null = null, bind: any = null;
+    while (agenda[sp.id].length && !id) {
+      const want = agenda[sp.id].shift();
+      bind = talkBind(c, sp, li, want);
+      if (bind && !talkStale(c, sp, li, want, bind)) id = want;
+    }
+    if (!id && agenda[li.id].length) { const t = sp; sp = li; li = t; continue; }
+    if (!id) {
+      if (small >= smallMax) break;
+      id = talkChoose(c, sp, li, TALK_TOPICS().filter(k => !TALK_PURPOSE.includes(k)));
+      bind = null;
+      if (!id) break;
+      small++;
+    }
+    say(sp, li, id, bind || undefined);
     c.left[sp.id] -= 1;
     if (!ACTS[id].replies.length && ACTS[id].kind !== 'ritual' && Math.random() < 0.35) {   // a nod to what was said
       say(li, sp, 'backchannel');
       c.left[li.id] -= 0.2;
     }
-    // an answer, an answer to that, and so on: a story is four turns long
-    let cur = id, from = sp, to = li;
-    for (let d = 0; d < 4 && ACTS[cur].replies.length; d++) {
-      const reply = talkChoose(c, to, from, ACTS[cur].replies);
-      if (!reply || (d === 0 && reply === 'agree' && Math.random() < 0.3)) break;   // a nod is optional; an answer is not
-      say(to, from, reply);
-      c.left[to.id] -= 0.4;
-      cur = reply;
-      const t2 = from; from = to; to = t2;
+    talkAnswers(c, sp, li, id);
+    // the thread: now and then the one who raised it asks one thing more
+    const follow = ACTS[id].follow;
+    if (follow && Math.random() < 0.6) {
+      const fid = talkChoose(c, sp, li, follow);
+      if (fid) { say(sp, li, fid); talkAnswers(c, sp, li, fid); }
     }
-    if (c.left[li.id] > c.left[sp.id]) { const t = sp; sp = li; li = t; }   // whoever has more left to say goes on
+    if (c.left[li.id] > c.left[sp.id] || agenda[li.id].length) { const t = sp; sp = li; li = t; }   // the other one's turn, if they have more to say
   }
+  if (!c.turns.some((t: any) => ACTS[t.act].stage === 'topic') && ritual < 2) { c.turns = []; return c; }   // a greeting and nothing else, between people who know each other: not worth the stop
 
-  /* pre-closing and farewell: said by whoever ran out first */
+  /* closing: as much as the opening was */
   c.stage = 'close';
-  if (TALK.on.ritual) {
-    const closer = c.left[a.id] <= c.left[b.id] ? a : b, other = closer === a ? b : a;
+  const closer = c.left[a.id] <= c.left[b.id] ? a : b, other = closer === a ? b : a;
+  if (ritual === 2) {
     say(closer, other, 'pre_close');
     say(other, closer, 'farewell');
     say(closer, other, 'farewell_back');
+  } else if (ritual === 1) {
+    say(closer, other, 'farewell');
+    if (Math.random() < 0.5) say(other, closer, 'farewell_back');
   }
 
   /* what stays: both remember it, they know each other a little better, and the need for company is met */
@@ -151,6 +216,18 @@ function talkRun(a: any, b: any, listened?: boolean, short?: boolean): any {
   }
   talkFinish(c, a, b, listened);
   return c;
+}
+/** the answers to what sp just said: an answer, an answer to that, and so on (a story is four turns long) */
+function talkAnswers(c: any, sp: any, li: any, id: string) {
+  let cur = id, from = sp, to = li;
+  for (let d = 0; d < 4 && ACTS[cur].replies.length; d++) {
+    const reply = talkChoose(c, to, from, ACTS[cur].replies);
+    if (!reply || (d === 0 && reply === 'agree' && Math.random() < 0.3)) break;   // a nod is optional; an answer is not
+    talkTurn(c, to, from, reply);
+    c.left[to.id] -= 0.4;
+    cur = reply;
+    const t2 = from; from = to; to = t2;
+  }
 }
 
 /** the words (only when somebody can hear), the log, the bubbles, and the hold on both people: shared by conversations and shop encounters */

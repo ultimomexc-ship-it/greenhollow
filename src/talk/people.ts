@@ -16,7 +16,7 @@ function peopleWord(a: any, b: any): string { const v = a.aff[b.id] || 0; return
 function peopleReason(a: any, b: any): string {
   const L = (a.why && a.why[b.id]) || [], sgn = Math.sign(a.aff[b.id] || 0);
   const rf = a.refl && a.refl[b.id]; if (rf && ((rf.w === 'good' && sgn >= 0) || (rf.w === 'unkind' && sgn <= 0)) && Math.random() < 0.6) return (b.female ? 'She' : 'He') + (rf.w === 'good' ? ' is always good to me.' : ' is never kind to me.');
-  const best = L.filter((x: any) => !PEOPLE_GENERIC.includes(x.why) && (sgn === 0 || Math.sign(x.v) === sgn)).sort((x: any, y: any) => Math.abs(y.v) - Math.abs(x.v))[0];
+  const best = L.filter((x: any) => !PEOPLE_GENERIC.includes(x.why) && (sgn === 0 || Math.sign(x.v) === sgn)).sort((x: any, y: any) => Math.abs(y.v) * (/^heard/.test(y.why) ? 0.4 : 1) - Math.abs(x.v) * (/^heard/.test(x.why) ? 0.4 : 1))[0];   // (what happened between them counts for more than hearsay)
   const f = a.fam || {}, g = b.fam || {}, rel = f.spouse === b.id ? 'spouse' : f.partner === b.id ? 'partner' : (f.kids || []).includes(b.id) ? 'child' : (f.mother === b.id || f.father === b.id) ? 'parent' : ((f.mother != null && f.mother === g.mother) || (f.father != null && f.father === g.father)) ? 'sibling' : a.rel && a.rel[b.id], gender = (b.female ? 'She' : 'He');
   if (best) {
     if (/^ev:/.test(best.why)) { const ev = lf2Ev().find((q: any) => q.id === +best.why.slice(3)); if (ev) return TE.text(ev, { who: ev.actor }).replace(/^./, (c: string) => c.toUpperCase()) + '.'; }
@@ -33,7 +33,7 @@ function peopleAbout(sp: any, li: any, need: 'view' | 'strong'): any {
 /** hearing an opinion: kept as a memory and moves the listener a little toward it */
 function peopleHear(li: any, from: any, about: any, word: string, reason: string) {
   TM.add(li, { kind: 'opinion', about: about.id, from: from.id, word, reason, conf: 0.8, imp: 0.3 });
-  const dir = word === 'fond' ? 1.5 : word === 'like' ? 0.8 : word === 'dislike' ? -1.5 : word === 'wary' ? -0.8 : 0; if (dir && li.aff) lfAff(li, about, dir * (0.5 + Math.max(0, (li.aff[from.id] || 0)) / 100), 'heard what ' + from.first + ' thinks of ' + about.first);
+  const dir = word === 'fond' ? 1.5 : word === 'like' ? 0.8 : word === 'dislike' ? -1.5 : word === 'wary' ? -0.8 : 0; if (dir && li.aff) lfAff(li, about, dir * (0.5 + Math.max(0, (li.aff[from.id] || 0)) / 100), 'heard that ' + from.first + (dir > 0 ? ' thinks well of ' : ' thinks little of ') + (about.female ? 'her' : 'him'));
 }
 const peopleYou = (text: string, li: any) => !li || !text ? text : text.replace(new RegExp('what ' + li.first + ' thinks', 'g'), 'what you think').replace(new RegExp('\\b' + li.first + '\\b', 'g'), 'you');   // (said to somebody, they are "you", not a name)
 const peopleSet = (c: any, sp: any, about: any, li?: any) => { c.about = about; c.op = peopleWord(sp, about); c.reason = peopleYou(peopleReason(sp, about), li); };

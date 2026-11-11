@@ -41,15 +41,15 @@ await page.evaluate(([scenario]) => {
       o.talkUntil = 0; const rec = { t: game.time, with: o.first, rel: '', exch: [] };
       openTalk(o); let say = talkUI.say, opts = (talkUI.opts || []).map(x => [x[0], x[1]]); rec.open = say; const seeMenu = () => { for (const q of (PT.s && PT.s.opts) || []) (window.__M = window.__M || []).push(q.id + ' :: ' + q.label); }; seeMenu();
       for (let i = 0; i < steps && opts.length; i++) {
-        const pick = BOT.choose(opts, say); if (!pick) break; const qid = PT.s && PT.s.opts && PT.s.opts[+String(pick[0]).slice(1)] ? PT.s.opts[+String(pick[0]).slice(1)].id : pick[0]; const st = ptStep(pick[0]); rec.exch.push({ me: pick[1], they: st.say || '', id: qid });
+        const pick = BOT.choose(opts, say); if (!pick) break; const qid = PT.s && PT.s.opts && PT.s.opts[+String(pick[0]).slice(1)] ? PT.s.opts[+String(pick[0]).slice(1)].id : pick[0]; const st = ptStep(pick[0]); rec.exch.push({ me: (st.you ? '[' + pick[1] + '] ' + st.you : pick[1]), they: st.say || '', id: qid });
         if (st.close) break; say = st.say; opts = (st.opts || []).map(x => [x[0], x[1]]); seeMenu(); if (pick[0] === 'bye') break;
       }
       try { closeTalk(); } catch (e) {} window.__B.push(rec); return rec;
     },
     choose(opts, say) {
       const rx = {
-        repentant: [/sorry|brought|Here\\.|could use|for you/i, /grateful|thank|keep|stay/i], liar: [/wasn.t me|wrong person|look at|Ask /i, /so what|had to/i], brazen: [/so what|had to be done|for the best|Walls come down/i],
-        helpful: [/Of course|Here\\. Take|give|see what I can do|little time|few days/i, /brought|for you/i], default: []
+        repentant: [/sorry|Give a gift|Apolog/i, /Thank|Forgive|Accept|Promise/i], liar: [/Deny|Blame/i, /Shrug|Defend/i], brazen: [/Defend|Shrug|Stand by/i],
+        helpful: [/Give it|Promise|Give a gift/i, /Comfort|Sympath/i], default: []
       }[BOT.persona] || [];
       const real = opts.filter(o => o[0] !== 'bye'); if (!real.length) return opts[0];
       for (const r of rx) { const m = real.find(o => r.test(o[1])); if (m) return m; }
@@ -170,6 +170,7 @@ md.push(`# Playtest: ${scenario} (${days} days, seed ${seed}, voice ${data.pack}
 md.push('## Verdict', '', ...expect.map(e => `- ${e.pass ? 'PASS' : 'WARN'}  ${e.name}${e.detail ? '  (' + e.detail + ')' : ''}`), '');
 md.push('## Numbers', '', `- conversations and barks: ${data.T.length}; spoken lines: ${lines.length}; unique: ${uniq} (${(100 * uniq / Math.max(1, lines.length)).toFixed(0)}%)`, `- conversations with nothing but greeting and goodbye: ${empties}`, `- runs of three lines by one speaker: ${runs}${runEx.length ? ' e.g. ' + runEx[0] : ''}`);
 md.push(`- conversations with a real purpose (news, a grudge, a favour, the day, romance): ${purposeful} of ${talkConvs.length} (${(100 * purposeful / Math.max(1, talkConvs.length)).toFixed(0)}%); median length ${medLen} lines, shortest ${lens[0] || 0}, longest ${lens[lens.length - 1] || 0}`);
+{ const asked = data.acts.ask_news || 0, none = data.acts.no_news || 0, ops = lines.filter(l => /fond of|soft spot|one of the good ones|all right|nothing against|careful around|cannot stand|do not trust/i.test(l.text)), thin = ops.filter(l => /talked a few times|heard what|heard that/i.test(l.text)).length; md.push(`- "any news?" had an answer ${asked - none} of ${asked} times; opinions with a thin reason ("we have talked", "I heard what X thinks"): ${thin} of ${ops.length}`); }
 md.push(`- acts used: ${Object.keys(data.acts).length} of ${Object.keys(data.acts).length + data.unused.length}`, `- most used: ${Object.entries(data.acts).sort((a, b) => b[1] - a[1]).slice(0, 14).map(([k, v]) => k + ' ' + v).join(', ')}`, `- never used: ${data.unused.join(', ')}`, '');
 if (stale.length) md.push('## Said too often', '', ...stale.map(([t, n]) => `- x${n}: ${t}`), '');
 if (Object.keys(issues).length) md.push('## Text slips', '', ...Object.entries(issues).map(([k, v]) => `- **${k}** (${v.length}): ${[...new Set(v)].slice(0, 4).map(s => '"' + s.slice(0, 120) + '"').join('; ')}`), '');

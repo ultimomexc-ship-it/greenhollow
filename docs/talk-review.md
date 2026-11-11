@@ -185,3 +185,12 @@ F. **One event system.** Fold `lfEmit`/`lf2Learn`/`kn` into `LIFE.emit` and the 
 A first (a few days of careful work, no visible change except the wrong-subject bug). Tasks 1 to 15 can run
 alongside in any order except 13, which should follow A to avoid moving the same lines twice.
 Then B and C together, measured with the harness. D once B and C make conversations worth reading. E last.
+
+
+## Progress
+- **A (bindings)**: done and merged.
+- **B (agenda and thread)**: done. `talkRitual`, `talkAgenda`, `talkStale`/`talkNote`, `talkAnswers`, `A.follow`. Six days of the farming village: about 80% of conversations have a purpose, median 8 lines.
+- **C (things worth saying)**: done. `life2/smalllife.ts` (worked beside, ate with, lent a hand, sick visits, finds, illness) and the `snap` acts. Still thin: "any news?" seldom finds an answer in a quiet village, and about a quarter of opinions still give "we have talked" as the reason.
+- **D (voice rule)**: done. Asides rationed to one line in four per speaker (`lxMarked`, `sp.sinceAside`), plain short lines for the most-used acts in `talk/pack-short.ts`. The plain pack was not rewritten.
+- **E (menu by intent)**: done. `PT_LABEL`, grouped, your words shown once picked.
+- **F (one path for news)**: first step done. The old word-of-mouth code (`lf2Gossip`, `lf2PickTale`, `lf2Tell`) is deleted; news spreads only by `TE.tell`/`TE.overhear`, and `TM.addEv` mirrors what is told into `n.kn` so the watch and the law (life2/law.ts) hear of things through conversation. Left for later: `lfEmit` callers moving to `LIFE.emit` one by one, law reading `tmem` directly, and removing `kn`.

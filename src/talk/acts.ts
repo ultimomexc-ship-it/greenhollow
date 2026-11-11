@@ -18,7 +18,7 @@ const ACTS: any = {
   ask_how: { kind: 'small', stage: 'topic', when: (c: any) => !c.done.ask_how, w: (c: any, sp: any, li: any) => 1 + Math.max(0, (sp.aff[li.id] || 0)) / 60, apply: (c: any) => { c.done.ask_how = 1; }, replies: ['answer_how'] },
   answer_how: { kind: 'small', stage: 'topic', reply: true, when: () => true, apply: (c: any, sp: any) => { c.state = talkState(sp) || 'fine'; }, replies: [] },
   /* ---- world: news and what people make of it ---- */
-  ask_news: { kind: 'world', stage: 'topic', when: (c: any, sp: any, li: any) => !c.done.ask_news && !c.done.share_news && !TE.pick(sp, li, c), w: (c: any, sp: any) => 0.7 + (talkHas(sp, 'curious') || talkHas(sp, 'gossipy') ? 0.8 : 0), apply: (c: any) => { c.done.ask_news = 1; }, replies: ['share_news', 'no_news'] },
+  ask_news: { kind: 'world', stage: 'topic', when: (c: any, sp: any, li: any) => !c.done.ask_news && !c.done.share_news && !TE.pick(sp, li, c), w: (c: any, sp: any) => 0.7 + (talkHas(sp, 'curious') || talkHas(sp, 'gossipy') ? 0.8 : 0), apply: (c: any) => { c.done.ask_news = 1; }, replies: ['share_news', 'report_day', 'no_news'] },
   no_news: { kind: 'world', stage: 'topic', reply: true, when: (c: any, sp: any, li: any) => !TE.pick(sp, li, c), apply: () => {}, replies: [] },
   share_news: { kind: 'world', stage: 'topic', preview: (c: any) => ({ news: TE.text(c.news.ev, c.news.m.ver), how: c.news.m.kind, conf: c.news.m.conf > 0.7 ? 'high' : 'low' }), when: (c: any, sp: any, li: any) => (c.done.share_news || 0) < 2 && (c.storyNews ? ((c.news = c.storyNews), true) : !!(c.news = TE.pick(sp, li, c))), w: (c: any) => 1 + 4 * Math.min(1, c.news ? c.news.score : 0),
     apply: (c: any, sp: any, li: any) => {
@@ -34,10 +34,10 @@ const ACTS: any = {
   /* ---- life: the ordinary day, told from what really happened (talk/life.ts) ---- */
   ask_day: { kind: 'life', stage: 'topic', when: (c: any, sp: any, li: any) => !c.done.ask_day && !c.done.report_day && !LIFE.recent(sp, li).length && LIFE.recent(li, sp).length > 0, w: (c: any, sp: any) => 0.8 + (talkHas(sp, 'curious') || talkHas(sp, 'sociable') ? 0.6 : 0), apply: (c: any) => { c.done.ask_day = 1; }, replies: ['report_day', 'nothing_much'] },
   nothing_much: { kind: 'life', stage: 'topic', reply: true, when: (c: any, sp: any, li: any) => !LIFE.recent(sp, li).length, apply: () => {}, replies: [] },
-  report_day: { kind: 'life', stage: 'topic', preview: (c: any) => { const g = c.life; return { line: 'life:' + g.kind, qty: g.data.qty || 1, item: g.data.seed ? WORLD.name('seed', g.data.seed) : g.data.item ? WORLD.name('item', g.data.item) : '', shop: g.data.place || '' }; }, when: (c: any, sp: any, li: any) => (c.done.report_day || 0) < 2 && !!(c.life = LIFE.recent(sp, li)[0]), w: (c: any) => 0.9 + 2 * Math.min(1, c.life ? c.life.score : 0),
+  report_day: { kind: 'life', stage: 'topic', preview: (c: any) => { const g = c.life; const wo = g.data.with != null ? byId(g.data.with) : null; return { line: 'life:' + g.kind, qty: g.data.qty || 1, item: g.data.thing || (g.data.seed ? WORLD.name('seed', g.data.seed) : g.data.item ? WORLD.name('item', g.data.item) : ''), shop: g.data.place || '', about: wo ? wo.first : undefined }; }, when: (c: any, sp: any, li: any) => (c.done.report_day || 0) < 2 && !!(c.life = LIFE.recent(sp, li)[0]), w: (c: any) => 0.9 + 2 * Math.min(1, c.life ? c.life.score : 0),
     apply: (c: any, sp: any, li: any) => {
       const g = c.life; { const tk = g.kind + '|' + (g.data.item || g.data.seed || g.data.where || ''), tl = town.lifeTold || (town.lifeTold = {}), tt = tl[tk]; tl[tk] = { n: (tt && game.time - tt.t < 720 ? tt.n : 0) + 1, t: game.time }; } c.newsHow = ['harvested', 'baked', 'cooked', 'forged', 'woven', 'sawed', 'sold', 'got_bed', 'planted'].includes(g.kind) ? 'good' : 'neutral'; c.lifeLine = 'life:' + g.kind; c.lifeShop = g.data.place || ''; c.lifeQty = g.data.qty || 1; c.lifeTrouble = g.trouble;
-      c.lifeItem = g.data.seed ? WORLD.name('seed', g.data.seed) : g.data.item ? WORLD.name('item', g.data.item) : '';
+      c.lifeItem = g.data.thing || (g.data.seed ? WORLD.name('seed', g.data.seed) : g.data.item ? WORLD.name('item', g.data.item) : ''); { const wo = g.data.with != null ? byId(g.data.with) : null; c.aboutName = wo ? wo.first : undefined; }
       c.done.report_day = (c.done.report_day || 0) + 1; (li.heardLife || (li.heardLife = {}))[sp.id + ':' + g.ids[g.ids.length - 1]] = 1;
       TM.add(li, { kind: 'told_life', with: sp.id, lk: g.kind, data: g.data, conf: 0.9, imp: Math.min(0.6, g.def.tell) });   // (and now they know something about how the other one is doing)
     }, replies: ['empathise', 'acknowledge'] },
@@ -47,6 +47,6 @@ const ACTS: any = {
 };
 /** a short word for how somebody is, from their needs and mood (undefined when nothing stands out) */
 function talkState(n: any): string | undefined {
-  if (n.hunger > 70) return 'hungry'; if (n.energy != null && n.energy < 30) return 'tired'; if (n.mood != null && n.mood > 78) return 'glad'; if (n.mood != null && n.mood < 32) return 'low';
+  if (n.ill) return 'ill'; if (n.hunger > 70) return 'hungry'; if (n.energy != null && n.energy < 30) return 'tired'; if (n.mood != null && n.mood > 78) return 'glad'; if (n.mood != null && n.mood < 32) return 'low';
   return undefined;
 }

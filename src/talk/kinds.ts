@@ -10,6 +10,7 @@ const EVK = (id: string, family: string, o?: any) => REG.define('event', id, Obj
 /* ---- the events the village already makes (life2 `lfEmit`); they come through the contract as they are ---- */
 for (const k of ['theft', 'breakin', 'pickpocket', 'robbed', 'cheat', 'bribe', 'escape', 'arrest', 'fined', 'sabotage', 'snoop', 'blockdoor', 'shutin']) EVK(k, 'crime', { tell: 0.7 });
 for (const k of ['quarrel', 'brawl', 'shove', 'confront', 'jealous', 'rumour', 'report']) EVK(k, 'social', { tell: 0.6 });
+for (const k of ['lent_hand', 'sick_visit']) EVK(k, 'people', { tell: 0.25 });
 for (const k of ['gift', 'help', 'charity', 'dole', 'repair', 'distract']) EVK(k, 'people', { tell: 0.4 });
 for (const k of ['crush', 'courting', 'tryst']) EVK(k, 'romance', { tell: 0.7 });
 for (const k of ['dice', 'sing', 'stumble', 'smelly', 'newclothes', 'knock', 'wake']) EVK(k, 'daily', { tell: 0.2 });
@@ -17,7 +18,7 @@ EVK('arrival', 'place', { tell: 0.9 });
 
 /* ---- the everyday life the talk will be made of (emitters arrive one system at a time; the kind is defined first so the contract can be checked) ---- */
 // trade
-EVK('bought', 'trade', { needs: ['item', 'qty'], tell: 0.25 }); EVK('sold', 'trade', { needs: ['item', 'qty'], tell: 0.2 }); EVK('could_not_afford', 'trade', { needs: ['item'], tell: 0.4 });
+EVK('bought', 'trade', { needs: ['item', 'qty'], tell: 0.25 }); EVK('sold', 'trade', { needs: ['item', 'qty'], tell: 0.2 }); EVK('could_not_afford', 'trade', { needs: ['item'], tell: 0.4, tags: ['misfortune'] });
 EVK('out_of_stock', 'trade', { needs: ['item'], tell: 0.4 }); EVK('new_in_stock', 'trade', { needs: ['item'], tell: 0.55 }); EVK('price_up', 'trade', { needs: ['item'], tell: 0.4 }); EVK('price_down', 'trade', { needs: ['item'], tell: 0.4 });
 // farm and work
 EVK('planted', 'farm', { needs: ['qty'], tell: 0.25 }); EVK('harvested', 'farm', { needs: ['qty'], tell: 0.35 }); EVK('crop_failed', 'farm', { tell: 0.6 });
@@ -27,7 +28,7 @@ EVK('baked', 'make', { tell: 0.3 }); EVK('cooked', 'make', { tell: 0.25 }); EVK(
 // body and needs
 EVK('ate', 'body', { tell: 0.07 }); EVK('went_hungry', 'body', { tell: 0.5, tags: ['misfortune'] }); EVK('starving', 'body', { tell: 0.8, tags: ['misfortune'] });
 EVK('slept', 'body', { needs: ['where'], tell: 0.08 }); EVK('slept_rough', 'body', { tell: 0.6, tags: ['misfortune'] }); EVK('bladder_emergency', 'body', { tell: 0.5, tags: ['embarrass'] });
-EVK('used_privy', 'body', { tell: 0.05 }); EVK('no_privy', 'body', { tell: 0.6, tags: ['misfortune'] }); EVK('washed', 'body', { tell: 0.1 }); EVK('tired', 'body', { tell: 0.2 }); EVK('ill', 'body', { tell: 0.6, tags: ['health'] });
+EVK('used_privy', 'body', { tell: 0.05 }); EVK('no_privy', 'body', { tell: 0.6, tags: ['misfortune'] }); EVK('washed', 'body', { tell: 0.1 }); EVK('tired', 'body', { tell: 0.2 }); EVK('ill', 'body', { tell: 0.6, tags: ['health'] }); EVK('recovered', 'body', { tell: 0.5 }); EVK('worked_with', 'people', { needs: ['with'], tell: 0.3 }); EVK('ate_with', 'people', { needs: ['with'], tell: 0.3 }); EVK('found', 'daily', { needs: ['thing'], tell: 0.6 });
 // home
 EVK('got_bed', 'home', { tell: 0.5 }); EVK('lost_bed', 'home', { tell: 0.7, tags: ['misfortune'] }); EVK('moved_house', 'home', { tell: 0.6 });
 // meddling (phase 3)

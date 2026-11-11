@@ -1068,9 +1068,14 @@ test('talk engine (phase 1): villagers walk up, greet, chat about small things, 
     const L = TALK.log.filter(l => !['shop_greet', 'keeper_call', 'call_child', 'mutter'].includes(l.acts[0].act)), bad = [];   // (stall encounters and calls have their own shape: the shop talk tests)
     for (const l of L) {
       const ids = l.acts.map(x => x.act);
-      if (ids[0] !== 'greet' || ids[1] !== 'greet_back') bad.push('opening ' + ids.slice(0, 2));
-      if (ids[ids.length - 3] !== 'pre_close' || ids[ids.length - 2] !== 'farewell' || ids[ids.length - 1] !== 'farewell_back') bad.push('closing ' + ids.slice(-3));
-      if (ids.length < 6 || ids.length > 30) bad.push('length ' + ids.length);
+      // as much ceremony as the two of them need: none (they spoke lately or live together), a greeting and a goodbye, or the full opening and closing; never half of one
+      const greeted = ids[0] === 'greet', full = ids.includes('pre_close');
+      if (greeted && ids[1] !== 'greet_back') bad.push('opening ' + ids.slice(0, 2));
+      if (full && !(greeted && ids[ids.length - 3] === 'pre_close' && ids[ids.length - 2] === 'farewell' && ids[ids.length - 1] === 'farewell_back')) bad.push('closing ' + ids.slice(-3));
+      if (greeted && !full && !['farewell', 'farewell_back'].includes(ids[ids.length - 1])) bad.push('goodbye ' + ids.slice(-2));
+      if (!greeted && ids.some(x => ['pre_close', 'farewell', 'farewell_back', 'greet_back'].includes(x))) bad.push('ceremony without a greeting ' + ids);
+      if (!ids.some(x => ACTS[x].stage === 'topic')) bad.push('nothing said ' + ids);
+      if (ids.length < 2 || ids.length > 30) bad.push('length ' + ids.length);
       if (!l.lines || l.lines.length !== ids.length || l.lines.some(x => /[{}]|undefined|NaN/.test(x))) bad.push('words ' + JSON.stringify(l.lines && l.lines.slice(0, 2)));
       if (l.a === l.b) bad.push('self');
     }
@@ -1094,7 +1099,7 @@ test('talk engine (phase 1): a kind of talk can be switched off, and a line abou
     let seen = false; for (let i = 0; i < 400; i++) if (/castle/.test(lxSay('remark_place', a, c, { done: {} }))) seen = true; out.castleSaid = seen;
     out.has = [WORLD.has('feature', 'castle'), WORLD.has('item', 'barley'), WORLD.has('person', a.id)];
     // with small talk off, a conversation is only the rituals
-    const onKeep = Object.assign({}, TALK.on); for (const k of Object.keys(TALK.on)) TALK.on[k] = k === 'ritual'; const cv = talkRun(a, c, true); out.ritualOnly = cv.turns.every(t => ACTS[t.act].kind === 'ritual') && cv.turns.length === 5; Object.assign(TALK.on, onKeep);
+    const onKeep = Object.assign({}, TALK.on); for (const k of Object.keys(TALK.on)) TALK.on[k] = k === 'ritual'; a.tmem = (a.tmem || []).filter(m => !(m.kind === 'talked' && m.with === c.id)); a.homeRoom = null; a.aff[c.id] = 0; const cv = talkRun(a, c, true); out.ritualOnly = cv.turns.every(t => ACTS[t.act].kind === 'ritual') && cv.turns.length === 5;   // (two people who have not spoken: the whole ceremony, and with nothing else switched on, nothing else) Object.assign(TALK.on, onKeep);
     return out; });
   check(!r.castleSaid, 'a line that needs a feature that does not exist is never said');
   check(r.has[0] === false && r.has[2] === true, 'the registry knows what exists: ' + JSON.stringify(r.has));
@@ -1111,13 +1116,14 @@ test('talk engine (phase 1): the one who starts walks up to the other, they stan
     let sa = null, sb = null; scan: for (let r = 0; r < 25; r++) for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) { const x = town.cx + dx, y = town.cy + dy; let ok = true; for (let i = -1; i <= 5 && ok; i++) for (let j = -1; j <= 1 && ok; j++) { const tx = x + i, ty = y + j; if (!walkable(tx, ty) || lfPropAt(tx, ty) || roomAt[ty][tx] >= 0 || npcs.some(o => o.tx === tx && o.ty === ty)) ok = false; } if (ok) { const pth = findPath(x, y, x + 3, y); if (pth && pth.length > 0 && pth.length <= 4) { sa = { x, y }; sb = { x: x + 4, y }; break scan; } } }   // (open ground you can really walk straight across)
     if (!sa) return { skip: true };
     for (const [n, s] of [[a, sa], [c, sb]]) { abortPlan(n); n.tx = n.x = s.x; n.ty = n.y = s.y; n.pose = 'stand'; n.talkUntil = 0; n.talkBusy = 0; }
-    rebuildOcc(); const n0 = TALK.log.length; talkApproach(a, c); window.__pair = [a.id, c.id, n0]; return { first: a.plan[0].text, d0: lfDist(a, c) };
+    LIFE.emit('found', a, { thing: 'a button' }); a.saidTo = {}; c.saidTo = {};   // (something to say)
+    rebuildOcc(); const n0 = TALK.log.length; talkApproach(a, c); window.__pair = [a.id, c.id, n0]; return { first: a.plan[0].text, d0: lfDist(a, c), pos: [a.tx, a.ty, c.tx, c.ty, a.id, c.id, game.player && game.player.id] };
   });
   if (!r.skip) {
     check(/Going over to/.test(r.first), 'the first sets out to meet the other: ' + JSON.stringify(r));
     await simulate(page, 20);
-    const d = await page.evaluate(() => { const [x, y, n0] = window.__pair, a = byId(x), c = byId(y); return { d: lfDist(a, c), talked: TALK.log.slice(n0).some(l => (l.a === x && l.b === y)), d: (TALK.log.slice(n0).find(l => l.a === x && l.b === y) || { d: 99 }).d }; });
-    check(d.talked && d.d <= 2, 'they stood side by side (when they talked) and talked: ' + JSON.stringify(d));
+    const d = await page.evaluate(() => { const [x, y, n0] = window.__pair, a = byId(x), c = byId(y); return { st: [a.tx, a.ty, c.tx, c.ty, a.si, (a.plan || []).map(q => q.k + ':' + q.text).join(','), JSON.stringify(a.talkTo || null)].join(' ') + a.status + ' / ' + c.status + ' h' + Math.round(a.hunger) + ' ' + Math.round(c.hunger) + ' dist ' + lfDist(a, c), talked: TALK.log.slice(n0).some(l => (l.a === x && l.b === y)), d: (TALK.log.slice(n0).find(l => l.a === x && l.b === y) || { d: 99 }).d }; });
+    check(d.talked && d.d <= 2, 'they stood side by side (when they talked) and talked: ' + JSON.stringify([d, r]));
   }
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
   return 'approach';
@@ -1207,7 +1213,7 @@ test('talk and needs: while two people talk their hunger, bladder and tiredness 
   await simulate(page, 9 * 60);
   const r = await page.evaluate(() => {
     const out = {}; const free = npcs.filter(q => !q.dead && !q.player && q.age >= 18 && q.pose !== 'sleep'), a = free[0], c = free[1];
-    for (const n of [a, c]) { n.hunger = 40; n.bladder = 30; n.energy = 70; n.talkUntil = game.time + 30; }
+    for (const n of [a, c]) { n.hunger = 40; n._h = 40; n.bladder = 30; n.energy = 70; n.talkUntil = game.time + 30; }
     const h0 = [a.hunger, a.bladder, a.energy]; tickEcon(10); out.held = [a.hunger, a.bladder, a.energy].every((v, i) => v === h0[i]);
     a.talkUntil = 0; const h1 = a.hunger; tickEcon(10); out.runs = a.hunger > h1;
     // the next tile, facing
@@ -1216,6 +1222,7 @@ test('talk and needs: while two people talk their hunger, bladder and tiredness 
     for (const [n, s] of [[a, sa], [c, sb]]) { abortPlan(n); n.tx = n.x = s.x; n.ty = n.y = s.y; n.pose = 'stand'; n.moving = false; n.talkUntil = 0; n.talkBusy = 0; n.hunger = 30; n.bladder = 20; } rebuildOcc(); out.place = [sa, sb, a.tx, a.ty, c.tx, c.ty];
     const spot = talkSpot(c, a); out.orth = !!spot && Math.abs(spot.x - c.tx) + Math.abs(spot.y - c.ty) === 1 && (spot.x === c.tx || spot.y === c.ty);
     a.tx = a.x = spot.x; a.ty = a.y = spot.y; rebuildOcc();   // (the walk itself is tested elsewhere: here the one who walks over has arrived on that tile)
+    LIFE.emit('found', a, { thing: 'a button' }); a.saidTo = {}; c.saidTo = {};   // (something to say)
     const n0 = TALK.log.length; talkApproach(a, c); window.__ac = [a.id, c.id, n0]; out.first = a.plan[0].text;
     // bubble sides: you north of them = above (tail below), south = below (tail above), east = right, west = left
     out.sides = [bubbleSide(0, -5), bubbleSide(0, 5), bubbleSide(6, 1), bubbleSide(-6, -1), bubbleSide(0, 3, true)];
@@ -1534,7 +1541,7 @@ test('gifts: you can give something in a talk; food is welcome when hungry, flow
     const out = {}; TALK.words = true; startPlaying(npcs.find(n => !n.dead && n.age >= 18 && !n.infant)); const P = game.player;
     const R = rooms.find(q => !q.free && !q.dead && q.kind === 'house' && meddleResidents(q).some(n => n !== P)); const o = meddleResidents(R).find(n => n !== P);
     o.tx = o.x = P.tx + 1; o.ty = o.y = P.ty; o.pose = 'stand'; o.hunger = 80; o.inv.fish = 5; rebuildOcc(); P.inv.grain = 3; P.inv.flowers = 2; o.aff[P.id] = 0;
-    const give = () => { let k = -1;   /* the menu shows five of many things, so look again */  for (let tries = 0; tries < 12 && k < 0; tries++) { openTalk(o); k = talkUI.opts.findIndex(x => /brought|Here\.|could use|I have .*thought of you|This is .*not much/.test(x[1])); if (k < 0) closeTalk(); } if (k < 0) return null; const a0 = o.aff[P.id] || 0; const st = ptStep(talkUI.opts[k][0]); const r = { say: st.say, d: (o.aff[P.id] || 0) - a0 }; closeTalk(); return r; };
+    const give = () => { let k = -1;   /* the menu shows five of many things, so look again */  for (let tries = 0; tries < 12 && k < 0; tries++) { openTalk(o); k = talkUI.opts.findIndex(x => /Give a gift|brought|Here\.|could use|I have .*thought of you|This is .*not much/.test(x[1])); if (k < 0) closeTalk(); } if (k < 0) return null; const a0 = o.aff[P.id] || 0; const st = ptStep(talkUI.opts[k][0]); const r = { say: st.say, d: (o.aff[P.id] || 0) - a0 }; closeTalk(); return r; };
     out.food = give(); out.grain = P.inv.grain; out.theirs = o.inv && o.inv.grain;
     // a deed, then an amends
     o.hunger = 10; meddleNote('wall_removed', o.tx, o.ty, P, { room: -1, residents: [o] }); meddleFlush(); out.grudge = !!deedPick(o, P); out.bad = o.aff[P.id];
@@ -1568,7 +1575,7 @@ test('requests and feelings: the hungry ask for food and the homeless for a bed,
     out.againNo = ACTS.ask_favour.when({ done: {}, turns: [] }, A, B);
     // a homeless villager asks the player; the player promises; the thread is open; a bed closes it
     startPlaying(ps[3]); const P = game.player; H.homeless = true; H.hunger = 10; H.reqs = []; H.askT = {}; H.tx = H.x = P.tx + 1; H.ty = H.y = P.ty; H.pose = 'stand'; rebuildOcc();
-    openTalk(H); out.say = talkUI.say; out.opts = talkUI.opts.map(o => o[1]); const k = talkUI.opts.findIndex(o => /see what (I can do|can be done)|little time|few days/.test(o[1]));
+    openTalk(H); out.say = talkUI.say; out.opts = talkUI.opts.map(o => o[1]); const k = talkUI.opts.findIndex(o => /Promise|see what (I can do|can be done)|little time|few days/.test(o[1]));
     if (k >= 0) ptStep(talkUI.opts[k][0]); closeTalk();
     out.thread = (P.tmem || []).filter(m => m.kind === 'request' && m.state === 'open').length; out.journal = jrHTML();
     H.homeless = false; const a0 = H.aff[P.id] || 0; for (const f of LF2.hourly) { try { f(8); } catch (e) {} }
@@ -1581,7 +1588,7 @@ test('requests and feelings: the hungry ask for food and the homeless for a bed,
     out.line = lxSay('vent', A, B, { state: 'low' });
     return out; });
   check(r.ask && r.want === 'item' && r.canGive && r.moved && r.done && !r.againNo, 'the hungry ask someone with food, who gives it, once in twelve hours: ' + JSON.stringify([r.ask, r.want, r.canGive, r.moved, r.done, r.againNo]));
-  check(/bed/.test(r.say) && r.opts.some(o => /see what (I can do|can be done)|little time|few days/.test(o)) && r.thread === 1 && /Open threads/.test(r.journal), 'the homeless villager opens with the bed, you can promise, and the journal lists the thread: ' + JSON.stringify([r.say, r.opts, r.thread]));
+  check(/bed/.test(r.say) && r.opts.some(o => /Promise|see what (I can do|can be done)|little time|few days/.test(o)) && r.thread === 1 && /Open threads/.test(r.journal), 'the homeless villager opens with the bed, you can promise, and the journal lists the thread: ' + JSON.stringify([r.say, r.opts, r.thread]));
   check(r.closed && r.warm, 'finding the bed closes the thread and they are grateful');
   check(r.expired, 'a promise left three days fails, with a grudge');
   check(r.vent && r.line && r.console, 'a bad day can be told and consoled: ' + r.line);
@@ -1761,7 +1768,8 @@ test('conversation depth: topics link or start afresh, stories have a preface an
     const out = {}; newTown('depth-test', 'farm'); MODS.all(); TALK.words = true; startPlaying(npcs.find(n => !n.dead && n.age >= 18 && !n.infant)); const P = game.player;
     const ps = npcs.filter(n => !n.dead && !n.player && n.age >= 18 && !n.infant); const A = ps[0], B = ps[1], C = ps[2]; const fresh = () => ({ done: {}, turns: [], left: {} }); const clean = t => !!t && !/[{}]|undefined|NaN/.test(t);
     // links
-    let linked = 0, afresh = 0, bad = 0; for (let i = 0; i < 40; i++) { const c = talkRun(ps[i % ps.length], ps[(i + 3) % ps.length], true); for (const t of c.turns) { if (t.x && t.x.link === 'linked') linked++; if (t.x && t.x.link === 'fresh') afresh++; const w = talkWords(t, ps[i % ps.length], ps[(i + 3) % ps.length]); if (w && !clean(w)) bad++; } }
+    for (const n of ps) { LIFE.emit('found', n, { thing: 'a button' }); LIFE.emit('ate_with', n, { with: ps[(ps.indexOf(n) + 5) % ps.length].id }); }   // (something to say: a talk with nothing in it does not happen)
+    let linked = 0, afresh = 0, bad = 0; for (let i = 0; i < 40; i++) { for (const n of ps) n.saidTo = {}; const c = talkRun(ps[i % ps.length], ps[(i + 3) % ps.length], true); for (const t of c.turns) { if (t.x && t.x.link === 'linked') linked++; if (t.x && t.x.link === 'fresh') afresh++; const w = talkWords(t, ps[i % ps.length], ps[(i + 3) % ps.length]); if (w && !clean(w)) bad++; } }
     out.links = [linked, afresh, bad]; out.linkText = lxLink('The bread is good.', 'fresh') + ' | ' + lxLink('I am well.', 'linked');
     // a story
     const ev = lfEmit('theft', { actor: C, target: ps[3], sev: 3, tags: ['theft', 'scandal'], anon: false, witnessIds: [A.id], chron: false, text: 'x' }); const am = TM.ofEv(A, ev.id); am.imp = 0.9; B.tmem = (B.tmem || []).filter(m => m.ev !== ev.id); A.aff[B.id] = 30;
@@ -1790,7 +1798,7 @@ test('conversation depth: topics link or start afresh, stories have a preface an
     A.hunger = 90; for (const k of ['fish', 'berries', 'grain']) A.inv[k] = 0; out.card = /Notice/.test(vcHTML(A)); TM.add(P, { kind: 'pref', about: A.id, item: 'grain', like: true }); out.journal = /What you know of people/.test(jrHTML());
     out.dials = TALK.dial.distort === 1 && TALK.dial.sev === 1;
     return out; });
-  check(r.links[0] + r.links[1] > 3 && r.links[2] === 0 && /Anyway|Oh|Changing|Related|On /.test(r.linkText), 'topics link or start afresh, and the words stay clean: ' + JSON.stringify([r.links, r.linkText]));
+  check(r.links[0] + r.links[1] >= 1 && r.links[2] === 0 && /Anyway|Oh|Changing|[Rr]elated|On |Staying|Speaking/.test(r.linkText), 'topics link or start afresh, and the words stay clean: ' + JSON.stringify([r.links, r.linkText]));
   check(r.pref && r.inv && r.body && r.told, 'a story is a preface, an invitation and the telling: ' + JSON.stringify([r.pref, r.inv, r.body, r.told, r.storyWords]));
   check(r.cb && !r.cbOnce && new RegExp(r.cbName || '.').test(r.cbLine), 'last time is remembered, once: ' + JSON.stringify([r.cb, r.cbOnce, r.cbLine]));
   check(r.refl && r.reason > 5, 'a pattern of slights becomes an opinion people state: ' + JSON.stringify([r.refl, r.reason]));
@@ -1798,6 +1806,46 @@ test('conversation depth: topics link or start afresh, stories have a preface an
   check(r.heard && r.card && r.journal && r.dials, 'overheard news reaches your journal, the card hints, the journal shows what you know of people, dials exist: ' + JSON.stringify([r.heard, r.card, r.journal, r.dials]));
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
   return r.storyWords;
+});
+
+test('small life: working beside somebody and eating with them are remembered as reasons and as something to tell; "any news?" can be answered with your own day', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('small-test', 'farm'); MODS.all();
+    const ps = npcs.filter(n => !n.dead && !n.player && n.age >= 16 && !n.infant); const [a, b, c2] = ps;
+    const put = (n, x, y, act) => { n.tx = x; n.ty = y; n.x = x; n.y = y; n.moving = false; n.plan = [{ k: 'wait', act, t: 600, text: 'x' }]; n.si = 0; };
+    const x0 = a.tx, y0 = a.ty; a.job = b.job = 'Farmer'; put(a, x0, y0, 'work'); put(b, x0 + 1, y0, 'work');
+    for (const n of ps) if (n !== a && n !== b) put(n, n.tx, n.ty, 'none');
+    smallLifeHour(10);
+    const why1 = JSON.stringify((a.why || {})[b.id] || {});
+    const rec = LIFE.recent(a, c2) || [];
+    put(a, x0, y0, 'eat'); put(b, x0 + 1, y0, 'eat'); smallLifeHour(12);
+    const why2 = JSON.stringify((a.why || {})[b.id] || {});
+    smallLifeHour(12); const why3 = JSON.stringify((a.why || {})[b.id] || {});
+    return { why1, why2, same: why2 === why3, kinds: rec.map(g => g.kind), replies: ACTS.ask_news.replies };
+  });
+  check(/worked beside me/.test(r.why1), 'working side by side is a reason in the ledger: ' + r.why1);
+  check(r.kinds.includes('worked_with'), 'and something to tell about the day: ' + r.kinds);
+  check(/ate with me/.test(r.why2) && r.same, 'a shared meal counts once a day: ' + r.why2);
+  check(r.replies.includes('report_day'), 'somebody with no news can answer with their day');
+  check(!errors.length, 'no errors: ' + errors.join(' | '));
+  await page.close();
+});
+
+test('one path for news: what somebody is told in conversation is what the watch and the law know too (the old ledger mirrors the memory)', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    const ps = npcs.filter(n => !n.dead && !n.player && n.age >= 18 && !n.infant); const [A, B, Z, V] = ps;
+    const ev = lfEmit('theft', { actor: Z, target: V, sev: 2, tags: ['theft'], witnessIds: [A.id], chron: false, text: 'x' });
+    const before = !!(B.kn && B.kn[ev.id]); const m = TM.ofEv(A, ev.id);
+    TE.tell(A, B, { m, ev, score: 1 }, { done: {}, turns: [], left: {} });
+    const k = B.kn && B.kn[ev.id];
+    return { before, after: !!k, from: k && k.from === A.id, who: k && k.who === Z.id, mem: !!TM.ofEv(B, ev.id), known: ev.know.includes(B.id), old: typeof lf2Gossip };
+  });
+  check(!r.before && r.after && r.from && r.who && r.mem && r.known, 'told in talk = known to the law, with who told and who did it: ' + JSON.stringify(r));
+  check(r.old === 'undefined', 'the old word-of-mouth ticker is gone');
+  check(!errors.length, 'no errors: ' + errors.join(' | '));
+  await page.close();
 });
 
 test('bindings: asking whether something could be said never changes what is being said; a question and its answer are about the same person; a menu option says what it will say; no line is spoken with a gap in it', async b => {

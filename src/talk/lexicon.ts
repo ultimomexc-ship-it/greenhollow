@@ -109,7 +109,7 @@ function lxSlots(sp: any, li: any, c: any, ctx: any): any {
     place: /^the /.test(place) ? 'at ' + place : place ? 'in ' + place : 'here',
     job: String(sp.job || 'daily').toLowerCase(),
     state: ctx.state, clock: lxClock(),
-    money: lxMoney(c.price), price: c.price != null ? String(c.price) : undefined,
+    money: c.price != null ? lxMoney(c.price) : undefined, price: c.price != null ? String(c.price) : undefined,
     about: c.about || undefined, reason: c.reason || '',
     them: !c.about ? undefined : aboutP ? (aboutP.female ? 'her' : 'him') : 'them',
     shop: c.shop || 'stall',
@@ -122,6 +122,8 @@ const LX_MISS: any = {};   // act:slot -> how often a line could not be said for
 const lxSlotsOf = (e: any): string[] => e.sl || (e.sl = (e.text.match(/\{(\w+)\}/g) || []).map((x: string) => x.slice(1, -1)));
 
 /** choose the wording of an act: the pack's lines that fit, whose things exist and whose slots all have values; the more specific the better, what the listener heard lately worse */
+/** a marked line: one that carries an aside (a second sentence) or runs long. The voice rule in `lxSay` rations these. */
+const lxMarked = (t: string) => { const u = t.replace(/\{(news|reason)\}[.?]?/g, '').replace(/^\s*(\{li\}|[A-Z][a-z]+)[.,]\s+/, '').trim(); return /[.?!…:]\s+\S/.test(u) || u.split(/\s+/).length > 11; };
 function lxSay(act: string, sp: any, li: any, c: any): string {
   const ctx: any = lxContext(sp, li, c);
   const slots = lxSlots(sp, li, c, ctx);
@@ -140,6 +142,9 @@ function lxSay(act: string, sp: any, li: any, c: any): string {
   let cands = pool(pk);
   if (!cands.length) cands = pool('plain');
   if (!cands.length) return '';
+  // the voice rule: most lines are short and plain; a line with an aside (a second sentence, or a long one) is allowed at most one time in four per speaker, and never on a menu label
+  const spare = c.menu || (sp.sinceAside != null && sp.sinceAside < 3);
+  if (spare && !act.startsWith('ev:')) { const short = cands.filter(e => !lxMarked(e.text)); if (short.length) cands = short; }
   let best: any = null, bs = -1e9;
   for (const e of cands) {
     const id = act + '|' + e.text, g = LX_RECENT[id];
@@ -150,7 +155,9 @@ function lxSay(act: string, sp: any, li: any, c: any): string {
   heard[act + '|' + best.text] = game.time;
   LX_RECENT[act + '|' + best.text] = game.time;   // what was said lately, by anyone, is less likely to be said again
   const raw = best.text.replace(/\{(\w+)\}/g, (_m: string, k: string) => slots[k] != null ? slots[k] : '');
-  const voiced = c.menu ? raw : lxVoice(sp, li, act, pk, lxTic(sp, act, pk, raw));
+  const plainNow = spare || lxMarked(best.text);   // (no tic and no run-on on top of an aside, or when the aside is not due)
+  const voiced = c.menu ? raw : plainNow && lxRegister(sp) === 'chatty' ? raw : lxVoice(sp, li, act, pk, plainNow ? raw : lxTic(sp, act, pk, raw));
+  if (!c.menu && !act.startsWith('ev:')) sp.sinceAside = lxMarked(best.text) || voiced.length > raw.length + 8 ? 0 : (sp.sinceAside == null ? 3 : sp.sinceAside) + 1;
   return placeWords(voiced.replace(/\s{2,}/g, ' ').replace(/\s+$/, '').replace(/(^|[.!?]\s+)([a-z])/g, (_m: string, a: string, b: string) => a + b.toUpperCase()));
 }
 

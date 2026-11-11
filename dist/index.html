@@ -8503,9 +8503,7 @@ const sbRelFromEvent = (..._a) => {
 };
 const sbImp = (..._a) => 0.5;
 const sbWhoId = (_o, ev) => ev.actor;
-const sbPassOn = (_a, _b, ev) => ({ who: ev.actor, a: true });
 const sbText = (_o, ev) => ev.text;
-const sbNewsLines = (..._a) => ["", ""];
 const sbPick = (opts) => opts[0];
 const sbSmallTalk = (..._a) => [];
 const focusOn = () => false;
@@ -17472,58 +17470,6 @@ function lf2Feel(o, ev, from, cert, knowsA, reveal) {
     }
   }
 }
-function lf2PickTale(a, b) {
-  let best = null, bw = 0, rv = false;
-  const aff = a.aff[b.id] || 0;
-  for (const id in a.kn) {
-    const k = a.kn[id];
-    if (k.mine && !k.brag) continue;
-    const ev = lf2EvById(+id);
-    if (!ev || game.time - ev.t > 4 * 1440 || ev.actor === b.id) continue;
-    const bk = b.kn && b.kn[ev.id];
-    const reveal = bk && !bk.a && k.a && ev.actor !== a.id;
-    if (bk && !reveal) continue;
-    if (ev.target === b.id && aff < 30 && !reveal) continue;
-    if (ev.actor && (a.aff[ev.actor] || 0) > 60 && ev.tags.some((g) => (LF2_TAGS[g] || {}).v < 0) && !lf2Has(a, "gossipy")) continue;
-    const w = Math.max(...ev.tags.map((g) => (LF2_TAGS[g] || {}).spice || 0.5)) * (0.5 + 0.5 * ev.sev) * k.cert * (1.25 - (game.time - ev.t) / (5 * 1440)) * (reveal ? 1.8 : 1) * Math.random();
-    if (w > bw) {
-      bw = w;
-      best = ev;
-      rv = !!reveal;
-    }
-  }
-  return best ? { ev: best, reveal: rv } : null;
-}
-function lf2Tell(a, b, ev, reveal, quiet) {
-  const ak = a.kn[ev.id], ver = sbPassOn(a, b, ev), act = lf2By(ver.who != null ? ver.who : ev.actor), knowsA = ver.a, txt = sbText(a, ev);
-  const j = lf2Judge(b, ev, knowsA), fan = act && knowsA && (b.aff[act.id] || 0) >= 55 && j.v < 0;
-  const firstHand = !ak.from, [line, reply] = sbNewsLines(a, b, ev, ver, reveal, j, fan, act, knowsA, firstHand);
-  if (!quiet) say(a, b, [[a, line], [b, reply]]);
-  bumpAff(a, b, 1, 6);
-  return lf2Learn(b, ev, a, fan ? ak.cert * 0.25 : ak.cert * (firstHand ? 0.85 : 0.75), knowsA, ver);
-}
-function lf2Gossip() {
-  if (!LF2.on("gossip")) return;
-  const live = npcs.filter((n) => !n.dead && !n.infant && n.age >= 8 && n.pose !== "sleep" && !n.trapped && n.kn);
-  for (const a of live) {
-    if (a.player || (a.lf2Talk || 0) > game.time) continue;
-    for (const b of npcs) {
-      if (b === a || b.dead || b.infant || b.age < 6 || b.pose === "sleep" || lfDist(a, b) > 3 || (b.lf2Talk || 0) > game.time) continue;
-      if (b.player && !(talkUI && talkUI.o === a)) {
-        if (Math.random() > 0.15) continue;
-      }
-      if (seeThrough(a.tx, a.ty, b.tx, b.ty) < 0.5) continue;
-      const aff = a.aff[b.id] || 0;
-      const gos = (lf2Has(a, "gossipy") ? 1.8 : 1) * (lf2Has(a, "sociable") || lf2Has(a, "jovial") ? 1.3 : 1) * (lf2Has(a, "shy") ? 0.5 : 1) * (lf2Has(a, "proud") ? 0.7 : 1) * ((a.drunk || 0) > 40 ? 1.8 : 1);
-      if (Math.random() > 0.3 * gos * (aff >= 10 ? 1 : 0.35)) continue;
-      const pk = lf2PickTale(a, b);
-      if (!pk) continue;
-      a.lf2Talk = b.lf2Talk = game.time + 30;
-      lf2Tell(a, b, pk.ev, pk.reveal);
-      break;
-    }
-  }
-}
 const LF2_REPWORD = {
   theft: "a thief",
   violence: "violent",
@@ -18506,6 +18452,75 @@ LF2.dec.push(function(n) {
   }
   return null;
 });
+LF2.feat.smalllife = true;
+const SMALL_FINDS = ["a shell with a hole in it", "a smooth green stone", "a coin nobody recognises", "a gull feather", "a button", "a key that fits nothing", "a piece of blue glass", "a very straight stick"];
+const smallAct = (n) => {
+  const s = n.plan && n.plan[n.si];
+  return s && s.k === "wait" && !n.moving ? s.act : "";
+};
+const smallOnce = (a, key) => {
+  const d = Math.floor(game.time / 1440), m = a.smallDay && a.smallDay.d === d ? a.smallDay : a.smallDay = { d, k: {} };
+  if (m.k[key]) return false;
+  m.k[key] = 1;
+  return true;
+};
+function smallLifeHour(h) {
+  if (!town || !LF2.feat.smalllife) return;
+  const ps = npcs.filter((n) => !n.dead && !n.infant && !n.inShip && n.age >= 8);
+  for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) {
+    const a = ps[i], b = ps[j];
+    if (lvlOf(a.ty) !== lvlOf(b.ty) || lfDist(a, b) > 7) continue;
+    const aa = smallAct(a), ab = smallAct(b), near = lfDist(a, b) <= 3;
+    if (aa === "work" && ab === "work" && a.job && a.job === b.job && smallOnce(a, "w" + b.id) && smallOnce(b, "w" + a.id)) {
+      lfAff(a, b, 1.5, "worked beside me");
+      lfAff(b, a, 1.5, "worked beside me");
+      if (!a.player) LIFE.emit("worked_with", a, { with: b.id });
+      if (!b.player) LIFE.emit("worked_with", b, { with: a.id });
+    }
+    if (near && aa === "eat" && ab === "eat" && smallOnce(a, "e" + b.id) && smallOnce(b, "e" + a.id)) {
+      lfAff(a, b, 1, "ate with me");
+      lfAff(b, a, 1, "ate with me");
+      const kin = typeof isKin === "function" && isKin(a, b);
+      if (!kin) {
+        if (!a.player) LIFE.emit("ate_with", a, { with: b.id });
+        if (!b.player) LIFE.emit("ate_with", b, { with: a.id });
+      }
+    }
+    for (const [w, h2] of [[a, b], [b, a]]) {
+      if (smallAct(w) !== "work" || !["leisure", "stand"].includes(smallAct(h2)) || h2.player || h2.age < 12 || (h2.aff[w.id] || 0) < 0 || Math.random() > 0.04 || !smallOnce(h2, "h" + w.id)) continue;
+      lfAff(w, h2, 4, "lent me a hand");
+      lfEmit("lent_hand", { actor: h2, target: w, sev: 1, tags: ["help", "kindness"], chron: false, text: `${h2.first} lent ${w.first} a hand with the work` });
+    }
+    for (const [sick, v] of [[a, b], [b, a]]) {
+      if (!sick.ill || v.ill || v.player || v.age < 12 || (v.aff[sick.id] || 0) < 20 || !near || !smallOnce(v, "v" + sick.id)) continue;
+      lfAff(sick, v, 4, "came to see me when I was ill");
+      sick.mood = Math.min(100, (sick.mood == null ? 50 : sick.mood) + 4);
+      lfEmit("sick_visit", { actor: v, target: sick, sev: 1, tags: ["kindness"], chron: false, text: `${v.first} looked in on ${sick.first}, who is ill` });
+    }
+  }
+  for (const n of ps) {
+    if (n.player) continue;
+    if (h >= 8 && h <= 19 && n.pose !== "sleep" && roomAt[n.ty] && roomAt[n.ty][n.tx] < 0 && Math.random() < 0.012) {
+      const thing = SMALL_FINDS[Math.floor(Math.random() * SMALL_FINDS.length)];
+      n.trinket = thing;
+      LIFE.emit("found", n, { thing });
+      n.mood = Math.min(100, (n.mood == null ? 50 : n.mood) + 3);
+    }
+    if (n.ill && game.time >= n.ill.until) {
+      n.ill = null;
+      LIFE.emit("recovered", n, {});
+      n.mood = Math.min(100, (n.mood == null ? 50 : n.mood) + 6);
+    } else if (!n.ill && h === 7 && n.age >= 6 && Math.random() < 0.012) {
+      n.ill = { since: game.time, until: game.time + 1440 * (1.5 + Math.random() * 2) };
+      LIFE.emit("ill", n, {});
+    }
+    if (n.ill) {
+      n.mood = Math.max(0, (n.mood == null ? 50 : n.mood) - 0.4);
+      if (n.energy != null) n.energy = Math.max(5, n.energy - 0.6);
+    }
+  }
+}
+LF2.hourly.push(smallLifeHour);
 LF2.hourly.push(() => {
   for (const n of npcs) {
     if (n.dead || n.player || n.pose !== "sleep" || (n.hunger || 0) < 95) continue;
@@ -25605,7 +25620,7 @@ function farmFlowerBuyers() {
   logTrade(b, gr.n, "flowers", 1, p, "buy");
 }
 LF2.hourly.push(() => farmFlowerBuyers());
-const FARM_RECIPE_BASE = ["job.Farmer", "job.Baker", "sys.economy", "sys.couples", "sys.cooking"];
+const FARM_RECIPE_BASE = ["job.Farmer", "job.Baker", "sys.economy", "sys.couples", "sys.cooking", "sys.smalllife"];
 function farmStart() {
   town.farmEcon = true;
   town.farmDay0 = Math.floor(game.time / 1440);
@@ -27504,7 +27519,7 @@ function talkPick(key, label) {
   }
   if (r.say !== void 0) {
     talkUI.say = r.say;
-    talkUI.q = label || "";
+    talkUI.q = r.you || label || "";
   }
   talkUI.opts = r.opts;
   renderTalk();
@@ -27747,13 +27762,14 @@ const WORLD = {
 const EVK = (id, family, o) => REG.define("event", id, Object.assign({ family, needs: [], tell: 0.3, tags: [] }, o || {}));
 for (const k of ["theft", "breakin", "pickpocket", "robbed", "cheat", "bribe", "escape", "arrest", "fined", "sabotage", "snoop", "blockdoor", "shutin"]) EVK(k, "crime", { tell: 0.7 });
 for (const k of ["quarrel", "brawl", "shove", "confront", "jealous", "rumour", "report"]) EVK(k, "social", { tell: 0.6 });
+for (const k of ["lent_hand", "sick_visit"]) EVK(k, "people", { tell: 0.25 });
 for (const k of ["gift", "help", "charity", "dole", "repair", "distract"]) EVK(k, "people", { tell: 0.4 });
 for (const k of ["crush", "courting", "tryst"]) EVK(k, "romance", { tell: 0.7 });
 for (const k of ["dice", "sing", "stumble", "smelly", "newclothes", "knock", "wake"]) EVK(k, "daily", { tell: 0.2 });
 EVK("arrival", "place", { tell: 0.9 });
 EVK("bought", "trade", { needs: ["item", "qty"], tell: 0.25 });
 EVK("sold", "trade", { needs: ["item", "qty"], tell: 0.2 });
-EVK("could_not_afford", "trade", { needs: ["item"], tell: 0.4 });
+EVK("could_not_afford", "trade", { needs: ["item"], tell: 0.4, tags: ["misfortune"] });
 EVK("out_of_stock", "trade", { needs: ["item"], tell: 0.4 });
 EVK("new_in_stock", "trade", { needs: ["item"], tell: 0.55 });
 EVK("price_up", "trade", { needs: ["item"], tell: 0.4 });
@@ -27782,6 +27798,10 @@ EVK("no_privy", "body", { tell: 0.6, tags: ["misfortune"] });
 EVK("washed", "body", { tell: 0.1 });
 EVK("tired", "body", { tell: 0.2 });
 EVK("ill", "body", { tell: 0.6, tags: ["health"] });
+EVK("recovered", "body", { tell: 0.5 });
+EVK("worked_with", "people", { needs: ["with"], tell: 0.3 });
+EVK("ate_with", "people", { needs: ["with"], tell: 0.3 });
+EVK("found", "daily", { needs: ["thing"], tell: 0.6 });
 EVK("got_bed", "home", { tell: 0.5 });
 EVK("lost_bed", "home", { tell: 0.7, tags: ["misfortune"] });
 EVK("moved_house", "home", { tell: 0.6 });
@@ -27908,7 +27928,7 @@ LIFE.recent = function(n, listener) {
     const def = REG.get("event", e.kind);
     if (!def || e.data && e.data.ev != null) continue;
     if (!LEX.some((l) => l.act === "life:" + e.kind)) continue;
-    const key = e.kind + "|" + (e.data.item || e.data.seed || e.data.where || ""), g = groups[key] || (groups[key] = { kind: e.kind, def, data: Object.assign({}, e.data, { qty: 0 }), ids: [], t: e.t, trouble: (def.tags || []).includes("misfortune") });
+    const key = e.kind + "|" + (e.data.item || e.data.seed || e.data.where || e.data.with || e.data.thing || ""), g = groups[key] || (groups[key] = { kind: e.kind, def, data: Object.assign({}, e.data, { qty: 0 }), ids: [], t: e.t, trouble: (def.tags || []).includes("misfortune") });
     g.data.qty += e.data.qty || 1;
     g.ids.push(e.id);
     g.t = Math.max(g.t, e.t);
@@ -27975,6 +27995,12 @@ const TM = {
   /** remember an event: how (saw | did | felt | told | overheard), how sure, from whom, and *my version* of it (who I think did it, how bad) */
   addEv(n, ev, how, conf, from, hop, ver) {
     if (TM.ofEv(n, ev.id)) return null;
+    if ((how === "told" || how === "overheard") && ev.know && !(n.kn && n.kn[ev.id])) {
+      const who = ver && ver.who != null ? ver.who : null;
+      (n.kn || (n.kn = {}))[ev.id] = { t: game.time, from: from ? from.id : null, cert: conf, a: who != null, who: who != null ? who : void 0, hop: hop || 0, imp: 0.5 };
+      ev.know.push(n.id);
+      if (from && ev.chain) ev.chain.push({ from: from.id, to: n.id, t: game.time });
+    }
     return TM.add(n, { kind: how, ev: ev.id, evk: ev.kind, conf, imp: TE.importance(n, ev), from: from ? from.id : null, hop: hop || 0, ver: ver || { who: ev.actor, sev: ev.sev }, told: [] });
   },
   ofEv(n, evId) {
@@ -28080,7 +28106,7 @@ const TE = {
     (m.told = m.told || []).push(li.id);
     if (m.secret && typeof secretLeak === "function") secretLeak(m, sp, li, ev);
     const j = TE.appraise(li, ev, ver, conf, sp), actor = ver.who != null ? lf2By(ver.who) : null;
-    if (actor && actor !== li && j.v !== 0) lfAff(li, actor, j.v * conf * 3, "heard what " + actor.first + " did");
+    if (actor && actor !== li && j.v !== 0) lfAff(li, actor, j.v * conf * 3, ver.who === ev.actor ? "ev:" + ev.id : "heard what " + actor.first + " did");
     return { mem, ver, conf, react: j.react, text: TE.text(ev, ver) };
   },
   /** how a listener takes a piece of news: one of shock, amused, sympathy, doubt, delight, unmoved */
@@ -28149,7 +28175,7 @@ const ACTS = {
   /* ---- world: news and what people make of it ---- */
   ask_news: { kind: "world", stage: "topic", when: (c, sp, li) => !c.done.ask_news && !c.done.share_news && !TE.pick(sp, li, c), w: (c, sp) => 0.7 + (talkHas(sp, "curious") || talkHas(sp, "gossipy") ? 0.8 : 0), apply: (c) => {
     c.done.ask_news = 1;
-  }, replies: ["share_news", "no_news"] },
+  }, replies: ["share_news", "report_day", "no_news"] },
   no_news: { kind: "world", stage: "topic", reply: true, when: (c, sp, li) => !TE.pick(sp, li, c), apply: () => {
   }, replies: [] },
   share_news: {
@@ -28195,7 +28221,8 @@ const ACTS = {
     stage: "topic",
     preview: (c) => {
       const g = c.life;
-      return { line: "life:" + g.kind, qty: g.data.qty || 1, item: g.data.seed ? WORLD.name("seed", g.data.seed) : g.data.item ? WORLD.name("item", g.data.item) : "", shop: g.data.place || "" };
+      const wo = g.data.with != null ? byId(g.data.with) : null;
+      return { line: "life:" + g.kind, qty: g.data.qty || 1, item: g.data.thing || (g.data.seed ? WORLD.name("seed", g.data.seed) : g.data.item ? WORLD.name("item", g.data.item) : ""), shop: g.data.place || "", about: wo ? wo.first : void 0 };
     },
     when: (c, sp, li) => (c.done.report_day || 0) < 2 && !!(c.life = LIFE.recent(sp, li)[0]),
     w: (c) => 0.9 + 2 * Math.min(1, c.life ? c.life.score : 0),
@@ -28210,7 +28237,11 @@ const ACTS = {
       c.lifeShop = g.data.place || "";
       c.lifeQty = g.data.qty || 1;
       c.lifeTrouble = g.trouble;
-      c.lifeItem = g.data.seed ? WORLD.name("seed", g.data.seed) : g.data.item ? WORLD.name("item", g.data.item) : "";
+      c.lifeItem = g.data.thing || (g.data.seed ? WORLD.name("seed", g.data.seed) : g.data.item ? WORLD.name("item", g.data.item) : "");
+      {
+        const wo = g.data.with != null ? byId(g.data.with) : null;
+        c.aboutName = wo ? wo.first : void 0;
+      }
       c.done.report_day = (c.done.report_day || 0) + 1;
       (li.heardLife || (li.heardLife = {}))[sp.id + ":" + g.ids[g.ids.length - 1]] = 1;
       TM.add(li, { kind: "told_life", with: sp.id, lk: g.kind, data: g.data, conf: 0.9, imp: Math.min(0.6, g.def.tell) });
@@ -28226,6 +28257,7 @@ const ACTS = {
   }, replies: [] }
 };
 function talkState(n) {
+  if (n.ill) return "ill";
   if (n.hunger > 70) return "hungry";
   if (n.energy != null && n.energy < 30) return "tired";
   if (n.mood != null && n.mood > 78) return "glad";
@@ -28500,7 +28532,7 @@ function lxSlots(sp, li, c, ctx2) {
     job: String(sp.job || "daily").toLowerCase(),
     state: ctx2.state,
     clock: lxClock(),
-    money: lxMoney(c.price),
+    money: c.price != null ? lxMoney(c.price) : void 0,
     price: c.price != null ? String(c.price) : void 0,
     about: c.about || void 0,
     reason: c.reason || "",
@@ -28516,6 +28548,10 @@ function lxSlots(sp, li, c, ctx2) {
 }
 const LX_MISS = {};
 const lxSlotsOf = (e) => e.sl || (e.sl = (e.text.match(/\{(\w+)\}/g) || []).map((x) => x.slice(1, -1)));
+const lxMarked = (t) => {
+  const u = t.replace(/\{(news|reason)\}[.?]?/g, "").replace(/^\s*(\{li\}|[A-Z][a-z]+)[.,]\s+/, "").trim();
+  return /[.?!…:]\s+\S/.test(u) || u.split(/\s+/).length > 11;
+};
 function lxSay(act, sp, li, c) {
   const ctx2 = lxContext(sp, li, c);
   const slots = lxSlots(sp, li, c, ctx2);
@@ -28533,6 +28569,11 @@ function lxSay(act, sp, li, c) {
   let cands = pool(pk);
   if (!cands.length) cands = pool("plain");
   if (!cands.length) return "";
+  const spare = c.menu || sp.sinceAside != null && sp.sinceAside < 3;
+  if (spare && !act.startsWith("ev:")) {
+    const short = cands.filter((e) => !lxMarked(e.text));
+    if (short.length) cands = short;
+  }
   let best = null, bs = -1e9;
   for (const e of cands) {
     const id = act + "|" + e.text, g = LX_RECENT[id];
@@ -28546,7 +28587,9 @@ function lxSay(act, sp, li, c) {
   heard[act + "|" + best.text] = game.time;
   LX_RECENT[act + "|" + best.text] = game.time;
   const raw = best.text.replace(/\{(\w+)\}/g, (_m, k) => slots[k] != null ? slots[k] : "");
-  const voiced = c.menu ? raw : lxVoice(sp, li, act, pk, lxTic(sp, act, pk, raw));
+  const plainNow = spare || lxMarked(best.text);
+  const voiced = c.menu ? raw : plainNow && lxRegister(sp) === "chatty" ? raw : lxVoice(sp, li, act, pk, plainNow ? raw : lxTic(sp, act, pk, raw));
+  if (!c.menu && !act.startsWith("ev:")) sp.sinceAside = lxMarked(best.text) || voiced.length > raw.length + 8 ? 0 : (sp.sinceAside == null ? 3 : sp.sinceAside) + 1;
   return placeWords(voiced.replace(/\s{2,}/g, " ").replace(/\s+$/, "").replace(/(^|[.!?]\s+)([a-z])/g, (_m, a, b) => a + b.toUpperCase()));
 }
 function lxCount(qty, name) {
@@ -28824,7 +28867,7 @@ function peopleReason(a, b) {
   const L = a.why && a.why[b.id] || [], sgn = Math.sign(a.aff[b.id] || 0);
   const rf = a.refl && a.refl[b.id];
   if (rf && (rf.w === "good" && sgn >= 0 || rf.w === "unkind" && sgn <= 0) && Math.random() < 0.6) return (b.female ? "She" : "He") + (rf.w === "good" ? " is always good to me." : " is never kind to me.");
-  const best = L.filter((x) => !PEOPLE_GENERIC.includes(x.why) && (sgn === 0 || Math.sign(x.v) === sgn)).sort((x, y) => Math.abs(y.v) - Math.abs(x.v))[0];
+  const best = L.filter((x) => !PEOPLE_GENERIC.includes(x.why) && (sgn === 0 || Math.sign(x.v) === sgn)).sort((x, y) => Math.abs(y.v) * (/^heard/.test(y.why) ? 0.4 : 1) - Math.abs(x.v) * (/^heard/.test(x.why) ? 0.4 : 1))[0];
   const f = a.fam || {}, g = b.fam || {}, rel = f.spouse === b.id ? "spouse" : f.partner === b.id ? "partner" : (f.kids || []).includes(b.id) ? "child" : f.mother === b.id || f.father === b.id ? "parent" : f.mother != null && f.mother === g.mother || f.father != null && f.father === g.father ? "sibling" : a.rel && a.rel[b.id], gender = b.female ? "She" : "He";
   if (best) {
     if (/^ev:/.test(best.why)) {
@@ -28847,7 +28890,7 @@ function peopleAbout(sp, li, need) {
 function peopleHear(li, from, about, word, reason) {
   TM.add(li, { kind: "opinion", about: about.id, from: from.id, word, reason, conf: 0.8, imp: 0.3 });
   const dir = word === "fond" ? 1.5 : word === "like" ? 0.8 : word === "dislike" ? -1.5 : word === "wary" ? -0.8 : 0;
-  if (dir && li.aff) lfAff(li, about, dir * (0.5 + Math.max(0, li.aff[from.id] || 0) / 100), "heard what " + from.first + " thinks of " + about.first);
+  if (dir && li.aff) lfAff(li, about, dir * (0.5 + Math.max(0, li.aff[from.id] || 0) / 100), "heard that " + from.first + (dir > 0 ? " thinks well of " : " thinks little of ") + (about.female ? "her" : "him"));
 }
 const peopleYou = (text, li) => !li || !text ? text : text.replace(new RegExp("what " + li.first + " thinks", "g"), "what you think").replace(new RegExp("\\b" + li.first + "\\b", "g"), "you");
 const peopleSet = (c, sp, about, li) => {
@@ -30848,6 +30891,153 @@ for (const t of ["I'm glad. I was nervous.", "Good. Good. I wasn't sure.", "Well
 for (const t of ["Good. I had rehearsed a second answer in case. I will keep it.", "I am glad. I was a little frightened. That is private.", "Well. That has gone better than the version in my head."]) lxi("glad_courtship", t);
 ACTS.glad_courtship = { kind: "romance", stage: "topic", reply: true, when: () => true, w: () => 1, apply: () => {
 }, replies: [] };
+function stateWhy(n, state2) {
+  const log = (n.day || []).filter((e) => game.time - e.t < 2880).map((e) => e.kind);
+  const felt = (n.tmem || []).filter((m) => m.kind === "felt" && game.time - m.t < 1440 * 5).map((m) => m.evk);
+  if (felt.includes("home_destroyed")) return "has not been the same since the house came down";
+  if (felt.includes("caught_on_privy") || felt.includes("caught_bathing")) return "is still not over being walked in on";
+  if (felt.includes("furniture_removed") || felt.includes("bed_moved")) return "had the bed taken from under them, more or less";
+  if (n.ill) return "has a fever";
+  if (n.homeless || !n.bed || n.bed.x == null) return "has no bed to go to";
+  if (log.includes("starving") || log.includes("went_hungry")) return "has not had a proper meal in days";
+  if (log.includes("could_not_afford")) return "could not pay for what was needed";
+  if (log.includes("slept_rough")) return "slept on the ground last night";
+  if (log.includes("no_privy")) return "could not find a privy when it mattered";
+  if (state2 === "tired" && n.job) return "has been at the " + String(n.job).toLowerCase() + " work since first light";
+  return "";
+}
+ACTS.ask_why_state = { kind: "person", stage: "topic", reply: true, when: (c) => !!c.about && ["low", "tired", "hungry"].includes(c.state), w: () => 1, apply: () => {
+}, replies: ["explain_state", "explain_unknown"] };
+ACTS.explain_state = { kind: "person", stage: "topic", reply: true, when: (c) => !!c.about && !!stateWhy(c.about, c.state), w: () => 3, apply: (c) => {
+  c.reason = stateWhy(c.about, c.state);
+}, replies: [] };
+ACTS.explain_unknown = { kind: "person", stage: "topic", reply: true, when: (c) => !!c.about && !stateWhy(c.about, c.state), w: () => 3, apply: () => {
+}, replies: [] };
+ACTS.ask_family.follow = ["ask_why_state"];
+ACTS.ask_more_day = { kind: "life", stage: "topic", reply: true, when: (c, sp, li) => (c.done.report_day || 0) === 1 && LIFE.recent(li, sp).length > 0, w: () => 1, apply: () => {
+}, replies: ["report_day"] };
+ACTS.ask_day.follow = ["ask_more_day"];
+LXP("ask_why_state", ["Why? What's happened?", "Oh? What's the matter?", "Is something wrong?"]);
+LXI("ask_why_state", ["Why? What happened? You can give me the short version.", "What is the matter? I would rather know.", "Is something wrong? I mean in particular."]);
+LXP("explain_state", ["{about} {reason}.", "Well. {about} {reason}. That'll do it.", "{about} {reason}, that's why."]);
+LXI("explain_state", ["{about} {reason}. I do not think there is more to it than that.", "{about} {reason}. It would do it to anyone.", "It is simple. {about} {reason}."]);
+LXP("explain_unknown", ["I couldn't tell you. {about} won't say.", "No idea. I've asked."]);
+LXI("explain_unknown", ["I do not know. {about} has not said, and I have stopped asking.", "Nobody knows. {about} least of all."]);
+LXP("ask_more_day", ["And besides that?", "Anything else?", "And the rest of the day?"]);
+LXI("ask_more_day", ["And apart from that? I am interested in the whole of it.", "Anything else? I have time for a second thing.", "And after that?"]);
+LXL("worked_with", ["Worked alongside {about} today. Good company in a field.", "{about} and I got through a fair bit together today.", "Spent the day working next to {about}."], ["I worked beside {about} today. We said about nine words. They were the right ones.", "{about} and I worked the same ground today. It goes faster with two, or it feels as though it does.", "I spent the day next to {about}. I know how {about} breathes when the work is hard now."]);
+LXL("ate_with", ["Had a bite with {about} earlier.", "Ate with {about} today. Makes a change from eating alone.", "{about} and I shared a table at midday."], ["I ate with {about}. Neither of us mentioned it. It was pleasant.", "{about} and I had a meal at the same time, in the same place. I am calling it lunch together.", "I shared a table with {about}. The bread was ordinary and I remember it."]);
+LXL("found", ["Found {item} this morning. No idea whose.", "Look what I picked up: {item}.", "I found {item} by the path. Keeping it."], ["I found {item}. I do not know what it is for. I have decided it is mine.", "There was {item} on the ground. I picked it up before I had thought about it.", "I found {item} today. It was not there yesterday. I have asked nobody."]);
+LXL("ill", ["I'm not well. Something's got hold of me.", "Feeling rough. Fever, I think.", "I'm under the weather. Keep your distance."], ["I am unwell. It arrived in the night, like the rest of us.", "I have a fever. I am told it is the ordinary kind. I do not find that comforting.", "I am not well. I am upright, which I am counting."]);
+LXL("recovered", ["I'm over it. Back on my feet.", "Feeling myself again, thank goodness.", "The fever's gone. I could eat a horse."], ["I am better. I woke up and it had gone, without a word.", "The fever has left. I did not see it go. I am not going to look for it.", "I am well again. Everything tastes of something."]);
+LXP("answer_how", ["Not well. Fever.", "Rough, to be honest. I'm ill.", "Poorly. I'll be all right."], { state: "ill" });
+LXI("answer_how", ["Unwell. I have a fever and an opinion about it.", "Not well. I am upright. That is the summary.", "Ill. It is the ordinary kind, I am told, by people who do not have it."], { state: "ill" });
+LXP("answer_family", ["{about} is ill. A fever.", "{about}'s poorly. In bed, mostly."], { state: "ill" });
+LXI("answer_family", ["{about} is ill. A fever. I have been bringing water and being told to go away.", "{about} is unwell. It is not serious. It is not nothing."], { state: "ill" });
+LXP("sympathise_how", ["You should be in bed. Go on.", "Oh, you poor thing. Rest. I mean it."], { state: "ill" });
+LXI("sympathise_how", ["You should be lying down. I will say it again if you are still here in a minute.", "I am sorry. Rest. The island will manage without you for a day. It managed before."], { state: "ill" });
+LXP("vent", ["I feel dreadful. Hot and cold at once."], { state: "ill" });
+LXI("vent", ["I feel dreadful. I am hot and cold, and I cannot decide which to complain about."], { state: "ill" });
+LXP("remark_state", ["I shouldn't be out. I'm not well."], { state: "ill" });
+LXI("remark_state", ["I should not be out. I am ill. I wanted to see whether the day was still here."], { state: "ill" });
+ACTS.sympathise_how.when = (c) => ["low", "tired", "hungry", "ill"].includes(c.state);
+{
+  const w0 = ACTS.vent.when;
+  ACTS.vent.when = (c, sp, li) => w0(c, sp, li) || !c.done.vent && talkState(sp) === "ill" && ((sp.aff[li.id] || 0) > 8 || sp.player);
+}
+ACTS.snap = {
+  kind: "feeling",
+  stage: "topic",
+  preview: () => ({}),
+  w: (c, sp) => 1.2 + (talkHas(sp, "prickly") || talkHas(sp, "grumpy") ? 1.5 : 0),
+  when: (c, sp, li) => !c.done.snap && !sp.player && sp.age >= 12 && ["low", "tired", "hungry", "ill"].includes(talkState(sp)) && (sp.aff[li.id] || 0) < 25 && (talkHas(sp, "prickly") || talkHas(sp, "grumpy") || sp.mood != null && sp.mood < 22) && game.time - (sp.snapT || -1e9) > 1440,
+  apply: (c, sp, li) => {
+    c.done.snap = 1;
+    sp.snapT = game.time;
+    c.left[sp.id] = 0;
+    c.left[li.id] = Math.min(c.left[li.id], 0.9);
+    lfAff(li, sp, -3, "snapped at me");
+    lfEmit("quarrel", { actor: sp, target: li, sev: 1, tags: ["nuisance"], chron: false, text: `${sp.first} snapped at ${li.first}` });
+  },
+  replies: ["snap_back", "let_it_go"]
+};
+ACTS.snap_back = { kind: "feeling", stage: "topic", reply: true, when: (c, sp, li) => talkHas(sp, "prickly") || talkHas(sp, "proud") || (sp.aff[li.id] || 0) < 0, w: () => 2, apply: (c, sp, li) => {
+  lfAff(li, sp, -2, "snapped back");
+}, replies: [] };
+ACTS.let_it_go = { kind: "feeling", stage: "topic", reply: true, when: () => true, w: () => 1.5, apply: () => {
+}, replies: [] };
+LXP("snap", ["Not now. I've no patience left today.", "Oh, leave it, will you.", "Do I look like I want to talk?"]);
+LXI("snap", ["Not now. I have used up my patience and it is not yet noon.", "Please. Not today. I am holding the day together with one hand.", "I do not want to talk. I want that to be enough."]);
+LXP("snap_back", ["No need for that.", "Charming. I was only asking.", "Suit yourself."]);
+LXI("snap_back", ["There was no need for that. I will remember there was no need.", "I was only asking. I will ask somebody else, then, about everything.", "Very well. I withdraw the hello."]);
+LXP("let_it_go", ["All right. Another time.", "Fair enough. I'll leave you be."]);
+LXI("let_it_go", ["All right. Another time. There is plenty of it.", "I will leave you be. It is the thing I am best at."]);
+lx("ev:lent_hand", "plain", "{a} lent {t} a hand with the work");
+lx("ev:lent_hand", "island", "{a} did an hour of {t}'s work, unasked");
+lx("ev:sick_visit", "plain", "{a} looked in on {t}, who is ill");
+lx("ev:sick_visit", "island", "{a} sat with {t}, who is ill");
+{
+  const S = (act, lines, tags = {}) => {
+    for (const t of lines) lxi(act, t, tags);
+  };
+  S("greet", ["Hello, {li}.", "Morning.", "There you are.", "{li}.", "Good day.", "Hello."]);
+  S("greet_back", ["Hello.", "Hello, {li}.", "Morning.", "Good day.", "Yes. Hello."]);
+  S("farewell", ["Goodbye.", "I will go on, then.", "See you, {li}.", "I should get back.", "Until later.", "Be well.", "That is me.", "Right. Goodbye."]);
+  S("farewell_back", ["Goodbye.", "See you.", "Go well."]);
+  S("pre_close", ["I should get on.", "Well. I have things to see to.", "I will let you go.", "That is all I had.", "I must go."]);
+  S("remark_place", ["It is quiet here.", "This is a good spot.", "Nobody about.", "The path wants mending.", "I like this corner."]);
+  S("remark_work", ["There is plenty to do.", "The work goes on.", "I am behind, a little.", "It was a full morning.", "The work is the same as yesterday."]);
+  S("remark_state", ["I am hungry.", "I could eat."], { state: "hungry" });
+  S("remark_state", ["I am tired.", "I want to sit down."], { state: "tired" });
+  S("remark_state", ["I feel well today.", "It is a good day."], { state: "glad" });
+  S("remark_state", ["I am a little low.", "It is not my best day."], { state: "low" });
+  S("remark_state", ["I am not well.", "I have a fever."], { state: "ill" });
+  S("ask_how", ["How are you?", "How are you keeping?", "Are you well?", "How is it with you?"]);
+  S("ask_news", ["Any news?", "What is being said?", "Has anything happened?", "What have I missed?"]);
+  S("no_news", ["Nothing.", "No. Nothing.", "Not that I have heard.", "It has been quiet.", "Nothing new."]);
+  S("share_news", ["{news}.", "You will not have heard. {news}.", "There is this. {news}."]);
+  S("share_news", ["I saw this. {news}.", "{news}. I was there."], { how: "saw" });
+  S("share_news", ["I am told {news}.", "They say {news}."], { how: "told" });
+  S("share_news", ["I overheard this. {news}."], { how: "overheard" });
+  S("share_news", ["I am not sure of it. {news}.", "Possibly. {news}."], { conf: "low" });
+  S("react_shock", ["No.", "That is bad.", "I did not expect that."]);
+  S("react_amused", ["Ha.", "That is quite funny.", "I should not laugh."]);
+  S("react_sympathy", ["Poor soul.", "That is hard.", "I am sorry to hear it."]);
+  S("react_doubt", ["Are you sure?", "I doubt that.", "Who says so?"]);
+  S("react_delight", ["Good.", "I am glad.", "That is good to hear.", "Well. Good.", "That was kind."]);
+  S("ask_day", ["How was your day?", "What did you do today?", "What have you been at?", "Busy day?"]);
+  S("nothing_much", ["Not much.", "Very little.", "The usual.", "Nothing to speak of."]);
+  S("empathise", ["I am sorry.", "That is hard.", "That is a bad day.", "I know."]);
+  S("acknowledge", ["Good.", "Well done.", "That is a fair day."]);
+  S("agree_opinion", ["I think so too.", "Yes. The same.", "That is how I find them."]);
+  S("ask_opinion", ["What do you make of {about}?", "How do you find {about}?", "Do you know {about}?"]);
+  S("ask_family", ["How is {about}?", "Is {about} well?", "How is {about} keeping?"]);
+  for (const [st, ls] of [["fine", ["{about} is well.", "{about} is fine."]], ["hungry", ["{about} is hungry."]], ["tired", ["{about} is tired.", "{about} is worn out."]], ["glad", ["{about} is in good spirits."]], ["low", ["{about} is low.", "{about} has been quiet."]], ["ill", ["{about} is ill.", "{about} has a fever."]]]) S("answer_family", ls, { state: st });
+  for (const [st, ls] of [["fine", ["Well enough.", "I am well.", "Fine."]], ["hungry", ["Hungry.", "I have not eaten."]], ["tired", ["Tired.", "I am worn out."]], ["glad", ["Well. Very well.", "It is a good day."]], ["low", ["Not at my best.", "A little low."]], ["ill", ["Not well.", "I have a fever."]]]) S("answer_how", ls, { state: st });
+  const L = (k, ls) => S("life:" + k, ls);
+  L("slept", ["I slept well.", "I had a full night."]);
+  L("slept_rough", ["I slept on the ground.", "I slept outside again.", "I had no bed last night."]);
+  L("no_privy", ["I could not find a privy.", "There was no privy free."]);
+  L("went_hungry", ["I have not eaten today.", "I went without a meal."]);
+  L("starving", ["I have not eaten in two days."]);
+  L("tired", ["I am worn out.", "I have been on my feet all day."]);
+  L("ate", ["I had a proper meal.", "I ate well today."]);
+  L("planted", ["I planted {things}.", "I put in {things} today.", "{things}, in the ground."]);
+  L("harvested", ["I harvested {things}.", "I brought in {things}.", "{things}, out of the ground."]);
+  L("bought", ["I bought {things}.", "I got {things} at the market."]);
+  L("sold", ["I sold {things}.", "I took {things} to the stall."]);
+  L("baked", ["I baked {things}.", "{things}, out of the oven."]);
+  L("new_in_stock", ["The {shop} has {item} now.", "There is {item} at the {shop}."]);
+  L("out_of_stock", ["The {shop} is out of {item}.", "There was no {item} to be had."]);
+  L("could_not_afford", ["I could not afford {item}.", "I had not the money for {item}."]);
+  L("price_up", ["{item} has gone up.", "{item} costs more at the {shop} now."]);
+  L("price_down", ["{item} has come down.", "{item} is cheaper at the {shop} now."]);
+  L("worked_with", ["I worked beside {about} today.", "{about} and I did the same rows."]);
+  L("ate_with", ["I ate with {about}.", "{about} and I shared a table."]);
+  L("found", ["I found {item}.", "I picked up {item} today."]);
+  L("ill", ["I am not well.", "I have a fever."]);
+  L("recovered", ["I am better.", "The fever has gone."]);
+}
 TALK.log = [];
 TALK.words = false;
 TALK.running = true;
@@ -30857,7 +31047,7 @@ function talkBudget(n, o) {
   if (n.hunger > 80) b -= 1;
   return Math.max(1, b);
 }
-const TALK_PURPOSE = ["raise_deed", "ask_favour", "chase_favour", "confront_jealous", "declare", "ask_to_walk", "propose", "flirt", "confide", "story_preface", "share_news", "warn", "apologise", "send_gift", "offer_gift", "callback", "report_day", "ask_day"];
+const TALK_PURPOSE = ["raise_deed", "ask_favour", "chase_favour", "confront_jealous", "declare", "ask_to_walk", "propose", "flirt", "confide", "story_preface", "share_news", "warn", "apologise", "send_gift", "offer_gift", "callback", "report_day", "ask_day", "snap"];
 function talkBind(c, sp, li, id) {
   const A = ACTS[id];
   if (!A) return null;
@@ -30877,7 +31067,7 @@ function talkChoose(c, sp, li, ids) {
     const A = ACTS[id];
     if (!A || !TALK.on[A.kind]) continue;
     const bind = talkBind(c, sp, li, id);
-    if (!bind) continue;
+    if (!bind || talkStale(c, sp, li, id, bind)) continue;
     const base = A.w ? A.w(talkView(c, bind), sp, li) : 1;
     const purpose = first && !A.reply && TALK_PURPOSE.includes(id) ? 5 : 1;
     opts.push({ id, bind, w: Math.max(0.05, base * (0.8 + Math.random() * 0.4) * purpose) });
@@ -30928,9 +31118,49 @@ function talkTurn(c, sp, li, id, bind) {
     const lk = talkLinkOf(c);
     if (lk) t.x.link = lk;
   }
+  if (topic) talkNote(c, sp, li, id);
   c.turns.push(t);
   c.last = id;
   return t;
+}
+const TALK_AGAIN = { small: 720, person: 4320, feeling: 720, gift: 1440, world: 360, life: 240 };
+const talkKey = (c, id) => id + "|" + (c.aboutName || c.about && c.about.first || c.lifeItem || "");
+function talkNote(c, sp, li, id) {
+  const all = sp.saidTo || (sp.saidTo = {}), mine = all[li.id] || (all[li.id] = {});
+  mine[talkKey(c, id)] = game.time;
+  const about = c.about && c.about.id != null ? c.about.id : null;
+  if (about != null) (c.aboutSeen || (c.aboutSeen = [])).push(about);
+  const keys = Object.keys(mine);
+  if (keys.length > 60) {
+    for (const k of keys) if (game.time - mine[k] > 7200) delete mine[k];
+  }
+}
+function talkStale(c, sp, li, id, bind) {
+  const A = ACTS[id];
+  if (!A || A.reply || A.stage !== "topic") return false;
+  const v = talkView(c, bind), about = v.about && v.about.id != null ? v.about.id : null;
+  if (about != null && (c.aboutSeen || []).includes(about)) return true;
+  const again = TALK_AGAIN[A.kind];
+  if (!again) return false;
+  const t = ((sp.saidTo || {})[li.id] || {})[id + "|" + (v.about && v.about.first || "")];
+  return t != null && game.time - t < again;
+}
+function talkRitual(a, b) {
+  const gap = game.time - TM.lastTalk(a, b), house = !!a.homeRoom && a.homeRoom === b.homeRoom && !a.homeRoom.dead;
+  if (gap < 180 || house && gap < 720) return 0;
+  if (house || gap < 1440 || (a.aff[b.id] || 0) > 40) return 1;
+  return 2;
+}
+function talkAgenda(c, sp, li) {
+  const out = [];
+  for (const id of TALK_PURPOSE) {
+    const A = ACTS[id];
+    if (!A || A.reply || !TALK.on[A.kind]) continue;
+    const bind = talkBind(c, sp, li, id);
+    if (!bind || talkStale(c, sp, li, id, bind)) continue;
+    out.push({ id, w: (A.w ? A.w(talkView(c, bind), sp, li) : 1) * (0.8 + Math.random() * 0.4) });
+  }
+  return out.sort((x, y) => y.w - x.w).slice(0, 2).map((x) => x.id);
 }
 function talkWords(t, a, b) {
   const s = t.by === a.id ? a : b, o = s === a ? b : a;
@@ -30941,48 +31171,73 @@ function talkWords(t, a, b) {
 function talkRun(a, b, listened, short) {
   const r = Math.random(), f = r < 0.25 ? 0.5 : r > 0.85 ? 1.5 : 1;
   const left = short ? { [a.id]: 1.6, [b.id]: 1.6 } : { [a.id]: talkBudget(a, b) * f, [b.id]: talkBudget(b, a) * f };
-  const c = { a, b, stage: "open", done: {}, turns: [], short: !!short, left, last: null, t0: game.time };
-  const say2 = (sp2, li2, id) => {
-    talkTurn(c, sp2, li2, id);
-  };
-  let sp = a, li = b;
-  if (TALK.on.ritual) {
-    say2(sp, li, "greet");
-    say2(li, sp, "greet_back");
+  const c = { a, b, stage: "topic", done: {}, turns: [], short: !!short, left, last: null, t0: game.time };
+  const ritual = TALK.on.ritual ? Math.min(talkRitual(a, b), short ? 1 : 2) : 0;
+  const agenda = { [a.id]: talkAgenda(c, a, b), [b.id]: talkAgenda(c, b, a) };
+  if (ritual === 0 && !agenda[a.id].length && !agenda[b.id].length) return c;
+  const say2 = (sp2, li2, id, bind) => talkTurn(c, sp2, li2, id, bind);
+  if (ritual >= 1) {
+    c.stage = "open";
+    say2(a, b, "greet");
+    say2(b, a, "greet_back");
+    c.stage = "topic";
   }
-  c.stage = "topic";
+  let sp = a, li = b, small = 0;
+  const smallMax = ritual === 0 ? 0 : short ? 1 : 2;
   while (c.turns.length < 26 && c.left[sp.id] > 1 && c.left[li.id] > 0.5) {
-    const id = talkChoose(c, sp, li, TALK_TOPICS());
-    if (!id) break;
-    say2(sp, li, id);
+    let id = null, bind = null;
+    while (agenda[sp.id].length && !id) {
+      const want = agenda[sp.id].shift();
+      bind = talkBind(c, sp, li, want);
+      if (bind && !talkStale(c, sp, li, want, bind)) id = want;
+    }
+    if (!id && agenda[li.id].length) {
+      const t = sp;
+      sp = li;
+      li = t;
+      continue;
+    }
+    if (!id) {
+      if (small >= smallMax) break;
+      id = talkChoose(c, sp, li, TALK_TOPICS().filter((k) => !TALK_PURPOSE.includes(k)));
+      bind = null;
+      if (!id) break;
+      small++;
+    }
+    say2(sp, li, id, bind || void 0);
     c.left[sp.id] -= 1;
     if (!ACTS[id].replies.length && ACTS[id].kind !== "ritual" && Math.random() < 0.35) {
       say2(li, sp, "backchannel");
       c.left[li.id] -= 0.2;
     }
-    let cur = id, from = sp, to = li;
-    for (let d = 0; d < 4 && ACTS[cur].replies.length; d++) {
-      const reply = talkChoose(c, to, from, ACTS[cur].replies);
-      if (!reply || d === 0 && reply === "agree" && Math.random() < 0.3) break;
-      say2(to, from, reply);
-      c.left[to.id] -= 0.4;
-      cur = reply;
-      const t2 = from;
-      from = to;
-      to = t2;
+    talkAnswers(c, sp, li, id);
+    const follow = ACTS[id].follow;
+    if (follow && Math.random() < 0.6) {
+      const fid = talkChoose(c, sp, li, follow);
+      if (fid) {
+        say2(sp, li, fid);
+        talkAnswers(c, sp, li, fid);
+      }
     }
-    if (c.left[li.id] > c.left[sp.id]) {
+    if (c.left[li.id] > c.left[sp.id] || agenda[li.id].length) {
       const t = sp;
       sp = li;
       li = t;
     }
   }
+  if (!c.turns.some((t) => ACTS[t.act].stage === "topic") && ritual < 2) {
+    c.turns = [];
+    return c;
+  }
   c.stage = "close";
-  if (TALK.on.ritual) {
-    const closer = c.left[a.id] <= c.left[b.id] ? a : b, other = closer === a ? b : a;
+  const closer = c.left[a.id] <= c.left[b.id] ? a : b, other = closer === a ? b : a;
+  if (ritual === 2) {
     say2(closer, other, "pre_close");
     say2(other, closer, "farewell");
     say2(closer, other, "farewell_back");
+  } else if (ritual === 1) {
+    say2(closer, other, "farewell");
+    if (Math.random() < 0.5) say2(other, closer, "farewell_back");
   }
   for (const [x, y] of [[a, b], [b, a]]) {
     TM.add(x, { kind: "talked", with: y.id, imp: 0.2, n: c.turns.length, subj: c.lastSubj });
@@ -30991,6 +31246,19 @@ function talkRun(a, b, listened, short) {
   }
   talkFinish(c, a, b, listened);
   return c;
+}
+function talkAnswers(c, sp, li, id) {
+  let cur = id, from = sp, to = li;
+  for (let d = 0; d < 4 && ACTS[cur].replies.length; d++) {
+    const reply = talkChoose(c, to, from, ACTS[cur].replies);
+    if (!reply || d === 0 && reply === "agree" && Math.random() < 0.3) break;
+    talkTurn(c, to, from, reply);
+    c.left[to.id] -= 0.4;
+    cur = reply;
+    const t2 = from;
+    from = to;
+    to = t2;
+  }
 }
 function talkFinish(c, a, b, listened) {
   let lines = null;
@@ -31055,7 +31323,7 @@ ACTS.ask_price = { kind: "trade", stage: "topic", preview: (c) => ({ pitem: WORL
   c.done.ask_price = 1;
   c.priceName = WORLD.has("item", c.priceItem) ? WORLD.name("item", c.priceItem) : GOODS[c.priceItem].name;
 }, replies: ["tell_price"] };
-ACTS.tell_price = { kind: "trade", stage: "topic", reply: true, when: (c, sp) => !!c.priceItem && LIFE.lastPrice(sp, c.priceItem) != null, apply: (c, sp, li) => {
+ACTS.tell_price = { kind: "trade", stage: "topic", reply: true, preview: (c, sp) => ({ price: LIFE.lastPrice(sp, c.priceItem) }), when: (c, sp) => !!c.priceItem && LIFE.lastPrice(sp, c.priceItem) != null, apply: (c, sp, li) => {
   c.priceUnit = LIFE.lastPrice(sp, c.priceItem);
   TM.add(li, { kind: "price", item: c.priceItem, unit: c.priceUnit, from: sp.id, conf: 0.8, imp: 0.15 });
 }, replies: ["react_price"] };
@@ -31069,6 +31337,154 @@ function closenessWord(o, p) {
   if (a <= -25) return "not a friend";
   if (k > 25) return "acquaintance";
   return k > 4 ? "met before" : "stranger";
+}
+const PT_GROUPS = ["Answer", "Ask", "Tell", "Give", "Heart", "Small talk"];
+const PT_LABEL = {
+  remark_time: ["Small talk", "Remark on the hour"],
+  remark_place: ["Small talk", "Remark on the place"],
+  remark_work: ["Small talk", "Talk about work"],
+  remark_state: ["Small talk", "Say how you feel"],
+  joke: ["Small talk", "Make a joke"],
+  wonder: ["Small talk", "Wonder aloud"],
+  callback: ["Small talk", "Pick up where you left off"],
+  ask_how: ["Ask", "Ask how they are"],
+  ask_news: ["Ask", "Ask for news"],
+  ask_day: ["Ask", "Ask about their day"],
+  ask_opinion: ["Ask", "Ask what they think of {about}"],
+  ask_family: ["Ask", "Ask after {about}"],
+  ask_work: ["Ask", "Ask about their work"],
+  ask_where: ["Ask", "Ask where {about} is"],
+  ask_advice: ["Ask", "Ask for advice"],
+  ask_price: ["Ask", "Ask the price of {item}"],
+  ask_preference: ["Ask", "Ask what they like"],
+  ask_favour: ["Ask", "Ask a favour: {item}"],
+  chase_favour: ["Ask", "Remind them of their promise"],
+  ask_why_state: ["Ask", "Ask why"],
+  ask_more_day: ["Ask", "Ask to hear more"],
+  share_news: ["Tell", "Tell the news: {news}"],
+  story_preface: ["Tell", "Tell a story you heard"],
+  report_day: ["Tell", "Tell about your day"],
+  gossip_person: ["Tell", "Say what you think of {about}"],
+  tell_rep: ["Tell", "Tell what is said about {about}"],
+  warn: ["Tell", "Warn them about {about}"],
+  brag_child: ["Tell", "Talk about your child"],
+  tell_back: ["Tell", "Tell how you came here"],
+  confide: ["Tell", "Confide a secret"],
+  hint_gift: ["Tell", "Drop a hint about a gift"],
+  raise_deed: ["Tell", "Bring up what {about} did"],
+  offer_gift: ["Give", "Give a gift: {item}"],
+  send_gift: ["Give", "Ask them to take a gift to {about}"],
+  praise: ["Heart", "Praise them"],
+  vent: ["Heart", "Say what is weighing on you"],
+  apologise: ["Heart", "Apologise"],
+  flirt: ["Heart", "Flirt"],
+  declare: ["Heart", "Say what you feel for them"],
+  ask_to_walk: ["Heart", "Ask them to walk out with you"],
+  propose: ["Heart", "Propose marriage"],
+  confront_jealous: ["Heart", "Ask about {about}"],
+  snap: ["Heart", "Snap at them"],
+  // answers
+  answer_how: ["Answer", "Say how you are"],
+  share_gladness: ["Answer", "Be glad with them"],
+  sympathise_how: ["Answer", "Sympathise"],
+  no_news: ["Answer", "Say there is no news"],
+  nothing_much: ["Answer", "Say not much happened"],
+  react_shock: ["Answer", "Be shocked"],
+  react_amused: ["Answer", "Laugh at it"],
+  react_sympathy: ["Answer", "Feel for them"],
+  react_doubt: ["Answer", "Doubt it"],
+  react_delight: ["Answer", "Be glad of it"],
+  react_unmoved: ["Answer", "Shrug"],
+  empathise: ["Answer", "Sympathise"],
+  acknowledge: ["Answer", "Nod"],
+  agree: ["Answer", "Agree"],
+  give_opinion: ["Answer", "Say what you think of {about}"],
+  no_view: ["Answer", "Say you have no view"],
+  no_view_g: ["Answer", "Say you have no view"],
+  agree_opinion: ["Answer", "Agree about {about}"],
+  differ_opinion: ["Answer", "Disagree about {about}"],
+  answer_family: ["Answer", "Say how {about} is"],
+  answer_work: ["Answer", "Say how the work goes"],
+  deed_sorry: ["Answer", "Say you are sorry"],
+  deed_defend: ["Answer", "Defend what you did"],
+  deed_deny: ["Answer", "Deny it"],
+  deed_shrug: ["Answer", "Shrug it off"],
+  deed_blame: ["Answer", "Blame {about}"],
+  deed_forgive: ["Answer", "Forgive them"],
+  deed_cold: ["Answer", "Stay cold"],
+  deed_believe: ["Answer", "Believe them"],
+  deed_doubt: ["Answer", "Doubt them"],
+  gift_thanks: ["Answer", "Thank them"],
+  gift_delight: ["Answer", "Be delighted"],
+  gift_amends: ["Answer", "Accept it as amends"],
+  gift_refuse: ["Answer", "Refuse the gift"],
+  gift_loved: ["Answer", "Say you love it"],
+  gift_disliked: ["Answer", "Say it is not to your taste"],
+  tell_preference: ["Answer", "Say what you like"],
+  hint_noted: ["Answer", "Take the hint"],
+  deliver_yes: ["Answer", "Agree to take it"],
+  deliver_no: ["Answer", "Decline to take it"],
+  accept_apology: ["Answer", "Accept the apology"],
+  reject_apology: ["Answer", "Reject the apology"],
+  jealous_explain: ["Answer", "Explain"],
+  jealous_defiant: ["Answer", "Stand by it"],
+  jealous_deny: ["Answer", "Deny it"],
+  favour_give: ["Answer", "Give it to them"],
+  favour_promise: ["Answer", "Promise to see to it"],
+  favour_no: ["Answer", "Say no"],
+  favour_thanks: ["Answer", "Thank them"],
+  favour_hopeful: ["Answer", "Say you will wait"],
+  console: ["Answer", "Comfort them"],
+  shrug_off: ["Answer", "Make light of it"],
+  thank_praise: ["Answer", "Thank them"],
+  secret_keep: ["Answer", "Promise to keep it"],
+  secret_alarmed: ["Answer", "Be alarmed"],
+  flirt_back: ["Answer", "Flirt back"],
+  flirt_rebuff: ["Answer", "Turn it aside"],
+  declare_return: ["Answer", "Say you feel the same"],
+  declare_gentle: ["Answer", "Let them down gently"],
+  walk_yes: ["Answer", "Say yes"],
+  walk_later: ["Answer", "Say not yet"],
+  walk_no: ["Answer", "Say no"],
+  glad_courtship: ["Answer", "Be glad"],
+  propose_yes: ["Answer", "Say yes"],
+  propose_later: ["Answer", "Ask for time"],
+  propose_no: ["Answer", "Say no"],
+  rep_own: ["Answer", "Own up to it"],
+  rep_deny: ["Answer", "Deny it"],
+  story_invite: ["Answer", "Ask to hear it"],
+  callback_answer: ["Answer", "Answer"],
+  laugh: ["Answer", "Laugh"],
+  groan: ["Answer", "Groan"],
+  wonder_reply: ["Answer", "Wonder with them"],
+  tell_where: ["Answer", "Say where {about} is"],
+  dont_know_where: ["Answer", "Say you do not know"],
+  thanks_where: ["Answer", "Thank them"],
+  warn_thanks: ["Answer", "Thank them for the warning"],
+  give_advice: ["Answer", "Give advice"],
+  congratulate: ["Answer", "Congratulate them"],
+  tell_back_reply: ["Answer", "Take it in"],
+  explain_state: ["Answer", "Explain why"],
+  explain_unknown: ["Answer", "Say you do not know why"],
+  snap_back: ["Answer", "Snap back"],
+  let_it_go: ["Answer", "Let it go"],
+  tell_price: ["Answer", "Tell the price"],
+  react_price: ["Answer", "Remark on the price"]
+};
+function ptLabel(id, x) {
+  const L = PT_LABEL[id];
+  if (!L) return "";
+  let ok = true;
+  const t = L[1].replace(/\{(\w+)\}/g, (_m, k) => {
+    let v = k === "about" ? x.about || x.aboutName || x.them : x[k];
+    if (v == null || v === "") {
+      ok = false;
+      return "";
+    }
+    v = String(v);
+    return v.length > 46 ? v.slice(0, 44).replace(/\s+\S*$/, "") + "\u2026" : v;
+  });
+  return ok ? t : L[1].replace(/[:]?\s*(about |after |of |to |where )?\{\w+\}.*$/, "").trim();
 }
 function ptBegin(o, p) {
   const c = { a: p, b: o, stage: "open", done: {}, turns: [], left: { [p.id]: 99, [o.id]: talkBudget(o, p) + 1.5 }, last: null, t0: game.time, player: true };
@@ -31109,20 +31525,24 @@ function ptOptions(S) {
     }
     const x = A.preview ? A.preview(view2, p, o) : {};
     for (const k of Object.keys(view2)) if (view2[k] !== void 0) bind[k] = view2[k];
-    const label = lxSay(x.line || id, p, o, Object.assign({}, talkX(view2), x, { state: talkState(p) || "fine", menu: true }));
-    if (!label) continue;
+    const slots = Object.assign({}, talkX(view2), x, { state: talkState(p) || "fine", menu: true });
+    const line = lxSay(x.line || id, p, o, slots);
+    if (!line) continue;
     seen.add(id);
-    out.push({ id, bind, label, kind: A.kind, w: Math.random() + (A.kind !== "small" ? 0.6 : 0) });
+    const what = ptLabel(id, slots), group = PT_LABEL[id] ? PT_LABEL[id][0] : A.reply ? "Answer" : "Tell";
+    out.push({ id, bind, label: what || line, line, group, kind: A.kind, w: Math.random() + (A.kind !== "small" ? 0.6 : 0) });
   }
   out.sort((a, b) => b.w - a.w);
   const keep = out.slice(0, S.pending ? 6 : 5);
   if (!keep.some((q) => q.kind === "small") && out.some((q) => q.kind === "small")) keep[keep.length - 1] = out.find((q) => q.kind === "small");
+  for (const q of keep) if (keep.some((r) => r !== q && r.label === q.label)) q.label = q.line;
+  keep.sort((a, b) => PT_GROUPS.indexOf(a.group) - PT_GROUPS.indexOf(b.group));
   return keep;
 }
 function ptMenu(S, say2) {
   const c = S.c, o = S.o, p = S.p;
   if (S.closing) return { say: say2, opts: [["bye", serviceLeave(p, o)]] };
-  const polite = c.left[o.id] <= 0.5;
+  const polite = c.left[o.id] <= 0.5 && !S.pending;
   if (polite) {
     talkTurn(c, o, p, "pre_close");
     say2 += "\n" + talkWords(c.turns[c.turns.length - 1], p, o);
@@ -31150,10 +31570,11 @@ function ptStep(key) {
   }
   const i = +String(key).slice(1), q = S.opts[i];
   if (!q) return { close: true };
-  talkTurn(c, p, o, q.id, q.bind);
+  const mine = talkTurn(c, p, o, q.id, q.bind);
   S.pending = null;
   c.left[o.id] -= 0.6;
   const said = [];
+  const you = talkWords(mine, p, o) || q.line;
   const reps = ACTS[q.id].replies;
   let cont = null;
   if (reps && reps.length) {
@@ -31179,12 +31600,12 @@ function ptStep(key) {
     said.push(talkWords(t, p, o));
   }
   if (cont) S.pending = cont;
-  const r = ptMenu(S, said.filter(Boolean).join("\n") || "\u2026");
+  let r = ptMenu(S, said.filter(Boolean).join("\n") || "\u2026");
   if (S.pending && !r.opts.some((x) => x[0] !== "bye")) {
     S.pending = null;
-    const r2 = ptMenu(S, r.say);
-    return r2;
+    r = ptMenu(S, r.say);
   }
+  r.you = you;
   return r;
 }
 function ptEnd() {
@@ -31385,6 +31806,7 @@ function talkApproach(a, b) {
   b.talkUntil = Math.max(b.talkUntil || 0, game.time + 8 + 3 * lfDist(a, b));
   const rest = a.plan ? a.plan.slice(a.si) : [];
   abortPlan(a);
+  a.chatTarget = null;
   a.plan = [
     goS(() => talkSpot(b, a) || { x: b.tx, y: b.ty, face: null }, "Going over to " + b.first),
     waitS(1, "stand", "Talking with " + b.first, { nopie: true, onEnd(nn) {

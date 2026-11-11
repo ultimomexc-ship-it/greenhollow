@@ -52,7 +52,7 @@ const TE = {
     const mem = TM.addEv(li, ev, 'told', conf, sp, (m.hop || 0) + 1, ver); (m.told = m.told || []).push(li.id); if (m.secret && typeof secretLeak === 'function') secretLeak(m, sp, li, ev);
     // what li makes of it, and what it does to what li thinks of the one in the story
     const j = TE.appraise(li, ev, ver, conf, sp), actor = ver.who != null ? lf2By(ver.who) : null;
-    if (actor && actor !== li && j.v !== 0) lfAff(li, actor, j.v * conf * 3, 'heard what ' + actor.first + ' did');
+    if (actor && actor !== li && j.v !== 0) lfAff(li, actor, j.v * conf * 3, ver.who === ev.actor ? 'ev:' + ev.id : 'heard what ' + actor.first + ' did');   // (the reason is the deed itself, said in words when asked)
     return { mem, ver, conf, react: j.react, text: TE.text(ev, ver) };
   },
   /** how a listener takes a piece of news: one of shock, amused, sympathy, doubt, delight, unmoved */
