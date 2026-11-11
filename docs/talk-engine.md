@@ -20,6 +20,7 @@ Status: design. The old chat engines are gone (git tag `last-with-old-talk` keep
 - **Words come from a lexicon**, a table keyed by act + context (personality, mood, relationship, setting, voice pack). Change the pack and the island speaks Roman, Murakami, or space.
 - **The world is the vocabulary.** Acts refer to things by id through a registry. If a thing is removed from the game, nobody can talk about it, automatically.
 - **It runs everywhere, all the time.** Off screen only the acts are applied (cheap); words are looked up only when somebody can hear them. That is how the village *knows things*.
+- **The player is a force in the world.** Everything build mode and the player's verbs do is an *event* the island perceives, appraises and reacts to; meddling (moving people, parting lovers, taking down a wall) is the main source of fun (§3b).
 - **The player's reward is understanding.** The fun is overhearing, piecing things together, being told secrets, spreading and stopping rumours, being known by a place that talks about you.
 
 ---
@@ -157,6 +158,104 @@ Strict rules: the memory engine never contains words; the lexicon never changes 
 - `lint.ts` / tests - structural and wording checks (§13)
 
 ---
+
+## 3b. Meddling: the player as a force in the world
+
+**The fun of this game is meddling.** Build mode lets the player do almost anything: move people into other houses, pull lovers apart, knock down a home, take the wall off a privy with someone inside.
+The talk engine is where the island *finds out*, reacts, remembers, tells everyone and changes how it treats the player. This is not a layer added afterwards. It is the main loop of the game:
+
+```
+ PLAYER (or villager) DOES SOMETHING  ->  WORLD EVENT  ->  PERCEPTION  ->  APPRAISAL  ->  REACTION (acts + movement)  ->  MEMORY  ->  TALK / RUMOUR  ->  REPUTATION & CONSEQUENCES
+        build mode, gifts, words,        {kind, actor, who/what        who saw it, who is     what does this      shout, flee, laugh, cover up,    each person   spread by      how people treat you,
+        theft, pushing, matchmaking      is hit, where, tags}          affected, who finds    mean to ME?         confront, accuse, mourn, repair  keeps their   conversation   what they ask of you,
+                                                                       out later                                                         own version                  what the island becomes
+```
+
+### 3b.1 Everything that happens is an event the world can perceive
+A **world event** is `{ kind, actor, targets, place, time, tags, severity, exposure }`. Every build-mode action, theft, push, gift, lie, rumour, fight and rescue emits one.
+Examples: `wall_removed {room, owner, occupants}`, `home_destroyed {room, residents}`, `bed_moved {owner}`, `person_relocated {who, from, to}`, `couple_separated`, `door_blocked`, `item_stolen`, `rumour_planted {about, claim}`, `gift_given`, `surprise_gift`, `person_pushed {who}`.
+- **Exposure state**: some moments make an event funnier or worse: on the privy, bathing, asleep, in bed with a partner, mid-argument, mid-prayer, carrying something precious. Events carry the `exposure` of each affected person; reactions scale with it (the privy scene is a *shout and a scramble*, not a shrug).
+- **Severity and tags** (`property`, `privacy`, `love`, `danger`, `comic`, `sacred`, `theft`, `kindness`) feed appraisal.
+- Replaces today's "no repercussions yet: no gossip, crime, mood or rebuilding" in build mode.
+
+### 3b.2 Perception: who knows
+- **Witnesses** are the people with line of sight and range at that moment (radius first, TrueSight later), awake and attending. They learn *immediately* and first-hand (`saw`).
+- **Affected parties** (the owner, the occupant, the partner) learn when they next experience the effect, even if nobody saw the cause: they come home and the bed has moved; the wall is gone; their lover is in a different house. They know *that* it happened and not *who*.
+- **Discoverers** later: someone finds a missing wall, a rumour reaches them, they notice the player's new neighbour.
+- **Build-mode time freeze**: the clock stops while you build. When time resumes, anyone with line of sight to *you* near the change, or inside the affected space, perceives the result as just happened. If you did it unseen, they perceive only the effect (see attribution).
+- Perception gives each person a first-hand memory (`saw`/`felt`) with confidence 1.0; everything else is hearsay.
+
+### 3b.3 Attribution: who did it?
+- **Seen**: culprit known to the witnesses. They may tell others, with the usual distortion.
+- **Unseen**: a culprit is *inferred*: who was near, who has a grudge, who is new, who has done similar things before. Each person builds a suspicion list with confidences. They can be **wrong**, and wrong in a consistent, explainable way (the stranger is blamed; the rival is blamed; the known troublemaker is blamed).
+- **Scapegoats and consequences for the innocent** are a feature: a villager can be accused of what the player did, and the player can see the quarrel they caused (and repair it by confessing, or let it ride).
+- **Reputation about the player** is a per-person ledger plus a village-wide "what folks say about you", built from first-hand and hearsay memory. Tags: `vandal`, `meddler`, `matchmaker`, `thief`, `kind`, `liar`, `gossip`, `fun`, `dangerous`.
+
+### 3b.4 Appraisal and reaction
+For each person who learns, **appraise**: does this threaten or help my goals, needs, home, family, loves, status, privacy? Output: an emotion (shocked, furious, humiliated, amused, scared, grateful, delighted, smug, heartbroken) with an intensity.
+Appraisal is a **declarative rule table** (tags × stakes × traits -> emotion), authored once, extended easily:
+
+| Event | Stake | Trait | Emotion | Typical reactions |
+|---|---|---|---|---|
+| wall_removed on a privy | occupant, exposed | any | humiliated | shout, cover, flee indoors; later vent, blame, demand repair |
+| wall_removed on a privy | witness | sociable | amused | laugh, tell friends at once |
+| home_destroyed | resident | proud | furious | confront suspect, demand rebuild, sulk in a tent, hold a grudge |
+| couple_separated | lover | devoted | heartbroken | search for them, plead with whoever they blame, mope |
+| bed_moved | owner | prickly | annoyed | complain, move it back (if allowed), accuse |
+| person_relocated | self | shy | scared | stay put, ask why; later get used to it or leave |
+| rumour_planted | target | any | wounded or angry | deny, confront the teller, defend |
+| surprise_gift | receiver | smitten | delighted | glow, tell a friend, give back later |
+| gift from unknown | receiver | wary | suspicious | ask around, test the giver |
+
+A **reaction** is a bundle of *acts* (shout, accuse, deny, console, vent, gloat, warn, demand, forgive, mock) **and movement plans** (flee, hurry home, cover up, gather belongings, look for someone, stand and stare, pick up a block and put it back). Both come from the same chooser (§8) with personality and relationship weights, so a proud man, a shy woman and a prankster react differently to the same event.
+Reactions are what the player *sees first*: bubbles within seconds, people running, pointing, gathering. That immediate feedback is what makes meddling fun.
+
+### 3b.5 Ripples: how a deed becomes a legend
+1. **Instant** (seconds): shouts, flee, laugh, stare; witnesses gather.
+2. **Same day**: the story is told (§6.3), with each teller's version; people ask the player about it; the victim vents to friends.
+3. **Within a week**: grudges and gratitude settle; reputation moves; prices, trust, doors and help change; the watch may take an interest; someone leaves or moves in with a friend.
+4. **Long term**: feuds, a new couple, a reputation, a name for the incident ("the Day of the Open Privy"), a line in the chronicle and in old people's stories, a ballad, a custom.
+A deed can also be **undone socially**: apologise, pay, rebuild, give a gift, confess, take the blame for someone else, or let it blow over. These are acts in the player's menu with real outcomes.
+
+### 3b.6 What the player can do (verbs and what the world makes of them)
+The player's **verbs** are of three kinds, and all emit events:
+- **Build-mode verbs**: demolish (a wall, a house), move furniture, move a bed (and so its owner), swap houses, relocate a person (push them, carry a sleeper), join or part households, block a door, seal a room, build a home for a couple, remove the roof from a gossip.
+- **Social verbs**: say a thing to a person (compliment, insult, tell a secret, lie, ask about someone), plant or correct a rumour, give or forge a gift, introduce two people, arrange a meeting, eavesdrop, bargain, keep or break a promise.
+- **Personal verbs**: take, push, hide, trespass, rescue, fight (later), help with work.
+
+Examples of **play loops** this makes possible (none of them scripted):
+1. **Matchmaker.** You hear that Marcus likes Julia and Julia loves lavender. Plant lavender, leave a gift "from nobody", put a bench between their houses. Villagers notice, gossip, Marcus gets bold, Julia is intrigued. Or Cassia, who fancies Marcus, gets jealous.
+2. **Jealous lover.** Someone is furious that their partner talks to a rival. You can calm them, feed the jealousy with a rumour, move the rival into another house, or expose the fear that started it.
+3. **Pull them apart.** Move a couple into separate houses. They search for each other, complain, meet in secret; the neighbours talk. Reunite them and they remember you did.
+4. **The privy.** Remove a wall while someone is using the privy. The person yelps, the neighbours laugh, the story is told. Later they remember it every time they see you; some forgive, some demand a better privy.
+5. **Housing chaos.** Move everyone in a street into the wrong houses and watch the confusion, the swaps, the new friendships and the feuds.
+6. **Break and mend.** Knock down a house, then build a better one. A villager remembers both, differently.
+7. **Spread a rumour.** Tell the baker something about the priest. Watch it travel (§6, §5), change, and arrive back at you wrongly.
+
+### 3b.7 Missions and requests that come from the world, not a quest log
+Missions are generated from villagers' **wants** (goals in §5.5) and **problems** (open threads), asked of the player through the ordinary menu when trust is enough:
+- "Could you find lavender? I don't want to ask him myself." (gift errand)
+- "I think someone has been talking about me." (investigate)
+- "Please, will you move my brother's bed away from mine?" (meddle on request)
+- "If Marcus found out about this I'd die." (keep a secret)
+- "Make her stop." (silence a gossip, by any means)
+Requests can come from **both sides of a conflict**, and the player may take sides, play both, or ignore them. The player's **journal** lists open threads ("Julia is waiting for lavender"), not a quest marker. Rewards are relationships, secrets, items and access (a locked door opened, a fair price, the right to build near someone).
+
+### 3b.8 The consequences must be visible and legible
+- Reactions occur on screen within seconds (bubbles, running, stopping, pointing, a crowd).
+- The villager card says why: "angry at you: the wall", "heartbroken: lost her partner's house".
+- The journal records what you did and what the island made of it.
+- The chronicle marks the big ones.
+- **Reversibility and a severity dial**: people do not die from a demolished wall, and the player can choose a gentler or harsher island (`TALK.meddle`), because the comedy needs the island to stay playable and its people recoverable. Cruelty has costs; comedy is for the ones who can bounce back.
+
+### 3b.9 Implementation consequences (what has to exist)
+1. A **world-event bus**: build-mode and social code emit events instead of doing things silently. Hooks in `bldDemolish`, `bldBreak`, bed/furniture moves, `housingTick`, push carries (`pushCarry` / `who.shoved`), gift and theft code.
+2. **Perception**: witnesses, affected parties, discoverers, with exposure state (privy, bath, bed) read from the actual villager plan/status.
+3. **Attribution and suspicion**, with the player as a potential culprit and a reputation ledger.
+4. **Appraisal rules** (a table) and **reaction bundles** (acts + movement plans); a handful of new acts: `shout`, `react_shock`, `cover_up`, `flee`, `accuse`, `deny`, `demand`, `gloat`, `mock`, `forgive`, `search_for`, `comfort`.
+5. **Villagers need to be able to act on the physical world a little**: put a wall back, carry a bed home, cover with a cloth, hurry inside. Today `LF_NPC_MOVES_THINGS = false`; some repair/relocation behaviours should be enabled once reactions exist.
+6. **Lexicon coverage** for reactions: surprise, embarrassment, anger, laughter, scorn, gratitude, in every voice pack (this is the comedy; it needs the most care).
+7. **Tests**: a deterministic scene (a wall removed with someone on the privy) must produce witnesses, appraisal, reaction acts, memory, a later retelling with a different version, and a reputation change; plus the opposite (nobody sees, it is still discovered, the wrong person is suspected).
 
 ## 4. The world registry (what exists)
 
@@ -446,14 +545,15 @@ All talk kinds sit behind `TALK.on[kind]` and a *lab island* (few villagers, no 
 |---|---|---|
 | 1. Skeleton | registry, act records, memory store, chooser, lexicon with `plain` pack; `greet`, `farewell`, `remark_*` | two villagers walk up, greet, chat, part; log of acts; tests pass |
 | 2. News and memory | `share_news`, `ask_news`, versions, confidence, overhearing, journal | a fact travels A->B->C with believable distortion; player journal shows it |
-| 3. The player's turn | menu of acts, talk box, player's voice, same engine | player and villager conversations are indistinguishable in structure |
-| 4. Island voice | `island` pack, tics, mood/trait tags, anti-repeat | a read of 20 conversations sounds like one island |
-| 5. People | `ask_about_you`, `describe_other`, `gossip_about`, reasons ledger, reflection | "why don't you like him?" is answered truthfully from memory |
-| 6. Feeling and economy | `vent`, `console`, loans, help, promises | favours remembered, debts talked about |
-| 7. Gifts | preferences, `hint_gift`, `give_gift`, reactions, memories | a gift story can be followed from hint to reaction to gossip |
-| 8. Romance and jealousy | flirt, courtship, rivals; the player's consent rule retained | a courtship is legible and not scripted |
-| 9. Law and secrets | accuse, deny, confess, secrets and leaks | a secret can be kept, leaked and used |
-| 10. Scale and polish | barks, groups, sound, performance, coverage tooling | 50 villagers, no hitches, no stale pairs in a week |
+| 3. Events, perception, reactions (meddling v0) | world-event bus, witnesses/affected/discoverers, exposure, appraisal table, `shout`/`flee`/`laugh`/`accuse`, hooks in demolish and bed moves, reputation v0 | removing a wall with someone on the privy produces visible reactions, a story told, and a changed opinion of the player |
+| 4. The player's turn | menu of acts, talk box, player's voice, same engine, replies to accusations | player and villager conversations are indistinguishable in structure; you can confess, deny or blame someone else |
+| 5. Island voice | `island` pack, tics, mood/trait tags, anti-repeat, reaction comedy | a read of 20 conversations (including reactions) sounds like one island |
+| 6. People | `ask_about_you`, `describe_other`, `gossip_about`, reasons ledger, reflection, attribution and suspicion | "why don't you like him?" is answered truthfully; an innocent can be blamed for what you did |
+| 7. Feeling, economy, requests | `vent`, `console`, loans, help, promises, requests to the player, journal of open threads | villagers ask you for things, and what you do changes how they treat you |
+| 8. Gifts | preferences, `hint_gift`, `give_gift`, forged gifts, reactions, memories | a gift story can be followed from hint to reaction to gossip |
+| 9. Romance and jealousy | flirt, courtship, rivals, parted lovers, the player's consent rule retained | a courtship is legible; parting or joining a couple causes believable behaviour |
+| 10. Law and secrets | accuse, deny, confess, secrets and leaks, watch takes an interest | a secret can be kept, leaked and used; vandalism has social and legal weight |
+| 11. Scale and polish | barks, groups, sound, performance, coverage tooling, severity dial | 50 villagers, no hitches, no stale pairs in a week |
 
 Each phase ships behind its switch, ends with a read-through of sample conversations by a human, and is not considered done until it is fun to watch.
 
