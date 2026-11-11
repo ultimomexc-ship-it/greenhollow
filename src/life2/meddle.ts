@@ -34,6 +34,7 @@ function meddleFlush() {
   const P = game.player;
   for (const r of q) {
     const by = lf2By(r.by) || P, ps = r.people, victims = ps.filter((p: any) => p.home), main = lf2By((victims[0] || ps.find((p: any) => p.inRoom) || {}).id) || null;
+    for (const p of ps) { const n = lf2By(p.id); if (n && !p.asleep && !p.sawYou && lfDist(n, by) <= 14 && lvlOf(n.ty) === lvlOf(by.ty) && tsLine(n.tx, n.ty, by.tx, by.ty)) { p.sawYou = true; p.sees = true; } }   // (the wall that stood between you is gone now: those inside see you)
     const seen = ps.filter((p: any) => p.sawYou).map((p: any) => p.id), wit = [...new Set(ps.filter((p: any) => p.sees || p.home).map((p: any) => p.id))];
     const tags = MEDDLE_TAGS[r.kind] || ['nuisance', 'embarrass'];
     lfEmit(r.kind, { actor: by, target: main, x: r.x, y: r.y, sev: r.kind === 'home_destroyed' ? 3 : 2, tags, anon: !seen.length, sawActor: seen, witnessIds: wit, place: r.place || undefined, chron: false, loud: true, text: `${by.first} ${r.kind}` });

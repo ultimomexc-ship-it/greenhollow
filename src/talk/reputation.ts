@@ -36,7 +36,7 @@ function repSuspect(w: any, ev: any): any {
 const REP_WORDS: any = { vandal: 'knock things down', meddler: 'move things that are not yours', thief: 'take what is not yours', gossip: 'cannot keep a secret', bully: 'throw your weight about', kind: 'are good to people' };   // (said to the person: "people say you ...")
 
 /* telling somebody what is said about them */
-ACTS.tell_rep = { kind: 'person', stage: 'topic', preview: () => ({}), w: (c: any, sp: any, li: any) => 0.5 + Math.max(0, (sp.aff[li.id] || 0)) / 80,
+ACTS.tell_rep = { kind: 'person', stage: 'topic', preview: (c: any) => ({ about: c.repTag ? REP_WORDS[c.repTag] : '', qty: c.repN }), w: (c: any, sp: any, li: any) => 0.5 + Math.max(0, (sp.aff[li.id] || 0)) / 80,
   when: (c: any, sp: any, li: any) => { if (c.done.tell_rep || (sp.aff[li.id] || 0) < 10) return false; const v = repVillage(li), k = Object.keys(v).filter(t => v[t] >= 2 && REP_BAD.includes(t)).sort((a, b) => v[b] - v[a])[0]; if (!k) return false; c.repTag = k; c.repN = v[k]; return true; },
   apply: (c: any, sp: any, li: any) => { c.done.tell_rep = 1; c.aboutName = REP_WORDS[c.repTag]; c.lifeQty = c.repN; li.mood = Math.max(0, (li.mood == null ? 50 : li.mood) - 3); lfAff(li, sp, 1, 'was honest with me'); }, replies: ['rep_own', 'rep_deny'] };
 ACTS.rep_own = { kind: 'person', stage: 'topic', reply: true, when: () => true, w: () => 1, apply: () => {}, replies: [] };

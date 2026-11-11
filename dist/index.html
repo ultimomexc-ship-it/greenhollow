@@ -18402,6 +18402,13 @@ function meddleFlush() {
   const P = game.player;
   for (const r of q) {
     const by = lf2By(r.by) || P, ps = r.people, victims = ps.filter((p) => p.home), main = lf2By((victims[0] || ps.find((p) => p.inRoom) || {}).id) || null;
+    for (const p of ps) {
+      const n = lf2By(p.id);
+      if (n && !p.asleep && !p.sawYou && lfDist(n, by) <= 14 && lvlOf(n.ty) === lvlOf(by.ty) && tsLine(n.tx, n.ty, by.tx, by.ty)) {
+        p.sawYou = true;
+        p.sees = true;
+      }
+    }
     const seen = ps.filter((p) => p.sawYou).map((p) => p.id), wit = [...new Set(ps.filter((p) => p.sees || p.home).map((p) => p.id))];
     const tags = MEDDLE_TAGS[r.kind] || ["nuisance", "embarrass"];
     lfEmit(r.kind, { actor: by, target: main, x: r.x, y: r.y, sev: r.kind === "home_destroyed" ? 3 : 2, tags, anon: !seen.length, sawActor: seen, witnessIds: wit, place: r.place || void 0, chron: false, loud: true, text: `${by.first} ${r.kind}` });
@@ -29287,7 +29294,7 @@ ACTS.tell_preference = { kind: "gift", stage: "topic", reply: true, when: (c) =>
 ACTS.hint_gift = {
   kind: "gift",
   stage: "topic",
-  preview: () => ({}),
+  preview: (c, sp) => ({ item: giftName(giftTastes(sp).like[0]) }),
   w: (c, sp, li) => 0.5 + (sp.crush === li.id ? 1.2 : 0),
   when: (c, sp, li) => !c.done.hint_gift && !li.infant && li.age >= 12 && ((sp.aff[li.id] || 0) > 22 || sp.crush === li.id) && !giftKnown(li, sp).like.length && game.time - ((sp.hintT || {})[li.id] || -1e9) > 2880,
   apply: (c, sp, li) => {
@@ -30123,7 +30130,7 @@ const REP_WORDS = { vandal: "knock things down", meddler: "move things that are 
 ACTS.tell_rep = {
   kind: "person",
   stage: "topic",
-  preview: () => ({}),
+  preview: (c) => ({ about: c.repTag ? REP_WORDS[c.repTag] : "", qty: c.repN }),
   w: (c, sp, li) => 0.5 + Math.max(0, sp.aff[li.id] || 0) / 80,
   when: (c, sp, li) => {
     if (c.done.tell_rep || (sp.aff[li.id] || 0) < 10) return false;
@@ -30229,7 +30236,10 @@ const lastTalkMem = (sp, li) => {
 ACTS.callback = {
   kind: "small",
   stage: "topic",
-  preview: () => ({}),
+  preview: (c, sp, li) => {
+    const m = lastTalkMem(sp, li);
+    return { about: m ? m.subj : "" };
+  },
   w: () => 1.4,
   when: (c, sp, li) => {
     if (c.done.callback) return false;
@@ -30292,7 +30302,7 @@ ACTS.wonder = { kind: "small", stage: "topic", preview: () => ({}), w: () => 0.5
 }, replies: ["wonder_reply"] };
 ACTS.wonder_reply = { kind: "small", stage: "topic", reply: true, when: () => true, w: () => 1, apply: () => {
 }, replies: [] };
-ACTS.ask_work = { kind: "person", stage: "topic", preview: () => ({}), w: () => 0.8, when: (c, sp, li) => !c.done.ask_work && !!li.job && li.age >= 12 && (sp.know[li.id] || 0) < 60, apply: (c, sp, li) => {
+ACTS.ask_work = { kind: "person", stage: "topic", preview: (c, sp, li) => ({ about: li.first }), w: () => 0.8, when: (c, sp, li) => !c.done.ask_work && !!li.job && li.age >= 12 && (sp.know[li.id] || 0) < 60, apply: (c, sp, li) => {
   c.done.ask_work = 1;
   c.aboutName = li.first;
 }, replies: ["answer_work"] };
@@ -30301,7 +30311,7 @@ ACTS.answer_work = { kind: "person", stage: "topic", reply: true, when: (c, sp) 
 ACTS.ask_where = {
   kind: "person",
   stage: "topic",
-  preview: () => ({}),
+  preview: (c) => ({ about: c.whereObj ? c.whereObj.first : "" }),
   w: () => 0.8,
   when: (c, sp, li) => {
     if (c.done.ask_where) return false;
@@ -30325,7 +30335,7 @@ const REP_THIRD = { vandal: "knock things down", meddler: "move things that are 
 ACTS.warn = {
   kind: "world",
   stage: "topic",
-  preview: () => ({}),
+  preview: (c) => ({ about: c.warnOf ? c.warnOf.first : "", reason: c.warnTag ? REP_THIRD[c.warnTag] : "" }),
   w: (c, sp) => 1.3,
   when: (c, sp, li) => {
     if (c.done.warn || (sp.aff[li.id] || 0) < 5) return false;
@@ -30364,7 +30374,7 @@ ACTS.give_advice = { kind: "person", stage: "topic", reply: true, when: () => tr
 ACTS.brag_child = {
   kind: "person",
   stage: "topic",
-  preview: () => ({}),
+  preview: (c) => ({ about: c.kid ? c.kid.first : "", qty: c.kid ? Math.floor(c.kid.age) : "" }),
   w: () => 0.9,
   when: (c, sp, li) => {
     if (c.done.brag_child) return false;
@@ -30383,7 +30393,7 @@ ACTS.brag_child = {
 ACTS.congratulate = { kind: "person", stage: "topic", reply: true, when: () => true, w: () => 1, apply: (c, sp, li) => {
   lfAff(sp, li, 0.5, "was glad for me");
 }, replies: [] };
-ACTS.tell_back = { kind: "person", stage: "topic", preview: () => ({}), w: () => 0.9, when: (c, sp) => !c.done.tell_back && !!sp.back, apply: (c, sp) => {
+ACTS.tell_back = { kind: "person", stage: "topic", preview: (c, sp) => ({ about: sp.back || "" }), w: () => 0.9, when: (c, sp) => !c.done.tell_back && !!sp.back, apply: (c, sp) => {
   c.done.tell_back = 1;
   c.aboutName = sp.back;
 }, replies: ["tell_back_reply"] };
@@ -30497,7 +30507,7 @@ lxi("greet_back", "There you are. I was thinking about you, in a general way.", 
 lxi("greet_back", "Hello, love. I am here. It is where I live.", { rel: "spouse" });
 lxi("greet_back", "What now? I am joking. Hello.", { rel: "sibling" });
 lxi("greet_back", "Hello. Yes, I have eaten. I would tell you if I had not, which is not true.", { rel: "parent" });
-lxi("greet_back", "Hello! I am here. I am fine. You do not need to look at me like that.", { rel: "child" });
+lxi("greet_back", "Hello. I am here. I am fine. You do not need to look at me like that.", { rel: "child" });
 lxi("farewell", "I will see you at supper. I will be the one who is hungry.", { rel: "spouse" });
 lxi("farewell", "Try not to be an idiot. I say it with love, and with a little concern.", { rel: "sibling" });
 lxi("farewell", "Wrap up warm. It is a mild island, and still.", { rel: "parent" });
@@ -30506,6 +30516,18 @@ lxi("ask_how", "How are you? I mean really, not the answer you give the baker.",
 lxi("ask_how", "Are you well? You look tired. You always look tired. It is part of the family.", { rel: "parent" });
 lxi("ask_how", "Are you behaving? Do not answer.", { rel: "child" });
 lxi("ask_how", "How is life, then? Tell me before everyone else does.", { rel: "sibling" });
+ACTS.backchannel = { kind: "small", stage: "topic", reply: true, when: () => true, w: () => 1, apply: () => {
+}, replies: [] };
+lx("backchannel", "plain", "Mm.");
+lx("backchannel", "plain", "I see.");
+lx("backchannel", "plain", "Right.");
+lx("backchannel", "plain", "Is that so.");
+lx("backchannel", "plain", "Ah.");
+lxi("backchannel", "Mm.");
+lxi("backchannel", "I see.");
+lxi("backchannel", "Yes. Well.");
+lxi("backchannel", "That is something.");
+lxi("backchannel", "Ah. Yes.");
 TALK.log = [];
 TALK.words = false;
 TALK.running = true;
@@ -30549,8 +30571,8 @@ function talkWords(t, a, b) {
   const txt = lxSay(t.act === "report_day" && t.x && t.x.line ? t.x.line : t.act, s, o, t.x || {});
   return t.x && t.x.link && txt && typeof lxLink === "function" ? lxLink(txt, t.x.link) : txt;
 }
-function talkRun(a, b, listened) {
-  const c = { a, b, stage: "open", done: {}, turns: [], left: { [a.id]: talkBudget(a, b), [b.id]: talkBudget(b, a) }, last: null, t0: game.time };
+function talkRun(a, b, listened, short) {
+  const c = { a, b, stage: "open", done: {}, turns: [], short: !!short, left: short ? { [a.id]: 1.6, [b.id]: 1.6 } : { [a.id]: talkBudget(a, b), [b.id]: talkBudget(b, a) }, last: null, t0: game.time };
   const say2 = (sp2, li2, id) => {
     talkTurn(c, sp2, li2, id);
   };
@@ -30565,6 +30587,10 @@ function talkRun(a, b, listened) {
     if (!id) break;
     say2(sp, li, id);
     c.left[sp.id] -= 1;
+    if (!ACTS[id].replies.length && ACTS[id].kind !== "ritual" && Math.random() < 0.35) {
+      say2(li, sp, "backchannel");
+      c.left[li.id] -= 0.2;
+    }
     let cur = id, from = sp, to = li;
     for (let d = 0; d < 4 && ACTS[cur].replies.length; d++) {
       const reply = talkChoose(c, to, from, ACTS[cur].replies);
@@ -30613,7 +30639,7 @@ function talkFinish(c, a, b, listened) {
   if (!lines && game.player && typeof sndMurmur === "function") sndMurmur(a);
   if (lines && lines.length) game.events.push({ time: game.time, a, b, place: placeOf(a), topic: "talk", quiet: false, talk: true, lines });
   else {
-    const hold = game.time + c.turns.length * 0.7;
+    const hold = game.time + c.turns.length * (c.short ? 0.2 : 0.7);
     a.talkUntil = Math.max(a.talkUntil || 0, hold);
     b.talkUntil = Math.max(b.talkUntil || 0, hold);
   }
@@ -30700,8 +30726,7 @@ function ptOptions(S) {
     }
     if (!ok) continue;
     const snap = { life: c.life, news: c.news, priceItem: c.priceItem }, x = A.preview ? A.preview(c, p, o) : {};
-    const label = lxSay(x.line || id, p, o, Object.assign({}, x, { state: talkState(p) || "fine" }));
-    if (!label) continue;
+    const label = lxSay(x.line || id, p, o, Object.assign({}, talkX(c), x, { state: talkState(p) || "fine" }));
     seen.add(id);
     out.push({ id, snap, label, kind: A.kind, w: Math.random() + (A.kind !== "small" ? 0.6 : 0) });
   }
@@ -30767,6 +30792,10 @@ function ptStep(key) {
       c.left[o.id] -= 1;
       S.pending = ACTS[tid].replies && ACTS[tid].replies.length ? ACTS[tid].replies.slice() : null;
     }
+  }
+  if (!said.length && !cont) {
+    const t = talkTurn(c, o, p, "backchannel");
+    said.push(talkWords(t, p, o));
   }
   if (cont) S.pending = cont;
   const r = ptMenu(S, said.filter(Boolean).join("\n") || "\u2026");
@@ -30935,14 +30964,36 @@ function talkSpot(b, from) {
   }
   return best;
 }
+function talkReason(a, b) {
+  let w = 0;
+  if (a.crush === b.id || a.fam && a.fam.partner === b.id) w += 2.5;
+  if ((a.reqs || []).some((r) => r.state === "promised" && r.to === b.id)) w += 1.5;
+  const mem = a.tmem || [];
+  for (let i = mem.length - 1; i >= Math.max(0, mem.length - 14); i--) {
+    const m = mem[i];
+    if (m.ev == null || m.kind === "did") continue;
+    if (m.imp >= 0.55 && game.time - m.t < 240 && !TM.ofEv(b, m.ev)) {
+      w += 1.2;
+      break;
+    }
+  }
+  for (let i = (b.tmem || []).length - 1; i >= Math.max(0, (b.tmem || []).length - 14); i--) {
+    const m = b.tmem[i];
+    if (m.ev != null && !m.raised && !m.forgiven && m.conf >= 0.5 && game.time - m.t < 1440 * 3 && m.ver && m.ver.who === a.id) {
+      w += 1.2;
+      break;
+    }
+  }
+  return w;
+}
 function talkPartner(a) {
   let best = null, bw = 0;
   for (const b of npcs) {
     if (b === a || !talkIdle(b) || lvlOf(a.ty) !== lvlOf(b.ty) || lfDist(a, b) > (TALK.hyper ? 12 : TALK.range)) continue;
-    const gap = game.time - TM.lastTalk(a, b), close = a.aff[b.id] || 0;
-    if (gap < (TALK.hyper ? 8 : 60 + Math.max(0, 120 - close * 2))) continue;
+    const why = talkReason(a, b), gap = game.time - TM.lastTalk(a, b), close = a.aff[b.id] || 0;
+    if (gap < (TALK.hyper ? 8 : (60 + Math.max(0, 120 - close * 2)) * (why >= 2 ? 0.3 : 1))) continue;
     if (!talkSpot(b, a)) continue;
-    const w = (1 + Math.max(0, close) / 40 + (a.fam && (a.fam.spouse === b.id || a.fam.kids.includes(b.id) || a.fam.mother === b.id || a.fam.father === b.id) ? 0.8 : 0)) * (0.5 + Math.random());
+    const w = (1 + Math.max(0, close) / 40 + (a.fam && (a.fam.spouse === b.id || a.fam.kids.includes(b.id) || a.fam.mother === b.id || a.fam.father === b.id) ? 0.8 : 0) + why) * (0.5 + Math.random());
     if (w > bw) {
       bw = w;
       best = b;
@@ -31005,6 +31056,24 @@ LF2.tickers.push(talkTick);
     badge.hidden = !TALK.hyper;
   });
 })();
+function talkPass() {
+  if (!town || !TALK.running || !game.player || !TALK.on.ritual || TALK.hyper) return;
+  const mv = npcs.filter((n) => !n.dead && !n.player && !n.infant && n.age >= 8 && n.pose !== "sleep" && !n.inShip && !n.trapped && !n.jail && (n.talkUntil || 0) <= game.time && (n.passNext || 0) <= game.time && n.hunger < 88 && n.bladder < 80 && !(n.plan && n.plan[n.si] && n.plan[n.si].nopie));
+  for (let i = 0; i < mv.length; i++) {
+    const a = mv[i];
+    if ((a.passNext || 0) > game.time || (a.talkUntil || 0) > game.time) continue;
+    for (let j = i + 1; j < mv.length; j++) {
+      const b = mv[j];
+      if ((b.passNext || 0) > game.time || (b.talkUntil || 0) > game.time || lvlOf(a.ty) !== lvlOf(b.ty) || lfDist(a, b) > 2) continue;
+      if (game.time - TM.lastTalk(a, b) < 150 + Math.max(0, 100 - (a.aff[b.id] || 0))) continue;
+      if (Math.random() > 0.55) continue;
+      a.passNext = b.passNext = game.time + 40 + Math.random() * 30;
+      talkRun(a, b, talkListened(a, b), true);
+      break;
+    }
+  }
+}
+LF2.tickers.push(talkPass);
 
 </script>
 </body>

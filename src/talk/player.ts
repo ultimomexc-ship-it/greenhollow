@@ -26,7 +26,7 @@ function ptOptions(S: any): any[] {
     const A = ACTS[id]; if (!A || seen.has(id) || !TALK.on[A.kind]) continue; c.life = c.news = c.priceItem = undefined;
     let ok = false; try { ok = !!A.when(c, p, o); } catch (e) { ok = false; } if (!ok) continue;
     const snap = { life: c.life, news: c.news, priceItem: c.priceItem }, x = A.preview ? A.preview(c, p, o) : {};
-    const label = lxSay(x.line || id, p, o, Object.assign({}, x, { state: talkState(p) || 'fine' })); if (!label) continue;
+    const label = lxSay(x.line || id, p, o, Object.assign({}, talkX(c), x, { state: talkState(p) || 'fine' }));   // (what the conversation has set, plus what the act says it needs) if (!label) continue;
     seen.add(id); out.push({ id, snap, label, kind: A.kind, w: Math.random() + (A.kind !== 'small' ? 0.6 : 0) });
   }
   out.sort((a, b) => b.w - a.w); const keep = out.slice(0, S.pending ? 6 : 5);
@@ -56,6 +56,7 @@ function ptStep(key: string): any {
   if (!cont && c.left[o.id] > 0.5 && (!said.length || (c.left[o.id] > 1.2 && Math.random() < 0.55))) {   // (they always say something back)
     const tid = talkChoose(c, o, p, TALK_TOPICS()); if (tid) { const t = talkTurn(c, o, p, tid); said.push(talkWords(t, p, o)); c.left[o.id] -= 1; S.pending = ACTS[tid].replies && ACTS[tid].replies.length ? ACTS[tid].replies.slice() : null; }
   }
+  if (!said.length && !cont) { const t = talkTurn(c, o, p, 'backchannel'); said.push(talkWords(t, p, o)); }   // (never silence: at least a nod)
   if (cont) S.pending = cont;
   const r = ptMenu(S, said.filter(Boolean).join('\n') || '…');
   if (S.pending && !r.opts.some((x: any) => x[0] !== 'bye')) { S.pending = null; const r2 = ptMenu(S, r.say); return r2; }   // (nothing the player can answer with: back to the open menu)

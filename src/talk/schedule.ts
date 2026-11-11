@@ -25,13 +25,21 @@ function talkSpot(b: any, from?: any): any {
   }
   return best;
 }
+/** a reason to talk to this person now: a crush or a partner, a promise to chase, a grudge to air, fresh news they have not heard */
+function talkReason(a: any, b: any): number {
+  let w = 0; if (a.crush === b.id || (a.fam && a.fam.partner === b.id)) w += 2.5;
+  if ((a.reqs || []).some((r: any) => r.state === 'promised' && r.to === b.id)) w += 1.5;
+  const mem = a.tmem || []; for (let i = mem.length - 1; i >= Math.max(0, mem.length - 14); i--) { const m = mem[i]; if (m.ev == null || m.kind === 'did') continue; if (m.imp >= 0.55 && game.time - m.t < 240 && !TM.ofEv(b, m.ev)) { w += 1.2; break; } }
+  for (let i = (b.tmem || []).length - 1; i >= Math.max(0, (b.tmem || []).length - 14); i--) { const m = b.tmem[i]; if (m.ev != null && !m.raised && !m.forgiven && m.conf >= 0.5 && game.time - m.t < 1440 * 3 && m.ver && m.ver.who === a.id) { w += 1.2; break; } }   // (b holds a grudge against a)
+  return w;
+}
 function talkPartner(a: any): any {
   let best: any = null, bw = 0;
   for (const b of npcs) {
     if (b === a || !talkIdle(b) || lvlOf(a.ty) !== lvlOf(b.ty) || lfDist(a, b) > (TALK.hyper ? 12 : TALK.range)) continue;
-    const gap = game.time - TM.lastTalk(a, b), close = (a.aff[b.id] || 0); if (gap < (TALK.hyper ? 8 : 60 + Math.max(0, 120 - close * 2))) continue;   // (friends meet more often than strangers)
+    const why = talkReason(a, b), gap = game.time - TM.lastTalk(a, b), close = (a.aff[b.id] || 0); if (gap < (TALK.hyper ? 8 : (60 + Math.max(0, 120 - close * 2)) * (why >= 2 ? 0.3 : 1))) continue;   // (friends meet more often than strangers, and people with something to say meet sooner)
     if (!talkSpot(b, a)) continue;
-    const w = (1 + Math.max(0, close) / 40 + (a.fam && (a.fam.spouse === b.id || a.fam.kids.includes(b.id) || a.fam.mother === b.id || a.fam.father === b.id) ? 0.8 : 0)) * (0.5 + Math.random()); if (w > bw) { bw = w; best = b; }
+    const w = (1 + Math.max(0, close) / 40 + (a.fam && (a.fam.spouse === b.id || a.fam.kids.includes(b.id) || a.fam.mother === b.id || a.fam.father === b.id) ? 0.8 : 0) + why) * (0.5 + Math.random()); if (w > bw) { bw = w; best = b; }
   }
   return best;
 }
@@ -70,3 +78,19 @@ LF2.tickers.push(talkTick);
     TALK.hyper = !TALK.hyper; TALK.words = TALK.hyper; badge.hidden = !TALK.hyper;
   });
 })();
+
+/* ---- a word in passing: people who pass each other on the way somewhere stop for a moment, say a few things, and carry on. It costs the day a minute or two, so it can happen all day long,
+   and it is how news and opinions travel between people who are never idle at the same time ---- */
+function talkPass() {
+  if (!town || !TALK.running || !game.player || !TALK.on.ritual || TALK.hyper) return;
+  const mv = npcs.filter((n: any) => !n.dead && !n.player && !n.infant && n.age >= 8 && n.pose !== 'sleep' && !n.inShip && !n.trapped && !n.jail && (n.talkUntil || 0) <= game.time && (n.passNext || 0) <= game.time && n.hunger < 88 && n.bladder < 80 && !(n.plan && n.plan[n.si] && n.plan[n.si].nopie));
+  for (let i = 0; i < mv.length; i++) {
+    const a = mv[i]; if ((a.passNext || 0) > game.time || (a.talkUntil || 0) > game.time) continue;
+    for (let j = i + 1; j < mv.length; j++) {
+      const b = mv[j]; if ((b.passNext || 0) > game.time || (b.talkUntil || 0) > game.time || lvlOf(a.ty) !== lvlOf(b.ty) || lfDist(a, b) > 2) continue;
+      if (game.time - TM.lastTalk(a, b) < 150 + Math.max(0, 100 - (a.aff[b.id] || 0))) continue; if (Math.random() > 0.55) continue;
+      a.passNext = b.passNext = game.time + 40 + Math.random() * 30; talkRun(a, b, talkListened(a, b), true); break;
+    }
+  }
+}
+LF2.tickers.push(talkPass);

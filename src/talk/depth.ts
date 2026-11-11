@@ -32,7 +32,7 @@ lxi('story_invite', 'Go on. I have time. I always have time.'); lxi('story_invit
 
 /* ---- callbacks: what we said last time ---- */
 const lastTalkMem = (sp: any, li: any) => { const mem = sp.tmem || []; for (let i = mem.length - 1; i >= 0; i--) if (mem[i].kind === 'talked' && mem[i].with === li.id) return mem[i]; return null; };
-ACTS.callback = { kind: 'small', stage: 'topic', preview: () => ({}), w: () => 1.4,
+ACTS.callback = { kind: 'small', stage: 'topic', preview: (c: any, sp: any, li: any) => { const m = lastTalkMem(sp, li); return { about: m ? m.subj : '' }; }, w: () => 1.4,
   when: (c: any, sp: any, li: any) => { if (c.done.callback) return false; const m = lastTalkMem(sp, li); return !!m && !!m.subj && !m.called && game.time - m.t > 120 && game.time - m.t < 2880; },
   apply: (c: any, sp: any, li: any) => { const m = lastTalkMem(sp, li); m.called = true; c.done.callback = 1; c.aboutName = m.subj; }, replies: ['callback_answer'] };
 ACTS.callback_answer = { kind: 'small', stage: 'topic', reply: true, when: () => true, w: () => 1, apply: () => {}, replies: [] };
@@ -58,24 +58,24 @@ ACTS.laugh = { kind: 'small', stage: 'topic', reply: true, when: () => true, w: 
 ACTS.groan = { kind: 'small', stage: 'topic', reply: true, when: () => true, w: () => 0.7, apply: () => {}, replies: [] };
 ACTS.wonder = { kind: 'small', stage: 'topic', preview: () => ({}), w: () => 0.5, when: (c: any, sp: any) => !c.done.wonder, apply: (c: any) => { c.done.wonder = 1; }, replies: ['wonder_reply'] };
 ACTS.wonder_reply = { kind: 'small', stage: 'topic', reply: true, when: () => true, w: () => 1, apply: () => {}, replies: [] };
-ACTS.ask_work = { kind: 'person', stage: 'topic', preview: () => ({}), w: () => 0.8, when: (c: any, sp: any, li: any) => !c.done.ask_work && !!li.job && li.age >= 12 && (sp.know[li.id] || 0) < 60, apply: (c: any, sp: any, li: any) => { c.done.ask_work = 1; c.aboutName = li.first; }, replies: ['answer_work'] };
+ACTS.ask_work = { kind: 'person', stage: 'topic', preview: (c: any, sp: any, li: any) => ({ about: li.first }), w: () => 0.8, when: (c: any, sp: any, li: any) => !c.done.ask_work && !!li.job && li.age >= 12 && (sp.know[li.id] || 0) < 60, apply: (c: any, sp: any, li: any) => { c.done.ask_work = 1; c.aboutName = li.first; }, replies: ['answer_work'] };
 ACTS.answer_work = { kind: 'person', stage: 'topic', reply: true, when: (c: any, sp: any) => !!sp.job, w: () => 1, apply: () => {}, replies: [] };
-ACTS.ask_where = { kind: 'person', stage: 'topic', preview: () => ({}), w: () => 0.8,
+ACTS.ask_where = { kind: 'person', stage: 'topic', preview: (c: any) => ({ about: c.whereObj ? c.whereObj.first : '' }), w: () => 0.8,
   when: (c: any, sp: any, li: any) => { if (c.done.ask_where) return false; const X = npcs.find((o: any) => o !== sp && o !== li && !o.dead && !o.infant && o.age >= 12 && (sp.aff[o.id] || 0) > 15 && lfDist(sp, o) > 12); if (!X) return false; c.whereObj = X; return true; },
   apply: (c: any, sp: any, li: any) => { c.done.ask_where = 1; c.aboutName = c.whereObj.first; }, replies: ['tell_where', 'dont_know_where'] };
 ACTS.tell_where = { kind: 'person', stage: 'topic', reply: true, when: (c: any, sp: any) => !!c.whereObj && lfDist(sp, c.whereObj) <= 30 && lvlOf(sp.ty) === lvlOf(c.whereObj.ty), w: () => 3, apply: (c: any) => { c.reason = (placeOf(c.whereObj) || 'about the place').replace(/^(in|at)\s+/, (m: string) => m); }, replies: [] };
 ACTS.dont_know_where = { kind: 'person', stage: 'topic', reply: true, when: (c: any, sp: any) => !!c.whereObj && !(lfDist(sp, c.whereObj) <= 30 && lvlOf(sp.ty) === lvlOf(c.whereObj.ty)), w: () => 3, apply: () => {}, replies: [] };
 const REP_THIRD: any = { vandal: 'knock things down', meddler: 'move things that are not theirs', thief: 'take what is not theirs', gossip: 'cannot keep a secret', bully: 'throw their weight about' };
-ACTS.warn = { kind: 'world', stage: 'topic', preview: () => ({}), w: (c: any, sp: any) => 1.3,
+ACTS.warn = { kind: 'world', stage: 'topic', preview: (c: any) => ({ about: c.warnOf ? c.warnOf.first : '', reason: c.warnTag ? REP_THIRD[c.warnTag] : '' }), w: (c: any, sp: any) => 1.3,
   when: (c: any, sp: any, li: any) => { if (c.done.warn || (sp.aff[li.id] || 0) < 5) return false; for (const Z of npcs) { if (Z === sp || Z === li || Z.dead || Z.infant) continue; const w = repWord(sp, Z); if (w && REP_THIRD[w] && !repTags(li, Z)[w]) { c.warnOf = Z; c.warnTag = w; return true; } } return false; },
   apply: (c: any, sp: any, li: any) => { c.done.warn = 1; c.aboutName = c.warnOf.first; c.reason = REP_THIRD[c.warnTag]; const Z = c.warnOf; TM.add(li, { kind: 'rumour', about: Z.id, tag: c.warnTag, from: sp.id, conf: 0.6, imp: 0.4 }); lfAff(li, Z, -3, 'was warned about them'); }, replies: ['warn_thanks'] };
 ACTS.warn_thanks = { kind: 'world', stage: 'topic', reply: true, when: () => true, w: () => 1, apply: (c: any, sp: any, li: any) => { lfAff(sp, li, 1, 'looked out for me'); }, replies: [] };
 ACTS.ask_advice = { kind: 'person', stage: 'topic', preview: () => ({}), w: () => 1.1, when: (c: any, sp: any, li: any) => { if (c.done.ask_advice || !(sp.hunger > 55)) return false; return WORLD.has('feature', 'bakery') || WORLD.has('feature', 'tavern'); }, apply: (c: any) => { c.done.ask_advice = 1; }, replies: ['give_advice'] };
 ACTS.give_advice = { kind: 'person', stage: 'topic', reply: true, when: () => true, w: () => 1, apply: () => {}, replies: [] };
-ACTS.brag_child = { kind: 'person', stage: 'topic', preview: () => ({}), w: () => 0.9, when: (c: any, sp: any, li: any) => { if (c.done.brag_child) return false; const k = (sp.fam.kids || []).map(byId).filter((q: any) => q && !q.dead && q.age < 14)[0]; if (!k) return false; c.kid = k; return true; },
+ACTS.brag_child = { kind: 'person', stage: 'topic', preview: (c: any) => ({ about: c.kid ? c.kid.first : '', qty: c.kid ? Math.floor(c.kid.age) : '' }), w: () => 0.9, when: (c: any, sp: any, li: any) => { if (c.done.brag_child) return false; const k = (sp.fam.kids || []).map(byId).filter((q: any) => q && !q.dead && q.age < 14)[0]; if (!k) return false; c.kid = k; return true; },
   apply: (c: any) => { c.done.brag_child = 1; c.aboutName = c.kid.first; c.lifeQty = Math.floor(c.kid.age); }, replies: ['congratulate'] };
 ACTS.congratulate = { kind: 'person', stage: 'topic', reply: true, when: () => true, w: () => 1, apply: (c: any, sp: any, li: any) => { lfAff(sp, li, 0.5, 'was glad for me'); }, replies: [] };
-ACTS.tell_back = { kind: 'person', stage: 'topic', preview: () => ({}), w: () => 0.9, when: (c: any, sp: any) => !c.done.tell_back && !!sp.back, apply: (c: any, sp: any) => { c.done.tell_back = 1; c.aboutName = sp.back; }, replies: ['tell_back_reply'] };
+ACTS.tell_back = { kind: 'person', stage: 'topic', preview: (c: any, sp: any) => ({ about: sp.back || '' }), w: () => 0.9, when: (c: any, sp: any) => !c.done.tell_back && !!sp.back, apply: (c: any, sp: any) => { c.done.tell_back = 1; c.aboutName = sp.back; }, replies: ['tell_back_reply'] };
 ACTS.tell_back_reply = { kind: 'person', stage: 'topic', reply: true, when: () => true, w: () => 1, apply: () => {}, replies: [] };
 
 lx('joke', 'plain', 'A man told me his wall was holding up the ceiling. It turned out to be the other way round.'); lx('joke', 'plain', 'I asked the baker for a loaf of yesterday. He said he\'d have it tomorrow.'); lx('joke', 'plain', 'My neighbour talks to his turnips. They\'ve never once disagreed with him.');
@@ -111,6 +111,11 @@ lxi('greet', 'There you are. I was about to look for you, which is not the same 
 lxi('greet', 'It is you. I had hoped for someone else, and then I thought: no.', { rel: 'sibling' }); lxi('greet', '{li}. We have the same eyebrows. I notice every time.', { rel: 'sibling' });
 lxi('greet', 'Have you eaten? I ask every time. The answer is never the point.', { rel: 'parent' }); lxi('greet', 'Come here. Let me look at you. You are taller or I am less.', { rel: 'parent' }); lxi('greet', 'Hello. You are where I left you, or near it.', { rel: 'child' }); lxi('greet', 'There you are. I counted. You were still one.', { rel: 'child' });
 lxi('greet_back', 'There you are. I was thinking about you, in a general way.', { rel: 'spouse' }); lxi('greet_back', 'Hello, love. I am here. It is where I live.', { rel: 'spouse' }); lxi('greet_back', 'What now? I am joking. Hello.', { rel: 'sibling' });
-lxi('greet_back', 'Hello. Yes, I have eaten. I would tell you if I had not, which is not true.', { rel: 'parent' }); lxi('greet_back', 'Hello! I am here. I am fine. You do not need to look at me like that.', { rel: 'child' });
+lxi('greet_back', 'Hello. Yes, I have eaten. I would tell you if I had not, which is not true.', { rel: 'parent' }); lxi('greet_back', 'Hello. I am here. I am fine. You do not need to look at me like that.', { rel: 'child' });
 lxi('farewell', 'I will see you at supper. I will be the one who is hungry.', { rel: 'spouse' }); lxi('farewell', 'Try not to be an idiot. I say it with love, and with a little concern.', { rel: 'sibling' }); lxi('farewell', 'Wrap up warm. It is a mild island, and still.', { rel: 'parent' }); lxi('farewell', 'Do not be late for supper. I will notice and I will say nothing.', { rel: 'child' });
 lxi('ask_how', 'How are you? I mean really, not the answer you give the baker.', { rel: 'spouse' }); lxi('ask_how', 'Are you well? You look tired. You always look tired. It is part of the family.', { rel: 'parent' }); lxi('ask_how', 'Are you behaving? Do not answer.', { rel: 'child' }); lxi('ask_how', 'How is life, then? Tell me before everyone else does.', { rel: 'sibling' });
+
+/* ---- backchannel: a nod to what was said ---- */
+ACTS.backchannel = { kind: 'small', stage: 'topic', reply: true, when: () => true, w: () => 1, apply: () => {}, replies: [] };
+lx('backchannel', 'plain', 'Mm.'); lx('backchannel', 'plain', 'I see.'); lx('backchannel', 'plain', 'Right.'); lx('backchannel', 'plain', 'Is that so.'); lx('backchannel', 'plain', 'Ah.');
+lxi('backchannel', 'Mm.'); lxi('backchannel', 'I see.'); lxi('backchannel', 'Yes. Well.'); lxi('backchannel', 'That is something.'); lxi('backchannel', 'Ah. Yes.');

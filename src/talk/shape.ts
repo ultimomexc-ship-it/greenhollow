@@ -25,8 +25,8 @@ function talkTurn(c: any, sp: any, li: any, id: string): any { const A = ACTS[id
 /** the words of a turn (a and b are the two people of the conversation, in any order) */
 function talkWords(t: any, a: any, b: any): string { const s = t.by === a.id ? a : b, o = s === a ? b : a; const txt = lxSay(t.act === 'report_day' && t.x && t.x.line ? t.x.line : t.act, s, o, t.x || {}); return t.x && t.x.link && txt && typeof lxLink === 'function' ? lxLink(txt, t.x.link) : txt; }
 
-function talkRun(a: any, b: any, listened?: boolean): any {
-  const c: any = { a, b, stage: 'open', done: {}, turns: [], left: { [a.id]: talkBudget(a, b), [b.id]: talkBudget(b, a) }, last: null, t0: game.time };
+function talkRun(a: any, b: any, listened?: boolean, short?: boolean): any {
+  const c: any = { a, b, stage: 'open', done: {}, turns: [], short: !!short, left: short ? { [a.id]: 1.6, [b.id]: 1.6 } : { [a.id]: talkBudget(a, b), [b.id]: talkBudget(b, a) }, last: null, t0: game.time };   // (short: a word in passing, one topic)
   const say = (sp: any, li: any, id: string) => { talkTurn(c, sp, li, id); };
   let sp = a, li = b;
   /* opening */
@@ -36,6 +36,7 @@ function talkRun(a: any, b: any, listened?: boolean): any {
   while (c.turns.length < 26 && c.left[sp.id] > 1 && c.left[li.id] > 0.5) {
     const id = talkChoose(c, sp, li, TALK_TOPICS()); if (!id) break;
     say(sp, li, id); c.left[sp.id] -= 1;
+    if (!ACTS[id].replies.length && ACTS[id].kind !== 'ritual' && Math.random() < 0.35) { say(li, sp, 'backchannel'); c.left[li.id] -= 0.2; }   // (a nod to what was said)
     let cur = id, from = sp, to = li;   // (an answer, an answer to that, and so on: a story is four turns long)
     for (let d = 0; d < 4 && ACTS[cur].replies.length; d++) {
       const reply = talkChoose(c, to, from, ACTS[cur].replies); if (!reply || (d === 0 && reply === 'agree' && Math.random() < 0.3)) break;   // (a nod is optional; an answer is not)
@@ -61,5 +62,5 @@ function talkFinish(c: any, a: any, b: any, listened?: boolean) {
   }
   if (!lines && game.player && typeof sndMurmur === 'function') sndMurmur(a);
   if (lines && lines.length) game.events.push({ time: game.time, a, b, place: placeOf(a), topic: 'talk', quiet: false, talk: true, lines });
-  else { const hold = game.time + c.turns.length * 0.7; a.talkUntil = Math.max(a.talkUntil || 0, hold); b.talkUntil = Math.max(b.talkUntil || 0, hold); }
+  else { const hold = game.time + c.turns.length * (c.short ? 0.2 : 0.7); a.talkUntil = Math.max(a.talkUntil || 0, hold); b.talkUntil = Math.max(b.talkUntil || 0, hold); }
 }
