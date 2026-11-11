@@ -16,9 +16,13 @@ function jrHTML(): string {
   let groups: any = { 'The news': rows.filter((r: any) => r.m.ev != null), 'What people say about each other': rows.filter((r: any) => r.m.kind === 'opinion'), 'Prices': rows.filter((r: any) => r.m.kind === 'price'), 'How people are': rows.filter((r: any) => r.m.kind === 'told_life') };
   const mine = lf2Ev().filter((e: any) => e.actor === p.id && ['wall_removed', 'home_destroyed', 'building_down', 'bed_moved', 'caught_on_privy'].includes(e.kind)).slice(-6).reverse().map((e: any) => {
     const know = npcs.filter((o: any) => !o.dead && (o.tmem || []).some((m: any) => m.ev === e.id && m.ver && m.ver.who === p.id)).length, heard = npcs.filter((o: any) => !o.dead && (o.tmem || []).some((m: any) => m.ev === e.id)).length;
-    return { m: { t: e.t }, t: TE.text(e, { who: p.id }).replace(/^./, (c: string) => c.toUpperCase()) + (know ? ` — ${know} know it was you` : heard ? ' — nobody knows it was you' : ' — nobody knows') };
+    const blamed: any = {}; for (const o of npcs) { if (o.dead) continue; const mm = (o.tmem || []).find((m: any) => m.ev === e.id && m.kind !== 'did'); if (mm && mm.ver && mm.ver.who != null && mm.ver.who !== p.id && !mm.cleared) blamed[mm.ver.who] = (blamed[mm.ver.who] || 0) + 1; }
+    const bl = Object.keys(blamed).map(id => { const q = byId(+id); return q ? `${blamed[id]} blame ${q.first}` : ''; }).filter(Boolean).join(', ');
+    return { m: { t: e.t }, t: TE.text(e, { who: p.id }).replace(/^./, (c: string) => c.toUpperCase()) + (know ? ` — ${know} know it was you` : heard ? ' — nobody knows it was you' : ' — nobody knows') + (bl ? ' (' + bl + ')' : '') };
   });
   groups['What you did'] = mine;
+  const rv = repVillage(p), rep = Object.keys(rv).filter(k => rv[k] >= 1).sort((a, b) => rv[b] - rv[a]).map(k => ({ m: { t: game.time }, t: `${rv[k]} ${rv[k] === 1 ? 'person says' : 'people say'} you ${REP_WORDS[k]}` }));
+  groups['What folks say about you'] = rep;
   const open = (p.tmem || []).filter((m: any) => m.kind === 'request' && m.state === 'open').slice(-6).reverse().map((m: any) => { const a = byId(m.from); return a ? { m, t: a.first + (m.req.kind === 'bed' ? ' needs a bed' : ' needs ' + (GOODS[m.req.item] ? GOODS[m.req.item].name : m.req.item)) + ' — you said you would try' } : null; }).filter(Boolean);
   const sec = (p.tmem || []).filter((m: any) => m.secret && m.keeper != null).slice(-6).reverse().map((m: any) => { const k = byId(m.keeper), ev = lf2Ev().find((q: any) => q.id === m.ev); return k && ev ? { m, t: k.first + ' told you in confidence: ' + TE.text(ev, m.ver) } : null; }).filter(Boolean);
   groups = Object.assign({ 'Open threads': open, 'Secrets you keep': sec }, groups);

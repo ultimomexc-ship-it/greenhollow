@@ -8,8 +8,10 @@ function secretPick(sp: any, li: any): any {
   let best: any = null, bs = 0;
   for (const m of sp.tmem || []) {
     if (m.ev == null || !['did', 'felt'].includes(m.kind) || m.confided || m.secret) continue; if (game.time - m.t > 1440 * 10) continue;
-    const ev = lf2Ev().find((q: any) => q.id === m.ev); if (!ev || !(ev.tags || []).some((t: string) => SECRET_TAGS.includes(t)) || (ev.know || []).length > 4 || TM.ofEv(li, ev.id)) continue;
-    const s = m.imp + (ev.anon ? 0.4 : 0) + Math.random() * 0.2; if (s > bs) { bs = s; best = { m, ev }; }
+    const ev = lf2Ev().find((q: any) => q.id === m.ev); if (!ev || !(ev.tags || []).some((t: string) => SECRET_TAGS.includes(t))) continue;
+    const theirs = TM.ofEv(li, ev.id), wrong = !!theirs && m.kind === 'did' && theirs.ver && theirs.ver.who !== sp.id && !theirs.cleared;   // (they blame somebody else: owning up puts it right)
+    if (!wrong && ((ev.know || []).length > 4 || theirs)) continue;
+    const s = m.imp + (ev.anon ? 0.4 : 0) + (wrong ? 1 : 0) + Math.random() * 0.2; if (s > bs) { bs = s; best = { m, ev, wrong }; }
   }
   return best;
 }
@@ -18,7 +20,10 @@ ACTS.confide = { kind: 'secret', stage: 'topic', preview: (c: any, sp: any, li: 
   when: (c: any, sp: any, li: any) => !c.done.confide && !li.infant && li.age >= 10 && (sp.player || ((sp.aff[li.id] || 0) > 45 && (sp.know[li.id] || 0) > 30)) && !!secretPick(sp, li),
   apply: (c: any, sp: any, li: any) => {
     const k = secretPick(sp, li)!; c.done.confide = 1; k.m.confided = true; const ver = k.m.kind === 'did' ? { who: sp.id, sev: k.ev.sev } : Object.assign({}, k.m.ver);
-    const mem = TM.addEv(li, k.ev, 'told', 1, sp, 1, ver); if (mem) { mem.secret = true; mem.keeper = sp.id; }
+    const old = TM.ofEv(li, k.ev.id); let mem: any;
+    if (old) { old.ver = ver; old.conf = 1; old.kind = 'told'; old.from = sp.id; old.raised = false; old.cleared = false; mem = old; const wrongOne = old.ver; }   // (the wrong version is put right)
+    else mem = TM.addEv(li, k.ev, 'told', 1, sp, 1, ver);
+    if (mem && !k.wrong) { mem.secret = true; mem.keeper = sp.id; }
     c.told = { text: TE.text(k.ev, ver), react: '' }; c.secretEv = k.ev; lfAff(li, sp, 3, 'trusted me with a secret'); lfAff(sp, li, 2, 'kept my confidence');
   }, replies: ['secret_keep', 'secret_alarmed'] };
 const secretServe = (c: any) => (c.secretEv && ((c.secretEv.sev || 1) >= 3 || (c.secretEv.tags || []).some((t: string) => ['theft', 'harm', 'violence'].includes(t))));

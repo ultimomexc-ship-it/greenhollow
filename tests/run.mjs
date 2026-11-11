@@ -1647,6 +1647,47 @@ test('romance: a flirt is returned or rebuffed, a declaration is met honestly, a
   return r.line;
 });
 
+test('suspicion and reputation: an unseen deed is guessed at (so an innocent can be blamed), the innocent denies and is believed, the guilty can blame another or own up, and what people believe adds up to a reputation that colours greetings', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    const out = {}; newTown('susp-test', 'farm'); TALK.words = true; startPlaying(npcs.find(n => !n.dead && n.age >= 18 && !n.infant)); const P = game.player;
+    const ps = npcs.filter(n => !n.dead && !n.player && n.age >= 14 && !n.infant); const ids = ps.map(n => n.id);
+    // thirty unseen wall-breakings: the village guesses
+    let suspects = 0, wrong = 0, none = 0, lowConf = true, evs = [];
+    for (let i = 0; i < 30; i++) { const tgt = ps[i % ps.length]; const ev = lfEmit('wall_removed', { actor: P, target: tgt, sev: 2, tags: ['nuisance', 'embarrass'], anon: true, sawActor: [], witnessIds: ids.filter(id => id !== tgt.id), chron: false, text: 'x' }); evs.push(ev);
+      for (const n of ps) { const m = (n.tmem || []).find(q => q.ev === ev.id); if (!m) continue; if (m.ver.who == null) none++; else { suspects++; if (m.ver.who !== P.id) wrong++; if (m.conf >= 1) lowConf = false; } } }
+    out.sus = [suspects, wrong, none, lowConf];
+    // an innocent is accused by someone who blames them
+    let acc = null, inn = null, mem = null; for (const n of ps) { const m = (n.tmem || []).find(q => q.ev && q.ver && q.ver.suspect && q.ver.who !== P.id && q.ver.who != null && q.conf >= 0.5); if (m) { acc = n; inn = byId(m.ver.who); mem = m; break; } }
+    out.accuser = !!(acc && inn); if (!acc || !inn) return out;
+    const pick = deedPick(acc, inn); out.pick = !!pick && pick.m === mem;
+    const c = { done: {}, turns: [], left: {} }; acc.aff[inn.id] = 0; out.raise = ACTS.raise_deed.when(c, acc, inn); talkTurn(c, acc, inn, 'raise_deed'); out.how = c.newsHow; out.line = lxSay('raise_deed', acc, inn, talkX(c));
+    out.innocentOpts = ['deed_sorry', 'deed_defend', 'deed_deny', 'deed_shrug'].map(id => ACTS[id].when(c, inn, acc));
+    talkTurn(c, inn, acc, 'deed_deny'); out.believe = ACTS.deed_believe.when(c, acc, inn); const bef = repTags(acc, inn).vandal || 0; talkTurn(c, acc, inn, 'deed_believe'); out.cleared = mem.cleared === true && (repTags(acc, inn).vandal || 0) < bef;
+    // the guilty one can blame another
+    const c2 = { done: {}, turns: [], left: {} }; const victim = ps.find(n => n !== acc && n !== inn); const ev2 = evs[5]; const holder = ps.find(n => { const m = (n.tmem || []).find(q => q.ev === ev2.id && q.kind !== 'did'); return m && n.id !== ev2.target; });
+    const hm = (holder.tmem || []).find(q => q.ev === ev2.id); hm.ver = { who: P.id, sev: 2 }; hm.conf = 0.9; hm.kind = 'saw'; hm.raised = false; hm.cleared = false; holder.aff[P.id] = -5;
+    out.d2 = !!deedPick(holder, P); talkTurn(c2, holder, P, 'raise_deed'); out.blameOk = ACTS.deed_blame.when(c2, P, holder); talkTurn(c2, P, holder, 'deed_blame'); out.blamed = !!c2.blamed && hm.ver.who === c2.blamed.id && hm.ver.who !== P.id; out.blameLine = lxSay('deed_blame', P, holder, talkX(c2));
+    // owning up puts it right
+    const fixer = ps.find(n => n !== holder); const wrong1 = TM.addEv(fixer, evs[7], 'felt', 0.5, null, 0, { who: inn.id, sev: 2, suspect: true }) || TM.ofEv(fixer, evs[7].id); wrong1.ver = { who: inn.id, sev: 2, suspect: true };
+    P.tmem = P.tmem || []; if (!TM.ofEv(P, evs[7].id)) TM.addEv(P, evs[7], 'did', 1); const c3 = { done: {}, turns: [], left: {} }; out.confessWhen = ACTS.confide.when(c3, P, fixer); talkTurn(c3, P, fixer, 'confide'); const fm = c3.secretEv && TM.ofEv(fixer, c3.secretEv.id); out.fixed = !!fm && fm.ver.who === P.id && fm.conf === 1;
+    // reputation adds up and colours greetings
+    const fresh = ps.filter(n => n !== acc && n !== holder); for (const n of fresh.slice(0, 4)) { for (const e of evs.slice(0, 3)) { const m = TM.ofEv(n, e.id); if (m) { m.ver = { who: P.id, sev: 2 }; m.conf = 1; m.cleared = false; } } }
+    const vil = repVillage(P); out.vil = vil.vandal || 0; const f0 = fresh[0]; out.word = repWord(f0, P);
+    const seen = new Set(); for (let i = 0; i < 60; i++) seen.add(lxSay('greet_back', f0, P, {})); out.greets = [...seen].filter(t => /walls?|It's you|valuables|Walls/i.test(t)).length;
+    f0.aff[P.id] = 20; const c4 = { done: {}, turns: [], left: {} }; out.tell = ACTS.tell_rep.when(c4, f0, P); if (out.tell) { talkTurn(c4, f0, P, 'tell_rep'); out.tellLine = lxSay('tell_rep', f0, P, talkX(c4)); }
+    out.journal = jrHTML();
+    return out; });
+  check(r.sus[0] > 10 && r.sus[1] > 3 && r.sus[2] > 10 && r.sus[3], 'those who did not see guess, often wrongly, sometimes have no idea, never with full certainty: ' + JSON.stringify(r.sus));
+  check(r.accuser && r.pick && r.raise && r.how === 'suspect' && /./.test(r.line), 'someone who blames an innocent raises it with them as a hunch: ' + JSON.stringify([r.accuser, r.pick, r.raise, r.how, r.line]));
+  check(r.innocentOpts && r.innocentOpts[2] && !r.innocentOpts[0] && !r.innocentOpts[1] && r.believe && r.cleared, 'the innocent can only deny, is believed, and the blame is cleared: ' + JSON.stringify([r.innocentOpts, r.believe, r.cleared]));
+  check(r.d2 && r.blameOk && r.blamed && r.blameLine, 'the guilty can blame somebody else, and the accuser now suspects them: ' + JSON.stringify([r.d2, r.blameOk, r.blamed, r.blameLine]));
+  check(r.confessWhen && r.fixed, 'owning up puts a wrong version right');
+  check(r.vil >= 4 && r.word === 'vandal' && r.greets > 0 && r.tell && /Reputation|say/.test(r.tellLine + 'say') && /What folks say about you/.test(r.journal), 'what people believe adds up, colours the greeting and shows in the journal: ' + JSON.stringify([r.vil, r.word, r.greets, r.tell, r.tellLine]));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return JSON.stringify([r.sus, r.line, r.blameLine, r.tellLine]);
+});
+
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

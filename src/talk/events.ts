@@ -12,7 +12,8 @@ const TE = {
   },
   onEmit(ev: any) {
     const a = ev.actor != null ? lf2By(ev.actor) : null; if (a && !a.dead) TM.addEv(a, ev, 'did', 1);
-    for (const id of ev.witnesses || []) { const w = lf2By(id); if (!w || w.dead || w === a) continue; TM.addEv(w, ev, id === ev.target ? 'felt' : 'saw', 1, null, 0, ev.anon && !(ev.sawActor || []).includes(w.id) ? { who: null, sev: ev.sev } : undefined); }   // (an unseen deed has no name in the memory of those who only know it happened)
+    for (const id of ev.witnesses || []) { const w = lf2By(id); if (!w || w.dead || w === a) continue; let ver: any, conf = 1; if (ev.anon && !(ev.sawActor || []).includes(w.id)) { const sus = typeof repSuspect === 'function' ? repSuspect(w, ev) : null; ver = { who: sus ? sus.id : null, sev: ev.sev, suspect: !!sus }; if (sus) conf = sus.conf; }
+      TM.addEv(w, ev, id === ev.target ? 'felt' : 'saw', conf, null, 0, ver); }   // (an unseen deed has no name in the memory of those who only know it happened)
   },
   /** the words for an event in a version of it (who is blamed may differ from who did it) */
   text(ev: any, ver?: any): string {

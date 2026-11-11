@@ -26839,9 +26839,21 @@ function jrHTML() {
   let groups = { "The news": rows2.filter((r) => r.m.ev != null), "What people say about each other": rows2.filter((r) => r.m.kind === "opinion"), "Prices": rows2.filter((r) => r.m.kind === "price"), "How people are": rows2.filter((r) => r.m.kind === "told_life") };
   const mine = lf2Ev().filter((e) => e.actor === p.id && ["wall_removed", "home_destroyed", "building_down", "bed_moved", "caught_on_privy"].includes(e.kind)).slice(-6).reverse().map((e) => {
     const know = npcs.filter((o) => !o.dead && (o.tmem || []).some((m) => m.ev === e.id && m.ver && m.ver.who === p.id)).length, heard = npcs.filter((o) => !o.dead && (o.tmem || []).some((m) => m.ev === e.id)).length;
-    return { m: { t: e.t }, t: TE.text(e, { who: p.id }).replace(/^./, (c) => c.toUpperCase()) + (know ? ` \u2014 ${know} know it was you` : heard ? " \u2014 nobody knows it was you" : " \u2014 nobody knows") };
+    const blamed = {};
+    for (const o of npcs) {
+      if (o.dead) continue;
+      const mm = (o.tmem || []).find((m) => m.ev === e.id && m.kind !== "did");
+      if (mm && mm.ver && mm.ver.who != null && mm.ver.who !== p.id && !mm.cleared) blamed[mm.ver.who] = (blamed[mm.ver.who] || 0) + 1;
+    }
+    const bl = Object.keys(blamed).map((id) => {
+      const q = byId(+id);
+      return q ? `${blamed[id]} blame ${q.first}` : "";
+    }).filter(Boolean).join(", ");
+    return { m: { t: e.t }, t: TE.text(e, { who: p.id }).replace(/^./, (c) => c.toUpperCase()) + (know ? ` \u2014 ${know} know it was you` : heard ? " \u2014 nobody knows it was you" : " \u2014 nobody knows") + (bl ? " (" + bl + ")" : "") };
   });
   groups["What you did"] = mine;
+  const rv = repVillage(p), rep = Object.keys(rv).filter((k) => rv[k] >= 1).sort((a, b) => rv[b] - rv[a]).map((k) => ({ m: { t: game.time }, t: `${rv[k]} ${rv[k] === 1 ? "person says" : "people say"} you ${REP_WORDS[k]}` }));
+  groups["What folks say about you"] = rep;
   const open = (p.tmem || []).filter((m) => m.kind === "request" && m.state === "open").slice(-6).reverse().map((m) => {
     const a = byId(m.from);
     return a ? { m, t: a.first + (m.req.kind === "bed" ? " needs a bed" : " needs " + (GOODS[m.req.item] ? GOODS[m.req.item].name : m.req.item)) + " \u2014 you said you would try" } : null;
@@ -27753,7 +27765,13 @@ const TE = {
     for (const id of ev.witnesses || []) {
       const w = lf2By(id);
       if (!w || w.dead || w === a) continue;
-      TM.addEv(w, ev, id === ev.target ? "felt" : "saw", 1, null, 0, ev.anon && !(ev.sawActor || []).includes(w.id) ? { who: null, sev: ev.sev } : void 0);
+      let ver, conf = 1;
+      if (ev.anon && !(ev.sawActor || []).includes(w.id)) {
+        const sus = typeof repSuspect === "function" ? repSuspect(w, ev) : null;
+        ver = { who: sus ? sus.id : null, sev: ev.sev, suspect: !!sus };
+        if (sus) conf = sus.conf;
+      }
+      TM.addEv(w, ev, id === ev.target ? "felt" : "saw", conf, null, 0, ver);
     }
   },
   /** the words for an event in a version of it (who is blamed may differ from who did it) */
@@ -28222,7 +28240,7 @@ lx("call_reply", "plain", "I'll be back.");
 lx("call_reply", "plain", "Not now, I'm busy.");
 function lxContext(sp, li, c) {
   const rel = sp.fam && (sp.fam.spouse === li.id || (sp.fam.kids || []).includes(li.id) || sp.fam.mother === li.id || sp.fam.father === li.id) ? "kin" : sp.rel && sp.rel[li.id] === "friend" || (sp.aff[li.id] || 0) > 30 ? "friend" : sp.know && (sp.know[li.id] || 0) > 10 ? "acquaintance" : "stranger";
-  return { band: todBand(game.time), rel, state: c.state || talkState(sp) || "fine", trait: (sp.traits || [])[0], how: c.how, conf: c.conf, call: c.call, op: c.op };
+  return { band: todBand(game.time), rel, state: c.state || talkState(sp) || "fine", trait: (sp.traits || [])[0], how: c.how, conf: c.conf, call: c.call, op: c.op, rep: typeof repWord === "function" ? repWord(sp, li) : void 0 };
 }
 function lxSay(act, sp, li, c) {
   const ctx2 = lxContext(sp, li, c);
@@ -28701,7 +28719,9 @@ function deedPick(sp, li) {
   for (const m of sp.tmem || []) {
     if (m.ev == null || m.raised || m.forgiven || m.conf < 0.5 || !["saw", "felt", "told", "overheard"].includes(m.kind)) continue;
     const ev = lf2Ev().find((q) => q.id === m.ev);
-    if (!ev || ev.actor !== li.id || m.ver && m.ver.who !== void 0 && m.ver.who !== li.id) continue;
+    if (!ev) continue;
+    const who = m.ver && m.ver.who !== void 0 ? m.ver.who : ev.actor;
+    if (who !== li.id) continue;
     if (!(ev.tags || []).some((t) => DEED_TAGS.includes(t))) continue;
     if (game.time - m.t > 1440 * 8) continue;
     const s = m.imp + (ev.target === sp.id ? 1 : 0) + (m.kind === "saw" || m.kind === "felt" ? 0.3 : 0);
@@ -28715,7 +28735,7 @@ function deedPick(sp, li) {
 const deedSet = (c, sp, d) => {
   c.deed = d;
   c.deedText = deedYou(d.ev, sp);
-  c.newsHow = d.ev.target === sp.id ? "victim" : d.m.kind === "told" ? "told" : "saw";
+  c.newsHow = d.m.ver && d.m.ver.suspect ? "suspect" : d.ev.target === sp.id ? "victim" : d.m.kind === "told" ? "told" : "saw";
 };
 ACTS.raise_deed = {
   kind: "deed",
@@ -28732,27 +28752,41 @@ ACTS.raise_deed = {
     d.m.raised = true;
     c.done.raise_deed = 1;
   },
-  replies: ["deed_sorry", "deed_defend", "deed_deny", "deed_shrug", "offer_gift"]
+  replies: ["deed_sorry", "deed_defend", "deed_deny", "deed_shrug", "deed_blame", "offer_gift"]
 };
 ACTS.cry_deed = { kind: "deed", stage: "topic", when: () => false, apply: () => {
 }, replies: [] };
-const deedReply = (id, next, fx) => {
-  ACTS[id] = { kind: "deed", stage: "topic", reply: true, when: (c) => !!c.deed, w: () => 1, apply: (c, sp, li) => {
+const deedGuilty = (c, sp) => !!c.deed && c.deed.ev.actor === sp.id;
+const deedReply = (id, next, fx, ok = () => true, w = () => 1) => {
+  ACTS[id] = { kind: "deed", stage: "topic", reply: true, when: (c, sp, li) => !!c.deed && ok(c, sp, li), w: (c, sp) => w(c, sp), apply: (c, sp, li) => {
     c.deedAnswer = id;
     fx(c, sp, li);
   }, replies: next };
 };
 deedReply("deed_sorry", ["deed_forgive", "deed_cold"], (c, sp, li) => {
   lfAff(li, sp, 3, "said sorry");
-});
+}, deedGuilty);
 deedReply("deed_defend", ["deed_cold"], (c, sp, li) => {
   lfAff(li, sp, -3, "did not think it was wrong");
-});
+}, deedGuilty);
 deedReply("deed_deny", ["deed_believe", "deed_doubt"], (c, sp, li) => {
-});
+  c.deedLie = deedGuilty(c, sp);
+}, () => true, (c, sp) => deedGuilty(c, sp) ? 1 : 4);
 deedReply("deed_shrug", ["deed_cold"], (c, sp, li) => {
   lfAff(li, sp, -4, "shrugged it off");
-});
+}, deedGuilty);
+deedReply("deed_blame", ["deed_believe", "deed_doubt"], (c, sp, li) => {
+  const cands = npcs.filter((o) => !o.dead && !o.infant && o.age >= 12 && o !== sp && o !== li && o.id !== c.deed.ev.target);
+  const X = cands.filter((o) => (sp.aff[o.id] || 0) < -10)[0] || cands[Math.floor(Math.random() * cands.length)];
+  if (!X) return;
+  c.blamed = X;
+  c.aboutName = X.first;
+  c.deedLie = true;
+  c.deed.m.ver = Object.assign({}, c.deed.m.ver, { who: X.id, suspect: true });
+  c.deed.m.conf = 0.55;
+  c.deed.m.raised = false;
+  lfAff(li, X, -6, "was said to have done it");
+}, (c, sp) => deedGuilty(c, sp) && npcs.length > 3, (c, sp) => sp.player ? 1 : 0.7);
 const deedAnswer = (id, ok, fx) => {
   ACTS[id] = { kind: "deed", stage: "topic", reply: true, when: (c, sp, li) => !!c.deed && ok(c, sp, li), w: () => 1, apply: (c, sp, li) => {
     if (fx) fx(c, sp, li);
@@ -28762,10 +28796,17 @@ deedAnswer("deed_forgive", (c, sp, li) => (sp.aff[li.id] || 0) > -28, (c, sp, li
   lfAff(sp, li, 4, "forgave me");
 });
 deedAnswer("deed_cold", (c, sp, li) => (sp.aff[li.id] || 0) <= -28 || c.deedAnswer !== "deed_sorry");
-deedAnswer("deed_believe", (c) => !!c.deed && c.deed.m.kind !== "saw" && c.deed.m.kind !== "felt", (c, sp, li) => {
-  lfAff(sp, li, 2, "said it was not them");
+deedAnswer("deed_believe", (c, sp, li) => {
+  const m = c.deed.m;
+  return m.ver && m.ver.suspect || m.kind !== "saw" && m.kind !== "felt";
+}, (c, sp, li) => {
+  const m = c.deed.m;
+  if (c.deedAnswer === "deed_deny" && !c.blamed) {
+    m.cleared = true;
+    lfAff(sp, li, 2, "said it was not them");
+  } else lfAff(sp, li, 1, "put me straight");
 });
-deedAnswer("deed_doubt", (c) => !!c.deed, (c, sp, li) => {
+deedAnswer("deed_doubt", (c) => true, (c, sp, li) => {
   lfAff(sp, li, -3, "lied to me");
 });
 lx("raise_deed", "plain", "You {deed}. I would like to know why.", { how: "victim" });
@@ -28775,6 +28816,14 @@ lx("raise_deed", "plain", "I saw what you did. You {deed}.", { how: "saw" });
 lx("raise_deed", "plain", "That was you, wasn't it? You {deed}.", { how: "saw" });
 lx("raise_deed", "plain", "I heard you {deed}. Is it true?", { how: "told" });
 lx("raise_deed", "plain", "People say you {deed}.", { how: "told" });
+lx("raise_deed", "plain", "Be honest. Was it you who {deed}?", { how: "suspect" });
+lx("raise_deed", "plain", "Somebody {deed}. I think it was you.", { how: "suspect" });
+lx("deed_blame", "plain", "It wasn't me. I'd look at {about}.");
+lx("deed_blame", "plain", "Ask {about}. I saw them near there.");
+lxi("raise_deed", "I have been thinking about who {deed}. I keep arriving at you.", { how: "suspect" });
+lxi("raise_deed", "It is a hunch. Was it you who {deed}?", { how: "suspect" });
+lxi("deed_blame", "I would look at {about}. I am not saying more than that. I am saying that.");
+lxi("deed_blame", "It was not me. I have noticed {about} nearby, more than usual.");
 lx("deed_sorry", "plain", "I'm sorry. I shouldn't have done it.");
 lx("deed_sorry", "plain", "You're right. I'm sorry.");
 lx("deed_defend", "plain", "It had to be done.");
@@ -29134,11 +29183,13 @@ function secretPick(sp, li) {
     if (m.ev == null || !["did", "felt"].includes(m.kind) || m.confided || m.secret) continue;
     if (game.time - m.t > 1440 * 10) continue;
     const ev = lf2Ev().find((q) => q.id === m.ev);
-    if (!ev || !(ev.tags || []).some((t) => SECRET_TAGS.includes(t)) || (ev.know || []).length > 4 || TM.ofEv(li, ev.id)) continue;
-    const s = m.imp + (ev.anon ? 0.4 : 0) + Math.random() * 0.2;
+    if (!ev || !(ev.tags || []).some((t) => SECRET_TAGS.includes(t))) continue;
+    const theirs = TM.ofEv(li, ev.id), wrong = !!theirs && m.kind === "did" && theirs.ver && theirs.ver.who !== sp.id && !theirs.cleared;
+    if (!wrong && ((ev.know || []).length > 4 || theirs)) continue;
+    const s = m.imp + (ev.anon ? 0.4 : 0) + (wrong ? 1 : 0) + Math.random() * 0.2;
     if (s > bs) {
       bs = s;
-      best = { m, ev };
+      best = { m, ev, wrong };
     }
   }
   return best;
@@ -29157,8 +29208,19 @@ ACTS.confide = {
     c.done.confide = 1;
     k.m.confided = true;
     const ver = k.m.kind === "did" ? { who: sp.id, sev: k.ev.sev } : Object.assign({}, k.m.ver);
-    const mem = TM.addEv(li, k.ev, "told", 1, sp, 1, ver);
-    if (mem) {
+    const old = TM.ofEv(li, k.ev.id);
+    let mem;
+    if (old) {
+      old.ver = ver;
+      old.conf = 1;
+      old.kind = "told";
+      old.from = sp.id;
+      old.raised = false;
+      old.cleared = false;
+      mem = old;
+      const wrongOne = old.ver;
+    } else mem = TM.addEv(li, k.ev, "told", 1, sp, 1, ver);
+    if (mem && !k.wrong) {
       mem.secret = true;
       mem.keeper = sp.id;
     }
@@ -29440,6 +29502,101 @@ lxi("propose_yes", "Yes. I will. It is a very quick decision and I find I have n
 lxi("propose_yes", "Yes. I thought you would never ask. Yes.");
 lxi("propose_later", "Not yet. Ask me again later. I am not refusing, I am being slow.");
 lxi("propose_no", "No. I am sorry. I cannot, and I would rather say so now.");
+const REP_KIND = { wall_removed: "vandal", home_destroyed: "vandal", building_down: "vandal", bed_moved: "meddler", caught_on_privy: "meddler", theft: "thief", pickpocket: "thief", robbed: "thief", breakin: "thief", cheat: "thief", gift: "kind", help: "kind", charity: "kind", betrayal: "gossip", shove: "bully", brawl: "bully" };
+const REP_BAD = ["vandal", "meddler", "thief", "gossip", "bully"];
+function repTags(obs, subj) {
+  const out = {};
+  if (!obs.tmem) return out;
+  for (const m of obs.tmem) {
+    if (m.ev == null || m.kind === "did" || m.forgiven || m.cleared) continue;
+    const ev = lf2Ev().find((q) => q.id === m.ev);
+    if (!ev) continue;
+    const tag = REP_KIND[ev.kind];
+    if (!tag) continue;
+    const who = m.ver && m.ver.who !== void 0 ? m.ver.who : ev.actor;
+    if (who !== subj.id) continue;
+    out[tag] = (out[tag] || 0) + (m.conf || 0.5);
+  }
+  return out;
+}
+function repVillage(subj) {
+  const out = {};
+  for (const o of npcs) {
+    if (o.dead || o === subj || o.infant) continue;
+    const t = repTags(o, subj);
+    for (const k of Object.keys(t)) if (t[k] >= 0.45) out[k] = (out[k] || 0) + 1;
+  }
+  return out;
+}
+function repWord(sp, li) {
+  const t = repTags(sp, li), bad = REP_BAD.filter((k) => t[k] >= 0.6).sort((a, b) => t[b] - t[a])[0];
+  if (bad) return bad;
+  if (t.kind >= 1.5) return "kind";
+  return void 0;
+}
+function repSuspect(w, ev) {
+  const tag = REP_KIND[ev.kind], cands = npcs.filter((c) => !c.dead && !c.infant && c.age >= 12 && c !== w && c.id !== ev.target);
+  if (!cands.length) return null;
+  const ws = cands.map((c) => 0.25 + Math.max(0, -(w.aff[c.id] || 0)) / 40 + ((w.know[c.id] || 0) < 8 ? 0.4 : 0) + (tag ? (repTags(w, c)[tag] || 0) * 0.9 : 0) + (c.id === ev.actor ? 0.5 : 0));
+  const none = 1.3, total = ws.reduce((a, b) => a + b, 0) + none;
+  let r = Math.random() * total;
+  for (let i = 0; i < cands.length; i++) {
+    r -= ws[i];
+    if (r < 0) return { id: cands[i].id, conf: Math.min(0.75, 0.5 + 0.25 * Math.min(1, ws[i] / total * 3)) };
+  }
+  return null;
+}
+const REP_WORDS = { vandal: "knock things down", meddler: "move things that are not yours", thief: "take what is not yours", gossip: "cannot keep a secret", bully: "throw your weight about", kind: "are good to people" };
+ACTS.tell_rep = {
+  kind: "person",
+  stage: "topic",
+  preview: () => ({}),
+  w: (c, sp, li) => 0.5 + Math.max(0, sp.aff[li.id] || 0) / 80,
+  when: (c, sp, li) => {
+    if (c.done.tell_rep || (sp.aff[li.id] || 0) < 10) return false;
+    const v = repVillage(li), k = Object.keys(v).filter((t) => v[t] >= 2 && REP_BAD.includes(t)).sort((a, b) => v[b] - v[a])[0];
+    if (!k) return false;
+    c.repTag = k;
+    c.repN = v[k];
+    return true;
+  },
+  apply: (c, sp, li) => {
+    c.done.tell_rep = 1;
+    c.aboutName = REP_WORDS[c.repTag];
+    c.lifeQty = c.repN;
+    li.mood = Math.max(0, (li.mood == null ? 50 : li.mood) - 3);
+    lfAff(li, sp, 1, "was honest with me");
+  },
+  replies: ["rep_own", "rep_deny"]
+};
+ACTS.rep_own = { kind: "person", stage: "topic", reply: true, when: () => true, w: () => 1, apply: () => {
+}, replies: [] };
+ACTS.rep_deny = { kind: "person", stage: "topic", reply: true, when: () => true, w: () => 1, apply: () => {
+}, replies: [] };
+lx("tell_rep", "plain", "People are saying you {about}. {qty} of them, at least.");
+lx("tell_rep", "plain", "You should know what's said about you. That you {about}.");
+lx("rep_own", "plain", "I know. I haven't helped that.");
+lx("rep_deny", "plain", "That isn't true. Somebody has got it wrong.");
+lx("rep_deny", "plain", "People will say anything.");
+lxi("tell_rep", "It is said you {about}. {qty} people have said it to me. I counted.");
+lxi("tell_rep", "I think you should know that people say you {about}.");
+lxi("rep_own", "I know. I have not been helping.");
+lxi("rep_deny", "That is not true. It is the kind of thing that gets said.");
+lxi("rep_deny", "I did not. But I understand why it looks that way.");
+lx("greet_back", "plain", "Oh. It's you.", { rep: "vandal" });
+lx("greet_back", "plain", "Mind where you walk. Walls are precious.", { rep: "vandal" });
+lx("greet_back", "plain", "Hello. Please leave the walls alone.", { rep: "vandal" });
+lx("greet_back", "plain", "Hello. Keep your hands to yourself, will you.", { rep: "meddler" });
+lx("greet_back", "plain", "Hello. Don't move anything.", { rep: "meddler" });
+lx("greet_back", "plain", "Hello. I've got my eye on my pockets.", { rep: "thief" });
+lx("greet_back", "plain", "Hello. Good to see you. Really.", { rep: "kind" });
+lx("greet_back", "plain", "Always a pleasure, {li}.", { rep: "kind" });
+lxi("greet_back", "Ah. You. The one with the walls.", { rep: "vandal" });
+lxi("greet_back", "Hello. I have been looking at our walls more closely lately.", { rep: "vandal" });
+lxi("greet_back", "Hello. I have moved my valuables. They are in the same place as before, but I am looking at them.", { rep: "meddler" });
+lxi("greet_back", "Hello. I am keeping my hands in my pockets. It is a habit I have formed.", { rep: "thief" });
+lxi("greet_back", "Hello. It is good to see you. I mean that exactly.", { rep: "kind" });
+lxi("greet_back", "Ah, {li}. Good. Today is better already.", { rep: "kind" });
 TALK.log = [];
 TALK.words = false;
 TALK.running = true;

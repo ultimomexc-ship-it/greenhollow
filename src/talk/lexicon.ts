@@ -96,7 +96,7 @@ lx('call_reply', 'plain', 'Maybe later.'); lx('call_reply', 'plain', 'Not today,
 /** what a speaker's line may be conditioned on, for this act */
 function lxContext(sp: any, li: any, c: any) {
   const rel = (sp.fam && (sp.fam.spouse === li.id || (sp.fam.kids || []).includes(li.id) || sp.fam.mother === li.id || sp.fam.father === li.id)) ? 'kin' : (sp.rel && sp.rel[li.id] === 'friend') || (sp.aff[li.id] || 0) > 30 ? 'friend' : (sp.know && (sp.know[li.id] || 0) > 10) ? 'acquaintance' : 'stranger';
-  return { band: todBand(game.time), rel, state: c.state || talkState(sp) || 'fine', trait: (sp.traits || [])[0], how: c.how, conf: c.conf, call: c.call, op: c.op };
+  return { band: todBand(game.time), rel, state: c.state || talkState(sp) || 'fine', trait: (sp.traits || [])[0], how: c.how, conf: c.conf, call: c.call, op: c.op, rep: typeof repWord === 'function' ? repWord(sp, li) : undefined };
 }
 /** choose the wording of an act: the pack's lines that fit and whose things exist, the more specific the better, what the listener heard lately worse */
 function lxSay(act: string, sp: any, li: any, c: any): string {

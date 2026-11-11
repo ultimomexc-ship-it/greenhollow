@@ -21,34 +21,44 @@ function deedPick(sp: any, li: any): any {
   let best: any = null, bs = 0;
   for (const m of sp.tmem || []) {
     if (m.ev == null || m.raised || m.forgiven || m.conf < 0.5 || !['saw', 'felt', 'told', 'overheard'].includes(m.kind)) continue;
-    const ev = lf2Ev().find((q: any) => q.id === m.ev); if (!ev || ev.actor !== li.id || (m.ver && m.ver.who !== undefined && m.ver.who !== li.id)) continue;
+    const ev = lf2Ev().find((q: any) => q.id === m.ev); if (!ev) continue; const who = m.ver && m.ver.who !== undefined ? m.ver.who : ev.actor; if (who !== li.id) continue;   // (the one they believe did it, rightly or not)
     if (!(ev.tags || []).some((t: string) => DEED_TAGS.includes(t))) continue; if (game.time - m.t > 1440 * 8) continue;
     const s = m.imp + (ev.target === sp.id ? 1 : 0) + (m.kind === 'saw' || m.kind === 'felt' ? 0.3 : 0); if (s > bs) { bs = s; best = { m, ev }; }
   }
   return best;
 }
-const deedSet = (c: any, sp: any, d: any) => { c.deed = d; c.deedText = deedYou(d.ev, sp); c.newsHow = d.ev.target === sp.id ? 'victim' : d.m.kind === 'told' ? 'told' : 'saw'; };
+const deedSet = (c: any, sp: any, d: any) => { c.deed = d; c.deedText = deedYou(d.ev, sp); c.newsHow = d.m.ver && d.m.ver.suspect ? 'suspect' : d.ev.target === sp.id ? 'victim' : d.m.kind === 'told' ? 'told' : 'saw'; };
 
 ACTS.raise_deed = { kind: 'deed', stage: 'topic', preview: (c: any) => ({ deed: c.deedText, how: c.newsHow }), when: (c: any, sp: any, li: any) => !c.done.raise_deed && !!deedPick(sp, li) && !(li.player && false),
   w: (c: any, sp: any, li: any) => { const d = deedPick(sp, li); return d && d.ev.target === sp.id ? 8 : 2.5; },
-  apply: (c: any, sp: any, li: any) => { const d = deedPick(sp, li); deedSet(c, sp, d); d.m.raised = true; c.done.raise_deed = 1; }, replies: ['deed_sorry', 'deed_defend', 'deed_deny', 'deed_shrug', 'offer_gift'] };
+  apply: (c: any, sp: any, li: any) => { const d = deedPick(sp, li); deedSet(c, sp, d); d.m.raised = true; c.done.raise_deed = 1; }, replies: ['deed_sorry', 'deed_defend', 'deed_deny', 'deed_shrug', 'deed_blame', 'offer_gift'] };
 ACTS.cry_deed = { kind: 'deed', stage: 'topic', when: () => false, apply: () => {}, replies: [] };
-const deedReply = (id: string, next: string[], fx: (c: any, sp: any, li: any) => void) => { ACTS[id] = { kind: 'deed', stage: 'topic', reply: true, when: (c: any) => !!c.deed, w: () => 1, apply: (c: any, sp: any, li: any) => { c.deedAnswer = id; fx(c, sp, li); }, replies: next }; };
-// sp is the one answering the accusation (the player, or a villager)
-deedReply('deed_sorry', ['deed_forgive', 'deed_cold'], (c, sp, li) => { lfAff(li, sp, 3, 'said sorry'); });
-deedReply('deed_defend', ['deed_cold'], (c, sp, li) => { lfAff(li, sp, -3, 'did not think it was wrong'); });
-deedReply('deed_deny', ['deed_believe', 'deed_doubt'], (c, sp, li) => {});
-deedReply('deed_shrug', ['deed_cold'], (c, sp, li) => { lfAff(li, sp, -4, 'shrugged it off'); });
+const deedGuilty = (c: any, sp: any) => !!c.deed && c.deed.ev.actor === sp.id;   // (am I the one who really did it)
+const deedReply = (id: string, next: string[], fx: (c: any, sp: any, li: any) => void, ok: (c: any, sp: any, li: any) => boolean = () => true, w: (c: any, sp: any) => number = () => 1) => { ACTS[id] = { kind: 'deed', stage: 'topic', reply: true, when: (c: any, sp: any, li: any) => !!c.deed && ok(c, sp, li), w: (c: any, sp: any) => w(c, sp), apply: (c: any, sp: any, li: any) => { c.deedAnswer = id; fx(c, sp, li); }, replies: next }; };
+// sp is the one answering the accusation (the player, or a villager); the innocent can only deny, shrug or blame
+deedReply('deed_sorry', ['deed_forgive', 'deed_cold'], (c, sp, li) => { lfAff(li, sp, 3, 'said sorry'); }, deedGuilty);
+deedReply('deed_defend', ['deed_cold'], (c, sp, li) => { lfAff(li, sp, -3, 'did not think it was wrong'); }, deedGuilty);
+deedReply('deed_deny', ['deed_believe', 'deed_doubt'], (c, sp, li) => { c.deedLie = deedGuilty(c, sp); }, () => true, (c, sp) => deedGuilty(c, sp) ? 1 : 4);
+deedReply('deed_shrug', ['deed_cold'], (c, sp, li) => { lfAff(li, sp, -4, 'shrugged it off'); }, deedGuilty);
+deedReply('deed_blame', ['deed_believe', 'deed_doubt'], (c, sp, li) => {
+  const cands = npcs.filter((o: any) => !o.dead && !o.infant && o.age >= 12 && o !== sp && o !== li && o.id !== c.deed.ev.target); const X = cands.filter((o: any) => (sp.aff[o.id] || 0) < -10)[0] || cands[Math.floor(Math.random() * cands.length)];
+  if (!X) return; c.blamed = X; c.aboutName = X.first; c.deedLie = true; c.deed.m.ver = Object.assign({}, c.deed.m.ver, { who: X.id, suspect: true }); c.deed.m.conf = 0.55; c.deed.m.raised = false;
+  lfAff(li, X, -6, 'was said to have done it'); }, (c, sp) => deedGuilty(c, sp) && npcs.length > 3, (c, sp) => (sp.player ? 1 : 0.7));
 const deedAnswer = (id: string, ok: (c: any, sp: any, li: any) => boolean, fx?: (c: any, sp: any, li: any) => void) => { ACTS[id] = { kind: 'deed', stage: 'topic', reply: true, when: (c: any, sp: any, li: any) => !!c.deed && ok(c, sp, li), w: () => 1, apply: (c: any, sp: any, li: any) => { if (fx) fx(c, sp, li); }, replies: [] }; };
 deedAnswer('deed_forgive', (c, sp, li) => (sp.aff[li.id] || 0) > -28, (c, sp, li) => { lfAff(sp, li, 4, 'forgave me'); });
-deedAnswer('deed_cold', (c, sp, li) => (sp.aff[li.id] || 0) <= -28 || c.deedAnswer !== 'deed_sorry');
-deedAnswer('deed_believe', (c) => !!c.deed && c.deed.m.kind !== 'saw' && c.deed.m.kind !== 'felt', (c, sp, li) => { lfAff(sp, li, 2, 'said it was not them'); });
-deedAnswer('deed_doubt', (c) => !!c.deed, (c, sp, li) => { lfAff(sp, li, -3, 'lied to me'); });
+deedAnswer('deed_cold', (c, sp, li) => (sp.aff[li.id] || 0) <= -28 || (c.deedAnswer !== 'deed_sorry'));
+// believed: a hunch is dropped (and the blame cleared); a first-hand certainty is not
+deedAnswer('deed_believe', (c, sp, li) => { const m = c.deed.m; return (m.ver && m.ver.suspect) || (m.kind !== 'saw' && m.kind !== 'felt'); }, (c, sp, li) => { const m = c.deed.m; if (c.deedAnswer === 'deed_deny' && !c.blamed) { m.cleared = true; lfAff(sp, li, 2, 'said it was not them'); } else lfAff(sp, li, 1, 'put me straight'); });
+deedAnswer('deed_doubt', (c) => true, (c, sp, li) => { lfAff(sp, li, -3, 'lied to me'); });
 
 /* ---- the words: plain ---- */
 lx('raise_deed', 'plain', 'You {deed}. I would like to know why.', { how: 'victim' }); lx('raise_deed', 'plain', 'I know it was you. You {deed}.', { how: 'victim' }); lx('raise_deed', 'plain', 'You {deed}. I was there.', { how: 'victim' });
 lx('raise_deed', 'plain', 'I saw what you did. You {deed}.', { how: 'saw' }); lx('raise_deed', 'plain', 'That was you, wasn\'t it? You {deed}.', { how: 'saw' });
 lx('raise_deed', 'plain', 'I heard you {deed}. Is it true?', { how: 'told' }); lx('raise_deed', 'plain', 'People say you {deed}.', { how: 'told' });
+lx('raise_deed', 'plain', 'Be honest. Was it you who {deed}?', { how: 'suspect' }); lx('raise_deed', 'plain', 'Somebody {deed}. I think it was you.', { how: 'suspect' });
+lx('deed_blame', 'plain', 'It wasn\'t me. I\'d look at {about}.'); lx('deed_blame', 'plain', 'Ask {about}. I saw them near there.');
+lxi('raise_deed', 'I have been thinking about who {deed}. I keep arriving at you.', { how: 'suspect' }); lxi('raise_deed', 'It is a hunch. Was it you who {deed}?', { how: 'suspect' });
+lxi('deed_blame', 'I would look at {about}. I am not saying more than that. I am saying that.'); lxi('deed_blame', 'It was not me. I have noticed {about} nearby, more than usual.');
 lx('deed_sorry', 'plain', 'I\'m sorry. I shouldn\'t have done it.'); lx('deed_sorry', 'plain', 'You\'re right. I\'m sorry.');
 lx('deed_defend', 'plain', 'It had to be done.'); lx('deed_defend', 'plain', 'It was for the best. Believe me.');
 lx('deed_deny', 'plain', 'That wasn\'t me.'); lx('deed_deny', 'plain', 'You\'ve got the wrong person.');

@@ -79,6 +79,7 @@
   "talk/requests.ts",
   "talk/secrets.ts",
   "talk/romance.ts",
+  "talk/reputation.ts",
   "talk/shape.ts",
   "talk/service.ts",
   "talk/player.ts",
