@@ -1513,7 +1513,7 @@ test('meddling: what you do in build mode is settled when time runs again; those
     // an unseen deed: the sleeper is carried out; nobody knows who
     const W = npcs.find(n => n !== P && n !== res && !n.dead && n.age >= 18); town.meddleQ = [];
     W.pose = 'sleep'; meddleNote('wall_removed', W.tx + 1, W.ty, P, { room: -1, residents: [W] }); const n0 = lf2Ev().length; meddleFlush(); const ev2 = lf2Ev().slice(n0)[0];
-    out.anon = !!(ev2 && ev2.anon); out.unnamed = ev2 ? !(W.tmem || []).some(m => m.ev === ev2.id && m.ver && m.ver.who === P.id) : false;
+    out.anon = !!(ev2 && ev2.anon); out.unnamed = ev2 ? !(W.tmem || []).some(m => m.ev === ev2.id && m.ver && m.ver.who === P.id && !m.ver.suspect) : false;   // (a guess may land on you: that is not knowing)
     // the switch
     TALK.on.deed = false; const n1 = TALK.log.length; meddleNote('wall_removed', x0, y0, P, { room: rooms.indexOf(R), residents: meddleResidents(R) }); res.pose = 'stand'; meddleFlush(); out.quiet = !TALK.log.slice(n1).some(l => l.acts.some(a => a.act === 'cry_deed')); TALK.on.deed = true;
     return out; });
@@ -1534,7 +1534,7 @@ test('gifts: you can give something in a talk; food is welcome when hungry, flow
     const out = {}; TALK.words = true; startPlaying(npcs.find(n => !n.dead && n.age >= 18 && !n.infant)); const P = game.player;
     const R = rooms.find(q => !q.free && !q.dead && q.kind === 'house' && meddleResidents(q).some(n => n !== P)); const o = meddleResidents(R).find(n => n !== P);
     o.tx = o.x = P.tx + 1; o.ty = o.y = P.ty; o.pose = 'stand'; o.hunger = 80; o.inv.fish = 5; rebuildOcc(); P.inv.grain = 3; P.inv.flowers = 2; o.aff[P.id] = 0;
-    const give = () => { openTalk(o); const k = talkUI.opts.findIndex(x => /brought|Here\.|could use/.test(x[1])); if (k < 0) { closeTalk(); return null; } const a0 = o.aff[P.id] || 0; const st = ptStep(talkUI.opts[k][0]); const r = { say: st.say, d: (o.aff[P.id] || 0) - a0 }; closeTalk(); return r; };
+    const give = () => { let k = -1;   /* the menu shows five of many things, so look again */  for (let tries = 0; tries < 12 && k < 0; tries++) { openTalk(o); k = talkUI.opts.findIndex(x => /brought|Here\.|could use|I have .*thought of you|This is .*not much/.test(x[1])); if (k < 0) closeTalk(); } if (k < 0) return null; const a0 = o.aff[P.id] || 0; const st = ptStep(talkUI.opts[k][0]); const r = { say: st.say, d: (o.aff[P.id] || 0) - a0 }; closeTalk(); return r; };
     out.food = give(); out.grain = P.inv.grain; out.theirs = o.inv && o.inv.grain;
     // a deed, then an amends
     o.hunger = 10; meddleNote('wall_removed', o.tx, o.ty, P, { room: -1, residents: [o] }); meddleFlush(); out.grudge = !!deedPick(o, P); out.bad = o.aff[P.id];

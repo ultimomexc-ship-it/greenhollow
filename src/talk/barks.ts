@@ -49,11 +49,6 @@ function moreBarks() {
         const c: any = { a: n, b: n, done: {}, turns: [{ by: n.id, act: 'mutter', x: { how: String(n.job).toLowerCase() } }], stage: 'topic', t0: game.time }; talkFinish(c, n, n, true);
       }
     }
-    // a word with somebody passing
-    if (TALK.on.ritual && n.moving && (n.passT || 0) < game.time) {
-      const o = near.find((q: any) => q !== n && (n.aff[q.id] || 0) > -10 && lfDist(n, q) <= 2 && (q.moving || q.pose === 'stand') && !(q.talkUntil > game.time));
-      if (o) { n.passT = o.passT = game.time + 120; const c: any = { a: n, b: o, done: {}, turns: [{ by: n.id, act: 'greet', x: {} }], stage: 'open', t0: game.time }; if (Math.random() < 0.7) c.turns.push({ by: o.id, act: 'greet_back', x: {} }); talkFinish(c, n, o, true); }
-    }
     // a parent calls a child in at dusk
     if (TALK.on.family && (game.time % 1440) > 17.5 * 60 && (game.time % 1440) < 20 * 60 && (n.callT || 0) < game.time) {
       const k = (n.fam.kids || []).map(byId).find((q: any) => q && !q.dead && q.age < 10 && lvlOf(q.ty) === lvlOf(n.ty) && lfDist(n, q) >= 5 && lfDist(n, q) <= 16 && q.pose !== 'sleep');

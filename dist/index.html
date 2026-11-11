@@ -28463,7 +28463,7 @@ lx("call_reply", "plain", "Not now, I'm busy.");
 function lxContext(sp, li, c) {
   const f = sp.fam || {}, g = li.fam || {};
   const rel = f.spouse === li.id ? "spouse" : f.partner === li.id ? "partner" : (f.kids || []).includes(li.id) ? "child" : f.mother === li.id || f.father === li.id ? "parent" : f.mother != null && f.mother === g.mother || f.father != null && f.father === g.father ? "sibling" : typeof isKin === "function" && isKin(sp, li) ? "kin" : sp.rel && sp.rel[li.id] === "friend" || (sp.aff[li.id] || 0) > 30 ? "friend" : sp.know && (sp.know[li.id] || 0) > 10 ? "acquaintance" : "stranger";
-  return { band: todBand(game.time), rel, state: c.state || talkState(sp) || "fine", trait: (sp.traits || [])[0], how: c.how, conf: c.conf, call: c.call, op: c.op, rep: typeof repWord === "function" ? repWord(sp, li) : void 0 };
+  return { band: todBand(game.time), rel, state: c.state || talkState(sp) || "fine", trait: (sp.traits || [])[0], how: c.how, conf: c.conf, call: c.call, op: c.op, rep: typeof repWord === "function" ? repWord(sp, li) : void 0, age: sp.age < 12 ? "child" : void 0 };
 }
 function lxSay(act, sp, li, c) {
   const ctx2 = lxContext(sp, li, c);
@@ -28510,7 +28510,7 @@ const LX_TICS = {
   plain: ["you know,", "honestly,", "mind you,", "I suppose,", "as it happens,"],
   island: ["as far as I know,", "more or less,", "I think,", "for what it is worth,", "in my experience,", "probably,", "to be fair,"]
 };
-const LX_TIC_ACTS = /^(remark_|share_news|answer_how|report_day|life:|tell_price|ask_news|nothing_much)/;
+const LX_TIC_ACTS = /^(remark_|share_news|answer_how|report_day|life:|tell_price|nothing_much)/;
 const LX_RECENT = {};
 function lxTic(sp, act, pack, text) {
   const list = LX_TICS[pack] || LX_TICS.plain;
@@ -28733,7 +28733,7 @@ function peopleReason(a, b) {
   const rf = a.refl && a.refl[b.id];
   if (rf && (rf.w === "good" && sgn >= 0 || rf.w === "unkind" && sgn <= 0) && Math.random() < 0.6) return (b.female ? "She" : "He") + (rf.w === "good" ? " is always good to me." : " is never kind to me.");
   const best = L.filter((x) => !PEOPLE_GENERIC.includes(x.why) && (sgn === 0 || Math.sign(x.v) === sgn)).sort((x, y) => Math.abs(y.v) - Math.abs(x.v))[0];
-  const rel = a.rel && a.rel[b.id], gender = b.female ? "She" : "He";
+  const f = a.fam || {}, g = b.fam || {}, rel = f.spouse === b.id ? "spouse" : f.partner === b.id ? "partner" : (f.kids || []).includes(b.id) ? "child" : f.mother === b.id || f.father === b.id ? "parent" : f.mother != null && f.mother === g.mother || f.father != null && f.father === g.father ? "sibling" : a.rel && a.rel[b.id], gender = b.female ? "She" : "He";
   if (best) {
     if (/^ev:/.test(best.why)) {
       const ev = lf2Ev().find((q) => q.id === +best.why.slice(3));
@@ -30327,7 +30327,8 @@ ACTS.ask_where = {
   replies: ["tell_where", "dont_know_where"]
 };
 ACTS.tell_where = { kind: "person", stage: "topic", reply: true, when: (c, sp) => !!c.whereObj && lfDist(sp, c.whereObj) <= 30 && lvlOf(sp.ty) === lvlOf(c.whereObj.ty), w: () => 3, apply: (c) => {
-  c.reason = (placeOf(c.whereObj) || "about the place").replace(/^(in|at)\s+/, (m) => m);
+  const pl = String(placeOf(c.whereObj) || "").replace(/^(in|at)\s+/, "");
+  c.reason = !pl ? "about somewhere" : /^the /.test(pl) ? "at " + pl : "in " + pl;
 }, replies: [] };
 ACTS.dont_know_where = { kind: "person", stage: "topic", reply: true, when: (c, sp) => !!c.whereObj && !(lfDist(sp, c.whereObj) <= 30 && lvlOf(sp.ty) === lvlOf(c.whereObj.ty)), w: () => 3, apply: () => {
 }, replies: [] };
@@ -30472,22 +30473,25 @@ lx("greet", "plain", "Home at last. Come and sit.", { rel: "spouse", band: "even
 lx("greet", "plain", "There you are, {li}.", { rel: "partner" });
 lx("greet", "plain", "Oh, it's you. What do you want?", { rel: "sibling" });
 lx("greet", "plain", "{li}. Look what the wind blew in.", { rel: "sibling" });
-lx("greet", "plain", "Have you eaten, {li}?", { rel: "parent" });
-lx("greet", "plain", "{li}! Come here and let me look at you.", { rel: "parent" });
+lx("greet", "plain", "Have you eaten, {li}?", { rel: "child" });
+lx("greet", "plain", "{li}! Come here and let me look at you.", { rel: "child" });
+lx("greet", "plain", "Hello. Is there supper?", { rel: "parent" });
+lx("greet", "plain", "Oh, it's you. Can I go out?", { rel: "parent" });
 lx("greet", "plain", "Hello, little one.", { rel: "child" });
 lx("greet", "plain", "There you are! Where have you been?", { rel: "child" });
 lx("greet_back", "plain", "There you are. I was just thinking of you.", { rel: "spouse" });
 lx("greet_back", "plain", "Hello, love.", { rel: "spouse" });
 lx("greet_back", "plain", "What now?", { rel: "sibling" });
 lx("greet_back", "plain", "You again. Good.", { rel: "sibling" });
-lx("greet_back", "plain", "Hello, dear. I'm fine, don't fuss.", { rel: "parent" });
+lx("greet_back", "plain", "Hello, dear. I'm fine, don't fuss.", { rel: "child" });
 lx("greet_back", "plain", "Hello. Yes, I've eaten.", { rel: "parent" });
-lx("greet_back", "plain", "Hello! I was only just out there.", { rel: "child" });
+lx("greet_back", "plain", "Hello! I was only just out there.", { rel: "parent" });
 lx("farewell", "plain", "I'll see you at supper, love.", { rel: "spouse" });
 lx("farewell", "plain", "Mind yourself. Come home safe.", { rel: "spouse" });
 lx("farewell", "plain", "Try not to be an idiot.", { rel: "sibling" });
 lx("farewell", "plain", "Give my regards to nobody. See you.", { rel: "sibling" });
-lx("farewell", "plain", "Wrap up warm, dear.", { rel: "parent" });
+lx("farewell", "plain", "Wrap up warm, dear.", { rel: "child" });
+lx("farewell", "plain", "Bye. I'll be home for supper.", { rel: "parent" });
 lx("farewell", "plain", "Don't be late for supper.", { rel: "child" });
 lx("farewell", "plain", "Be good. Or be careful.", { rel: "child" });
 lx("ask_how", "plain", "How are you really? Not the polite answer.", { rel: "spouse" });
@@ -30499,18 +30503,20 @@ lxi("greet", "Hello. You are home. That is the best news of the afternoon.", { r
 lxi("greet", "There you are, {li}.", { rel: "partner" });
 lxi("greet", "It is you. I had hoped for someone else, and then I thought: no.", { rel: "sibling" });
 lxi("greet", "{li}. We have the same eyebrows. I notice every time.", { rel: "sibling" });
-lxi("greet", "Have you eaten? I ask every time. The answer is never the point.", { rel: "parent" });
-lxi("greet", "Come here. Let me look at you. You are taller or I am less.", { rel: "parent" });
+lxi("greet", "Have you eaten? I ask every time. The answer is never the point.", { rel: "child" });
+lxi("greet", "Come here. Let me look at you. You are taller or I am less.", { rel: "child" });
+lxi("greet", "Hello. Is there supper? I am only asking in general.", { rel: "parent" });
 lxi("greet", "Hello. You are where I left you, or near it.", { rel: "child" });
 lxi("greet", "There you are. I counted. You were still one.", { rel: "child" });
 lxi("greet_back", "There you are. I was thinking about you, in a general way.", { rel: "spouse" });
 lxi("greet_back", "Hello, love. I am here. It is where I live.", { rel: "spouse" });
 lxi("greet_back", "What now? I am joking. Hello.", { rel: "sibling" });
 lxi("greet_back", "Hello. Yes, I have eaten. I would tell you if I had not, which is not true.", { rel: "parent" });
-lxi("greet_back", "Hello. I am here. I am fine. You do not need to look at me like that.", { rel: "child" });
+lxi("greet_back", "Hello. I am here. I am fine. You do not need to look at me like that.", { rel: "parent" });
 lxi("farewell", "I will see you at supper. I will be the one who is hungry.", { rel: "spouse" });
 lxi("farewell", "Try not to be an idiot. I say it with love, and with a little concern.", { rel: "sibling" });
-lxi("farewell", "Wrap up warm. It is a mild island, and still.", { rel: "parent" });
+lxi("farewell", "Wrap up warm. It is a mild island, and still.", { rel: "child" });
+lxi("farewell", "Bye. I will be home for supper. Probably before it.", { rel: "parent" });
 lxi("farewell", "Do not be late for supper. I will notice and I will say nothing.", { rel: "child" });
 lxi("ask_how", "How are you? I mean really, not the answer you give the baker.", { rel: "spouse" });
 lxi("ask_how", "Are you well? You look tired. You always look tired. It is part of the family.", { rel: "parent" });
@@ -30528,6 +30534,53 @@ lxi("backchannel", "I see.");
 lxi("backchannel", "Yes. Well.");
 lxi("backchannel", "That is something.");
 lxi("backchannel", "Ah. Yes.");
+const kidl = (act, text, tags = {}) => {
+  lx(act, "plain", text, Object.assign({ age: "child" }, tags));
+};
+const kidi = (act, text, tags = {}) => {
+  lxi(act, text, Object.assign({ age: "child" }, tags));
+};
+kidl("greet", "Hi!");
+kidl("greet", "Hello, {li}! Look what I found.");
+kidl("greet", "Are you going anywhere? Can I come?");
+kidl("greet_back", "Hi!");
+kidl("greet_back", "Hello! I was playing.");
+kidl("greet_back", "Oh, hello. I'm busy.");
+kidl("farewell", "Bye! I'm going to play.");
+kidl("farewell", "See you! Don't tell anyone.");
+kidl("farewell_back", "Bye!");
+kidl("pre_close", "I have to go. I'm in the middle of something.");
+kidl("pre_close", "Can I go now?");
+kidl("answer_how", "Fine! I found a good stick.", { state: "fine" });
+kidl("answer_how", "I'm hungry. Is it supper yet?", { state: "hungry" });
+kidl("answer_how", "I'm tired. I'm not tired. I'm tired.", { state: "tired" });
+kidl("answer_how", "Great! I'm having a good day!", { state: "glad" });
+kidl("agree", "Yes!");
+kidl("agree", "I know!");
+kidl("remark_time", "Is it time for lunch yet?");
+kidl("remark_time", "It's a long day when you're small.");
+kidl("remark_place", "I like it here. There's room to run.");
+kidl("remark_work", "I'm helping. Mostly I'm watching.");
+kidi("greet", "Hello. I am small, but I noticed you.");
+kidi("greet", "Hello, {li}. I found something. I will not say what.");
+kidi("greet", "Are you going somewhere? I could come. I would be quiet. Mostly.");
+kidi("greet_back", "Hello. I was doing something important.");
+kidi("greet_back", "Hello. I am small, but I am here.");
+kidi("farewell", "Bye. I am going to go and do something. I will not say what.");
+kidi("farewell", "Bye. Do not tell them where I went.");
+kidi("farewell_back", "Bye.");
+kidi("pre_close", "I have to go. There is a thing I am in the middle of.");
+kidi("pre_close", "Can I go now? I am asking nicely.");
+kidi("answer_how", "Fine. I found a very good stick.", { state: "fine" });
+kidi("answer_how", "I am hungry. Is it nearly supper? It feels nearly.", { state: "hungry" });
+kidi("answer_how", "I am tired. I am not tired. I am a bit tired.", { state: "tired" });
+kidi("answer_how", "Good. It has been a good day. I did not expect that of it.", { state: "glad" });
+kidi("agree", "Yes.");
+kidi("agree", "I know. I was going to say that.");
+kidi("remark_time", "Is it lunch yet? It feels like lunch.");
+kidi("remark_time", "It is a long day when you are small.");
+kidi("remark_place", "I like it here. There is room to run, and nobody has said not to.");
+kidi("remark_work", "I am helping. Mostly I am watching. It is also work.");
 TALK.log = [];
 TALK.words = false;
 TALK.running = true;
@@ -30556,6 +30609,9 @@ const TALK_TOPICS = () => Object.keys(ACTS).filter((k) => ACTS[k].stage === "top
 const talkX = (c) => ({ state: c.state, how: c.newsHow, conf: c.newsConf, news: c.told && c.told.text, who: c.newsWho ? c.newsWho.first : "them", line: c.lifeLine, qty: c.lifeQty, item: c.lifeItem, shop: c.lifeShop, price: c.priceUnit, pitem: c.priceName, about: c.aboutName, op: c.op, reason: c.reason, deed: c.deedText, evId: c.newsEvId, ver: c.told && c.told.ver });
 function talkTurn(c, sp, li, id) {
   const A = ACTS[id];
+  if (A.stage === "topic" && !A.reply) {
+    c.aboutName = c.lifeItem = c.reason = c.lifeQty = void 0;
+  }
   A.apply(c, sp, li);
   const t = { by: sp.id, act: id, x: talkX(c) };
   if (A.stage === "topic" && !A.reply && !c.player && c.last !== "story_invite" && typeof talkLinkOf === "function") {
@@ -30880,15 +30936,6 @@ function moreBarks() {
       if (s && s.k === "wait" && /work|plough|sow|harvest|bak|knead|forge|hammer|sweep|stock|dig|saw|cut|tend|mend|weav|serving|stall/i.test(String(s.text || "")) && Math.random() < 0.6) {
         const c = { a: n, b: n, done: {}, turns: [{ by: n.id, act: "mutter", x: { how: String(n.job).toLowerCase() } }], stage: "topic", t0: game.time };
         talkFinish(c, n, n, true);
-      }
-    }
-    if (TALK.on.ritual && n.moving && (n.passT || 0) < game.time) {
-      const o = near.find((q) => q !== n && (n.aff[q.id] || 0) > -10 && lfDist(n, q) <= 2 && (q.moving || q.pose === "stand") && !(q.talkUntil > game.time));
-      if (o) {
-        n.passT = o.passT = game.time + 120;
-        const c = { a: n, b: o, done: {}, turns: [{ by: n.id, act: "greet", x: {} }], stage: "open", t0: game.time };
-        if (Math.random() < 0.7) c.turns.push({ by: o.id, act: "greet_back", x: {} });
-        talkFinish(c, n, o, true);
       }
     }
     if (TALK.on.family && game.time % 1440 > 17.5 * 60 && game.time % 1440 < 20 * 60 && (n.callT || 0) < game.time) {
