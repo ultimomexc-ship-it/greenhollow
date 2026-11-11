@@ -31,6 +31,18 @@ const ACTS: any = {
   react_doubt: { kind: 'world', stage: 'topic', reply: true, when: (c: any) => !!c.told && c.told.react === 'doubt', apply: () => {}, replies: [] },
   react_delight: { kind: 'world', stage: 'topic', reply: true, when: (c: any) => !!c.told && c.told.react === 'delight', apply: () => {}, replies: [] },
   react_unmoved: { kind: 'world', stage: 'topic', reply: true, when: (c: any) => !!c.told && c.told.react === 'unmoved', apply: () => {}, replies: [] },
+  /* ---- life: the ordinary day, told from what really happened (talk/life.ts) ---- */
+  ask_day: { kind: 'life', stage: 'topic', when: (c: any, sp: any, li: any) => !c.done.ask_day && !c.done.report_day && !LIFE.recent(sp, li).length && LIFE.recent(li, sp).length > 0, w: (c: any, sp: any) => 0.8 + (talkHas(sp, 'curious') || talkHas(sp, 'sociable') ? 0.6 : 0), apply: (c: any) => { c.done.ask_day = 1; }, replies: ['report_day', 'nothing_much'] },
+  nothing_much: { kind: 'life', stage: 'topic', reply: true, when: (c: any, sp: any, li: any) => !LIFE.recent(sp, li).length, apply: () => {}, replies: [] },
+  report_day: { kind: 'life', stage: 'topic', when: (c: any, sp: any, li: any) => (c.done.report_day || 0) < 2 && !!(c.life = LIFE.recent(sp, li)[0]), w: (c: any) => 0.9 + 2 * Math.min(1, c.life ? c.life.score : 0),
+    apply: (c: any, sp: any, li: any) => {
+      const g = c.life; c.lifeLine = 'life:' + g.kind; c.lifeQty = g.data.qty || 1; c.lifeTrouble = g.trouble;
+      c.lifeItem = g.data.seed ? WORLD.name('seed', g.data.seed) : g.data.item ? WORLD.name('item', g.data.item) : '';
+      c.done.report_day = (c.done.report_day || 0) + 1; (li.heardLife || (li.heardLife = {}))[sp.id + ':' + g.ids[g.ids.length - 1]] = 1;
+      TM.add(li, { kind: 'told_life', with: sp.id, lk: g.kind, data: g.data, conf: 0.9, imp: Math.min(0.6, g.def.tell) });   // (and now they know something about how the other one is doing)
+    }, replies: ['empathise', 'acknowledge'] },
+  acknowledge: { kind: 'life', stage: 'topic', reply: true, when: (c: any) => !c.lifeTrouble, apply: () => {}, replies: [] },
+  empathise: { kind: 'life', stage: 'topic', reply: true, when: (c: any) => !!c.lifeTrouble, w: () => 3, apply: (c: any, sp: any, li: any) => { lfAff(sp, li, 1, 'listened to my troubles'); }, replies: [] },
   agree: { kind: 'small', stage: 'topic', reply: true, when: () => true, apply: () => {}, replies: [] },
 };
 /** a short word for how somebody is, from their needs and mood (undefined when nothing stands out) */

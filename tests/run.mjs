@@ -1185,7 +1185,7 @@ test('life events (the contract): kinds are registered, data is required, events
     out.rec = !!rec && LIFE.stream.length === n0 + 1 && LIFE.digest(1).kinds.bought === d0 + 1 && LIFE.today(n).some(e => e.kind === 'bought') && (n.tmem || []).some(m => m.kind === 'life' && m.lk === 'bought');
     const s0 = LIFE.stream.length; const ev = lfEmit('theft', { actor: n, tags: ['theft'], sev: 1, text: 'x' }); out.legacy = LIFE.stream.length === s0 + 1 && LIFE.stream[LIFE.stream.length - 1].legacy === true && LIFE.today(n).some(e => e.kind === 'theft');
     // everything a line may name is defined: an 'ev:' line is a registered kind, any other line is a defined act, and every requirement resolves to a known kind of thing
-    const badLines = LEX.filter(e => e.act.startsWith('ev:') ? !REG.has('event', e.act.slice(3)) : !ACTS[e.act]).map(e => e.act); out.badLines = [...new Set(badLines)];
+    const badLines = LEX.filter(e => e.act.startsWith('ev:') ? !REG.has('event', e.act.slice(3)) : e.act.startsWith('life:') ? !REG.has('event', e.act.slice(5)) : !ACTS[e.act]).map(e => e.act); out.badLines = [...new Set(badLines)];
     const kinds = REG.all('event'); out.kinds = kinds.length; out.badKinds = kinds.filter(k => !k.family || k.tell == null).map(k => k.id);
     // deleting a definition makes the lint above fail for its lines (so removing a feature forces the clean-up)
     REG.remove('event', 'arrival'); out.afterRemove = [...new Set(LEX.filter(e => e.act.startsWith('ev:') && !REG.has('event', e.act.slice(3))).map(e => e.act))]; REG.define('event', 'arrival', { family: 'place', needs: [], tell: 0.9, tags: [] });
@@ -1225,6 +1225,33 @@ test('talk and needs: while two people talk their hunger, bladder and tiredness 
   check(d.talked && d.d === 1, 'they talked standing on the next tile: ' + JSON.stringify(d));
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
   return 'needs pause, next tile, bubble sides';
+});
+
+test('life slice: farming, trade and needs report real events; villagers tell their day from them, listeners sympathise with troubles, and the town panel counts what people suffered', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await simulate(page, 2 * 1440);
+  const r = await page.evaluate(() => {
+    const out = {}; const dg = LIFE.digest(3).kinds; out.real = { planted: dg.planted || 0, bought: dg.bought || 0, sold: dg.sold || 0, harvested: dg.harvested || 0 };
+    out.count = [lxCount(1, 'cabbages'), lxCount(7, 'barley'), lxCount(1, 'strawberries'), lxCount(1, 'corn'), lxCount(12, 'turnips')];
+    out.troubleKinds = Object.keys(LIFE_TROUBLE).every(k => REG.has('event', k));
+    // a person with a bad night and a busy morning tells a friend
+    TALK.words = true; TALK.running = false; const adults = npcs.filter(q => !q.dead && !q.player && q.age >= 18), A = adults[0], B = adults[1];
+    A.day = []; B.day = []; LIFE.emit('slept_rough', A, { where: 'rough' }); for (let i = 0; i < 6; i++) LIFE.emit('planted', A, { seed: 'turnip', qty: 1 });
+    const rec = LIFE.recent(A, B); out.recent = rec.map(g => g.kind + ':' + g.data.qty);
+    let told = null; for (let i = 0; i < 20 && !told; i++) { const cv = talkRun(A, B, true), l = TALK.log[TALK.log.length - 1]; if (cv.turns.some(t => t.act === 'report_day')) told = l; }
+    out.lines = told ? told.lines : null; out.acts = told ? told.acts.map(a => a.act) : null;
+    out.memB = (B.tmem || []).some(m => m.kind === 'told_life' && m.with === A.id);
+    out.troubles = LIFE.troubles(2).map(t => t.kind + ':' + t.people);
+    // the panel
+    return out; });
+  check(r.real.planted > 5 && r.real.bought >= 1 && r.real.harvested >= 1, 'a normal two days reports planting, trade and harvest from the game itself: ' + JSON.stringify(r.real));
+  check(r.count.join('|') === 'a cabbage|7 barley|a strawberry|a little corn|12 turnips', 'counts are said the way people say them: ' + r.count.join('|'));
+  check(r.recent.length >= 2 && r.recent[0].startsWith('slept_rough'), 'the day is grouped (six plantings are one line) and the worst comes first: ' + JSON.stringify(r.recent));
+  check(r.lines && r.acts.includes('report_day') && r.lines.some(l => /rough|ground|bed of my own|sand|planted|Put in/.test(l)), 'they tell it in words: ' + JSON.stringify(r.lines && r.lines.slice(0, 8)));
+  check(r.memB, 'the listener now knows how the other one has been');
+  check(r.troubles.some(t => t.startsWith('slept_rough')) && r.troubleKinds, 'troubles are counted by kind and by person: ' + JSON.stringify(r.troubles));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return JSON.stringify(r.real) + ' ' + JSON.stringify(r.troubles);
 });
 
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {

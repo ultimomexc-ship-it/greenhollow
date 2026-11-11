@@ -19,6 +19,7 @@ const WORLD = {
       case 'feature': if (id === 'tavern') return !!town.tavern; if (id === 'church' || id === 'chapel') return !!town.church;
         return rooms.some((r: any) => !r.dead && (r.kind === id || r.fn === id));
       case 'item': return typeof GOODS !== 'undefined' && !!GOODS[id];
+      case 'seed': return REG.has('seed', id);
       case 'place': return true;
       case 'person': { const p = personById(id); return !!p && !p.dead; }
       case 'job': return true;
@@ -31,6 +32,7 @@ const WORLD = {
     switch (kind) {
       case 'feature': return placeWords('the ' + (id === 'church' ? 'chapel' : id));
       case 'item': return typeof GOODS !== 'undefined' && GOODS[id] ? String(GOODS[id].name).toLowerCase() : String(id);
+      case 'seed': return REG.has('seed', id) ? REG.get('seed', id).name : String(id);
       case 'person': { const p = personById(id); return p ? p.first : 'somebody'; }
       case 'place': return placeWords(String(id));
     }

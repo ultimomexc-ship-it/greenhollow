@@ -43,6 +43,23 @@ lx('ev:theft', 'plain', '{a} stole from {t}'); lx('ev:theft', 'plain', '{a} walk
 lx('ev:shove', 'plain', '{a} pushed {t} around'); lx('ev:gift', 'plain', '{a} gave {t} a gift'); lx('ev:help', 'plain', '{a} helped {t} out'); lx('ev:charity', 'plain', '{a} gave to {t} when {t} had nothing');
 lx('ev:arrest', 'plain', '{a} was taken in by the watch'); lx('ev:jealous', 'plain', '{a} is jealous of {t}'); lx('ev:crush', 'plain', '{a} has a soft spot for {t}'); lx('ev:rumour', 'plain', '{a} has been telling tales about {t}');
 
+/* ---- the ordinary day (plain pack): first person, from what really happened. A kind with no line here is simply never told. ---- */
+lx('ask_day', 'plain', 'What have you been up to?'); lx('ask_day', 'plain', 'How\'s your day been?'); lx('ask_day', 'plain', 'Busy today?'); lx('ask_day', 'plain', 'Anything happen to you today?', { rel: 'friend' });
+lx('nothing_much', 'plain', 'Nothing much. Same as always.'); lx('nothing_much', 'plain', 'Quiet day.'); lx('nothing_much', 'plain', 'Not a lot to report.');
+lx('acknowledge', 'plain', 'Good going.'); lx('acknowledge', 'plain', 'That\'s something.'); lx('acknowledge', 'plain', 'Fair enough.'); lx('acknowledge', 'plain', 'How did it go?'); lx('acknowledge', 'plain', 'Busy, then.'); lx('acknowledge', 'plain', 'I see.');
+lx('empathise', 'plain', 'That sounds rough.'); lx('empathise', 'plain', 'I\'m sorry to hear it.'); lx('empathise', 'plain', 'Ugh. I know that one.'); lx('empathise', 'plain', 'You poor thing.', { rel: 'friend' }); lx('empathise', 'plain', 'Somebody ought to do something about that.');
+lx('life:slept', 'plain', 'I slept well enough last night.'); lx('life:slept', 'plain', 'Slept like a log.');
+lx('life:slept_rough', 'plain', 'I slept rough again last night.'); lx('life:slept_rough', 'plain', 'Another night on the ground.'); lx('life:slept_rough', 'plain', 'Still no bed of my own.'); lx('life:slept_rough', 'plain', 'I woke up with sand in my ear.');
+lx('life:no_privy', 'plain', 'I couldn\'t find a privy this morning. Not my best hour.'); lx('life:no_privy', 'plain', 'There\'s nowhere decent to go round here.');
+lx('life:bladder_emergency', 'plain', 'I very nearly didn\'t make it to the privy. Don\'t ask.');
+lx('life:went_hungry', 'plain', 'I\'m getting hungry. I haven\'t eaten properly.'); lx('life:went_hungry', 'plain', 'There\'s not been much to eat today.');
+lx('life:starving', 'plain', 'I\'m starving. I mean properly starving.');
+lx('life:tired', 'plain', 'I\'m worn out. All day on my feet.');
+lx('life:ate', 'plain', 'Had a decent meal at last.');
+lx('life:bought', 'plain', 'I bought {things} today.'); lx('life:bought', 'plain', 'Picked up {things}.'); lx('life:sold', 'plain', 'I sold {things} today.');
+lx('life:planted', 'plain', 'I planted {things} today.'); lx('life:planted', 'plain', 'Put in {things} this morning.');
+lx('life:harvested', 'plain', 'I brought in {things}.'); lx('life:harvested', 'plain', 'Harvested {things} today.');
+
 /** what a speaker's line may be conditioned on, for this act */
 function lxContext(sp: any, li: any, c: any) {
   const rel = (sp.fam && (sp.fam.spouse === li.id || (sp.fam.kids || []).includes(li.id) || sp.fam.mother === li.id || sp.fam.father === li.id)) ? 'kin' : (sp.rel && sp.rel[li.id] === 'friend') || (sp.aff[li.id] || 0) > 30 ? 'friend' : (sp.know && (sp.know[li.id] || 0) > 10) ? 'acquaintance' : 'stranger';
@@ -57,6 +74,12 @@ function lxSay(act: string, sp: any, li: any, c: any): string {
   for (const e of cands) { const id = act + '|' + e.text, s = Object.keys(e.tags).length * 2 - (heard[id] != null ? 4 - Math.min(3, (game.time - heard[id]) / 600) : 0) + Math.random() * 1.5; if (s > bs) { bs = s; best = e; } }
   heard[act + '|' + best.text] = game.time;
   const place = String(placeOf(sp) || '').replace(/^(in|at)\s+/, ''); const inP = /^the /.test(place) ? 'at ' + place : place ? 'in ' + place : 'here';
-  const raw = best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || 'daily').toLowerCase()).replace(/\{state\}/g, ctx.state).replace(/\{news\}/g, c.news || '').replace(/\{who\}/g, c.who || 'them');
+  const raw = best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || 'daily').toLowerCase()).replace(/\{state\}/g, ctx.state).replace(/\{things\}/g, lxCount(c.qty, c.item)).replace(/\{qty\}/g, c.qty != null ? String(c.qty) : '').replace(/\{item\}/g, c.item || '').replace(/\{news\}/g, c.news || '').replace(/\{who\}/g, c.who || 'them');
   return placeWords(raw.replace(/(^|[.!?]\s+)([a-z])/g, (_m: string, a: string, b: string) => a + b.toUpperCase()));
+}
+
+/** a count of something, said the way people say it: "a cabbage", "7 barley", "12 turnips" (a plural name drops its s for one; a mass noun is "a little") */
+function lxCount(qty: any, name: string): string {
+  name = name || 'something'; if (qty == null) return name; if (qty !== 1) return qty + ' ' + name;
+  if (/ies$/.test(name)) return 'a ' + name.slice(0, -3) + 'y'; if (/oes$/.test(name)) return 'a ' + name.slice(0, -2); if (/ss$/.test(name) || !/s$/.test(name)) return 'a little ' + name; return 'a ' + name.slice(0, -1);
 }
