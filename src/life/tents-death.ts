@@ -116,7 +116,7 @@ function die(n, cause) {
   chron(`${nameOf(n)} died, age ${n.age}${cause === 'old age' ? ', of old age' : cause === 'hunger' ? ', of hunger' : ', of ' + cause}.`, 'death');
   if (wasPlayer && typeof beginSuccession === 'function') beginSuccession(rec, n);
   npcs.forEach(o => { if (o.age >= 5 && (isKin(o, n) || (o.aff[n.id] || 0) >= 50)) addMem(o, 'loss', `losing ${n.first}`, null, null); });
-  town.funeralQ = town.funeralQ || []; town.funeralQ.push(rec);
+  town.funeralQ = town.funeralQ || []; if (modOn('event.funeral')) town.funeralQ.push(rec);
   if (false) chron(`${n.first} cannot have a funeral yet: ${town.name} has no church.`, 'death');
   if (town.sites.length) town.sites.forEach(s => { s.owners = s.owners.filter(id => id !== n.id); s.crew = s.crew.filter(id => id !== n.id); });
 }

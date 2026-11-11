@@ -224,6 +224,8 @@ body.fs #c { height: 100vh !important; height: 100dvh !important; }
 .vccard .dim{color:#9a927c;font-size:12px}.vccard ul{margin:2px 0 0;padding-left:16px}.vcrow{margin-top:5px}.vch{margin-top:8px;padding-top:5px;border-top:1px solid rgba(255,255,255,.1);color:#b9c9a8;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
 .hyperbadge{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:8;background:rgba(224,169,59,.92);color:#241a05;font:700 11px var(--font-body);letter-spacing:.04em;padding:3px 10px;border-radius:10px;pointer-events:none}.hyperbadge[hidden]{display:none}
 .reqsay{margin-top:6px;font-size:12px;line-height:1.35;color:#e8e2d0}
+.modbox{position:absolute;right:10px;top:44px;z-index:9;width:340px;max-width:calc(100% - 20px);max-height:78vh;overflow:auto;font:12.5px/1.35 var(--font-body);color:#e8e2d0}.modbox[hidden]{display:none}
+.modcard{position:relative;background:rgba(18,22,24,.95);border:1px solid #4a5a4a;border-left:3px solid #8bb87a;border-radius:8px;padding:9px 30px 9px 12px}.modcard .dim{color:#9a927c}.modh{margin-top:8px;padding-top:4px;border-top:1px solid rgba(255,255,255,.1);color:#b9c9a8;font-size:11px;text-transform:uppercase;letter-spacing:.04em}.modgrid{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;margin-top:3px}.modgrid label{cursor:pointer}.modbtns{margin-top:6px;display:flex;gap:6px}.modbtns button{background:#2a3230;border:1px solid #556;color:#e8e2d0;border-radius:6px;padding:2px 8px;cursor:pointer;font:inherit}
 
 </style>
 </head>
@@ -9945,7 +9947,7 @@ function die(n, cause) {
     if (o.age >= 5 && (isKin(o, n) || (o.aff[n.id] || 0) >= 50)) addMem(o, "loss", `losing ${n.first}`, null, null);
   });
   town.funeralQ = town.funeralQ || [];
-  town.funeralQ.push(rec);
+  if (modOn("event.funeral")) town.funeralQ.push(rec);
   if (false) chron(`${n.first} cannot have a funeral yet: ${town.name} has no church.`, "death");
   if (town.sites.length) town.sites.forEach((s) => {
     s.owners = s.owners.filter((id) => id !== n.id);
@@ -11123,7 +11125,7 @@ function foodDaysNow() {
   return t / (pop * 300);
 }
 function pickAgenda(n) {
-  if (n.cur && game.time < n.curUntil) return n.cur;
+  if (n.cur && game.time < n.curUntil && modOn("job." + n.cur)) return n.cur;
   const cnt = {};
   npcs.forEach((p) => {
     if (p !== n && p.role === "Worker" && p.cur && !p.player) cnt[p.cur] = (cnt[p.cur] || 0) + 1;
@@ -11159,6 +11161,7 @@ function pickAgenda(n) {
     }
   }
   lfJobBias(n, sc);
+  for (const r of Object.keys(sc)) if (!modOn("job." + r)) delete sc[r];
   if (n.pref && sc[n.pref]) sc[n.pref] += 10;
   let best = n.role === "Worker" ? "Gatherer" : n.role, bs = -1;
   for (const r of Object.keys(sc)) {
@@ -12430,6 +12433,7 @@ function honourTile() {
   return { x: c.x, y: c.y - 1, face: { dx: 0, dy: 1 } };
 }
 function scheduleParty(n) {
+  if (!modOn("event.birthday")) return;
   const a = n.age;
   if (a === 60 && n.role !== "Worker") return;
   if (a === 68 && !["Priest", "Trader", "Barkeep"].includes(n.role)) return;
@@ -12632,6 +12636,7 @@ function weddingPlace() {
 }
 const WED_PARTY = 52, WED_LEN = WED_PARTY + 196, FUN_WAKE = 46, FUN_LEN = FUN_WAKE + 108;
 function scheduleWedding(a, b) {
+  if (!modOn("event.wedding")) return;
   const at = spaceOut(nextAt(16, 12 * 60)), pl = weddingPlace();
   town.wedding = { a, b, at, end: at + WED_LEN, done: false, place: pl, mk: { plaza: pl.guests.length ? pl.guests : plazaTiles, x: pl.x, y: pl.y, church: pl.church } };
   chron(`${a.first} ${a.surname} and ${b.first} ${b.surname} will be married ${pl.church ? "in the chapel" : "on the square"} on ${dayLabel(at)}.`, "love");
@@ -16641,7 +16646,7 @@ function lfPlan(o) {
   const tod = game.time % 1440, h = tod / 60, hb = hobbyOf(o), opts = {};
   for (const k in LF_GATH) {
     const d2 = LF_GATH[k];
-    if (h + 1 > d2.hours[1]) continue;
+    if (h + 1 > d2.hours[1] || !modOn("gath." + k)) continue;
     if (d2.where === "tavern" && !town.tavern) continue;
     if (d2.where === "shore" && (!shoreTiles.length || !fishAvail())) continue;
     opts[k] = 1 + (k === "fishing" && hb === "fishing" ? 2.5 : 0) + (k === "songs" && hb === "singing" ? 2.5 : 0) + (k === "walk" && hb === "walking" ? 2 : 0) + (k === "cards" && o.traits.includes("gossipy") ? 1.5 : 0) + (k === "dance" && o.traits.includes("jovial") ? 1.5 : 0);
@@ -19866,7 +19871,7 @@ function needsHTML() {
   return head + sheet;
 }
 function tutFarmers() {
-  if (typeof farmWork !== "function" || !farmWork()) return;
+  if (typeof farmWork !== "function" || !farmWork() || !modOn("job.Farmer")) return;
   const tasks = town.crops.filter((c) => !c.claim && itFarmersPlot(c) && (c.st && cropStage(c) === 4 || !c.pl || !c.st && c.pl && fieldPlowed(c))).length, want = Math.max(1, Math.ceil(tasks / 6));
   const farmers = npcs.filter((n) => !n.dead && !n.player && n.role === "Worker" && n.cur === "Farmer").length;
   let more = want - farmers;
@@ -21290,6 +21295,7 @@ function lf2AssignJobs(first) {
   for (const k of LF2_JOBORDER) {
     const J = LF2_JOBS[k];
     if (J.room && !lf2Room(J.room)) continue;
+    if (!modOn("job." + k)) continue;
     if (!J.room && town.scenario === "blank") continue;
     const want = J.n ? J.n(pop) : 1;
     while (npcs.filter((n) => !n.dead && n.job === k).length < want && (have < maxTrades || k === "Smith" || k === "Baker" || k === "Guard")) {
@@ -22992,6 +22998,106 @@ function lf2Stories(force) {
 FIRST_M.splice(0, FIRST_M.length, "Marcus", "Gaius", "Lucius", "Titus", "Quintus", "Decimus", "Aulus", "Gnaeus", "Publius", "Sextus", "Servius", "Tiberius", "Manius", "Spurius", "Numerius", "Faustus", "Felix", "Rufus", "Silvanus", "Crispus", "Varro", "Brutus", "Corvus", "Cato", "Drusus", "Paullus", "Nero", "Seneca", "Galba", "Otho");
 FIRST_F.splice(0, FIRST_F.length, "Livia", "Prisca", "Severa", "Faustina", "Camilla", "Lucilla", "Sabina", "Agrippina", "Drusilla", "Octavia", "Aemilia", "Tertia", "Secunda", "Paulina", "Marcella", "Lucia", "Gaia", "Rufina", "Albina", "Felicitas", "Fortunata", "Vitalia", "Urbica", "Junilla", "Nonna", "Crispina", "Galla", "Vibiana", "Quinta", "Saturnina");
 SURNAMES.splice(0, SURNAMES.length, "Aurelius", "Cornelius", "Valerius", "Flavius", "Claudius", "Antonius", "Fabius", "Tullius", "Marcius", "Domitius", "Junius", "Caecilius", "Licinius", "Sempronius", "Sergius", "Pompeius", "Vibius", "Horatius", "Quinctius", "Petronius", "Lucretius", "Plautius", "Calpurnius", "Hortensius", "Sulpicius", "Furius", "Manlius", "Postumius", "Septimius", "Terentius");
+const MODS = { defs: {}, off: {} };
+MODS.define = (id, label, kind, needs) => {
+  MODS.defs[id] = { id, label, kind, needs: needs || [] };
+};
+const modOn = (id) => {
+  if (MODS.off[id]) return false;
+  const d = MODS.defs[id];
+  if (d) {
+    for (const q of d.needs) if (!modOn(q)) return false;
+  }
+  return true;
+};
+MODS.set = (id, on) => {
+  if (on) delete MODS.off[id];
+  else MODS.off[id] = true;
+  MODS.save();
+  if (id.startsWith("sys.")) LF2.feat[id.slice(4)] = on;
+  if (id.startsWith("talk.") && typeof TALK !== "undefined") TALK.on[id.slice(5)] = on;
+};
+MODS.save = () => {
+  if (window.GH_NOSAVE) return;
+  try {
+    localStorage.setItem("gh_mods", JSON.stringify(MODS.off));
+  } catch (e) {
+  }
+};
+MODS.only = (ids) => {
+  const keep = /* @__PURE__ */ new Set();
+  const add = (i) => {
+    if (keep.has(i)) return;
+    keep.add(i);
+    const d = MODS.defs[i];
+    if (d) d.needs.forEach(add);
+  };
+  ids.forEach(add);
+  for (const k of Object.keys(MODS.defs)) MODS.set(k, keep.has(k));
+};
+MODS.all = () => {
+  for (const k of Object.keys(MODS.defs)) MODS.set(k, true);
+};
+for (const [j, l] of [["Farmer", "Farming"], ["Fisher", "Fishing"], ["Gatherer", "Gathering"], ["Woodcutter", "Woodcutting"], ["Miner", "Mining"], ["Miller", "Milling"]]) MODS.define("job." + j, l, "job");
+for (const [j, l] of [["Baker", "Baker"], ["Cook", "Cook"], ["Smith", "Smith"], ["Shopkeeper", "Shopkeeper"], ["Weaver", "Weaver"], ["Guard", "Watch"], ["BathKeeper", "Bath keeper"], ["Carpenter", "Carpenter"], ["Builder", "Builders"], ["Labourer", "Labourers"]]) MODS.define("job." + j, l, "job");
+if (typeof LF_GATH !== "undefined") for (const k of Object.keys(LF_GATH)) MODS.define("gath." + k, LF_GATH[k].label.replace(/^an? /, "").replace(/^./, (c) => c.toUpperCase()), "event");
+MODS.define("event.wedding", "Weddings", "event", ["sys.romance"]);
+MODS.define("event.funeral", "Funerals", "event");
+MODS.define("event.birthday", "Coming-of-age parties", "event");
+for (const k of Object.keys(LF2.feat)) MODS.define("sys." + k, typeof LF2_FEATN !== "undefined" && LF2_FEATN[k] || k, "system");
+for (const k of Object.keys(TALK.on)) MODS.define("talk." + k, "Talk: " + k, "talk");
+for (const k of Object.keys(LF2.feat)) if (LF2.feat[k] === false) MODS.off["sys." + k] = true;
+try {
+  if (!window.GH_NOSAVE) {
+    const s = JSON.parse(localStorage.getItem("gh_mods") || "null");
+    if (s) {
+      for (const k in s) if (MODS.defs[k]) MODS.set(k, false);
+    }
+  }
+} catch (e) {
+}
+(function() {
+  const stage = canvas.parentNode;
+  if (!stage) return;
+  const box = document.createElement("div");
+  box.id = "modbox";
+  box.className = "modbox";
+  box.hidden = true;
+  stage.appendChild(box);
+  const draw = () => {
+    const kinds = ["job", "event", "system", "talk"];
+    const names = { job: "Jobs", event: "Events", system: "Systems", talk: "Talk" };
+    box.innerHTML = `<div class="modcard"><button type="button" class="reqx" data-mod="x" title="Close (J)">\xD7</button><b>World modules</b> <span class="dim">switch a part of the game off to test the rest</span><div class="modbtns"><button type="button" data-mod="all">All on</button><button type="button" data-mod="farm">Only farming</button></div>` + kinds.map((k) => `<div class="modh">${names[k]}</div><div class="modgrid">` + Object.keys(MODS.defs).filter((i) => MODS.defs[i].kind === k).map((i) => {
+      const d = MODS.defs[i], on = !MODS.off[i], eff = modOn(i);
+      return `<label class="${eff ? "" : "dim"}"><input type="checkbox" data-mid="${i}"${on ? " checked" : ""}> ${d.label}${on && !eff ? " (needs something off)" : ""}</label>`;
+    }).join("") + `</div>`).join("") + `</div>`;
+  };
+  box.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-mod]");
+    if (!b) return;
+    if (b.dataset.mod === "x") box.hidden = true;
+    else if (b.dataset.mod === "all") {
+      MODS.all();
+      draw();
+    } else if (b.dataset.mod === "farm") {
+      MODS.only(["job.Farmer", "sys.economy", "talk.ritual", "talk.small", "talk.life", "talk.world"]);
+      draw();
+    }
+  });
+  box.addEventListener("change", (e) => {
+    const t = e.target;
+    if (t && t.dataset && t.dataset.mid) {
+      MODS.set(t.dataset.mid, t.checked);
+      draw();
+    }
+  });
+  window.addEventListener("keydown", (e) => {
+    if ((e.key === "j" || e.key === "J") && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || "") && town) {
+      box.hidden = !box.hidden;
+      if (!box.hidden) draw();
+    }
+  });
+})();
 LF2.react.push(function(o, ev, j, c, first, reveal) {
   if (!LF2.on("revenge") || o.player || !j.victim || !j.a || j.a === o || j.v > -0.6 || c < 0.4) return;
   const g = o.lf2Grudge && o.lf2Grudge.who === j.a.id ? o.lf2Grudge : { who: j.a.id, n: 0 };

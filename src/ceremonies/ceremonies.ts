@@ -68,6 +68,7 @@ function weddingPlace() {
 }
 const WED_PARTY = 52, WED_LEN = WED_PARTY + 196, FUN_WAKE = 46, FUN_LEN = FUN_WAKE + 108;
 function scheduleWedding(a, b) {
+  if (!modOn('event.wedding')) return;
   const at = spaceOut(nextAt(16, 12 * 60)), pl = weddingPlace();
   town.wedding = { a, b, at, end: at + WED_LEN, done: false, place: pl, mk: { plaza: pl.guests.length ? pl.guests : plazaTiles, x: pl.x, y: pl.y, church: pl.church } };
   chron(`${a.first} ${a.surname} and ${b.first} ${b.surname} will be married ${pl.church ? 'in the chapel' : 'on the square'} on ${dayLabel(at)}.`, 'love');

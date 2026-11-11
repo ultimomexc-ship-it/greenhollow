@@ -135,7 +135,7 @@ function foodDaysNow() {
   return t / (pop * 300);
 }
 function pickAgenda(n) {
-  if (n.cur && game.time < n.curUntil) return n.cur;
+  if (n.cur && game.time < n.curUntil && modOn('job.' + n.cur)) return n.cur;
   const cnt = {}; npcs.forEach(p => { if (p !== n && p.role === 'Worker' && p.cur && !p.player) cnt[p.cur] = (cnt[p.cur] || 0) + 1; });   // (the villager you steer takes no job from anybody)
   const fd = foodDaysNow(), need = Math.max(0, 3.5 - fd), sc: any = {};
   if (shoreTiles.length && fishAvail()) sc.Fisher = 5 + need * 20;
@@ -152,6 +152,7 @@ function pickAgenda(n) {
     const capF = { Fisher: Math.max(1, Math.ceil(pop / 7)), Gatherer: Math.max(1, Math.ceil(pop / 7)), Farmer: Math.max(1, Math.ceil(tasks / 6)), Miner: Math.max(1, Math.floor(pop / 8)) };
     if (fd >= 1.5) for (const r in capF) if (sc[r] && (cnt[r] || 0) >= capF[r]) sc[r] *= 0.15; }
   lfJobBias(n, sc);
+  for (const r of Object.keys(sc)) if (!modOn('job.' + r)) delete sc[r];   // (a switched-off job is nobody's choice: docs/world-modules.md)
   if (n.pref && sc[n.pref]) sc[n.pref] += 10;
   let best = n.role === 'Worker' ? 'Gatherer' : n.role, bs = -1;
   for (const r of Object.keys(sc)) {

@@ -47,6 +47,7 @@
   "life2/law.ts",
   "life2/daily-life.ts",
   "life2/glue.ts",
+  "life2/modules.ts",
   "life2/grudges.ts",
   "render/main.ts",
   "render/work-marks.ts",

@@ -91,7 +91,7 @@ function lf2AssignJobs(first) {
   // settlers who came for a trade take it up first
   for (const n of pool) if (n.lf2Want && !LF2_JOBS[n.job] && !((n.lf2NoTrade || 0) > game.time)) { const J = LF2_JOBS[n.lf2Want]; if (!J.room || lf2Room(J.room)) { lf2SetJob(n, n.lf2Want, first); have++; } }
   for (const k of LF2_JOBORDER) {
-    const J = LF2_JOBS[k]; if (J.room && !lf2Room(J.room)) continue;
+    const J = LF2_JOBS[k]; if (J.room && !lf2Room(J.room)) continue; if (!modOn('job.' + k)) continue;
     if (!J.room && town.scenario === 'blank') continue;   // (no builders or labourers on a blank island: everybody who is not at a workplace farms, fishes and gathers)
     const want = J.n ? J.n(pop) : 1;
     while (npcs.filter(n => !n.dead && n.job === k).length < want && (have < maxTrades || k === 'Smith' || k === 'Baker' || k === 'Guard')) {   // (the smith, baker and watch are never crowded out by the cap: a smithy with nobody at the anvil leaves nobody a new tool)
