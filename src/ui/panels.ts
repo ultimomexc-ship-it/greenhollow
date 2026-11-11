@@ -225,6 +225,7 @@ function updateMarket(force) {
 }
 
 function addChatter(ev) {
+  if (typeof overheardAdd === 'function') overheardAdd(ev);
   const ul = el('chat'); const li = document.createElement('li');
   li.innerHTML = '<div class="meta"><span class="chico" title="chatter">\u{1F4AC}</span> ' + fmtTime(ev.time) + ' · Day ' + (Math.floor(ev.time / 1440) + 1) + ' · ' + esc(cap1(ev.place)) + '</div>' +
     ev.lines.map(l => '<div class="ln"><b style="color:' + l.who.shirt + '">' + esc(l.who.first) + '</b> ' + esc(l.text) + '</div>').join('');
