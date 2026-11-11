@@ -22,7 +22,7 @@ function talkPick(key, label) {
   if (!talkUI.o || !talkS) return;
   const r: any = talkS.custom ? (key === 'bye' ? null : lf2TalkStep(key)) : ptStep(key);   // (a stall's own menu, or the conversation engine)
   if (!r || r.close) { closeTalk(); return; }
-  if (r.say !== undefined) { talkUI.say = r.say; talkUI.q = label || ''; }
+  if (r.say !== undefined) { talkUI.say = r.say; talkUI.q = r.you || label || ''; }
   talkUI.opts = r.opts; renderTalk();
 }
 /* ---------- every menu works with WASD: W and S move, D picks, A backs out (the mouse still works too) ---------- */

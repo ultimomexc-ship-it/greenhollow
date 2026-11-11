@@ -191,4 +191,6 @@ Then B and C together, measured with the harness. D once B and C make conversati
 - **A (bindings)**: done and merged.
 - **B (agenda and thread)**: done. `talkRitual`, `talkAgenda`, `talkStale`/`talkNote`, `talkAnswers`, `A.follow`. Six days of the farming village: about 80% of conversations have a purpose, median 8 lines.
 - **C (things worth saying)**: done. `life2/smalllife.ts` (worked beside, ate with, lent a hand, sick visits, finds, illness) and the `snap` acts. Still thin: "any news?" seldom finds an answer in a quiet village, and about a quarter of opinions still give "we have talked" as the reason.
-- **D, E, F**: to do.
+- **D (voice rule)**: done. Asides rationed to one line in four per speaker (`lxMarked`, `sp.sinceAside`), plain short lines for the most-used acts in `talk/pack-short.ts`. The plain pack was not rewritten.
+- **E (menu by intent)**: done. `PT_LABEL`, grouped, your words shown once picked.
+- **F (one event system)**: to do.

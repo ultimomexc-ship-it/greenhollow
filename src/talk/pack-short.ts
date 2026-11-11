@@ -9,7 +9,6 @@
   S('farewell', ['Goodbye.', 'I will go on, then.', 'See you, {li}.', 'I should get back.', 'Until later.', 'Be well.', 'That is me.', 'Right. Goodbye.']);
   S('farewell_back', ['Goodbye.', 'See you.', 'Go well.']);
   S('pre_close', ['I should get on.', 'Well. I have things to see to.', 'I will let you go.', 'That is all I had.', 'I must go.']);
-  S('remark_time', ['It is later than I thought.', 'The day is going.', 'It is early yet.']);
   S('remark_place', ['It is quiet here.', 'This is a good spot.', 'Nobody about.', 'The path wants mending.', 'I like this corner.']);
   S('remark_work', ['There is plenty to do.', 'The work goes on.', 'I am behind, a little.', 'It was a full morning.', 'The work is the same as yesterday.']);
   S('remark_state', ['I am hungry.', 'I could eat.'], { state: 'hungry' });

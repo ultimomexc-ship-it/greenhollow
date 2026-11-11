@@ -1116,13 +1116,14 @@ test('talk engine (phase 1): the one who starts walks up to the other, they stan
     let sa = null, sb = null; scan: for (let r = 0; r < 25; r++) for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) { const x = town.cx + dx, y = town.cy + dy; let ok = true; for (let i = -1; i <= 5 && ok; i++) for (let j = -1; j <= 1 && ok; j++) { const tx = x + i, ty = y + j; if (!walkable(tx, ty) || lfPropAt(tx, ty) || roomAt[ty][tx] >= 0 || npcs.some(o => o.tx === tx && o.ty === ty)) ok = false; } if (ok) { const pth = findPath(x, y, x + 3, y); if (pth && pth.length > 0 && pth.length <= 4) { sa = { x, y }; sb = { x: x + 4, y }; break scan; } } }   // (open ground you can really walk straight across)
     if (!sa) return { skip: true };
     for (const [n, s] of [[a, sa], [c, sb]]) { abortPlan(n); n.tx = n.x = s.x; n.ty = n.y = s.y; n.pose = 'stand'; n.talkUntil = 0; n.talkBusy = 0; }
-    rebuildOcc(); const n0 = TALK.log.length; talkApproach(a, c); window.__pair = [a.id, c.id, n0]; return { first: a.plan[0].text, d0: lfDist(a, c) };
+    LIFE.emit('found', a, { thing: 'a button' }); a.saidTo = {}; c.saidTo = {};   // (something to say)
+    rebuildOcc(); const n0 = TALK.log.length; talkApproach(a, c); window.__pair = [a.id, c.id, n0]; return { first: a.plan[0].text, d0: lfDist(a, c), pos: [a.tx, a.ty, c.tx, c.ty, a.id, c.id, game.player && game.player.id] };
   });
   if (!r.skip) {
     check(/Going over to/.test(r.first), 'the first sets out to meet the other: ' + JSON.stringify(r));
     await simulate(page, 20);
-    const d = await page.evaluate(() => { const [x, y, n0] = window.__pair, a = byId(x), c = byId(y); return { d: lfDist(a, c), talked: TALK.log.slice(n0).some(l => (l.a === x && l.b === y)), d: (TALK.log.slice(n0).find(l => l.a === x && l.b === y) || { d: 99 }).d }; });
-    check(d.talked && d.d <= 2, 'they stood side by side (when they talked) and talked: ' + JSON.stringify(d));
+    const d = await page.evaluate(() => { const [x, y, n0] = window.__pair, a = byId(x), c = byId(y); return { st: [a.tx, a.ty, c.tx, c.ty, a.si, (a.plan || []).map(q => q.k + ':' + q.text).join(','), JSON.stringify(a.talkTo || null)].join(' ') + a.status + ' / ' + c.status + ' h' + Math.round(a.hunger) + ' ' + Math.round(c.hunger) + ' dist ' + lfDist(a, c), talked: TALK.log.slice(n0).some(l => (l.a === x && l.b === y)), d: (TALK.log.slice(n0).find(l => l.a === x && l.b === y) || { d: 99 }).d }; });
+    check(d.talked && d.d <= 2, 'they stood side by side (when they talked) and talked: ' + JSON.stringify([d, r]));
   }
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
   return 'approach';
@@ -1540,7 +1541,7 @@ test('gifts: you can give something in a talk; food is welcome when hungry, flow
     const out = {}; TALK.words = true; startPlaying(npcs.find(n => !n.dead && n.age >= 18 && !n.infant)); const P = game.player;
     const R = rooms.find(q => !q.free && !q.dead && q.kind === 'house' && meddleResidents(q).some(n => n !== P)); const o = meddleResidents(R).find(n => n !== P);
     o.tx = o.x = P.tx + 1; o.ty = o.y = P.ty; o.pose = 'stand'; o.hunger = 80; o.inv.fish = 5; rebuildOcc(); P.inv.grain = 3; P.inv.flowers = 2; o.aff[P.id] = 0;
-    const give = () => { let k = -1;   /* the menu shows five of many things, so look again */  for (let tries = 0; tries < 12 && k < 0; tries++) { openTalk(o); k = talkUI.opts.findIndex(x => /brought|Here\.|could use|I have .*thought of you|This is .*not much/.test(x[1])); if (k < 0) closeTalk(); } if (k < 0) return null; const a0 = o.aff[P.id] || 0; const st = ptStep(talkUI.opts[k][0]); const r = { say: st.say, d: (o.aff[P.id] || 0) - a0 }; closeTalk(); return r; };
+    const give = () => { let k = -1;   /* the menu shows five of many things, so look again */  for (let tries = 0; tries < 12 && k < 0; tries++) { openTalk(o); k = talkUI.opts.findIndex(x => /Give a gift|brought|Here\.|could use|I have .*thought of you|This is .*not much/.test(x[1])); if (k < 0) closeTalk(); } if (k < 0) return null; const a0 = o.aff[P.id] || 0; const st = ptStep(talkUI.opts[k][0]); const r = { say: st.say, d: (o.aff[P.id] || 0) - a0 }; closeTalk(); return r; };
     out.food = give(); out.grain = P.inv.grain; out.theirs = o.inv && o.inv.grain;
     // a deed, then an amends
     o.hunger = 10; meddleNote('wall_removed', o.tx, o.ty, P, { room: -1, residents: [o] }); meddleFlush(); out.grudge = !!deedPick(o, P); out.bad = o.aff[P.id];
@@ -1574,7 +1575,7 @@ test('requests and feelings: the hungry ask for food and the homeless for a bed,
     out.againNo = ACTS.ask_favour.when({ done: {}, turns: [] }, A, B);
     // a homeless villager asks the player; the player promises; the thread is open; a bed closes it
     startPlaying(ps[3]); const P = game.player; H.homeless = true; H.hunger = 10; H.reqs = []; H.askT = {}; H.tx = H.x = P.tx + 1; H.ty = H.y = P.ty; H.pose = 'stand'; rebuildOcc();
-    openTalk(H); out.say = talkUI.say; out.opts = talkUI.opts.map(o => o[1]); const k = talkUI.opts.findIndex(o => /see what (I can do|can be done)|little time|few days/.test(o[1]));
+    openTalk(H); out.say = talkUI.say; out.opts = talkUI.opts.map(o => o[1]); const k = talkUI.opts.findIndex(o => /Promise|see what (I can do|can be done)|little time|few days/.test(o[1]));
     if (k >= 0) ptStep(talkUI.opts[k][0]); closeTalk();
     out.thread = (P.tmem || []).filter(m => m.kind === 'request' && m.state === 'open').length; out.journal = jrHTML();
     H.homeless = false; const a0 = H.aff[P.id] || 0; for (const f of LF2.hourly) { try { f(8); } catch (e) {} }
@@ -1587,7 +1588,7 @@ test('requests and feelings: the hungry ask for food and the homeless for a bed,
     out.line = lxSay('vent', A, B, { state: 'low' });
     return out; });
   check(r.ask && r.want === 'item' && r.canGive && r.moved && r.done && !r.againNo, 'the hungry ask someone with food, who gives it, once in twelve hours: ' + JSON.stringify([r.ask, r.want, r.canGive, r.moved, r.done, r.againNo]));
-  check(/bed/.test(r.say) && r.opts.some(o => /see what (I can do|can be done)|little time|few days/.test(o)) && r.thread === 1 && /Open threads/.test(r.journal), 'the homeless villager opens with the bed, you can promise, and the journal lists the thread: ' + JSON.stringify([r.say, r.opts, r.thread]));
+  check(/bed/.test(r.say) && r.opts.some(o => /Promise|see what (I can do|can be done)|little time|few days/.test(o)) && r.thread === 1 && /Open threads/.test(r.journal), 'the homeless villager opens with the bed, you can promise, and the journal lists the thread: ' + JSON.stringify([r.say, r.opts, r.thread]));
   check(r.closed && r.warm, 'finding the bed closes the thread and they are grateful');
   check(r.expired, 'a promise left three days fails, with a grudge');
   check(r.vent && r.line && r.console, 'a bad day can be told and consoled: ' + r.line);

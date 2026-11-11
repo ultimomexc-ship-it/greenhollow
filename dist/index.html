@@ -27573,7 +27573,7 @@ function talkPick(key, label) {
   }
   if (r.say !== void 0) {
     talkUI.say = r.say;
-    talkUI.q = label || "";
+    talkUI.q = r.you || label || "";
   }
   talkUI.opts = r.opts;
   renderTalk();
@@ -31033,7 +31033,6 @@ lx("ev:sick_visit", "island", "{a} sat with {t}, who is ill");
   S("farewell", ["Goodbye.", "I will go on, then.", "See you, {li}.", "I should get back.", "Until later.", "Be well.", "That is me.", "Right. Goodbye."]);
   S("farewell_back", ["Goodbye.", "See you.", "Go well."]);
   S("pre_close", ["I should get on.", "Well. I have things to see to.", "I will let you go.", "That is all I had.", "I must go."]);
-  S("remark_time", ["It is later than I thought.", "The day is going.", "It is early yet."]);
   S("remark_place", ["It is quiet here.", "This is a good spot.", "Nobody about.", "The path wants mending.", "I like this corner."]);
   S("remark_work", ["There is plenty to do.", "The work goes on.", "I am behind, a little.", "It was a full morning.", "The work is the same as yesterday."]);
   S("remark_state", ["I am hungry.", "I could eat."], { state: "hungry" });
@@ -31387,6 +31386,154 @@ function closenessWord(o, p) {
   if (k > 25) return "acquaintance";
   return k > 4 ? "met before" : "stranger";
 }
+const PT_GROUPS = ["Answer", "Ask", "Tell", "Give", "Heart", "Small talk"];
+const PT_LABEL = {
+  remark_time: ["Small talk", "Remark on the hour"],
+  remark_place: ["Small talk", "Remark on the place"],
+  remark_work: ["Small talk", "Talk about work"],
+  remark_state: ["Small talk", "Say how you feel"],
+  joke: ["Small talk", "Make a joke"],
+  wonder: ["Small talk", "Wonder aloud"],
+  callback: ["Small talk", "Pick up where you left off"],
+  ask_how: ["Ask", "Ask how they are"],
+  ask_news: ["Ask", "Ask for news"],
+  ask_day: ["Ask", "Ask about their day"],
+  ask_opinion: ["Ask", "Ask what they think of {about}"],
+  ask_family: ["Ask", "Ask after {about}"],
+  ask_work: ["Ask", "Ask about their work"],
+  ask_where: ["Ask", "Ask where {about} is"],
+  ask_advice: ["Ask", "Ask for advice"],
+  ask_price: ["Ask", "Ask the price of {item}"],
+  ask_preference: ["Ask", "Ask what they like"],
+  ask_favour: ["Ask", "Ask a favour: {item}"],
+  chase_favour: ["Ask", "Remind them of their promise"],
+  ask_why_state: ["Ask", "Ask why"],
+  ask_more_day: ["Ask", "Ask to hear more"],
+  share_news: ["Tell", "Tell the news: {news}"],
+  story_preface: ["Tell", "Tell a story you heard"],
+  report_day: ["Tell", "Tell about your day"],
+  gossip_person: ["Tell", "Say what you think of {about}"],
+  tell_rep: ["Tell", "Tell what is said about {about}"],
+  warn: ["Tell", "Warn them about {about}"],
+  brag_child: ["Tell", "Talk about your child"],
+  tell_back: ["Tell", "Tell how you came here"],
+  confide: ["Tell", "Confide a secret"],
+  hint_gift: ["Tell", "Drop a hint about a gift"],
+  raise_deed: ["Tell", "Bring up what {about} did"],
+  offer_gift: ["Give", "Give a gift: {item}"],
+  send_gift: ["Give", "Ask them to take a gift to {about}"],
+  praise: ["Heart", "Praise them"],
+  vent: ["Heart", "Say what is weighing on you"],
+  apologise: ["Heart", "Apologise"],
+  flirt: ["Heart", "Flirt"],
+  declare: ["Heart", "Say what you feel for them"],
+  ask_to_walk: ["Heart", "Ask them to walk out with you"],
+  propose: ["Heart", "Propose marriage"],
+  confront_jealous: ["Heart", "Ask about {about}"],
+  snap: ["Heart", "Snap at them"],
+  // answers
+  answer_how: ["Answer", "Say how you are"],
+  share_gladness: ["Answer", "Be glad with them"],
+  sympathise_how: ["Answer", "Sympathise"],
+  no_news: ["Answer", "Say there is no news"],
+  nothing_much: ["Answer", "Say not much happened"],
+  react_shock: ["Answer", "Be shocked"],
+  react_amused: ["Answer", "Laugh at it"],
+  react_sympathy: ["Answer", "Feel for them"],
+  react_doubt: ["Answer", "Doubt it"],
+  react_delight: ["Answer", "Be glad of it"],
+  react_unmoved: ["Answer", "Shrug"],
+  empathise: ["Answer", "Sympathise"],
+  acknowledge: ["Answer", "Nod"],
+  agree: ["Answer", "Agree"],
+  give_opinion: ["Answer", "Say what you think of {about}"],
+  no_view: ["Answer", "Say you have no view"],
+  no_view_g: ["Answer", "Say you have no view"],
+  agree_opinion: ["Answer", "Agree about {about}"],
+  differ_opinion: ["Answer", "Disagree about {about}"],
+  answer_family: ["Answer", "Say how {about} is"],
+  answer_work: ["Answer", "Say how the work goes"],
+  deed_sorry: ["Answer", "Say you are sorry"],
+  deed_defend: ["Answer", "Defend what you did"],
+  deed_deny: ["Answer", "Deny it"],
+  deed_shrug: ["Answer", "Shrug it off"],
+  deed_blame: ["Answer", "Blame {about}"],
+  deed_forgive: ["Answer", "Forgive them"],
+  deed_cold: ["Answer", "Stay cold"],
+  deed_believe: ["Answer", "Believe them"],
+  deed_doubt: ["Answer", "Doubt them"],
+  gift_thanks: ["Answer", "Thank them"],
+  gift_delight: ["Answer", "Be delighted"],
+  gift_amends: ["Answer", "Accept it as amends"],
+  gift_refuse: ["Answer", "Refuse the gift"],
+  gift_loved: ["Answer", "Say you love it"],
+  gift_disliked: ["Answer", "Say it is not to your taste"],
+  tell_preference: ["Answer", "Say what you like"],
+  hint_noted: ["Answer", "Take the hint"],
+  deliver_yes: ["Answer", "Agree to take it"],
+  deliver_no: ["Answer", "Decline to take it"],
+  accept_apology: ["Answer", "Accept the apology"],
+  reject_apology: ["Answer", "Reject the apology"],
+  jealous_explain: ["Answer", "Explain"],
+  jealous_defiant: ["Answer", "Stand by it"],
+  jealous_deny: ["Answer", "Deny it"],
+  favour_give: ["Answer", "Give it to them"],
+  favour_promise: ["Answer", "Promise to see to it"],
+  favour_no: ["Answer", "Say no"],
+  favour_thanks: ["Answer", "Thank them"],
+  favour_hopeful: ["Answer", "Say you will wait"],
+  console: ["Answer", "Comfort them"],
+  shrug_off: ["Answer", "Make light of it"],
+  thank_praise: ["Answer", "Thank them"],
+  secret_keep: ["Answer", "Promise to keep it"],
+  secret_alarmed: ["Answer", "Be alarmed"],
+  flirt_back: ["Answer", "Flirt back"],
+  flirt_rebuff: ["Answer", "Turn it aside"],
+  declare_return: ["Answer", "Say you feel the same"],
+  declare_gentle: ["Answer", "Let them down gently"],
+  walk_yes: ["Answer", "Say yes"],
+  walk_later: ["Answer", "Say not yet"],
+  walk_no: ["Answer", "Say no"],
+  glad_courtship: ["Answer", "Be glad"],
+  propose_yes: ["Answer", "Say yes"],
+  propose_later: ["Answer", "Ask for time"],
+  propose_no: ["Answer", "Say no"],
+  rep_own: ["Answer", "Own up to it"],
+  rep_deny: ["Answer", "Deny it"],
+  story_invite: ["Answer", "Ask to hear it"],
+  callback_answer: ["Answer", "Answer"],
+  laugh: ["Answer", "Laugh"],
+  groan: ["Answer", "Groan"],
+  wonder_reply: ["Answer", "Wonder with them"],
+  tell_where: ["Answer", "Say where {about} is"],
+  dont_know_where: ["Answer", "Say you do not know"],
+  thanks_where: ["Answer", "Thank them"],
+  warn_thanks: ["Answer", "Thank them for the warning"],
+  give_advice: ["Answer", "Give advice"],
+  congratulate: ["Answer", "Congratulate them"],
+  tell_back_reply: ["Answer", "Take it in"],
+  explain_state: ["Answer", "Explain why"],
+  explain_unknown: ["Answer", "Say you do not know why"],
+  snap_back: ["Answer", "Snap back"],
+  let_it_go: ["Answer", "Let it go"],
+  tell_price: ["Answer", "Tell the price"],
+  react_price: ["Answer", "Remark on the price"]
+};
+function ptLabel(id, x) {
+  const L = PT_LABEL[id];
+  if (!L) return "";
+  let ok = true;
+  const t = L[1].replace(/\{(\w+)\}/g, (_m, k) => {
+    let v = k === "about" ? x.about || x.aboutName || x.them : x[k];
+    if (v == null || v === "") {
+      ok = false;
+      return "";
+    }
+    v = String(v);
+    return v.length > 46 ? v.slice(0, 44).replace(/\s+\S*$/, "") + "\u2026" : v;
+  });
+  return ok ? t : L[1].replace(/[:]?\s*(about |after |of |to |where )?\{\w+\}.*$/, "").trim();
+}
 function ptBegin(o, p) {
   const c = { a: p, b: o, stage: "open", done: {}, turns: [], left: { [p.id]: 99, [o.id]: talkBudget(o, p) + 1.5 }, last: null, t0: game.time, player: true };
   const S = PT.s = { c, o, p, pending: null, opts: [], closing: false };
@@ -31426,20 +31573,24 @@ function ptOptions(S) {
     }
     const x = A.preview ? A.preview(view2, p, o) : {};
     for (const k of Object.keys(view2)) if (view2[k] !== void 0) bind[k] = view2[k];
-    const label = lxSay(x.line || id, p, o, Object.assign({}, talkX(view2), x, { state: talkState(p) || "fine", menu: true }));
-    if (!label) continue;
+    const slots = Object.assign({}, talkX(view2), x, { state: talkState(p) || "fine", menu: true });
+    const line = lxSay(x.line || id, p, o, slots);
+    if (!line) continue;
     seen.add(id);
-    out.push({ id, bind, label, kind: A.kind, w: Math.random() + (A.kind !== "small" ? 0.6 : 0) });
+    const what = ptLabel(id, slots), group = PT_LABEL[id] ? PT_LABEL[id][0] : A.reply ? "Answer" : "Tell";
+    out.push({ id, bind, label: what || line, line, group, kind: A.kind, w: Math.random() + (A.kind !== "small" ? 0.6 : 0) });
   }
   out.sort((a, b) => b.w - a.w);
   const keep = out.slice(0, S.pending ? 6 : 5);
   if (!keep.some((q) => q.kind === "small") && out.some((q) => q.kind === "small")) keep[keep.length - 1] = out.find((q) => q.kind === "small");
+  for (const q of keep) if (keep.some((r) => r !== q && r.label === q.label)) q.label = q.line;
+  keep.sort((a, b) => PT_GROUPS.indexOf(a.group) - PT_GROUPS.indexOf(b.group));
   return keep;
 }
 function ptMenu(S, say2) {
   const c = S.c, o = S.o, p = S.p;
   if (S.closing) return { say: say2, opts: [["bye", serviceLeave(p, o)]] };
-  const polite = c.left[o.id] <= 0.5;
+  const polite = c.left[o.id] <= 0.5 && !S.pending;
   if (polite) {
     talkTurn(c, o, p, "pre_close");
     say2 += "\n" + talkWords(c.turns[c.turns.length - 1], p, o);
@@ -31467,10 +31618,11 @@ function ptStep(key) {
   }
   const i = +String(key).slice(1), q = S.opts[i];
   if (!q) return { close: true };
-  talkTurn(c, p, o, q.id, q.bind);
+  const mine = talkTurn(c, p, o, q.id, q.bind);
   S.pending = null;
   c.left[o.id] -= 0.6;
   const said = [];
+  const you = talkWords(mine, p, o) || q.line;
   const reps = ACTS[q.id].replies;
   let cont = null;
   if (reps && reps.length) {
@@ -31496,12 +31648,12 @@ function ptStep(key) {
     said.push(talkWords(t, p, o));
   }
   if (cont) S.pending = cont;
-  const r = ptMenu(S, said.filter(Boolean).join("\n") || "\u2026");
+  let r = ptMenu(S, said.filter(Boolean).join("\n") || "\u2026");
   if (S.pending && !r.opts.some((x) => x[0] !== "bye")) {
     S.pending = null;
-    const r2 = ptMenu(S, r.say);
-    return r2;
+    r = ptMenu(S, r.say);
   }
+  r.you = you;
   return r;
 }
 function ptEnd() {
@@ -31702,6 +31854,7 @@ function talkApproach(a, b) {
   b.talkUntil = Math.max(b.talkUntil || 0, game.time + 8 + 3 * lfDist(a, b));
   const rest = a.plan ? a.plan.slice(a.si) : [];
   abortPlan(a);
+  a.chatTarget = null;
   a.plan = [
     goS(() => talkSpot(b, a) || { x: b.tx, y: b.ty, face: null }, "Going over to " + b.first),
     waitS(1, "stand", "Talking with " + b.first, { nopie: true, onEnd(nn) {
