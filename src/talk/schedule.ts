@@ -6,11 +6,12 @@ TALK.earshot = 16;
 TALK.stroll = true;   // people on a walk stop for a word with somebody near (not people at work, at a meal or on the way to bed)
 TALK.hyper = false;   // developer mode (H): a lot of talking, so there is always something to watch; it costs the economy, so it is for testing
 const talkOnScreen = (n: any) => { const sp = toScreen(n.x * TS + TS / 2, n.y * TS); return sp.x > -40 && sp.y > -40 && sp.x < cam.cw + 40 && sp.y < cam.ch + 40; };
+const talkLeisure = (n: any) => { const h = (game.time % 1440) / 60; return h >= 17 && h < 22 && n.hunger < 45 && n.bladder < 60 && !(n.job && n.pose === 'work'); };
 function talkIdle(n: any): boolean {
   if (n.dead || n.player || n.infant || n.age < 6 || n.pose === 'sleep' || n.trapped || n.jail) return false;
   if ((n.talkUntil || 0) > game.time || (n.talkBusy || 0) > game.time) return false;
   if (TALK.hyper) return true;
-  const st = n.plan && n.plan[n.si]; return !st || !!n.roaming || (st.k === 'wait' && (st.act === 'stand' || st.act === 'leisure')) || (st.k === 'go' && TALK.stroll);   // (a walk can be broken for a word: it resumes after)
+  const st = n.plan && n.plan[n.si]; return !st || !!n.roaming || (st.k === 'wait' && (st.act === 'stand' || st.act === 'leisure')) || (st.k === 'go' && TALK.stroll && talkLeisure(n));   // (a walk can be broken for a word in the evening, when nobody is hungry or working: it resumes after)
 }
 function talkPartner(a: any): any {
   let best: any = null, bw = 0;
