@@ -47,7 +47,7 @@ function meddleFlush() {
     for (const p of ps) {
       const n = lf2By(p.id); if (!n || n.dead) continue;
       const hurt = p.home || !!p.exposure; if (hurt) n.mood = Math.max(0, (n.mood == null ? 60 : n.mood) - (r.kind === 'home_destroyed' ? 18 : 8));
-      if (p.sawYou) { lfAff(n, by, hurt ? -9 : -3, r.kind === 'home_destroyed' ? 'pulled down a house' : p.exposure ? 'knocked the wall out while I was in the middle of something' : r.kind === 'bed_moved' ? 'moved a bed' : r.kind === 'furniture_removed' ? 'took my furniture' : r.kind === 'person_pushed' ? 'pushed me about' : 'knocked a wall down'); cried.push({ n, p }); }
+      if (p.sawYou) { lfAff(n, by, (hurt ? -9 : -3) * TALK.dial.sev, r.kind === 'home_destroyed' ? 'pulled down a house' : p.exposure ? 'knocked the wall out while I was in the middle of something' : r.kind === 'bed_moved' ? 'moved a bed' : r.kind === 'furniture_removed' ? 'took my furniture' : r.kind === 'person_pushed' ? 'pushed me about' : 'knocked a wall down'); cried.push({ n, p }); }
     }
     for (const { n, p } of cried.slice(0, 2)) {
       const how = p.exposure === 'privy' ? 'privy' : p.exposure === 'bath' ? 'bath' : p.exposure === 'pray' ? 'pray' : r.kind === 'home_destroyed' ? 'home' : r.kind === 'furniture_removed' ? 'furniture' : r.kind === 'person_pushed' ? 'pushed' : p.home ? 'wall_home' : 'wall';

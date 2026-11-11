@@ -32,6 +32,8 @@ function sndAt(x: number, y: number): number {
 }
 const sndThrottle = (k: string, ms: number) => { const now = performance.now(); if (now - (SND.last[k] || -1e9) < ms) return false; SND.last[k] = now; return true; };
 
+/** a soft murmur when people talk somewhere you cannot see: quieter with distance */
+function sndMurmur(n: any) { if (!sndReady() || !sndThrottle('murmur', 1200)) return; const v = sndAt(n.tx, n.ty); if (v <= 0.05) return; sndTone(140 + Math.random() * 70, 0.22, 'triangle', 0.03 * v, 120); sndTone(190 + Math.random() * 60, 0.16, 'sine', 0.02 * v, 160, 0.12); }
 /* ---- the sounds ---- */
 function sndStep(n) {
   if (!sndReady() || !n || !sndThrottle('step', 110)) return; const t = grid[n.ty] && grid[n.ty][n.tx], inRoom = roomAt[n.ty] && roomAt[n.ty][n.tx] >= 0, mine = isMineY(n.ty), deck = isUpperY(n.ty);

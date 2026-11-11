@@ -33,7 +33,7 @@ const TE = {
       const ev = lf2Ev().find((q: any) => q.id === m.ev); if (!ev) continue;   // (a secret is not gossip, unless the gossipy let it slip)
       if (ev.actor === li.id || ev.target === li.id || ev.actor === sp.id || ev.target === sp.id || TM.ofEv(li, m.ev) || (c && c.sharedEv && c.sharedEv.includes(m.ev)) || (m.told || []).includes(li.id)) continue;
       const age = (game.time - m.t) / 1440, rel = 0.6 + (li.aff[ev.actor] != null || li.aff[ev.target] != null ? 0.5 : 0) + (li.know && (li.know[ev.actor] > 10 || li.know[ev.target] > 10) ? 0.3 : 0);
-      const sc = m.imp * Math.exp(-age / 3) * rel * gossip * (0.8 + Math.random() * 0.4); if (sc > bs) { bs = sc; best = { m, ev, score: sc }; }
+      const sc = m.imp * Math.exp(-age / 3) * rel * gossip * (1 + 1.5 * Math.exp(-(game.time - m.t) / 180)) * (0.8 + Math.random() * 0.4);   // (fresh news is told first) if (sc > bs) { bs = sc; best = { m, ev, score: sc }; }
     }
     return best;
   },
@@ -43,7 +43,7 @@ const TE = {
     const credit = Math.max(0.55, Math.min(1, 0.72 + (li.aff[sp.id] || 0) / 150 + (li.trust && li.trust[sp.id] ? li.trust[sp.id] / 200 : 0)));
     let conf = Math.min(1, m.conf * credit * 0.93);
     const friend = ver.who != null && (sp.aff[ver.who] || 0) > 30, foe = ver.who != null && (sp.aff[ver.who] || 0) < -30;
-    if (Math.random() < (talkHas(sp, 'gossipy') ? 0.3 : 0.12)) { ver.sev = Math.min(3, (ver.sev || 1) * 1.4); notes.push('bigger'); }
+    if (Math.random() < (talkHas(sp, 'gossipy') ? 0.3 : 0.12) * TALK.dial.distort) { ver.sev = Math.min(3, (ver.sev || 1) * 1.4); notes.push('bigger'); }
     else if (friend && Math.random() < 0.35) { ver.sev = Math.max(0.3, (ver.sev || 1) * 0.6); notes.push('softer'); }
     if (foe && ver.who === ev.actor && Math.random() < 0.15) { conf = Math.min(1, conf + 0.05); notes.push('harder'); }
     if (Math.random() < 0.08) { ver.who = null; notes.push('nameless'); conf *= 0.9; }

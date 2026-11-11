@@ -51,11 +51,12 @@ function ptStep(key: string): any {
   c.life = q.snap.life; c.news = q.snap.news; c.priceItem = q.snap.priceItem;
   talkTurn(c, p, o, q.id); S.pending = null; c.left[o.id] -= 0.6; const said: string[] = [];
   // the villager answers what was said
-  const reps = ACTS[q.id].replies; if (reps && reps.length) { const rid = talkChoose(c, o, p, reps); if (rid) { const t = talkTurn(c, o, p, rid); said.push(talkWords(t, p, o)); c.left[o.id] -= 0.3; } }
+  const reps = ACTS[q.id].replies; let cont: string[] | null = null; if (reps && reps.length) { const rid = talkChoose(c, o, p, reps); if (rid) { const t = talkTurn(c, o, p, rid); said.push(talkWords(t, p, o)); c.left[o.id] -= 0.3; if ((rid === 'story_invite' || rid === 'share_news') && ACTS[rid].replies.length) cont = ACTS[rid].replies.slice(); } }   // (a story carries on: the player tells it, or answers it)
   // and sometimes brings something up of their own, which the player then answers
-  if (c.left[o.id] > 0.5 && (!said.length || (c.left[o.id] > 1.2 && Math.random() < 0.55))) {   // (they always say something back)
+  if (!cont && c.left[o.id] > 0.5 && (!said.length || (c.left[o.id] > 1.2 && Math.random() < 0.55))) {   // (they always say something back)
     const tid = talkChoose(c, o, p, TALK_TOPICS()); if (tid) { const t = talkTurn(c, o, p, tid); said.push(talkWords(t, p, o)); c.left[o.id] -= 1; S.pending = ACTS[tid].replies && ACTS[tid].replies.length ? ACTS[tid].replies.slice() : null; }
   }
+  if (cont) S.pending = cont;
   const r = ptMenu(S, said.filter(Boolean).join('\n') || '…');
   if (S.pending && !r.opts.some((x: any) => x[0] !== 'bye')) { S.pending = null; const r2 = ptMenu(S, r.say); return r2; }   // (nothing the player can answer with: back to the open menu)
   return r;
@@ -63,7 +64,7 @@ function ptStep(key: string): any {
 /** the conversation is over: both remember it, they know each other a little better, and it is in the log */
 function ptEnd() {
   const S = PT.s; if (!S) return; PT.s = null; const c = S.c, o = S.o, p = S.p; if (talkS && talkS.pt) talkS = null;
-  for (const [x, y] of [[o, p], [p, o]]) { TM.add(x, { kind: 'talked', with: y.id, imp: 0.25, n: c.turns.length }); x.social = Math.min(100, (x.social == null ? 50 : x.social) + 6 + c.turns.length); }
+  for (const [x, y] of [[o, p], [p, o]]) { TM.add(x, { kind: 'talked', with: y.id, imp: 0.25, n: c.turns.length, subj: c.lastSubj }); x.social = Math.min(100, (x.social == null ? 50 : x.social) + 6 + c.turns.length); }
   lfAff(o, p, 1, 'talked with me'); lfAff(p, o, 1, 'talked with me'); o.know[p.id] = Math.min(100, (o.know[p.id] || 0) + 3); p.know[o.id] = Math.min(100, (p.know[o.id] || 0) + 3);
   TALK.log.push({ t: game.time, a: p.id, b: o.id, d: lfDist(p, o), acts: c.turns.slice(), lines: c.turns.map((t: any) => (t.by === p.id ? p : o).first + ': ' + talkWords(t, p, o)), player: true }); if (TALK.log.length > 300) TALK.log.shift();
 }

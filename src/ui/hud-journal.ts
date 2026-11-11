@@ -2,12 +2,17 @@
    menu draws from: news you can pass on, what people told you about each other, prices you were given, and how people say they are. */
 
 let JOURNAL_ON = false;
+/** where it came from before that: "who had it from Lucius, who had it from the baker" */
+function jrPath(m: any): string {
+  let out = '', cur = m; for (let i = 0; i < 3; i++) { const h = cur.from != null ? byId(cur.from) : null; if (!h) break; const hm = TM.ofEv(h, cur.ev); if (!hm || hm.from == null || hm.kind === 'saw' || hm.kind === 'felt') { if (hm && (hm.kind === 'saw' || hm.kind === 'felt') && i > 0) out += ' (who saw it)'; break; } const g = byId(hm.from); if (!g) break; out += ', who had it from ' + g.first; cur = hm; }
+  return out;
+}
 function jrText(m: any): string {
   const p = game.player; const who = (id: any) => { const o = id != null ? byId(id) : null; return o ? o.first : 'someone'; };
   if (m.kind === 'opinion') { const a = byId(m.about); return a ? who(m.from) + ' on ' + a.first + ': ' + ({ fond: 'fond of them', like: 'likes them', neutral: 'no strong view', wary: 'wary of them', dislike: "can't stand them" } as any)[m.word] + (m.reason ? '. ' + m.reason : '') : ''; }
   if (m.kind === 'price') { const g = (GOODS as any)[m.item]; return who(m.from) + ' says ' + (g ? g.name : m.item) + ' costs about ' + lxMoney(m.unit) + ' each'; }
   if (m.kind === 'told_life') { const o = byId(m.with); return o ? o.first + ' has been: ' + ((LIFE_TROUBLE as any)[m.lk] || m.lk.replace(/_/g, ' ')) : ''; }
-  if (m.ev != null && m.kind !== 'life') { const ev = lf2Ev().find((q: any) => q.id === m.ev); if (!ev) return ''; return TE.text(ev, m.ver).replace(/^./, (c: string) => c.toUpperCase()) + (m.kind === 'saw' ? ' (you saw it)' : m.kind === 'felt' ? ' (it happened to you)' : m.kind === 'overheard' ? ' (overheard)' : m.kind === 'told' ? ' (' + who(m.from) + ' told you' + (m.conf < 0.5 ? ', not sure' : '') + ')' : ''); }
+  if (m.ev != null && m.kind !== 'life') { const ev = lf2Ev().find((q: any) => q.id === m.ev); if (!ev) return ''; return TE.text(ev, m.ver).replace(/^./, (c: string) => c.toUpperCase()) + (m.kind === 'saw' ? ' (you saw it)' : m.kind === 'felt' ? ' (it happened to you)' : m.kind === 'overheard' ? ' (overheard)' : m.kind === 'told' ? ' (' + who(m.from) + ' told you' + jrPath(m) + (m.conf < 0.5 ? ', not sure' : '') + ')' : ''); }
   return '';
 }
 function jrHTML(): string {
@@ -21,6 +26,9 @@ function jrHTML(): string {
     return { m: { t: e.t }, t: TE.text(e, { who: p.id }).replace(/^./, (c: string) => c.toUpperCase()) + (know ? ` — ${know} know it was you` : heard ? ' — nobody knows it was you' : ' — nobody knows') + (bl ? ' (' + bl + ')' : '') };
   });
   groups['What you did'] = mine;
+  const known: any[] = []; for (const m of (p.tmem || []).filter((q: any) => q.kind === 'pref').slice(-12).reverse()) { const a = byId(m.about); if (a) known.push({ m, t: `${a.first} ${m.like ? 'likes' : 'cannot abide'} ${(GOODS[m.item] && GOODS[m.item].name) || m.item}` }); }
+  for (const o of npcs) { if (o.dead || o === p || known.length > 14) continue; const jb = o.job && (p.know[o.id] || 0) > 25 ? o.job : ''; if (jb) known.push({ m: { t: game.time }, t: `${o.first} is a ${String(jb).toLowerCase()}` }); }
+  groups['What you know of people'] = known;
   const rv = repVillage(p), rep = Object.keys(rv).filter(k => rv[k] >= 1).sort((a, b) => rv[b] - rv[a]).map(k => ({ m: { t: game.time }, t: `${rv[k]} ${rv[k] === 1 ? 'person says' : 'people say'} you ${REP_WORDS[k]}` }));
   groups['What folks say about you'] = rep;
   const open = (p.tmem || []).filter((m: any) => m.kind === 'request' && m.state === 'open').slice(-6).reverse().map((m: any) => { const a = byId(m.from); return a ? { m, t: a.first + (m.req.kind === 'bed' ? ' needs a bed' : ' needs ' + (GOODS[m.req.item] ? GOODS[m.req.item].name : m.req.item)) + ' — you said you would try' } : null; }).filter(Boolean);

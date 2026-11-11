@@ -3,6 +3,7 @@
    Nobody talks in the meantime: `say` and the other speech producers do nothing, and `drainEvents` drops whatever is still pushed. */
 
 const TALK: any = { engine: 'new', on: { ritual: true, small: true, world: true, life: true, trade: true, person: true, deed: true, secret: true, feeling: true, economy: true, gift: true, romance: true, family: true, law: true } };   // on[kind]: switch a whole kind of talk off for testing
+TALK.dial = { distort: 1, sev: 1 };   // dials for playing with: how much a story changes in the telling, how hard deeds land
 
 /* ---- plain helpers (they lived in the old dialogue files) ---- */
 const anyOf = (a: any[]) => a[Math.floor(Math.random() * a.length)];
