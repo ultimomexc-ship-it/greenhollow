@@ -96,7 +96,7 @@ lx('call_reply', 'plain', 'Maybe later.'); lx('call_reply', 'plain', 'Not today,
 /** what a speaker's line may be conditioned on, for this act */
 function lxContext(sp: any, li: any, c: any) {
   const rel = (sp.fam && (sp.fam.spouse === li.id || (sp.fam.kids || []).includes(li.id) || sp.fam.mother === li.id || sp.fam.father === li.id)) ? 'kin' : (sp.rel && sp.rel[li.id] === 'friend') || (sp.aff[li.id] || 0) > 30 ? 'friend' : (sp.know && (sp.know[li.id] || 0) > 10) ? 'acquaintance' : 'stranger';
-  return { band: todBand(game.time), rel, state: c.state || talkState(sp) || 'fine', trait: (sp.traits || [])[0], how: c.how, conf: c.conf, call: c.call };
+  return { band: todBand(game.time), rel, state: c.state || talkState(sp) || 'fine', trait: (sp.traits || [])[0], how: c.how, conf: c.conf, call: c.call, op: c.op };
 }
 /** choose the wording of an act: the pack's lines that fit and whose things exist, the more specific the better, what the listener heard lately worse */
 function lxSay(act: string, sp: any, li: any, c: any): string {
@@ -107,8 +107,8 @@ function lxSay(act: string, sp: any, li: any, c: any): string {
   for (const e of cands) { const id = act + '|' + e.text, g = LX_RECENT[id], s = Object.keys(e.tags).length * 2 - (heard[id] != null ? 4 - Math.min(3, (game.time - heard[id]) / 600) : 0) - (g != null && game.time - g < 180 ? 2.2 : 0) + Math.random() * 1.5; if (s > bs) { bs = s; best = e; } }
   heard[act + '|' + best.text] = game.time; LX_RECENT[act + '|' + best.text] = game.time;   // (what was said lately, by anyone, is less likely to be said again)
   const place = String(placeOf(sp) || '').replace(/^(in|at)\s+/, ''); const inP = /^the /.test(place) ? 'at ' + place : place ? 'in ' + place : 'here';
-  const raw = best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || 'daily').toLowerCase()).replace(/\{state\}/g, ctx.state).replace(/\{clock\}/g, lxClock()).replace(/\{money\}/g, lxMoney(c.price)).replace(/\{price\}/g, c.price != null ? String(c.price) : '').replace(/\{shop\}/g, c.shop || 'stall').replace(/\{things\}/g, lxCount(c.qty, c.item)).replace(/\{qty\}/g, c.qty != null ? String(c.qty) : '').replace(/\{item\}/g, c.item || c.pitem || '').replace(/\{news\}/g, c.news || '').replace(/\{who\}/g, c.who || 'them');
-  return placeWords(lxTic(sp, act, pk, raw).replace(/(^|[.!?]\s+)([a-z])/g, (_m: string, a: string, b: string) => a + b.toUpperCase()));
+  const raw = best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || 'daily').toLowerCase()).replace(/\{state\}/g, ctx.state).replace(/\{clock\}/g, lxClock()).replace(/\{money\}/g, lxMoney(c.price)).replace(/\{price\}/g, c.price != null ? String(c.price) : '').replace(/\{about\}/g, c.about || 'them').replace(/\{reason\}/g, c.reason || '').replace(/\{shop\}/g, c.shop || 'stall').replace(/\{things\}/g, lxCount(c.qty, c.item)).replace(/\{qty\}/g, c.qty != null ? String(c.qty) : '').replace(/\{item\}/g, c.item || c.pitem || '').replace(/\{news\}/g, c.news || '').replace(/\{who\}/g, c.who || 'them');
+  return placeWords(lxTic(sp, act, pk, raw).replace(/\s{2,}/g, ' ').replace(/\s+$/, '').replace(/(^|[.!?]\s+)([a-z])/g, (_m: string, a: string, b: string) => a + b.toUpperCase()));
 }
 
 /** a count of something, said the way people say it: "a cabbage", "7 barley", "12 turnips" (a plural name drops its s for one; a mass noun is "a little") */
@@ -133,5 +133,6 @@ function lxTic(sp: any, act: string, pack: string, text: string): string {
   const list = LX_TICS[pack] || LX_TICS.plain; if (!LX_TIC_ACTS.test(act) || text.length < 28 || text.split(/[.?]/)[0].length < 18) return text;
   const k = ((sp.id * 2654435761) >>> 0) % (list.length + 3); if (k >= list.length) return text;   // (some people have none)
   if (Math.random() > 0.3) return text; const t = list[k];
-  return t + ' ' + text.charAt(0).toLowerCase() + text.slice(1);
+  const w0 = text.split(/[ ,.]/)[0]; const keep = w0 === 'I' || /^I'/.test(text) || npcs.some((n: any) => n.first === w0);   // (an I or a name keeps its capital)
+  return t + ' ' + (keep ? text : text.charAt(0).toLowerCase() + text.slice(1));
 }

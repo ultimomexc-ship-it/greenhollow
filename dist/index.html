@@ -226,6 +226,7 @@ body.fs #c { height: 100vh !important; height: 100dvh !important; }
 .reqsay{margin-top:6px;font-size:12px;line-height:1.35;color:#e8e2d0}
 .modbox{position:absolute;right:10px;top:44px;z-index:9;width:340px;max-width:calc(100% - 20px);max-height:78vh;overflow:auto;font:12.5px/1.35 var(--font-body);color:#e8e2d0}.modbox[hidden]{display:none}
 .modcard{position:relative;background:rgba(18,22,24,.95);border:1px solid #4a5a4a;border-left:3px solid #8bb87a;border-radius:8px;padding:9px 30px 9px 12px}.modcard .dim{color:#9a927c}.modh{margin-top:8px;padding-top:4px;border-top:1px solid rgba(255,255,255,.1);color:#b9c9a8;font-size:11px;text-transform:uppercase;letter-spacing:.04em}.modgrid{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;margin-top:3px}.modgrid label{cursor:pointer}.modbtns{margin-top:6px;display:flex;gap:6px}.modbtns button{background:#2a3230;border:1px solid #556;color:#e8e2d0;border-radius:6px;padding:2px 8px;cursor:pointer;font:inherit}
+.jrbox{right:auto;left:10px;top:84px;width:320px}
 
 </style>
 </head>
@@ -8446,8 +8447,6 @@ const HeShe = (o) => o && o.female ? "She" : "He";
 const TRAIT_SEEN = {};
 const SB = { presim: false, pair: /* @__PURE__ */ new Map(), count: {}, feat: {} };
 const sbPresim = (..._a) => {
-};
-const sbWhy = (..._a) => {
 };
 const sbTrust = (..._a) => {
 };
@@ -26733,6 +26732,76 @@ function vcDraw(force) {
     }
   }, 500);
 })();
+let JOURNAL_ON = false;
+function jrText(m) {
+  const p = game.player;
+  const who = (id) => {
+    const o = id != null ? byId(id) : null;
+    return o ? o.first : "someone";
+  };
+  if (m.kind === "opinion") {
+    const a = byId(m.about);
+    return a ? who(m.from) + " on " + a.first + ": " + { fond: "fond of them", like: "likes them", neutral: "no strong view", wary: "wary of them", dislike: "can't stand them" }[m.word] + (m.reason ? ". " + m.reason : "") : "";
+  }
+  if (m.kind === "price") {
+    const g = GOODS[m.item];
+    return who(m.from) + " says " + (g ? g.name : m.item) + " costs about " + lxMoney(m.unit) + " each";
+  }
+  if (m.kind === "told_life") {
+    const o = byId(m.with);
+    return o ? o.first + " has been: " + (LIFE_TROUBLE[m.lk] || m.lk.replace(/_/g, " ")) : "";
+  }
+  if (m.ev != null && m.kind !== "life") {
+    const ev = lf2Ev().find((q) => q.id === m.ev);
+    if (!ev) return "";
+    return TE.text(ev, m.ver).replace(/^./, (c) => c.toUpperCase()) + (m.kind === "saw" ? " (you saw it)" : m.kind === "felt" ? " (it happened to you)" : m.kind === "overheard" ? " (overheard)" : m.kind === "told" ? " (" + who(m.from) + " told you" + (m.conf < 0.5 ? ", not sure" : "") + ")" : "");
+  }
+  return "";
+}
+function jrHTML() {
+  const p = game.player;
+  if (!p) return "<i>Nobody to remember for.</i>";
+  const rows2 = (p.tmem || []).filter((m) => ["opinion", "price", "told_life"].includes(m.kind) || m.ev != null && m.kind !== "life" && m.kind !== "did").slice(-40).reverse().map((m) => ({ m, t: jrText(m) })).filter((r) => r.t);
+  const groups = { "The news": rows2.filter((r) => r.m.ev != null), "What people say about each other": rows2.filter((r) => r.m.kind === "opinion"), "Prices": rows2.filter((r) => r.m.kind === "price"), "How people are": rows2.filter((r) => r.m.kind === "told_life") };
+  const out = Object.keys(groups).filter((k) => groups[k].length).map((k) => `<div class="vch">${k}</div><ul>${groups[k].slice(0, 8).map((r) => `<li>${esc(r.t)} <span class="dim">\xB7 ${stamp(r.m.t)}</span></li>`).join("")}</ul>`).join("");
+  return out || '<p class="dim">Nothing yet. Talk to people: ask them for news, what they think of someone, what things cost.</p>';
+}
+(function() {
+  const stage = canvas.parentNode;
+  if (!stage) return;
+  const box = document.createElement("div");
+  box.id = "jrbox";
+  box.className = "vcbox jrbox";
+  box.hidden = true;
+  stage.appendChild(box);
+  const draw = () => {
+    if (!JOURNAL_ON || !town) {
+      box.hidden = true;
+      return;
+    }
+    box.hidden = false;
+    const h = `<div class="vccard"><button type="button" class="reqx" data-jr="x" title="Close (L)">\xD7</button><b>What you know</b>${jrHTML()}</div>`;
+    if (box.innerHTML !== h) box.innerHTML = h;
+  };
+  box.addEventListener("click", (e) => {
+    if (e.target.closest("[data-jr]")) {
+      JOURNAL_ON = false;
+      draw();
+    }
+  });
+  window.addEventListener("keydown", (e) => {
+    if ((e.key === "l" || e.key === "L") && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || "") && town && !(typeof talkUI !== "undefined" && talkUI.o)) {
+      JOURNAL_ON = !JOURNAL_ON;
+      draw();
+    }
+  });
+  setInterval(() => {
+    try {
+      if (JOURNAL_ON) draw();
+    } catch (e) {
+    }
+  }, 1e3);
+})();
 const SND = { ctx: null, master: null, on: true, noiseBuf: null, last: {}, amb: null, nextBird: 0, nextDrip: 0, nextCricket: 0, nextWave: 0, dead: false };
 try {
   SND.on = localStorage.getItem("gh.mute") !== "1";
@@ -28061,7 +28130,7 @@ lx("call_reply", "plain", "I'll be back.");
 lx("call_reply", "plain", "Not now, I'm busy.");
 function lxContext(sp, li, c) {
   const rel = sp.fam && (sp.fam.spouse === li.id || (sp.fam.kids || []).includes(li.id) || sp.fam.mother === li.id || sp.fam.father === li.id) ? "kin" : sp.rel && sp.rel[li.id] === "friend" || (sp.aff[li.id] || 0) > 30 ? "friend" : sp.know && (sp.know[li.id] || 0) > 10 ? "acquaintance" : "stranger";
-  return { band: todBand(game.time), rel, state: c.state || talkState(sp) || "fine", trait: (sp.traits || [])[0], how: c.how, conf: c.conf, call: c.call };
+  return { band: todBand(game.time), rel, state: c.state || talkState(sp) || "fine", trait: (sp.traits || [])[0], how: c.how, conf: c.conf, call: c.call, op: c.op };
 }
 function lxSay(act, sp, li, c) {
   const ctx2 = lxContext(sp, li, c);
@@ -28083,8 +28152,8 @@ function lxSay(act, sp, li, c) {
   LX_RECENT[act + "|" + best.text] = game.time;
   const place = String(placeOf(sp) || "").replace(/^(in|at)\s+/, "");
   const inP = /^the /.test(place) ? "at " + place : place ? "in " + place : "here";
-  const raw = best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || "daily").toLowerCase()).replace(/\{state\}/g, ctx2.state).replace(/\{clock\}/g, lxClock()).replace(/\{money\}/g, lxMoney(c.price)).replace(/\{price\}/g, c.price != null ? String(c.price) : "").replace(/\{shop\}/g, c.shop || "stall").replace(/\{things\}/g, lxCount(c.qty, c.item)).replace(/\{qty\}/g, c.qty != null ? String(c.qty) : "").replace(/\{item\}/g, c.item || c.pitem || "").replace(/\{news\}/g, c.news || "").replace(/\{who\}/g, c.who || "them");
-  return placeWords(lxTic(sp, act, pk, raw).replace(/(^|[.!?]\s+)([a-z])/g, (_m, a, b) => a + b.toUpperCase()));
+  const raw = best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || "daily").toLowerCase()).replace(/\{state\}/g, ctx2.state).replace(/\{clock\}/g, lxClock()).replace(/\{money\}/g, lxMoney(c.price)).replace(/\{price\}/g, c.price != null ? String(c.price) : "").replace(/\{about\}/g, c.about || "them").replace(/\{reason\}/g, c.reason || "").replace(/\{shop\}/g, c.shop || "stall").replace(/\{things\}/g, lxCount(c.qty, c.item)).replace(/\{qty\}/g, c.qty != null ? String(c.qty) : "").replace(/\{item\}/g, c.item || c.pitem || "").replace(/\{news\}/g, c.news || "").replace(/\{who\}/g, c.who || "them");
+  return placeWords(lxTic(sp, act, pk, raw).replace(/\s{2,}/g, " ").replace(/\s+$/, "").replace(/(^|[.!?]\s+)([a-z])/g, (_m, a, b) => a + b.toUpperCase()));
 }
 function lxCount(qty, name) {
   name = name || "something";
@@ -28117,7 +28186,9 @@ function lxTic(sp, act, pack, text) {
   if (k >= list.length) return text;
   if (Math.random() > 0.3) return text;
   const t = list[k];
-  return t + " " + text.charAt(0).toLowerCase() + text.slice(1);
+  const w0 = text.split(/[ ,.]/)[0];
+  const keep = w0 === "I" || /^I'/.test(text) || npcs.some((n) => n.first === w0);
+  return t + " " + (keep ? text : text.charAt(0).toLowerCase() + text.slice(1));
 }
 const lxi = (act, text, tags, requires) => lx(act, "island", text, tags, requires);
 lxi("greet", "Morning, {li}. It is {clock}.", { band: "morning" });
@@ -28244,7 +28315,7 @@ lxi("life:cooked", "I made {things} today.");
 lxi("life:forged", "I turned out {things} today.");
 lxi("life:woven", "I finished {things} on the loom.");
 lxi("life:new_in_stock", "The {shop} has {item} now. I stood and looked at it for a while.");
-lxi("life:new_in_stock", "There is {item} at the {shop}. Nobody can explain it. I am not asking.");
+lxi("life:new_in_stock", "The {shop} has {item} on it that nobody ordered. I am not asking.");
 lxi("life:out_of_stock", "The {shop} was out of {item}. It was very quiet there.");
 lxi("life:out_of_stock", "I went for {item} and the {shop} had none. The shelf looked embarrassed.");
 lxi("life:could_not_afford", "I could not afford {item}. I counted twice.");
@@ -28306,6 +28377,213 @@ lxi("tell_price", "About {money}. I paid it and did not enjoy it.");
 lxi("react_price", "Good to know.");
 lxi("react_price", "That is more than I thought.");
 lxi("react_price", "Fair. Thank you.");
+function sbWhy(a, b, v, why) {
+  if (!why) return;
+  const W2 = a.why || (a.why = {}), L = W2[b.id] || (W2[b.id] = []), e = L.find((x) => x.why === why);
+  if (e) {
+    e.v += v;
+    e.t = game.time;
+  } else L.push({ why, v, t: game.time });
+  if (L.length > 6) {
+    L.sort((x, y) => Math.abs(y.v) - Math.abs(x.v));
+    L.length = 6;
+  }
+}
+const PEOPLE_GENERIC = ["chatted", "talked with me"];
+const PEOPLE_RELS = { spouse: "my spouse", partner: "my partner", parent: "my parent", child: "my child", sibling: "my sibling" };
+function peopleWord(a, b) {
+  const v = a.aff[b.id] || 0;
+  return v >= 40 ? "fond" : v >= 12 ? "like" : v > -10 ? "neutral" : v > -30 ? "wary" : "dislike";
+}
+function peopleReason(a, b) {
+  const L = a.why && a.why[b.id] || [], sgn = Math.sign(a.aff[b.id] || 0);
+  const best = L.filter((x) => !PEOPLE_GENERIC.includes(x.why) && (sgn === 0 || Math.sign(x.v) === sgn)).sort((x, y) => Math.abs(y.v) - Math.abs(x.v))[0];
+  const rel = a.rel && a.rel[b.id], gender = b.female ? "She" : "He";
+  if (best) {
+    if (/^ev:/.test(best.why)) {
+      const ev = lf2Ev().find((q) => q.id === +best.why.slice(3));
+      if (ev) return TE.text(ev, { who: ev.actor }).replace(/^./, (c) => c.toUpperCase()) + ".";
+    } else if (/^heard/.test(best.why)) return "I " + best.why + ".";
+    else return gender + " " + best.why + ".";
+  }
+  if (rel && PEOPLE_RELS[rel]) return gender + " is " + PEOPLE_RELS[rel] + ".";
+  if (rel === "friend") return "We get on.";
+  if (a.job && a.job === b.job) return "We work side by side.";
+  const anyL = L[0];
+  if (anyL) return "We have talked a few times.";
+  return "";
+}
+function peopleAbout(sp, li, need) {
+  const cands = npcs.filter((o) => o !== sp && o !== li && !o.dead && !o.infant && o.age >= 6 && !o.player && (need === "strong" ? Math.abs(sp.aff[o.id] || 0) >= 20 : Math.abs(sp.aff[o.id] || 0) >= 6 || (sp.know[o.id] || 0) > 12));
+  return cands.length ? cands[Math.floor(Math.random() * cands.length)] : null;
+}
+function peopleHear(li, from, about, word, reason) {
+  TM.add(li, { kind: "opinion", about: about.id, from: from.id, word, reason, conf: 0.8, imp: 0.3 });
+  const dir = word === "fond" ? 1.5 : word === "like" ? 0.8 : word === "dislike" ? -1.5 : word === "wary" ? -0.8 : 0;
+  if (dir && li.aff) lfAff(li, about, dir * (0.5 + Math.max(0, li.aff[from.id] || 0) / 100), "heard what " + from.first + " thinks of " + about.first);
+}
+const peopleSet = (c, sp, about) => {
+  c.about = about;
+  c.op = peopleWord(sp, about);
+  c.reason = peopleReason(sp, about);
+};
+for (const id of ["ask_opinion", "give_opinion", "gossip_person", "agree_opinion", "differ_opinion", "no_view", "ask_family", "answer_family"])
+  ACTS[id] = { kind: "person", stage: "topic", reply: !["ask_opinion", "gossip_person", "ask_family"].includes(id), when: () => true, apply: () => {
+  }, replies: [] };
+ACTS.ask_opinion = {
+  kind: "person",
+  stage: "topic",
+  preview: (c) => ({ about: c.about.first }),
+  w: () => 0.8,
+  when: (c, sp, li) => {
+    if (c.done.ask_opinion) return false;
+    const o = peopleAbout(sp, li, "view");
+    if (!o || !((li.know[o.id] || 0) > 8 || Math.abs(li.aff[o.id] || 0) >= 6)) return false;
+    c.about = o;
+    return true;
+  },
+  apply: (c) => {
+    c.done.ask_opinion = 1;
+    c.aboutName = c.about.first;
+  },
+  replies: ["give_opinion", "no_view"]
+};
+ACTS.give_opinion = { kind: "person", stage: "topic", reply: true, when: (c, sp) => !!c.about && (Math.abs(sp.aff[c.about.id] || 0) >= 6 || (sp.know[c.about.id] || 0) > 12), apply: (c, sp, li) => {
+  peopleSet(c, sp, c.about);
+  c.aboutName = c.about.first;
+  peopleHear(li, sp, c.about, c.op, c.reason);
+}, replies: [] };
+ACTS.no_view = { kind: "person", stage: "topic", reply: true, when: (c, sp) => !!c.about && !(Math.abs(sp.aff[c.about.id] || 0) >= 6 || (sp.know[c.about.id] || 0) > 12), apply: (c) => {
+  c.aboutName = c.about.first;
+  c.op = "none";
+}, replies: [] };
+ACTS.gossip_person = {
+  kind: "person",
+  stage: "topic",
+  preview: (c, sp) => ({ about: c.about.first, op: peopleWord(sp, c.about), reason: peopleReason(sp, c.about) }),
+  w: (c, sp) => 0.5 + (talkHas(sp, "gossipy") ? 1.2 : 0),
+  when: (c, sp, li) => {
+    if ((c.done.gossip_person || 0) >= 1) return false;
+    const o = peopleAbout(sp, li, "strong");
+    if (!o) return false;
+    c.about = o;
+    return true;
+  },
+  apply: (c, sp, li) => {
+    c.done.gossip_person = 1;
+    peopleSet(c, sp, c.about);
+    c.aboutName = c.about.first;
+    peopleHear(li, sp, c.about, c.op, c.reason);
+    c.listenerView = Math.sign(li.aff[c.about.id] || 0);
+  },
+  replies: ["agree_opinion", "differ_opinion", "no_view_g"]
+};
+ACTS.agree_opinion.when = (c, sp) => !!c.about && Math.sign(sp.aff[c.about.id] || 0) === Math.sign(c.op === "fond" || c.op === "like" ? 1 : c.op === "dislike" || c.op === "wary" ? -1 : 0) && Math.abs(sp.aff[c.about.id] || 0) >= 6;
+ACTS.differ_opinion.when = (c, sp) => !!c.about && Math.abs(sp.aff[c.about.id] || 0) >= 6 && Math.sign(sp.aff[c.about.id]) === -Math.sign(c.op === "fond" || c.op === "like" ? 1 : c.op === "dislike" || c.op === "wary" ? -1 : 0);
+ACTS.no_view_g = { kind: "person", stage: "topic", reply: true, when: (c, sp) => !!c.about && !(Math.abs(sp.aff[c.about.id] || 0) >= 6), apply: () => {
+}, replies: [] };
+function peopleKin(n) {
+  const f = n.fam || {};
+  const ids = [f.spouse, f.mother, f.father].concat(f.kids || []).filter((x) => x != null);
+  return ids.map((id) => byId(id)).filter((o) => o && !o.dead && o !== n);
+}
+ACTS.ask_family = {
+  kind: "person",
+  stage: "topic",
+  preview: (c) => ({ about: c.about.first }),
+  w: () => 0.9,
+  when: (c, sp, li) => {
+    if (c.done.ask_family) return false;
+    const k = peopleKin(li).filter((o) => o !== sp && ((sp.know[o.id] || 0) > 3 || (sp.know[li.id] || 0) > 10));
+    if (!k.length) return false;
+    c.about = k[Math.floor(Math.random() * k.length)];
+    c.famState = talkState(c.about) || "fine";
+    return true;
+  },
+  apply: (c) => {
+    c.done.ask_family = 1;
+    c.aboutName = c.about.first;
+  },
+  replies: ["answer_family"]
+};
+ACTS.answer_family = { kind: "person", stage: "topic", reply: true, when: (c) => !!c.about, apply: (c) => {
+  c.state = c.famState || talkState(c.about) || "fine";
+  c.aboutName = c.about.first;
+}, replies: [] };
+lx("ask_opinion", "plain", "What do you make of {about}?");
+lx("ask_opinion", "plain", "What's {about} like, really?");
+lx("ask_opinion", "plain", "Do you get on with {about}?");
+lx("give_opinion", "plain", "I'm fond of {about}. {reason}", { op: "fond" });
+lx("give_opinion", "plain", "{about} is one of the good ones. {reason}", { op: "fond" });
+lx("give_opinion", "plain", "{about}'s all right. {reason}", { op: "like" });
+lx("give_opinion", "plain", "I've nothing against {about}. {reason}", { op: "like" });
+lx("give_opinion", "plain", "I don't know {about} well. No complaints.", { op: "neutral" });
+lx("give_opinion", "plain", "Not much to say about {about}. {reason}", { op: "neutral" });
+lx("give_opinion", "plain", "I'm not keen on {about}. {reason}", { op: "wary" });
+lx("give_opinion", "plain", "{about}? Hard work. {reason}", { op: "wary" });
+lx("give_opinion", "plain", "I can't stand {about}. {reason}", { op: "dislike" });
+lx("give_opinion", "plain", "Keep away from {about}, if you can. {reason}", { op: "dislike" });
+lx("no_view", "plain", "I don't know {about} well enough to say.");
+lx("no_view", "plain", "No idea. I've hardly spoken to {about}.");
+lx("no_view_g", "plain", "I don't know them well enough to say.");
+lx("no_view_g", "plain", "Hm. I haven't formed a view.");
+lx("gossip_person", "plain", "Between us, I'm fond of {about}. {reason}", { op: "fond" });
+lx("gossip_person", "plain", "You should know {about}. One of the good ones. {reason}", { op: "fond" });
+lx("gossip_person", "plain", "I've got a soft spot for {about}. {reason}", { op: "like" });
+lx("gossip_person", "plain", "I'm not sure about {about}. {reason}", { op: "wary" });
+lx("gossip_person", "plain", "Watch yourself with {about}. {reason}", { op: "dislike" });
+lx("gossip_person", "plain", "I'll say it: I can't stand {about}. {reason}", { op: "dislike" });
+lx("gossip_person", "plain", "Have you noticed {about}? {reason}", { op: "neutral" });
+lx("agree_opinion", "plain", "I think so too.");
+lx("agree_opinion", "plain", "You're not the only one.");
+lx("agree_opinion", "plain", "Funny, I'd say the same.");
+lx("differ_opinion", "plain", "Really? I've always got on with them.");
+lx("differ_opinion", "plain", "Hm. I've found them fine.");
+lx("differ_opinion", "plain", "I'd never have said that.");
+lx("ask_family", "plain", "How is {about}?");
+lx("ask_family", "plain", "How is {about} getting on?");
+lx("ask_family", "plain", "And {about}? Everything all right?");
+lx("answer_family", "plain", "{about} is well. Busy.", { state: "fine" });
+lx("answer_family", "plain", "{about} is hungry, mostly.", { state: "hungry" });
+lx("answer_family", "plain", "{about} is worn out.", { state: "tired" });
+lx("answer_family", "plain", "{about} is in a good mood. Rare.", { state: "glad" });
+lx("answer_family", "plain", "{about} has been low lately.", { state: "low" });
+lxi("ask_opinion", "What is {about} like? I would like to know before I have to find out.");
+lxi("ask_opinion", "What do you make of {about}?");
+lxi("ask_opinion", "Do you get on with {about}? Be honest. I am only curious.");
+lxi("give_opinion", "I am fond of {about}. {reason} I do not say that about many people.", { op: "fond" });
+lxi("give_opinion", "{about} is one of the good ones. {reason}", { op: "fond" });
+lxi("give_opinion", "{about} is all right. {reason}", { op: "like" });
+lxi("give_opinion", "I have nothing against {about}. {reason} That is not nothing.", { op: "like" });
+lxi("give_opinion", "I do not know {about} well. I have no complaints, and no compliments.", { op: "neutral" });
+lxi("give_opinion", "There is not much to say about {about}. {reason}", { op: "neutral" });
+lxi("give_opinion", "I am not keen on {about}. {reason}", { op: "wary" });
+lxi("give_opinion", "{about}? I get tired around {about}. {reason}", { op: "wary" });
+lxi("give_opinion", "I cannot stand {about}. {reason} I have tried.", { op: "dislike" });
+lxi("give_opinion", "Keep away from {about} if you can. {reason}", { op: "dislike" });
+lxi("no_view", "I do not know {about} well enough to say. We have shared a lot of air and very few sentences.");
+lxi("no_view", "No idea. I have hardly spoken to {about}.");
+lxi("no_view_g", "I do not know them well enough to say.");
+lxi("no_view_g", "Hm. I have not formed a view.");
+lxi("gossip_person", "Between us, I am fond of {about}. {reason}", { op: "fond" });
+lxi("gossip_person", "You should know {about}. {reason} That is all I will say.", { op: "fond" });
+lxi("gossip_person", "I have a soft spot for {about}. {reason}", { op: "like" });
+lxi("gossip_person", "I am not sure about {about}. {reason}", { op: "wary" });
+lxi("gossip_person", "Watch yourself with {about}. {reason}", { op: "dislike" });
+lxi("gossip_person", "I will say it, since nobody else is listening: I cannot stand {about}. {reason}", { op: "dislike" });
+lxi("gossip_person", "Have you noticed {about}? {reason}", { op: "neutral" });
+lxi("agree_opinion", "I think so too. I had hoped it was only me.");
+lxi("agree_opinion", "You are not the only one.");
+lxi("differ_opinion", "Really? I have always got on with them.");
+lxi("differ_opinion", "Hm. I have found them fine. Perhaps we met different ones.");
+lxi("ask_family", "How is {about}?");
+lxi("ask_family", "And {about}? How is {about} getting on?");
+lxi("ask_family", "How is {about}? I realised I had not asked.");
+lxi("answer_family", "{about} is well. Busy.", { state: "fine" });
+lxi("answer_family", "{about} is hungry, mostly. We are working on it.", { state: "hungry" });
+lxi("answer_family", "{about} is worn out. I keep telling them to sit down.", { state: "tired" });
+lxi("answer_family", "{about} is in a good mood. I have decided not to question it.", { state: "glad" });
+lxi("answer_family", "{about} has been low. It is not anything I can fix by talking, so I stay close.", { state: "low" });
 TALK.log = [];
 TALK.words = false;
 TALK.running = true;
@@ -28331,7 +28609,7 @@ function talkChoose(c, sp, li, ids) {
   return opts[opts.length - 1][0];
 }
 const TALK_TOPICS = () => Object.keys(ACTS).filter((k) => ACTS[k].stage === "topic" && !ACTS[k].reply);
-const talkX = (c) => ({ state: c.state, how: c.newsHow, conf: c.newsConf, news: c.told && c.told.text, who: c.newsWho ? c.newsWho.first : "them", line: c.lifeLine, qty: c.lifeQty, item: c.lifeItem, shop: c.lifeShop, price: c.priceUnit, pitem: c.priceName });
+const talkX = (c) => ({ state: c.state, how: c.newsHow, conf: c.newsConf, news: c.told && c.told.text, who: c.newsWho ? c.newsWho.first : "them", line: c.lifeLine, qty: c.lifeQty, item: c.lifeItem, shop: c.lifeShop, price: c.priceUnit, pitem: c.priceName, about: c.aboutName, op: c.op, reason: c.reason });
 function talkTurn(c, sp, li, id) {
   const A = ACTS[id];
   A.apply(c, sp, li);

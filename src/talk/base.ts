@@ -35,7 +35,6 @@ const HeShe = (o: any) => o && o.female ? 'She' : 'He';
 const TRAIT_SEEN: any = {};
 const SB: any = { presim: false, pair: new Map(), count: {}, feat: {} };
 const sbPresim = (..._a: any[]) => {};
-const sbWhy = (..._a: any[]) => {};
 const sbTrust = (..._a: any[]) => {};
 const sbResp = (..._a: any[]) => {};
 const sbTrim = (..._a: any[]) => {};

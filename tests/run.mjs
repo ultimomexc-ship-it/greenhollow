@@ -1464,6 +1464,28 @@ test('voice: the island has its own voice (dry, exact, no exclamation marks), ea
   return JSON.stringify(r2);
 });
 
+test('people: villagers ask what others make of someone, pass the opinion round with reasons, ask after family, and the journal shows what the player knows', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await page.evaluate(() => { newTown('people-test', 'farm'); TALK.words = true; });
+  await simulate(page, 4 * 1440);
+  const r = await page.evaluate(() => {
+    const acts = {}; for (const l of TALK.log) for (const a of (l.acts || [])) { const k = a.act || a; acts[k] = (acts[k] || 0) + 1; }
+    const ops = npcs.flatMap(n => (n.tmem || []).filter(m => m.kind === 'opinion'));
+    const why = npcs.filter(n => n.why && Object.keys(n.why).length).length;
+    // the player's journal: give the steered villager an opinion and a price and see them listed
+    startPlaying(npcs.find(n => !n.dead && n.age >= 18)); const P = game.player, o = npcs.find(n => n !== P && !n.dead);
+    P.tmem = P.tmem || []; P.tmem.push({ kind: 'opinion', about: o.id, from: o.id, word: 'like', reason: 'She is kind.', t: game.time });
+    const html = jrHTML();
+    TALK.on.person = false; const before = JSON.stringify(acts); const lenA = TALK.log.length; 
+    return { acts, ops: ops.length, why, html, hasOp: html.includes('What people say') };
+  });
+  check((r.acts.ask_opinion || 0) + (r.acts.gossip_person || 0) > 3 && (r.acts.ask_family || 0) > 0, 'people acts fire: ' + JSON.stringify(r.acts).slice(0, 300));
+  check(r.ops > 0 && r.why > 0, 'opinions are remembered and reasons are kept: ' + r.ops + '/' + r.why);
+  check(r.hasOp && !/undefined|NaN/.test(r.html), 'the journal lists opinions: ' + r.html.slice(0, 200));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return JSON.stringify({ ops: r.ops, why: r.why });
+});
+
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {
