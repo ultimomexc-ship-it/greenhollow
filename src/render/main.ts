@@ -11,6 +11,21 @@ function bathState(n) {
 }
 const BATH_LINEN = '#ece5d4';
 const GUARD_UNIFORM = { helmet: '#c08a3e', tunic: '#a3241e', belt: '#5a3a22', breeches: '#3a2e2a' };
+/** what each job wears (they follow the job they do now): farmers a wide straw hat, miners a hard hat with a lamp, bakers and cooks a chef's toque,
+    anybody behind a counter or stall an apron. `hat` null leaves the hat they were born with; `apron` is drawn over the tunic. */
+const JOB_DRESS: any = {
+  Farmer: { hat: 'straw', col: '#d8bd62' }, Miner: { hat: 'hardhat', col: '#e0ac1c' },
+  Baker: { hat: 'toque', col: '#f6f3ea', apron: true }, Cook: { hat: 'toque', col: '#f6f3ea', apron: true },
+  Smith: { hat: 'cap', col: '#4a3a2a', apron: true }, Carpenter: { hat: 'cap', col: '#9a7a4a', apron: true }, Miller: { hat: 'scarf', col: '#e9e2d0', apron: true },
+  Weaver: { hat: 'bonnet', col: '#c9b27a', apron: true }, Fisher: { hat: 'floppy', col: '#c9b27a' }, Woodcutter: { hat: 'beanie', col: '#6a8a3a' },
+  Shopkeeper: { apron: true }, Merchant: { apron: true }, Trader: { apron: true }, Barkeep: { apron: true }, BathKeeper: { apron: true },
+};
+function jobDress(n: any): any {
+  if (n.age < 16 || n.player && !n.job) return null;
+  const k = [n.job, n.cur, n.role].find(j => j && JOB_DRESS[j]);
+  const d = k ? JOB_DRESS[k] : null;
+  return d || (n.shop ? JOB_DRESS.Merchant : null);
+}
 function gaSpec(n, now) {
   const L = n.look || assignLook(n), sp = n._sp || (n._sp = {}), dress = dressFor(n);
   sp.id = n.id; sp.role = n.role; sp.age = n.age; sp.female = !!n.female; sp.skin = n.skin; sp.hair = n.hair; sp.hs = L.hs; sp.beard = L.beard; sp.shirt = n.shirt; sp.pat = L.pat; sp.acc = L.acc; sp.pants = L.pants;
@@ -18,6 +33,7 @@ function gaSpec(n, now) {
   sp.moving = !!n.moving; sp.pose = n.moving ? 'walk' : (n.pose === 'sit' || n.pose === 'kneel' || n.pose === 'work') ? n.pose : 'stand';
   sp.tool = n.pose === 'work' ? n.tool : null; sp.hold = n.hold || null; sp.dress = dress; sp.mourning = !!(n.mourning && !n.moving); sp.wave = !!(n.waveUntil > game.time && n.pose !== 'sleep'); sp.status = n.status;
   // at the baths: out of their clothes (a loincloth, or a linen shift for women), no hat, nothing in hand
+  { const jd = !dress ? jobDress(n) : null; if (jd) { if (jd.hat) { sp.hat = jd.hat; sp.hatCol = jd.col; sp.hatOn = true; } if (jd.apron) sp.apron = true; } }   // (the work clothes; the baths and the watch's uniform, below, still win)
   const bath = n.age >= 6 && !dress ? bathState(n) : null; n._bath = bath;
   if (bath) { sp.shirt = n.female ? BATH_LINEN : n.skin; sp.pat = 'plain'; sp.acc = null; sp.pants = BATH_LINEN; sp.hat = 'none'; sp.hatOn = false; sp.robe = false; sp.apron = false; sp.tool = null; sp.hold = null; if (typeof bath === 'object') sp.pose = 'stand'; return sp; }
   // the watch wear one uniform: bronze helmet, red tunic, leather belt, dark breeches; on duty they carry a spear
@@ -402,6 +418,10 @@ function drawActivityBars(c) {
   }
 }
 
+/** the side a speaker's bubble goes: behind them, opposite to the way they face (`face` = { dx, dy }). Facing south = above; north = below; east = left; west = right. */
+function bubbleBehind(face: any): string {
+  return Math.abs(face.dy) >= Math.abs(face.dx) ? (face.dy < 0 ? 'below' : 'above') : (face.dx > 0 ? 'left' : 'right');
+}
 /** which side of the speaker the bubble goes, from where the viewer is: (vx, vy) = viewer minus speaker, in tiles. North of them = above (tail below), south = below (tail above), east = right (tail on its left), west = left */
 function bubbleSide(vx: number, vy: number, self?: boolean): string {
   if (self || Math.abs(vy) * 0.7 >= Math.abs(vx)) return vy > 0 && !self ? 'below' : 'above';
@@ -423,9 +443,10 @@ function drawBubbles(c, now) {
     const w = Math.max.apply(null, lines.map(l => c.measureText(l).width)) + 12 * kb, h = lines.length * lh + 8 * kb;
     // the bubble sits on the side of the speaker that faces the viewer, its tail pointing at the speaker: you north of them = bubble above, tail below; south = below, tail above; east = right, tail on its left; west = left, tail on its right
     const eye = game.player || null, ex = eye ? eye.x : cam.x / TS + cam.cw / cam.z / TS / 2, ey = eye ? eye.y : cam.y / TS + cam.ch / cam.z / TS / 2, vx = ex - n.x, vy = ey - n.y;
-    // in a conversation with you the bubbles go behind each speaker, away from where you face: facing up at someone, their bubble is below them with the tail on top (and so is yours); the tail comes from the speaker
-    const pf = eye && eye.face && (eye.face.dx || eye.face.dy) ? eye.face : null, mine = eye && (n === eye || (b.to && b.to === eye));
-    const side = pf && mine ? (Math.abs(pf.dy) >= Math.abs(pf.dx) ? (pf.dy < 0 ? 'below' : 'above') : (pf.dx > 0 ? 'left' : 'right')) : bubbleSide(vx, vy, n === eye);
+    // the bubble sits BEHIND the speaker: on the side opposite the way they face (they face the one they talk to, so two people talking left to right have their bubbles at the outer sides and never overlap, and you can see who speaks to whom).
+    // facing south = bubble above with the tail below; north = below; east = left with the tail on its right; west = right. Somebody with no facing falls back to the side that faces the viewer.
+    const sf = n.face && (n.face.dx || n.face.dy) ? n.face : null;
+    const side = sf ? bubbleBehind(sf) : bubbleSide(vx, vy, n === eye);
     const foot = toScreen(n.x * TS + TS / 2, n.y * TS + TS - 3), mid = { x: s.x, y: (s.y + foot.y) / 2 };
     let bx = 0, by = 0, tail: number[][] = [];
     if (side === 'above') { bx = Math.max(2, Math.min(vw - w - 2, s.x - w / 2)); by = Math.max(2, s.y - h - 5); const tx = Math.max(bx + 6, Math.min(bx + w - 6, s.x)); tail = [[tx - 4, by + h], [s.x, s.y], [tx + 4, by + h]]; }
