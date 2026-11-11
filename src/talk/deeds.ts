@@ -33,7 +33,7 @@ function deedPick(sp: any, li: any): any {
 }
 const deedSet = (c: any, sp: any, d: any) => { c.deed = d; c.deedText = deedYou(d.ev, sp); c.newsHow = d.m.ver && d.m.ver.suspect ? 'suspect' : d.ev.target === sp.id ? 'victim' : d.m.kind === 'told' ? 'told' : 'saw'; };
 
-ACTS.raise_deed = { kind: 'deed', stage: 'topic', preview: (c: any) => ({ deed: c.deedText, how: c.newsHow }), when: (c: any, sp: any, li: any) => !c.done.raise_deed && !!deedPick(sp, li) && !(li.player && false),
+ACTS.raise_deed = { kind: 'deed', stage: 'topic', preview: (c: any, sp: any, li: any) => { if (!c.deedText) { const d = deedPick(sp, li); if (d) deedSet(c, sp, d); } return { deed: c.deedText, how: c.newsHow }; }, when: (c: any, sp: any, li: any) => !c.done.raise_deed && !!deedPick(sp, li) && !(li.player && false),
   w: (c: any, sp: any, li: any) => { const d = deedPick(sp, li); return d && d.ev.target === sp.id ? 8 : 2.5; },
   apply: (c: any, sp: any, li: any) => { const d = deedPick(sp, li); deedSet(c, sp, d); d.m.raised = true; c.done.raise_deed = 1; }, replies: ['deed_sorry', 'deed_defend', 'deed_deny', 'deed_shrug', 'deed_blame', 'offer_gift'] };
 ACTS.cry_deed = { kind: 'deed', stage: 'topic', when: () => false, apply: () => {}, replies: [] };

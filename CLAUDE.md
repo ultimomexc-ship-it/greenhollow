@@ -215,6 +215,6 @@ A world with only what farming needs, for balancing and testing the farm economy
 
 ## Workflow
 - `main` is always playable. Work on a branch per feature, commit in small steps, merge to `main` when `npm test` passes.
-- Publishing: the game is also a claude.ai artifact (https://claude.ai/artifact/GKo6oFqsjgoswEC1KvDTwy);
+- Publishing: the game is also a claude.ai artifact (https://claude.ai/artifact/CnKtknJh5gb8ZMxk7WN76W);
   republish `dist/index.html` there when the owner asks.
 - `NOTES.md` holds the design notes, playtest findings and the to-do list carried over from earlier sessions. Keep it current.

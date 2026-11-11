@@ -23,7 +23,8 @@ function peopleReason(a: any, b: any): string {
     else if (/^heard/.test(best.why)) return 'I ' + best.why + '.'; else return gender + ' ' + best.why + '.';
   }
   if (rel && PEOPLE_RELS[rel]) return gender + ' is ' + (rel === 'child' ? (b.female ? 'my daughter' : 'my son') : rel === 'parent' ? (b.female ? 'my mother' : 'my father') : rel === 'sibling' ? (b.female ? 'my sister' : 'my brother') : rel === 'spouse' ? (b.female ? 'my wife' : 'my husband') : PEOPLE_RELS[rel]) + '.'; if (rel === 'friend') return 'We get on.'; if (a.job && a.job === b.job) return 'We work side by side.';
-  const anyL = L[0]; if (anyL) return 'We have talked a few times.'; return '';
+  if (a.homeRoom != null && a.homeRoom === b.homeRoom) return 'We share a roof.';
+  return '';   // (no reason worth giving: the opinion is said without one, rather than with 'we have talked')
 }
 /** somebody this person has a view of, who is not one of the two talking */
 function peopleAbout(sp: any, li: any, need: 'view' | 'strong'): any {
@@ -33,7 +34,7 @@ function peopleAbout(sp: any, li: any, need: 'view' | 'strong'): any {
 /** hearing an opinion: kept as a memory and moves the listener a little toward it */
 function peopleHear(li: any, from: any, about: any, word: string, reason: string) {
   TM.add(li, { kind: 'opinion', about: about.id, from: from.id, word, reason, conf: 0.8, imp: 0.3 });
-  const dir = word === 'fond' ? 1.5 : word === 'like' ? 0.8 : word === 'dislike' ? -1.5 : word === 'wary' ? -0.8 : 0; if (dir && li.aff) lfAff(li, about, dir * (0.5 + Math.max(0, (li.aff[from.id] || 0)) / 100), 'heard that ' + from.first + (dir > 0 ? ' thinks well of ' : ' thinks little of ') + (about.female ? 'her' : 'him'));
+  const dir = word === 'fond' ? 1.5 : word === 'like' ? 0.8 : word === 'dislike' ? -1.5 : word === 'wary' ? -0.8 : 0; if (dir && li.aff) lfAff(li, about, dir * (0.5 + Math.max(0, (li.aff[from.id] || 0)) / 100), 'heard ' + (dir > 0 ? 'good' : 'hard') + ' things about ' + (about.female ? 'her' : 'him') + ' from ' + from.first);
 }
 const peopleYou = (text: string, li: any) => !li || !text ? text : text.replace(new RegExp('what ' + li.first + ' thinks', 'g'), 'what you think').replace(new RegExp('\\b' + li.first + '\\b', 'g'), 'you');   // (said to somebody, they are "you", not a name)
 const peopleSet = (c: any, sp: any, about: any, li?: any) => { c.about = about; c.op = peopleWord(sp, about); c.reason = peopleYou(peopleReason(sp, about), li); };

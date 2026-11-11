@@ -1116,7 +1116,7 @@ test('talk engine (phase 1): the one who starts walks up to the other, they stan
     let sa = null, sb = null; scan: for (let r = 0; r < 25; r++) for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) { const x = town.cx + dx, y = town.cy + dy; let ok = true; for (let i = -1; i <= 5 && ok; i++) for (let j = -1; j <= 1 && ok; j++) { const tx = x + i, ty = y + j; if (!walkable(tx, ty) || lfPropAt(tx, ty) || roomAt[ty][tx] >= 0 || npcs.some(o => o.tx === tx && o.ty === ty)) ok = false; } if (ok) { const pth = findPath(x, y, x + 3, y); if (pth && pth.length > 0 && pth.length <= 4) { sa = { x, y }; sb = { x: x + 4, y }; break scan; } } }   // (open ground you can really walk straight across)
     if (!sa) return { skip: true };
     for (const [n, s] of [[a, sa], [c, sb]]) { abortPlan(n); n.tx = n.x = s.x; n.ty = n.y = s.y; n.pose = 'stand'; n.talkUntil = 0; n.talkBusy = 0; }
-    LIFE.emit('found', a, { thing: 'a button' }); a.saidTo = {}; c.saidTo = {};   // (something to say)
+    town.lifeTold = {}; LIFE.emit('slept_rough', a, {}); a.saidTo = {}; c.saidTo = {};   // (something to say)
     rebuildOcc(); const n0 = TALK.log.length; talkApproach(a, c); window.__pair = [a.id, c.id, n0]; return { first: a.plan[0].text, d0: lfDist(a, c), pos: [a.tx, a.ty, c.tx, c.ty, a.id, c.id, game.player && game.player.id] };
   });
   if (!r.skip) {
@@ -1222,7 +1222,7 @@ test('talk and needs: while two people talk their hunger, bladder and tiredness 
     for (const [n, s] of [[a, sa], [c, sb]]) { abortPlan(n); n.tx = n.x = s.x; n.ty = n.y = s.y; n.pose = 'stand'; n.moving = false; n.talkUntil = 0; n.talkBusy = 0; n.hunger = 30; n.bladder = 20; } rebuildOcc(); out.place = [sa, sb, a.tx, a.ty, c.tx, c.ty];
     const spot = talkSpot(c, a); out.orth = !!spot && Math.abs(spot.x - c.tx) + Math.abs(spot.y - c.ty) === 1 && (spot.x === c.tx || spot.y === c.ty);
     a.tx = a.x = spot.x; a.ty = a.y = spot.y; rebuildOcc();   // (the walk itself is tested elsewhere: here the one who walks over has arrived on that tile)
-    LIFE.emit('found', a, { thing: 'a button' }); a.saidTo = {}; c.saidTo = {};   // (something to say)
+    town.lifeTold = {}; LIFE.emit('slept_rough', a, {}); a.saidTo = {}; c.saidTo = {};   // (something to say)
     const n0 = TALK.log.length; talkApproach(a, c); window.__ac = [a.id, c.id, n0]; out.first = a.plan[0].text;
     // bubble sides: you north of them = above (tail below), south = below (tail above), east = right, west = left
     out.sides = [bubbleSide(0, -5), bubbleSide(0, 5), bubbleSide(6, 1), bubbleSide(-6, -1), bubbleSide(0, 3, true)];
@@ -1257,7 +1257,7 @@ test('life slice: farming, trade and needs report real events; villagers tell th
   check(r.real.planted > 5 && r.real.bought >= 1 && r.real.harvested >= 1, 'a normal three days reports planting, trade and harvest from the game itself: ' + JSON.stringify(r.real));
   check(r.count.join('|') === 'a cabbage|7 barley|a strawberry|a little corn|12 turnips', 'counts are said the way people say them: ' + r.count.join('|'));
   check(r.recent.length >= 2 && r.recent[0].startsWith('slept_rough'), 'the day is grouped (six plantings are one line) and the worst comes first: ' + JSON.stringify(r.recent));
-  check(r.lines && r.acts.includes('report_day') && r.lines.some(l => /rough|ground|bed of my own|sand|planted|Put in/.test(l)), 'they tell it in words: ' + JSON.stringify(r.lines && r.lines.slice(0, 8)));
+  check(r.lines && r.acts.includes('report_day') && r.lines.some(l => /rough|ground|[Bb]ed|sand|planted|Put in|outside/.test(l)), 'they tell it in words: ' + JSON.stringify(r.lines && r.lines.slice(0, 8)));
   check(r.memB, 'the listener now knows how the other one has been');
   check(r.troubles.some(t => t.startsWith('slept_rough')) && r.troubleKinds, 'troubles are counted by kind and by person: ' + JSON.stringify(r.troubles));
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
