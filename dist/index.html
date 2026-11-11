@@ -6516,6 +6516,15 @@ const ART = (function() {
         band(0.34, 0.1);
         break;
       }
+      case "hardhat": {
+        const d = dome(-0.5, 0.3, 1.06);
+        T2([d], { hs: 0.5 });
+        g.__dome = d;
+        band(0.22, 0.08);
+        T2([side ? spl([P(-0.8, -0.5), P(0.7, -0.52), P(0.7, -0.4), P(-0.8, -0.38)], true, 2) : spl(sym([[0, -0.64], [0.2, -0.62], [0.2, 0.22], [0, 0.22]].map((p) => P(p[0], p[1])), X), true, 2)], { hs: 0.4 });
+        T2([side ? spl([P(0.6, 0.26), P(1.5, 0.3), P(1.5, 0.4), P(0.6, 0.38)], true, 3) : spl(sym([[0, 0.26], [1.2, 0.26], [1.3, 0.38], [0, 0.4]].map((p) => P(p[0], p[1])), X), true, 3)], { hs: 0.3 });
+        break;
+      }
       case "beanie": {
         const d = dome(-0.4, 0.32, 1.04);
         T2([d]);
@@ -6570,6 +6579,9 @@ const ART = (function() {
       D(g, [ellipsePts(bx[0], bx[1], 0.46 * hw, 0.44 * hw, 14)], HAIRP, { smooth: false, ow: 0.28, os: 0.26, iw: 0.1, hs: 0.5 });
     }
     if (part === "fixed") switch (hat) {
+      case "hardhat":
+        if (!back) Fx([ellipsePts(side ? P(1, -0.06)[0] : X, side ? P(1, -0.06)[1] : y(-0.04), 0.3 * hw, 0.27 * hw, 12)], "#f6e7a0", "#ffffff", { smooth: true });
+        break;
       case "helmet":
         Fx([side ? spl([P(-0.7, -0.4), P(0.6, -0.44), P(0.6, -0.34), P(-0.7, -0.3)], true, 2) : spl(sym([[0, -0.52], [0.16, -0.5], [0.16, -0.18], [0, -0.16]].map((p) => P(p[0], p[1])), X), true, 2)], "#b83a3a", "#e88a7a");
         if (!side && !back) Fx([spl(sym([[0, 0.34], [0.2, 0.34], [0.2, 0.62], [0.12, 0.66], [0, 0.66]].map((p) => P(p[0], p[1])), X), true, 2)], "#8a929a", "#dfe3e8");
@@ -7097,7 +7109,7 @@ const ART = (function() {
     const kit = kitFor(sp), G = geo(kit), K = G.K, dir = dollDir(sp), f = sp.face || { dx: 0, dy: 1 }, flip = dir === "side" && f.dx < 0;
     const pose0 = sp.pose || (sp.moving ? "walk" : "stand"), wf = Math.floor(T2 * 9) % 6;
     const hairC = sp.age >= 60 ? GREYH : sp.hair, dress = sp.dress, robe = !!sp.robe || dress === "bride", shirt = dress === "bride" ? "#f6f1e8" : dress === "groom" ? "#2f2c38" : dress === "mourn" ? "#2a2a30" : sp.shirt;
-    const pat = dress ? dress === "groom" ? "collar" : "plain" : sp.pat, acc = dress === "groom" ? "#f4efe6" : sp.acc, hatOn = (sp.robe || sp.hatOn || sp.hat === "toque" || sp.hat === "helmet") && !dress;
+    const pat = dress ? dress === "groom" ? "collar" : "plain" : sp.pat, acc = dress === "groom" ? "#f4efe6" : sp.acc, hatOn = (sp.robe || sp.hatOn || sp.hat === "toque" || sp.hat === "helmet" || sp.hat === "hardhat") && !dress;
     const sit = pose0 === "sit" || pose0 === "kneel";
     const wp = sp.wave ? workPose(kit, dir, Object.assign({}, sp, { tool: "wave" }), T2, sp.id || 0) : pose0 === "work" && sp.tool ? workPose(kit, dir, sp, T2, sp.id || 0) : sp.hold && !sit && pose0 !== "walk" ? workPose(kit, dir, Object.assign({}, sp, { tool: "hold" }), T2, sp.id || 0) : null;
     const legPose = pose0 === "walk" ? "walk" : sit ? pose0 : "stand", fr = pose0 === "walk" ? wf : 0, rig = legRig(kit, dir, legPose, fr);
@@ -7211,7 +7223,7 @@ const ART = (function() {
       if (hatOn && sp.hat && sp.hat !== "none") {
         putH(lay(`hat_${sp.hat}_t`, sp.hatCol || "#c9a86a", () => hatL(kit, dir, sp.hat, "tint")), upDy);
         if (sp.hat === "bun") putH(lay("hat_bun_h", hairC, () => hatL(kit, dir, "bun", "hair"), "overlay"), upDy);
-        if (HATFIX.has(sp.hat) || ["helmet", "beanie", "feather"].includes(sp.hat)) putH(lay(`hat_${sp.hat}_f`, null, () => hatL(kit, dir, sp.hat, "fixed")), upDy);
+        if (HATFIX.has(sp.hat) || ["helmet", "hardhat", "beanie", "feather"].includes(sp.hat)) putH(lay(`hat_${sp.hat}_f`, null, () => hatL(kit, dir, sp.hat, "fixed")), upDy);
       }
       if (dress === "bride") put(lay("bride", null, () => dressL(kit, dir, "bride")), upDy);
       if (!behindArms && !armsEarly) armBlock();
@@ -7608,7 +7620,7 @@ const ART = (function() {
   T24("loom", "furniture", "Loom", (g, t) => loom24(g, t), { frames: FR });
   T24("oven", "furniture", "Oven", (g, t) => oven24(g, t), { frames: FR });
   const KITS = ["adult", "adultF", "child", "infant"], HSTYLES = ["short", "crop", "shaggy", "bald", "curly", "long", "bob", "bun", "braids", "ponytail"], BEARDS = ["full", "mustache", "goatee", "stubble"];
-  const HATS = ["cap", "straw", "helmet", "beanie", "bonnet", "bun", "scarf", "toque", "floppy", "colander", "feather"], PATS = ["stripe", "vest", "belt", "sash", "collar"];
+  const HATS = ["cap", "straw", "helmet", "hardhat", "beanie", "bonnet", "bun", "scarf", "toque", "floppy", "colander", "feather"], PATS = ["stripe", "vest", "belt", "sash", "collar"];
   function DL(id, kit, dir, group, label, frames, fn, o = {}) {
     return add(Object.assign({ id, group, label, w: DF * Q, h: DF * Q, gw: DF, gh: DF, frames, kind: "layer", kit, dir, canvasAt: (fi) => L(`${id}#${fi}`, () => fn(fi)), tinted: o.tint || null }, o));
   }
@@ -23511,6 +23523,29 @@ function bathState(n) {
 }
 const BATH_LINEN = "#ece5d4";
 const GUARD_UNIFORM = { helmet: "#c08a3e", tunic: "#a3241e", belt: "#5a3a22", breeches: "#3a2e2a" };
+const JOB_DRESS = {
+  Farmer: { hat: "straw", col: "#d8bd62" },
+  Miner: { hat: "hardhat", col: "#e0ac1c" },
+  Baker: { hat: "toque", col: "#f6f3ea", apron: true },
+  Cook: { hat: "toque", col: "#f6f3ea", apron: true },
+  Smith: { hat: "cap", col: "#4a3a2a", apron: true },
+  Carpenter: { hat: "cap", col: "#9a7a4a", apron: true },
+  Miller: { hat: "scarf", col: "#e9e2d0", apron: true },
+  Weaver: { hat: "bonnet", col: "#c9b27a", apron: true },
+  Fisher: { hat: "floppy", col: "#c9b27a" },
+  Woodcutter: { hat: "beanie", col: "#6a8a3a" },
+  Shopkeeper: { apron: true },
+  Merchant: { apron: true },
+  Trader: { apron: true },
+  Barkeep: { apron: true },
+  BathKeeper: { apron: true }
+};
+function jobDress(n) {
+  if (n.age < 16 || n.player && !n.job) return null;
+  const k = [n.job, n.cur, n.role].find((j) => j && JOB_DRESS[j]);
+  const d = k ? JOB_DRESS[k] : null;
+  return d || (n.shop ? JOB_DRESS.Merchant : null);
+}
 function gaSpec(n, now) {
   const L = n.look || assignLook(n), sp = n._sp || (n._sp = {}), dress = dressFor(n);
   sp.id = n.id;
@@ -23539,6 +23574,17 @@ function gaSpec(n, now) {
   sp.mourning = !!(n.mourning && !n.moving);
   sp.wave = !!(n.waveUntil > game.time && n.pose !== "sleep");
   sp.status = n.status;
+  {
+    const jd = !dress ? jobDress(n) : null;
+    if (jd) {
+      if (jd.hat) {
+        sp.hat = jd.hat;
+        sp.hatCol = jd.col;
+        sp.hatOn = true;
+      }
+      if (jd.apron) sp.apron = true;
+    }
+  }
   const bath = n.age >= 6 && !dress ? bathState(n) : null;
   n._bath = bath;
   if (bath) {
@@ -24261,6 +24307,9 @@ function drawActivityBars(c) {
     drawPie(c, own ? n.tx : n.tx + n.face.dx, own ? n.ty : n.ty + n.face.dy, f, s.act === "eat" ? "rgba(224,169,63,.75)" : "rgba(127,208,255,.7)");
   }
 }
+function bubbleBehind(face) {
+  return Math.abs(face.dy) >= Math.abs(face.dx) ? face.dy < 0 ? "below" : "above" : face.dx > 0 ? "left" : "right";
+}
 function bubbleSide(vx, vy, self) {
   if (self || Math.abs(vy) * 0.7 >= Math.abs(vx)) return vy > 0 && !self ? "below" : "above";
   return vx > 0 ? "right" : "left";
@@ -24281,8 +24330,8 @@ function drawBubbles(c, now) {
     const lines = wrapText(c, (n.first ? n.first + ": " : "") + b.text, 132 * kb).slice(0, 4), lh = 12.5 * kb;
     const w = Math.max.apply(null, lines.map((l) => c.measureText(l).width)) + 12 * kb, h = lines.length * lh + 8 * kb;
     const eye = game.player || null, ex = eye ? eye.x : cam.x / TS + cam.cw / cam.z / TS / 2, ey = eye ? eye.y : cam.y / TS + cam.ch / cam.z / TS / 2, vx = ex - n.x, vy = ey - n.y;
-    const pf = eye && eye.face && (eye.face.dx || eye.face.dy) ? eye.face : null, mine = eye && (n === eye || b.to && b.to === eye);
-    const side = pf && mine ? Math.abs(pf.dy) >= Math.abs(pf.dx) ? pf.dy < 0 ? "below" : "above" : pf.dx > 0 ? "left" : "right" : bubbleSide(vx, vy, n === eye);
+    const sf = n.face && (n.face.dx || n.face.dy) ? n.face : null;
+    const side = sf ? bubbleBehind(sf) : bubbleSide(vx, vy, n === eye);
     const foot = toScreen(n.x * TS + TS / 2, n.y * TS + TS - 3), mid2 = { x: s.x, y: (s.y + foot.y) / 2 };
     let bx = 0, by = 0, tail = [];
     if (side === "above") {

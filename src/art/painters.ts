@@ -1768,6 +1768,9 @@ function hatL(kit, dir, hat, part) { const [c, g]: any = frame(), h = hd(kit, di
     case 'cap': { const d = dome(-0.3, 0.2, 1.0); T([d]); g.__dome = d; band(0.12, 0.08); if (side) T([spl([P(0.7, 0.14), P(1.35, 0.2), P(1.38, 0.28), P(0.9, 0.28), P(0.6, 0.22)], true, 3)], { hs: 0.3 }); else if (!back) T([spl(sym([[0, 0.2], [0.55, 0.19], [0.9, 0.2], [0.95, 0.27], [0.5, 0.3], [0, 0.3]].map(p => P(p[0], p[1])), X), true, 3)], { hs: 0.3 }); stitch(d); break; }
     case 'straw': { const b = brim(2.0, 0.08, 0.5); T([b], { hs: 0.3 }); const d = dome(-0.62, 0.1, 0.9); T([d]); g.__dome = d; band(0.0, 0.1); break; }
     case 'helmet': { const d = side ? spl([[0.98, 0.36], [0.92, -0.08], [0.5, -0.32], [-0.2, -0.4], [-0.85, -0.3], [-1.22, 0.1], [-1.28, 0.55], [-0.7, 0.6], [-0.3, 0.5], [0.3, 0.38]].map(p => P(p[0], p[1])), true, 4) : dome(-0.34, 0.4, 1.04); T([d], { hs: 0.45 }); g.__dome = d; band(0.34, 0.1); break; }
+    case 'hardhat': { const d = dome(-0.5, 0.3, 1.06); T([d], { hs: 0.5 }); g.__dome = d; band(0.22, 0.08);   /* a miner's hard hat: a dome, a ridge along the crown and a short brim */
+      T([side ? spl([P(-0.8, -0.5), P(0.7, -0.52), P(0.7, -0.4), P(-0.8, -0.38)], true, 2) : spl(sym([[0, -0.64], [0.2, -0.62], [0.2, 0.22], [0, 0.22]].map(p => P(p[0], p[1])), X), true, 2)], { hs: 0.4 });
+      T([side ? spl([P(0.6, 0.26), P(1.5, 0.3), P(1.5, 0.4), P(0.6, 0.38)], true, 3) : spl(sym([[0, 0.26], [1.2, 0.26], [1.3, 0.38], [0, 0.4]].map(p => P(p[0], p[1])), X), true, 3)], { hs: 0.3 }); break; }
     case 'beanie': { const d = dome(-0.4, 0.32, 1.04); T([d]); g.__dome = d; const cu = side ? spl([P(0.98, 0.34), P(0.98, 0.14), P(-0.2, 0.08), P(-1.18, 0.12), P(-1.22, 0.34), P(-0.2, 0.4)], true, 3) : spl(sym([[0, 0.08], [0.7, 0.12], [1.16, 0.2], [1.2, 0.34], [0.7, 0.38], [0, 0.38]].map(p => P(p[0], p[1])), X), true, 3); T([cu], { hs: 0.3 }); stitch(d); break; }
     case 'bonnet': { const d = side ? spl([[0.96, 0.2], [0.8, -0.2], [0.4, -0.34], [-0.2, -0.38], [-0.9, -0.26], [-1.28, 0.16], [-1.32, 0.72], [-1.1, 1.0], [-0.7, 0.96], [-0.42, 0.52], [-0.14, 0.3], [0.5, 0.24]].map(p => P(p[0], p[1])), true, 4) : spl(sym([[0, -0.32], [0.5, -0.3], [0.94, -0.18], [1.2, 0.2], [1.24, 0.6], [1.1, 0.92], [0.95, 0.88], [0.92, 0.48], [0.7, 0.2], [0, 0.15]].map(p => P(p[0], p[1])), X), true, 4); T([d]); g.__dome = d; if (!side && !back) T([spl(sym([[0, 0.12], [0.6, 0.14], [0.94, 0.28], [0.9, 0.34], [0.5, 0.24], [0, 0.22]].map(p => P(p[0], p[1])), X), true, 3)], { hs: 0.2 }); if (side) T([spl([P(1.0, 0.12), P(1.3, 0.2), P(1.26, 0.36), P(0.9, 0.3)], true, 3)], { hs: 0.2 }); break; }
     case 'bun': { const d = dome(-0.1, 0.1, 1.02); T([d]); g.__dome = d; break; }
@@ -1776,6 +1779,7 @@ function hatL(kit, dir, hat, part) { const [c, g]: any = frame(), h = hd(kit, di
     case 'feather': { const d = dome(-0.3, 0.16, 1.0); T([d]); g.__dome = d; band(0.08, 0.08); break; } }
   if (part === 'hair' && hat === 'bun') { const bx = side ? P(-0.74, -0.34) : [X, y(-0.4)]; D(g, [ellipsePts(bx[0], bx[1], 0.46 * hw, 0.44 * hw, 14)], HAIRP, { smooth: false, ow: 0.28, os: 0.26, iw: 0.1, hs: 0.5 }); }
   if (part === 'fixed') switch (hat) {
+    case 'hardhat': if (!back) Fx([ellipsePts(side ? P(1.0, -0.06)[0] : X, side ? P(1.0, -0.06)[1] : y(-0.04), 0.3 * hw, 0.27 * hw, 12)], '#f6e7a0', '#ffffff', { smooth: true }); break;
     case 'helmet': Fx([side ? spl([P(-0.7, -0.4), P(0.6, -0.44), P(0.6, -0.34), P(-0.7, -0.3)], true, 2) : spl(sym([[0, -0.52], [0.16, -0.5], [0.16, -0.18], [0, -0.16]].map(p => P(p[0], p[1])), X), true, 2)], '#b83a3a', '#e88a7a'); if (!side && !back) Fx([spl(sym([[0, 0.34], [0.2, 0.34], [0.2, 0.62], [0.12, 0.66], [0, 0.66]].map(p => P(p[0], p[1])), X), true, 2)], '#8a929a', '#dfe3e8'); break;
     case 'beanie': Fx([ellipsePts(side ? P(-0.3, -0.5)[0] : X, y(-0.5), 0.34 * hw, 0.3 * hw, 12)], '#ece6d6', '#ffffff', { smooth: true }); break;
     case 'toque': { const pl = side ? spl([P(-1.0, 0.12), P(-0.9, -0.5), P(-0.5, -1.0), P(0.2, -1.12), P(0.8, -0.9), P(1.0, -0.4), P(1.0, 0.12)], true, 4) : spl(sym([[0, -1.14], [0.55, -1.12], [1.0, -0.86], [1.12, -0.4], [1.0, 0.1], [0, 0.12]].map(p => P(p[0], p[1])), X), true, 4); Fx([pl], '#f6f3ea', '#ffffff', { hs: 0.4 });
@@ -1900,7 +1904,7 @@ function drawDoll(g, sp, x, y, k, T = 0) {
   const kit = kitFor(sp), G = geo(kit), K = G.K, dir = dollDir(sp), f = sp.face || { dx: 0, dy: 1 }, flip = dir === 'side' && f.dx < 0;
   const pose0 = sp.pose || (sp.moving ? 'walk' : 'stand'), wf = Math.floor(T * 9) % 6;
   const hairC = sp.age >= 60 ? GREYH : sp.hair, dress = sp.dress, robe = !!sp.robe || dress === 'bride', shirt = dress === 'bride' ? '#f6f1e8' : dress === 'groom' ? '#2f2c38' : dress === 'mourn' ? '#2a2a30' : sp.shirt;
-  const pat = dress ? (dress === 'groom' ? 'collar' : 'plain') : sp.pat, acc = dress === 'groom' ? '#f4efe6' : sp.acc, hatOn = (sp.robe || sp.hatOn || sp.hat === 'toque' || sp.hat === 'helmet') && !dress;
+  const pat = dress ? (dress === 'groom' ? 'collar' : 'plain') : sp.pat, acc = dress === 'groom' ? '#f4efe6' : sp.acc, hatOn = (sp.robe || sp.hatOn || sp.hat === 'toque' || sp.hat === 'helmet' || sp.hat === 'hardhat') && !dress;
   const sit = pose0 === 'sit' || pose0 === 'kneel';
   const wp: any = sp.wave ? workPose(kit, dir, Object.assign({}, sp, { tool: 'wave' }), T, sp.id || 0) : pose0 === 'work' && sp.tool ? workPose(kit, dir, sp, T, sp.id || 0) : sp.hold && !sit && pose0 !== 'walk' ? workPose(kit, dir, Object.assign({}, sp, { tool: 'hold' }), T, sp.id || 0) : null;
   const legPose = pose0 === 'walk' ? 'walk' : sit ? pose0 : 'stand', fr = pose0 === 'walk' ? wf : 0, rig = legRig(kit, dir, legPose, fr);
@@ -1950,7 +1954,7 @@ function drawDoll(g, sp, x, y, k, T = 0) {
     if (sp.beard && sp.age >= 18 && dir !== 'back') putH(lay(`bd_${sp.beard}`, hairC, () => beardL(kit, dir, sp.beard), 'overlay'), upDy);
     putH(lay(`hf_${sp.hs}`, hairC, () => hairL(kit, dir, sp.hs, 'front'), 'overlay'), upDy);
     if (sp.age >= 45 && sp.age < 60 && sp.hs !== 'bald') putH(lay('grey', null, () => greyL(kit, dir)), upDy);
-    if (hatOn && sp.hat && sp.hat !== 'none') { putH(lay(`hat_${sp.hat}_t`, sp.hatCol || '#c9a86a', () => hatL(kit, dir, sp.hat, 'tint')), upDy); if (sp.hat === 'bun') putH(lay('hat_bun_h', hairC, () => hatL(kit, dir, 'bun', 'hair'), 'overlay'), upDy); if (HATFIX.has(sp.hat) || ['helmet', 'beanie', 'feather'].includes(sp.hat)) putH(lay(`hat_${sp.hat}_f`, null, () => hatL(kit, dir, sp.hat, 'fixed')), upDy); }
+    if (hatOn && sp.hat && sp.hat !== 'none') { putH(lay(`hat_${sp.hat}_t`, sp.hatCol || '#c9a86a', () => hatL(kit, dir, sp.hat, 'tint')), upDy); if (sp.hat === 'bun') putH(lay('hat_bun_h', hairC, () => hatL(kit, dir, 'bun', 'hair'), 'overlay'), upDy); if (HATFIX.has(sp.hat) || ['helmet', 'hardhat', 'beanie', 'feather'].includes(sp.hat)) putH(lay(`hat_${sp.hat}_f`, null, () => hatL(kit, dir, sp.hat, 'fixed')), upDy); }
     if (dress === 'bride') put(lay('bride', null, () => dressL(kit, dir, 'bride')), upDy);
     if (!behindArms && !armsEarly) armBlock();
   });
@@ -2114,7 +2118,7 @@ T24('forge', 'furniture', 'Forge', (g, t) => forge24(g, t), { under: 'stone', fr
 
 /* ================= paper-doll layers ================= */
 const KITS = ['adult', 'adultF', 'child', 'infant'], HSTYLES = ['short', 'crop', 'shaggy', 'bald', 'curly', 'long', 'bob', 'bun', 'braids', 'ponytail'], BEARDS = ['full', 'mustache', 'goatee', 'stubble'];
-const HATS = ['cap', 'straw', 'helmet', 'beanie', 'bonnet', 'bun', 'scarf', 'toque', 'floppy', 'colander', 'feather'], PATS = ['stripe', 'vest', 'belt', 'sash', 'collar'];
+const HATS = ['cap', 'straw', 'helmet', 'hardhat', 'beanie', 'bonnet', 'bun', 'scarf', 'toque', 'floppy', 'colander', 'feather'], PATS = ['stripe', 'vest', 'belt', 'sash', 'collar'];
 function DL(id, kit, dir, group, label, frames, fn, o: any = {}) { return add(Object.assign({ id, group: group, label, w: DF * Q, h: DF * Q, gw: DF, gh: DF, frames, kind: 'layer', kit, dir, canvasAt: fi => L(`${id}#${fi}`, () => fn(fi)), tinted: o.tint || null }, o)); }
 for (const kit of KITS) for (const dir of DIRS) {
   const P = `doll/${kit}/${dir}/`, G = `doll_${kit}`;

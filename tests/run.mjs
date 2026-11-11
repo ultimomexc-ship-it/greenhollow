@@ -1848,6 +1848,24 @@ test('one path for news: what somebody is told in conversation is what the watch
   await page.close();
 });
 
+test('work clothes and bubbles: farmers wear a wide straw hat, miners a hard hat, bakers and cooks a toque, stall keepers an apron; a speech bubble sits behind the speaker, opposite to the way they face', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    const ps = npcs.filter(n => !n.dead && !n.player && n.age >= 18 && !n.infant && !n.dress); const dress = (job, cur, shop) => { const n = ps.find(q => !q.shop); n.job = job; n.cur = cur; n.shop = shop || null; n._sp = null; const sp = Object.assign({}, gaSpec(n, 0)); return { hat: sp.hat, hatOn: sp.hatOn, apron: sp.apron }; };
+    const out = { farmer: dress('Farmer', null), miner: dress(null, 'Miner'), baker: dress('Baker', null), cook: dress('Cook', null), keeper: dress('Shopkeeper', null) };
+    const kid = npcs.find(n => !n.dead && n.age < 14); if (kid) { kid.job = 'Farmer'; kid._sp = null; out.kid = gaSpec(kid, 0).hat; }
+    out.sides = [bubbleBehind({ dx: 0, dy: 1 }), bubbleBehind({ dx: 0, dy: -1 }), bubbleBehind({ dx: 1, dy: 0 }), bubbleBehind({ dx: -1, dy: 0 })];
+    return out; });
+  check(r.farmer.hat === 'straw' && r.farmer.hatOn, 'a farmer wears a straw hat: ' + JSON.stringify(r.farmer));
+  check(r.miner.hat === 'hardhat' && r.miner.hatOn, 'a miner wears a hard hat: ' + JSON.stringify(r.miner));
+  check(r.baker.hat === 'toque' && r.baker.apron && r.cook.hat === 'toque', 'bakers and cooks wear a toque: ' + JSON.stringify([r.baker, r.cook]));
+  check(r.keeper.apron, 'a shopkeeper wears an apron');
+  check(r.kid === undefined || r.kid === 'none', 'children keep their own clothes: ' + r.kid);
+  check(JSON.stringify(r.sides) === JSON.stringify(['above', 'below', 'left', 'right']), 'the bubble is behind the speaker: ' + JSON.stringify(r.sides));
+  check(!errors.length, 'no errors: ' + errors.join(' | '));
+  await page.close();
+});
+
 test('bindings: asking whether something could be said never changes what is being said; a question and its answer are about the same person; a menu option says what it will say; no line is spoken with a gap in it', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {
