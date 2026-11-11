@@ -42,26 +42,3 @@ function vcDraw(force?: boolean) {
   window.addEventListener('keydown', (e: any) => { if (e.key === 'Escape' && VCARD && !(typeof talkUI !== 'undefined' && talkUI.o)) closeVillagerCard(); });
   setInterval(() => { try { vcDraw(); } catch (e) {} }, 500);
 })();
-
-/* ---- Overheard: what villagers say to each other, kept on the canvas (C shows and hides it, `gh.heard`) ----
-   Speech bubbles fade in seconds; this keeps the last few exchanges (who said what, and where) so they can be read. Fed by `addChatter`. */
-let HEARD_ON = true; try { HEARD_ON = localStorage.getItem('gh.heard') !== '0'; } catch (e) {}
-const HEARD: any[] = [];
-function overheardAdd(ev: any) {
-  if (!ev || !ev.lines || !ev.lines.length || (ev.a && ev.a.player) || (ev.b && ev.b.player)) return;   // (your own talk has its own box)
-  HEARD.push({ t: ev.time, place: ev.place, lines: ev.lines.map((l: any) => ({ who: l.who.first, col: l.who.shirt, text: l.text })) }); if (HEARD.length > 6) HEARD.shift();
-  heardDraw();
-}
-function heardDraw() {
-  const box: any = document.getElementById('heardbox'); if (!box) return;
-  if (!HEARD_ON || !HEARD.length || !town) { box.hidden = true; return; }
-  box.hidden = false;
-  box.innerHTML = HEARD.map((h, i) => `<div class="hx" style="opacity:${(0.45 + 0.55 * (i + 1) / HEARD.length).toFixed(2)}"><div class="dim">${fmtTime(h.t)}${h.place ? ' · ' + esc(String(h.place)) : ''}</div>` +
-    h.lines.map((l: any) => `<div><b style="color:${l.col || '#e8e2d0'}">${esc(l.who)}</b> ${esc(l.text)}</div>`).join('') + '</div>').join('');
-  box.scrollTop = box.scrollHeight;
-}
-(function () {
-  const stage = canvas.parentNode as any; if (!stage) return;
-  const box = document.createElement('div'); box.id = 'heardbox'; box.className = 'heardbox'; box.hidden = true; stage.appendChild(box);
-  window.addEventListener('keydown', (e: any) => { if ((e.key === 'c' || e.key === 'C') && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || '') && town && !(typeof talkUI !== 'undefined' && talkUI.o)) { HEARD_ON = !HEARD_ON; try { localStorage.setItem('gh.heard', HEARD_ON ? '1' : '0'); } catch (err) {} heardDraw(); } });
-})();

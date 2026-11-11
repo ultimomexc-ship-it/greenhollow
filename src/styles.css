@@ -212,5 +212,3 @@ body.fs #c { height: 100vh !important; height: 100dvh !important; }
 .vcbox{position:absolute;right:10px;top:44px;z-index:7;width:280px;max-width:calc(100% - 20px);font:13px/1.35 var(--font-body);color:#e8e2d0}.vcbox[hidden]{display:none}
 .vccard{position:relative;background:rgba(18,22,24,.93);border:1px solid #4a5a4a;border-left:3px solid #8bb87a;border-radius:8px;padding:9px 30px 9px 12px;max-height:70vh;overflow:auto}
 .vccard .dim{color:#9a927c;font-size:12px}.vccard ul{margin:2px 0 0;padding-left:16px}.vcrow{margin-top:5px}.vch{margin-top:8px;padding-top:5px;border-top:1px solid rgba(255,255,255,.1);color:#b9c9a8;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
-.heardbox{position:absolute;left:10px;bottom:64px;z-index:6;width:340px;max-width:calc(100% - 20px);max-height:34vh;overflow:hidden;pointer-events:none;font:12.5px/1.35 var(--font-body);color:#e8e2d0;background:rgba(14,18,20,.72);border-left:3px solid #8bb87a;border-radius:6px;padding:6px 10px}.heardbox[hidden]{display:none}
-.heardbox .hx{margin-top:5px}.heardbox .hx:first-child{margin-top:0}.heardbox .dim{color:#9a927c;font-size:11px}

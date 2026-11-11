@@ -222,8 +222,6 @@ body.fs #c { height: 100vh !important; height: 100dvh !important; }
 .vcbox{position:absolute;right:10px;top:44px;z-index:7;width:280px;max-width:calc(100% - 20px);font:13px/1.35 var(--font-body);color:#e8e2d0}.vcbox[hidden]{display:none}
 .vccard{position:relative;background:rgba(18,22,24,.93);border:1px solid #4a5a4a;border-left:3px solid #8bb87a;border-radius:8px;padding:9px 30px 9px 12px;max-height:70vh;overflow:auto}
 .vccard .dim{color:#9a927c;font-size:12px}.vccard ul{margin:2px 0 0;padding-left:16px}.vcrow{margin-top:5px}.vch{margin-top:8px;padding-top:5px;border-top:1px solid rgba(255,255,255,.1);color:#b9c9a8;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
-.heardbox{position:absolute;left:10px;bottom:64px;z-index:6;width:340px;max-width:calc(100% - 20px);max-height:34vh;overflow:hidden;pointer-events:none;font:12.5px/1.35 var(--font-body);color:#e8e2d0;background:rgba(14,18,20,.72);border-left:3px solid #8bb87a;border-radius:6px;padding:6px 10px}.heardbox[hidden]{display:none}
-.heardbox .hx{margin-top:5px}.heardbox .hx:first-child{margin-top:0}.heardbox .dim{color:#9a927c;font-size:11px}
 
 </style>
 </head>
@@ -29839,7 +29837,6 @@ function updateMarket(force) {
   }));
 }
 function addChatter(ev) {
-  if (typeof overheardAdd === "function") overheardAdd(ev);
   const ul = el("chat");
   const li = document.createElement("li");
   li.innerHTML = '<div class="meta"><span class="chico" title="chatter">\u{1F4AC}</span> ' + fmtTime(ev.time) + " \xB7 Day " + (Math.floor(ev.time / 1440) + 1) + " \xB7 " + esc(cap1(ev.place)) + "</div>" + ev.lines.map((l) => '<div class="ln"><b style="color:' + l.who.shirt + '">' + esc(l.who.first) + "</b> " + esc(l.text) + "</div>").join("");
@@ -31430,48 +31427,6 @@ function vcDraw(force) {
     } catch (e) {
     }
   }, 500);
-})();
-let HEARD_ON = true;
-try {
-  HEARD_ON = localStorage.getItem("gh.heard") !== "0";
-} catch (e) {
-}
-const HEARD = [];
-function overheardAdd(ev) {
-  if (!ev || !ev.lines || !ev.lines.length || ev.a && ev.a.player || ev.b && ev.b.player) return;
-  HEARD.push({ t: ev.time, place: ev.place, lines: ev.lines.map((l) => ({ who: l.who.first, col: l.who.shirt, text: l.text })) });
-  if (HEARD.length > 6) HEARD.shift();
-  heardDraw();
-}
-function heardDraw() {
-  const box = document.getElementById("heardbox");
-  if (!box) return;
-  if (!HEARD_ON || !HEARD.length || !town) {
-    box.hidden = true;
-    return;
-  }
-  box.hidden = false;
-  box.innerHTML = HEARD.map((h, i) => `<div class="hx" style="opacity:${(0.45 + 0.55 * (i + 1) / HEARD.length).toFixed(2)}"><div class="dim">${fmtTime(h.t)}${h.place ? " \xB7 " + esc(String(h.place)) : ""}</div>` + h.lines.map((l) => `<div><b style="color:${l.col || "#e8e2d0"}">${esc(l.who)}</b> ${esc(l.text)}</div>`).join("") + "</div>").join("");
-  box.scrollTop = box.scrollHeight;
-}
-(function() {
-  const stage = canvas.parentNode;
-  if (!stage) return;
-  const box = document.createElement("div");
-  box.id = "heardbox";
-  box.className = "heardbox";
-  box.hidden = true;
-  stage.appendChild(box);
-  window.addEventListener("keydown", (e) => {
-    if ((e.key === "c" || e.key === "C") && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || "") && town && !(typeof talkUI !== "undefined" && talkUI.o)) {
-      HEARD_ON = !HEARD_ON;
-      try {
-        localStorage.setItem("gh.heard", HEARD_ON ? "1" : "0");
-      } catch (err) {
-      }
-      heardDraw();
-    }
-  });
 })();
 const SND = { ctx: null, master: null, on: true, noiseBuf: null, last: {}, amb: null, nextBird: 0, nextDrip: 0, nextCricket: 0, nextWave: 0, dead: false };
 try {
