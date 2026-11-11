@@ -766,8 +766,6 @@ test('truesight: the view is a polygon, recomputed quickly even zoomed out', asy
 
 /* ---------------------------------------------------------------------------------------------- */
 // Longevity and readability (tools/longevity.mjs runs the long version: node tools/longevity.mjs 30)
-import { playDays, measure } from '../tools/longevity.mjs';
-let LONG = null; const longRun = async () => LONG || (LONG = measure(await playDays({ days: 8, talksPerDay: 4, turns: 8, seed: 'ci-longevity' })));
 
 test('items: villagers own real work tools that wear as they work and are replaced when bought', await itemScene(async page => {
   const r = await page.evaluate(() => {
@@ -856,7 +854,6 @@ test('items: the sawmill saws logs into planks and sells them; planks count as t
 
 /* ---------------------------------------------------------------------------------------------- */
 // The dialogue lint (tools/lintalk.mjs): plays days of talk and listens to the village, then flags what reads wrong.
-import { lint } from '../tools/lintalk.mjs';
 test('islands: an island saves and restores exactly, and the village carries on afterwards', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   await simulate(page, 2 * 1440);
