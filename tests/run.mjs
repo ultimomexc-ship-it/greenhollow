@@ -1152,6 +1152,27 @@ test('talk engine (phase 2): news travels from the one who saw it to others as v
   return 'news: ' + JSON.stringify(r.d) + ' overheard by ' + r.over;
 });
 
+test('talk (visible): bubbles know who is spoken to, the two face each other, and H switches on hyper talk', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await simulate(page, 9 * 60);
+  const r = await page.evaluate(() => {
+    TALK.running = false; const out = {}; startPlaying(npcs.find(canControl));
+    const free = npcs.filter(q => !q.dead && !q.player && q.age >= 18 && q.pose !== 'sleep'), a = free[0], c = free[1];
+    const spot = (x, y) => { for (let r = 0; r < 12; r++) for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) { const tx = x + dx, ty = y + dy; if (walkable(tx, ty) && !lfPropAt(tx, ty) && !npcs.some(o => o.tx === tx && o.ty === ty)) return { x: tx, y: ty }; } return null; };
+    const sa = spot(town.cx - 2, town.cy + 2), sb = spot(sa.x + 2, sa.y); for (const [n, s] of [[a, sa], [c, sb]]) { abortPlan(n); n.tx = n.x = s.x; n.ty = n.y = s.y; n.pose = 'stand'; n.moving = false; n.path = []; } rebuildOcc();
+    game.events.length = 0; bubbles.length = 0; a.bubbleUntil = c.bubbleUntil = 0; talkRun(a, c, true); drainEvents(performance.now() + 50);
+    const mine = bubbles.filter(q => q.n === a || q.n === c); out.n = mine.length; out.allTo = mine.every(q => (q.n === a && q.to === c) || (q.n === c && q.to === a));
+    faceTo(a, c); faceTo(c, a); out.face = Math.sign(c.tx - a.tx) === a.face.dx && Math.sign(a.tx - c.tx) === c.face.dx;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'h' })); out.hyper = TALK.hyper === true && !document.querySelector('.hyperbadge').hidden;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'h' })); out.off = TALK.hyper === false && document.querySelector('.hyperbadge').hidden;
+    return out; });
+  check(r.n > 4 && r.allTo, 'every bubble of the exchange knows who it is addressed to: ' + JSON.stringify(r));
+  check(r.face, 'the two face each other');
+  check(r.hyper && r.off, 'H switches hyper talk on (with a badge) and off again');
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return 'visible talk';
+});
+
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

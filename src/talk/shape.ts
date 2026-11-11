@@ -6,7 +6,7 @@ TALK.log = [] as any[]; TALK.words = false; TALK.running = true;
 
 /** how much a person has to say to this one: interest in the talk (their patience) */
 function talkBudget(n: any, o: any): number {
-  let b = 2.6 + (talkHas(n, 'sociable') ? 1.5 : 0) + (talkHas(n, 'gossipy') ? 0.6 : 0) - (talkHas(n, 'shy') ? 1 : 0) - (talkHas(n, 'grumpy') ? 0.6 : 0);
+  let b = (TALK.hyper ? 1.7 : 2.2) + (talkHas(n, 'sociable') ? 1.5 : 0) + (talkHas(n, 'gossipy') ? 0.6 : 0) - (talkHas(n, 'shy') ? 1 : 0) - (talkHas(n, 'grumpy') ? 0.6 : 0);
   b += Math.max(-1, Math.min(1.5, (n.aff[o.id] || 0) / 50)) + (100 - (n.social == null ? 50 : n.social)) / 60 + Math.random() * 1.2;
   if (n.hunger > 80) b -= 1; return Math.max(1, b);
 }
