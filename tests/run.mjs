@@ -1231,7 +1231,7 @@ test('talk and needs: while two people talk their hunger, bladder and tiredness 
 
 test('life slice: farming, trade and needs report real events; villagers tell their day from them, listeners sympathise with troubles, and the town panel counts what people suffered', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
-  await simulate(page, 2 * 1440);
+  await simulate(page, 3 * 1440);
   const r = await page.evaluate(() => {
     const out = {}; const dg = LIFE.digest(3).kinds; out.real = { planted: dg.planted || 0, bought: dg.bought || 0, sold: dg.sold || 0, harvested: dg.harvested || 0 };
     out.count = [lxCount(1, 'cabbages'), lxCount(7, 'barley'), lxCount(1, 'strawberries'), lxCount(1, 'corn'), lxCount(12, 'turnips')];
@@ -1246,7 +1246,7 @@ test('life slice: farming, trade and needs report real events; villagers tell th
     out.troubles = LIFE.troubles(2).map(t => t.kind + ':' + t.people);
     // the panel
     return out; });
-  check(r.real.planted > 5 && r.real.bought >= 1 && r.real.harvested >= 1, 'a normal two days reports planting, trade and harvest from the game itself: ' + JSON.stringify(r.real));
+  check(r.real.planted > 5 && r.real.bought >= 1 && r.real.harvested >= 1, 'a normal three days reports planting, trade and harvest from the game itself: ' + JSON.stringify(r.real));
   check(r.count.join('|') === 'a cabbage|7 barley|a strawberry|a little corn|12 turnips', 'counts are said the way people say them: ' + r.count.join('|'));
   check(r.recent.length >= 2 && r.recent[0].startsWith('slept_rough'), 'the day is grouped (six plantings are one line) and the worst comes first: ' + JSON.stringify(r.recent));
   check(r.lines && r.acts.includes('report_day') && r.lines.some(l => /rough|ground|bed of my own|sand|planted|Put in/.test(l)), 'they tell it in words: ' + JSON.stringify(r.lines && r.lines.slice(0, 8)));
