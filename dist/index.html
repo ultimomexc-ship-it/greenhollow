@@ -28834,9 +28834,10 @@ lxi("cry_deed", "I was sitting down just now. I was indoors.", { how: "chair" })
 const giftName = (k) => GOODS[k] && GOODS[k].name || (WORLD.has("item", k) ? WORLD.name("item", k) : k);
 function giftChoose(p, o) {
   let best = null, bs = 0;
+  const keep = p.player ? 0 : 3;
   for (const k of Object.keys(p.inv || {})) {
     const q = p.inv[k];
-    if (!(q > 0) || !GOODS[k] || /^seed_/.test(k)) continue;
+    if (!(q > keep) || !GOODS[k] || /^seed_/.test(k) || !p.player && GOODS[k].sat && (p.hunger || 0) > 50) continue;
     const s = (GOODS[k].base || 1) + (GOODS[k].sat && (o.hunger || 0) > 55 ? 4 : 0) + (k === "flowers" ? 3 : 0);
     if (s > bs) {
       bs = s;
@@ -28852,10 +28853,15 @@ ACTS.offer_gift = {
     const k = giftChoose(sp, li);
     return { item: k ? giftName(k) : "" };
   },
-  when: (c, sp, li) => !!sp.player && !c.done.offer_gift && !li.infant && !!giftChoose(sp, li),
-  w: () => 0.5,
+  when: (c, sp, li) => !c.done.offer_gift && !li.infant && li.age >= 3 && (sp.player || game.time - (sp.giftT || -1e9) > 720) && !!giftChoose(sp, li),
+  w: (c, sp, li) => {
+    if (sp.player) return 0.5;
+    const k = giftChoose(sp, li), hungry = k && GOODS[k].sat && (li.hunger || 0) > 60, a = sp.aff[li.id] || 0;
+    return 0.15 + (hungry && a > -10 ? 1.5 : 0) + (a > 30 ? 0.5 : 0) + (sp.know && sp.know[li.id] > 20 ? 0.1 : 0) + ((sp.tmem || []).some((m) => m.kind === "did" && m.ev != null && !m.forgiven && (lf2Ev().find((q) => q.id === m.ev) || {}).target === li.id && (a < 0 || Math.random() < 0.3)) ? 1.2 : 0);
+  },
   apply: (c, sp, li) => {
     c.done.offer_gift = 1;
+    sp.giftT = game.time;
     const k = giftChoose(sp, li);
     if (!k) {
       c.giftResult = "refused";
@@ -28876,6 +28882,10 @@ ACTS.offer_gift = {
     const value = GOODS[k].base || 1, wanted = GOODS[k].sat && (li.hunger || 0) > 55 || k === "flowers";
     lfAff(li, sp, 0.35 * (2 + value * 0.8 + (wanted ? 3 : 0) + (grievance ? value * 0.8 + 4 : 0)), "gave me " + c.lifeItem);
     for (const m of bad) m.forgiven = true;
+    for (const m of sp.tmem || []) if (m.kind === "did" && m.ev != null) {
+      const ev = lf2Ev().find((q) => q.id === m.ev);
+      if (ev && ev.target === li.id) m.forgiven = true;
+    }
     c.giftResult = grievance ? "amends" : wanted ? "wanted" : "plain";
     lfEmit("gift", { actor: sp, target: li, sev: 1, tags: ["kindness", "generous"], chron: false, text: `${sp.first} gave ${li.first} ${c.lifeItem}` });
   },

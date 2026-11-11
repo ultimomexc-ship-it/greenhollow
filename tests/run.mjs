@@ -1483,7 +1483,7 @@ test('people: villagers ask what others make of someone, pass the opinion round 
   check(r.ops > 0 && r.why > 0, 'opinions are remembered and reasons are kept: ' + r.ops + '/' + r.why);
   check(r.hasOp && !/undefined|NaN/.test(r.html), 'the journal lists opinions: ' + r.html.slice(0, 200));
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
-  return JSON.stringify({ ops: r.ops, why: r.why });
+  return JSON.stringify({ ops: r.ops, why: r.why, gifts: r.acts.offer_gift || 0, deeds: r.acts.raise_deed || 0 });
 });
 
 test('meddling: what you do in build mode is settled when time runs again; those who saw you cry out and hold it against you, the news travels, and they bring it up when they talk to you', async b => {
@@ -1543,6 +1543,14 @@ test('gifts: you can give something in a talk; food is welcome when hungry, flow
     return out; });
   check(r.food && r.food.d > 0 && r.grain === 2 && r.theirs >= 1, 'a gift moves the item and warms them: ' + JSON.stringify([r.food, r.grain, r.theirs]));
   check(r.grudge && r.amends && r.amends.d > 0 && r.forgiven, 'a gift after a deed clears the grudge: ' + JSON.stringify([r.grudge, r.amends, r.forgiven]));
+  const r2 = await page.evaluate(() => {
+    const out = {}; newTown('npc-gifts', 'farm'); const ps = npcs.filter(n => !n.dead && !n.player && n.age >= 18 && !n.infant); const A = ps[0], B = ps[1];
+    A.inv.flowers = 6; A.hunger = 10; B.hunger = 20; A.giftT = -1e9; B.aff[A.id] = 0; const c = { done: {}, turns: [], left: {} };
+    out.when = ACTS.offer_gift.when(c, A, B); const b0 = B.aff[A.id]; talkTurn(c, A, B, 'offer_gift'); out.moved = A.inv.flowers === 5 && B.inv.flowers >= 1; out.warm = B.aff[A.id] > b0;
+    out.again = ACTS.offer_gift.when({ done: {}, turns: [] }, A, B);   // (once in twelve hours)
+    A.inv.flowers = 2; A.giftT = -1e9; out.reserve = ACTS.offer_gift.when({ done: {}, turns: [] }, A, B);   // (never the last three)
+    return out; });
+  check(r2.when && r2.moved && r2.warm && !r2.again && !r2.reserve, 'villagers give to each other by the same act, from what they can spare, once in twelve hours: ' + JSON.stringify(r2));
   check(r.refused && r.kept, 'someone who cannot stand you refuses and you keep it: ' + JSON.stringify(r.refused));
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
   return JSON.stringify([r.food, r.amends]);
