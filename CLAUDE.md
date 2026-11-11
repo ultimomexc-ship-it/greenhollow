@@ -145,7 +145,7 @@ The village lives without the player: the simulation owns the truth (events), ea
   they dislike, lose the name), second-order beliefs (`o.sbRel['a:b']` = what they think a feels about b, and why), the reason ledger (`o.why[id]`, written by `lfAff(a, b, v, why)`),
   trust and respect (`o.trust`, `o.resp`), `sbWhyText` (a reason in the speaker's words).
 - `sb-exchange.ts`: background exchanges between people who are near each other and free (`SBX`: small talk, news, vent, praise, console, shop/rivalry, family/row,
-  argue, court, borrow, repay, confide, leak). Each has consequences; text only appears if the player is near. `sbCompat` is a pair's chemistry. Loans live in `town.sbLoans`.
+  argue, court, borrow, repay, confide, leak). Each has consequences; every exchange is voiced as speech bubbles. `sbCompat` is a pair's chemistry. Loans live in `town.sbLoans`.
 - `sb-voice.ts`: the words. `sbSayIfNear(a, b, kind, facts)` voices an exchange with its facts (who, why, how much, what the row is about); `sbNewsLines` is gossip
   in the teller's version; `sbSmallTalk(a, b)` is what people say when they bump into each other (also `makeConvo`), drawn from their lives (family by name,
   where somebody is, shared news, work, prices, the tide). `sbPick` chooses what the player has heard least recently.
@@ -212,7 +212,7 @@ All sound is synthesised in the browser with the Web Audio API (no files): `sndT
 
 ## Seeing what villagers are doing (src/ui/hud-villager.ts, sbMeet in social2/sb-exchange.ts)
 - **Villager card**: click a villager on the canvas (`openVillagerCard`, Esc or x closes; it refreshes twice a second). It reads `n.status` (what the plan is doing now, so any step's text should say something a player can follow), mood and plain-word need hints, `Company` (the four strongest ties from `n.aff`/`n.know`/`relLabel`, in words, no numbers), lines the chronicle says about them and `n.log` (the steps before). Numbers stay in `npcDebug` (build-mode hover). New systems (gifts, courtship) should give their plan steps readable texts and write chronicle or `lfAff` reasons so the card shows them.
-- **Meetings**: with the player within 10 tiles, and both villagers idle (standing or at leisure; nobody is called away from work, a walk to it, a meal or bed), a background exchange (`sbTick`) is no longer said across the room: `sbMeet` sends the first villager to the tile beside the other ("Going over to X"), both face each other, and then the exchange runs and its bubbles hold them still (`talkUntil` in `drainEvents`). Off-screen exchanges are unchanged (instant). `SB.feat.meet = false` turns it off.
+- **Meetings**: with both villagers idle (standing or at leisure; nobody is called away from work, a walk to it, a meal or bed), a background exchange (`sbTick`) is no longer said across the room: `sbMeet` sends the first villager to the tile beside the other ("Going over to X"), both face each other, and then the exchange runs and its bubbles hold them still (`talkUntil` in `drainEvents`). Every exchange is voiced and walked out wherever it happens (`sbNear` is just 'not the pre-simulation'; bubbles out of view are not drawn). `SB.feat.meet = false` turns it off.
 
 ## Performance tools
 - `node tools/profile.mjs <seconds> <zoom> [--pan] [--cpu] [--file=other.html]`: the real frame loop, with per-stage times, frame-time percentiles and optional panning / CPU profile. Headless Chromium paints in software, so compare before/after rather than against 60 fps.
