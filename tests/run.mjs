@@ -1307,6 +1307,20 @@ test('meeting: with the player near, two villagers walk up to each other and sta
   return 'meeting';
 });
 
+test('overheard: what villagers say to each other is kept on the canvas and C hides it', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await simulate(page, 60);
+  const r = await page.evaluate(() => {
+    const [a, c] = npcs.filter(q => !q.dead && !q.player && q.age >= 18); const box = document.getElementById('heardbox');
+    addChatter({ time: game.time, a, b: c, place: 'the plaza', lines: [{ who: a, text: 'Did you see the gull?' }, { who: c, text: 'I saw nothing else.' }] });
+    const shown = !box.hidden && box.innerText.includes('Did you see the gull?') && box.innerText.includes(c.first);
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'c' })); const hid = box.hidden; window.dispatchEvent(new KeyboardEvent('keydown', { key: 'c' })); return { shown, hid, back: !box.hidden };
+  });
+  check(r.shown && r.hid && r.back, 'overheard lines are listed and C toggles: ' + JSON.stringify(r));
+  check(!errors.length, 'no errors: ' + errors.join('|'));
+  return 'overheard';
+});
+
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {
