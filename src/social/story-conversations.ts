@@ -91,6 +91,7 @@ function lineMs(t) { return Math.max(2600, 1300 + String(t || '').length * 60); 
 const linesSec = lines => lines.reduce((s, l) => s + lineMs(Array.isArray(l) ? l[1] : l.text), 0) / 1000;
 function faceTo(a, b) { a.face = { dx: Math.sign(b.tx - a.tx), dy: Math.abs(b.tx - a.tx) < 0.5 ? Math.sign(b.ty - a.ty) : 0 }; if (!a.face.dx && !a.face.dy) a.face = { dx: 0, dy: 1 }; }
 function bumpTalk(a, b, intent) {
+  if (TALK.engine === 'none') return false;   // nobody talks until the new engine (docs/talk-engine.md)
   if (!(a.player || b.player) && typeof focusOn === 'function' && focusOn()) return false;
   if (a.dead || b.dead || a.infant || b.infant || a.age < 3 || b.age < 3) return false;
   if (a.pose === 'sleep' || b.pose === 'sleep') return false;

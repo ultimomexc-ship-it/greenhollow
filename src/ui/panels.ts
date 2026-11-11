@@ -249,6 +249,7 @@ function splitSpeech(text, max?) {
   return out;
 }
 function drainEvents(now) {
+  if (TALK.engine === 'none') { game.events.length = 0; return; }   // the old chat engines are gone; the new one will feed this
   while (game.events.length) {
     const ev = game.events.shift();
     for (const l of ev.lines) l.text = cvSpeak(l.text);   // speech is contracted on the way out (dialogue/cv-speech.ts)
