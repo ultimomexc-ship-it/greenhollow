@@ -121,7 +121,7 @@ function gaSpriteId(x, y, t) {
     case T.ROCK: return 'boulder_' + Math.floor(hash(x, y, 64) * 4);
     case T.MOUNTAIN: return 'crag_' + Math.floor(hash(x, y, 6) * 4);
     case T.TENT: return 'tent_' + Math.floor(hash(x, y, 91) * 4);
-    case T.STALL: return 'stall_' + (((x >> 1) + y) % 4);
+    case T.STALL: { const sk = typeof stallKindAt === 'function' ? stallKindAt(x, y) : ''; return 'stall_' + (sk ? sk + '_' : '') + (((x >> 1) + y) % 4); }
     case T.GRAVE: { const k = hash(x, y, 90); return k < 0.45 ? 'grave_stone' : k < 0.8 ? 'grave_cross' : 'grave_cross2'; }
   }
   return null;

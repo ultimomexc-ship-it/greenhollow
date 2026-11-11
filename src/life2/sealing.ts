@@ -223,16 +223,16 @@ function bldDemolish(r: any, hx: number, hy: number, by?: any) {
   if (!r || r.dead || r.free) return false;
   const ri = rooms.indexOf(r); { const res = meddleResidents(r); meddleNote(res.length ? 'home_destroyed' : 'building_down', hx, hy, by, { room: ri, residents: res, place: r.name }); } r.dead = true;
   const out = (x, y, kind, extra?) => { if (lfPropAt(x, y)) return null; const p: any = lfAddProp(kind, x, y); if (kind === 'bed') p.v = Math.floor(Math.random() * 5); if (extra) Object.assign(p, extra); return p; };
-  const loose: [number, number][] = [];
+  const loose: [number, number][] = [], keepBed = new Map<number, any>();
   for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
     if (roomAt[y][x] !== ri) continue; const t = grid[y][x], hole = x === hx && y === hy;
     setT(x, y, bldBare(y)); roomAt[y][x] = -1; if (hole) continue;
     if (t === T.WALL || t === T.DOOR) { const win = t === T.WALL && y === r.y && x !== r.x && x !== r.x + r.w - 1 && x !== r.doorX && (x - r.x) % 3 === 2; if (out(x, y, t === T.DOOR ? 'bdoor' : win ? 'bwindow' : 'bwall')) loose.push([x, y]); }
-    else if (t === T.BED) { const b = (r.beds || []).find(q => q.x === x && q.y === y); out(x, y, 'bed', { ownerId: b && b.owner ? b.owner.id : null }); }
+    else if (t === T.BED) { const b = (r.beds || []).find(q => q.x === x && q.y === y); const p = out(x, y, 'bed', { ownerId: b && b.owner ? b.owner.id : null }); if (p && b && b.owner) { p.owner = b.owner; keepBed.set(b.owner.id, p); } }   // (the owner keeps the bed, now a loose one: they sleep in it wherever it stands)
     else if (t === T.SEAT) out(x, y, 'chair'); else if (t === T.TABLE) out(x, y, 'table'); else if (t === T.BARREL) out(x, y, 'barrel', { pantry: r.pantry });
   }
   doors = doors.filter(d => rooms[d.room] !== r); town.props = town.props.filter(p => !(p.fur && p.fur.r === r));
-  for (const n of npcs) if (n.homeRoom === r) { n.homeRoom = null; n.bed = { owner: null }; n.seat = null; n.homeless = true; abortPlan(n); }
+  for (const n of npcs) if (n.homeRoom === r) { n.homeRoom = null; n.bed = keepBed.get(n.id) || { owner: null }; n.seat = null; n.homeless = true; abortPlan(n); }
   if (town.church === r) town.church = null; if (town.tavern === r) town.tavern = null;
   r.beds = []; r.seats = []; r.barrel = null;
   markDirty(r.x - 1, r.y - 1, r.w + 2, r.h + 2); town.gridV = (town.gridV || 0) + 1; town.lfPV = (town.lfPV || 0) + 1;

@@ -170,7 +170,7 @@ function render(now, dtSec, hourOfDay) {
   drawDoors(c, dtSec);
   if (typeof drawTide === 'function') drawTide(c, now);
 
-  drawNodes(c, now); if (typeof drawShrooms === 'function') drawShrooms(c, now); if (typeof drawSigns === 'function') drawSigns(c, now); if (typeof drawGuides === 'function') drawGuides(c, now); drawSites(c, now); drawEventsFx(c, now); drawWorkFx(c, now); stepWild(now); drawWild(c, now); if (typeof stepSea === 'function') { stepSea(now); drawSea(c, now); }
+  drawNodes(c, now); if (typeof drawShrooms === 'function') drawShrooms(c, now); if (typeof drawSigns === 'function') drawSigns(c, now); if (typeof drawStallSigns === 'function') drawStallSigns(c, now); if (typeof drawGuides === 'function') drawGuides(c, now); drawSites(c, now); drawEventsFx(c, now); drawWorkFx(c, now); stepWild(now); drawWild(c, now); if (typeof stepSea === 'function') { stepSea(now); drawSea(c, now); }
   drawLabels(c);
 
   // people, the forest sprites, the statue... and any tall tile standing in front of them: all in order of who is
@@ -419,11 +419,13 @@ function drawBubbles(c, now) {
     if (!showB || now < b.from || (typeof talkUI !== 'undefined' && talkUI.o)) continue;
     const n = b.n; if (n.inShip || (!n.player && !canSee(n.x, n.y))) continue; const s = toScreen(n.x * TS + TS / 2, n.y * TS - 6 - 8 * (n.scale || 1));
     if (s.x < -80 || s.y < -40 || s.x > vw + 80 || s.y > vh + 40) continue;
-    const lines = wrapText(c, b.text, 132 * kb).slice(0, 4), lh = 12.5 * kb;
+    const lines = wrapText(c, (n.first ? n.first + ': ' : '') + b.text, 132 * kb).slice(0, 4), lh = 12.5 * kb;   // (NAME: what they say, so you know who is talking)
     const w = Math.max.apply(null, lines.map(l => c.measureText(l).width)) + 12 * kb, h = lines.length * lh + 8 * kb;
     // the bubble sits on the side of the speaker that faces the viewer, its tail pointing at the speaker: you north of them = bubble above, tail below; south = below, tail above; east = right, tail on its left; west = left, tail on its right
     const eye = game.player || null, ex = eye ? eye.x : cam.x / TS + cam.cw / cam.z / TS / 2, ey = eye ? eye.y : cam.y / TS + cam.ch / cam.z / TS / 2, vx = ex - n.x, vy = ey - n.y;
-    const side = bubbleSide(vx, vy, n === eye);
+    // in a conversation with you the bubbles go behind each speaker, away from where you face: facing up at someone, their bubble is below them with the tail on top (and so is yours); the tail comes from the speaker
+    const pf = eye && eye.face && (eye.face.dx || eye.face.dy) ? eye.face : null, mine = eye && (n === eye || (b.to && b.to === eye));
+    const side = pf && mine ? (Math.abs(pf.dy) >= Math.abs(pf.dx) ? (pf.dy < 0 ? 'below' : 'above') : (pf.dx > 0 ? 'left' : 'right')) : bubbleSide(vx, vy, n === eye);
     const foot = toScreen(n.x * TS + TS / 2, n.y * TS + TS - 3), mid = { x: s.x, y: (s.y + foot.y) / 2 };
     let bx = 0, by = 0, tail: number[][] = [];
     if (side === 'above') { bx = Math.max(2, Math.min(vw - w - 2, s.x - w / 2)); by = Math.max(2, s.y - h - 5); const tx = Math.max(bx + 6, Math.min(bx + w - 6, s.x)); tail = [[tx - 4, by + h], [s.x, s.y], [tx + 4, by + h]]; }

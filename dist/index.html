@@ -1903,15 +1903,55 @@ const ART = (function() {
     dab(g, 12, -0.6, 0.5, 0.5, 0, "#b8a070");
   }
   const AWN = ["#d9534a", "#3a92b5", "#e6aa3a", "#7aa34a"];
-  function stall24(g, t, v) {
+  function stallGoods24(g, v, kind) {
+    if (kind === "seed") {
+      for (let r = 0; r < 2; r++) for (let i = 0; i < 5; i++) {
+        const x = 3.4 + i * 3.7 + (r ? 1.2 : 0), y = 10.2 + r * 3.4, band = ["#d2423a", "#e6b040", "#7aa34a", "#8a6bc0", "#e07aa0"][(i + v + r) % 5];
+        dab(g, x + 0.2, y + 1.3, 1.9, 1.2, 0, "rgba(40,30,20,.35)");
+        g.fillStyle = INK;
+        g.fillRect(x - 1.15, y - 1.45, 2.5, 3.3);
+        g.fillStyle = "#f6efd8";
+        g.fillRect(x - 0.95, y - 1.25, 2.1, 2.9);
+        g.fillStyle = band;
+        g.fillRect(x - 0.95, y - 1.25, 2.1, 1);
+        dab(g, x + 0.1, y + 0.7, 0.42, 0.5, 0, "#6a8a3a");
+      }
+      for (const sx of [5, 17]) {
+        dab(g, sx + 0.3, 19.4, 3.2, 1.2, 0, "rgba(40,30,20,.3)");
+        dab(g, sx, 18.2, 3, 2.4, 0, "#b89a6a");
+        dab(g, sx - 0.5, 17.6, 2.1, 1.4, 0, "#d6bd8c");
+        ln(g, sx - 2.2, 16.6, sx + 2.2, 16.6, "#8a6a42", 0.5);
+      }
+    } else {
+      for (let i = 0; i < 3; i++) {
+        const x = 4.4 + i * 7.4, cols = [["#e8742a", "#7aa34a"], ["#d2423a", "#5a8a3a"], ["#9a6ac0", "#7aa34a"]][(i + v) % 3];
+        dab(g, x + 0.3, 20.2, 4.6, 1.5, 0, "rgba(40,30,20,.35)");
+        wood(g, x - 3.4, 15.6, 6.8, 4.8, { dir: "h", planks: 2, seed: 40 + i + v, P: WDP.oak, knots: 0.2 });
+        for (let k = 0; k < 5; k++) {
+          const vx = x - 2.6 + k * 1.3 + (k + v) % 2 * 0.3, vy = 14.6 - (k + i) % 2 * 1.3;
+          dab(g, vx + 0.1, vy + 0.4, 1.4, 1.5, 0, INK);
+          dab(g, vx, vy, 1.3, 1.4, 0, cols[0]);
+          dab(g, vx - 0.4, vy - 0.5, 0.45, 0.4, 0, "rgba(255,255,255,.5)");
+          dab(g, vx, vy - 1.5, 0.5, 0.9, 0, cols[1]);
+        }
+      }
+      for (let k = 0; k < 3; k++) {
+        const x = 3 + k * 8.4;
+        ln(g, x, 3.2, x, 8.4 + k % 2, "#5a8a3a", 0.5);
+        dab(g, x, 9, 0.9, 1.5, 0, k % 2 ? "#e8e0c0" : "#7aa34a");
+      }
+    }
+  }
+  function stall24(g, t, v, kind) {
     shadowE(g, 13, 21.6, 11.6, 2.6);
-    const ca = AWN[v % 4], CA = hx(ca), CK = kage(CA, 1);
+    const ca = kind === "seed" ? "#79b265" : kind === "veg" ? "#e0803a" : AWN[v % 4], CA = hx(ca), CK = kage(CA, 1);
     wood(g, 1.6, 9.6, 20.8, 11.4, { dir: "h", planks: 3, seed: 21 + v, P: WDP.oak, knots: 0.5 });
     g.fillStyle = "rgba(54,40,110,.34)";
     g.fillRect(1.8, 9.9, 20.4, 1.9);
     g.fillStyle = rgba(hx(WDP.oak.rim), 0.55);
     g.fillRect(1.6, 9.62, 20.8, 0.36);
-    for (let i = 0; i < 3; i++) {
+    if (kind) stallGoods24(g, v, kind);
+    else for (let i = 0; i < 3; i++) {
       const x = 4.6 + i * 7, col = ["#d2423a", "#e6b040", "#7aa34a"][(i + v) % 3], C2 = hx(col);
       dab(g, x + 0.2, 11.5, 2.5, 2.3, 0, INK);
       dab(g, x, 11.2, 2.2, 2, 0, rgba(mixc(C2, kage(C2), 0.4)));
@@ -7407,6 +7447,10 @@ const ART = (function() {
   A("feastfire", "camp", "Feast fire", 24, 24, FR, (g, t) => campfire24(g, t, true));
   A("well", "camp", "Well (2 \xD7 2 tiles)", 48, 48, FR, (g, t) => well24(g, t), { footprint: [2, 2] });
   for (const v of R3(4)) A(`stall_${v}`, "camp", `Market stall ${v + 1}`, 24, 24, FR, (g, t) => stall24(g, t, v));
+  for (const v of R3(4)) {
+    A(`stall_seed_${v}`, "camp", `Seed stall ${v + 1}`, 24, 24, FR, (g, t) => stall24(g, t, v, "seed"));
+    A(`stall_veg_${v}`, "camp", `Greengrocer ${v + 1}`, 24, 24, FR, (g, t) => stall24(g, t, v, "veg"));
+  }
   A("stake", "camp", "Survey stake", 24, 24, 1, (g) => stake24(g));
   for (const m of ["wood", "stone"]) for (const b of [0, 1]) A(`site_${m}_${b ? "built" : "open"}`, "camp", `${m === "wood" ? "Timber" : "Stone"} plot, ${b ? "built" : "marked"}`, 24, 24, 1, (g) => slot24(g, m, b));
   A("chest_closed", "camp", "Chest", 24, 24, 1, (g) => chest24(g, false));
@@ -11989,7 +12033,7 @@ function findPath(sx, sy, gx, gy, avoid) {
   for (let c = e; c !== s; c = par[c]) path.push({ x: c % W, y: c / W | 0 });
   return path.reverse();
 }
-const REST_DAY = 2;
+const REST_DAY = -1;
 const isRestDay = (t) => Math.floor((t === void 0 ? game.time : t) / 1440) % 3 === REST_DAY;
 const HOBBIES = ["fishing", "foraging", "walking", "whittling", "singing", "stargazing"];
 const HOBBY_TXT = { fishing: "fishing", foraging: "berry picking", walking: "long walks", whittling: "whittling", singing: "singing", stargazing: "stargazing" };
@@ -15217,7 +15261,7 @@ function drawTrueSight(c, now) {
   c.restore();
 }
 const SIGHT_RANGE = 7, SIGHT_HALF = Math.PI * 0.42;
-const SIGHT_VIS = { on: true };
+const SIGHT_VIS = { on: false };
 function sightPoly(n, ex, ey, G) {
   const f = n.face && (n.face.dx || n.face.dy) ? n.face : { dx: 0, dy: 1 }, key = ex.toFixed(2) + "," + ey.toFixed(2) + "|" + f.dx + f.dy + "|" + TSIGHT.geoKey;
   if (n._sk === key && n._sp) return n._sp;
@@ -15656,8 +15700,10 @@ function gaSpriteId(x, y, t) {
       return "crag_" + Math.floor(hash(x, y, 6) * 4);
     case T.TENT:
       return "tent_" + Math.floor(hash(x, y, 91) * 4);
-    case T.STALL:
-      return "stall_" + ((x >> 1) + y) % 4;
+    case T.STALL: {
+      const sk = typeof stallKindAt === "function" ? stallKindAt(x, y) : "";
+      return "stall_" + (sk ? sk + "_" : "") + ((x >> 1) + y) % 4;
+    }
     case T.GRAVE: {
       const k = hash(x, y, 90);
       return k < 0.45 ? "grave_stone" : k < 0.8 ? "grave_cross" : "grave_cross2";
@@ -19160,7 +19206,7 @@ function bldDemolish(r, hx, hy, by) {
     if (extra) Object.assign(p, extra);
     return p;
   };
-  const loose = [];
+  const loose = [], keepBed = /* @__PURE__ */ new Map();
   for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
     if (roomAt[y][x] !== ri2) continue;
     const t = grid[y][x], hole = x === hx && y === hy;
@@ -19172,7 +19218,11 @@ function bldDemolish(r, hx, hy, by) {
       if (out(x, y, t === T.DOOR ? "bdoor" : win ? "bwindow" : "bwall")) loose.push([x, y]);
     } else if (t === T.BED) {
       const b = (r.beds || []).find((q) => q.x === x && q.y === y);
-      out(x, y, "bed", { ownerId: b && b.owner ? b.owner.id : null });
+      const p = out(x, y, "bed", { ownerId: b && b.owner ? b.owner.id : null });
+      if (p && b && b.owner) {
+        p.owner = b.owner;
+        keepBed.set(b.owner.id, p);
+      }
     } else if (t === T.SEAT) out(x, y, "chair");
     else if (t === T.TABLE) out(x, y, "table");
     else if (t === T.BARREL) out(x, y, "barrel", { pantry: r.pantry });
@@ -19181,7 +19231,7 @@ function bldDemolish(r, hx, hy, by) {
   town.props = town.props.filter((p) => !(p.fur && p.fur.r === r));
   for (const n of npcs) if (n.homeRoom === r) {
     n.homeRoom = null;
-    n.bed = { owner: null };
+    n.bed = keepBed.get(n.id) || { owner: null };
     n.seat = null;
     n.homeless = true;
     abortPlan(n);
@@ -20139,6 +20189,42 @@ function drawSigns(c, now) {
     c.fillRect(px + 8.4 * u, py + 11.4 * u, 7 * u, 1 * u);
     c.fillRect(px + 8.4 * u, py + 13.4 * u, 5 * u, 1 * u);
   }
+}
+function stallKindAt(x, y) {
+  if (typeof town === "undefined" || !town || !town.stalls) return "";
+  for (const st of town.stalls) {
+    if (st.gone || !st.tiles) continue;
+    for (const t of st.tiles) if (t.x === x && t.y === y) {
+      const m = st.owner && st.owner.shop;
+      const noun = m && m.def && m.def.noun;
+      return noun === "seed stall" ? "seed" : noun === "greengrocer" ? "veg" : "";
+    }
+  }
+  return "";
+}
+function drawStallSigns(c, now) {
+  if (!town || cam.z < 0.8 || !merchants) return;
+  const v = gaView(), u = TS / 24;
+  for (const m of merchants) {
+    const st = m.post;
+    if (!st || st.gone || !st.tiles || !st.tiles[0]) continue;
+    const t = st.tiles[0];
+    if (t.x < v.x0 - 1 || t.x >= v.x1 || t.y < v.y0 || t.y >= v.y1) continue;
+    if (typeof canSee === "function" && !canSee(t.x, t.y)) continue;
+    const open = m.serving || typeof isOpen === "function" && isOpen(m), px = t.x * TS, py = t.y * TS;
+    c.fillStyle = "#2a2332";
+    c.fillRect(px + 14.6 * u, py + 15.2 * u, 9.2 * u, 4.6 * u);
+    c.fillStyle = open ? "#4f9a4a" : "#b8453c";
+    c.fillRect(px + 15 * u, py + 15.6 * u, 8.4 * u, 3.8 * u);
+    c.fillStyle = "#fff6dc";
+    c.font = "bold " + 2.3 * u + "px system-ui, sans-serif";
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    c.fillText(open ? "OPEN" : "SHUT", px + 19.2 * u, py + 17.5 * u);
+    c.fillStyle = "#2a2332";
+    c.fillRect(px + 18.9 * u, py + 14.2 * u, 0.5 * u, 1.2 * u);
+  }
+  c.textAlign = "center";
 }
 const GUIDE_DEFS = {
   hut: { w: 5, h: 5, door: [2, 4], items: [["bed", 1, 1], ["bed", 3, 1]], say: "Put a wall block on each amber marker, a door on the blue one, and the beds inside." },
@@ -23699,6 +23785,7 @@ function render(now, dtSec, hourOfDay) {
   drawNodes(c, now);
   if (typeof drawShrooms === "function") drawShrooms(c, now);
   if (typeof drawSigns === "function") drawSigns(c, now);
+  if (typeof drawStallSigns === "function") drawStallSigns(c, now);
   if (typeof drawGuides === "function") drawGuides(c, now);
   drawSites(c, now);
   drawEventsFx(c, now);
@@ -24154,10 +24241,11 @@ function drawBubbles(c, now) {
     if (n.inShip || !n.player && !canSee(n.x, n.y)) continue;
     const s = toScreen(n.x * TS + TS / 2, n.y * TS - 6 - 8 * (n.scale || 1));
     if (s.x < -80 || s.y < -40 || s.x > vw + 80 || s.y > vh2 + 40) continue;
-    const lines = wrapText(c, b.text, 132 * kb).slice(0, 4), lh = 12.5 * kb;
+    const lines = wrapText(c, (n.first ? n.first + ": " : "") + b.text, 132 * kb).slice(0, 4), lh = 12.5 * kb;
     const w = Math.max.apply(null, lines.map((l) => c.measureText(l).width)) + 12 * kb, h = lines.length * lh + 8 * kb;
     const eye = game.player || null, ex = eye ? eye.x : cam.x / TS + cam.cw / cam.z / TS / 2, ey = eye ? eye.y : cam.y / TS + cam.ch / cam.z / TS / 2, vx = ex - n.x, vy = ey - n.y;
-    const side = bubbleSide(vx, vy, n === eye);
+    const pf = eye && eye.face && (eye.face.dx || eye.face.dy) ? eye.face : null, mine = eye && (n === eye || b.to && b.to === eye);
+    const side = pf && mine ? Math.abs(pf.dy) >= Math.abs(pf.dx) ? pf.dy < 0 ? "below" : "above" : pf.dx > 0 ? "left" : "right" : bubbleSide(vx, vy, n === eye);
     const foot = toScreen(n.x * TS + TS / 2, n.y * TS + TS - 3), mid2 = { x: s.x, y: (s.y + foot.y) / 2 };
     let bx = 0, by = 0, tail = [];
     if (side === "above") {
@@ -28366,13 +28454,14 @@ lx("call_reply", "plain", "Not today, thanks.");
 lx("call_reply", "plain", "I'll be back.");
 lx("call_reply", "plain", "Not now, I'm busy.");
 function lxContext(sp, li, c) {
-  const rel = sp.fam && (sp.fam.spouse === li.id || (sp.fam.kids || []).includes(li.id) || sp.fam.mother === li.id || sp.fam.father === li.id) ? "kin" : sp.rel && sp.rel[li.id] === "friend" || (sp.aff[li.id] || 0) > 30 ? "friend" : sp.know && (sp.know[li.id] || 0) > 10 ? "acquaintance" : "stranger";
+  const f = sp.fam || {}, g = li.fam || {};
+  const rel = f.spouse === li.id ? "spouse" : f.partner === li.id ? "partner" : (f.kids || []).includes(li.id) ? "child" : f.mother === li.id || f.father === li.id ? "parent" : f.mother != null && f.mother === g.mother || f.father != null && f.father === g.father ? "sibling" : typeof isKin === "function" && isKin(sp, li) ? "kin" : sp.rel && sp.rel[li.id] === "friend" || (sp.aff[li.id] || 0) > 30 ? "friend" : sp.know && (sp.know[li.id] || 0) > 10 ? "acquaintance" : "stranger";
   return { band: todBand(game.time), rel, state: c.state || talkState(sp) || "fine", trait: (sp.traits || [])[0], how: c.how, conf: c.conf, call: c.call, op: c.op, rep: typeof repWord === "function" ? repWord(sp, li) : void 0 };
 }
 function lxSay(act, sp, li, c) {
   const ctx2 = lxContext(sp, li, c);
   const heard = li.heard || (li.heard = {});
-  const pool = (pack) => LEX.filter((e) => e.act === act && e.pack === pack && WORLD.ok(e.requires) && Object.keys(e.tags).every((k) => k === "trait" ? (sp.traits || []).includes(e.tags[k]) : e.tags[k] === ctx2[k]));
+  const pool = (pack) => LEX.filter((e) => e.act === act && e.pack === pack && WORLD.ok(e.requires) && Object.keys(e.tags).every((k) => k === "trait" ? (sp.traits || []).includes(e.tags[k]) : k === "rel" && e.tags[k] === "kin" ? ["kin", "spouse", "partner", "child", "parent", "sibling"].includes(ctx2.rel) : k === "rel" && e.tags[k] === "partner" ? ["partner", "spouse"].includes(ctx2.rel) : e.tags[k] === ctx2[k]));
   const pk = typeof town !== "undefined" && town && town.pack || TALK_PACK.cur;
   let cands = pool(pk);
   if (!cands.length) cands = pool("plain");
@@ -30367,6 +30456,56 @@ lx("tell_back_reply", "plain", "Strange. I'd have believed it of this place.");
 lxi("tell_back", "Before I came here I {about}. I mention it only because nobody asks.");
 lxi("tell_back_reply", "That is quite a story. I believe it. That is the strange part.");
 lxi("tell_back_reply", "I see. I find I am not surprised. I have stopped being surprised.");
+lx("greet", "plain", "There you are, love.", { rel: "spouse" });
+lx("greet", "plain", "Hello, my dear. Did you sleep?", { rel: "spouse", band: "morning" });
+lx("greet", "plain", "Home at last. Come and sit.", { rel: "spouse", band: "evening" });
+lx("greet", "plain", "There you are, {li}.", { rel: "partner" });
+lx("greet", "plain", "Oh, it's you. What do you want?", { rel: "sibling" });
+lx("greet", "plain", "{li}. Look what the wind blew in.", { rel: "sibling" });
+lx("greet", "plain", "Have you eaten, {li}?", { rel: "parent" });
+lx("greet", "plain", "{li}! Come here and let me look at you.", { rel: "parent" });
+lx("greet", "plain", "Hello, little one.", { rel: "child" });
+lx("greet", "plain", "There you are! Where have you been?", { rel: "child" });
+lx("greet_back", "plain", "There you are. I was just thinking of you.", { rel: "spouse" });
+lx("greet_back", "plain", "Hello, love.", { rel: "spouse" });
+lx("greet_back", "plain", "What now?", { rel: "sibling" });
+lx("greet_back", "plain", "You again. Good.", { rel: "sibling" });
+lx("greet_back", "plain", "Hello, dear. I'm fine, don't fuss.", { rel: "parent" });
+lx("greet_back", "plain", "Hello. Yes, I've eaten.", { rel: "parent" });
+lx("greet_back", "plain", "Hello! I was only just out there.", { rel: "child" });
+lx("farewell", "plain", "I'll see you at supper, love.", { rel: "spouse" });
+lx("farewell", "plain", "Mind yourself. Come home safe.", { rel: "spouse" });
+lx("farewell", "plain", "Try not to be an idiot.", { rel: "sibling" });
+lx("farewell", "plain", "Give my regards to nobody. See you.", { rel: "sibling" });
+lx("farewell", "plain", "Wrap up warm, dear.", { rel: "parent" });
+lx("farewell", "plain", "Don't be late for supper.", { rel: "child" });
+lx("farewell", "plain", "Be good. Or be careful.", { rel: "child" });
+lx("ask_how", "plain", "How are you really? Not the polite answer.", { rel: "spouse" });
+lx("ask_how", "plain", "Are you well? You look tired.", { rel: "parent" });
+lx("ask_how", "plain", "Are you behaving?", { rel: "child" });
+lx("ask_how", "plain", "How's life, then? Anything I should know before the rest of the family does?", { rel: "sibling" });
+lxi("greet", "There you are. I was about to look for you, which is not the same as worrying.", { rel: "spouse" });
+lxi("greet", "Hello. You are home. That is the best news of the afternoon.", { rel: "spouse" });
+lxi("greet", "There you are, {li}.", { rel: "partner" });
+lxi("greet", "It is you. I had hoped for someone else, and then I thought: no.", { rel: "sibling" });
+lxi("greet", "{li}. We have the same eyebrows. I notice every time.", { rel: "sibling" });
+lxi("greet", "Have you eaten? I ask every time. The answer is never the point.", { rel: "parent" });
+lxi("greet", "Come here. Let me look at you. You are taller or I am less.", { rel: "parent" });
+lxi("greet", "Hello. You are where I left you, or near it.", { rel: "child" });
+lxi("greet", "There you are. I counted. You were still one.", { rel: "child" });
+lxi("greet_back", "There you are. I was thinking about you, in a general way.", { rel: "spouse" });
+lxi("greet_back", "Hello, love. I am here. It is where I live.", { rel: "spouse" });
+lxi("greet_back", "What now? I am joking. Hello.", { rel: "sibling" });
+lxi("greet_back", "Hello. Yes, I have eaten. I would tell you if I had not, which is not true.", { rel: "parent" });
+lxi("greet_back", "Hello! I am here. I am fine. You do not need to look at me like that.", { rel: "child" });
+lxi("farewell", "I will see you at supper. I will be the one who is hungry.", { rel: "spouse" });
+lxi("farewell", "Try not to be an idiot. I say it with love, and with a little concern.", { rel: "sibling" });
+lxi("farewell", "Wrap up warm. It is a mild island, and still.", { rel: "parent" });
+lxi("farewell", "Do not be late for supper. I will notice and I will say nothing.", { rel: "child" });
+lxi("ask_how", "How are you? I mean really, not the answer you give the baker.", { rel: "spouse" });
+lxi("ask_how", "Are you well? You look tired. You always look tired. It is part of the family.", { rel: "parent" });
+lxi("ask_how", "Are you behaving? Do not answer.", { rel: "child" });
+lxi("ask_how", "How is life, then? Tell me before everyone else does.", { rel: "sibling" });
 TALK.log = [];
 TALK.words = false;
 TALK.running = true;

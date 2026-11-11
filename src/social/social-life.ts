@@ -1,5 +1,5 @@
 /* ================= Social life: rest day, outings, hobbies, memories, sharing, feasts, small touches ================= */
-const REST_DAY = 2; // the third day of every year
+const REST_DAY = -1; // no rest day any more (it got in the way of testing and of play): nothing matches it
 const isRestDay = (t?) => Math.floor((t === undefined ? game.time : t) / 1440) % 3 === REST_DAY;
 const HOBBIES = ['fishing', 'foraging', 'walking', 'whittling', 'singing', 'stargazing'];
 const HOBBY_TXT = { fishing: 'fishing', foraging: 'berry picking', walking: 'long walks', whittling: 'whittling', singing: 'singing', stargazing: 'stargazing' };

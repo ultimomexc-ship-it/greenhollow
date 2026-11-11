@@ -585,11 +585,23 @@ function lamp24(g, t, lit) { const fl = lit ? 0.82 + 0.18 * vn(twos(t), 0.4, 7, 
   if (lit) { dab(g, 12, 6.6 - fl * 0.3, 1.2, 2 * fl, 0, '#fff4c6'); dab(g, 12, 7, 0.55, 1.1 * fl, 0, '#ffd070'); } else { fillPoly(g, [[9.2, 4], [10.8, 4], [9.6, 8.2], [9.35, 8.2]], 'rgba(255,255,255,.35)'); fillPoly(g, [[13.4, 4], [14.8, 4], [14.7, 8.4], [13.6, 8.4]], 'rgba(40,50,100,.22)'); }
   c24(g, [[[6.4, 3], [12, -0.4], [17.6, 3]]], pal('#4a4252', '#a69cb6', '#7a7086'), { smooth: false, seed: 14, hs: 0.01, lx: -0.5, ly: -0.5 }); dab(g, 12, -0.5, 0.7, 0.7, 0, INK); dab(g, 12, -0.6, 0.5, 0.5, 0, '#b8a070'); }
 const AWN = ['#d9534a', '#3a92b5', '#e6aa3a', '#7aa34a'];
-function stall24(g, t, v) { shadowE(g, 13, 21.6, 11.6, 2.6); const ca = AWN[v % 4], CA = hx(ca), CK = kage(CA, 1);
+/** what lies on the counter: seed packets and little sacks at the seed stall, heaped baskets of vegetables at the greengrocer's */
+function stallGoods24(g, v, kind) {
+  if (kind === 'seed') {
+    for (let r = 0; r < 2; r++) for (let i = 0; i < 5; i++) { const x = 3.4 + i * 3.7 + (r ? 1.2 : 0), y = 10.2 + r * 3.4, band = ['#d2423a', '#e6b040', '#7aa34a', '#8a6bc0', '#e07aa0'][(i + v + r) % 5]; dab(g, x + 0.2, y + 1.3, 1.9, 1.2, 0, 'rgba(40,30,20,.35)'); g.fillStyle = INK; g.fillRect(x - 1.15, y - 1.45, 2.5, 3.3); g.fillStyle = '#f6efd8'; g.fillRect(x - 0.95, y - 1.25, 2.1, 2.9); g.fillStyle = band; g.fillRect(x - 0.95, y - 1.25, 2.1, 1.0); dab(g, x + 0.1, y + 0.7, 0.42, 0.5, 0, '#6a8a3a'); }
+    for (const sx of [5, 17]) { dab(g, sx + 0.3, 19.4, 3.2, 1.2, 0, 'rgba(40,30,20,.3)'); dab(g, sx, 18.2, 3, 2.4, 0, '#b89a6a'); dab(g, sx - 0.5, 17.6, 2.1, 1.4, 0, '#d6bd8c'); ln(g, sx - 2.2, 16.6, sx + 2.2, 16.6, '#8a6a42', 0.5); }
+  } else {
+    for (let i = 0; i < 3; i++) { const x = 4.4 + i * 7.4, cols = [['#e8742a', '#7aa34a'], ['#d2423a', '#5a8a3a'], ['#9a6ac0', '#7aa34a']][(i + v) % 3];
+      dab(g, x + 0.3, 20.2, 4.6, 1.5, 0, 'rgba(40,30,20,.35)'); wood(g, x - 3.4, 15.6, 6.8, 4.8, { dir: 'h', planks: 2, seed: 40 + i + v, P: WDP.oak, knots: 0.2 });
+      for (let k = 0; k < 5; k++) { const vx = x - 2.6 + k * 1.3 + ((k + v) % 2) * 0.3, vy = 14.6 - ((k + i) % 2) * 1.3; dab(g, vx + 0.1, vy + 0.4, 1.4, 1.5, 0, INK); dab(g, vx, vy, 1.3, 1.4, 0, cols[0]); dab(g, vx - 0.4, vy - 0.5, 0.45, 0.4, 0, 'rgba(255,255,255,.5)'); dab(g, vx, vy - 1.5, 0.5, 0.9, 0, cols[1]); } }
+    for (let k = 0; k < 3; k++) { const x = 3 + k * 8.4; ln(g, x, 3.2, x, 8.4 + (k % 2), '#5a8a3a', 0.5); dab(g, x, 9, 0.9, 1.5, 0, k % 2 ? '#e8e0c0' : '#7aa34a'); }   // leeks and onions hanging from the frame
+  }
+}
+function stall24(g, t, v, kind?) { shadowE(g, 13, 21.6, 11.6, 2.6); const ca = kind === 'seed' ? '#79b265' : kind === 'veg' ? '#e0803a' : AWN[v % 4], CA = hx(ca), CK = kage(CA, 1);
   wood(g, 1.6, 9.6, 20.8, 11.4, { dir: 'h', planks: 3, seed: 21 + v, P: WDP.oak, knots: 0.5 });
   g.fillStyle = 'rgba(54,40,110,.34)'; g.fillRect(1.8, 9.9, 20.4, 1.9);                                           // the awning's shade on the counter
   g.fillStyle = rgba(hx(WDP.oak.rim), 0.55); g.fillRect(1.6, 9.62, 20.8, 0.36);
-  for (let i = 0; i < 3; i++) { const x = 4.6 + i * 7, col = ['#d2423a', '#e6b040', '#7aa34a'][(i + v) % 3], C = hx(col); dab(g, x + 0.2, 11.5, 2.5, 2.3, 0, INK); dab(g, x, 11.2, 2.2, 2, 0, rgba(mixc(C, kage(C), 0.4))); dab(g, x - 0.2, 10.9, 1.9, 1.6, 0, col); dab(g, x - 0.7, 10.3, 0.7, 0.5, 0, 'rgba(255,255,255,.7)'); ln(g, x, 9.4, x + 0.3, 8.9, '#5a7a38', 0.3); }
+  if (kind) stallGoods24(g, v, kind); else for (let i = 0; i < 3; i++) { const x = 4.6 + i * 7, col = ['#d2423a', '#e6b040', '#7aa34a'][(i + v) % 3], C = hx(col); dab(g, x + 0.2, 11.5, 2.5, 2.3, 0, INK); dab(g, x, 11.2, 2.2, 2, 0, rgba(mixc(C, kage(C), 0.4))); dab(g, x - 0.2, 10.9, 1.9, 1.6, 0, col); dab(g, x - 0.7, 10.3, 0.7, 0.5, 0, 'rgba(255,255,255,.7)'); ln(g, x, 9.4, x + 0.3, 8.9, '#5a7a38', 0.3); }
   wood(g, 1.4, 1.8, 1.1, 9.4, { dir: 'v', planks: 1, seed: 22, nails: false, P: WDP.dark, knots: 0 }); wood(g, 21.6, 1.8, 1.1, 9.4, { dir: 'v', planks: 1, seed: 23, nails: false, P: WDP.dark, knots: 0 });
   for (let i = 0; i < 4; i++) { const x0 = 1 + i * 5.5, sw = tw(t, 1, i) * 0.12, cream = i % 2, base = cream ? [250, 244, 230] : CA, ink = hx(INK);
     const Pn = [[x0, 1.6], [x0 + 5.5, 1.6], [x0 + 5.5, 6.4], [x0 + 2.75 + 1.4, 7.4 + sw], [x0 + 2.75, 7.9 + sw], [x0 + 2.75 - 1.4, 7.4 + sw], [x0, 6.4]];
@@ -2037,6 +2049,7 @@ A('lamp_unlit', 'camp', 'Lamp post, day', 24, 26, 1, g => lamp24(g, 0, false), {
 A('campfire', 'camp', 'Campfire', 24, 24, FR, (g, t) => campfire24(g, t, false)); A('feastfire', 'camp', 'Feast fire', 24, 24, FR, (g, t) => campfire24(g, t, true));
 A('well', 'camp', 'Well (2 × 2 tiles)', 48, 48, FR, (g, t) => well24(g, t), { footprint: [2, 2] });
 for (const v of R3(4)) A(`stall_${v}`, 'camp', `Market stall ${v + 1}`, 24, 24, FR, (g, t) => stall24(g, t, v));
+for (const v of R3(4)) { A(`stall_seed_${v}`, 'camp', `Seed stall ${v + 1}`, 24, 24, FR, (g, t) => stall24(g, t, v, 'seed')); A(`stall_veg_${v}`, 'camp', `Greengrocer ${v + 1}`, 24, 24, FR, (g, t) => stall24(g, t, v, 'veg')); }
 A('stake', 'camp', 'Survey stake', 24, 24, 1, g => stake24(g)); for (const m of ['wood', 'stone']) for (const b of [0, 1]) A(`site_${m}_${b ? 'built' : 'open'}`, 'camp', `${m === 'wood' ? 'Timber' : 'Stone'} plot, ${b ? 'built' : 'marked'}`, 24, 24, 1, g => slot24(g, m, b));
 A('chest_closed', 'camp', 'Chest', 24, 24, 1, g => chest24(g, false)); A('chest_open', 'camp', 'Chest, open', 24, 24, 1, g => chest24(g, true)); A('remains', 'camp', 'Remains', 24, 24, 1, g => remains24(g));
 A('cake', 'camp', 'Wedding cake', 24, 24, FR, (g, t) => cake24(g, t));

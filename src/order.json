@@ -38,6 +38,7 @@
   "life2/functions.ts",
   "life2/needs.ts",
   "life2/signs.ts",
+  "life2/market-signs.ts",
   "life2/guides.ts",
   "life2/kit.ts",
   "life2/shrooms.ts",

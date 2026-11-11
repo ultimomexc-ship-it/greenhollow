@@ -95,13 +95,14 @@ lx('call_reply', 'plain', 'Maybe later.'); lx('call_reply', 'plain', 'Not today,
 
 /** what a speaker's line may be conditioned on, for this act */
 function lxContext(sp: any, li: any, c: any) {
-  const rel = (sp.fam && (sp.fam.spouse === li.id || (sp.fam.kids || []).includes(li.id) || sp.fam.mother === li.id || sp.fam.father === li.id)) ? 'kin' : (sp.rel && sp.rel[li.id] === 'friend') || (sp.aff[li.id] || 0) > 30 ? 'friend' : (sp.know && (sp.know[li.id] || 0) > 10) ? 'acquaintance' : 'stranger';
+  const f = sp.fam || {}, g = li.fam || {};
+  const rel = f.spouse === li.id ? 'spouse' : f.partner === li.id ? 'partner' : (f.kids || []).includes(li.id) ? 'child' : (f.mother === li.id || f.father === li.id) ? 'parent' : ((f.mother != null && f.mother === g.mother) || (f.father != null && f.father === g.father)) ? 'sibling' : (typeof isKin === 'function' && isKin(sp, li)) ? 'kin' : (sp.rel && sp.rel[li.id] === 'friend') || (sp.aff[li.id] || 0) > 30 ? 'friend' : (sp.know && (sp.know[li.id] || 0) > 10) ? 'acquaintance' : 'stranger';
   return { band: todBand(game.time), rel, state: c.state || talkState(sp) || 'fine', trait: (sp.traits || [])[0], how: c.how, conf: c.conf, call: c.call, op: c.op, rep: typeof repWord === 'function' ? repWord(sp, li) : undefined };
 }
 /** choose the wording of an act: the pack's lines that fit and whose things exist, the more specific the better, what the listener heard lately worse */
 function lxSay(act: string, sp: any, li: any, c: any): string {
   const ctx: any = lxContext(sp, li, c); const heard = li.heard || (li.heard = {});
-  const pool = (pack: string) => LEX.filter(e => e.act === act && e.pack === pack && WORLD.ok(e.requires) && Object.keys(e.tags).every(k => k === 'trait' ? (sp.traits || []).includes(e.tags[k]) : e.tags[k] === ctx[k]));
+  const pool = (pack: string) => LEX.filter(e => e.act === act && e.pack === pack && WORLD.ok(e.requires) && Object.keys(e.tags).every(k => k === 'trait' ? (sp.traits || []).includes(e.tags[k]) : k === 'rel' && e.tags[k] === 'kin' ? ['kin', 'spouse', 'partner', 'child', 'parent', 'sibling'].includes(ctx.rel) : k === 'rel' && e.tags[k] === 'partner' ? ['partner', 'spouse'].includes(ctx.rel) : e.tags[k] === ctx[k]));   // (a line for kin fits any relative; one for a partner fits a spouse)
   const pk = (typeof town !== 'undefined' && town && town.pack) || TALK_PACK.cur; let cands = pool(pk); if (!cands.length) cands = pool('plain'); if (!cands.length) return '';
   let best: any = null, bs = -1e9;
   for (const e of cands) { const id = act + '|' + e.text, g = LX_RECENT[id], s = Object.keys(e.tags).length * 2 - (heard[id] != null ? 4 - Math.min(3, (game.time - heard[id]) / 600) : 0) - (g != null && game.time - g < 180 ? 2.2 : 0) + Math.random() * 1.5; if (s > bs) { bs = s; best = e; } }

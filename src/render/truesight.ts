@@ -240,7 +240,7 @@ function drawTrueSight(c, now) {
    Each villager's sight is a cone in the way they face (SIGHT_RANGE tiles, SIGHT_HALF either side of straight ahead), cut by the same building
    geometry as yours: the visibility polygon from their eye, clipped to the cone. Drawn as a light red patch on the ground, no half shades. */
 const SIGHT_RANGE = 7, SIGHT_HALF = Math.PI * 0.42;
-const SIGHT_VIS: any = { on: true };
+const SIGHT_VIS: any = { on: false };
 function sightPoly(n, ex, ey, G) {
   const f = n.face && (n.face.dx || n.face.dy) ? n.face : { dx: 0, dy: 1 }, key = ex.toFixed(2) + ',' + ey.toFixed(2) + '|' + f.dx + f.dy + '|' + TSIGHT.geoKey;
   if (n._sk === key && n._sp) return n._sp; const R = { x0: Math.max(0, ex - SIGHT_RANGE), y0: Math.max(0, ey - SIGHT_RANGE), x1: Math.min(W, ex + SIGHT_RANGE), y1: Math.min(H, ey + SIGHT_RANGE) };
