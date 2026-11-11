@@ -28686,7 +28686,7 @@ function deedYou(ev, sp) {
 function deedPick(sp, li) {
   let best = null, bs = 0;
   for (const m of sp.tmem || []) {
-    if (m.ev == null || m.raised || m.conf < 0.5 || !["saw", "felt", "told", "overheard"].includes(m.kind)) continue;
+    if (m.ev == null || m.raised || m.forgiven || m.conf < 0.5 || !["saw", "felt", "told", "overheard"].includes(m.kind)) continue;
     const ev = lf2Ev().find((q) => q.id === m.ev);
     if (!ev || ev.actor !== li.id || m.ver && m.ver.who !== void 0 && m.ver.who !== li.id) continue;
     if (!(ev.tags || []).some((t) => DEED_TAGS.includes(t))) continue;
@@ -28719,7 +28719,7 @@ ACTS.raise_deed = {
     d.m.raised = true;
     c.done.raise_deed = 1;
   },
-  replies: ["deed_sorry", "deed_defend", "deed_deny", "deed_shrug"]
+  replies: ["deed_sorry", "deed_defend", "deed_deny", "deed_shrug", "offer_gift"]
 };
 ACTS.cry_deed = { kind: "deed", stage: "topic", when: () => false, apply: () => {
 }, replies: [] };
@@ -28831,6 +28831,85 @@ lx("cry_deed", "plain", "Who has carried off my chair?", { how: "chair" });
 lxi("cry_deed", "I went to sleep indoors. I am nearly certain of that.", { how: "bed" });
 lxi("cry_deed", "There is a tree where the ceiling was.", { how: "bed" });
 lxi("cry_deed", "I was sitting down just now. I was indoors.", { how: "chair" });
+const giftName = (k) => GOODS[k] && GOODS[k].name || (WORLD.has("item", k) ? WORLD.name("item", k) : k);
+function giftChoose(p, o) {
+  let best = null, bs = 0;
+  for (const k of Object.keys(p.inv || {})) {
+    const q = p.inv[k];
+    if (!(q > 0) || !GOODS[k] || /^seed_/.test(k)) continue;
+    const s = (GOODS[k].base || 1) + (GOODS[k].sat && (o.hunger || 0) > 55 ? 4 : 0) + (k === "flowers" ? 3 : 0);
+    if (s > bs) {
+      bs = s;
+      best = k;
+    }
+  }
+  return best;
+}
+ACTS.offer_gift = {
+  kind: "gift",
+  stage: "topic",
+  preview: (c, sp, li) => {
+    const k = giftChoose(sp, li);
+    return { item: k ? giftName(k) : "" };
+  },
+  when: (c, sp, li) => !!sp.player && !c.done.offer_gift && !li.infant && !!giftChoose(sp, li),
+  w: () => 0.5,
+  apply: (c, sp, li) => {
+    c.done.offer_gift = 1;
+    const k = giftChoose(sp, li);
+    if (!k) {
+      c.giftResult = "refused";
+      return;
+    }
+    c.lifeItem = giftName(k);
+    const bad = (li.tmem || []).filter((m) => m.ev != null && !m.forgiven && ["saw", "felt", "told", "overheard"].includes(m.kind) && game.time - m.t < 1440 * 8 && (() => {
+      const ev = lf2Ev().find((q) => q.id === m.ev);
+      return !!ev && ev.actor === sp.id && (ev.tags || []).some((t) => DEED_TAGS.includes(t));
+    })()), grievance = bad.length > 0;
+    if ((li.aff[sp.id] || 0) < -45) {
+      c.giftResult = "refused";
+      return;
+    }
+    sp.inv[k]--;
+    li.inv = li.inv || {};
+    li.inv[k] = (li.inv[k] || 0) + 1;
+    const value = GOODS[k].base || 1, wanted = GOODS[k].sat && (li.hunger || 0) > 55 || k === "flowers";
+    lfAff(li, sp, 0.35 * (2 + value * 0.8 + (wanted ? 3 : 0) + (grievance ? value * 0.8 + 4 : 0)), "gave me " + c.lifeItem);
+    for (const m of bad) m.forgiven = true;
+    c.giftResult = grievance ? "amends" : wanted ? "wanted" : "plain";
+    lfEmit("gift", { actor: sp, target: li, sev: 1, tags: ["kindness", "generous"], chron: false, text: `${sp.first} gave ${li.first} ${c.lifeItem}` });
+  },
+  replies: ["gift_thanks", "gift_delight", "gift_amends", "gift_refuse"]
+};
+const giftReply = (id, res) => {
+  ACTS[id] = { kind: "gift", stage: "topic", reply: true, when: (c) => c.giftResult === res, w: () => 1, apply: () => {
+  }, replies: [] };
+};
+giftReply("gift_thanks", "plain");
+giftReply("gift_delight", "wanted");
+giftReply("gift_amends", "amends");
+giftReply("gift_refuse", "refused");
+lx("offer_gift", "plain", "I brought you {item}.");
+lx("offer_gift", "plain", "Here. {item}, for you.");
+lx("offer_gift", "plain", "I thought you could use {item}.");
+lx("gift_thanks", "plain", "Thank you. That's kind.");
+lx("gift_thanks", "plain", "Oh. Thank you.");
+lx("gift_delight", "plain", "Just what I needed. Thank you.");
+lx("gift_delight", "plain", "How did you know? Thank you.");
+lx("gift_amends", "plain", "You think {item} makes up for it? ... Well. It helps.");
+lx("gift_amends", "plain", "That doesn't undo it. But I appreciate it.");
+lx("gift_refuse", "plain", "Keep it. I want nothing from you.");
+lx("gift_refuse", "plain", "No. Take it away.");
+lxi("offer_gift", "I have {item}. I thought of you, which surprised me.");
+lxi("offer_gift", "This is {item}. It is not much. It is what I had.");
+lxi("gift_thanks", "Thank you. I will find a place for it.");
+lxi("gift_thanks", "Thank you. I did not expect that today.");
+lxi("gift_delight", "I was about to go and look for that. Thank you.");
+lxi("gift_delight", "That is exactly right. I do not know how you knew.");
+lxi("gift_amends", "It does not undo it. It does help. I am noting that it helps.");
+lxi("gift_amends", "That is {item}. I accept it. I will stop being angry on Thursday.");
+lxi("gift_refuse", "No. I would rather not owe you anything.");
+lxi("gift_refuse", "I do not want that. Please take it back.");
 TALK.log = [];
 TALK.words = false;
 TALK.running = true;

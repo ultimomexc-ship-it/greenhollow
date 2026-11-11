@@ -1527,6 +1527,27 @@ test('meddling: what you do in build mode is settled when time runs again; those
   return JSON.stringify(r.kinds);
 });
 
+test('gifts: you can give something in a talk; food is welcome when hungry, flowers always, a gift after a deed is an amends, and someone who cannot stand you refuses it', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    const out = {}; TALK.words = true; startPlaying(npcs.find(n => !n.dead && n.age >= 18 && !n.infant)); const P = game.player;
+    const R = rooms.find(q => !q.free && !q.dead && q.kind === 'house' && meddleResidents(q).some(n => n !== P)); const o = meddleResidents(R).find(n => n !== P);
+    o.tx = o.x = P.tx + 1; o.ty = o.y = P.ty; o.pose = 'stand'; o.hunger = 80; rebuildOcc(); P.inv.grain = 3; P.inv.flowers = 2; o.aff[P.id] = 0;
+    const give = () => { openTalk(o); const k = talkUI.opts.findIndex(x => /brought|Here\.|could use/.test(x[1])); if (k < 0) { closeTalk(); return null; } const a0 = o.aff[P.id] || 0; const st = ptStep(talkUI.opts[k][0]); const r = { say: st.say, d: (o.aff[P.id] || 0) - a0 }; closeTalk(); return r; };
+    out.food = give(); out.grain = P.inv.grain; out.theirs = o.inv && o.inv.grain;
+    // a deed, then an amends
+    o.hunger = 10; meddleNote('wall_removed', o.tx, o.ty, P, { room: -1, residents: [o] }); meddleFlush(); out.grudge = !!deedPick(o, P); out.bad = o.aff[P.id];
+    out.amends = give(); out.forgiven = (o.tmem || []).some(m => m.forgiven) && !deedPick(o, P);
+    // refusal
+    o.aff[P.id] = -70; const f0 = P.inv.flowers; out.refused = give(); out.kept = P.inv.flowers === f0;
+    return out; });
+  check(r.food && r.food.d > 0 && r.grain === 2 && r.theirs >= 1, 'a gift moves the item and warms them: ' + JSON.stringify([r.food, r.grain, r.theirs]));
+  check(r.grudge && r.amends && r.amends.d > 0 && r.forgiven, 'a gift after a deed clears the grudge: ' + JSON.stringify([r.grudge, r.amends, r.forgiven]));
+  check(r.refused && r.kept, 'someone who cannot stand you refuses and you keep it: ' + JSON.stringify(r.refused));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return JSON.stringify([r.food, r.amends]);
+});
+
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

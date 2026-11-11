@@ -75,6 +75,7 @@
   "talk/pack-island.ts",
   "talk/people.ts",
   "talk/deeds.ts",
+  "talk/gifts.ts",
   "talk/shape.ts",
   "talk/service.ts",
   "talk/player.ts",

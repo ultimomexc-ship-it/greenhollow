@@ -19,7 +19,7 @@ function deedYou(ev: any, sp: any): string {
 function deedPick(sp: any, li: any): any {
   let best: any = null, bs = 0;
   for (const m of sp.tmem || []) {
-    if (m.ev == null || m.raised || m.conf < 0.5 || !['saw', 'felt', 'told', 'overheard'].includes(m.kind)) continue;
+    if (m.ev == null || m.raised || m.forgiven || m.conf < 0.5 || !['saw', 'felt', 'told', 'overheard'].includes(m.kind)) continue;
     const ev = lf2Ev().find((q: any) => q.id === m.ev); if (!ev || ev.actor !== li.id || (m.ver && m.ver.who !== undefined && m.ver.who !== li.id)) continue;
     if (!(ev.tags || []).some((t: string) => DEED_TAGS.includes(t))) continue; if (game.time - m.t > 1440 * 8) continue;
     const s = m.imp + (ev.target === sp.id ? 1 : 0) + (m.kind === 'saw' || m.kind === 'felt' ? 0.3 : 0); if (s > bs) { bs = s; best = { m, ev }; }
@@ -30,7 +30,7 @@ const deedSet = (c: any, sp: any, d: any) => { c.deed = d; c.deedText = deedYou(
 
 ACTS.raise_deed = { kind: 'deed', stage: 'topic', preview: (c: any) => ({ deed: c.deedText, how: c.newsHow }), when: (c: any, sp: any, li: any) => !c.done.raise_deed && !!deedPick(sp, li) && !(li.player && false),
   w: (c: any, sp: any, li: any) => { const d = deedPick(sp, li); return d && d.ev.target === sp.id ? 8 : 2.5; },
-  apply: (c: any, sp: any, li: any) => { const d = deedPick(sp, li); deedSet(c, sp, d); d.m.raised = true; c.done.raise_deed = 1; }, replies: ['deed_sorry', 'deed_defend', 'deed_deny', 'deed_shrug'] };
+  apply: (c: any, sp: any, li: any) => { const d = deedPick(sp, li); deedSet(c, sp, d); d.m.raised = true; c.done.raise_deed = 1; }, replies: ['deed_sorry', 'deed_defend', 'deed_deny', 'deed_shrug', 'offer_gift'] };
 ACTS.cry_deed = { kind: 'deed', stage: 'topic', when: () => false, apply: () => {}, replies: [] };
 const deedReply = (id: string, next: string[], fx: (c: any, sp: any, li: any) => void) => { ACTS[id] = { kind: 'deed', stage: 'topic', reply: true, when: (c: any) => !!c.deed, w: () => 1, apply: (c: any, sp: any, li: any) => { c.deedAnswer = id; fx(c, sp, li); }, replies: next }; };
 // sp is the one answering the accusation (the player, or a villager)
