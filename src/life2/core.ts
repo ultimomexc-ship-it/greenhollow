@@ -135,50 +135,7 @@ function lf2Feel(o, ev, from, cert, knowsA, reveal) {
 }
 
 /* ---------------- word of mouth ---------------- */
-function lf2PickTale(a, b) {
-  let best = null, bw = 0, rv = false;
-  const aff = a.aff[b.id] || 0;
-  for (const id in a.kn) {
-    const k = a.kn[id]; if (k.mine && !k.brag) continue;
-    const ev = lf2EvById(+id); if (!ev || game.time - ev.t > 4 * 1440 || ev.actor === b.id) continue;
-    const bk = b.kn && b.kn[ev.id];
-    const reveal = bk && !bk.a && k.a && ev.actor !== a.id;
-    if (bk && !reveal) continue;
-    if (ev.target === b.id && aff < 30 && !reveal) continue;
-    if (ev.actor && (a.aff[ev.actor] || 0) > 60 && ev.tags.some(g => (LF2_TAGS[g] || {}).v < 0) && !lf2Has(a, 'gossipy')) continue;   // you do not tell tales on your best friend
-    const w = Math.max(...ev.tags.map(g => (LF2_TAGS[g] || {}).spice || 0.5)) * (0.5 + 0.5 * ev.sev) * k.cert * (1.25 - (game.time - ev.t) / (5 * 1440)) * (reveal ? 1.8 : 1) * Math.random();
-    if (w > bw) { bw = w; best = ev; rv = !!reveal; }
-  }
-  return best ? { ev: best, reveal: rv } : null;
-}
-function lf2Tell(a, b, ev, reveal, quiet?) {
-  const ak = a.kn[ev.id], ver = sbPassOn(a, b, ev), act = lf2By(ver.who != null ? ver.who : ev.actor), knowsA = ver.a, txt = sbText(a, ev);
-  const j = lf2Judge(b, ev, knowsA), fan = act && knowsA && (b.aff[act.id] || 0) >= 55 && j.v < 0;
-  const firstHand = !ak.from, [line, reply] = sbNewsLines(a, b, ev, ver, reveal, j, fan, act, knowsA, firstHand);
-  if (!quiet) say(a, b, [[a, line], [b, reply]]);
-  bumpAff(a, b, 1, 6);
-  return lf2Learn(b, ev, a, fan ? ak.cert * 0.25 : ak.cert * (firstHand ? 0.85 : 0.75), knowsA, ver);
-}
-function lf2Gossip() {
-  if (!LF2.on('gossip')) return;
-  const live = npcs.filter(n => !n.dead && !n.infant && n.age >= 8 && n.pose !== 'sleep' && !n.trapped && n.kn);
-  for (const a of live) {
-    if (a.player || (a.lf2Talk || 0) > game.time) continue;
-    for (const b of npcs) {
-      if (b === a || b.dead || b.infant || b.age < 6 || b.pose === 'sleep' || lfDist(a, b) > 3 || (b.lf2Talk || 0) > game.time) continue;
-      if (b.player && !(talkUI && talkUI.o === a)) { if (Math.random() > 0.15) continue; }
-      if (seeThrough(a.tx, a.ty, b.tx, b.ty) < 0.5) continue;
-      const aff = a.aff[b.id] || 0;
-      const gos = (lf2Has(a, 'gossipy') ? 1.8 : 1) * (lf2Has(a, 'sociable') || lf2Has(a, 'jovial') ? 1.3 : 1) * (lf2Has(a, 'shy') ? 0.5 : 1) * (lf2Has(a, 'proud') ? 0.7 : 1) * ((a.drunk || 0) > 40 ? 1.8 : 1);
-      if (Math.random() > 0.3 * gos * (aff >= 10 ? 1 : 0.35)) continue;
-      const pk = lf2PickTale(a, b); if (!pk) continue;
-      a.lf2Talk = b.lf2Talk = game.time + 30;
-      lf2Tell(a, b, pk.ev, pk.reveal);
-      break;
-    }
-  }
-}
-/* (news now travels through the social exchanges in social2/sb-exchange.ts, which call lf2PickTale / lf2Tell) */
+/* (News travels only through conversation now: talk/events.ts `TE.tell` and `TE.overhear`. What is told is mirrored into `n.kn` by `TM.addEv`, so the watch and the law, which read `kn`, hear of things the same way everybody does.) */
 
 /* ---------------- reputation: what somebody is known for ---------------- */
 const LF2_REPWORD = { theft: 'a thief', violence: 'violent', harm: 'cruel', nuisance: 'a nuisance', prank: 'a prankster', deceit: 'a liar', kindness: 'kind', help: 'helpful', generous: 'generous', brave: 'brave',

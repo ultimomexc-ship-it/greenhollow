@@ -1798,7 +1798,7 @@ test('conversation depth: topics link or start afresh, stories have a preface an
     A.hunger = 90; for (const k of ['fish', 'berries', 'grain']) A.inv[k] = 0; out.card = /Notice/.test(vcHTML(A)); TM.add(P, { kind: 'pref', about: A.id, item: 'grain', like: true }); out.journal = /What you know of people/.test(jrHTML());
     out.dials = TALK.dial.distort === 1 && TALK.dial.sev === 1;
     return out; });
-  check(r.links[0] + r.links[1] >= 1 && r.links[2] === 0 && /Anyway|Oh|Changing|Related|On /.test(r.linkText), 'topics link or start afresh, and the words stay clean: ' + JSON.stringify([r.links, r.linkText]));
+  check(r.links[0] + r.links[1] >= 1 && r.links[2] === 0 && /Anyway|Oh|Changing|[Rr]elated|On |Staying|Speaking/.test(r.linkText), 'topics link or start afresh, and the words stay clean: ' + JSON.stringify([r.links, r.linkText]));
   check(r.pref && r.inv && r.body && r.told, 'a story is a preface, an invitation and the telling: ' + JSON.stringify([r.pref, r.inv, r.body, r.told, r.storyWords]));
   check(r.cb && !r.cbOnce && new RegExp(r.cbName || '.').test(r.cbLine), 'last time is remembered, once: ' + JSON.stringify([r.cb, r.cbOnce, r.cbLine]));
   check(r.refl && r.reason > 5, 'a pattern of slights becomes an opinion people state: ' + JSON.stringify([r.refl, r.reason]));
@@ -1828,6 +1828,22 @@ test('small life: working beside somebody and eating with them are remembered as
   check(r.kinds.includes('worked_with'), 'and something to tell about the day: ' + r.kinds);
   check(/ate with me/.test(r.why2) && r.same, 'a shared meal counts once a day: ' + r.why2);
   check(r.replies.includes('report_day'), 'somebody with no news can answer with their day');
+  check(!errors.length, 'no errors: ' + errors.join(' | '));
+  await page.close();
+});
+
+test('one path for news: what somebody is told in conversation is what the watch and the law know too (the old ledger mirrors the memory)', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    const ps = npcs.filter(n => !n.dead && !n.player && n.age >= 18 && !n.infant); const [A, B, Z, V] = ps;
+    const ev = lfEmit('theft', { actor: Z, target: V, sev: 2, tags: ['theft'], witnessIds: [A.id], chron: false, text: 'x' });
+    const before = !!(B.kn && B.kn[ev.id]); const m = TM.ofEv(A, ev.id);
+    TE.tell(A, B, { m, ev, score: 1 }, { done: {}, turns: [], left: {} });
+    const k = B.kn && B.kn[ev.id];
+    return { before, after: !!k, from: k && k.from === A.id, who: k && k.who === Z.id, mem: !!TM.ofEv(B, ev.id), known: ev.know.includes(B.id), old: typeof lf2Gossip };
+  });
+  check(!r.before && r.after && r.from && r.who && r.mem && r.known, 'told in talk = known to the law, with who told and who did it: ' + JSON.stringify(r));
+  check(r.old === 'undefined', 'the old word-of-mouth ticker is gone');
   check(!errors.length, 'no errors: ' + errors.join(' | '));
   await page.close();
 });

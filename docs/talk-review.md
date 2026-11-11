@@ -193,4 +193,4 @@ Then B and C together, measured with the harness. D once B and C make conversati
 - **C (things worth saying)**: done. `life2/smalllife.ts` (worked beside, ate with, lent a hand, sick visits, finds, illness) and the `snap` acts. Still thin: "any news?" seldom finds an answer in a quiet village, and about a quarter of opinions still give "we have talked" as the reason.
 - **D (voice rule)**: done. Asides rationed to one line in four per speaker (`lxMarked`, `sp.sinceAside`), plain short lines for the most-used acts in `talk/pack-short.ts`. The plain pack was not rewritten.
 - **E (menu by intent)**: done. `PT_LABEL`, grouped, your words shown once picked.
-- **F (one event system)**: to do.
+- **F (one path for news)**: first step done. The old word-of-mouth code (`lf2Gossip`, `lf2PickTale`, `lf2Tell`) is deleted; news spreads only by `TE.tell`/`TE.overhear`, and `TM.addEv` mirrors what is told into `n.kn` so the watch and the law (life2/law.ts) hear of things through conversation. Left for later: `lfEmit` callers moving to `LIFE.emit` one by one, law reading `tmem` directly, and removing `kn`.
