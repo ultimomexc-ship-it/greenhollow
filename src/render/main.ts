@@ -402,6 +402,11 @@ function drawActivityBars(c) {
   }
 }
 
+/** which side of the speaker the bubble goes, from where the viewer is: (vx, vy) = viewer minus speaker, in tiles. North of them = above (tail below), south = below (tail above), east = right (tail on its left), west = left */
+function bubbleSide(vx: number, vy: number, self?: boolean): string {
+  if (self || Math.abs(vy) * 0.7 >= Math.abs(vx)) return vy > 0 && !self ? 'below' : 'above';
+  return vx > 0 ? 'right' : 'left';
+}
 /* speech bubbles go on top of every other label */
 function drawBubbles(c, now) {
   const vw = cam.cw, vh = cam.ch;
@@ -416,21 +421,26 @@ function drawBubbles(c, now) {
     if (s.x < -80 || s.y < -40 || s.x > vw + 80 || s.y > vh + 40) continue;
     const lines = wrapText(c, b.text, 132 * kb).slice(0, 4), lh = 12.5 * kb;
     const w = Math.max.apply(null, lines.map(l => c.measureText(l).width)) + 12 * kb, h = lines.length * lh + 8 * kb;
-    // direction: the bubble leans toward the one being spoken to, its tail stays on the speaker's head, and a line and a ring on the ground say who talks to whom
-    const to = b.to && !b.to.dead && !b.to.inShip ? b.to : null, ts = to ? toScreen(to.x * TS + TS / 2, to.y * TS - 6 - 8 * (to.scale || 1)) : null, dir = ts ? Math.sign(Math.round((ts.x - s.x) / Math.max(1, 6 * kb))) : 0;
-    const bx = Math.max(2, Math.min(vw - w - 2, s.x - w / 2 + dir * (w / 2 - 16 * kb))), by = Math.max(2, s.y - h - 5);
+    // the bubble sits on the side of the speaker that faces the viewer, its tail pointing at the speaker: you north of them = bubble above, tail below; south = below, tail above; east = right, tail on its left; west = left, tail on its right
+    const eye = game.player || null, ex = eye ? eye.x : cam.x / TS + cam.cw / cam.z / TS / 2, ey = eye ? eye.y : cam.y / TS + cam.ch / cam.z / TS / 2, vx = ex - n.x, vy = ey - n.y;
+    const side = bubbleSide(vx, vy, n === eye);
+    const foot = toScreen(n.x * TS + TS / 2, n.y * TS + TS - 3), mid = { x: s.x, y: (s.y + foot.y) / 2 };
+    let bx = 0, by = 0, tail: number[][] = [];
+    if (side === 'above') { bx = Math.max(2, Math.min(vw - w - 2, s.x - w / 2)); by = Math.max(2, s.y - h - 5); const tx = Math.max(bx + 6, Math.min(bx + w - 6, s.x)); tail = [[tx - 4, by + h], [s.x, s.y], [tx + 4, by + h]]; }
+    else if (side === 'below') { bx = Math.max(2, Math.min(vw - w - 2, s.x - w / 2)); by = Math.min(vh - h - 2, foot.y + 6 * kb); const tx = Math.max(bx + 6, Math.min(bx + w - 6, s.x)); tail = [[tx - 4, by], [s.x, foot.y + 1], [tx + 4, by]]; }
+    else if (side === 'right') { bx = Math.min(vw - w - 2, s.x + 14 * kb); by = Math.max(2, Math.min(vh - h - 2, mid.y - h / 2)); const ty = Math.max(by + 6, Math.min(by + h - 6, mid.y)); tail = [[bx, ty - 4], [s.x + 9 * kb, mid.y], [bx, ty + 4]]; }
+    else { bx = Math.max(2, s.x - 14 * kb - w); by = Math.max(2, Math.min(vh - h - 2, mid.y - h / 2)); const ty = Math.max(by + 6, Math.min(by + h - 6, mid.y)); tail = [[bx + w, ty - 4], [s.x - 9 * kb, mid.y], [bx + w, ty + 4]]; }
+    const to = b.to && !b.to.dead && !b.to.inShip ? b.to : null;
     const fade = Math.max(0, Math.min(1, (b.until - now) / 350, (now - b.from) / 120));
     c.globalAlpha = fade;
-    if (to && ts && (to.player || canSee(to.x, to.y))) {   // the thread between them, and where the speaker stands
-      const foot = toScreen(n.x * TS + TS / 2, n.y * TS + TS - 3), tfoot = toScreen(to.x * TS + TS / 2, to.y * TS + TS - 3);
+    if (to && (to.player || canSee(to.x, to.y))) {   // the thread between them, and a ring where the speaker stands
+      const tfoot = toScreen(to.x * TS + TS / 2, to.y * TS + TS - 3);
       c.save(); c.globalAlpha = 0.5 * fade; c.strokeStyle = n.shirt || '#f4d36a'; c.lineWidth = Math.max(1, 1.4 * kb); c.setLineDash([2 * kb, 3 * kb]); c.beginPath(); c.moveTo(foot.x, foot.y); c.lineTo(tfoot.x, tfoot.y); c.stroke(); c.setLineDash([]);
       c.fillStyle = n.shirt || '#f4d36a'; c.globalAlpha = 0.45 * fade; c.beginPath(); c.ellipse(foot.x, foot.y, 9 * kb, 3.2 * kb, 0, 0, 6.3); c.fill(); c.restore(); c.globalAlpha = fade;
     }
     c.fillStyle = 'rgba(250,246,232,.97)'; c.strokeStyle = 'rgba(20,20,20,.55)'; c.lineWidth = 1;
     c.beginPath(); if (c.roundRect) c.roundRect(bx, by, w, h, 5); else c.rect(bx, by, w, h); c.fill(); c.stroke();
-    const tx = Math.max(bx + 6, Math.min(bx + w - 6, s.x));
-    c.beginPath(); c.moveTo(tx - 4, by + h); c.lineTo(s.x, s.y); c.lineTo(tx + 4, by + h); c.closePath(); c.fill();
-    if (dir) { const ex = dir > 0 ? bx + w : bx, mid = by + h / 2; c.beginPath(); c.moveTo(ex, mid - 4 * kb); c.lineTo(ex + dir * 5 * kb, mid); c.lineTo(ex, mid + 4 * kb); c.closePath(); c.fillStyle = 'rgba(250,246,232,.97)'; c.fill(); c.strokeStyle = 'rgba(20,20,20,.55)'; c.stroke(); c.fillStyle = 'rgba(250,246,232,.97)'; c.fillRect(ex - dir * 0.8, mid - 3.2 * kb, 1.6, 6.4 * kb); }   // (a small point on the side facing the listener)
+    c.beginPath(); c.moveTo(tail[0][0], tail[0][1]); c.lineTo(tail[1][0], tail[1][1]); c.lineTo(tail[2][0], tail[2][1]); c.closePath(); c.fill();
     c.fillStyle = '#1b1b1b'; lines.forEach((l, q) => c.fillText(l, bx + 6 * kb, by + 10 * kb + q * lh));
     c.globalAlpha = 1;
   }

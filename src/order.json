@@ -62,6 +62,8 @@
   "ui/loop.ts",
   "ui/menus-hud.ts",
   "talk/registry.ts",
+  "talk/kinds.ts",
+  "talk/life.ts",
   "talk/memory.ts",
   "talk/events.ts",
   "talk/acts.ts",
