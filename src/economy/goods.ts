@@ -102,6 +102,7 @@ function doBuy(n, m, g, qty) {
     if (town.farmEcon && n.coin < p) { if (!n.player) LIFE.emit('could_not_afford', n, { item: g, place: m.def.noun }); break; }
     pay(n, m.n, p); m.stock[g]--; m.sales++; m.revenue += p; tot += p; got++; consume(n, g, 1);
   }
+  if (!n.player && typeof talkService === 'function') talkService(n, m.n, { mode: 'buy', item: g, qty: got || qty, price: tot || Math.round(sellPrice(m, g) * qty), result: got ? 'ok' : (m.stock[g] >= 1 ? 'poor' : 'none'), shop: m.def.noun, newItem: !!(m.newStock && m.newStock[g] && game.time - m.newStock[g] < 3 * 1440) });
   if (got) logTrade(n, m.n, g, got, tot, 'buy');
   return got;
 }
@@ -114,6 +115,7 @@ function doSell(n, m, g, qty) {
     pay(m.n, n, p); m.stock[g] = (m.stock[g] || 0) + 1; n.inv[g]--; m.outlay += p; tot += p; got++;
   }
   if (got) { logTrade(m.n, n, g, got, tot, 'sell'); lf2Paid(n, tot); }
+  if (!n.player && typeof talkService === 'function') talkService(n, m.n, { mode: 'sell', item: g, qty: got || qty, price: tot, result: got ? 'ok' : 'refused', shop: m.def.noun });
   return got;
 }
 function isOpen(m) { if (m.serving) return true; const h = hours(); return h >= m.def.open[0] && h < m.def.open[1] && isAwake(m.n, game.time % 1440); }

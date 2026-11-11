@@ -34,15 +34,18 @@ function farmSeedBuy(n: any, need: number): any[] {
   const m = farmSeller(); if (!m || !isOpen(m)) return [];
   const short = need - farmSeedCount(n); if (short <= 0) return [];
   return [goS(m.front, 'Walking to the seed stall'), waitS(2, 'stand', 'Buying seed', { nopie: true, onEnd(nn: any) {
-    const stocked = farmSeedRange().filter(k => (m.stock['seed_' + k] || 0) > 0); if (!stocked.length) { if (!nn.player) LIFE.emit('out_of_stock', nn, { item: 'seed_barley', place: m.def.noun }); return; }
+    const stocked = farmSeedRange().filter(k => (m.stock['seed_' + k] || 0) > 0); if (!stocked.length) { if (!nn.player) { LIFE.emit('out_of_stock', nn, { item: 'seed_barley', place: m.def.noun }); talkService(nn, m.n, { mode: 'buy', item: 'seed_barley', qty: 1, result: 'none', shop: m.def.noun }); } return; }
     // notice what is new on the stall since they last looked
     for (const g of Object.keys(m.newStock || {})) { const seen = (nn.seenStock || (nn.seenStock = {})); if ((seen[g] || 0) < m.newStock[g]) { seen[g] = m.newStock[g]; LIFE.emit('new_in_stock', nn, { item: g, place: m.def.noun }); } }
-    let left = short;
+    let left = short; const got: any = {}, paid: any = {}; let poor = false;
     for (let i = 0; i < short * 2 && left > 0; i++) {   // a mix like they would sow: favourites first, barley as the staple
       const k = (farmSeed(nn) as string); const pick = stocked.includes(k) ? k : stocked[(nn.id + i) % stocked.length], g = 'seed_' + pick;
-      if (!(m.stock[g] >= 1)) continue; const p = sellPrice(m, g); if (nn.coin < p) { LIFE.emit('could_not_afford', nn, { item: g, place: m.def.noun }); break; }
-      pay(nn, m.n, p); m.stock[g]--; m.sales++; m.revenue += p; nn.inv[g] = (nn.inv[g] || 0) + 1; logTrade(nn, m.n, g, 1, p, 'buy'); left--;
+      if (!(m.stock[g] >= 1)) continue; const p = sellPrice(m, g); if (nn.coin < p) { LIFE.emit('could_not_afford', nn, { item: g, place: m.def.noun }); poor = true; break; }
+      pay(nn, m.n, p); m.stock[g]--; m.sales++; m.revenue += p; nn.inv[g] = (nn.inv[g] || 0) + 1; logTrade(nn, m.n, g, 1, p, 'buy'); left--; got[g] = (got[g] || 0) + 1; paid[g] = (paid[g] || 0) + p;
     }
+    const top = Object.keys(got).sort((x, y) => got[y] - got[x])[0];   // (the exchange at the stall is about the main thing they bought, or about why they could not)
+    if (top) talkService(nn, m.n, { mode: 'buy', item: top, qty: got[top], price: paid[top], result: 'ok', shop: m.def.noun, newItem: !!(m.newStock && m.newStock[top] && game.time - m.newStock[top] < 3 * 1440) });
+    else if (poor) talkService(nn, m.n, { mode: 'buy', item: 'seed_' + stocked[0], qty: 1, price: Math.round(sellPrice(m, 'seed_' + stocked[0])), result: 'poor', shop: m.def.noun });
   } })];
 }
 /** sowing from what they hold: returns the seed kind, or null when they have none (the plot stays as it is) */
@@ -104,13 +107,15 @@ function farmShopDialog(m: any) {
     const p = sellPrice(m, g); let got = 0;
     while (got < q && (m.stock[g] || 0) >= 1 && n.coin >= p) { pay(n, m.n, p); m.stock[g]--; m.sales++; m.revenue += p; got++; if (g.startsWith('seed_')) itGiveStack(n, g, 1); else n.inv[g] = (n.inv[g] || 0) + 1; }
     if (got) logTrade(n, m.n, g, got, got * p, 'buy');
-    return { say: got ? `Here. ${got} ${GOODS[g].name}. You have ${money()} left.` : (n.coin < p ? `That's ${p} each, and you have ${money()}.` : `I'm out of ${GOODS[g].name}.`), opts: menu() };
+    const d = { item: WORLD.has('item', g) ? WORLD.name('item', g) : GOODS[g].name, qty: got || q, price: got ? got * p : p, shop: m.def.noun };
+    return { say: got ? `${m.n.first}: ${serviceSay('quote_price', m.n, n, d)} ${serviceSay('thank_shop', m.n, n, d)} (You have ${money()} left.)` : `${m.n.first}: ${serviceSay(n.coin < p ? 'quote_price' : 'no_stock', m.n, n, d)}${n.coin < p ? ' (You have ' + money() + '.)' : ''}`, opts: menu() };
   };
   const sell = (g: string) => () => {
     const q = n.inv[g] || 0, p0 = buyPrice(m, g); let got = 0, tot = 0;
     while (got < q) { const p = buyPrice(m, g); if (p <= 0 || m.n.coin < p) break; pay(m.n, n, p); m.stock[g] = (m.stock[g] || 0) + 1; n.inv[g]--; tot += p; got++; }
     if (got) logTrade(m.n, n, g, got, tot, 'sell');
-    return { say: got ? `${got} ${GOODS[g].name}, ${tot} denarii. You have ${money()}.` : (p0 <= 0 ? `I've enough ${GOODS[g].name} already.` : `I can't pay for any more today.`), opts: menu() };
+    const d = { item: GOODS[g].name, qty: got || q, price: tot, shop: m.def.noun };
+    return { say: got ? `${m.n.first}: ${serviceSay('bid_price', m.n, n, d)} ${serviceSay('thank_shop', m.n, n, d)} (You have ${money()}.)` : `${m.n.first}: ${serviceSay('no_demand', m.n, n, d)}`, opts: menu() };
   };
   const menu = (): any[] => {
     const o: any[] = [];
@@ -118,5 +123,5 @@ function farmShopDialog(m: any) {
     for (const g of Object.keys(m.buys)) { const q = n.inv[g] || 0; if (q < 1) continue; const p = buyPrice(m, g); if (p > 0) o.push([`Sell your ${q} ${GOODS[g].name} (${p} each)`, sell(g)]); }
     o.push(['Leave', () => null]); return o;
   };
-  lf2Dialog(m.n, `${m.n.first}: What can I do for you? (You have ${money()}.)`, menu());
+  lf2Dialog(m.n, `${m.n.first}: ${serviceSay('shop_greet_back', m.n, n, { item: '', qty: 1, shop: m.def.noun })} (You have ${money()}.)`, menu());
 }

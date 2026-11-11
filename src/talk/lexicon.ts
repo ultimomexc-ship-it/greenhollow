@@ -64,6 +64,28 @@ lx('life:could_not_afford', 'plain', 'I couldn\'t afford {item} today.'); lx('li
 lx('life:price_up', 'plain', '{item} has gone up at the {shop}.'); lx('life:price_down', 'plain', '{item} is cheaper at the {shop} now.'); lx('life:price_down', 'plain', 'You can get {item} for less at the {shop} today.');
 lx('life:harvested', 'plain', 'I brought in {things}.'); lx('life:harvested', 'plain', 'Harvested {things} today.');
 
+/* ---- at the stall (plain pack): customer = c, keeper = k ---- */
+lx('shop_greet', 'plain', 'Morning.', { band: 'morning' }); lx('shop_greet', 'plain', 'Afternoon.', { band: 'day' }); lx('shop_greet', 'plain', 'Evening.', { band: 'evening' }); lx('shop_greet', 'plain', 'Hello, {li}.'); lx('shop_greet', 'plain', '{li}. Busy today?', { rel: 'friend' });
+lx('shop_greet_back', 'plain', 'Morning. What can I get you?', { band: 'morning' }); lx('shop_greet_back', 'plain', 'Hello. What\'ll it be?'); lx('shop_greet_back', 'plain', 'Good day. Looking for something?'); lx('shop_greet_back', 'plain', '{li}! The usual?', { rel: 'friend' });
+lx('ask_item', 'plain', 'I\'ll take {things}, please.'); lx('ask_item', 'plain', '{things}, please.'); lx('ask_item', 'plain', 'Could I have {things}?'); lx('ask_item', 'plain', 'Let me have {things}.');
+lx('quote_price', 'plain', 'That\'s {money}.'); lx('quote_price', 'plain', '{money} for the lot.'); lx('quote_price', 'plain', 'That comes to {money}.'); lx('quote_price', 'plain', '{money}, and cheap at the price.');
+lx('pay_ok', 'plain', 'Here you are.'); lx('pay_ok', 'plain', 'There. Count it.'); lx('pay_ok', 'plain', 'Right, {money}.');
+lx('thank_shop', 'plain', 'Thank you.'); lx('thank_shop', 'plain', 'Much obliged.'); lx('thank_shop', 'plain', 'There you go. Thanks.'); lx('thank_shop', 'plain', 'Pleasure doing business.');
+lx('cant_afford', 'plain', 'That\'s more than I\'ve got. I\'ll leave it.'); lx('cant_afford', 'plain', 'I\'m short today, sorry.'); lx('cant_afford', 'plain', 'Ah. I haven\'t got that much.');
+lx('make_do', 'plain', 'Come back when you have it.'); lx('make_do', 'plain', 'No hurry. It\'ll keep.'); lx('make_do', 'plain', 'Take fewer, then.');
+lx('no_stock', 'plain', 'Sorry, I\'m out of {item} just now.'); lx('no_stock', 'plain', 'None left, I\'m afraid.'); lx('no_stock', 'plain', 'The {item} sold out this morning.');
+lx('shrug_off', 'plain', 'Next time, then.'); lx('shrug_off', 'plain', 'Never mind.'); lx('shrug_off', 'plain', 'I\'ll try again tomorrow.');
+lx('offer_goods', 'plain', 'I\'ve {things} to sell.'); lx('offer_goods', 'plain', 'Would you take {things}?'); lx('offer_goods', 'plain', 'Brought you {things}.');
+lx('bid_price', 'plain', 'I can give you {money} for them.'); lx('bid_price', 'plain', '{money}, and that\'s fair.'); lx('bid_price', 'plain', 'I\'ll say {money}.');
+lx('accept_deal', 'plain', 'Done.'); lx('accept_deal', 'plain', 'That\'ll do.'); lx('accept_deal', 'plain', 'Fine.');
+lx('no_demand', 'plain', 'I\'ve plenty of those already, thanks.'); lx('no_demand', 'plain', 'Not today. The stall is full of {item}.'); lx('no_demand', 'plain', 'I can\'t pay for any more today.');
+lx('new_stock_remark', 'plain', 'We\'ve {item} in this week, if you\'re interested.'); lx('new_stock_remark', 'plain', 'New in: {item}.');
+lx('farewell_shop', 'plain', 'Good day.'); lx('farewell_shop', 'plain', 'See you.'); lx('farewell_shop', 'plain', 'Right. Back to it.');
+
+lx('ask_price', 'plain', 'What are {item} going for?'); lx('ask_price', 'plain', 'Seen what {item} cost lately?'); lx('ask_price', 'plain', 'Do you know what {item} are at the moment?');
+lx('tell_price', 'plain', 'I paid {money} each last time.'); lx('tell_price', 'plain', 'About {money}, when I looked.'); lx('tell_price', 'plain', '{money} each. Not cheap, not dear.');
+lx('react_price', 'plain', 'Hm. Good to know.'); lx('react_price', 'plain', 'That\'s more than I thought.'); lx('react_price', 'plain', 'Fair enough. Thanks.'); lx('react_price', 'plain', 'I\'ll see if it\'s cheaper elsewhere.');
+
 /** what a speaker's line may be conditioned on, for this act */
 function lxContext(sp: any, li: any, c: any) {
   const rel = (sp.fam && (sp.fam.spouse === li.id || (sp.fam.kids || []).includes(li.id) || sp.fam.mother === li.id || sp.fam.father === li.id)) ? 'kin' : (sp.rel && sp.rel[li.id] === 'friend') || (sp.aff[li.id] || 0) > 30 ? 'friend' : (sp.know && (sp.know[li.id] || 0) > 10) ? 'acquaintance' : 'stranger';
@@ -78,7 +100,7 @@ function lxSay(act: string, sp: any, li: any, c: any): string {
   for (const e of cands) { const id = act + '|' + e.text, s = Object.keys(e.tags).length * 2 - (heard[id] != null ? 4 - Math.min(3, (game.time - heard[id]) / 600) : 0) + Math.random() * 1.5; if (s > bs) { bs = s; best = e; } }
   heard[act + '|' + best.text] = game.time;
   const place = String(placeOf(sp) || '').replace(/^(in|at)\s+/, ''); const inP = /^the /.test(place) ? 'at ' + place : place ? 'in ' + place : 'here';
-  const raw = best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || 'daily').toLowerCase()).replace(/\{state\}/g, ctx.state).replace(/\{shop\}/g, c.shop || 'stall').replace(/\{things\}/g, lxCount(c.qty, c.item)).replace(/\{qty\}/g, c.qty != null ? String(c.qty) : '').replace(/\{item\}/g, c.item || '').replace(/\{news\}/g, c.news || '').replace(/\{who\}/g, c.who || 'them');
+  const raw = best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || 'daily').toLowerCase()).replace(/\{state\}/g, ctx.state).replace(/\{money\}/g, lxMoney(c.price)).replace(/\{price\}/g, c.price != null ? String(c.price) : '').replace(/\{shop\}/g, c.shop || 'stall').replace(/\{things\}/g, lxCount(c.qty, c.item)).replace(/\{qty\}/g, c.qty != null ? String(c.qty) : '').replace(/\{item\}/g, c.item || c.pitem || '').replace(/\{news\}/g, c.news || '').replace(/\{who\}/g, c.who || 'them');
   return placeWords(raw.replace(/(^|[.!?]\s+)([a-z])/g, (_m: string, a: string, b: string) => a + b.toUpperCase()));
 }
 
@@ -87,3 +109,6 @@ function lxCount(qty: any, name: string): string {
   name = name || 'something'; if (qty == null) return name; if (qty !== 1) return qty + ' ' + name;
   if (/ies$/.test(name)) return 'a ' + name.slice(0, -3) + 'y'; if (/oes$/.test(name)) return 'a ' + name.slice(0, -2); if (/ss$/.test(name) || !/s$/.test(name)) return 'a little ' + name; return 'a ' + name.slice(0, -1);
 }
+
+/** money said the way people say it: "a denarius", "6 denarii" */
+function lxMoney(n: any): string { if (n == null) return 'a few denarii'; n = Math.round(n); return n === 1 ? 'one denarius' : n + ' denarii'; }

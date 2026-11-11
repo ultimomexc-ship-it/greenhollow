@@ -7,6 +7,8 @@ TALK.stroll = true;   // people on a walk stop for a word with somebody near (no
 TALK.hyper = false;   // developer mode (H): a lot of talking, so there is always something to watch; it costs the economy, so it is for testing
 const talkOnScreen = (n: any) => { const sp = toScreen(n.x * TS + TS / 2, n.y * TS); return sp.x > -40 && sp.y > -40 && sp.x < cam.cw + 40 && sp.y < cam.ch + 40; };
 const talkLeisure = (n: any) => { const h = (game.time % 1440) / 60; return h >= 17 && h < 22 && n.hunger < 45 && n.bladder < 60 && !(n.job && n.pose === 'work'); };
+/** words are looked up for whatever you could see or hear */
+const talkListened = (a: any, b: any): boolean => { const pl = game.player; return TALK.hyper || (!!pl && (lfDist(a, pl) <= TALK.earshot || lfDist(b, pl) <= TALK.earshot || talkOnScreen(a) || talkOnScreen(b))); };
 function talkIdle(n: any): boolean {
   if (n.dead || n.player || n.infant || n.age < 6 || n.pose === 'sleep' || n.trapped || n.jail) return false;
   if ((n.talkUntil || 0) > game.time || (n.talkBusy || 0) > game.time) return false;
@@ -43,8 +45,7 @@ function talkApproach(a: any, b: any) {
     waitS(1, 'stand', 'Talking with ' + b.first, { nopie: true, onEnd(nn: any) {
       if (b.dead || b.pose === 'sleep' || lfDist(nn, b) !== 1) { nn.talkBusy = b.talkBusy = 0; return; }   // (only side by side, on the next tile)
       faceTo(nn, b); faceTo(b, nn);
-      const pl = game.player, near = TALK.hyper || (!!pl && (lfDist(nn, pl) <= TALK.earshot || lfDist(b, pl) <= TALK.earshot || talkOnScreen(nn) || talkOnScreen(b)));   // (words for whatever you could see or hear)
-      talkRun(nn, b, near); nn.talkBusy = b.talkBusy = 0;
+      talkRun(nn, b, talkListened(nn, b)); nn.talkBusy = b.talkBusy = 0;
     } })].concat(rest);
   a.si = 0; a.stepStarted = false;
 }
