@@ -6,7 +6,7 @@ TALK.log = [] as any[]; TALK.words = false; TALK.running = true;
 
 /** how much a person has to say to this one: interest in the talk (their patience) */
 function talkBudget(n: any, o: any): number {
-  let b = 2.6 + (talkHas(n, 'sociable') ? 1.5 : 0) + (talkHas(n, 'gossipy') ? 0.6 : 0) - (talkHas(n, 'shy') ? 1 : 0) - (talkHas(n, 'grumpy') ? 0.6 : 0);
+  let b = (TALK.hyper ? 1.7 : 2.2) + (talkHas(n, 'sociable') ? 1.5 : 0) + (talkHas(n, 'gossipy') ? 0.6 : 0) - (talkHas(n, 'shy') ? 1 : 0) - (talkHas(n, 'grumpy') ? 0.6 : 0);
   b += Math.max(-1, Math.min(1.5, (n.aff[o.id] || 0) / 50)) + (100 - (n.social == null ? 50 : n.social)) / 60 + Math.random() * 1.2;
   if (n.hunger > 80) b -= 1; return Math.max(1, b);
 }
@@ -41,7 +41,7 @@ function talkRun(a: any, b: any, listened?: boolean): any {
   for (const [x, y] of [[a, b], [b, a]]) { TM.add(x, { kind: 'talked', with: y.id, imp: 0.2, n: c.turns.length }); x.social = Math.min(100, (x.social == null ? 50 : x.social) + 5 + c.turns.length); lfAff(x, y, 1, 'chatted'); }
   /* the words, only when somebody can hear */
   const lines = listened || TALK.words ? c.turns.map((t: any) => { const s = t.by === a.id ? a : b, o = s === a ? b : a, text = lxSay(t.act, s, o, t.x || {}); return text ? { who: s, text } : null; }).filter(Boolean) : null;
-  TALK.log.push({ t: game.time, a: a.id, b: b.id, acts: c.turns.slice(), lines: lines ? lines.map((l: any) => l.who.first + ': ' + l.text) : null }); if (TALK.log.length > 300) TALK.log.shift();
+  TALK.log.push({ t: game.time, a: a.id, b: b.id, d: lfDist(a, b), acts: c.turns.slice(), lines: lines ? lines.map((l: any) => l.who.first + ': ' + l.text) : null }); if (TALK.log.length > 300) TALK.log.shift();
   if (lines && lines.length) game.events.push({ time: game.time, a, b, place: placeOf(a), topic: 'talk', quiet: false, talk: true, lines });
   else { const hold = game.time + c.turns.length * 0.7; a.talkUntil = Math.max(a.talkUntil || 0, hold); b.talkUntil = Math.max(b.talkUntil || 0, hold); }
   return c;

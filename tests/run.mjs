@@ -1115,8 +1115,8 @@ test('talk engine (phase 1): the one who starts walks up to the other, they stan
   if (!r.skip) {
     check(/Going over to/.test(r.first), 'the first sets out to meet the other: ' + JSON.stringify(r));
     await simulate(page, 20);
-    const d = await page.evaluate(() => { const [x, y, n0] = window.__pair, a = byId(x), c = byId(y); return { d: lfDist(a, c), talked: TALK.log.slice(n0).some(l => (l.a === x && l.b === y)) }; });
-    check(d.talked && d.d <= 2, 'they stood side by side and talked: ' + JSON.stringify(d));
+    const d = await page.evaluate(() => { const [x, y, n0] = window.__pair, a = byId(x), c = byId(y); return { d: lfDist(a, c), talked: TALK.log.slice(n0).some(l => (l.a === x && l.b === y)), d: (TALK.log.slice(n0).find(l => l.a === x && l.b === y) || { d: 99 }).d }; });
+    check(d.talked && d.d <= 2, 'they stood side by side (when they talked) and talked: ' + JSON.stringify(d));
   }
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
   return 'approach';
@@ -1150,6 +1150,27 @@ test('talk engine (phase 2): news travels from the one who saw it to others as v
   check(r.switchOff, 'with world talk switched off nobody shares news');
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
   return 'news: ' + JSON.stringify(r.d) + ' overheard by ' + r.over;
+});
+
+test('talk (visible): bubbles know who is spoken to, the two face each other, and H switches on hyper talk', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await simulate(page, 9 * 60);
+  const r = await page.evaluate(() => {
+    TALK.running = false; const out = {}; startPlaying(npcs.find(canControl));
+    const free = npcs.filter(q => !q.dead && !q.player && q.age >= 18 && q.pose !== 'sleep'), a = free[0], c = free[1];
+    const spot = (x, y) => { for (let r = 0; r < 12; r++) for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) { const tx = x + dx, ty = y + dy; if (walkable(tx, ty) && !lfPropAt(tx, ty) && !npcs.some(o => o.tx === tx && o.ty === ty)) return { x: tx, y: ty }; } return null; };
+    const sa = spot(town.cx - 2, town.cy + 2), sb = spot(sa.x + 2, sa.y); for (const [n, s] of [[a, sa], [c, sb]]) { abortPlan(n); n.tx = n.x = s.x; n.ty = n.y = s.y; n.pose = 'stand'; n.moving = false; n.path = []; } rebuildOcc();
+    game.events.length = 0; bubbles.length = 0; a.bubbleUntil = c.bubbleUntil = 0; talkRun(a, c, true); drainEvents(performance.now() + 50);
+    const mine = bubbles.filter(q => q.n === a || q.n === c); out.n = mine.length; out.allTo = mine.every(q => (q.n === a && q.to === c) || (q.n === c && q.to === a));
+    faceTo(a, c); faceTo(c, a); out.face = Math.sign(c.tx - a.tx) === a.face.dx && Math.sign(a.tx - c.tx) === c.face.dx;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'h' })); out.hyper = TALK.hyper === true && !document.querySelector('.hyperbadge').hidden;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'h' })); out.off = TALK.hyper === false && document.querySelector('.hyperbadge').hidden;
+    return out; });
+  check(r.n > 4 && r.allTo, 'every bubble of the exchange knows who it is addressed to: ' + JSON.stringify(r));
+  check(r.face, 'the two face each other');
+  check(r.hyper && r.off, 'H switches hyper talk on (with a badge) and off again');
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return 'visible talk';
 });
 
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
@@ -1496,7 +1517,7 @@ test('work: villagers dig the mine, farmers sow a mix of seeds, a roof can hold 
     teleportTo(P, lx, ly); itBuildToggle(P, true); P.build.brush = 'field'; P.tx = P.x = lx + 1; P.ty = P.y = ly; P.build.lastT = null; bldBrushStep(P); out.roofPlot = grid[ly][lx + 1] === T.CROP && town.crops.some(c => c.x === lx + 1 && c.y === ly); itBuildToggle(P, false);
     out.silent = !SND.ctx;
     return out; });
-  for (let h = 0; h < 24; h++) { await simulate(page, 60); if (await page.evaluate(() => (town.mined || 0) > 0)) break; await page.evaluate(() => { for (const id of window.__miners) { const w = byId(id); if (w.cur !== 'Miner' && lvlOf(w.ty) < 3 && w.pose !== 'sleep') { w.cur = 'Miner'; w.curUntil = game.time + 99999; abortPlan(w); } } }); }   // (a search party or an errand may call the miner away: the test puts them back on the job)
+  for (let h = 0; h < 24; h++) { await simulate(page, 60); if (await page.evaluate(() => (town.mined || 0) > 0)) break; await page.evaluate(() => { for (const id of window.__miners) { const w = byId(id); w.hunger = 10; w.bladder = 5; if (w.energy < 60) w.energy = 80; if (w.cur !== 'Miner' && lvlOf(w.ty) < 3 && w.pose !== 'sleep') { w.cur = 'Miner'; w.curUntil = game.time + 99999; abortPlan(w); } } }); }   // (a search party or an errand may call the miner away: the test puts them back on the job)
   const r2 = await page.evaluate(() => { const w = byId(window.__miner); return { mined: town.mined || 0, inMine: lvlOf(w.ty) >= 3, coin: w.coin || 0 }; });
   check(r.seeds >= 3, 'farmers sow a mix of seeds, not only barley: ' + r.seeds); check(r.mineWork && r2.mined > r.m0, 'a villager goes down and digs out the earth: ' + JSON.stringify([r.m0, r2])); check(r.roofPlot, 'a roof can be a garden'); check(r.silent, 'no audio is created under test');
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));

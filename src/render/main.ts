@@ -416,12 +416,21 @@ function drawBubbles(c, now) {
     if (s.x < -80 || s.y < -40 || s.x > vw + 80 || s.y > vh + 40) continue;
     const lines = wrapText(c, b.text, 132 * kb).slice(0, 4), lh = 12.5 * kb;
     const w = Math.max.apply(null, lines.map(l => c.measureText(l).width)) + 12 * kb, h = lines.length * lh + 8 * kb;
-    const bx = Math.max(2, Math.min(vw - w - 2, s.x - w / 2)), by = Math.max(2, s.y - h - 5);
-    c.globalAlpha = Math.max(0, Math.min(1, (b.until - now) / 350, (now - b.from) / 120));
+    // direction: the bubble leans toward the one being spoken to, its tail stays on the speaker's head, and a line and a ring on the ground say who talks to whom
+    const to = b.to && !b.to.dead && !b.to.inShip ? b.to : null, ts = to ? toScreen(to.x * TS + TS / 2, to.y * TS - 6 - 8 * (to.scale || 1)) : null, dir = ts ? Math.sign(Math.round((ts.x - s.x) / Math.max(1, 6 * kb))) : 0;
+    const bx = Math.max(2, Math.min(vw - w - 2, s.x - w / 2 + dir * (w / 2 - 16 * kb))), by = Math.max(2, s.y - h - 5);
+    const fade = Math.max(0, Math.min(1, (b.until - now) / 350, (now - b.from) / 120));
+    c.globalAlpha = fade;
+    if (to && ts && (to.player || canSee(to.x, to.y))) {   // the thread between them, and where the speaker stands
+      const foot = toScreen(n.x * TS + TS / 2, n.y * TS + TS - 3), tfoot = toScreen(to.x * TS + TS / 2, to.y * TS + TS - 3);
+      c.save(); c.globalAlpha = 0.5 * fade; c.strokeStyle = n.shirt || '#f4d36a'; c.lineWidth = Math.max(1, 1.4 * kb); c.setLineDash([2 * kb, 3 * kb]); c.beginPath(); c.moveTo(foot.x, foot.y); c.lineTo(tfoot.x, tfoot.y); c.stroke(); c.setLineDash([]);
+      c.fillStyle = n.shirt || '#f4d36a'; c.globalAlpha = 0.45 * fade; c.beginPath(); c.ellipse(foot.x, foot.y, 9 * kb, 3.2 * kb, 0, 0, 6.3); c.fill(); c.restore(); c.globalAlpha = fade;
+    }
     c.fillStyle = 'rgba(250,246,232,.97)'; c.strokeStyle = 'rgba(20,20,20,.55)'; c.lineWidth = 1;
     c.beginPath(); if (c.roundRect) c.roundRect(bx, by, w, h, 5); else c.rect(bx, by, w, h); c.fill(); c.stroke();
     const tx = Math.max(bx + 6, Math.min(bx + w - 6, s.x));
     c.beginPath(); c.moveTo(tx - 4, by + h); c.lineTo(s.x, s.y); c.lineTo(tx + 4, by + h); c.closePath(); c.fill();
+    if (dir) { const ex = dir > 0 ? bx + w : bx, mid = by + h / 2; c.beginPath(); c.moveTo(ex, mid - 4 * kb); c.lineTo(ex + dir * 5 * kb, mid); c.lineTo(ex, mid + 4 * kb); c.closePath(); c.fillStyle = 'rgba(250,246,232,.97)'; c.fill(); c.strokeStyle = 'rgba(20,20,20,.55)'; c.stroke(); c.fillStyle = 'rgba(250,246,232,.97)'; c.fillRect(ex - dir * 0.8, mid - 3.2 * kb, 1.6, 6.4 * kb); }   // (a small point on the side facing the listener)
     c.fillStyle = '#1b1b1b'; lines.forEach((l, q) => c.fillText(l, bx + 6 * kb, by + 10 * kb + q * lh));
     c.globalAlpha = 1;
   }

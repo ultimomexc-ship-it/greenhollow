@@ -87,7 +87,7 @@ let talkClock = 0;
 function tickTalk(dt) { /* conversations now start only when people bump into each other (see bumpTalk) */ }
 const gmPerSec = () => (typeof state !== 'undefined' ? state.rate * state.speed : 2);
 // how long a speech bubble stays up: longer lines get time to be read (about 17 letters a second)
-function lineMs(t) { return Math.max(2600, 1300 + String(t || '').length * 60); }
+function lineMs(t) { const h = typeof TALK !== 'undefined' && TALK.hyper; return Math.max(h ? 1500 : 2600, (h ? 700 : 1300) + String(t || '').length * (h ? 40 : 60)); }   // (hyper talk: quicker lines)
 const linesSec = lines => lines.reduce((s, l) => s + lineMs(Array.isArray(l) ? l[1] : l.text), 0) / 1000;
 function faceTo(a, b) { a.face = { dx: Math.sign(b.tx - a.tx), dy: Math.abs(b.tx - a.tx) < 0.5 ? Math.sign(b.ty - a.ty) : 0 }; if (!a.face.dx && !a.face.dy) a.face = { dx: 0, dy: 1 }; }
 function bumpTalk(a, b, intent) {
