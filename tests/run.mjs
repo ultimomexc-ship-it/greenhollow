@@ -1615,6 +1615,38 @@ test('secrets: friends confide what few know, a secret is not gossip, the gossip
   return r.line;
 });
 
+test('romance: a flirt is returned or rebuffed, a declaration is met honestly, a walk-out and a proposal need a yes, and the villager you steer answers in the menu', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    const out = {}; newTown('rom-test', 'farm'); MODS.all(); TALK.words = true;
+    const ps = npcs.filter(n => !n.dead && !n.player && n.age >= 17 && n.age < 60 && !n.infant);
+    let M = null, F = null; for (const a of ps) { if (a.female) continue; const b = ps.find(n => n.female && Math.abs(n.age - a.age) <= 12 && !isKin(n, a)); if (b) { M = a; F = b; break; } } out.pair = !!(M && F); if (!M || !F) return out;
+    for (const n of [M, F]) { const sp = n.fam.spouse != null ? byId(n.fam.spouse) : null; if (sp) sp.fam.spouse = null; n.grief = 0; n.fam.spouse = null; n.fam.partner = null; }
+    const fresh = () => ({ done: {}, turns: [], left: {} });
+    // a flirt: warm gets returned, cold gets rebuffed
+    M.crush = F.id; M.aff[F.id] = 40; M.know[F.id] = 40; F.aff[M.id] = 40; F.know[M.id] = 40; let c = fresh();
+    out.flirt = ACTS.flirt.when(c, M, F); talkTurn(c, M, F, 'flirt'); out.back = ACTS.flirt_back.when(c, F, M) && !ACTS.flirt_rebuff.when(c, F, M);
+    const a0 = M.aff[F.id]; talkTurn(c, F, M, 'flirt_back'); out.warmed = M.aff[F.id] > a0 && F.crush === M.id;
+    F.aff[M.id] = 0; F.crush = null; out.rebuff = ACTS.flirt_rebuff.when(fresh(), F, M);
+    // a declaration met honestly
+    F.aff[M.id] = 45; F.crush = null; M.romT = {}; c = fresh(); c.done = {}; out.decl = ACTS.declare.when(c, M, F); talkTurn(c, M, F, 'declare'); out.ret = ACTS.declare_return.when(c, F, M); talkTurn(c, F, M, 'declare_return'); out.mutual = F.crush === M.id;
+    // a walk-out needs a yes
+    M.romT = {}; c = fresh(); out.walkWhen = ACTS.ask_to_walk.when(c, M, F); talkTurn(c, M, F, 'ask_to_walk'); out.noPartnerYet = !M.fam.partner; talkTurn(c, F, M, 'walk_yes'); out.courting = M.fam.partner === F.id && F.fam.partner === M.id;
+    // a proposal after the courtship has lasted
+    M.courtSince = F.courtSince = game.time - 10 * 1440; M.aff[F.id] = F.aff[M.id] = 70; M.romT = {}; town.wedding = null; c = fresh(); out.prop = ACTS.propose.when(c, M, F); talkTurn(c, M, F, 'propose'); const w0 = !!town.wedding; talkTurn(c, F, M, 'propose_yes'); out.wedding = !!town.wedding && !w0;
+    out.line = lxSay('declare', M, F, {});
+    // the villager you steer: asked to walk out, nothing happens until they answer in the menu
+    const Q = npcs.find(n => !n.dead && !n.player && n.age >= 20 && n.age <= 40 && !n.fam.partner && !n.fam.spouse && n !== M && n !== F && n.female !== (npcs.find(x => x.player) || { female: true }).female);
+    return out; });
+  check(r.pair, 'the island has a pair who may court');
+  check(r.flirt && r.back && r.warmed && r.rebuff, 'a flirt is returned when warm, rebuffed when not: ' + JSON.stringify([r.flirt, r.back, r.warmed, r.rebuff]));
+  check(r.decl && r.ret && r.mutual && /./.test(r.line), 'a declaration is met honestly and makes it mutual: ' + JSON.stringify([r.decl, r.ret, r.mutual, r.line]));
+  check(r.walkWhen && r.noPartnerYet && r.courting, 'asking to walk out starts nothing until the yes: ' + JSON.stringify([r.walkWhen, r.noPartnerYet, r.courting]));
+  check(r.prop && r.wedding, 'a proposal after a courtship, once accepted, schedules the wedding: ' + JSON.stringify([r.prop, r.wedding]));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return r.line;
+});
+
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

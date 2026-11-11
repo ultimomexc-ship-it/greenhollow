@@ -5,7 +5,7 @@
 
 /** may these two be a couple (the same rules as romanceTick) */
 function romOK(a: any, b: any): boolean {
-  return !!a && !!b && a !== b && eligible(a) && eligible(b) && a.female !== b.female && Math.abs(a.age - b.age) <= 14 && !isKin(a, b);
+  return modOn('sys.romance') && !!a && !!b && a !== b && eligible(a) && eligible(b) && a.female !== b.female && Math.abs(a.age - b.age) <= 14 && !isKin(a, b);
 }
 const romAff = (a: any, b: any) => Math.min(a.aff[b.id] || 0, b.aff[a.id] || 0);
 const romCool = (n: any, key: string, days: number) => game.time < ((n.romT || {})[key] || 0);
@@ -38,9 +38,9 @@ ACTS.walk_no = { kind: 'romance', stage: 'topic', reply: true, when: (c: any, sp
   apply: (c: any, sp: any, li: any) => { lfAff(li, sp, -6, 'turned me down'); romMood(li, -8); li.refusedAt = game.time; chron(`${li.first} asked ${sp.first} to walk out with them, and ${sp.first} said no.`, 'love'); }, replies: [] };
 
 ACTS.propose = { kind: 'romance', stage: 'topic', preview: () => ({}), w: () => 2.4,
-  when: (c: any, sp: any, li: any) => !c.done.propose && sp.fam.partner === li.id && li.fam.partner === sp.id && !sp.fam.spouse && !town.wedding && game.time - (sp.courtSince || game.time) > 8 * 1440 && romAff(sp, li) >= 55 && !romCool(sp, 'propose' + li.id, 0),
+  when: (c: any, sp: any, li: any) => !c.done.propose && modOn('event.wedding') && sp.fam.partner === li.id && li.fam.partner === sp.id && !sp.fam.spouse && !town.wedding && game.time - (sp.courtSince || game.time) > 8 * 1440 && romAff(sp, li) >= 55 && !romCool(sp, 'propose' + li.id, 0),
   apply: (c: any, sp: any, li: any) => { c.done.propose = 1; romSet(sp, 'propose' + li.id, 8); }, replies: ['propose_yes', 'propose_later', 'propose_no'] };
-ACTS.propose_yes = { kind: 'romance', stage: 'topic', reply: true, when: (c: any, sp: any, li: any) => !town.wedding, w: (c: any, sp: any, li: any) => 1 + Math.max(0, romAff(sp, li) - 50) / 20,
+ACTS.propose_yes = { kind: 'romance', stage: 'topic', reply: true, when: (c: any, sp: any, li: any) => !town.wedding && modOn('event.wedding'), w: (c: any, sp: any, li: any) => 1 + Math.max(0, romAff(sp, li) - 50) / 20,
   apply: (c: any, sp: any, li: any) => { scheduleWedding(sp.female ? li : sp, sp.female ? sp : li); c.wed = true; }, replies: [] };
 ACTS.propose_later = { kind: 'romance', stage: 'topic', reply: true, when: () => true, w: () => 0.7, apply: (c: any, sp: any, li: any) => { sp.waitMarry = li.waitMarry = game.time + 8 * 1440; }, replies: [] };
 ACTS.propose_no = { kind: 'romance', stage: 'topic', reply: true, when: (c: any, sp: any, li: any) => romAff(sp, li) < 55, w: () => 1.5,
