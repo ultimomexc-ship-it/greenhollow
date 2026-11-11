@@ -49,7 +49,7 @@ giftReply('gift_loved', 'loved'); giftReply('gift_disliked', 'disliked'); giftRe
 lx('offer_gift', 'plain', 'I brought you {item}.'); lx('offer_gift', 'plain', 'Here. {item}, for you.'); lx('offer_gift', 'plain', 'I thought you could use {item}.');
 lx('gift_thanks', 'plain', 'Thank you. That\'s kind.'); lx('gift_thanks', 'plain', 'Oh. Thank you.');
 lx('gift_delight', 'plain', 'Just what I needed. Thank you.'); lx('gift_delight', 'plain', 'How did you know? Thank you.');
-lx('gift_amends', 'plain', 'You think {item} makes up for it? ... Well. It helps.'); lx('gift_amends', 'plain', 'That doesn\'t undo it. But I appreciate it.');
+lx('gift_amends', 'plain', 'You think {item} makes up for it? Well. It helps.'); lx('gift_amends', 'plain', 'That doesn\'t undo it. But I appreciate it.');
 lx('gift_refuse', 'plain', 'Keep it. I want nothing from you.'); lx('gift_refuse', 'plain', 'No. Take it away.');
 lxi('offer_gift', 'I have {item}. I thought of you, which surprised me.'); lxi('offer_gift', 'This is {item}. It is not much. It is what I had.');
 lxi('gift_thanks', 'Thank you. I will find a place for it.'); lxi('gift_thanks', 'Thank you. I did not expect that today.');
@@ -71,7 +71,7 @@ lx('tell_preference', 'plain', 'I\'m fond of {item}. Always have been.', { how: 
 lx('hint_gift', 'plain', 'I\'m very fond of {item}, you know. Very fond.'); lx('hint_gift', 'plain', 'There\'s nothing I like better than {item}. Just so you know.');
 lx('hint_noted', 'plain', 'Is that so. I\'ll remember.'); lx('hint_noted', 'plain', 'Noted. I\'m listening.');
 lx('gift_loved', 'plain', '{item}! How did you know? It\'s my favourite.'); lx('gift_loved', 'plain', 'Oh, that\'s exactly what I\'d have chosen. Thank you.');
-lx('gift_disliked', 'plain', 'Oh. {item}. ... Thank you. It\'s the thought.'); lx('gift_disliked', 'plain', 'That\'s... kind. I\'m not very fond of it, to be honest.');
+lx('gift_disliked', 'plain', 'Oh. {item}. Thank you. It\'s the thought.'); lx('gift_disliked', 'plain', 'That\'s... kind. I\'m not very fond of it, to be honest.');
 lx('offer_gift', 'plain', 'This is for you, for the other day. We\'re even now.', { how: 'return' }); lx('offer_gift', 'plain', 'I haven\'t forgotten that you gave me something. Here.', { how: 'return' });
 lxi('ask_preference', 'What do you like? I am not asking for a reason. I am collecting.'); lxi('ask_preference', 'If you could have one thing, which would it be? I am only asking.');
 lxi('tell_preference', 'I like {item}. That has been true for a long time.', { how: 'like' }); lxi('tell_preference', '{item}. If you are asking. I rarely say it aloud.', { how: 'like' }); lxi('tell_preference', 'I do not like {item}. It is not a strong feeling. It is a stable one.', { how: 'dislike' });

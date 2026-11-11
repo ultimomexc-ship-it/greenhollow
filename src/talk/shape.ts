@@ -19,7 +19,7 @@ function talkBudget(n: any, o: any): number {
 }
 
 /** what a conversation is *for*: the acts that come from a real reason (a grudge, a request, a crush, news, something owed). The first topic is one of these when there is one. */
-const TALK_PURPOSE = ['raise_deed', 'ask_favour', 'chase_favour', 'confront_jealous', 'declare', 'ask_to_walk', 'propose', 'flirt', 'confide', 'story_preface', 'share_news', 'warn', 'apologise', 'send_gift', 'offer_gift', 'callback', 'report_day', 'ask_day', 'snap'];
+const TALK_PURPOSE = ['raise_deed', 'ask_favour', 'chase_favour', 'confront_jealous', 'declare', 'ask_to_walk', 'propose', 'flirt', 'confide', 'story_preface', 'share_news', 'warn', 'apologise', 'send_gift', 'offer_gift', 'callback', 'report_day', 'ask_day', 'ask_news', 'snap'];
 
 /** could sp say this act to li now, and about what? Returns the binding (what `when` worked out), or null. The conversation itself is not touched. */
 function talkBind(c: any, sp: any, li: any, id: string): any {
@@ -163,7 +163,8 @@ function talkRun(a: any, b: any, listened?: boolean, short?: boolean): any {
   /* topics */
   let sp = a, li = b, small = 0;
   const smallMax = ritual === 0 ? 0 : short ? 1 : 2;
-  while (c.turns.length < 26 && c.left[sp.id] > 1 && c.left[li.id] > 0.5) {
+  let said = 0;
+  while (c.turns.length < 26 && (said === 0 || (c.left[sp.id] > 1 && c.left[li.id] > 0.5))) {   // (whoever came with something to say gets to say it, however short the talk)
     // what the speaker came to say comes first; then the other one's; then small talk, a little
     let id: string | null = null, bind: any = null;
     while (agenda[sp.id].length && !id) {
@@ -180,6 +181,7 @@ function talkRun(a: any, b: any, listened?: boolean, short?: boolean): any {
       small++;
     }
     say(sp, li, id, bind || undefined);
+    said++;
     c.left[sp.id] -= 1;
     if (!ACTS[id].replies.length && ACTS[id].kind !== 'ritual' && Math.random() < 0.35) {   // a nod to what was said
       say(li, sp, 'backchannel');

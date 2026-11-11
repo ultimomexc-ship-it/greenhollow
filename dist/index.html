@@ -28173,9 +28173,17 @@ const ACTS = {
     c.state = talkState(sp) || "fine";
   }, replies: [] },
   /* ---- world: news and what people make of it ---- */
-  ask_news: { kind: "world", stage: "topic", when: (c, sp, li) => !c.done.ask_news && !c.done.share_news && !TE.pick(sp, li, c), w: (c, sp) => 0.7 + (talkHas(sp, "curious") || talkHas(sp, "gossipy") ? 0.8 : 0), apply: (c) => {
-    c.done.ask_news = 1;
-  }, replies: ["share_news", "report_day", "no_news"] },
+  ask_news: {
+    kind: "world",
+    stage: "topic",
+    when: (c, sp, li) => !c.done.ask_news && !c.done.share_news && !c.done.report_day && !c.turns.some((t) => ACTS[t.act] && ACTS[t.act].stage === "topic") && !TE.pick(sp, li, c) && (!!li.player || !!TE.pick(li, sp, c) || !!LIFE.recent(li, sp)[0]),
+    // (asked first, and of somebody who looks as if they have something to tell: otherwise it only ever gets 'nothing')
+    w: (c, sp) => 1.1 + (talkHas(sp, "curious") || talkHas(sp, "gossipy") ? 0.8 : 0),
+    apply: (c) => {
+      c.done.ask_news = 1;
+    },
+    replies: ["share_news", "report_day", "no_news"]
+  },
   no_news: { kind: "world", stage: "topic", reply: true, when: (c, sp, li) => !TE.pick(sp, li, c), apply: () => {
   }, replies: [] },
   share_news: {
@@ -28626,7 +28634,7 @@ function lxVoice(sp, li, act, pack, text) {
   if (!ritual && !statement) return text;
   if (reg === "terse") {
     const first = text.split(/(?<=[.!?])\s+/)[0];
-    return first.length >= 5 ? first : text;
+    return first.length >= 5 && first.split(/\s+/).length >= 3 ? first : text;
   }
   if (reg === "warm") {
     if (!ritual || text.length > 22 || sp.age < 12 || Math.random() > 0.55 || /friend|love|dear/.test(text) || li && text.indexOf(li.first) >= 0) return text;
@@ -28879,8 +28887,7 @@ function peopleReason(a, b) {
   if (rel && PEOPLE_RELS[rel]) return gender + " is " + (rel === "child" ? b.female ? "my daughter" : "my son" : rel === "parent" ? b.female ? "my mother" : "my father" : rel === "sibling" ? b.female ? "my sister" : "my brother" : rel === "spouse" ? b.female ? "my wife" : "my husband" : PEOPLE_RELS[rel]) + ".";
   if (rel === "friend") return "We get on.";
   if (a.job && a.job === b.job) return "We work side by side.";
-  const anyL = L[0];
-  if (anyL) return "We have talked a few times.";
+  if (a.homeRoom != null && a.homeRoom === b.homeRoom) return "We share a roof.";
   return "";
 }
 function peopleAbout(sp, li, need) {
@@ -28890,7 +28897,7 @@ function peopleAbout(sp, li, need) {
 function peopleHear(li, from, about, word, reason) {
   TM.add(li, { kind: "opinion", about: about.id, from: from.id, word, reason, conf: 0.8, imp: 0.3 });
   const dir = word === "fond" ? 1.5 : word === "like" ? 0.8 : word === "dislike" ? -1.5 : word === "wary" ? -0.8 : 0;
-  if (dir && li.aff) lfAff(li, about, dir * (0.5 + Math.max(0, li.aff[from.id] || 0) / 100), "heard that " + from.first + (dir > 0 ? " thinks well of " : " thinks little of ") + (about.female ? "her" : "him"));
+  if (dir && li.aff) lfAff(li, about, dir * (0.5 + Math.max(0, li.aff[from.id] || 0) / 100), "heard " + (dir > 0 ? "good" : "hard") + " things about " + (about.female ? "her" : "him") + " from " + from.first);
 }
 const peopleYou = (text, li) => !li || !text ? text : text.replace(new RegExp("what " + li.first + " thinks", "g"), "what you think").replace(new RegExp("\\b" + li.first + "\\b", "g"), "you");
 const peopleSet = (c, sp, about, li) => {
@@ -29109,7 +29116,13 @@ const deedSet = (c, sp, d) => {
 ACTS.raise_deed = {
   kind: "deed",
   stage: "topic",
-  preview: (c) => ({ deed: c.deedText, how: c.newsHow }),
+  preview: (c, sp, li) => {
+    if (!c.deedText) {
+      const d = deedPick(sp, li);
+      if (d) deedSet(c, sp, d);
+    }
+    return { deed: c.deedText, how: c.newsHow };
+  },
   when: (c, sp, li) => !c.done.raise_deed && !!deedPick(sp, li) && !(li.player && false),
   w: (c, sp, li) => {
     const d = deedPick(sp, li);
@@ -29398,7 +29411,7 @@ lx("gift_thanks", "plain", "Thank you. That's kind.");
 lx("gift_thanks", "plain", "Oh. Thank you.");
 lx("gift_delight", "plain", "Just what I needed. Thank you.");
 lx("gift_delight", "plain", "How did you know? Thank you.");
-lx("gift_amends", "plain", "You think {item} makes up for it? ... Well. It helps.");
+lx("gift_amends", "plain", "You think {item} makes up for it? Well. It helps.");
 lx("gift_amends", "plain", "That doesn't undo it. But I appreciate it.");
 lx("gift_refuse", "plain", "Keep it. I want nothing from you.");
 lx("gift_refuse", "plain", "No. Take it away.");
@@ -29464,7 +29477,7 @@ lx("hint_noted", "plain", "Is that so. I'll remember.");
 lx("hint_noted", "plain", "Noted. I'm listening.");
 lx("gift_loved", "plain", "{item}! How did you know? It's my favourite.");
 lx("gift_loved", "plain", "Oh, that's exactly what I'd have chosen. Thank you.");
-lx("gift_disliked", "plain", "Oh. {item}. ... Thank you. It's the thought.");
+lx("gift_disliked", "plain", "Oh. {item}. Thank you. It's the thought.");
 lx("gift_disliked", "plain", "That's... kind. I'm not very fond of it, to be honest.");
 lx("offer_gift", "plain", "This is for you, for the other day. We're even now.", { how: "return" });
 lx("offer_gift", "plain", "I haven't forgotten that you gave me something. Here.", { how: "return" });
@@ -29676,7 +29689,7 @@ lx("deliver_no", "plain", "I'd rather not get in the middle of it.");
 lx("deliver_no", "plain", "Sorry. Do it yourself.");
 lx("gift_from_nobody", "plain", "This is for you. I can't say who from.");
 lx("gift_from_nobody", "plain", "Somebody asked me to give you this. That's all I know.");
-lx("gift_anon_reply", "plain", "Who on earth would leave me this? ... Well. Thank you, whoever it was.", { how: "plain" });
+lx("gift_anon_reply", "plain", "Who on earth would leave me this? Well. Thank you, whoever it was.", { how: "plain" });
 lx("gift_anon_reply", "plain", "It's my favourite! Somebody knows me well.", { how: "like" });
 lx("gift_anon_reply", "plain", "Hm. I don't much care for it. But it's a kind thing to do.", { how: "dislike" });
 lx("apologise", "plain", "I've been meaning to say. I'm sorry for what I did.");
@@ -30330,7 +30343,7 @@ const LX_LINKS = {
 function lxLink(text, link) {
   const pk = typeof town !== "undefined" && town && town.pack || "plain", L = (LX_LINKS[pk] || LX_LINKS.plain)[link];
   if (!L || !text) return text;
-  if (/^(And|Oh|Anyway|Well|So|Now|But)\b/.test(text)) return text;
+  if (/^(And|Oh|Anyway|Well|So|Now|But|You|Between us|Mind you|Listen|Here)\b/.test(text)) return text;
   const pre = L[Math.floor(Math.random() * L.length)], w0 = text.split(/[ ,.!?]/)[0];
   const keep = /[.:] $/.test(pre) || w0 === "I" || /^I'/.test(text) || npcs.some((n) => n.first === w0);
   return pre + (keep ? text : text.charAt(0).toLowerCase() + text.slice(1));
@@ -30508,7 +30521,7 @@ ACTS.warn = {
     for (const Z of npcs) {
       if (Z === sp || Z === li || Z.dead || Z.infant) continue;
       const w = repWord(sp, Z);
-      if (w && REP_THIRD[w] && !repTags(li, Z)[w]) {
+      if (w && REP_THIRD[w] && !repTags(li, Z)[w] && !(li.tmem || []).some((m) => m.kind === "rumour" && m.about === Z.id && m.tag === w)) {
         c.warnOf = Z;
         c.warnTag = w;
         return true;
@@ -30605,7 +30618,7 @@ lxi("ask_where", "Do you know where {about} is? I am not worried. I would like t
 lxi("tell_where", "{about} is {reason}. I looked, on the way past. I do not know why.");
 lxi("dont_know_where", "I do not know where {about} is. Nobody tells me anything on this island, and then I am surprised.");
 lx("warn", "plain", "Watch out for {about}. They {reason}.");
-lx("warn", "plain", "A word of warning: {about} is someone who will {reason}.");
+lx("warn", "plain", "A word of warning about {about}. They {reason}.");
 lx("warn_thanks", "plain", "Thank you. I'll bear it in mind.");
 lx("warn_thanks", "plain", "Good to know. I'll keep my distance.");
 lxi("warn", "I would be careful around {about}. They {reason}. I say it only because it is true.");
@@ -30976,6 +30989,10 @@ lx("ev:lent_hand", "plain", "{a} lent {t} a hand with the work");
 lx("ev:lent_hand", "island", "{a} did an hour of {t}'s work, unasked");
 lx("ev:sick_visit", "plain", "{a} looked in on {t}, who is ill");
 lx("ev:sick_visit", "island", "{a} sat with {t}, who is ill");
+LXP("warn", ["Mind yourself around {about}. They {reason}.", "Between us, about {about}: they {reason}. Keep an eye out.", "You should know about {about}. They {reason}."]);
+LXI("warn", ["Be careful with {about}. They {reason}.", "A word about {about}. They {reason}.", "I would keep an eye on {about}. They {reason}. I have seen it.", "You may want to know about {about}. They {reason}."]);
+LXP("warn_thanks", ["Thanks for the word.", "I had wondered. Thank you.", "I will watch out."]);
+LXI("warn_thanks", ["Thank you.", "I will keep it in mind.", "I had wondered about that.", "Noted. Thank you for saying so.", "I will watch, then."]);
 {
   const S = (act, lines, tags = {}) => {
     for (const t of lines) lxi(act, t, tags);
@@ -31047,7 +31064,7 @@ function talkBudget(n, o) {
   if (n.hunger > 80) b -= 1;
   return Math.max(1, b);
 }
-const TALK_PURPOSE = ["raise_deed", "ask_favour", "chase_favour", "confront_jealous", "declare", "ask_to_walk", "propose", "flirt", "confide", "story_preface", "share_news", "warn", "apologise", "send_gift", "offer_gift", "callback", "report_day", "ask_day", "snap"];
+const TALK_PURPOSE = ["raise_deed", "ask_favour", "chase_favour", "confront_jealous", "declare", "ask_to_walk", "propose", "flirt", "confide", "story_preface", "share_news", "warn", "apologise", "send_gift", "offer_gift", "callback", "report_day", "ask_day", "ask_news", "snap"];
 function talkBind(c, sp, li, id) {
   const A = ACTS[id];
   if (!A) return null;
@@ -31184,7 +31201,8 @@ function talkRun(a, b, listened, short) {
   }
   let sp = a, li = b, small = 0;
   const smallMax = ritual === 0 ? 0 : short ? 1 : 2;
-  while (c.turns.length < 26 && c.left[sp.id] > 1 && c.left[li.id] > 0.5) {
+  let said = 0;
+  while (c.turns.length < 26 && (said === 0 || c.left[sp.id] > 1 && c.left[li.id] > 0.5)) {
     let id = null, bind = null;
     while (agenda[sp.id].length && !id) {
       const want = agenda[sp.id].shift();
@@ -31205,6 +31223,7 @@ function talkRun(a, b, listened, short) {
       small++;
     }
     say2(sp, li, id, bind || void 0);
+    said++;
     c.left[sp.id] -= 1;
     if (!ACTS[id].replies.length && ACTS[id].kind !== "ritual" && Math.random() < 0.35) {
       say2(li, sp, "backchannel");

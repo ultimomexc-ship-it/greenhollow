@@ -187,7 +187,7 @@ function lxVoice(sp: any, li: any, act: string, pack: string, text: string): str
   const reg = lxRegister(sp); if (reg === 'dry' || !text) return text;
   const ritual = /^(greet|greet_back|farewell|farewell_back|pre_close)$/.test(act), statement = LX_TIC_ACTS.test(act) || /^(answer_how|answer_work|callback_answer|acknowledge|agree|joke|wonder|brag_child|tell_back|give_advice|share_gladness|sympathise_how)$/.test(act);
   if (!ritual && !statement) return text;
-  if (reg === 'terse') { const first = text.split(/(?<=[.!?])\s+/)[0]; return first.length >= 5 ? first : text; }
+  if (reg === 'terse') { const first = text.split(/(?<=[.!?])\s+/)[0]; return first.length >= 5 && first.split(/\s+/).length >= 3 ? first : text; }   // (a clipped sentence still has to say something: not "4 bread.")
   if (reg === 'warm') { if (!ritual || text.length > 22 || sp.age < 12 || Math.random() > 0.55 || /friend|love|dear/.test(text) || (li && text.indexOf(li.first) >= 0)) return text; const addr = li.fam && (li.fam.spouse === sp.id || sp.fam.spouse === li.id) ? 'love' : (sp.fam && (sp.fam.kids || []).includes(li.id)) ? 'dear' : 'friend'; return text.replace(/([.!?])\s*$/, ', ' + addr + '$1'); }
   if (reg === 'formal') { let t = text; for (const [r, s] of LX_FORMAL) t = t.replace(r, s); return t; }
   if (reg === 'chatty') { if (statement && !ritual && Math.random() < 0.4) { const L = LX_RUNON[pack] || LX_RUNON.plain; return text.replace(/\s*$/, ' ') + L[Math.floor(Math.random() * L.length)]; } return text; }

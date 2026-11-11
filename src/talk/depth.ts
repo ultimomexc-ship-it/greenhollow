@@ -10,7 +10,7 @@ const LX_LINKS: any = {
 };
 function lxLink(text: string, link: string): string {
   const pk = (typeof town !== 'undefined' && town && town.pack) || 'plain', L = (LX_LINKS[pk] || LX_LINKS.plain)[link]; if (!L || !text) return text;
-  if (/^(And|Oh|Anyway|Well|So|Now|But)\b/.test(text)) return text;   // (it has a connective of its own)
+  if (/^(And|Oh|Anyway|Well|So|Now|But|You|Between us|Mind you|Listen|Here)\b/.test(text)) return text;   // (it has a connective of its own)
   const pre = L[Math.floor(Math.random() * L.length)], w0 = text.split(/[ ,.!?]/)[0];
   const keep = /[.:] $/.test(pre) || w0 === 'I' || /^I'/.test(text) || npcs.some((n: any) => n.first === w0);
   return pre + (keep ? text : text.charAt(0).toLowerCase() + text.slice(1));
@@ -71,7 +71,7 @@ LF2.dec.push(function (n: any) { const s = n.seek; if (!s || n.player) return nu
 ACTS.dont_know_where = { kind: 'person', stage: 'topic', reply: true, when: (c: any, sp: any) => !!c.whereObj && !(lfDist(sp, c.whereObj) <= 30 && lvlOf(sp.ty) === lvlOf(c.whereObj.ty)), w: () => 3, apply: () => {}, replies: [] };
 const REP_THIRD: any = { vandal: 'knock things down', meddler: 'move things that are not theirs', thief: 'take what is not theirs', gossip: 'cannot keep a secret', bully: 'throw their weight about' };
 ACTS.warn = { kind: 'world', stage: 'topic', preview: (c: any) => ({ about: c.warnOf ? c.warnOf.first : '', reason: c.warnTag ? REP_THIRD[c.warnTag] : '' }), w: (c: any, sp: any) => 1.3,
-  when: (c: any, sp: any, li: any) => { if (c.done.warn || (sp.aff[li.id] || 0) < 5) return false; for (const Z of npcs) { if (Z === sp || Z === li || Z.dead || Z.infant) continue; const w = repWord(sp, Z); if (w && REP_THIRD[w] && !repTags(li, Z)[w]) { c.warnOf = Z; c.warnTag = w; return true; } } return false; },
+  when: (c: any, sp: any, li: any) => { if (c.done.warn || (sp.aff[li.id] || 0) < 5) return false; for (const Z of npcs) { if (Z === sp || Z === li || Z.dead || Z.infant) continue; const w = repWord(sp, Z); if (w && REP_THIRD[w] && !repTags(li, Z)[w] && !(li.tmem || []).some((m: any) => m.kind === 'rumour' && m.about === Z.id && m.tag === w)) { /* a warning is given once: the listener remembers it */ c.warnOf = Z; c.warnTag = w; return true; } } return false; },
   apply: (c: any, sp: any, li: any) => { c.done.warn = 1; c.aboutName = c.warnOf.first; c.reason = REP_THIRD[c.warnTag]; const Z = c.warnOf; TM.add(li, { kind: 'rumour', about: Z.id, tag: c.warnTag, from: sp.id, conf: 0.6, imp: 0.4 }); lfAff(li, Z, -3, 'was warned about them'); }, replies: ['warn_thanks'] };
 ACTS.warn_thanks = { kind: 'world', stage: 'topic', reply: true, when: () => true, w: () => 1, apply: (c: any, sp: any, li: any) => { lfAff(sp, li, 1, 'looked out for me'); }, replies: [] };
 ACTS.ask_advice = { kind: 'person', stage: 'topic', preview: () => ({}), w: () => 1.1, when: (c: any, sp: any, li: any) => { if (c.done.ask_advice || !(sp.hunger > 55)) return false; return WORLD.has('feature', 'bakery') || WORLD.has('feature', 'tavern'); }, apply: (c: any) => { c.done.ask_advice = 1; }, replies: ['give_advice'] };
@@ -93,7 +93,7 @@ lx('ask_work', 'plain', 'What do you do with your days, {about}?'); lx('ask_work
 lxi('ask_work', 'What do you do with your days, {about}? I am only asking out of interest.'); lxi('answer_work', 'I am a {job}. It is a better job than it sounds, or exactly as good.'); lxi('answer_work', 'I am a {job}. I have done it since I got here. Before that I was somebody else.');
 lx('ask_where', 'plain', 'Have you seen {about} about?'); lx('ask_where', 'plain', 'Do you know where {about} is?'); lx('tell_where', 'plain', 'I think {about} is {reason}.'); lx('tell_where', 'plain', 'Last I saw, {about} was {reason}.'); lx('dont_know_where', 'plain', 'No idea where {about} is.'); lx('dont_know_where', 'plain', 'Not today. Try the square.');
 lxi('ask_where', 'Do you know where {about} is? I am not worried. I would like to know.'); lxi('tell_where', '{about} is {reason}. I looked, on the way past. I do not know why.'); lxi('dont_know_where', 'I do not know where {about} is. Nobody tells me anything on this island, and then I am surprised.');
-lx('warn', 'plain', 'Watch out for {about}. They {reason}.'); lx('warn', 'plain', 'A word of warning: {about} is someone who will {reason}.'); lx('warn_thanks', 'plain', 'Thank you. I\'ll bear it in mind.'); lx('warn_thanks', 'plain', 'Good to know. I\'ll keep my distance.');
+lx('warn', 'plain', 'Watch out for {about}. They {reason}.'); lx('warn', 'plain', 'A word of warning about {about}. They {reason}.'); lx('warn_thanks', 'plain', 'Thank you. I\'ll bear it in mind.'); lx('warn_thanks', 'plain', 'Good to know. I\'ll keep my distance.');
 lxi('warn', 'I would be careful around {about}. They {reason}. I say it only because it is true.'); lxi('warn_thanks', 'Thank you. I will take it under advisement. It is a good word, advisement.');
 lx('ask_advice', 'plain', 'I\'m starving. Where would you go for a meal?'); lx('give_advice', 'plain', 'Try the bakery. They always have something.', {}, ['feature:bakery']); lx('give_advice', 'plain', 'The tavern, if you\'ve any coin.', {}, ['feature:tavern']); lx('give_advice', 'plain', 'Ask around. Someone always has something to spare.');
 lxi('ask_advice', 'I am hungry. Where would you go for a meal? I am asking for a friend, who is me.'); lxi('give_advice', 'The bakery. It is reliable. It is the most reliable thing here.', {}, ['feature:bakery']); lxi('give_advice', 'The tavern. It is not what it was. It was never anything.', {}, ['feature:tavern']); lxi('give_advice', 'Ask around. Somebody has bread. Someone always has bread.');
@@ -332,3 +332,8 @@ LXI('let_it_go', ["All right. Another time. There is plenty of it.", "I will lea
 
 lx('ev:lent_hand', 'plain', '{a} lent {t} a hand with the work'); lx('ev:lent_hand', 'island', '{a} did an hour of {t}\'s work, unasked');
 lx('ev:sick_visit', 'plain', '{a} looked in on {t}, who is ill'); lx('ev:sick_visit', 'island', '{a} sat with {t}, who is ill');
+
+LXP('warn', ['Mind yourself around {about}. They {reason}.', 'Between us, about {about}: they {reason}. Keep an eye out.', 'You should know about {about}. They {reason}.']);
+LXI('warn', ['Be careful with {about}. They {reason}.', 'A word about {about}. They {reason}.', 'I would keep an eye on {about}. They {reason}. I have seen it.', 'You may want to know about {about}. They {reason}.']);
+LXP('warn_thanks', ['Thanks for the word.', 'I had wondered. Thank you.', 'I will watch out.']);
+LXI('warn_thanks', ['Thank you.', 'I will keep it in mind.', 'I had wondered about that.', 'Noted. Thank you for saying so.', 'I will watch, then.']);
