@@ -11843,6 +11843,8 @@ function loadTown(seed, size, scenario) {
   }
   town.scenario = scenario === "blank" ? "blank" : scenario === "farm" ? "farm" : "village";
   town.pack = scenario === "village" || !scenario ? "plain" : "island";
+  shroomScatter();
+  if (typeof MODS !== "undefined") MODS.sync();
   return town;
 }
 function blankStart() {

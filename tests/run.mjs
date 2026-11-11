@@ -1093,7 +1093,7 @@ test('talk engine (phase 1): a kind of talk can be switched off, and a line abou
     let seen = false; for (let i = 0; i < 400; i++) if (/castle/.test(lxSay('remark_place', a, c, { done: {} }))) seen = true; out.castleSaid = seen;
     out.has = [WORLD.has('feature', 'castle'), WORLD.has('item', 'barley'), WORLD.has('person', a.id)];
     // with small talk off, a conversation is only the rituals
-    TALK.on.small = false; TALK.on.world = false; const cv = talkRun(a, c, true); out.ritualOnly = cv.turns.every(t => ACTS[t.act].kind === 'ritual') && cv.turns.length === 5; TALK.on.small = true; TALK.on.world = true;
+    TALK.on.small = false; TALK.on.world = false; TALK.on.person = false; const cv = talkRun(a, c, true); out.ritualOnly = cv.turns.every(t => ACTS[t.act].kind === 'ritual') && cv.turns.length === 5; TALK.on.small = true; TALK.on.world = true; TALK.on.person = true;
     return out; });
   check(!r.castleSaid, 'a line that needs a feature that does not exist is never said');
   check(r.has[0] === false && r.has[2] === true, 'the registry knows what exists: ' + JSON.stringify(r.has));
@@ -1438,7 +1438,7 @@ test('stalls and the bakery, from the player\'s side, in the real game: walk int
 test('voice: the island has its own voice (dry, exact, no exclamation marks), each village keeps the voice it was made with, people have verbal habits, and what was said lately is not said again at once', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {
-    const out = {}; const known = /^(li|sp|place|job|state|item|things|money|news|who|shop|qty|price|clock)$/;
+    const out = {}; const known = /^(about|reason|op|li|sp|place|job|state|item|things|money|news|who|shop|qty|price|clock)$/;
     const isl = LEX.filter(e => e.pack === 'island'); out.n = isl.length; out.bang = isl.filter(e => /!/.test(e.text)).map(e => e.text).slice(0, 3);
     out.slots = [...new Set(LEX.filter(e => !e.act.startsWith('ev:')).flatMap(e => (e.text.match(/\{(\w+)\}/g) || []).map(x => x.slice(1, -1))).filter(x => !known.test(x)))];
     out.acts = new Set(isl.map(e => e.act)).size; out.cover = [...new Set(LEX.filter(e => e.pack === 'plain').map(e => e.act))].filter(a => !isl.some(e => e.act === a)).length;
