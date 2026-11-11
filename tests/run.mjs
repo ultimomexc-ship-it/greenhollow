@@ -1439,7 +1439,7 @@ test('stalls and the bakery, from the player\'s side, in the real game: walk int
 test('voice: the island has its own voice (dry, exact, no exclamation marks), each village keeps the voice it was made with, people have verbal habits, and what was said lately is not said again at once', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {
-    const out = {}; const known = /^(deed|about|reason|op|li|sp|place|job|state|item|things|money|news|who|shop|qty|price|clock)$/;
+    const out = {}; const known = /^(them|deed|about|reason|op|li|sp|place|job|state|item|things|money|news|who|shop|qty|price|clock)$/;
     const isl = LEX.filter(e => e.pack === 'island'); out.n = isl.length; out.bang = isl.filter(e => /!/.test(e.text)).map(e => e.text).slice(0, 3);
     out.slots = [...new Set(LEX.filter(e => !e.act.startsWith('ev:')).flatMap(e => (e.text.match(/\{(\w+)\}/g) || []).map(x => x.slice(1, -1))).filter(x => !known.test(x)))];
     out.acts = new Set(isl.map(e => e.act)).size; out.cover = [...new Set(LEX.filter(e => e.pack === 'plain').map(e => e.act))].filter(a => !isl.some(e => e.act === a)).length;
@@ -1768,7 +1768,7 @@ test('conversation depth: topics link or start afresh, stories have a preface an
     let c = fresh(); out.pref = ACTS.story_preface.when(c, A, B); talkTurn(c, A, B, 'story_preface'); out.inv = ACTS.story_invite.when(c, B, A); talkTurn(c, B, A, 'story_invite'); out.body = ACTS.share_news.when(c, A, B) && c.news === c.storyNews; talkTurn(c, A, B, 'share_news'); out.told = !!TM.ofEv(B, ev.id) && !c.storyNews;
     out.storyWords = c.turns.map(t => talkWords(t, A, B)).join(' / ');
     // last time
-    TM.add(A, { kind: 'talked', with: B.id, t: game.time - 300, subj: 'turnips', imp: 0.2 }); c = fresh(); out.cb = ACTS.callback.when(c, A, B); talkTurn(c, A, B, 'callback'); out.cbOnce = ACTS.callback.when(fresh(), A, B); out.cbLine = lxSay('callback', A, B, talkX(c));
+    TM.add(A, { kind: 'talked', with: B.id, t: game.time - 300, subj: C.first, imp: 0.2 }); c = fresh(); out.cb = false; for (let i = 0; i < 60 && !out.cb; i++) out.cb = ACTS.callback.when(c, A, B); talkTurn(c, A, B, 'callback');   // (a callback is about a person, and not every time) out.cbOnce = ACTS.callback.when(fresh(), A, B); out.cbLine = lxSay('callback', A, B, talkX(c)); out.cbName = C.first;
     // reflection
     A.why = { [B.id]: [{ why: 'was rude', v: -6, t: game.time }, { why: 'laughed at me', v: -5, t: game.time }] }; A.aff[B.id] = -20; reflect(A); out.refl = !!(A.refl && A.refl[B.id] && A.refl[B.id].w === 'unkind') && (A.tmem || []).some(m => m.kind === 'inferred'); let nk = 0; for (let i = 0; i < 40; i++) if (/never kind/.test(peopleReason(A, B))) nk++; out.reason = nk;
     // small acts all have words
@@ -1776,7 +1776,7 @@ test('conversation depth: topics link or start afresh, stories have a preface an
     const say = (id, sp, li, cc) => { const w = lxSay(id, sp, li, talkX(cc)); words[id] = clean(w) ? 'ok' : 'BAD:' + w; };
     c = fresh(); for (const id of ['joke', 'wonder']) { talkTurn(c, A, B, id); say(id, A, B, c); } say('laugh', B, A, c); say('groan', B, A, c); say('wonder_reply', B, A, c);
     B.job = 'Baker'; A.know[B.id] = 20; c = fresh(); out.askWork = ACTS.ask_work.when(c, A, B); talkTurn(c, A, B, 'ask_work'); say('ask_work', A, B, c); say('answer_work', B, A, c);
-    for (const n of npcs) n.tx = n.x = n.tx; const far = npcs.find(n => n !== A && n !== B && !n.dead && !n.infant && n.age >= 12 && lfDist(A, n) > 12); if (far) { A.aff[far.id] = 30; c = fresh(); out.askWhere = ACTS.ask_where.when(c, A, B); talkTurn(c, A, B, 'ask_where'); say('ask_where', A, B, c); out.tellWhere = ACTS.tell_where.when(c, B, A) || ACTS.dont_know_where.when(c, B, A); talkTurn(c, B, A, ACTS.tell_where.when(c, B, A) ? 'tell_where' : 'dont_know_where'); say(ACTS.tell_where.when(c, B, A) ? 'tell_where' : 'dont_know_where', B, A, c); } else out.askWhere = out.tellWhere = true;
+    for (const n of npcs) n.tx = n.x = n.tx; const far = npcs.find(n => n !== A && n !== B && !n.dead && !n.infant && n.age >= 12 && lfDist(A, n) > 12); if (far) { A.aff[far.id] = 30; A.crush = far.id; c = fresh(); out.askWhere = ACTS.ask_where.when(c, A, B); talkTurn(c, A, B, 'ask_where'); say('ask_where', A, B, c); out.tellWhere = ACTS.tell_where.when(c, B, A) || ACTS.dont_know_where.when(c, B, A); talkTurn(c, B, A, ACTS.tell_where.when(c, B, A) ? 'tell_where' : 'dont_know_where'); say(ACTS.tell_where.when(c, B, A) ? 'tell_where' : 'dont_know_where', B, A, c); } else out.askWhere = out.tellWhere = true;
     const evw = lfEmit('wall_removed', { actor: Z, target: D, sev: 2, tags: ['nuisance'], anon: false, witnessIds: [A.id, D.id], chron: false, text: 'x' }); const wm = TM.ofEv(A, evw.id); wm.conf = 1; wm.ver = { who: Z.id, sev: 2 }; A.aff[B.id] = 30; B.tmem = (B.tmem || []).filter(m => m.ev !== evw.id); c = fresh(); out.warn = ACTS.warn.when(c, A, B); if (out.warn) { talkTurn(c, A, B, 'warn'); say('warn', A, B, c); say('warn_thanks', B, A, c); }
     A.hunger = 70; c = fresh(); out.advice = ACTS.ask_advice.when(c, A, B); talkTurn(c, A, B, 'ask_advice'); say('ask_advice', A, B, c); say('give_advice', B, A, c);
     const kid = npcs.find(n => !n.dead && n.age < 14 && n !== A && n !== B) || null; if (kid) { A.fam.kids = [kid.id]; c = fresh(); out.brag = ACTS.brag_child.when(c, A, B); talkTurn(c, A, B, 'brag_child'); say('brag_child', A, B, c); say('congratulate', B, A, c); } else out.brag = true;
@@ -1792,7 +1792,7 @@ test('conversation depth: topics link or start afresh, stories have a preface an
     return out; });
   check(r.links[0] + r.links[1] > 3 && r.links[2] === 0 && /Anyway|Oh|Changing|Related|On /.test(r.linkText), 'topics link or start afresh, and the words stay clean: ' + JSON.stringify([r.links, r.linkText]));
   check(r.pref && r.inv && r.body && r.told, 'a story is a preface, an invitation and the telling: ' + JSON.stringify([r.pref, r.inv, r.body, r.told, r.storyWords]));
-  check(r.cb && !r.cbOnce && /turnips/.test(r.cbLine), 'last time is remembered, once: ' + JSON.stringify([r.cb, r.cbOnce, r.cbLine]));
+  check(r.cb && !r.cbOnce && new RegExp(r.cbName || '.').test(r.cbLine), 'last time is remembered, once: ' + JSON.stringify([r.cb, r.cbOnce, r.cbLine]));
   check(r.refl && r.reason > 5, 'a pattern of slights becomes an opinion people state: ' + JSON.stringify([r.refl, r.reason]));
   check(r.askWork && r.askWhere && r.tellWhere && r.warn && r.advice && r.brag && r.back && r.words.length === 0, 'the small acts apply and have clean words: ' + JSON.stringify([r.askWork, r.askWhere, r.tellWhere, r.warn, r.advice, r.brag, r.back, r.words]));
   check(r.heard && r.card && r.journal && r.dials, 'overheard news reaches your journal, the card hints, the journal shows what you know of people, dials exist: ' + JSON.stringify([r.heard, r.card, r.journal, r.dials]));

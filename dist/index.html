@@ -10823,6 +10823,10 @@ function eatPlan(n) {
     return m ? sellPrice(m, g) : 99;
   }));
   if (n.age < 16) return homeEatPlan(n) || packedPlan(n) || (n.hunger > 55 ? sharePlan(n) : null) || (n.hunger > 65 ? foragePlan(n) : null);
+  if (n.hunger >= 80) {
+    const pk0 = packedPlan(n);
+    if (pk0) return pk0;
+  }
   if (n.shop) {
     const p = stockEatPlan(n);
     if (p) return p;
@@ -11358,7 +11362,7 @@ function decide(n) {
   if (!isAwake(n, tod)) {
     const sl = (n.wake - tod + 1440) % 1440 || 1;
     if (n.bladder >= 85 && !n.player) return lfNightTrip(n, sl);
-    if (n.hunger >= 45 && n.bedEat !== Math.floor(game.time / 1440)) {
+    if (n.hunger >= 45 && n.bedEat !== Math.floor(game.time / 1440) || n.hunger >= 90) {
       n.bedEat = Math.floor(game.time / 1440);
       const ep = eatPlan(n);
       if (ep) return ep;
@@ -18501,6 +18505,17 @@ LF2.dec.push(function(n) {
     } })];
   }
   return null;
+});
+LF2.hourly.push(() => {
+  for (const n of npcs) {
+    if (n.dead || n.player || n.pose !== "sleep" || (n.hunger || 0) < 95) continue;
+    const food = FOODS.some((g) => (n.inv && n.inv[g] || 0) > 0) || typeof pantryOf === "function" && foodCount(pantryOf(n)) > 0;
+    if (food) {
+      abortPlan(n);
+      n.pose = "stand";
+      n.bedEat = -1;
+    }
+  }
 });
 const YARD_ITEMS = [
   { kind: "bwall", stand: "yd_wall", art: "blk_wall", noun: "wall block", name: "Wall" },

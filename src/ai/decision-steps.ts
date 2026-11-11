@@ -10,7 +10,7 @@ function decide(n) {
   if (!isAwake(n, tod)) {
     const sl = (n.wake - tod + 1440) % 1440 || 1;
     if (n.bladder >= 85 && !n.player) return lfNightTrip(n, sl);
-    if (n.hunger >= 45 && n.bedEat !== Math.floor(game.time / 1440)) { n.bedEat = Math.floor(game.time / 1440); const ep = eatPlan(n); if (ep) return ep; }
+    if ((n.hunger >= 45 && n.bedEat !== Math.floor(game.time / 1440)) || n.hunger >= 90) { n.bedEat = Math.floor(game.time / 1440); const ep = eatPlan(n); if (ep) return ep; }
     if (n.bed && n.bed.x != null) return [goS(n.bed, 'Heading to bed'), waitS(sl, 'sleep', 'Sleeping')];
     const tn = claimTent(n);
     if (tn) return [goS({ x: tn.x, y: tn.y, face: null }, 'Heading to a tent'), waitS(sl, 'sleep', 'Sleeping in a tent')];
