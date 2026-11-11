@@ -1256,6 +1256,34 @@ test('life slice: farming, trade and needs report real events; villagers tell th
   return JSON.stringify(r.real) + ' ' + JSON.stringify(r.troubles);
 });
 
+test('world modules: a job, an event or a system can be switched off to test the rest, and what needs it goes with it', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await simulate(page, 8 * 60);
+  const r = await page.evaluate(() => {
+    const out = {}; out.n = Object.keys(MODS.defs).length; out.kinds = [...new Set(Object.values(MODS.defs).map(d => d.kind))].sort().join(',');
+    // dependencies: weddings need romance
+    MODS.set('sys.romance', false); out.wedNeeds = modOn('event.wedding') === false && LF2.feat.romance === false; MODS.set('sys.romance', true); out.wedBack = modOn('event.wedding');
+    // a recipe: only farming
+    MODS.only(['job.Farmer', 'sys.economy']); out.only = [modOn('job.Farmer'), modOn('job.Miner'), modOn('gath.fishing'), modOn('event.funeral'), modOn('sys.economy')]; MODS.all(); out.all = Object.keys(MODS.defs).every(k => modOn(k));
+    // weddings, funerals and parties can be skipped
+    MODS.set('event.wedding', false); const a = npcs.find(q => !q.dead && !q.player && q.age >= 20 && !q.female), c = npcs.find(q => !q.dead && !q.player && q.age >= 20 && q.female && q !== a); town.wedding = null; scheduleWedding(a, c); out.noWedding = !town.wedding; MODS.set('event.wedding', true);
+    // farming off: nobody plants for a day; fishing trips off: none organised
+    out.p0 = LIFE.digest(1).kinds.planted || 0; MODS.set('job.Farmer', false); MODS.set('gath.fishing', false); for (const q of npcs) if (q.cur === 'Farmer') { q.cur = null; abortPlan(q); } window.__before = [0, (town.gath || []).length];
+    document.getElementById('modbox') && window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j' })); out.panel = !document.getElementById('modbox').hidden && document.getElementById('modbox').innerText.includes('Farming'); window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j' }));
+    return out; });
+  check(r.n >= 30 && /event/.test(r.kinds) && /job/.test(r.kinds) && /system/.test(r.kinds), 'jobs, events, systems and talk kinds are all defined as modules: ' + r.n + ' ' + r.kinds);
+  check(r.wedNeeds && r.wedBack, 'weddings go off with romance, and come back with it');
+  check(r.only[0] === true && r.only[1] === false && r.only[2] === false && r.only[3] === false && r.only[4] === true && r.all, 'a recipe keeps only what it names and what that needs: ' + JSON.stringify(r.only));
+  check(r.noWedding, 'a switched-off wedding is not scheduled');
+  check(r.panel, 'J opens the panel');
+  const t0 = await page.evaluate(() => window.__before);
+  await simulate(page, 1440);
+  const r2 = await page.evaluate(() => ({ planted: LIFE.digest(1).kinds.planted || 0, fishing: (town.gath || []).slice(window.__before[1]).filter(g => g.kind === 'fishing').length }));
+  check(r2.planted === 0 && r2.fishing === 0, 'with farming off nobody plants for a day, and with fishing trips off none are organised: ' + JSON.stringify([t0, r2]));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return r.n + ' modules';
+});
+
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

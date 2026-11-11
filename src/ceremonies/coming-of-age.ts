@@ -10,6 +10,7 @@ function honourTile() {
   return { x: c.x, y: c.y - 1, face: { dx: 0, dy: 1 } };
 }
 function scheduleParty(n) {
+  if (!modOn('event.birthday')) return;
   const a = n.age;
   if (a === 60 && n.role !== 'Worker') return;
   if (a === 68 && !['Priest', 'Trader', 'Barkeep'].includes(n.role)) return;

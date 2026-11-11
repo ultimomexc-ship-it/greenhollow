@@ -35,7 +35,7 @@ function lfOrganise(h) {
 function lfPlan(o) {
   const tod = game.time % 1440, h = tod / 60, hb = hobbyOf(o), opts = {};
   for (const k in LF_GATH) {
-    const d = LF_GATH[k]; if (h + 1 > d.hours[1]) continue;
+    const d = LF_GATH[k]; if (h + 1 > d.hours[1] || !modOn('gath.' + k)) continue;
     if (d.where === 'tavern' && !town.tavern) continue; if (d.where === 'shore' && (!shoreTiles.length || !fishAvail())) continue;
     opts[k] = 1 + (k === 'fishing' && hb === 'fishing' ? 2.5 : 0) + (k === 'songs' && hb === 'singing' ? 2.5 : 0) + (k === 'walk' && hb === 'walking' ? 2 : 0) + (k === 'cards' && o.traits.includes('gossipy') ? 1.5 : 0) + (k === 'dance' && o.traits.includes('jovial') ? 1.5 : 0);
   }

@@ -61,7 +61,7 @@ function needsHTML() {
 
 /** a new field attracts farmers: enough of the people who are gathering or fishing take it up (one farmer to about six tasks) */
 function tutFarmers() {
-  if (typeof farmWork !== 'function' || !farmWork()) return;
+  if (typeof farmWork !== 'function' || !farmWork() || !modOn('job.Farmer')) return;
   const tasks = town.crops.filter(c => !c.claim && itFarmersPlot(c) && ((c.st && cropStage(c) === 4) || !c.pl || (!c.st && c.pl && fieldPlowed(c)))).length, want = Math.max(1, Math.ceil(tasks / 6));
   const farmers = npcs.filter(n => !n.dead && !n.player && n.role === 'Worker' && n.cur === 'Farmer').length; let more = want - farmers;
   for (const n of npcs) { if (more <= 0) break; if (n.dead || n.player || n.role !== 'Worker' || n.age < 16 || LF2_JOBS[n.job] || (n.cur !== 'Gatherer' && n.cur !== 'Fisher' && n.cur != null)) continue; n.job = null; n.cur = 'Farmer'; n.curUntil = game.time + 600; if (typeof abortPlan === 'function') abortPlan(n); more--; }
