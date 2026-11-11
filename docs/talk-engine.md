@@ -312,6 +312,44 @@ What people complain about is the cheapest and most honest feedback on balance:
 ### 3c.5 Mundane is the point
 Real people mostly talk about the day: what they got, what went wrong, what hurts, what is expensive, the weather, what they are about to do. Mundane talk with *true* content is what makes a world believable, and it is also the ground the big stories stand on: the gift, the quarrel, the wall taken off the privy are noticed *against* an ordinary day.
 
+## 3d. Build approach and guardrails (so it never turns into a hack job)
+
+The first village's chat failed for structural reasons: words were written inside the game systems (the strings in `lfEmit` calls, ~45 `say()` lines), the chat code reached into game internals, nothing was registered,
+and nothing checked the two sides against each other. As features were added and removed the chat drifted until it was patched with regexes. This time the **contract is built first and kept small**; the rest grows against it.
+
+### 3d.1 Order
+1. **The contract** (small, stable): the registry (what exists and what it is), the life-event record `LIFE.emit(kind, who, data)`, the rules below, and the tests that enforce them.
+2. **Move what exists onto it**: `lfEmit` becomes an adapter into the same stream (one event bus, not two); the old event kinds are registered.
+3. **One vertical slice across the contract**: needs and everyday life (slept rough, no privy, hungry, filthy; bought, planted, harvested), with the digest.
+4. **From then on every new piece of realism is defined by its events**: a feature is done when it emits its events, is registered, shows up in the digest and has at least generic lines.
+5. Then meddling events and reactions, shared activities as episodes, the player's turn, voice, people, gifts, romance.
+Realism and talk are not two projects: each small step of realism ships with its events, and so with its talk.
+
+### 3d.2 The rules
+1. **Game code never writes words.** It emits events with structured data (kind, who, item, qty, place ...). The only place words exist is the lexicon.
+2. **Talk code never reads game internals.** It reads the event stream, the registry and memory, and nothing else. (Registering a *resolver* for a kind, like "does a tavern exist", is how the registry sees the world.)
+3. **Everything referenceable is registered**: items, crops, places, features, jobs, event kinds. `LIFE.emit` with an unregistered kind fails loudly in development and in tests.
+4. **One list of event kinds and categories** (`talk/kinds.ts`), with a family, the data it needs and a tellability. Adding a kind is a one-line change in one file.
+5. **Categories give defaults**: a new thing in category `seed` gets the standard seed events and generic lines without any talk code.
+
+### 3d.3 The checks (tests that fail when the two sides drift)
+- every emitted kind is registered (a fuzz pass over real runs);
+- every registered event kind has a lexicon template or a category default; the coverage report lists the gaps;
+- every lexicon line's `requires` and every slot resolves in the registry; **deleting a registry entry makes any line that needs it fail the lint**, so removing a feature forces the cleanup;
+- **event coverage**: in a normal run each core system (trade, farming, sleep, privy, work, meals) emits at least one event; if a system stops reporting, the test fails. Talk is therefore also a health check on the game;
+- no game file pushes text to bubbles; no talk file reads `n.hunger`-style internals outside the declared adapters.
+
+### 3d.4 Conversation as feedback
+The digest of what people complain about and the event counts by kind per day are the first thing to look at when something feels wrong: they say which systems work and which need rebalancing.
+
+### 3d.5 Conversation and needs
+While two people talk, **their needs are paused** (hunger, bladder, tiredness and the need for company do not run); nobody wets themselves or starves mid-chat, and the day's schedule is not thrown off by long talks. A conversation also ends early for an urgent need that was already high when it began.
+
+### 3d.6 How a conversation looks
+- People stand on a **whole tile orthogonally adjacent** to each other, facing each other.
+- The speech bubble sits on **the side of the speaker that faces you**: if you are north of the conversation the bubble is above the speaker with its tail on the bottom; south, the bubble is below with its tail on top; east, the bubble is to the right with its tail on its left side; west, to the left with the tail on its right side. It always points *at the speaker's head*.
+- A ring under the speaker and a faint thread between the two make clear who is talking to whom.
+
 ## 4. The world registry (what exists)
 
 Everything speakable is registered with an id and a kind: `item`, `crop`, `place`, `room-kind`, `feature` (tavern, chapel, bakery, mine, stairs...), `job`, `person`, `event-kind`, `mechanic`.
