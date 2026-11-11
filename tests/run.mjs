@@ -1321,6 +1321,32 @@ test('ready farming village: only what farming needs; farmers buy seed from the 
   return JSON.stringify(r2);
 });
 
+test('shop talk: customers and keepers talk at the stall in bubbles (greeting, asking, the price, paying, thanks), the same lines the player gets, and prices are passed on in conversation', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await page.evaluate(() => { newTown('farm-test', 'farm'); TALK.words = true; });
+  await simulate(page, 4 * 1440);
+  const r = await page.evaluate(() => {
+    const out = {}; const sh = TALK.log.filter(l => l.acts.some(a => a.act === 'shop_greet')); out.n = sh.length;
+    const ok = sh.filter(l => { const ids = l.acts.map(a => a.act); return ids[0] === 'shop_greet' && ids[1] === 'shop_greet_back' && ids.length >= 5 && l.lines && !l.lines.some(t => /[{}]|undefined|NaN/.test(t)); });
+    out.good = ok.length; out.paid = sh.filter(l => l.acts.some(a => a.act === 'quote_price' || a.act === 'bid_price') && l.lines.some(t => /denarii|denarius/.test(t))).length;
+    out.sample = sh.slice(0, 2).map(l => l.lines.join(' | '));
+    // each encounter is between a villager and the keeper of a stall
+    const keepers = new Set(merchants.map(m => m.n.id)); out.keeperInvolved = sh.every(l => keepers.has(l.a) || keepers.has(l.b));
+    // prices travel: the asker learns what the other paid
+    const pr = TALK.log.filter(l => l.acts.some(a => a.act === 'tell_price')); out.priceTalks = pr.length; out.learned = npcs.some(n => (n.tmem || []).some(m => m.kind === 'price' && m.unit > 0));
+    // the player's stall menu speaks with the keeper's own lines
+    const P = game.player || (startPlaying(npcs.find(canControl)), game.player), se = farmSeller(); P.coin = 40; farmRestock(); farmShopDialog(se); out.menuSay = talkUI.say; closeTalk && closeTalk();
+    out.money = [lxMoney(1), lxMoney(6)];
+    return out; });
+  check(r.n >= 5 && r.good >= 5, 'villagers talk to the stall keepers: ' + r.n + ' encounters, ' + r.good + ' complete: ' + JSON.stringify(r.sample));
+  check(r.paid >= 3 && r.keeperInvolved, 'the price is said, and it is always a keeper');
+  check(r.priceTalks >= 1 && r.learned, 'prices are asked about and passed on: ' + r.priceTalks);
+  check(/denarii/.test(r.menuSay) || /What|Morning|Hello|Good/.test(r.menuSay), 'the player gets the keeper\'s greeting at the stall: ' + r.menuSay);
+  check(r.money[0] === 'one denarius' && r.money[1] === '6 denarii', 'money is said the way people say it');
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return r.n + ' stall encounters, ' + r.priceTalks + ' price talks';
+});
+
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

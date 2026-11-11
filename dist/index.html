@@ -8415,7 +8415,7 @@ function generateTown(seed, size) {
   spawnNodes(18);
   return town;
 }
-const TALK = { engine: "new", on: { ritual: true, small: true, world: true, life: true, person: true, feeling: true, economy: true, gift: true, romance: true, family: true, law: true } };
+const TALK = { engine: "new", on: { ritual: true, small: true, world: true, life: true, trade: true, person: true, feeling: true, economy: true, gift: true, romance: true, family: true, law: true } };
 const anyOf = (a) => a[Math.floor(Math.random() * a.length)];
 const dayN = () => Math.floor(game.time / 1440);
 const personById = (id) => byId(id) || (town.dead || []).find((r) => r.id === id) || null;
@@ -10434,6 +10434,7 @@ function doBuy(n, m, g, qty) {
     got++;
     consume(n, g, 1);
   }
+  if (!n.player && typeof talkService === "function") talkService(n, m.n, { mode: "buy", item: g, qty: got || qty, price: tot || Math.round(sellPrice(m, g) * qty), result: got ? "ok" : m.stock[g] >= 1 ? "poor" : "none", shop: m.def.noun, newItem: !!(m.newStock && m.newStock[g] && game.time - m.newStock[g] < 3 * 1440) });
   if (got) logTrade(n, m.n, g, got, tot, "buy");
   return got;
 }
@@ -10455,6 +10456,7 @@ function doSell(n, m, g, qty) {
     logTrade(m.n, n, g, got, tot, "sell");
     lf2Paid(n, tot);
   }
+  if (!n.player && typeof talkService === "function") talkService(n, m.n, { mode: "sell", item: g, qty: got || qty, price: tot, result: got ? "ok" : "refused", shop: m.def.noun });
   return got;
 }
 function isOpen(m) {
@@ -25212,7 +25214,10 @@ function farmSeedBuy(n, need) {
   return [goS(m.front, "Walking to the seed stall"), waitS(2, "stand", "Buying seed", { nopie: true, onEnd(nn) {
     const stocked = farmSeedRange().filter((k) => (m.stock["seed_" + k] || 0) > 0);
     if (!stocked.length) {
-      if (!nn.player) LIFE.emit("out_of_stock", nn, { item: "seed_barley", place: m.def.noun });
+      if (!nn.player) {
+        LIFE.emit("out_of_stock", nn, { item: "seed_barley", place: m.def.noun });
+        talkService(nn, m.n, { mode: "buy", item: "seed_barley", qty: 1, result: "none", shop: m.def.noun });
+      }
       return;
     }
     for (const g of Object.keys(m.newStock || {})) {
@@ -25223,6 +25228,8 @@ function farmSeedBuy(n, need) {
       }
     }
     let left = short;
+    const got = {}, paid = {};
+    let poor = false;
     for (let i = 0; i < short * 2 && left > 0; i++) {
       const k = farmSeed(nn);
       const pick2 = stocked.includes(k) ? k : stocked[(nn.id + i) % stocked.length], g = "seed_" + pick2;
@@ -25230,6 +25237,7 @@ function farmSeedBuy(n, need) {
       const p = sellPrice(m, g);
       if (nn.coin < p) {
         LIFE.emit("could_not_afford", nn, { item: g, place: m.def.noun });
+        poor = true;
         break;
       }
       pay(nn, m.n, p);
@@ -25239,7 +25247,12 @@ function farmSeedBuy(n, need) {
       nn.inv[g] = (nn.inv[g] || 0) + 1;
       logTrade(nn, m.n, g, 1, p, "buy");
       left--;
+      got[g] = (got[g] || 0) + 1;
+      paid[g] = (paid[g] || 0) + p;
     }
+    const top = Object.keys(got).sort((x, y) => got[y] - got[x])[0];
+    if (top) talkService(nn, m.n, { mode: "buy", item: top, qty: got[top], price: paid[top], result: "ok", shop: m.def.noun, newItem: !!(m.newStock && m.newStock[top] && game.time - m.newStock[top] < 3 * 1440) });
+    else if (poor) talkService(nn, m.n, { mode: "buy", item: "seed_" + stocked[0], qty: 1, price: Math.round(sellPrice(m, "seed_" + stocked[0])), result: "poor", shop: m.def.noun });
   } })];
 }
 function farmSow(n) {
@@ -25387,7 +25400,8 @@ function farmShopDialog(m) {
       else n.inv[g] = (n.inv[g] || 0) + 1;
     }
     if (got) logTrade(n, m.n, g, got, got * p, "buy");
-    return { say: got ? `Here. ${got} ${GOODS[g].name}. You have ${money()} left.` : n.coin < p ? `That's ${p} each, and you have ${money()}.` : `I'm out of ${GOODS[g].name}.`, opts: menu() };
+    const d = { item: WORLD.has("item", g) ? WORLD.name("item", g) : GOODS[g].name, qty: got || q, price: got ? got * p : p, shop: m.def.noun };
+    return { say: got ? `${m.n.first}: ${serviceSay("quote_price", m.n, n, d)} ${serviceSay("thank_shop", m.n, n, d)} (You have ${money()} left.)` : `${m.n.first}: ${serviceSay(n.coin < p ? "quote_price" : "no_stock", m.n, n, d)}${n.coin < p ? " (You have " + money() + ".)" : ""}`, opts: menu() };
   };
   const sell = (g) => () => {
     const q = n.inv[g] || 0, p0 = buyPrice(m, g);
@@ -25402,7 +25416,8 @@ function farmShopDialog(m) {
       got++;
     }
     if (got) logTrade(m.n, n, g, got, tot, "sell");
-    return { say: got ? `${got} ${GOODS[g].name}, ${tot} denarii. You have ${money()}.` : p0 <= 0 ? `I've enough ${GOODS[g].name} already.` : `I can't pay for any more today.`, opts: menu() };
+    const d = { item: GOODS[g].name, qty: got || q, price: tot, shop: m.def.noun };
+    return { say: got ? `${m.n.first}: ${serviceSay("bid_price", m.n, n, d)} ${serviceSay("thank_shop", m.n, n, d)} (You have ${money()}.)` : `${m.n.first}: ${serviceSay("no_demand", m.n, n, d)}`, opts: menu() };
   };
   const menu = () => {
     const o = [];
@@ -25424,7 +25439,7 @@ function farmShopDialog(m) {
     o.push(["Leave", () => null]);
     return o;
   };
-  lf2Dialog(m.n, `${m.n.first}: What can I do for you? (You have ${money()}.)`, menu());
+  lf2Dialog(m.n, `${m.n.first}: ${serviceSay("shop_greet_back", m.n, n, { item: "", qty: 1, shop: m.def.noun })} (You have ${money()}.)`, menu());
 }
 function carpWant(needs) {
   if (!town || !kitOn()) return null;
@@ -27495,6 +27510,16 @@ LIFE.troubles = function(days) {
   }
   return out.sort((a, b) => b.people - a.people || b.n - a.n);
 };
+LIFE.lastPrice = function(n, item) {
+  const log = n.day || [];
+  for (let i = log.length - 1; i >= 0; i--) {
+    const e = log[i];
+    if ((e.kind === "bought" || e.kind === "sold") && e.data.item === item && e.data.price != null && e.data.qty) return Math.max(1, Math.round(e.data.price / e.data.qty));
+  }
+  const mem = n.tmem || [];
+  for (let i = mem.length - 1; i >= 0; i--) if (mem[i].kind === "price" && mem[i].item === item) return mem[i].unit;
+  return null;
+};
 const TM = {
   max: 120,
   add(n, m) {
@@ -27935,6 +27960,69 @@ lx("life:price_down", "plain", "{item} is cheaper at the {shop} now.");
 lx("life:price_down", "plain", "You can get {item} for less at the {shop} today.");
 lx("life:harvested", "plain", "I brought in {things}.");
 lx("life:harvested", "plain", "Harvested {things} today.");
+lx("shop_greet", "plain", "Morning.", { band: "morning" });
+lx("shop_greet", "plain", "Afternoon.", { band: "day" });
+lx("shop_greet", "plain", "Evening.", { band: "evening" });
+lx("shop_greet", "plain", "Hello, {li}.");
+lx("shop_greet", "plain", "{li}. Busy today?", { rel: "friend" });
+lx("shop_greet_back", "plain", "Morning. What can I get you?", { band: "morning" });
+lx("shop_greet_back", "plain", "Hello. What'll it be?");
+lx("shop_greet_back", "plain", "Good day. Looking for something?");
+lx("shop_greet_back", "plain", "{li}! The usual?", { rel: "friend" });
+lx("ask_item", "plain", "I'll take {things}, please.");
+lx("ask_item", "plain", "{things}, please.");
+lx("ask_item", "plain", "Could I have {things}?");
+lx("ask_item", "plain", "Let me have {things}.");
+lx("quote_price", "plain", "That's {money}.");
+lx("quote_price", "plain", "{money} for the lot.");
+lx("quote_price", "plain", "That comes to {money}.");
+lx("quote_price", "plain", "{money}, and cheap at the price.");
+lx("pay_ok", "plain", "Here you are.");
+lx("pay_ok", "plain", "There. Count it.");
+lx("pay_ok", "plain", "Right, {money}.");
+lx("thank_shop", "plain", "Thank you.");
+lx("thank_shop", "plain", "Much obliged.");
+lx("thank_shop", "plain", "There you go. Thanks.");
+lx("thank_shop", "plain", "Pleasure doing business.");
+lx("cant_afford", "plain", "That's more than I've got. I'll leave it.");
+lx("cant_afford", "plain", "I'm short today, sorry.");
+lx("cant_afford", "plain", "Ah. I haven't got that much.");
+lx("make_do", "plain", "Come back when you have it.");
+lx("make_do", "plain", "No hurry. It'll keep.");
+lx("make_do", "plain", "Take fewer, then.");
+lx("no_stock", "plain", "Sorry, I'm out of {item} just now.");
+lx("no_stock", "plain", "None left, I'm afraid.");
+lx("no_stock", "plain", "The {item} sold out this morning.");
+lx("shrug_off", "plain", "Next time, then.");
+lx("shrug_off", "plain", "Never mind.");
+lx("shrug_off", "plain", "I'll try again tomorrow.");
+lx("offer_goods", "plain", "I've {things} to sell.");
+lx("offer_goods", "plain", "Would you take {things}?");
+lx("offer_goods", "plain", "Brought you {things}.");
+lx("bid_price", "plain", "I can give you {money} for them.");
+lx("bid_price", "plain", "{money}, and that's fair.");
+lx("bid_price", "plain", "I'll say {money}.");
+lx("accept_deal", "plain", "Done.");
+lx("accept_deal", "plain", "That'll do.");
+lx("accept_deal", "plain", "Fine.");
+lx("no_demand", "plain", "I've plenty of those already, thanks.");
+lx("no_demand", "plain", "Not today. The stall is full of {item}.");
+lx("no_demand", "plain", "I can't pay for any more today.");
+lx("new_stock_remark", "plain", "We've {item} in this week, if you're interested.");
+lx("new_stock_remark", "plain", "New in: {item}.");
+lx("farewell_shop", "plain", "Good day.");
+lx("farewell_shop", "plain", "See you.");
+lx("farewell_shop", "plain", "Right. Back to it.");
+lx("ask_price", "plain", "What are {item} going for?");
+lx("ask_price", "plain", "Seen what {item} cost lately?");
+lx("ask_price", "plain", "Do you know what {item} are at the moment?");
+lx("tell_price", "plain", "I paid {money} each last time.");
+lx("tell_price", "plain", "About {money}, when I looked.");
+lx("tell_price", "plain", "{money} each. Not cheap, not dear.");
+lx("react_price", "plain", "Hm. Good to know.");
+lx("react_price", "plain", "That's more than I thought.");
+lx("react_price", "plain", "Fair enough. Thanks.");
+lx("react_price", "plain", "I'll see if it's cheaper elsewhere.");
 function lxContext(sp, li, c) {
   const rel = sp.fam && (sp.fam.spouse === li.id || (sp.fam.kids || []).includes(li.id) || sp.fam.mother === li.id || sp.fam.father === li.id) ? "kin" : sp.rel && sp.rel[li.id] === "friend" || (sp.aff[li.id] || 0) > 30 ? "friend" : sp.know && (sp.know[li.id] || 0) > 10 ? "acquaintance" : "stranger";
   return { band: todBand(game.time), rel, state: c.state || talkState(sp) || "fine", trait: (sp.traits || [])[0], how: c.how, conf: c.conf };
@@ -27957,7 +28045,7 @@ function lxSay(act, sp, li, c) {
   heard[act + "|" + best.text] = game.time;
   const place = String(placeOf(sp) || "").replace(/^(in|at)\s+/, "");
   const inP = /^the /.test(place) ? "at " + place : place ? "in " + place : "here";
-  const raw = best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || "daily").toLowerCase()).replace(/\{state\}/g, ctx2.state).replace(/\{shop\}/g, c.shop || "stall").replace(/\{things\}/g, lxCount(c.qty, c.item)).replace(/\{qty\}/g, c.qty != null ? String(c.qty) : "").replace(/\{item\}/g, c.item || "").replace(/\{news\}/g, c.news || "").replace(/\{who\}/g, c.who || "them");
+  const raw = best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || "daily").toLowerCase()).replace(/\{state\}/g, ctx2.state).replace(/\{money\}/g, lxMoney(c.price)).replace(/\{price\}/g, c.price != null ? String(c.price) : "").replace(/\{shop\}/g, c.shop || "stall").replace(/\{things\}/g, lxCount(c.qty, c.item)).replace(/\{qty\}/g, c.qty != null ? String(c.qty) : "").replace(/\{item\}/g, c.item || c.pitem || "").replace(/\{news\}/g, c.news || "").replace(/\{who\}/g, c.who || "them");
   return placeWords(raw.replace(/(^|[.!?]\s+)([a-z])/g, (_m, a, b) => a + b.toUpperCase()));
 }
 function lxCount(qty, name) {
@@ -27968,6 +28056,11 @@ function lxCount(qty, name) {
   if (/oes$/.test(name)) return "a " + name.slice(0, -2);
   if (/ss$/.test(name) || !/s$/.test(name)) return "a little " + name;
   return "a " + name.slice(0, -1);
+}
+function lxMoney(n) {
+  if (n == null) return "a few denarii";
+  n = Math.round(n);
+  return n === 1 ? "one denarius" : n + " denarii";
 }
 TALK.log = [];
 TALK.words = false;
@@ -27999,7 +28092,7 @@ function talkRun(a, b, listened) {
   const say2 = (sp2, li2, id) => {
     const A = ACTS[id];
     A.apply(c, sp2, li2);
-    c.turns.push({ by: sp2.id, act: id, x: { state: c.state, how: c.newsHow, conf: c.newsConf, news: c.told && c.told.text, who: c.newsWho ? c.newsWho.first : "them", line: c.lifeLine, qty: c.lifeQty, item: c.lifeItem, shop: c.lifeShop } });
+    c.turns.push({ by: sp2.id, act: id, x: { state: c.state, how: c.newsHow, conf: c.newsConf, news: c.told && c.told.text, who: c.newsWho ? c.newsWho.first : "them", line: c.lifeLine, qty: c.lifeQty, item: c.lifeItem, shop: c.lifeShop, price: c.priceUnit, pitem: c.priceName } });
     c.last = id;
   };
   let sp = a, li = b;
@@ -28039,6 +28132,10 @@ function talkRun(a, b, listened) {
     x.social = Math.min(100, (x.social == null ? 50 : x.social) + 5 + c.turns.length);
     lfAff(x, y, 1, "chatted");
   }
+  talkFinish(c, a, b, listened);
+  return c;
+}
+function talkFinish(c, a, b, listened) {
   const lines = listened || TALK.words ? c.turns.map((t) => {
     const s = t.by === a.id ? a : b, o = s === a ? b : a, text = lxSay(t.act === "report_day" && t.x && t.x.line ? t.x.line : t.act, s, o, t.x || {});
     return text ? { who: s, text } : null;
@@ -28051,8 +28148,48 @@ function talkRun(a, b, listened) {
     a.talkUntil = Math.max(a.talkUntil || 0, hold);
     b.talkUntil = Math.max(b.talkUntil || 0, hold);
   }
-  return c;
 }
+for (const id of ["shop_greet", "shop_greet_back", "ask_item", "quote_price", "pay_ok", "thank_shop", "cant_afford", "make_do", "no_stock", "shrug_off", "offer_goods", "bid_price", "accept_deal", "no_demand", "new_stock_remark", "farewell_shop"])
+  ACTS[id] = { kind: "trade", stage: "topic", reply: true, when: () => true, apply: () => {
+  }, replies: [] };
+function serviceScript(mode, result, newItem) {
+  const open = [["c", "shop_greet"], ["k", "shop_greet_back"]];
+  if (mode === "buy") {
+    if (result === "ok") return open.concat([["c", "ask_item"], ["k", "quote_price"], ["c", "pay_ok"], ["k", "thank_shop"]], newItem ? [["k", "new_stock_remark"]] : [], [["c", "farewell_shop"]]);
+    if (result === "none") return open.concat([["c", "ask_item"], ["k", "no_stock"], ["c", "shrug_off"]]);
+    return open.concat([["c", "ask_item"], ["k", "quote_price"], ["c", "cant_afford"], ["k", "make_do"]]);
+  }
+  if (result === "ok") return open.concat([["c", "offer_goods"], ["k", "bid_price"], ["c", "accept_deal"], ["k", "thank_shop"]]);
+  return open.concat([["c", "offer_goods"], ["k", "no_demand"]]);
+}
+function talkService(cust, keeper, d) {
+  if (!TALK.on.trade || !cust || !keeper || cust === keeper) return;
+  const name = WORLD.has("item", d.item) ? WORLD.name("item", d.item) : REG.has("seed", String(d.item).replace(/^seed_/, "")) && String(d.item).startsWith("seed_") ? (GOODS[d.item] || {}).name : String(d.item);
+  const c = { a: cust, b: keeper, done: {}, turns: [], stage: "topic", t0: game.time };
+  const x = { item: name, qty: d.qty || 1, price: d.price, shop: d.shop || "" };
+  for (const [who, act] of serviceScript(d.mode, d.result, !!d.newItem)) c.turns.push({ by: who === "c" ? cust.id : keeper.id, act, x });
+  talkFinish(c, cust, keeper, talkListened(cust, keeper));
+}
+function serviceSay(act, speaker, other, d) {
+  return lxSay(act, speaker, other, { item: d.item, qty: d.qty, price: d.price, shop: d.shop || "" });
+}
+const PRICE_ITEMS = () => Object.keys(GOODS).filter((g) => GOODS[g].base);
+ACTS.ask_price = { kind: "trade", stage: "topic", when: (c, sp, li) => {
+  if (c.done.ask_price) return false;
+  const items = PRICE_ITEMS().filter((g) => LIFE.lastPrice(li, g) != null && LIFE.lastPrice(sp, g) == null);
+  if (!items.length) return false;
+  c.priceItem = items[Math.floor(Math.random() * items.length)];
+  return true;
+}, w: () => 0.7, apply: (c) => {
+  c.done.ask_price = 1;
+  c.priceName = WORLD.has("item", c.priceItem) ? WORLD.name("item", c.priceItem) : GOODS[c.priceItem].name;
+}, replies: ["tell_price"] };
+ACTS.tell_price = { kind: "trade", stage: "topic", reply: true, when: (c, sp) => !!c.priceItem && LIFE.lastPrice(sp, c.priceItem) != null, apply: (c, sp, li) => {
+  c.priceUnit = LIFE.lastPrice(sp, c.priceItem);
+  TM.add(li, { kind: "price", item: c.priceItem, unit: c.priceUnit, from: sp.id, conf: 0.8, imp: 0.15 });
+}, replies: ["react_price"] };
+ACTS.react_price = { kind: "trade", stage: "topic", reply: true, when: () => true, apply: () => {
+}, replies: [] };
 TALK.range = 10;
 TALK.earshot = 16;
 TALK.stroll = true;
@@ -28064,6 +28201,10 @@ const talkOnScreen = (n) => {
 const talkLeisure = (n) => {
   const h = game.time % 1440 / 60;
   return h >= 17 && h < 22 && n.hunger < 45 && n.bladder < 60 && !(n.job && n.pose === "work");
+};
+const talkListened = (a, b) => {
+  const pl = game.player;
+  return TALK.hyper || !!pl && (lfDist(a, pl) <= TALK.earshot || lfDist(b, pl) <= TALK.earshot || talkOnScreen(a) || talkOnScreen(b));
 };
 function talkIdle(n) {
   if (n.dead || n.player || n.infant || n.age < 6 || n.pose === "sleep" || n.trapped || n.jail) return false;
@@ -28122,8 +28263,7 @@ function talkApproach(a, b) {
       }
       faceTo(nn, b);
       faceTo(b, nn);
-      const pl = game.player, near = TALK.hyper || !!pl && (lfDist(nn, pl) <= TALK.earshot || lfDist(b, pl) <= TALK.earshot || talkOnScreen(nn) || talkOnScreen(b));
-      talkRun(nn, b, near);
+      talkRun(nn, b, talkListened(nn, b));
       nn.talkBusy = b.talkBusy = 0;
     } })
   ].concat(rest);

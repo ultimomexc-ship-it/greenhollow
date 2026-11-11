@@ -77,3 +77,9 @@ LIFE.troubles = function (days?: number): any[] {
   for (const kind of Object.keys(LIFE_TROUBLE)) { let n = 0; const ppl: any = {}; for (const k of Object.keys(st)) if (+k > today - (days || 7)) { n += st[k][kind] || 0; for (const id of (who[k] && who[k][kind]) || []) ppl[id] = 1; } if (n) out.push({ kind, n, people: Object.keys(ppl).length, label: LIFE_TROUBLE[kind] }); }
   return out.sort((a, b) => b.people - a.people || b.n - a.n);
 };
+
+/** the unit price somebody last paid or got for an item (from their own day log), or what they were told; null when they have no idea */
+LIFE.lastPrice = function (n: any, item: string): number | null {
+  const log = n.day || []; for (let i = log.length - 1; i >= 0; i--) { const e = log[i]; if ((e.kind === 'bought' || e.kind === 'sold') && e.data.item === item && e.data.price != null && e.data.qty) return Math.max(1, Math.round(e.data.price / e.data.qty)); }
+  const mem = n.tmem || []; for (let i = mem.length - 1; i >= 0; i--) if (mem[i].kind === 'price' && mem[i].item === item) return mem[i].unit; return null;
+};
