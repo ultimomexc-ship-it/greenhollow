@@ -73,5 +73,6 @@
   "talk/shape.ts",
   "talk/service.ts",
   "talk/player.ts",
+  "talk/barks.ts",
   "talk/schedule.ts"
 ]

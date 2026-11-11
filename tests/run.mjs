@@ -1064,7 +1064,7 @@ test('talk engine (phase 1): villagers walk up, greet, chat about small things, 
   await page.evaluate(() => { TALK.words = true; });
   await simulate(page, 1440 + 10 * 60);
   const r = await page.evaluate(() => {
-    const L = TALK.log.filter(l => l.acts[0].act !== 'shop_greet'), bad = [];   // (stall encounters have their own shape: the shop talk test)
+    const L = TALK.log.filter(l => l.acts[0].act !== 'shop_greet' && l.acts[0].act !== 'keeper_call'), bad = [];   // (stall encounters and calls have their own shape: the shop talk tests)
     for (const l of L) {
       const ids = l.acts.map(x => x.act);
       if (ids[0] !== 'greet' || ids[1] !== 'greet_back') bad.push('opening ' + ids.slice(0, 2));
@@ -1106,9 +1106,9 @@ test('talk engine (phase 1): the one who starts walks up to the other, they stan
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   await simulate(page, 10 * 60);
   const r = await page.evaluate(() => {
-    const free = npcs.filter(q => !q.dead && !q.player && q.age >= 18 && !q.moving && q.pose !== 'sleep'); const a = free[0], c = free[1]; if (!a || !c) return { skip: true };
-    const spot = (x, y) => { for (let r = 0; r < 12; r++) for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) { const tx = x + dx, ty = y + dy; if (walkable(tx, ty) && !lfPropAt(tx, ty) && !npcs.some(o => o.tx === tx && o.ty === ty)) return { x: tx, y: ty }; } return null; };
-    const P = game.player || (startPlaying(npcs.find(canControl)), game.player), sa = spot(P.tx + 3, P.ty), sb = sa && spot(sa.x + 3, sa.y); if (!sa || !sb) return { skip: true };
+    const free = npcs.filter(q => !q.dead && !q.player && q.age >= 18 && !q.moving && q.pose !== 'sleep' && !q.job && !q.shop); const a = free[0], c = free[1]; if (!a || !c) return { skip: true };   // (people with no job of their own: a workday plan is not what is being tested)
+    let sa = null, sb = null; scan: for (let r = 0; r < 25; r++) for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) { const x = town.cx + dx, y = town.cy + dy; let ok = true; for (let i = -1; i <= 5 && ok; i++) for (let j = -1; j <= 1 && ok; j++) { const tx = x + i, ty = y + j; if (!walkable(tx, ty) || lfPropAt(tx, ty) || roomAt[ty][tx] >= 0 || npcs.some(o => o.tx === tx && o.ty === ty)) ok = false; } if (ok) { const pth = findPath(x, y, x + 3, y); if (pth && pth.length > 0 && pth.length <= 4) { sa = { x, y }; sb = { x: x + 4, y }; break scan; } } }   // (open ground you can really walk straight across)
+    if (!sa) return { skip: true };
     for (const [n, s] of [[a, sa], [c, sb]]) { abortPlan(n); n.tx = n.x = s.x; n.ty = n.y = s.y; n.pose = 'stand'; n.talkUntil = 0; n.talkBusy = 0; }
     rebuildOcc(); const n0 = TALK.log.length; talkApproach(a, c); window.__pair = [a.id, c.id, n0]; return { first: a.plan[0].text, d0: lfDist(a, c) };
   });
@@ -1292,7 +1292,7 @@ test('ready farming village: only what farming needs; farmers buy seed from the 
     out.merch = merchants.map(m => m.def.noun).sort().join(','); out.mods = [modOn('job.Farmer'), modOn('job.Miner'), modOn('gath.fishing'), modOn('event.wedding'), modOn('sys.law')]; out.fields = town.crops.length > 40;
     out.range0 = farmSeedRange().length; return out; });
   check(r.scen === 'farm' && r.eco, 'the scenario is the ready farming village');
-  check(r.kinds === 'house,privy', 'only houses and privies are built (no church, tavern, bakery, smithy, jail): ' + r.kinds);
+  check(r.kinds === 'bakery,house,privy', 'only houses, privies and a bakery are built (no church, tavern, smithy, jail): ' + r.kinds);
   check(r.merch === 'greengrocer,seed stall', 'exactly two stalls, the greengrocer and the seed seller: ' + r.merch);
   check(r.mods[0] === true && r.mods.slice(1).every(v => v === false), 'everything but farming is switched off for this island: ' + JSON.stringify(r.mods));
   await simulate(page, 6 * 1440);
@@ -1331,7 +1331,7 @@ test('shop talk: customers and keepers talk at the stall in bubbles (greeting, a
     out.good = ok.length; out.paid = sh.filter(l => l.acts.some(a => a.act === 'quote_price' || a.act === 'bid_price') && l.lines.some(t => /denarii|denarius/.test(t))).length;
     out.sample = sh.slice(0, 2).map(l => l.lines.join(' | '));
     // each encounter is between a villager and the keeper of a stall
-    const keepers = new Set(merchants.map(m => m.n.id)); out.keeperInvolved = sh.every(l => keepers.has(l.a) || keepers.has(l.b));
+    const keepers = new Set(merchants.map(m => m.n.id).concat(npcs.filter(n => n.job === 'Baker').map(n => n.id))); out.keeperInvolved = sh.every(l => keepers.has(l.a) || keepers.has(l.b));
     // prices travel: the asker learns what the other paid
     const pr = TALK.log.filter(l => l.acts.some(a => a.act === 'tell_price')); out.priceTalks = pr.length; out.learned = npcs.some(n => (n.tmem || []).some(m => m.kind === 'price' && m.unit > 0));
     // the player's stall menu speaks with the keeper's own lines
@@ -1383,6 +1383,56 @@ test('player talk: walking into a villager in the real game opens the talk box; 
   check(told ? mid.told : true, 'telling the news gave the villager a told version from you');
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
   return answered + ' turns; told=' + told + ' reported=' + reported + ' ' + JSON.stringify(lines.slice(0, 3));
+});
+
+test('stalls and the bakery, from the villagers\' side: keepers call out to passers-by from the real stock and prices, the baker bakes and sells bread over the counter, and customers talk to the baker too', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await page.evaluate(() => { newTown('farm-bake-test', 'farm'); TALK.words = true; });
+  const r0 = await page.evaluate(() => ({ kinds: [...new Set(rooms.filter(q => !q.dead).map(q => q.kind))].sort().join(','), baker: npcs.filter(n => n.job === 'Baker').length, bakerOn: modOn('job.Baker') }));
+  check(r0.kinds === 'bakery,house,privy' && r0.baker === 1 && r0.bakerOn, 'the farming village has a bakery and a baker: ' + JSON.stringify(r0));
+  await simulate(page, 5 * 1440);
+  const r = await page.evaluate(() => {
+    const calls = TALK.log.filter(l => l.acts.some(a => a.act === 'keeper_call')), keepers = new Set(merchants.map(m => m.n.id).concat(npcs.filter(n => n.job === 'Baker').map(n => n.id)));
+    const bread = TALK.log.filter(l => l.acts.some(a => a.act === 'shop_greet') && l.lines && l.lines.some(t => /bread/.test(t)));
+    const dg = LIFE.digest(5).kinds, bk = lf2Room('bakery');
+    return { calls: calls.length, callsOk: calls.every(l => keepers.has(l.a) && l.lines && l.lines[0] && !/[{}]|undefined/.test(l.lines[0])), sample: calls.slice(0, 2).map(l => l.lines.join(' | ')), bread: bread.length, baked: dg.baked || 0, breadBought: LIFE.stream.filter(e => e.kind === 'bought' && e.data.item === 'bread').length, dead: npcs.filter(n => n.dead).length, stock: bk && lf2Stock(bk).bread };
+  });
+  check(r.calls >= 3 && r.callsOk, 'keepers call out to people passing: ' + r.calls + ' ' + JSON.stringify(r.sample));
+  check(r.baked >= 2 && r.breadBought >= 2, 'bread is baked and bought: ' + JSON.stringify([r.baked, r.breadBought]));
+  check(r.bread >= 1, 'customers talk to the baker over the counter: ' + r.bread);
+  check(r.dead === 0, 'nobody dies');
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return JSON.stringify(r);
+});
+
+test('stalls and the bakery, from the player\'s side, in the real game: walk into the stall and the keeper greets you with a menu; buy seed with real money; the baker\'s counter sells bread; the keeper\'s lines are the villagers\' lines', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 1, live: true, viewport: { width: 1000, height: 640 } });
+  await page.waitForTimeout(800);
+  const setup = await page.evaluate(() => {
+    newTown('farm-ui-test', 'farm'); startPlaying(npcs.find(canControl)); const P = game.player, m = farmSeller(); farmRestock();
+    Object.defineProperty(m, 'serving', { get: () => true, set: () => {} });   // (the keeper is at the counter)
+    const k = m.n, post = m.post, fr = m.front; abortPlan(k); k.tx = k.x = post.x; k.ty = k.y = post.y; k.talkUntil = game.time + 1e5;
+    teleportTo(P, fr.x, fr.y); P.coin = 40; P.bag = P.bag || {}; P.bag.seed_turnip = 0; const dx = Math.sign(post.x - fr.x), dy = Math.sign(post.y - fr.y); P.face = { dx, dy }; rebuildOcc(); window.__dir = { dx, dy };
+    return { keeper: k.first, front: [fr.x, fr.y], post: [post.x, post.y], dir: [dx, dy], coin: P.coin };
+  });
+  const key = setup.dir[0] > 0 ? 'ArrowRight' : setup.dir[0] < 0 ? 'ArrowLeft' : setup.dir[1] > 0 ? 'ArrowDown' : 'ArrowUp';
+  await page.focus('#c'); await page.keyboard.down(key);
+  for (let i = 0; i < 40; i++) { await page.waitForTimeout(100); if (await page.evaluate(() => !!talkUI.o)) break; }
+  await page.keyboard.up(key);
+  const open = await page.evaluate(() => ({ open: !!talkUI.o, who: talkUI.o && talkUI.o.first, say: talkUI.say, opts: talkUI.opts.map(o => o[1]) }));
+  check(open.open && open.who === setup.keeper && /^.+: /.test(open.say), 'walking into the stall opens the keeper\'s menu with a greeting: ' + JSON.stringify([open.who, open.say]));
+  check(open.opts.some(t => /^Buy a .*seed/.test(t)) && open.opts[open.opts.length - 1] === 'Leave', 'there are seeds to buy and a way out: ' + JSON.stringify(open.opts.slice(0, 4)));
+  const idx = open.opts.findIndex(t => /^Buy a turnip seed/.test(t));
+  if (idx >= 0) await page.click('#talk [data-k]:nth-of-type(' + (idx + 1) + ')'); await page.waitForTimeout(200);
+  const after = await page.evaluate(() => ({ say: talkUI.say, coin: game.player.coin, seeds: game.player.bag.seed_turnip || 0 }));
+  check(after.seeds === 1 && after.coin < 40 && /denarii|denarius/.test(after.say), 'buying a seed costs money, gives the seed, and the keeper quotes the price and thanks you: ' + JSON.stringify(after));
+  const closed = await page.evaluate(() => { closeTalk(); return !talkUI.o && document.getElementById('talk').hidden; });
+  check(closed, 'leaving closes the menu');
+  // the baker's counter (the baker at the oven spot, so somebody is serving)
+  const bk = await page.evaluate(() => { const P = game.player, r = lf2Room('bakery'), k = npcs.find(n => n.job === 'Baker'), sp = lf2Spot(r, LF2_JOBS.Baker.spot); abortPlan(k); k.pose = 'stand'; k.tx = k.x = sp.x; k.ty = k.y = sp.y; rebuildOcc(); lf2Stock(r).bread = 6; P.coin = 30; lf2TradeDialog(P, r); return { open: !!talkUI.o, opts: talkUI.opts.map(o => o[1]), who: k && k.first, say: talkUI.say }; });
+  check(bk.open && bk.opts.some(t => /Bread/i.test(t)), 'the baker\'s counter offers bread: ' + JSON.stringify(bk.opts.slice(0, 3)));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return 'player at the stalls';
 });
 
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {

@@ -62,6 +62,7 @@ lx('life:new_in_stock', 'plain', 'The {shop} has {item} in now.'); lx('life:new_
 lx('life:out_of_stock', 'plain', 'The {shop} had no {item} left.'); lx('life:out_of_stock', 'plain', 'Went for {item} and the {shop} was out.');
 lx('life:could_not_afford', 'plain', 'I couldn\'t afford {item} today.'); lx('life:could_not_afford', 'plain', 'Money is tight. I had to leave the {item}.'); lx('life:could_not_afford', 'plain', 'Everything costs more than I have.');
 lx('life:price_up', 'plain', '{item} has gone up at the {shop}.'); lx('life:price_down', 'plain', '{item} is cheaper at the {shop} now.'); lx('life:price_down', 'plain', 'You can get {item} for less at the {shop} today.');
+lx('life:baked', 'plain', 'I baked {things} this morning.'); lx('life:baked', 'plain', 'The oven gave me {things} today.'); lx('life:cooked', 'plain', 'I made {things} today.'); lx('life:forged', 'plain', 'I turned out {things} today.'); lx('life:woven', 'plain', 'I finished {things} on the loom.');
 lx('life:harvested', 'plain', 'I brought in {things}.'); lx('life:harvested', 'plain', 'Harvested {things} today.');
 
 /* ---- at the stall (plain pack): customer = c, keeper = k ---- */
@@ -86,10 +87,16 @@ lx('ask_price', 'plain', 'What are {item} going for?'); lx('ask_price', 'plain',
 lx('tell_price', 'plain', 'I paid {money} each last time.'); lx('tell_price', 'plain', 'About {money}, when I looked.'); lx('tell_price', 'plain', '{money} each. Not cheap, not dear.');
 lx('react_price', 'plain', 'Hm. Good to know.'); lx('react_price', 'plain', 'That\'s more than I thought.'); lx('react_price', 'plain', 'Fair enough. Thanks.'); lx('react_price', 'plain', 'I\'ll see if it\'s cheaper elsewhere.');
 
+/* ---- calls from the stall ---- */
+lx('keeper_call', 'plain', 'New in this week: {item}.', { call: 'new' }); lx('keeper_call', 'plain', 'Come and see the {item}. Just in.', { call: 'new' }); lx('keeper_call', 'plain', 'We\'ve {item} now. First of the season.', { call: 'new' });
+lx('keeper_call', 'plain', '{item} are cheap today. {money} each.', { call: 'cheap' }); lx('keeper_call', 'plain', 'Cheap {item} today, {money} each.', { call: 'cheap' });
+lx('keeper_call', 'plain', 'Fresh {item}, {money} each.'); lx('keeper_call', 'plain', 'Get your {item} here.'); lx('keeper_call', 'plain', '{item}, {money}. Come and look.'); lx('keeper_call', 'plain', 'Anyone need {item}?');
+lx('call_reply', 'plain', 'Maybe later.'); lx('call_reply', 'plain', 'Not today, thanks.'); lx('call_reply', 'plain', 'I\'ll be back.'); lx('call_reply', 'plain', 'Not now, I\'m busy.');
+
 /** what a speaker's line may be conditioned on, for this act */
 function lxContext(sp: any, li: any, c: any) {
   const rel = (sp.fam && (sp.fam.spouse === li.id || (sp.fam.kids || []).includes(li.id) || sp.fam.mother === li.id || sp.fam.father === li.id)) ? 'kin' : (sp.rel && sp.rel[li.id] === 'friend') || (sp.aff[li.id] || 0) > 30 ? 'friend' : (sp.know && (sp.know[li.id] || 0) > 10) ? 'acquaintance' : 'stranger';
-  return { band: todBand(game.time), rel, state: c.state || talkState(sp) || 'fine', trait: (sp.traits || [])[0], how: c.how, conf: c.conf };
+  return { band: todBand(game.time), rel, state: c.state || talkState(sp) || 'fine', trait: (sp.traits || [])[0], how: c.how, conf: c.conf, call: c.call };
 }
 /** choose the wording of an act: the pack's lines that fit and whose things exist, the more specific the better, what the listener heard lately worse */
 function lxSay(act: string, sp: any, li: any, c: any): string {

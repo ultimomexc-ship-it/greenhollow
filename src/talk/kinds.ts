@@ -23,7 +23,7 @@ EVK('out_of_stock', 'trade', { needs: ['item'], tell: 0.4 }); EVK('new_in_stock'
 EVK('planted', 'farm', { needs: ['qty'], tell: 0.25 }); EVK('harvested', 'farm', { needs: ['qty'], tell: 0.35 }); EVK('crop_failed', 'farm', { tell: 0.6 });
 EVK('worked_shift', 'farm', { tell: 0.1 }); EVK('tool_worn', 'farm', { tell: 0.3 }); EVK('tool_broke', 'farm', { tell: 0.5 });
 // making
-EVK('baked', 'make', { tell: 0.2 }); EVK('sawed', 'make', { tell: 0.15 }); EVK('mined', 'make', { tell: 0.2 }); EVK('built', 'make', { tell: 0.4 });
+EVK('baked', 'make', { tell: 0.3 }); EVK('cooked', 'make', { tell: 0.25 }); EVK('forged', 'make', { tell: 0.25 }); EVK('woven', 'make', { tell: 0.2 }); EVK('sawed', 'make', { tell: 0.15 }); EVK('mined', 'make', { tell: 0.2 }); EVK('built', 'make', { tell: 0.4 });
 // body and needs
 EVK('ate', 'body', { tell: 0.07 }); EVK('went_hungry', 'body', { tell: 0.5, tags: ['misfortune'] }); EVK('starving', 'body', { tell: 0.8, tags: ['misfortune'] });
 EVK('slept', 'body', { needs: ['where'], tell: 0.08 }); EVK('slept_rough', 'body', { tell: 0.6, tags: ['misfortune'] }); EVK('bladder_emergency', 'body', { tell: 0.5, tags: ['embarrass'] });

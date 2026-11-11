@@ -79,7 +79,7 @@ function farmFlowerBuyers() {
 LF2.hourly.push(() => farmFlowerBuyers());
 
 /* ---- the Ready Farming Village: a world with only what farming needs (docs/world-modules.md) ---- */
-const FARM_RECIPE_BASE = ['job.Farmer', 'sys.economy', 'sys.couples'];
+const FARM_RECIPE_BASE = ['job.Farmer', 'job.Baker', 'sys.economy', 'sys.couples', 'sys.cooking'];
 function farmStart() {
   town.farmEcon = true; town.farmDay0 = Math.floor(game.time / 1440); town.eco.exported = town.eco.exported || 0;
   prebuildVillage({ farm: true }); housingTick(); refreshReach();
@@ -95,6 +95,9 @@ function farmSetup() {
   const sellerP = pick(0), grocerP = pick(1);
   if (grocerP) { setRole(grocerP, 'Trader', mk); const m = grocerP.shop; if (m) { m.def = GROCER_DEF; m.buys = GROCER_DEF.buys; m.sells = GROCER_DEF.sells; m.stock = {}; for (const g of Object.keys(GROCER_DEF.buys)) m.stock[g] = Math.floor(GROCER_DEF.buys[g] * (0.1 + R() * 0.2)); m.n.coin = 90; } }
   if (sellerP) { setRole(sellerP, 'Trader', mk); const m = sellerP.shop; if (m) { m.def = SEED_DEF; m.buys = SEED_DEF.buys; m.sells = SEED_DEF.sells; m.stock = {}; m.newStock = {}; m.n.coin = 40; farmRestock(); m.newStock = {}; } }
+  // a bakery: grain to bread, a counter in the village
+  { let ok: any = null; for (const [w, h] of [[7, 7], [7, 6]]) { for (const o of [{}, { tight: true }, { clear: true }, { tight: true, clear: true }]) { ok = lfBuild('bakery', w, h, Object.assign({}, o)); if (ok) break; } if (ok) break; }
+    const bk = lf2Room('bakery'); if (bk) { Object.assign(lf2Stock(bk), { grain: 6, bread: 8 }); lf2AssignJobs(true); } }
   // farmers start with a little seed and a little money
   for (const n of npcs) { if (n.dead || n.shop || n.age < 14) continue; n.coin = 22 + Math.floor(R() * 20); n.inv = n.inv || {}; if (n.role === 'Worker') { n.inv.seed_barley = 5; n.inv.seed_turnip = 2; n.inv.seed_bean = 2; } }
 }
