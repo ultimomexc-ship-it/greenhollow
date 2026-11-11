@@ -23,6 +23,7 @@ ACTS.offer_gift = { kind: 'gift', stage: 'topic', preview: (c: any, sp: any, li:
     lfAff(li, sp, 0.35 * (2 + value * 0.8 + (wanted ? 3 : 0) + (grievance ? value * 0.8 + 4 : 0)), 'gave me ' + c.lifeItem);
     for (const m of bad) m.forgiven = true;
     for (const m of sp.tmem || []) if (m.kind === 'did' && m.ev != null) { const ev = lf2Ev().find((q: any) => q.id === m.ev); if (ev && ev.target === li.id) m.forgiven = true; }   // (what I did to them is made up for)
+    if (typeof reqDone === 'function') for (const q of li.reqs || []) if (q.kind === 'item' && q.item === k && q.state !== 'done' && q.state !== 'failed') reqDone(li, sp, 'item', 'gave me what I needed');
     c.giftResult = grievance ? 'amends' : wanted ? 'wanted' : 'plain';
     lfEmit('gift', { actor: sp, target: li, sev: 1, tags: ['kindness', 'generous'], chron: false, text: `${sp.first} gave ${li.first} ${c.lifeItem}` });
   }, replies: ['gift_thanks', 'gift_delight', 'gift_amends', 'gift_refuse'] };

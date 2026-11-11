@@ -13,12 +13,14 @@ function jrText(m: any): string {
 function jrHTML(): string {
   const p = game.player; if (!p) return '<i>Nobody to remember for.</i>';
   const rows = (p.tmem || []).filter((m: any) => ['opinion', 'price', 'told_life'].includes(m.kind) || (m.ev != null && m.kind !== 'life' && m.kind !== 'did')).slice(-40).reverse().map((m: any) => ({ m, t: jrText(m) })).filter((r: any) => r.t);
-  const groups: any = { 'The news': rows.filter((r: any) => r.m.ev != null), 'What people say about each other': rows.filter((r: any) => r.m.kind === 'opinion'), 'Prices': rows.filter((r: any) => r.m.kind === 'price'), 'How people are': rows.filter((r: any) => r.m.kind === 'told_life') };
+  let groups: any = { 'The news': rows.filter((r: any) => r.m.ev != null), 'What people say about each other': rows.filter((r: any) => r.m.kind === 'opinion'), 'Prices': rows.filter((r: any) => r.m.kind === 'price'), 'How people are': rows.filter((r: any) => r.m.kind === 'told_life') };
   const mine = lf2Ev().filter((e: any) => e.actor === p.id && ['wall_removed', 'home_destroyed', 'building_down', 'bed_moved', 'caught_on_privy'].includes(e.kind)).slice(-6).reverse().map((e: any) => {
     const know = npcs.filter((o: any) => !o.dead && (o.tmem || []).some((m: any) => m.ev === e.id && m.ver && m.ver.who === p.id)).length, heard = npcs.filter((o: any) => !o.dead && (o.tmem || []).some((m: any) => m.ev === e.id)).length;
     return { m: { t: e.t }, t: TE.text(e, { who: p.id }).replace(/^./, (c: string) => c.toUpperCase()) + (know ? ` — ${know} know it was you` : heard ? ' — nobody knows it was you' : ' — nobody knows') };
   });
   groups['What you did'] = mine;
+  const open = (p.tmem || []).filter((m: any) => m.kind === 'request' && m.state === 'open').slice(-6).reverse().map((m: any) => { const a = byId(m.from); return a ? { m, t: a.first + (m.req.kind === 'bed' ? ' needs a bed' : ' needs ' + (GOODS[m.req.item] ? GOODS[m.req.item].name : m.req.item)) + ' — you said you would try' } : null; }).filter(Boolean);
+  groups = Object.assign({ 'Open threads': open }, groups);
   const out = Object.keys(groups).filter(k => groups[k].length).map(k => `<div class="vch">${k}</div><ul>${groups[k].slice(0, 8).map((r: any) => `<li>${esc(r.t)} <span class="dim">· ${stamp(r.m.t)}</span></li>`).join('')}</ul>`).join('');
   return out || '<p class="dim">Nothing yet. Talk to people: ask them for news, what they think of someone, what things cost.</p>';
 }

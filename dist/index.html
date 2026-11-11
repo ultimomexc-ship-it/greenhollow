@@ -26836,12 +26836,17 @@ function jrHTML() {
   const p = game.player;
   if (!p) return "<i>Nobody to remember for.</i>";
   const rows2 = (p.tmem || []).filter((m) => ["opinion", "price", "told_life"].includes(m.kind) || m.ev != null && m.kind !== "life" && m.kind !== "did").slice(-40).reverse().map((m) => ({ m, t: jrText(m) })).filter((r) => r.t);
-  const groups = { "The news": rows2.filter((r) => r.m.ev != null), "What people say about each other": rows2.filter((r) => r.m.kind === "opinion"), "Prices": rows2.filter((r) => r.m.kind === "price"), "How people are": rows2.filter((r) => r.m.kind === "told_life") };
+  let groups = { "The news": rows2.filter((r) => r.m.ev != null), "What people say about each other": rows2.filter((r) => r.m.kind === "opinion"), "Prices": rows2.filter((r) => r.m.kind === "price"), "How people are": rows2.filter((r) => r.m.kind === "told_life") };
   const mine = lf2Ev().filter((e) => e.actor === p.id && ["wall_removed", "home_destroyed", "building_down", "bed_moved", "caught_on_privy"].includes(e.kind)).slice(-6).reverse().map((e) => {
     const know = npcs.filter((o) => !o.dead && (o.tmem || []).some((m) => m.ev === e.id && m.ver && m.ver.who === p.id)).length, heard = npcs.filter((o) => !o.dead && (o.tmem || []).some((m) => m.ev === e.id)).length;
     return { m: { t: e.t }, t: TE.text(e, { who: p.id }).replace(/^./, (c) => c.toUpperCase()) + (know ? ` \u2014 ${know} know it was you` : heard ? " \u2014 nobody knows it was you" : " \u2014 nobody knows") };
   });
   groups["What you did"] = mine;
+  const open = (p.tmem || []).filter((m) => m.kind === "request" && m.state === "open").slice(-6).reverse().map((m) => {
+    const a = byId(m.from);
+    return a ? { m, t: a.first + (m.req.kind === "bed" ? " needs a bed" : " needs " + (GOODS[m.req.item] ? GOODS[m.req.item].name : m.req.item)) + " \u2014 you said you would try" } : null;
+  }).filter(Boolean);
+  groups = Object.assign({ "Open threads": open }, groups);
   const out = Object.keys(groups).filter((k) => groups[k].length).map((k) => `<div class="vch">${k}</div><ul>${groups[k].slice(0, 8).map((r) => `<li>${esc(r.t)} <span class="dim">\xB7 ${stamp(r.m.t)}</span></li>`).join("")}</ul>`).join("");
   return out || '<p class="dim">Nothing yet. Talk to people: ask them for news, what they think of someone, what things cost.</p>';
 }
@@ -28886,6 +28891,9 @@ ACTS.offer_gift = {
       const ev = lf2Ev().find((q) => q.id === m.ev);
       if (ev && ev.target === li.id) m.forgiven = true;
     }
+    if (typeof reqDone === "function") {
+      for (const q of li.reqs || []) if (q.kind === "item" && q.item === k && q.state !== "done" && q.state !== "failed") reqDone(li, sp, "item", "gave me what I needed");
+    }
     c.giftResult = grievance ? "amends" : wanted ? "wanted" : "plain";
     lfEmit("gift", { actor: sp, target: li, sev: 1, tags: ["kindness", "generous"], chron: false, text: `${sp.first} gave ${li.first} ${c.lifeItem}` });
   },
@@ -28920,6 +28928,197 @@ lxi("gift_amends", "It does not undo it. It does help. I am noting that it helps
 lxi("gift_amends", "That is {item}. I accept it. I will stop being angry on Thursday.");
 lxi("gift_refuse", "No. I would rather not owe you anything.");
 lxi("gift_refuse", "I do not want that. Please take it back.");
+const REQ_FOOD = ["fish", "berries", "grain"];
+function reqWant(n) {
+  if (n.dead || n.infant || n.age < 6) return null;
+  const inv = n.inv || {};
+  if ((n.hunger || 0) > 65 && !REQ_FOOD.some((k) => (inv[k] || 0) > 0)) {
+    const k = REQ_FOOD.filter((k2) => GOODS[k2]).sort((a, b) => (GOODS[b].sat || 0) - (GOODS[a].sat || 0))[0];
+    return { kind: "item", item: k };
+  }
+  if (n.homeless && !n.player) return { kind: "bed" };
+  return null;
+}
+const reqOpen = (n, to, kind) => (n.reqs || []).find((r) => r.state !== "done" && r.state !== "failed" && r.to === to.id && r.kind === kind);
+function reqFoodFrom(h) {
+  const keep = h.player ? 0 : 3;
+  return REQ_FOOD.filter((k) => GOODS[k] && (h.inv && h.inv[k] || 0) > keep).sort((a, b) => (h.inv[b] || 0) - (h.inv[a] || 0))[0] || null;
+}
+function reqCanGive(h, req) {
+  return !!req && req.kind === "item" && (h.inv && h.inv[req.item] || 0) > (h.player ? 0 : 3);
+}
+function reqDone(asker, helper, kind, how) {
+  const r = (asker.reqs || []).find((q) => q.state !== "done" && q.state !== "failed" && q.kind === kind);
+  if (!r) return;
+  r.state = "done";
+  lfAff(asker, helper, 5, how);
+  for (const m of helper.tmem || []) if (m.kind === "request" && m.from === asker.id && m.req.kind === kind && m.state === "open") m.state = "done";
+}
+ACTS.ask_favour = {
+  kind: "economy",
+  stage: "topic",
+  preview: () => ({}),
+  w: (c, sp, li) => 2.5,
+  when: (c, sp, li) => {
+    if (c.done.ask_favour || sp.player || li.infant) return false;
+    const w = reqWant(sp);
+    if (!w) return false;
+    if (w.kind === "bed" && !li.player) return false;
+    if (reqOpen(sp, li, w.kind) || game.time - ((sp.askT || {})[li.id] || -1e9) < 720) return false;
+    return w.kind === "bed" || li.player || !!reqFoodFrom(li);
+  },
+  apply: (c, sp, li) => {
+    const w = reqWant(sp);
+    if (w.kind === "item" && !li.player) w.item = reqFoodFrom(li) || w.item;
+    c.done.ask_favour = 1;
+    c.req = w;
+    c.reqAsker = sp;
+    c.newsHow = w.kind;
+    c.lifeItem = w.item ? giftName(w.item) : "";
+    (sp.askT || (sp.askT = {}))[li.id] = game.time;
+    (sp.reqs || (sp.reqs = [])).push({ to: li.id, kind: w.kind, item: w.item, t: game.time, state: "asked" });
+  },
+  replies: ["favour_give", "favour_promise", "favour_no"]
+};
+const favReply = (id, ok, fx, next, w = 1) => {
+  ACTS[id] = { kind: "economy", stage: "topic", reply: true, when: (c, sp, li) => !!c.req && ok(c, sp, li), w: () => w, apply: fx, replies: next };
+};
+favReply("favour_give", (c, sp) => reqCanGive(sp, c.req), (c, sp, li) => {
+  const k = c.req.item;
+  sp.inv[k]--;
+  li.inv = li.inv || {};
+  li.inv[k] = (li.inv[k] || 0) + 1;
+  reqDone(li, sp, "item", "helped me when I had nothing");
+  lfEmit("help", { actor: sp, target: li, sev: 1, tags: ["kindness", "help"], chron: false, text: `${sp.first} helped ${li.first}` });
+}, ["favour_thanks"], 3);
+favReply("favour_promise", (c, sp) => !!sp.player, (c, sp, li) => {
+  TM.add(sp, { kind: "request", from: li.id, req: c.req, state: "open", conf: 1, imp: 0.6 });
+  const r = (li.reqs || []).find((q) => q.state === "asked" && q.to === sp.id);
+  if (r) {
+    r.state = "promised";
+    r.tp = game.time;
+  }
+}, ["favour_hopeful"]);
+favReply("favour_no", (c, sp) => !reqCanGive(sp, c.req) || !sp.player, (c, sp, li) => {
+  const r = (li.reqs || []).find((q) => q.state === "asked" && q.to === sp.id);
+  if (r) r.state = "failed";
+  lfAff(li, sp, -1.5, "would not help");
+}, [], 0.6);
+favReply("favour_thanks", () => true, () => {
+}, []);
+favReply("favour_hopeful", () => true, () => {
+}, []);
+ACTS.chase_favour = {
+  kind: "economy",
+  stage: "topic",
+  preview: () => ({}),
+  w: () => 3,
+  when: (c, sp, li) => !c.done.chase_favour && !sp.player && !!(sp.reqs || []).find((r) => r.state === "promised" && r.to === li.id && game.time - r.tp > 360 && game.time - (r.tc || 0) > 720),
+  apply: (c, sp, li) => {
+    const r = (sp.reqs || []).find((q) => q.state === "promised" && q.to === li.id);
+    r.tc = game.time;
+    c.done.chase_favour = 1;
+    c.req = { kind: r.kind, item: r.item };
+    c.newsHow = r.kind;
+    c.lifeItem = r.item ? giftName(r.item) : "";
+    c.reqAsker = sp;
+  },
+  replies: ["favour_give", "favour_promise", "favour_no"]
+};
+LF2.hourly.push(() => {
+  for (const n of npcs) for (const r of n.reqs || []) {
+    if (r.state === "done" || r.state === "failed") continue;
+    const h = lf2By(r.to);
+    if (r.kind === "bed" && !n.homeless && h) {
+      r.state = "done";
+      lfAff(n, h, 6, "got me a bed");
+      for (const m of h.tmem || []) if (m.kind === "request" && m.from === n.id && m.state === "open") m.state = "done";
+    } else if (r.state === "promised" && game.time - r.tp > 1440 * 3 && h) {
+      r.state = "failed";
+      lfAff(n, h, -4, "promised and did nothing");
+      for (const m of h.tmem || []) if (m.kind === "request" && m.from === n.id && m.state === "open") m.state = "failed";
+    } else if (r.state === "asked" && game.time - r.t > 1440) r.state = "failed";
+  }
+});
+ACTS.vent = {
+  kind: "feeling",
+  stage: "topic",
+  preview: (c, sp) => ({ state: talkState(sp) }),
+  w: (c, sp, li) => 1.5 + Math.max(0, sp.aff[li.id] || 0) / 50,
+  when: (c, sp, li) => !c.done.vent && ["hungry", "tired", "low"].includes(talkState(sp)) && ((sp.aff[li.id] || 0) > 8 || sp.player || (sp.know[li.id] || 0) > 25),
+  apply: (c, sp, li) => {
+    c.done.vent = 1;
+    c.state = talkState(sp);
+    sp.mood = Math.min(100, (sp.mood == null ? 50 : sp.mood) + 2);
+  },
+  replies: ["console", "shrug_off"]
+};
+ACTS.console = { kind: "feeling", stage: "topic", reply: true, when: (c, sp, li) => (sp.aff[li.id] || 0) > -10, w: () => 2, apply: (c, sp, li) => {
+  li.mood = Math.min(100, (li.mood == null ? 50 : li.mood) + 3);
+  lfAff(li, sp, 1.5, "listened to me");
+}, replies: [] };
+ACTS.shrug_off = { kind: "feeling", stage: "topic", reply: true, when: () => true, w: () => 0.6, apply: (c, sp, li) => {
+  lfAff(li, sp, -1, "did not care");
+}, replies: [] };
+ACTS.praise = { kind: "feeling", stage: "topic", preview: () => ({}), w: () => 0.9, when: (c, sp, li) => !c.done.praise && (sp.aff[li.id] || 0) > 35 && !li.infant, apply: (c, sp, li) => {
+  c.done.praise = 1;
+  lfAff(li, sp, 1.5, "was kind about me");
+  li.mood = Math.min(100, (li.mood == null ? 50 : li.mood) + 2);
+}, replies: ["thank_praise"] };
+ACTS.thank_praise = { kind: "feeling", stage: "topic", reply: true, when: () => true, w: () => 1, apply: () => {
+}, replies: [] };
+lx("ask_favour", "plain", "I have nothing to eat. Could you spare some {item}?", { how: "item" });
+lx("ask_favour", "plain", "I'm starving. Do you have any {item}?", { how: "item" });
+lx("ask_favour", "plain", "I've nowhere to sleep. Could you find me a bed?", { how: "bed" });
+lx("ask_favour", "plain", "I've been sleeping rough. You build things. Could you build me a bed?", { how: "bed" });
+lx("chase_favour", "plain", "Did you manage to find that {item}?", { how: "item" });
+lx("chase_favour", "plain", "Have you thought about my bed?", { how: "bed" });
+lx("favour_give", "plain", "Of course. Here.");
+lx("favour_give", "plain", "Here. Take it.");
+lx("favour_promise", "plain", "I'll see what I can do.");
+lx("favour_promise", "plain", "Give me a little time.");
+lx("favour_no", "plain", "I can't help with that.");
+lx("favour_no", "plain", "Sorry. I haven't got it to spare.");
+lx("favour_thanks", "plain", "Thank you. I won't forget it.");
+lx("favour_thanks", "plain", "Thank you. Truly.");
+lx("favour_hopeful", "plain", "I'd be grateful.");
+lx("favour_hopeful", "plain", "Thank you. I'll be here.");
+lx("vent", "plain", "I'm starving, to be honest.", { state: "hungry" });
+lx("vent", "plain", "I'm worn out. I could sleep standing.", { state: "tired" });
+lx("vent", "plain", "I've been low lately. I don't know why.", { state: "low" });
+lx("console", "plain", "That sounds hard. I'm sorry.");
+lx("console", "plain", "It will pass. It usually does.");
+lx("shrug_off", "plain", "Hm. Well.");
+lx("shrug_off", "plain", "We all have days.");
+lx("praise", "plain", "You're good company. I mean that.");
+lx("praise", "plain", "I'm glad you're here.");
+lx("thank_praise", "plain", "That's kind of you.");
+lx("thank_praise", "plain", "Thank you. I needed that.");
+lxi("ask_favour", "I have no food. I have had none since this morning. Could you spare {item}?", { how: "item" });
+lxi("ask_favour", "I am hungry in a very exact way. Do you have any {item}?", { how: "item" });
+lxi("ask_favour", "I have no bed. I have a patch of ground that I have grown fond of. A bed would be better.", { how: "bed" });
+lxi("ask_favour", "Would you build me a bed? I would use it for the usual things.", { how: "bed" });
+lxi("chase_favour", "About the {item}. I am not pressing. I am mentioning it.", { how: "item" });
+lxi("chase_favour", "I am still without a bed. I mention it only because it is true.", { how: "bed" });
+lxi("favour_give", "Here. I had it. Now you do.");
+lxi("favour_give", "Take it. It was not doing anything.");
+lxi("favour_promise", "I will see what can be done. I make no claims.");
+lxi("favour_promise", "Give me a few days. I will keep it in mind.");
+lxi("favour_no", "No. I have exactly enough, which is the problem.");
+lxi("favour_no", "I cannot. I am sorry. I do mean it.");
+lxi("favour_thanks", "Thank you. I will remember this.");
+lxi("favour_hopeful", "Thank you. I will be here. Or nearby.");
+lxi("vent", "I am hungry, as it happens. It has been a while.", { state: "hungry" });
+lxi("vent", "I am very tired. The tiredness has started to feel like a place.", { state: "tired" });
+lxi("vent", "I have been low. It has no cause. That is what is wrong with it.", { state: "low" });
+lxi("console", "That is hard. I am sorry. It is a small island and we are all here.");
+lxi("console", "It will pass. Not today, probably.");
+lxi("shrug_off", "Yes. Well. It is something.");
+lxi("shrug_off", "Everyone has days. Some have more of them.");
+lxi("praise", "You are good to have around. I do not say that to many people.");
+lxi("praise", "I am glad you ended up here. I mean it quite exactly.");
+lxi("thank_praise", "Thank you. I did not expect that.");
+lxi("thank_praise", "That is kind. I will think about it later.");
 TALK.log = [];
 TALK.words = false;
 TALK.running = true;
@@ -29075,10 +29274,10 @@ function ptBegin(o, p) {
   const back = talkTurn(c, o, p, "greet_back");
   c.stage = "topic";
   let say2 = talkWords(back, p, o);
-  if (TALK.on.deed !== false && TALK.on.deed !== void 0 && ACTS.raise_deed.when(c, o, p)) {
-    const t = talkTurn(c, o, p, "raise_deed");
+  for (const id of ["raise_deed", "ask_favour"]) if (TALK.on[ACTS[id].kind] && !S.pending && ACTS[id].when(c, o, p)) {
+    const t = talkTurn(c, o, p, id);
     say2 += "\n" + talkWords(t, p, o);
-    S.pending = ACTS.raise_deed.replies.slice();
+    S.pending = ACTS[id].replies.slice();
     c.left[o.id] -= 1;
   }
   return ptMenu(S, say2);

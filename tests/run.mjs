@@ -1556,6 +1556,38 @@ test('gifts: you can give something in a talk; food is welcome when hungry, flow
   return JSON.stringify([r.food, r.amends]);
 });
 
+test('requests and feelings: the hungry ask for food and the homeless for a bed, anyone can answer, the player can promise (an open thread that closes when it happens or runs out), and talking about a bad day helps', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    const out = {}; newTown('req-test', 'farm'); TALK.words = true; const ps = npcs.filter(n => !n.dead && !n.player && n.age >= 18 && !n.infant); const A = ps[0], B = ps[1], H = ps[2];
+    // hungry asks one with food to spare
+    A.hunger = 90; for (const k of ['fish', 'berries', 'grain']) A.inv[k] = 0; B.inv.grain = 8; B.aff[A.id] = 0; A.askT = {}; A.reqs = [];
+    const c = { done: {}, turns: [], left: {} }; out.ask = ACTS.ask_favour.when(c, A, B); talkTurn(c, A, B, 'ask_favour'); out.want = c.req && c.req.kind;
+    out.canGive = ACTS.favour_give.when(c, B, A); talkTurn(c, B, A, 'favour_give'); out.moved = B.inv.grain === 7 && A.inv.grain === 1; out.done = A.reqs.every(r => r.state === 'done');
+    out.againNo = ACTS.ask_favour.when({ done: {}, turns: [] }, A, B);
+    // a homeless villager asks the player; the player promises; the thread is open; a bed closes it
+    startPlaying(ps[3]); const P = game.player; H.homeless = true; H.hunger = 10; H.reqs = []; H.askT = {}; H.tx = H.x = P.tx + 1; H.ty = H.y = P.ty; H.pose = 'stand'; rebuildOcc();
+    openTalk(H); out.say = talkUI.say; out.opts = talkUI.opts.map(o => o[1]); const k = talkUI.opts.findIndex(o => /see what (I can do|can be done)|little time|few days/.test(o[1]));
+    if (k >= 0) ptStep(talkUI.opts[k][0]); closeTalk();
+    out.thread = (P.tmem || []).filter(m => m.kind === 'request' && m.state === 'open').length; out.journal = jrHTML();
+    H.homeless = false; const a0 = H.aff[P.id] || 0; for (const f of LF2.hourly) { try { f(8); } catch (e) {} }
+    out.closed = (P.tmem || []).some(m => m.kind === 'request' && m.state === 'done') && H.reqs.every(r => r.state === 'done'); out.warm = (H.aff[P.id] || 0) > a0;
+    // a promise that runs out
+    const J = ps[4]; J.homeless = true; J.reqs = [{ to: P.id, kind: 'bed', t: game.time, tp: game.time - 1440 * 4, state: 'promised' }]; TM.add(P, { kind: 'request', from: J.id, req: { kind: 'bed' }, state: 'open', conf: 1, imp: 0.6 });
+    const j0 = J.aff[P.id] || 0; for (const f of LF2.hourly) { try { f(9); } catch (e) {} } out.expired = J.reqs[0].state === 'failed' && (J.aff[P.id] || 0) < j0;
+    // feelings
+    A.mood = 15; B.aff[A.id] = 20; A.aff[B.id] = 20; A.know[B.id] = 40; const c2 = { done: {}, turns: [], left: {} }; out.vent = ACTS.vent.when(c2, A, B); talkTurn(c2, A, B, 'vent'); const m0 = A.mood; B.mood = 40; talkTurn(c2, B, A, 'console'); out.console = A.mood > m0 || A.mood >= 15;
+    out.line = lxSay('vent', A, B, { state: 'low' });
+    return out; });
+  check(r.ask && r.want === 'item' && r.canGive && r.moved && r.done && !r.againNo, 'the hungry ask someone with food, who gives it, once in twelve hours: ' + JSON.stringify([r.ask, r.want, r.canGive, r.moved, r.done, r.againNo]));
+  check(/bed/.test(r.say) && r.opts.some(o => /see what (I can do|can be done)|little time|few days/.test(o)) && r.thread === 1 && /Open threads/.test(r.journal), 'the homeless villager opens with the bed, you can promise, and the journal lists the thread: ' + JSON.stringify([r.say, r.opts, r.thread]));
+  check(r.closed && r.warm, 'finding the bed closes the thread and they are grateful');
+  check(r.expired, 'a promise left three days fails, with a grudge');
+  check(r.vent && r.line && r.console, 'a bad day can be told and consoled: ' + r.line);
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return JSON.stringify([r.say]);
+});
+
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {
