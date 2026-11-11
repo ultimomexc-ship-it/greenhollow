@@ -29,7 +29,7 @@ function ptOptions(S: any): any[] {
     const label = lxSay(x.line || id, p, o, Object.assign({}, x, { state: talkState(p) || 'fine' })); if (!label) continue;
     seen.add(id); out.push({ id, snap, label, kind: A.kind, w: Math.random() + (A.kind !== 'small' ? 0.6 : 0) });
   }
-  out.sort((a, b) => b.w - a.w); const keep = out.slice(0, 5);
+  out.sort((a, b) => b.w - a.w); const keep = out.slice(0, S.pending ? 6 : 5);
   if (!keep.some(q => q.kind === 'small') && out.some(q => q.kind === 'small')) keep[keep.length - 1] = out.find(q => q.kind === 'small');
   return keep;
 }

@@ -1755,6 +1755,51 @@ test('tastes, hints, gifts sent by another hand, apologies and jealousy: people 
   return r.askLine;
 });
 
+test('conversation depth: topics link or start afresh, stories have a preface and an invitation, last time is remembered, patterns become opinions, the small acts all have words, barks, eavesdropping, card hints and dials', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    const out = {}; newTown('depth-test', 'farm'); MODS.all(); TALK.words = true; startPlaying(npcs.find(n => !n.dead && n.age >= 18 && !n.infant)); const P = game.player;
+    const ps = npcs.filter(n => !n.dead && !n.player && n.age >= 18 && !n.infant); const A = ps[0], B = ps[1], C = ps[2]; const fresh = () => ({ done: {}, turns: [], left: {} }); const clean = t => !!t && !/[{}]|undefined|NaN/.test(t);
+    // links
+    let linked = 0, afresh = 0, bad = 0; for (let i = 0; i < 40; i++) { const c = talkRun(ps[i % ps.length], ps[(i + 3) % ps.length], true); for (const t of c.turns) { if (t.x && t.x.link === 'linked') linked++; if (t.x && t.x.link === 'fresh') afresh++; const w = talkWords(t, ps[i % ps.length], ps[(i + 3) % ps.length]); if (w && !clean(w)) bad++; } }
+    out.links = [linked, afresh, bad]; out.linkText = lxLink('The bread is good.', 'fresh') + ' | ' + lxLink('I am well.', 'linked');
+    // a story
+    const ev = lfEmit('theft', { actor: C, target: ps[3], sev: 3, tags: ['theft', 'scandal'], anon: false, witnessIds: [A.id], chron: false, text: 'x' }); const am = TM.ofEv(A, ev.id); am.imp = 0.9; B.tmem = (B.tmem || []).filter(m => m.ev !== ev.id); A.aff[B.id] = 30;
+    let c = fresh(); out.pref = ACTS.story_preface.when(c, A, B); talkTurn(c, A, B, 'story_preface'); out.inv = ACTS.story_invite.when(c, B, A); talkTurn(c, B, A, 'story_invite'); out.body = ACTS.share_news.when(c, A, B) && c.news === c.storyNews; talkTurn(c, A, B, 'share_news'); out.told = !!TM.ofEv(B, ev.id) && !c.storyNews;
+    out.storyWords = c.turns.map(t => talkWords(t, A, B)).join(' / ');
+    // last time
+    TM.add(A, { kind: 'talked', with: B.id, t: game.time - 300, subj: 'turnips', imp: 0.2 }); c = fresh(); out.cb = ACTS.callback.when(c, A, B); talkTurn(c, A, B, 'callback'); out.cbOnce = ACTS.callback.when(fresh(), A, B); out.cbLine = lxSay('callback', A, B, talkX(c));
+    // reflection
+    A.why = { [B.id]: [{ why: 'was rude', v: -6, t: game.time }, { why: 'laughed at me', v: -5, t: game.time }] }; A.aff[B.id] = -20; reflect(A); out.refl = !!(A.refl && A.refl[B.id] && A.refl[B.id].w === 'unkind') && (A.tmem || []).some(m => m.kind === 'inferred'); let nk = 0; for (let i = 0; i < 40; i++) if (/never kind/.test(peopleReason(A, B))) nk++; out.reason = nk;
+    // small acts all have words
+    const D = ps[4]; const Z = ps[5]; const words = {};
+    const say = (id, sp, li, cc) => { const w = lxSay(id, sp, li, talkX(cc)); words[id] = clean(w) ? 'ok' : 'BAD:' + w; };
+    c = fresh(); for (const id of ['joke', 'wonder']) { talkTurn(c, A, B, id); say(id, A, B, c); } say('laugh', B, A, c); say('groan', B, A, c); say('wonder_reply', B, A, c);
+    B.job = 'Baker'; A.know[B.id] = 20; c = fresh(); out.askWork = ACTS.ask_work.when(c, A, B); talkTurn(c, A, B, 'ask_work'); say('ask_work', A, B, c); say('answer_work', B, A, c);
+    for (const n of npcs) n.tx = n.x = n.tx; const far = npcs.find(n => n !== A && n !== B && !n.dead && !n.infant && n.age >= 12 && lfDist(A, n) > 12); if (far) { A.aff[far.id] = 30; c = fresh(); out.askWhere = ACTS.ask_where.when(c, A, B); talkTurn(c, A, B, 'ask_where'); say('ask_where', A, B, c); out.tellWhere = ACTS.tell_where.when(c, B, A) || ACTS.dont_know_where.when(c, B, A); talkTurn(c, B, A, ACTS.tell_where.when(c, B, A) ? 'tell_where' : 'dont_know_where'); say(ACTS.tell_where.when(c, B, A) ? 'tell_where' : 'dont_know_where', B, A, c); } else out.askWhere = out.tellWhere = true;
+    const evw = lfEmit('wall_removed', { actor: Z, target: D, sev: 2, tags: ['nuisance'], anon: false, witnessIds: [A.id, D.id], chron: false, text: 'x' }); const wm = TM.ofEv(A, evw.id); wm.conf = 1; wm.ver = { who: Z.id, sev: 2 }; A.aff[B.id] = 30; B.tmem = (B.tmem || []).filter(m => m.ev !== evw.id); c = fresh(); out.warn = ACTS.warn.when(c, A, B); if (out.warn) { talkTurn(c, A, B, 'warn'); say('warn', A, B, c); say('warn_thanks', B, A, c); }
+    A.hunger = 70; c = fresh(); out.advice = ACTS.ask_advice.when(c, A, B); talkTurn(c, A, B, 'ask_advice'); say('ask_advice', A, B, c); say('give_advice', B, A, c);
+    const kid = npcs.find(n => !n.dead && n.age < 14 && n !== A && n !== B) || null; if (kid) { A.fam.kids = [kid.id]; c = fresh(); out.brag = ACTS.brag_child.when(c, A, B); talkTurn(c, A, B, 'brag_child'); say('brag_child', A, B, c); say('congratulate', B, A, c); } else out.brag = true;
+    A.back = 'was ironing a shirt, and then there was sand'; c = fresh(); out.back = ACTS.tell_back.when(c, A, B); talkTurn(c, A, B, 'tell_back'); say('tell_back', A, B, c); say('tell_back_reply', B, A, c);
+    for (const how of ['farmer', 'baker', 'smith', 'priest']) { const w = lxSay('mutter', A, A, { how }); words['mutter_' + how] = clean(w) ? 'ok' : 'BAD:' + w; } words.call = clean(lxSay('call_child', A, B, { aboutName: 'Tiny' })) ? 'ok' : 'BAD';
+    out.words = Object.entries(words).filter(([, v]) => v !== 'ok');
+    // eavesdropping: the player hears news told nearby
+    const E2 = lfEmit('shove', { actor: D, target: ps[6] || C, sev: 2, tags: ['harm', 'nuisance'], anon: false, witnessIds: [A.id], chron: false, text: 'x' }); const m2 = TM.ofEv(A, E2.id); m2.imp = 0.9; B.tmem = (B.tmem || []).filter(m => m.ev !== E2.id); A.tx = A.x = P.tx + 2; A.ty = A.y = P.ty; B.tx = B.x = P.tx + 3; B.ty = B.y = P.ty;
+    c = fresh(); c.news = { m: m2, ev: E2, score: 1 }; talkTurn(c, A, B, 'share_news'); talkFinish(c, A, B, true); const om = TM.ofEv(P, E2.id); out.heard = !!om && om.kind === 'overheard';
+    // the card and the journal and the dials
+    A.hunger = 90; for (const k of ['fish', 'berries', 'grain']) A.inv[k] = 0; out.card = /Notice/.test(vcHTML(A)); TM.add(P, { kind: 'pref', about: A.id, item: 'grain', like: true }); out.journal = /What you know of people/.test(jrHTML());
+    out.dials = TALK.dial.distort === 1 && TALK.dial.sev === 1;
+    return out; });
+  check(r.links[0] + r.links[1] > 3 && r.links[2] === 0 && /Anyway|Oh|Changing|Related|On /.test(r.linkText), 'topics link or start afresh, and the words stay clean: ' + JSON.stringify([r.links, r.linkText]));
+  check(r.pref && r.inv && r.body && r.told, 'a story is a preface, an invitation and the telling: ' + JSON.stringify([r.pref, r.inv, r.body, r.told, r.storyWords]));
+  check(r.cb && !r.cbOnce && /turnips/.test(r.cbLine), 'last time is remembered, once: ' + JSON.stringify([r.cb, r.cbOnce, r.cbLine]));
+  check(r.refl && r.reason > 5, 'a pattern of slights becomes an opinion people state: ' + JSON.stringify([r.refl, r.reason]));
+  check(r.askWork && r.askWhere && r.tellWhere && r.warn && r.advice && r.brag && r.back && r.words.length === 0, 'the small acts apply and have clean words: ' + JSON.stringify([r.askWork, r.askWhere, r.tellWhere, r.warn, r.advice, r.brag, r.back, r.words]));
+  check(r.heard && r.card && r.journal && r.dials, 'overheard news reaches your journal, the card hints, the journal shows what you know of people, dials exist: ' + JSON.stringify([r.heard, r.card, r.journal, r.dials]));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return r.storyWords;
+});
+
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

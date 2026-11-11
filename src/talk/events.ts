@@ -33,7 +33,7 @@ const TE = {
       const ev = lf2Ev().find((q: any) => q.id === m.ev); if (!ev) continue;   // (a secret is not gossip, unless the gossipy let it slip)
       if (ev.actor === li.id || ev.target === li.id || ev.actor === sp.id || ev.target === sp.id || TM.ofEv(li, m.ev) || (c && c.sharedEv && c.sharedEv.includes(m.ev)) || (m.told || []).includes(li.id)) continue;
       const age = (game.time - m.t) / 1440, rel = 0.6 + (li.aff[ev.actor] != null || li.aff[ev.target] != null ? 0.5 : 0) + (li.know && (li.know[ev.actor] > 10 || li.know[ev.target] > 10) ? 0.3 : 0);
-      const sc = m.imp * Math.exp(-age / 3) * rel * gossip * (1 + 1.5 * Math.exp(-(game.time - m.t) / 180)) * (0.8 + Math.random() * 0.4);   // (fresh news is told first) if (sc > bs) { bs = sc; best = { m, ev, score: sc }; }
+      const sc = m.imp * Math.exp(-age / 3) * rel * gossip * (1 + 1.5 * Math.exp(-(game.time - m.t) / 180)) * (0.8 + Math.random() * 0.4); if (sc > bs) { bs = sc; best = { m, ev, score: sc }; }   // (fresh news is told first)
     }
     return best;
   },

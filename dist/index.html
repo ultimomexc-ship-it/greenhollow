@@ -8417,6 +8417,7 @@ function generateTown(seed, size) {
   return town;
 }
 const TALK = { engine: "new", on: { ritual: true, small: true, world: true, life: true, trade: true, person: true, deed: true, secret: true, feeling: true, economy: true, gift: true, romance: true, family: true, law: true } };
+TALK.dial = { distort: 1, sev: 1 };
 const anyOf = (a) => a[Math.floor(Math.random() * a.length)];
 const dayN = () => Math.floor(game.time / 1440);
 const personById = (id) => byId(id) || (town.dead || []).find((r) => r.id === id) || null;
@@ -18373,7 +18374,7 @@ function meddleFlush() {
       const hurt = p.home || !!p.exposure;
       if (hurt) n.mood = Math.max(0, (n.mood == null ? 60 : n.mood) - (r.kind === "home_destroyed" ? 18 : 8));
       if (p.sawYou) {
-        lfAff(n, by, hurt ? -9 : -3, r.kind === "home_destroyed" ? "pulled down a house" : p.exposure ? "knocked the wall out while I was in the middle of something" : r.kind === "bed_moved" ? "moved a bed" : r.kind === "furniture_removed" ? "took my furniture" : r.kind === "person_pushed" ? "pushed me about" : "knocked a wall down");
+        lfAff(n, by, (hurt ? -9 : -3) * TALK.dial.sev, r.kind === "home_destroyed" ? "pulled down a house" : p.exposure ? "knocked the wall out while I was in the middle of something" : r.kind === "bed_moved" ? "moved a bed" : r.kind === "furniture_removed" ? "took my furniture" : r.kind === "person_pushed" ? "pushed me about" : "knocked a wall down");
         cried.push({ n, p });
       }
     }
@@ -23259,7 +23260,7 @@ LF2.hourly.push(() => MODS.sync());
   const draw = () => {
     const kinds = ["job", "event", "system", "talk"];
     const names = { job: "Jobs", event: "Events", system: "Systems", talk: "Talk" };
-    box.innerHTML = `<div class="modcard"><button type="button" class="reqx" data-mod="x" title="Close (J)">\xD7</button><b>World modules</b> <span class="dim">switch a part of the game off to test the rest</span><div class="modbtns"><button type="button" data-mod="all">All on</button><button type="button" data-mod="farm">Only farming</button><select data-pack title="The voice of the island's talk">${["plain", "island"].map((p) => `<option value="${p}"${(town.pack || "plain") === p ? " selected" : ""}>Voice: ${p}</option>`).join("")}</select></div>` + kinds.map((k) => `<div class="modh">${names[k]}</div><div class="modgrid">` + Object.keys(MODS.defs).filter((i) => MODS.defs[i].kind === k).map((i) => {
+    box.innerHTML = `<div class="modcard"><button type="button" class="reqx" data-mod="x" title="Close (J)">\xD7</button><b>World modules</b> <span class="dim">switch a part of the game off to test the rest</span><div class="modbtns"><button type="button" data-mod="all">All on</button><button type="button" data-mod="farm">Only farming</button><select data-dial="distort" title="How much a story changes in the telling">${[["0.4", "Gossip: faithful"], ["1", "Gossip: normal"], ["2", "Gossip: wild"]].map(([v, l]) => `<option value="${v}"${String(TALK.dial.distort) === v ? " selected" : ""}>${l}</option>`).join("")}</select><select data-dial="sev" title="How hard your deeds land">${[["0.5", "Deeds: mild"], ["1", "Deeds: normal"], ["2", "Deeds: harsh"]].map(([v, l]) => `<option value="${v}"${String(TALK.dial.sev) === v ? " selected" : ""}>${l}</option>`).join("")}</select><select data-pack title="The voice of the island's talk">${["plain", "island"].map((p) => `<option value="${p}"${(town.pack || "plain") === p ? " selected" : ""}>Voice: ${p}</option>`).join("")}</select></div>` + kinds.map((k) => `<div class="modh">${names[k]}</div><div class="modgrid">` + Object.keys(MODS.defs).filter((i) => MODS.defs[i].kind === k).map((i) => {
       const d = MODS.defs[i], on = !modsOff()[i], eff = modOn(i);
       return `<label class="${eff ? "" : "dim"}"><input type="checkbox" data-mid="${i}"${on ? " checked" : ""}> ${d.label}${on && !eff ? " (needs something off)" : ""}</label>`;
     }).join("") + `</div>`).join("") + `</div>`;
@@ -23280,6 +23281,10 @@ LF2.hourly.push(() => MODS.sync());
     const t = e.target;
     if (t && t.dataset && t.dataset.pack !== void 0) {
       town.pack = t.value;
+      return;
+    }
+    if (t && t.dataset && t.dataset.dial) {
+      TALK.dial[t.dataset.dial] = +t.value;
       return;
     }
     if (t && t.dataset && t.dataset.mid) {
@@ -26827,6 +26832,11 @@ function vcHTML(n) {
     const f = vcFeel(r.a, r.k), l = relLabel(n, r.o);
     return f ? `<li>${f} ${esc(r.o.first)}${l ? ' <span class="dim">\xB7 ' + esc(String(l).replace(r.o.first, "").replace(/\s+/g, " ").trim().replace(/ (to|of|with)$/, "")) + "</span>" : ""}</li>` : "";
   }).join("");
+  const wants = typeof reqWant === "function" ? reqWant(n) : null, myRep = game.player && !n.player && typeof repWord === "function" ? repWord(n, game.player) : "", hides = (n.tmem || []).some((m) => m.kind === "did" && !m.confided && m.ev != null && game.time - m.t < 1440 * 6 && (() => {
+    const ev = lf2Ev().find((q) => q.id === m.ev);
+    return !!ev && ev.anon && (ev.tags || []).some((t) => ["harm", "theft", "embarrass", "scandal"].includes(t));
+  })());
+  const hints2 = [wants ? wants.kind === "bed" ? "is looking for a bed" : "would like something to eat" : "", myRep && myRep !== "kind" ? "thinks you " + REP_WORDS[myRep] : myRep === "kind" ? "thinks well of you" : "", hides ? "seems to be keeping something to themselves" : ""].filter(Boolean);
   const lately = (n.log || []).slice(-6, -1).reverse().map((e) => `<li><span class="dim">${fmtTime(e.t)}</span> ${esc(String(e.text).replace(/\.$/, ""))}</li>`).join("");
   const heard = (n.tmem || []).filter((m) => m.ev != null && m.kind !== "did").slice(-3).reverse().map((m) => {
     const ev = lf2Ev().find((q) => q.id === m.ev);
@@ -26835,7 +26845,7 @@ function vcHTML(n) {
     return `<li>${esc(TE.text(ev, m.ver))} <span class="dim">\xB7 ${src}${m.conf < 0.5 ? ", not sure" : ""}</span></li>`;
   }).join("");
   const news = (town.chron || []).filter((c) => c.text.indexOf(n.first) >= 0).slice(-3).reverse().map((c) => `<li>${esc(c.text)}</li>`).join("");
-  return `<b>${esc(typeof nameOf === "function" ? nameOf(n) : n.first)}</b>${n.player ? ' <span class="dim">(you)</span>' : ""}<div class="dim">${n.age}${n.role ? " \xB7 " + esc(n.role) : ""}${here ? " \xB7 " + esc(here) : ""}</div><div class="vcrow"><span class="dim">Right now</span> ${esc(doing)}</div><div class="vcrow"><span class="dim">Feeling</span> ${esc(mood || "fine")}${hints.length ? " \xB7 " + esc(hints.join(", ")) : ""}</div>` + (rel ? `<div class="vch">Company</div><ul>${rel}</ul>` : "") + (heard ? `<div class="vch">Knows</div><ul>${heard}</ul>` : "") + (news ? `<div class="vch">Said about them</div><ul>${news}</ul>` : "") + (lately ? `<div class="vch">Before that</div><ul>${lately}</ul>` : "");
+  return `<b>${esc(typeof nameOf === "function" ? nameOf(n) : n.first)}</b>${n.player ? ' <span class="dim">(you)</span>' : ""}<div class="dim">${n.age}${n.role ? " \xB7 " + esc(n.role) : ""}${here ? " \xB7 " + esc(here) : ""}</div><div class="vcrow"><span class="dim">Right now</span> ${esc(doing)}</div>` + (hints2.length ? `<div class="vcrow"><span class="dim">Notice</span> ${esc(hints2.join(" \xB7 "))}</div>` : "") + `<div class="vcrow"><span class="dim">Feeling</span> ${esc(mood || "fine")}${hints.length ? " \xB7 " + esc(hints.join(", ")) : ""}</div>` + (rel ? `<div class="vch">Company</div><ul>${rel}</ul>` : "") + (heard ? `<div class="vch">Knows</div><ul>${heard}</ul>` : "") + (news ? `<div class="vch">Said about them</div><ul>${news}</ul>` : "") + (lately ? `<div class="vch">Before that</div><ul>${lately}</ul>` : "");
 }
 function openVillagerCard(n) {
   VCARD = n || null;
@@ -26883,6 +26893,23 @@ function vcDraw(force) {
   }, 500);
 })();
 let JOURNAL_ON = false;
+function jrPath(m) {
+  let out = "", cur = m;
+  for (let i = 0; i < 3; i++) {
+    const h = cur.from != null ? byId(cur.from) : null;
+    if (!h) break;
+    const hm = TM.ofEv(h, cur.ev);
+    if (!hm || hm.from == null || hm.kind === "saw" || hm.kind === "felt") {
+      if (hm && (hm.kind === "saw" || hm.kind === "felt") && i > 0) out += " (who saw it)";
+      break;
+    }
+    const g = byId(hm.from);
+    if (!g) break;
+    out += ", who had it from " + g.first;
+    cur = hm;
+  }
+  return out;
+}
 function jrText(m) {
   const p = game.player;
   const who = (id) => {
@@ -26904,7 +26931,7 @@ function jrText(m) {
   if (m.ev != null && m.kind !== "life") {
     const ev = lf2Ev().find((q) => q.id === m.ev);
     if (!ev) return "";
-    return TE.text(ev, m.ver).replace(/^./, (c) => c.toUpperCase()) + (m.kind === "saw" ? " (you saw it)" : m.kind === "felt" ? " (it happened to you)" : m.kind === "overheard" ? " (overheard)" : m.kind === "told" ? " (" + who(m.from) + " told you" + (m.conf < 0.5 ? ", not sure" : "") + ")" : "");
+    return TE.text(ev, m.ver).replace(/^./, (c) => c.toUpperCase()) + (m.kind === "saw" ? " (you saw it)" : m.kind === "felt" ? " (it happened to you)" : m.kind === "overheard" ? " (overheard)" : m.kind === "told" ? " (" + who(m.from) + " told you" + jrPath(m) + (m.conf < 0.5 ? ", not sure" : "") + ")" : "");
   }
   return "";
 }
@@ -26928,6 +26955,17 @@ function jrHTML() {
     return { m: { t: e.t }, t: TE.text(e, { who: p.id }).replace(/^./, (c) => c.toUpperCase()) + (know ? ` \u2014 ${know} know it was you` : heard ? " \u2014 nobody knows it was you" : " \u2014 nobody knows") + (bl ? " (" + bl + ")" : "") };
   });
   groups["What you did"] = mine;
+  const known = [];
+  for (const m of (p.tmem || []).filter((q) => q.kind === "pref").slice(-12).reverse()) {
+    const a = byId(m.about);
+    if (a) known.push({ m, t: `${a.first} ${m.like ? "likes" : "cannot abide"} ${GOODS[m.item] && GOODS[m.item].name || m.item}` });
+  }
+  for (const o of npcs) {
+    if (o.dead || o === p || known.length > 14) continue;
+    const jb = o.job && (p.know[o.id] || 0) > 25 ? o.job : "";
+    if (jb) known.push({ m: { t: game.time }, t: `${o.first} is a ${String(jb).toLowerCase()}` });
+  }
+  groups["What you know of people"] = known;
   const rv = repVillage(p), rep = Object.keys(rv).filter((k) => rv[k] >= 1).sort((a, b) => rv[b] - rv[a]).map((k) => ({ m: { t: game.time }, t: `${rv[k]} ${rv[k] === 1 ? "person says" : "people say"} you ${REP_WORDS[k]}` }));
   groups["What folks say about you"] = rep;
   const open = (p.tmem || []).filter((m) => m.kind === "request" && m.state === "open").slice(-6).reverse().map((m) => {
@@ -27052,6 +27090,13 @@ const sndThrottle = (k, ms) => {
   SND.last[k] = now;
   return true;
 };
+function sndMurmur(n) {
+  if (!sndReady() || !sndThrottle("murmur", 1200)) return;
+  const v = sndAt(n.tx, n.ty);
+  if (v <= 0.05) return;
+  sndTone(140 + Math.random() * 70, 0.22, "triangle", 0.03 * v, 120);
+  sndTone(190 + Math.random() * 60, 0.16, "sine", 0.02 * v, 160, 0.12);
+}
 function sndStep(n) {
   if (!sndReady() || !n || !sndThrottle("step", 110)) return;
   const t = grid[n.ty] && grid[n.ty][n.tx], inRoom = roomAt[n.ty] && roomAt[n.ty][n.tx] >= 0, mine = isMineY(n.ty), deck = isUpperY(n.ty);
@@ -27879,7 +27924,7 @@ const TE = {
       if (!ev) continue;
       if (ev.actor === li.id || ev.target === li.id || ev.actor === sp.id || ev.target === sp.id || TM.ofEv(li, m.ev) || c && c.sharedEv && c.sharedEv.includes(m.ev) || (m.told || []).includes(li.id)) continue;
       const age = (game.time - m.t) / 1440, rel = 0.6 + (li.aff[ev.actor] != null || li.aff[ev.target] != null ? 0.5 : 0) + (li.know && (li.know[ev.actor] > 10 || li.know[ev.target] > 10) ? 0.3 : 0);
-      const sc = m.imp * Math.exp(-age / 3) * rel * gossip * (0.8 + Math.random() * 0.4);
+      const sc = m.imp * Math.exp(-age / 3) * rel * gossip * (1 + 1.5 * Math.exp(-(game.time - m.t) / 180)) * (0.8 + Math.random() * 0.4);
       if (sc > bs) {
         bs = sc;
         best = { m, ev, score: sc };
@@ -27893,7 +27938,7 @@ const TE = {
     const credit = Math.max(0.55, Math.min(1, 0.72 + (li.aff[sp.id] || 0) / 150 + (li.trust && li.trust[sp.id] ? li.trust[sp.id] / 200 : 0)));
     let conf = Math.min(1, m.conf * credit * 0.93);
     const friend = ver.who != null && (sp.aff[ver.who] || 0) > 30, foe = ver.who != null && (sp.aff[ver.who] || 0) < -30;
-    if (Math.random() < (talkHas(sp, "gossipy") ? 0.3 : 0.12)) {
+    if (Math.random() < (talkHas(sp, "gossipy") ? 0.3 : 0.12) * TALK.dial.distort) {
       ver.sev = Math.min(3, (ver.sev || 1) * 1.4);
       notes.push("bigger");
     } else if (friend && Math.random() < 0.35) {
@@ -27997,10 +28042,12 @@ const ACTS = {
     kind: "world",
     stage: "topic",
     preview: (c) => ({ news: TE.text(c.news.ev, c.news.m.ver), how: c.news.m.kind, conf: c.news.m.conf > 0.7 ? "high" : "low" }),
-    when: (c, sp, li) => (c.done.share_news || 0) < 2 && !!(c.news = TE.pick(sp, li, c)),
+    when: (c, sp, li) => (c.done.share_news || 0) < 2 && (c.storyNews ? (c.news = c.storyNews, true) : !!(c.news = TE.pick(sp, li, c))),
     w: (c) => 1 + 4 * Math.min(1, c.news ? c.news.score : 0),
     apply: (c, sp, li) => {
       const pk = c.news;
+      c.storyNews = null;
+      c.newsEvId = pk.ev.id;
       c.told = TE.tell(sp, li, pk, c);
       c.newsHow = pk.m.kind;
       c.newsConf = pk.m.conf > 0.7 ? "high" : "low";
@@ -28587,6 +28634,8 @@ function peopleWord(a, b) {
 }
 function peopleReason(a, b) {
   const L = a.why && a.why[b.id] || [], sgn = Math.sign(a.aff[b.id] || 0);
+  const rf = a.refl && a.refl[b.id];
+  if (rf && (rf.w === "good" && sgn >= 0 || rf.w === "unkind" && sgn <= 0) && Math.random() < 0.6) return (b.female ? "She" : "He") + (rf.w === "good" ? " is always good to me." : " is never kind to me.");
   const best = L.filter((x) => !PEOPLE_GENERIC.includes(x.why) && (sgn === 0 || Math.sign(x.v) === sgn)).sort((x, y) => Math.abs(y.v) - Math.abs(x.v))[0];
   const rel = a.rel && a.rel[b.id], gender = b.female ? "She" : "He";
   if (best) {
@@ -30032,6 +30081,292 @@ lxi("greet_back", "Hello. I have moved my valuables. They are in the same place 
 lxi("greet_back", "Hello. I am keeping my hands in my pockets. It is a habit I have formed.", { rep: "thief" });
 lxi("greet_back", "Hello. It is good to see you. I mean that exactly.", { rep: "kind" });
 lxi("greet_back", "Ah, {li}. Good. Today is better already.", { rep: "kind" });
+const talkSubject = (c) => c.aboutName || c.lifeItem || null;
+const LX_LINKS = {
+  plain: { linked: ["Speaking of which, ", "On that note, ", "And while we are on it, "], fresh: ["Anyway. ", "Oh, and ", "Changing the subject: "] },
+  island: { linked: ["Related to that, ", "On that subject, ", "Staying with it for a moment, "], fresh: ["Anyway. ", "Unrelated, but ", "On a different note, "] }
+};
+function lxLink(text, link) {
+  const pk = typeof town !== "undefined" && town && town.pack || "plain", L = (LX_LINKS[pk] || LX_LINKS.plain)[link];
+  if (!L || !text) return text;
+  const pre = L[Math.floor(Math.random() * L.length)], w0 = text.split(/[ ,.!?]/)[0];
+  const keep = /[.:] $/.test(pre) || w0 === "I" || /^I'/.test(text) || npcs.some((n) => n.first === w0);
+  return pre + (keep ? text : text.charAt(0).toLowerCase() + text.slice(1));
+}
+function talkLinkOf(c) {
+  const subj = talkSubject(c), prev = c.lastSubj;
+  c.nTopics = (c.nTopics || 0) + 1;
+  if (subj) c.lastSubj = subj;
+  if (c.nTopics < 2) return "";
+  if (subj && prev && subj === prev) return Math.random() < 0.7 ? "linked" : "";
+  return Math.random() < 0.4 ? "fresh" : "";
+}
+ACTS.story_preface = {
+  kind: "world",
+  stage: "topic",
+  preview: () => ({}),
+  w: () => 1.6,
+  when: (c, sp, li) => {
+    if (c.done.story_preface || (c.done.share_news || 0) >= 2) return false;
+    const pk = TE.pick(sp, li, c);
+    if (!pk || pk.m.imp < 0.55) return false;
+    c.storyNews = pk;
+    return true;
+  },
+  apply: (c) => {
+    c.done.story_preface = 1;
+  },
+  replies: ["story_invite"]
+};
+ACTS.story_invite = { kind: "world", stage: "topic", reply: true, when: (c) => !!c.storyNews, w: () => 1, apply: () => {
+}, replies: ["share_news"] };
+lx("story_preface", "plain", "You won't believe what I heard.");
+lx("story_preface", "plain", "Have you got a minute? I've something to tell you.");
+lx("story_preface", "plain", "Sit down for this one.");
+lx("story_invite", "plain", "Go on.");
+lx("story_invite", "plain", "What? Tell me.");
+lx("story_invite", "plain", "I'm listening.");
+lxi("story_preface", "I have something to tell you. It is long by the standards of today.");
+lxi("story_preface", "You may want to stand still for this.");
+lxi("story_preface", "I heard something. I have been carrying it around since.");
+lxi("story_invite", "Go on. I have time. I always have time.");
+lxi("story_invite", "Please. Go ahead.");
+lxi("story_invite", "Yes. Tell me. I would like to know.");
+const lastTalkMem = (sp, li) => {
+  const mem = sp.tmem || [];
+  for (let i = mem.length - 1; i >= 0; i--) if (mem[i].kind === "talked" && mem[i].with === li.id) return mem[i];
+  return null;
+};
+ACTS.callback = {
+  kind: "small",
+  stage: "topic",
+  preview: () => ({}),
+  w: () => 1.4,
+  when: (c, sp, li) => {
+    if (c.done.callback) return false;
+    const m = lastTalkMem(sp, li);
+    return !!m && !!m.subj && !m.called && game.time - m.t > 120 && game.time - m.t < 2880;
+  },
+  apply: (c, sp, li) => {
+    const m = lastTalkMem(sp, li);
+    m.called = true;
+    c.done.callback = 1;
+    c.aboutName = m.subj;
+  },
+  replies: ["callback_answer"]
+};
+ACTS.callback_answer = { kind: "small", stage: "topic", reply: true, when: () => true, w: () => 1, apply: () => {
+}, replies: [] };
+lx("callback", "plain", "Last time we spoke you brought up {about}. Any news?");
+lx("callback", "plain", "You mentioned {about} the other day. How did that go?");
+lx("callback_answer", "plain", "Much as it was. Thank you for asking.");
+lx("callback_answer", "plain", "Oh, that. It rumbles on.");
+lxi("callback", "Last time you mentioned {about}. I have been thinking about it, in the background.");
+lxi("callback", "You brought up {about} before. I remembered. Is there anything new?");
+lxi("callback_answer", "It is much as it was. Thank you for remembering. People do not, usually.");
+lxi("callback_answer", "There is no news. That is also a kind of news.");
+function reflect(n) {
+  if (n.dead || n.infant || !n.why) return;
+  const R = n.refl || (n.refl = {});
+  for (const id of Object.keys(n.why)) {
+    const L = n.why[id];
+    if (L.length < 2) continue;
+    let pos = 0, neg = 0;
+    for (const e of L) {
+      if (PEOPLE_GENERIC.includes(e.why)) continue;
+      if (e.v > 0) pos += e.v;
+      else neg += e.v;
+    }
+    const o = byId(+id);
+    if (!o || o.dead) continue;
+    const w = neg < -8 && neg < -pos ? "unkind" : pos > 8 && pos > -neg ? "good" : "";
+    if (w && (!R[id] || R[id].w !== w)) {
+      R[id] = { w, t: game.time };
+      TM.add(n, { kind: "inferred", about: o.id, trait: w, conf: 0.8, imp: 0.5 });
+    }
+  }
+}
+LF2.hourly.push((h) => {
+  if (h === 3) for (const n of npcs) reflect(n);
+});
+ACTS.joke = { kind: "small", stage: "topic", preview: () => ({}), w: (c, sp) => 0.6 + (talkHas(sp, "jovial") || talkHas(sp, "cheerful") ? 1.2 : 0), when: (c, sp) => !c.done.joke && (sp.mood == null || sp.mood > 40), apply: (c) => {
+  c.done.joke = 1;
+}, replies: ["laugh", "groan"] };
+ACTS.laugh = { kind: "small", stage: "topic", reply: true, when: () => true, w: (c, sp) => 1 + (talkHas(sp, "jovial") ? 1 : 0), apply: (c, sp, li) => {
+  lfAff(sp, li, 0.5, "made me laugh");
+  sp.mood = Math.min(100, (sp.mood == null ? 50 : sp.mood) + 2);
+}, replies: [] };
+ACTS.groan = { kind: "small", stage: "topic", reply: true, when: () => true, w: () => 0.7, apply: () => {
+}, replies: [] };
+ACTS.wonder = { kind: "small", stage: "topic", preview: () => ({}), w: () => 0.5, when: (c, sp) => !c.done.wonder, apply: (c) => {
+  c.done.wonder = 1;
+}, replies: ["wonder_reply"] };
+ACTS.wonder_reply = { kind: "small", stage: "topic", reply: true, when: () => true, w: () => 1, apply: () => {
+}, replies: [] };
+ACTS.ask_work = { kind: "person", stage: "topic", preview: () => ({}), w: () => 0.8, when: (c, sp, li) => !c.done.ask_work && !!li.job && li.age >= 12 && (sp.know[li.id] || 0) < 60, apply: (c, sp, li) => {
+  c.done.ask_work = 1;
+  c.aboutName = li.first;
+}, replies: ["answer_work"] };
+ACTS.answer_work = { kind: "person", stage: "topic", reply: true, when: (c, sp) => !!sp.job, w: () => 1, apply: () => {
+}, replies: [] };
+ACTS.ask_where = {
+  kind: "person",
+  stage: "topic",
+  preview: () => ({}),
+  w: () => 0.8,
+  when: (c, sp, li) => {
+    if (c.done.ask_where) return false;
+    const X = npcs.find((o) => o !== sp && o !== li && !o.dead && !o.infant && o.age >= 12 && (sp.aff[o.id] || 0) > 15 && lfDist(sp, o) > 12);
+    if (!X) return false;
+    c.whereObj = X;
+    return true;
+  },
+  apply: (c, sp, li) => {
+    c.done.ask_where = 1;
+    c.aboutName = c.whereObj.first;
+  },
+  replies: ["tell_where", "dont_know_where"]
+};
+ACTS.tell_where = { kind: "person", stage: "topic", reply: true, when: (c, sp) => !!c.whereObj && lfDist(sp, c.whereObj) <= 30 && lvlOf(sp.ty) === lvlOf(c.whereObj.ty), w: () => 3, apply: (c) => {
+  c.reason = (placeOf(c.whereObj) || "about the place").replace(/^(in|at)\s+/, (m) => m);
+}, replies: [] };
+ACTS.dont_know_where = { kind: "person", stage: "topic", reply: true, when: (c, sp) => !!c.whereObj && !(lfDist(sp, c.whereObj) <= 30 && lvlOf(sp.ty) === lvlOf(c.whereObj.ty)), w: () => 3, apply: () => {
+}, replies: [] };
+const REP_THIRD = { vandal: "knock things down", meddler: "move things that are not theirs", thief: "take what is not theirs", gossip: "cannot keep a secret", bully: "throw their weight about" };
+ACTS.warn = {
+  kind: "world",
+  stage: "topic",
+  preview: () => ({}),
+  w: (c, sp) => 1.3,
+  when: (c, sp, li) => {
+    if (c.done.warn || (sp.aff[li.id] || 0) < 5) return false;
+    for (const Z of npcs) {
+      if (Z === sp || Z === li || Z.dead || Z.infant) continue;
+      const w = repWord(sp, Z);
+      if (w && REP_THIRD[w] && !repTags(li, Z)[w]) {
+        c.warnOf = Z;
+        c.warnTag = w;
+        return true;
+      }
+    }
+    return false;
+  },
+  apply: (c, sp, li) => {
+    c.done.warn = 1;
+    c.aboutName = c.warnOf.first;
+    c.reason = REP_THIRD[c.warnTag];
+    const Z = c.warnOf;
+    TM.add(li, { kind: "rumour", about: Z.id, tag: c.warnTag, from: sp.id, conf: 0.6, imp: 0.4 });
+    lfAff(li, Z, -3, "was warned about them");
+  },
+  replies: ["warn_thanks"]
+};
+ACTS.warn_thanks = { kind: "world", stage: "topic", reply: true, when: () => true, w: () => 1, apply: (c, sp, li) => {
+  lfAff(sp, li, 1, "looked out for me");
+}, replies: [] };
+ACTS.ask_advice = { kind: "person", stage: "topic", preview: () => ({}), w: () => 1.1, when: (c, sp, li) => {
+  if (c.done.ask_advice || !(sp.hunger > 55)) return false;
+  return WORLD.has("feature", "bakery") || WORLD.has("feature", "tavern");
+}, apply: (c) => {
+  c.done.ask_advice = 1;
+}, replies: ["give_advice"] };
+ACTS.give_advice = { kind: "person", stage: "topic", reply: true, when: () => true, w: () => 1, apply: () => {
+}, replies: [] };
+ACTS.brag_child = {
+  kind: "person",
+  stage: "topic",
+  preview: () => ({}),
+  w: () => 0.9,
+  when: (c, sp, li) => {
+    if (c.done.brag_child) return false;
+    const k = (sp.fam.kids || []).map(byId).filter((q) => q && !q.dead && q.age < 14)[0];
+    if (!k) return false;
+    c.kid = k;
+    return true;
+  },
+  apply: (c) => {
+    c.done.brag_child = 1;
+    c.aboutName = c.kid.first;
+    c.lifeQty = Math.floor(c.kid.age);
+  },
+  replies: ["congratulate"]
+};
+ACTS.congratulate = { kind: "person", stage: "topic", reply: true, when: () => true, w: () => 1, apply: (c, sp, li) => {
+  lfAff(sp, li, 0.5, "was glad for me");
+}, replies: [] };
+ACTS.tell_back = { kind: "person", stage: "topic", preview: () => ({}), w: () => 0.9, when: (c, sp) => !c.done.tell_back && !!sp.back, apply: (c, sp) => {
+  c.done.tell_back = 1;
+  c.aboutName = sp.back;
+}, replies: ["tell_back_reply"] };
+ACTS.tell_back_reply = { kind: "person", stage: "topic", reply: true, when: () => true, w: () => 1, apply: () => {
+}, replies: [] };
+lx("joke", "plain", "A man told me his wall was holding up the ceiling. It turned out to be the other way round.");
+lx("joke", "plain", "I asked the baker for a loaf of yesterday. He said he'd have it tomorrow.");
+lx("joke", "plain", "My neighbour talks to his turnips. They've never once disagreed with him.");
+lx("laugh", "plain", "Ha! That's a good one.");
+lx("laugh", "plain", "Ha. I'll remember that.");
+lx("groan", "plain", "Oh, no. Really?");
+lx("groan", "plain", "That one has a beard.");
+lx("wonder", "plain", "I wonder what the sea does when nobody is looking.");
+lx("wonder", "plain", "I sometimes wonder why the days are all the same length.");
+lx("wonder_reply", "plain", "Now you've got me wondering.");
+lx("wonder_reply", "plain", "I couldn't say.");
+lxi("joke", "Somebody told me his wall was holding up the ceiling. It was the other way round. He was very calm about it.");
+lxi("joke", "I asked for a loaf of yesterday. They said they would have one tomorrow. I have decided to wait.");
+lxi("joke", "My neighbour talks to his turnips. They have never disagreed with him. I envy that.");
+lxi("laugh", "Ha. Good. I will repeat that to somebody who has not heard it.");
+lxi("laugh", "Ha. That is exactly the right size for a joke.");
+lxi("groan", "I have heard that one. I did not mind hearing it again.");
+lxi("groan", "Oh, no. And yet.");
+lxi("wonder", "I sometimes wonder what the sea does when nobody is looking. I assume the same thing.");
+lxi("wonder", "I wonder why the sky is the shape it is. It must have been decided by somebody.");
+lxi("wonder", "I wonder where the sand came from. The beach was not here before. Or it was. I do not remember.");
+lxi("wonder_reply", "Now I am wondering as well. It is not unpleasant.");
+lxi("wonder_reply", "I could not say. I have a feeling it is better not to.");
+lx("ask_work", "plain", "What do you do with your days, {about}?");
+lx("ask_work", "plain", "How's the work, {about}?");
+lx("answer_work", "plain", "I'm a {job}. It keeps me busy.");
+lx("answer_work", "plain", "Mostly I'm a {job}. Some days that's all of me.");
+lxi("ask_work", "What do you do with your days, {about}? I am only asking out of interest.");
+lxi("answer_work", "I am a {job}. It is a better job than it sounds, or exactly as good.");
+lxi("answer_work", "I am a {job}. I have done it since I got here. Before that I was somebody else.");
+lx("ask_where", "plain", "Have you seen {about} about?");
+lx("ask_where", "plain", "Do you know where {about} is?");
+lx("tell_where", "plain", "I think {about} is {reason}.");
+lx("tell_where", "plain", "Last I saw, {about} was {reason}.");
+lx("dont_know_where", "plain", "No idea where {about} is.");
+lx("dont_know_where", "plain", "Not today. Try the square.");
+lxi("ask_where", "Do you know where {about} is? I am not worried. I would like to know.");
+lxi("tell_where", "{about} is {reason}. I looked, on the way past. I do not know why.");
+lxi("dont_know_where", "I do not know where {about} is. Nobody tells me anything on this island, and then I am surprised.");
+lx("warn", "plain", "Watch out for {about}. They {reason}.");
+lx("warn", "plain", "A word of warning: {about} is someone who will {reason}.");
+lx("warn_thanks", "plain", "Thank you. I'll bear it in mind.");
+lx("warn_thanks", "plain", "Good to know. I'll keep my distance.");
+lxi("warn", "I would be careful around {about}. They {reason}. I say it only because it is true.");
+lxi("warn_thanks", "Thank you. I will take it under advisement. It is a good word, advisement.");
+lx("ask_advice", "plain", "I'm starving. Where would you go for a meal?");
+lx("give_advice", "plain", "Try the bakery. They always have something.", {}, ["feature:bakery"]);
+lx("give_advice", "plain", "The tavern, if you've any coin.", {}, ["feature:tavern"]);
+lx("give_advice", "plain", "Ask around. Someone always has something to spare.");
+lxi("ask_advice", "I am hungry. Where would you go for a meal? I am asking for a friend, who is me.");
+lxi("give_advice", "The bakery. It is reliable. It is the most reliable thing here.", {}, ["feature:bakery"]);
+lxi("give_advice", "The tavern. It is not what it was. It was never anything.", {}, ["feature:tavern"]);
+lxi("give_advice", "Ask around. Somebody has bread. Someone always has bread.");
+lx("brag_child", "plain", "{about} is {qty} now. I don't know where the time goes.");
+lx("brag_child", "plain", "My {about} is {qty}. Doing well. Growing like a weed.");
+lx("congratulate", "plain", "That's lovely. They do grow fast.");
+lx("congratulate", "plain", "You must be proud.");
+lxi("brag_child", "{about} is {qty} now. I did not see it happen. I looked away once.");
+lxi("brag_child", "My {about} is {qty}. It is going well. I am rarely asked.");
+lxi("congratulate", "You must be proud. I would be. Is that the word? Yes.");
+lxi("congratulate", "That is wonderful. They are quite something at that age.");
+lx("tell_back", "plain", "Before I came here I {about}.");
+lx("tell_back_reply", "plain", "That's a story. Go on.");
+lx("tell_back_reply", "plain", "Strange. I'd have believed it of this place.");
+lxi("tell_back", "Before I came here I {about}. I mention it only because nobody asks.");
+lxi("tell_back_reply", "That is quite a story. I believe it. That is the strange part.");
+lxi("tell_back_reply", "I see. I find I am not surprised. I have stopped being surprised.");
 TALK.log = [];
 TALK.words = false;
 TALK.running = true;
@@ -30057,18 +30392,23 @@ function talkChoose(c, sp, li, ids) {
   return opts[opts.length - 1][0];
 }
 const TALK_TOPICS = () => Object.keys(ACTS).filter((k) => ACTS[k].stage === "topic" && !ACTS[k].reply);
-const talkX = (c) => ({ state: c.state, how: c.newsHow, conf: c.newsConf, news: c.told && c.told.text, who: c.newsWho ? c.newsWho.first : "them", line: c.lifeLine, qty: c.lifeQty, item: c.lifeItem, shop: c.lifeShop, price: c.priceUnit, pitem: c.priceName, about: c.aboutName, op: c.op, reason: c.reason, deed: c.deedText });
+const talkX = (c) => ({ state: c.state, how: c.newsHow, conf: c.newsConf, news: c.told && c.told.text, who: c.newsWho ? c.newsWho.first : "them", line: c.lifeLine, qty: c.lifeQty, item: c.lifeItem, shop: c.lifeShop, price: c.priceUnit, pitem: c.priceName, about: c.aboutName, op: c.op, reason: c.reason, deed: c.deedText, evId: c.newsEvId, ver: c.told && c.told.ver });
 function talkTurn(c, sp, li, id) {
   const A = ACTS[id];
   A.apply(c, sp, li);
   const t = { by: sp.id, act: id, x: talkX(c) };
+  if (A.stage === "topic" && !A.reply && !c.player && c.last !== "story_invite" && typeof talkLinkOf === "function") {
+    const lk = talkLinkOf(c);
+    if (lk) t.x.link = lk;
+  }
   c.turns.push(t);
   c.last = id;
   return t;
 }
 function talkWords(t, a, b) {
   const s = t.by === a.id ? a : b, o = s === a ? b : a;
-  return lxSay(t.act === "report_day" && t.x && t.x.line ? t.x.line : t.act, s, o, t.x || {});
+  const txt = lxSay(t.act === "report_day" && t.x && t.x.line ? t.x.line : t.act, s, o, t.x || {});
+  return t.x && t.x.link && txt && typeof lxLink === "function" ? lxLink(txt, t.x.link) : txt;
 }
 function talkRun(a, b, listened) {
   const c = { a, b, stage: "open", done: {}, turns: [], left: { [a.id]: talkBudget(a, b), [b.id]: talkBudget(b, a) }, last: null, t0: game.time };
@@ -30086,13 +30426,16 @@ function talkRun(a, b, listened) {
     if (!id) break;
     say2(sp, li, id);
     c.left[sp.id] -= 1;
-    let reply = ACTS[id].replies.length ? talkChoose(c, li, sp, ACTS[id].replies) : null;
-    if (reply === "agree" && Math.random() < 0.3) reply = null;
-    if (reply) {
-      say2(li, sp, reply);
-      c.left[li.id] -= 0.4;
-      const back = ACTS[reply].replies.length ? talkChoose(c, sp, li, ACTS[reply].replies) : null;
-      if (back) say2(sp, li, back);
+    let cur = id, from = sp, to = li;
+    for (let d = 0; d < 4 && ACTS[cur].replies.length; d++) {
+      const reply = talkChoose(c, to, from, ACTS[cur].replies);
+      if (!reply || d === 0 && reply === "agree" && Math.random() < 0.3) break;
+      say2(to, from, reply);
+      c.left[to.id] -= 0.4;
+      cur = reply;
+      const t2 = from;
+      from = to;
+      to = t2;
     }
     if (c.left[li.id] > c.left[sp.id]) {
       const t = sp;
@@ -30108,7 +30451,7 @@ function talkRun(a, b, listened) {
     say2(closer, other, "farewell_back");
   }
   for (const [x, y] of [[a, b], [b, a]]) {
-    TM.add(x, { kind: "talked", with: y.id, imp: 0.2, n: c.turns.length });
+    TM.add(x, { kind: "talked", with: y.id, imp: 0.2, n: c.turns.length, subj: c.lastSubj });
     x.social = Math.min(100, (x.social == null ? 50 : x.social) + 5 + c.turns.length);
     lfAff(x, y, 1, "chatted");
   }
@@ -30122,6 +30465,13 @@ function talkFinish(c, a, b, listened) {
   }).filter(Boolean) : null;
   TALK.log.push({ t: game.time, a: a.id, b: b.id, d: lfDist(a, b), acts: c.turns.slice(), lines: lines ? lines.map((l) => l.who.first + ": " + l.text) : null });
   if (TALK.log.length > 300) TALK.log.shift();
+  if (lines && lines.length && game.player && a !== game.player && b !== game.player && (lfDist(game.player, a) <= TALK.earshot || lfDist(game.player, b) <= TALK.earshot)) {
+    for (const t of c.turns) if (t.act === "share_news" && t.x && t.x.evId != null) {
+      const ev = lf2Ev().find((q) => q.id === t.x.evId);
+      if (ev && !TM.ofEv(game.player, ev.id) && ev.actor !== game.player.id) TM.addEv(game.player, ev, "overheard", 0.6, t.by === a.id ? a : b, 1, t.x.ver ? { who: t.x.ver.who, sev: t.x.ver.sev } : void 0);
+    }
+  }
+  if (!lines && game.player && typeof sndMurmur === "function") sndMurmur(a);
   if (lines && lines.length) game.events.push({ time: game.time, a, b, place: placeOf(a), topic: "talk", quiet: false, talk: true, lines });
   else {
     const hold = game.time + c.turns.length * 0.7;
@@ -30217,7 +30567,7 @@ function ptOptions(S) {
     out.push({ id, snap, label, kind: A.kind, w: Math.random() + (A.kind !== "small" ? 0.6 : 0) });
   }
   out.sort((a, b) => b.w - a.w);
-  const keep = out.slice(0, 5);
+  const keep = out.slice(0, S.pending ? 6 : 5);
   if (!keep.some((q) => q.kind === "small") && out.some((q) => q.kind === "small")) keep[keep.length - 1] = out.find((q) => q.kind === "small");
   return keep;
 }
@@ -30260,15 +30610,17 @@ function ptStep(key) {
   c.left[o.id] -= 0.6;
   const said = [];
   const reps = ACTS[q.id].replies;
+  let cont = null;
   if (reps && reps.length) {
     const rid = talkChoose(c, o, p, reps);
     if (rid) {
       const t = talkTurn(c, o, p, rid);
       said.push(talkWords(t, p, o));
       c.left[o.id] -= 0.3;
+      if ((rid === "story_invite" || rid === "share_news") && ACTS[rid].replies.length) cont = ACTS[rid].replies.slice();
     }
   }
-  if (c.left[o.id] > 0.5 && (!said.length || c.left[o.id] > 1.2 && Math.random() < 0.55)) {
+  if (!cont && c.left[o.id] > 0.5 && (!said.length || c.left[o.id] > 1.2 && Math.random() < 0.55)) {
     const tid = talkChoose(c, o, p, TALK_TOPICS());
     if (tid) {
       const t = talkTurn(c, o, p, tid);
@@ -30277,6 +30629,7 @@ function ptStep(key) {
       S.pending = ACTS[tid].replies && ACTS[tid].replies.length ? ACTS[tid].replies.slice() : null;
     }
   }
+  if (cont) S.pending = cont;
   const r = ptMenu(S, said.filter(Boolean).join("\n") || "\u2026");
   if (S.pending && !r.opts.some((x) => x[0] !== "bye")) {
     S.pending = null;
@@ -30292,7 +30645,7 @@ function ptEnd() {
   const c = S.c, o = S.o, p = S.p;
   if (talkS && talkS.pt) talkS = null;
   for (const [x, y] of [[o, p], [p, o]]) {
-    TM.add(x, { kind: "talked", with: y.id, imp: 0.25, n: c.turns.length });
+    TM.add(x, { kind: "talked", with: y.id, imp: 0.25, n: c.turns.length, subj: c.lastSubj });
     x.social = Math.min(100, (x.social == null ? 50 : x.social) + 6 + c.turns.length);
   }
   lfAff(o, p, 1, "talked with me");
@@ -30344,6 +30697,68 @@ function keeperCalls() {
   }
 }
 LF2.tickers.push(keeperCalls);
+ACTS.mutter = { kind: "small", stage: "topic", when: () => false, apply: () => {
+}, replies: [] };
+ACTS.call_child = { kind: "family", stage: "topic", when: () => false, apply: () => {
+}, replies: [] };
+const MUTTER_JOBS = ["Farmer", "Baker", "Smith", "Merchant", "Shopkeeper", "Miller", "Miner", "Carpenter", "Priest", "Fisher", "Worker"];
+function moreBarks() {
+  if (!town || !TALK.running || !game.player || game.time % 7 > 1.1) return;
+  const P = game.player, near = npcs.filter((n) => !n.dead && !n.player && !n.infant && n.age >= 6 && lvlOf(n.ty) === lvlOf(P.ty) && lfDist(P, n) <= TALK.earshot && n.pose !== "sleep" && !(n.talkUntil > game.time));
+  for (const n of near) {
+    if (TALK.on.small && !n.moving && (n.mutterT || 0) < game.time && n.job && MUTTER_JOBS.includes(String(n.job))) {
+      n.mutterT = game.time + 70 + Math.random() * 90;
+      const s = n.plan && n.plan[n.si];
+      if (s && s.k === "wait" && /work|plough|sow|harvest|bak|knead|forge|hammer|sweep|stock|dig|saw|cut|tend|mend|weav|serving|stall/i.test(String(s.text || "")) && Math.random() < 0.6) {
+        const c = { a: n, b: n, done: {}, turns: [{ by: n.id, act: "mutter", x: { how: String(n.job).toLowerCase() } }], stage: "topic", t0: game.time };
+        talkFinish(c, n, n, true);
+      }
+    }
+    if (TALK.on.ritual && n.moving && (n.passT || 0) < game.time) {
+      const o = near.find((q) => q !== n && (n.aff[q.id] || 0) > -10 && lfDist(n, q) <= 2 && (q.moving || q.pose === "stand") && !(q.talkUntil > game.time));
+      if (o) {
+        n.passT = o.passT = game.time + 120;
+        const c = { a: n, b: o, done: {}, turns: [{ by: n.id, act: "greet", x: {} }], stage: "open", t0: game.time };
+        if (Math.random() < 0.7) c.turns.push({ by: o.id, act: "greet_back", x: {} });
+        talkFinish(c, n, o, true);
+      }
+    }
+    if (TALK.on.family && game.time % 1440 > 17.5 * 60 && game.time % 1440 < 20 * 60 && (n.callT || 0) < game.time) {
+      const k = (n.fam.kids || []).map(byId).find((q) => q && !q.dead && q.age < 10 && lvlOf(q.ty) === lvlOf(n.ty) && lfDist(n, q) >= 5 && lfDist(n, q) <= 16 && q.pose !== "sleep");
+      if (k) {
+        n.callT = game.time + 90;
+        const c = { a: n, b: k, done: {}, turns: [{ by: n.id, act: "call_child", x: { aboutName: k.first } }], stage: "topic", t0: game.time };
+        c.turns[0].x.about = k.first;
+        faceTo(n, k);
+        talkFinish(c, n, k, true);
+      }
+    }
+  }
+}
+LF2.tickers.push(moreBarks);
+lx("mutter", "plain", "Where did I put that?", { how: "farmer" });
+lx("mutter", "plain", "Rain tomorrow, or it won't be.", { how: "farmer" });
+lx("mutter", "plain", "Another row. And another after that.", { how: "farmer" });
+lx("mutter", "plain", "Not too brown. Not too pale.", { how: "baker" });
+lx("mutter", "plain", "Flour in everything. Flour in my ears.", { how: "baker" });
+lx("mutter", "plain", "Hot enough. Hot enough to argue with.", { how: "smith" });
+lx("mutter", "plain", "Again. A little harder.", { how: "smith" });
+lx("mutter", "plain", "Now where did that go.");
+lx("mutter", "plain", "Nearly done. Nearly.");
+lx("mutter", "plain", "Back to it, then.");
+lx("call_child", "plain", "{about}! Come in now, it's getting dark!");
+lx("call_child", "plain", "{about}! Time to come home!");
+lxi("mutter", "I put it down somewhere. I put it down on purpose.", { how: "farmer" });
+lxi("mutter", "There will be rain, or there will not. I have decided to be ready for both.", { how: "farmer" });
+lxi("mutter", "Another row. The rows are the same. I check.", { how: "farmer" });
+lxi("mutter", "Not too brown. Not too pale. It is a narrow thing and I am calm about it.", { how: "baker" });
+lxi("mutter", "There is flour in places I did not know I had.", { how: "baker" });
+lxi("mutter", "Hot enough. It is always hot enough, and then it is hotter.", { how: "smith" });
+lxi("mutter", "Where did that go. It was here. It was right here.");
+lxi("mutter", "Nearly done. I have said that since morning and it has not been false once.");
+lxi("mutter", "Back to it. The work does not know it is being watched.");
+lxi("call_child", "{about}. Come in. It is getting dark and I would like you inside.");
+lxi("call_child", "{about}. Home. The light is going and I count you every evening.");
 TALK.range = 10;
 TALK.earshot = 16;
 TALK.stroll = true;
