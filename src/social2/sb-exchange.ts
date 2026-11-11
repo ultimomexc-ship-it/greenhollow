@@ -12,7 +12,8 @@ const sbAdult = n => n && !n.dead && !n.infant && n.age >= 14;
 const sbHas = (n, t) => lf2Has(n, t) ? 1 : 0;
 function sbSocial(a) { return (1 + 0.4 * (sbHas(a, 'sociable') + sbHas(a, 'jovial')) + 0.3 * sbHas(a, 'gossipy') - 0.4 * sbHas(a, 'shy') - 0.2 * sbHas(a, 'homebody')) * ((a.drunk || 0) > 40 ? 1.4 : 1) * (a.mood < 25 ? 0.8 : 1); }
 function sbFree(n) { return !n.dead && !n.infant && n.age >= 6 && n.pose !== 'sleep' && !n.player && !n.trapped && !(typeof talkUI !== 'undefined' && talkUI.o === n) && !(n.ill && n.ill.until > game.time && n.pose === 'sleep'); }
-const sbNear = (a, b) => typeof game !== 'undefined' && game.player && !SB.presim && (lfDist(a, game.player) <= 10 || lfDist(b, game.player) <= 10);
+/** every exchange is voiced and walked out (bubbles off screen are simply not drawn); only the pre-simulation before arrival stays silent. It used to be 'within 10 tiles of the player'. */
+const sbNear = (a, b) => typeof game !== 'undefined' && !!game.player && !SB.presim;
 function sbNote(o, w, ty, about) { const L = o.sbConv || (o.sbConv = []); L.push({ w: w.id, ty, about: about ? about.id || about : null, t: game.time }); if (L.length > 16) L.shift(); }
 /** how well two people rub along (-1..1): shared traits and hobbies, a few classic clashes, and a fixed chemistry of their own */
 const SB_CLASH = [['grumpy', 'cheerful'], ['grumpy', 'jovial'], ['proud', 'proud'], ['gossipy', 'shy'], ['gossipy', 'homebody'], ['lazy', 'early bird'], ['devout', 'jovial'], ['anxious', 'brave'], ['greedy', 'generous'], ['proud', 'grumpy']];
@@ -101,12 +102,13 @@ function sbMeet(a, b) {
   const idle = (n: any) => { const st = n.plan && n.plan[n.si]; return !st || n.roaming || (st.k === 'wait' && (st.act === 'stand' || st.act === 'leisure')); };   // (nobody is called away from their work, a walk to it, a meal or their bed)
   const t = visNearTile(b); if (!t || !idle(a) || !idle(b)) return false;
   a.sbBusy = b.sbBusy = game.time + 14; b.talkUntil = Math.max(b.talkUntil || 0, game.time + 8);
+  const rest = a.plan ? a.plan.slice(a.si) : [];   // (what they were doing carries on afterwards)
   abortPlan(a);
   a.plan = [goS(() => visNearTile(b) || { x: b.tx, y: b.ty, face: null }, 'Going over to ' + b.first),
     waitS(1, 'stand', 'Talking with ' + b.first, { onEnd(nn) {
       if (b.dead || b.pose === 'sleep' || lfDist(nn, b) > 3) return;
       faceTo(nn, b); faceTo(b, nn); nn.sbBusy = b.sbBusy = game.time + 4; sbExchange(nn, b, null);
-    } })];
+    } })].concat(rest);
   a.si = 0; a.stepStarted = false; return true;
 }
 function sbTick() {
