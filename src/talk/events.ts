@@ -28,7 +28,7 @@ const TE = {
   pick(sp: any, li: any, c?: any): any {
     const mem = sp.tmem; if (!mem) return null; const gossip = talkHas(sp, 'gossipy') ? 1.4 : talkHas(sp, 'shy') ? 0.7 : 1; let best: any = null, bs = 0.1;
     for (const m of mem) {
-      if (m.ev == null || m.conf < 0.25 || (m.kind === 'did' && Math.random() < 0.8)) continue; const ev = lf2Ev().find((q: any) => q.id === m.ev); if (!ev) continue;
+      if (m.ev == null || m.conf < 0.25 || (m.kind === 'did' && Math.random() < 0.8) || (m.secret && !sp.player && !(talkHas(sp, 'gossipy') && Math.random() < 0.12))) continue;   // (a secret is not gossip, unless the gossipy let it slip) const ev = lf2Ev().find((q: any) => q.id === m.ev); if (!ev) continue;
       if (ev.actor === li.id || ev.target === li.id || ev.actor === sp.id || ev.target === sp.id || TM.ofEv(li, m.ev) || (c && c.sharedEv && c.sharedEv.includes(m.ev)) || (m.told || []).includes(li.id)) continue;
       const age = (game.time - m.t) / 1440, rel = 0.6 + (li.aff[ev.actor] != null || li.aff[ev.target] != null ? 0.5 : 0) + (li.know && (li.know[ev.actor] > 10 || li.know[ev.target] > 10) ? 0.3 : 0);
       const sc = m.imp * Math.exp(-age / 3) * rel * gossip * (0.8 + Math.random() * 0.4); if (sc > bs) { bs = sc; best = { m, ev, score: sc }; }
@@ -47,7 +47,7 @@ const TE = {
     if (Math.random() < 0.08) { ver.who = null; notes.push('nameless'); conf *= 0.9; }
     else if (m.kind !== 'saw' && m.kind !== 'did' && m.kind !== 'felt' && Math.random() < 0.06) { const other = npcs.filter(q => q !== sp && q !== li && !q.dead && q.age >= 14 && (sp.aff[q.id] || 0) < -10); if (other.length) { ver.who = other[Math.floor(Math.random() * other.length)].id; notes.push('shifted'); conf *= 0.85; } }
     ver.note = notes.join(',') || undefined;
-    const mem = TM.addEv(li, ev, 'told', conf, sp, (m.hop || 0) + 1, ver); (m.told = m.told || []).push(li.id);
+    const mem = TM.addEv(li, ev, 'told', conf, sp, (m.hop || 0) + 1, ver); (m.told = m.told || []).push(li.id); if (m.secret && typeof secretLeak === 'function') secretLeak(m, sp, li, ev);
     // what li makes of it, and what it does to what li thinks of the one in the story
     const j = TE.appraise(li, ev, ver, conf, sp), actor = ver.who != null ? lf2By(ver.who) : null;
     if (actor && actor !== li && j.v !== 0) lfAff(li, actor, j.v * conf * 3, 'heard what ' + actor.first + ' did');

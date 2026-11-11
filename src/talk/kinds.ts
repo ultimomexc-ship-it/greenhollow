@@ -31,7 +31,7 @@ EVK('used_privy', 'body', { tell: 0.05 }); EVK('no_privy', 'body', { tell: 0.6, 
 // home
 EVK('got_bed', 'home', { tell: 0.5 }); EVK('lost_bed', 'home', { tell: 0.7, tags: ['misfortune'] }); EVK('moved_house', 'home', { tell: 0.6 });
 // meddling (phase 3)
-EVK('wall_removed', 'meddle', { needs: ['place'], tell: 0.9, tags: ['embarrass', 'nuisance'] }); EVK('bed_moved', 'meddle', { tell: 0.7, tags: ['nuisance'] }); EVK('home_destroyed', 'meddle', { tell: 1, tags: ['harm'] }); EVK('building_down', 'meddle', { tell: 0.9, tags: ['harm'] }); EVK('caught_on_privy', 'meddle', { tell: 1, tags: ['embarrass', 'scandal'] });
+EVK('wall_removed', 'meddle', { needs: ['place'], tell: 0.9, tags: ['embarrass', 'nuisance'] }); EVK('bed_moved', 'meddle', { tell: 0.7, tags: ['nuisance'] }); EVK('home_destroyed', 'meddle', { tell: 1, tags: ['harm'] }); EVK('betrayal', 'social', { tell: 0.8, tags: ['deceit', 'harm'] }); EVK('building_down', 'meddle', { tell: 0.9, tags: ['harm'] }); EVK('caught_on_privy', 'meddle', { tell: 1, tags: ['embarrass', 'scandal'] });
 
 /* ---- things the events refer to: items (goods) and seeds are defined from the game's own tables, so a new good or seed is talkable the moment it exists ---- */
 if (typeof GOODS !== 'undefined') for (const g of Object.keys(GOODS)) REG.define('item', g, { name: String(GOODS[g].name || g).toLowerCase(), category: 'good' });

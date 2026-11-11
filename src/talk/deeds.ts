@@ -2,13 +2,14 @@
    when they talk to you (`raise_deed`); you answer (sorry / it had to be done / it was not me / so what) and they answer that (`deed_forgive`, `deed_cold`, `deed_believe`, `deed_doubt`).
    `cry_deed` is the one-line cry when you are caught in the act. Works for anybody's deeds against the listener, but only the player's meddling makes them now. */
 
-const DEED_TAGS = ['harm', 'nuisance', 'embarrass', 'scandal', 'violence', 'theft'];
+const DEED_TAGS = ['harm', 'nuisance', 'embarrass', 'scandal', 'violence', 'theft', 'deceit'];
 /** the deed in the words of 'you ...' */
 function deedYou(ev: any, sp: any): string {
   const t = ev.target != null ? lf2By(ev.target) : null, me = t === sp, they = t ? t.first : 'somebody';
   switch (ev.kind) {
     case 'wall_removed': return me ? 'knocked a wall out of my house' : t ? 'knocked a wall out of ' + they + '\'s house' : 'knocked a wall down';
     case 'home_destroyed': return me ? 'pulled my house down' : t ? 'pulled ' + they + '\'s house down' : 'pulled a house down';
+    case 'betrayal': return me ? 'told somebody my secret' : t ? 'told ' + they + '\'s secret' : 'told a secret';
     case 'building_down': return 'pulled down ' + (ev.place || 'a building');
     case 'bed_moved': return me ? 'carried me out of my house in my sleep' : t ? 'carried ' + they + ' out of the house in their sleep' : 'moved a bed with somebody in it';
     case 'caught_on_privy': return me ? 'knocked the wall out while I was on the privy' : 'knocked the wall out while ' + they + ' was on the privy';
