@@ -102,13 +102,13 @@ function lxContext(sp: any, li: any, c: any) {
 function lxSay(act: string, sp: any, li: any, c: any): string {
   const ctx: any = lxContext(sp, li, c); const heard = li.heard || (li.heard = {});
   const pool = (pack: string) => LEX.filter(e => e.act === act && e.pack === pack && WORLD.ok(e.requires) && Object.keys(e.tags).every(k => k === 'trait' ? (sp.traits || []).includes(e.tags[k]) : e.tags[k] === ctx[k]));
-  let cands = pool(TALK_PACK.cur); if (!cands.length) cands = pool('plain'); if (!cands.length) return '';
+  const pk = (typeof town !== 'undefined' && town && town.pack) || TALK_PACK.cur; let cands = pool(pk); if (!cands.length) cands = pool('plain'); if (!cands.length) return '';
   let best: any = null, bs = -1e9;
-  for (const e of cands) { const id = act + '|' + e.text, s = Object.keys(e.tags).length * 2 - (heard[id] != null ? 4 - Math.min(3, (game.time - heard[id]) / 600) : 0) + Math.random() * 1.5; if (s > bs) { bs = s; best = e; } }
-  heard[act + '|' + best.text] = game.time;
+  for (const e of cands) { const id = act + '|' + e.text, g = LX_RECENT[id], s = Object.keys(e.tags).length * 2 - (heard[id] != null ? 4 - Math.min(3, (game.time - heard[id]) / 600) : 0) - (g != null && game.time - g < 180 ? 2.2 : 0) + Math.random() * 1.5; if (s > bs) { bs = s; best = e; } }
+  heard[act + '|' + best.text] = game.time; LX_RECENT[act + '|' + best.text] = game.time;   // (what was said lately, by anyone, is less likely to be said again)
   const place = String(placeOf(sp) || '').replace(/^(in|at)\s+/, ''); const inP = /^the /.test(place) ? 'at ' + place : place ? 'in ' + place : 'here';
-  const raw = best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || 'daily').toLowerCase()).replace(/\{state\}/g, ctx.state).replace(/\{money\}/g, lxMoney(c.price)).replace(/\{price\}/g, c.price != null ? String(c.price) : '').replace(/\{shop\}/g, c.shop || 'stall').replace(/\{things\}/g, lxCount(c.qty, c.item)).replace(/\{qty\}/g, c.qty != null ? String(c.qty) : '').replace(/\{item\}/g, c.item || c.pitem || '').replace(/\{news\}/g, c.news || '').replace(/\{who\}/g, c.who || 'them');
-  return placeWords(raw.replace(/(^|[.!?]\s+)([a-z])/g, (_m: string, a: string, b: string) => a + b.toUpperCase()));
+  const raw = best.text.replace(/\{li\}/g, li.first).replace(/\{sp\}/g, sp.first).replace(/\{place\}/g, inP).replace(/\{job\}/g, String(sp.job || 'daily').toLowerCase()).replace(/\{state\}/g, ctx.state).replace(/\{clock\}/g, lxClock()).replace(/\{money\}/g, lxMoney(c.price)).replace(/\{price\}/g, c.price != null ? String(c.price) : '').replace(/\{shop\}/g, c.shop || 'stall').replace(/\{things\}/g, lxCount(c.qty, c.item)).replace(/\{qty\}/g, c.qty != null ? String(c.qty) : '').replace(/\{item\}/g, c.item || c.pitem || '').replace(/\{news\}/g, c.news || '').replace(/\{who\}/g, c.who || 'them');
+  return placeWords(lxTic(sp, act, pk, raw).replace(/(^|[.!?]\s+)([a-z])/g, (_m: string, a: string, b: string) => a + b.toUpperCase()));
 }
 
 /** a count of something, said the way people say it: "a cabbage", "7 barley", "12 turnips" (a plural name drops its s for one; a mass noun is "a little") */
@@ -119,3 +119,19 @@ function lxCount(qty: any, name: string): string {
 
 /** money said the way people say it: "a denarius", "6 denarii" */
 function lxMoney(n: any): string { if (n == null) return 'a few denarii'; n = Math.round(n); return n === 1 ? 'one denarius' : n + ' denarii'; }
+
+/** the time as people say it: "7:40" */
+function lxClock(): string { const m = Math.floor(game.time % 1440); return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0'); }
+/** a verbal habit: each person has none or one of the pack's small openers and now and then uses it on a statement, so people are recognisable by how they talk */
+const LX_TICS: any = {
+  plain: ['you know,', 'honestly,', 'mind you,', 'I suppose,', 'as it happens,'],
+  island: ['as far as I know,', 'more or less,', 'I think,', 'for what it is worth,', 'in my experience,', 'probably,', 'to be fair,']
+};
+const LX_TIC_ACTS = /^(remark_|share_news|answer_how|report_day|life:|tell_price|ask_news|nothing_much)/;
+const LX_RECENT: any = {};
+function lxTic(sp: any, act: string, pack: string, text: string): string {
+  const list = LX_TICS[pack] || LX_TICS.plain; if (!LX_TIC_ACTS.test(act) || text.length < 28 || text.split(/[.?]/)[0].length < 18) return text;
+  const k = ((sp.id * 2654435761) >>> 0) % (list.length + 3); if (k >= list.length) return text;   // (some people have none)
+  if (Math.random() > 0.3) return text; const t = list[k];
+  return t + ' ' + text.charAt(0).toLowerCase() + text.slice(1);
+}

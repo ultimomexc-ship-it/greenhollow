@@ -70,6 +70,7 @@
   "talk/events.ts",
   "talk/acts.ts",
   "talk/lexicon.ts",
+  "talk/pack-island.ts",
   "talk/shape.ts",
   "talk/service.ts",
   "talk/player.ts",

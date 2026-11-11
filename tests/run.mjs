@@ -1435,6 +1435,35 @@ test('stalls and the bakery, from the player\'s side, in the real game: walk int
   return 'player at the stalls';
 });
 
+test('voice: the island has its own voice (dry, exact, no exclamation marks), each village keeps the voice it was made with, people have verbal habits, and what was said lately is not said again at once', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    const out = {}; const known = /^(li|sp|place|job|state|item|things|money|news|who|shop|qty|price|clock)$/;
+    const isl = LEX.filter(e => e.pack === 'island'); out.n = isl.length; out.bang = isl.filter(e => /!/.test(e.text)).map(e => e.text).slice(0, 3);
+    out.slots = [...new Set(LEX.filter(e => !e.act.startsWith('ev:')).flatMap(e => (e.text.match(/\{(\w+)\}/g) || []).map(x => x.slice(1, -1))).filter(x => !known.test(x)))];
+    out.acts = new Set(isl.map(e => e.act)).size; out.cover = [...new Set(LEX.filter(e => e.pack === 'plain').map(e => e.act))].filter(a => !isl.some(e => e.act === a)).length;
+    // packs per island
+    newTown('v1', 'farm'); out.farm = town.pack; newTown('v2', 'blank'); out.blank = town.pack; newTown('v3', 'village'); out.village = town.pack;
+    // habits: one person has a tic and uses it on a long statement now and then; short lines and greetings are left alone
+    newTown('v4', 'farm'); const ps = npcs.filter(q => !q.dead && q.age >= 18); let withTic = 0, used = 0, shortHit = 0; const long = 'The morning has a lot left in it and I intend to use it.';
+    for (const p of ps) { let hit = false; for (let i = 0; i < 60; i++) { const t = lxTic(p, 'remark_time', 'island', long); if (t !== long) { hit = true; used++; } if (lxTic(p, 'remark_time', 'island', 'Mm.') !== 'Mm.' || lxTic(p, 'greet', 'island', long) !== long) shortHit++; } if (hit) withTic++; }
+    out.tics = [withTic, ps.length, used, shortHit];
+    // what was said lately by anyone is less likely again
+    const a = ps[0], c = ps[1]; const seen = {}; for (let i = 0; i < 30; i++) { const t = lxSay('agree', a, c, {}); seen[t] = (seen[t] || 0) + 1; } out.spread = Object.keys(seen).length;
+    return out; });
+  check(r.n >= 150 && r.acts >= 40 && r.bang.length === 0, 'the island pack is written (' + r.n + ' lines over ' + r.acts + ' acts) with no exclamation marks: ' + JSON.stringify(r.bang));
+  check(r.slots.length === 0, 'every slot a line uses is one the engine fills: ' + JSON.stringify(r.slots));
+  check(r.farm === 'island' && r.blank === 'island' && r.village === 'plain', 'islands keep their voice: ' + JSON.stringify([r.farm, r.blank, r.village]));
+  check(r.tics[0] >= 2 && r.tics[0] < r.tics[1] && r.tics[2] > 0 && r.tics[3] === 0, 'some people have a verbal habit and use it on statements only: ' + JSON.stringify(r.tics));
+  check(r.spread >= 4, 'the same small reply is said in several ways: ' + r.spread);
+  await page.evaluate(() => { newTown('v5', 'farm'); TALK.words = true; });
+  await simulate(page, 2 * 1440);
+  const r2 = await page.evaluate(() => { const all = TALK.log.filter(l => l.lines && !l.player).flatMap(l => l.lines.map(t => t.replace(/^[^:]+: /, ''))); return { n: all.length, bang: all.filter(t => /!/.test(t)).length, brace: all.filter(t => /[{}]|undefined|NaN/.test(t)).length, uniq: new Set(all).size }; });
+  check(r2.n > 200 && r2.bang === 0 && r2.brace === 0 && r2.uniq / r2.n > 0.25, 'two days of island talk read clean: ' + JSON.stringify(r2));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return JSON.stringify(r2);
+});
+
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {
