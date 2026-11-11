@@ -257,6 +257,61 @@ Requests can come from **both sides of a conflict**, and the player may take sid
 6. **Lexicon coverage** for reactions: surprise, embarrassment, anger, laughter, scorn, gratitude, in every voice pack (this is the comedy; it needs the most care).
 7. **Tests**: a deterministic scene (a wall removed with someone on the privy) must produce witnesses, appraisal, reaction acts, memory, a later retelling with a different version, and a reputation change; plus the opposite (nobody sees, it is still discovered, the wrong person is suspected).
 
+## 3c. Life events: everything real becomes talk, and new content brings its own chatter
+
+People mostly talk about their ordinary days: what they bought, what they planted, where they slept, whether the privy was free, whether they ate. That talk is believable *because it is true*: it comes from what really happened in the game.
+So the talk engine is a lens over one **uniform stream of life events**, and every system in the game (economy, farming, housing, needs, work, weather, building) feeds it. The rule for the whole project:
+
+> **Anything a villager really does, gets, loses or suffers becomes a life event. A life event can be remembered, told, complained about and counted.**
+
+### 3c.1 The life-event stream
+`LIFE.emit(kind, who, data)`: a small record `{ kind, who, t, place, item?, qty?, price?, with?, tags }`, written by the code that already does the thing, never by talk code. Standard kinds (grow the list as the game grows):
+
+| Family | Kinds |
+|---|---|
+| **Trade** | `bought {item, qty, price, from}`, `sold`, `could_not_afford`, `out_of_stock`, `new_in_stock {item}`, `price_changed {item}` |
+| **Farm and work** | `planted {seed, n}`, `harvested {crop, qty}`, `crop_failed`, `worked_shift {job, hours}`, `finished_job`, `tool_worn`, `tool_broke`, `new_tool` |
+| **Making** | `baked`, `sawed`, `mined {ore}`, `built`, `repaired` |
+| **Body and needs** | `ate {food}`, `went_hungry`, `starving`, `slept {where: bed / rough}`, `bladder_emergency`, `used_privy`, `no_privy`, `washed`, `smelly`, `tired`, `ill`, `recovered` |
+| **Home** | `got_bed`, `lost_bed`, `homeless_night`, `moved_house`, `house_changed` |
+| **Place and weather** | `arrived {place}`, `got_lost`, `caught_in_rain`, `season_turned`, `first_frost` |
+| **People** | `met`, `argued`, `helped`, `gave`, `received`, `borrowed`, `repaid`, `was_visited` |
+| **Meddling** | the events of 3b (wall removed, bed moved, couple parted ...) |
+
+Each event feeds three consumers at once, with no extra work at the call site:
+1. **Memory** (5): the person's own record of the day (first-hand, high confidence), plus a short *day log* that survives as a summary ("today: bought 3 turnip seeds, planted 12 plots, ate at home").
+2. **Talk** (6-7): acts like `report_day`, `comment_purchase`, `comment_stock`, `complain` and `ask_about_day` read the log. Small talk becomes true talk.
+3. **Telemetry for the player/developer** (3c.4): counts of what people did and complained about, by kind, place and day.
+
+### 3c.2 Registering new things so they talk for free
+A thing in the game (an item, a crop, a building kind, a job, a need) is *registered* with metadata, and registration is all it takes for it to be talked about:
+
+```
+register('item', 'turnip_seed', { name: 'turnip seed', category: 'seed', season: 'spring', price: 3, source: 'shop:taberna', uses: ['plant'], tags: ['food-crop'] })
+```
+- **Standard events come from the category.** Anything in category `seed` gets `bought / planted / out_of_stock / new_in_stock / price_changed` comments for free; `tool` gets `worn / broke / bought`; `food` gets `ate / went_hungry`; a `building` kind gets `built / lost / moved`.
+- **Generic lines per category** in the lexicon ("{who} bought {qty} {item} today", "{item} is back in stock") keep a new thing from being silent; authors add flavour lines for specific items later.
+- **A coverage tool** lists registered things with no events, no lines or no consumers, so gaps are visible: "turnip_seed: has events, 0 flavour lines".
+- Removing a thing removes its registry entry, and with it its events and lines (3, section 4).
+- The goal is that **adding a seed seller makes villagers buy seeds, remark that a new seed is in stock, say what season it is for, and say how much they planted**, without writing any conversation code.
+
+### 3c.3 Villagers must really live this life
+The talk is only as good as the life behind it, so the game needs the villagers to *do it for real*:
+- **Real inventories**: villagers hold items (`n.inv`, `n.bag`), buy what they need from real sellers at real prices, run out, and go to get more; farmers buy seed, not conjure it.
+- **Real needs** with consequences they can feel and say: sleeping rough, no privy, being filthy, hungry for two days, cold, tired.
+- **Real places and knowledge**: they know where things are, what is in stock, who lives where; they can say where they are going and why.
+- **Reasons**: every action has a reason ("off to the seller, I'm out of barley seed") that is shown on the card and available to say.
+Each of these is also a game system the player cares about; the village is a living simulation whose state the player reads through talk.
+
+### 3c.4 The talk as feedback and balance telemetry
+What people complain about is the cheapest and most honest feedback on balance:
+- A **digest** (in the town/request panel) lists what people said this week by theme: "6 slept rough, 4 could not find a privy, 3 ran out of seed, 2 are starving". It names who and where.
+- It sits beside `islandNeeds` and `townBalance`: the numbers say what is out of balance; the talk says *how it feels*.
+- For the developer it is a **tuning dashboard**: seed shortage, privy queues, travel distances, bread price, all visible as counts of life events by kind per day. It also shows how rich the talk material is (events per villager per day; tellable ones; how many reached a conversation).
+
+### 3c.5 Mundane is the point
+Real people mostly talk about the day: what they got, what went wrong, what hurts, what is expensive, the weather, what they are about to do. Mundane talk with *true* content is what makes a world believable, and it is also the ground the big stories stand on: the gift, the quarrel, the wall taken off the privy are noticed *against* an ordinary day.
+
 ## 4. The world registry (what exists)
 
 Everything speakable is registered with an id and a kind: `item`, `crop`, `place`, `room-kind`, `feature` (tavern, chapel, bakery, mine, stairs...), `job`, `person`, `event-kind`, `mechanic`.
@@ -545,6 +600,7 @@ All talk kinds sit behind `TALK.on[kind]` and a *lab island* (few villagers, no 
 |---|---|---|
 | 1. Skeleton | registry, act records, memory store, chooser, lexicon with `plain` pack; `greet`, `farewell`, `remark_*` | two villagers walk up, greet, chat, part; log of acts; tests pass |
 | 2. News and memory | `share_news`, `ask_news`, versions, confidence, overhearing, journal | a fact travels A->B->C with believable distortion; player journal shows it |
+| 2b. Life events | the `LIFE.emit` stream; hooks in trade, farming, needs, sleep, privy, work; a per-villager day log; acts `report_day`, `comment_purchase`, `comment_stock`, `complain`, `ask_about_day`; registration with categories; the complaints digest | what villagers say each day is true to what they did; a new registered item gets comments without conversation code |
 | 3. Events, perception, reactions (meddling v0) | world-event bus, witnesses/affected/discoverers, exposure, appraisal table, `shout`/`flee`/`laugh`/`accuse`, hooks in demolish and bed moves, reputation v0 | removing a wall with someone on the privy produces visible reactions, a story told, and a changed opinion of the player |
 | 4. The player's turn | menu of acts, talk box, player's voice, same engine, replies to accusations | player and villager conversations are indistinguishable in structure; you can confess, deny or blame someone else |
 | 5. Island voice | `island` pack, tics, mood/trait tags, anti-repeat, reaction comedy | a read of 20 conversations (including reactions) sounds like one island |
