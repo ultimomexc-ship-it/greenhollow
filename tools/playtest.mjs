@@ -80,7 +80,7 @@ const persona = p => page.evaluate(p => { BOT.persona = p; }, p);
 const dailySnapshots = [];
 async function snapshot(d) { dailySnapshots.push(await page.evaluate(d => ({ day: d, t: game.time, rep: repVillage(game.player), chron: (town.chron || []).slice(-6).map(c => c.text), journal: jrHTML().replace(/<[^>]+>/g, ' | ').replace(/\s+/g, ' ').slice(0, 900), counts: Object.fromEntries(Object.entries(lf2Ev().reduce((m, e) => (m[e.kind] = (m[e.kind] || 0) + 1, m), {})).sort((a, b) => b[1] - a[1]).slice(0, 14)) }), d)); }
 
-await step(2 * 60);   // let the morning get going
+await step(6 * 60);   // from midnight to six
 for (let d = 0; d < days; d++) {
   const base = await page.evaluate(() => Math.floor(game.time / 1440) * 1440);
   const until = async h => { const now = await page.evaluate(() => game.time); const target = base + h * 60; if (target > now) await step(target - now); };
@@ -98,6 +98,7 @@ for (let d = 0; d < days; d++) {
     for (const h of [9, 13, 18]) { await until(h); await bot('chat', 2, 4); }
   }
   await until(23); await snapshot(d);
+  await step(((base + 1440 + 6 * 60) - (await page.evaluate(() => game.time))));   // (on to the next morning, six o'clock)
 }
 await step(60);
 

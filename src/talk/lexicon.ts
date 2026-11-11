@@ -97,7 +97,7 @@ lx('call_reply', 'plain', 'Maybe later.'); lx('call_reply', 'plain', 'Not today,
 function lxContext(sp: any, li: any, c: any) {
   const f = sp.fam || {}, g = li.fam || {};
   const rel = f.spouse === li.id ? 'spouse' : f.partner === li.id ? 'partner' : (f.kids || []).includes(li.id) ? 'child' : (f.mother === li.id || f.father === li.id) ? 'parent' : ((f.mother != null && f.mother === g.mother) || (f.father != null && f.father === g.father)) ? 'sibling' : (typeof isKin === 'function' && isKin(sp, li)) ? 'kin' : (sp.rel && sp.rel[li.id] === 'friend') || (sp.aff[li.id] || 0) > 30 ? 'friend' : (sp.know && (sp.know[li.id] || 0) > 10) ? 'acquaintance' : 'stranger';
-  return { band: todBand(game.time), rel, state: c.state || talkState(sp) || 'fine', trait: (sp.traits || [])[0], how: c.how, conf: c.conf, call: c.call, op: c.op, rep: typeof repWord === 'function' ? repWord(sp, li) : undefined };
+  return { band: todBand(game.time), rel, state: c.state || talkState(sp) || 'fine', trait: (sp.traits || [])[0], how: c.how, conf: c.conf, call: c.call, op: c.op, rep: typeof repWord === 'function' ? repWord(sp, li) : undefined, age: sp.age < 12 ? 'child' : undefined };
 }
 /** choose the wording of an act: the pack's lines that fit and whose things exist, the more specific the better, what the listener heard lately worse */
 function lxSay(act: string, sp: any, li: any, c: any): string {
@@ -128,7 +128,7 @@ const LX_TICS: any = {
   plain: ['you know,', 'honestly,', 'mind you,', 'I suppose,', 'as it happens,'],
   island: ['as far as I know,', 'more or less,', 'I think,', 'for what it is worth,', 'in my experience,', 'probably,', 'to be fair,']
 };
-const LX_TIC_ACTS = /^(remark_|share_news|answer_how|report_day|life:|tell_price|ask_news|nothing_much)/;
+const LX_TIC_ACTS = /^(remark_|share_news|answer_how|report_day|life:|tell_price|nothing_much)/;
 const LX_RECENT: any = {};
 function lxTic(sp: any, act: string, pack: string, text: string): string {
   const list = LX_TICS[pack] || LX_TICS.plain; if (!LX_TIC_ACTS.test(act) || text.length < 28 || text.split(/[.?]/)[0].length < 18) return text;

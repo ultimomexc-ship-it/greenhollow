@@ -17,7 +17,7 @@ function peopleReason(a: any, b: any): string {
   const L = (a.why && a.why[b.id]) || [], sgn = Math.sign(a.aff[b.id] || 0);
   const rf = a.refl && a.refl[b.id]; if (rf && ((rf.w === 'good' && sgn >= 0) || (rf.w === 'unkind' && sgn <= 0)) && Math.random() < 0.6) return (b.female ? 'She' : 'He') + (rf.w === 'good' ? ' is always good to me.' : ' is never kind to me.');
   const best = L.filter((x: any) => !PEOPLE_GENERIC.includes(x.why) && (sgn === 0 || Math.sign(x.v) === sgn)).sort((x: any, y: any) => Math.abs(y.v) - Math.abs(x.v))[0];
-  const rel = a.rel && a.rel[b.id], gender = (b.female ? 'She' : 'He');
+  const f = a.fam || {}, g = b.fam || {}, rel = f.spouse === b.id ? 'spouse' : f.partner === b.id ? 'partner' : (f.kids || []).includes(b.id) ? 'child' : (f.mother === b.id || f.father === b.id) ? 'parent' : ((f.mother != null && f.mother === g.mother) || (f.father != null && f.father === g.father)) ? 'sibling' : a.rel && a.rel[b.id], gender = (b.female ? 'She' : 'He');
   if (best) {
     if (/^ev:/.test(best.why)) { const ev = lf2Ev().find((q: any) => q.id === +best.why.slice(3)); if (ev) return TE.text(ev, { who: ev.actor }).replace(/^./, (c: string) => c.toUpperCase()) + '.'; }
     else if (/^heard/.test(best.why)) return 'I ' + best.why + '.'; else return gender + ' ' + best.why + '.';
