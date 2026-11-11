@@ -63,6 +63,7 @@
   "ui/menus-hud.ts",
   "talk/registry.ts",
   "talk/memory.ts",
+  "talk/events.ts",
   "talk/acts.ts",
   "talk/lexicon.ts",
   "talk/shape.ts",

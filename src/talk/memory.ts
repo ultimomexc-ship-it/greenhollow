@@ -11,4 +11,10 @@ const TM = {
   /** when did a last talk with b (minutes of game time), or -Infinity */
   lastTalk(a: any, b: any): number { const mem = a.tmem; if (!mem) return -Infinity; for (let i = mem.length - 1; i >= 0; i--) if (mem[i].kind === 'talked' && mem[i].with === b.id) return mem[i].t; return -Infinity; },
   count(a: any, kind: string) { return (a.tmem || []).filter((m: any) => m.kind === kind).length; },
+  /** remember an event: how (saw | did | felt | told | overheard), how sure, from whom, and *my version* of it (who I think did it, how bad) */
+  addEv(n: any, ev: any, how: string, conf: number, from?: any, hop?: number, ver?: any) {
+    if (TM.ofEv(n, ev.id)) return null;
+    return TM.add(n, { kind: how, ev: ev.id, evk: ev.kind, conf, imp: TE.importance(n, ev), from: from ? from.id : null, hop: hop || 0, ver: ver || { who: ev.actor, sev: ev.sev }, told: [] });
+  },
+  ofEv(n: any, evId: number): any { const mem = n.tmem; if (!mem) return null; for (let i = mem.length - 1; i >= 0; i--) if (mem[i].ev === evId) return mem[i]; return null; },
 };

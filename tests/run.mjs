@@ -1093,11 +1093,11 @@ test('talk engine (phase 1): a kind of talk can be switched off, and a line abou
     let seen = false; for (let i = 0; i < 400; i++) if (/castle/.test(lxSay('remark_place', a, c, { done: {} }))) seen = true; out.castleSaid = seen;
     out.has = [WORLD.has('feature', 'castle'), WORLD.has('item', 'barley'), WORLD.has('person', a.id)];
     // with small talk off, a conversation is only the rituals
-    TALK.on.small = false; const cv = talkRun(a, c, true); out.ritualOnly = cv.turns.every(t => ACTS[t.act].kind === 'ritual') && cv.turns.length === 5; TALK.on.small = true;
+    TALK.on.small = false; TALK.on.world = false; const cv = talkRun(a, c, true); out.ritualOnly = cv.turns.every(t => ACTS[t.act].kind === 'ritual') && cv.turns.length === 5; TALK.on.small = true; TALK.on.world = true;
     return out; });
   check(!r.castleSaid, 'a line that needs a feature that does not exist is never said');
   check(r.has[0] === false && r.has[2] === true, 'the registry knows what exists: ' + JSON.stringify(r.has));
-  check(r.ritualOnly, 'with small talk switched off, a conversation is only greeting and farewell');
+  check(r.ritualOnly, 'with small and world talk switched off, a conversation is only greeting and farewell');
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
   return 'registry and switches';
 });
@@ -1120,6 +1120,36 @@ test('talk engine (phase 1): the one who starts walks up to the other, they stan
   }
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
   return 'approach';
+});
+
+test('talk engine (phase 2): news travels from the one who saw it to others as versions that get less sure, bystanders overhear, and the card shows what they know', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    TALK.words = true; TALK.running = false; const out = {};
+    const adults = npcs.filter(q => !q.dead && !q.player && q.age >= 18); const [A, B, C, D, E, F] = adults;
+    for (const n of adults) { n.tx = n.x = A.tx; n.ty = n.y = A.ty; n.pose = 'stand'; }
+    const ev = lfEmit('theft', { actor: A, target: B, tags: ['theft', 'crime'], sev: 2, witnessIds: [C.id], text: `${A.first} stole from ${B.first}` });
+    out.first = [C, A, B].map(n => (TM.ofEv(n, ev.id) || {}).kind);   // C saw it, A did it, B felt it
+    out.dNone = !TM.ofEv(D, ev.id); for (const n of [E, F]) n.tx = n.x = A.tx + 40;   // (out of earshot while C tells D)
+    for (let i = 0; i < 12 && !TM.ofEv(D, ev.id); i++) talkRun(C, D, true);
+    for (const n of [E, F]) n.tx = n.x = A.tx; out.overE = !!TM.ofEv(E, ev.id);
+    const md = TM.ofEv(D, ev.id); out.d = md ? { kind: md.kind, from: md.from === C.id, conf: md.conf, hop: md.hop } : null;
+    for (let i = 0; i < 12 && !TM.ofEv(E, ev.id); i++) talkRun(D, E, true);
+    const me = TM.ofEv(E, ev.id); out.e = me ? { from: me.from === D.id, conf: me.conf, hop: me.hop } : null;
+    out.over = adults.filter(n => n !== C && n !== D && n !== A && n !== B && TM.ofEv(n, ev.id) && TM.ofEv(n, ev.id).kind === 'overheard').length;
+    out.lines = TALK.log.filter(l => l.lines).some(l => l.acts.some(x => x.act === 'share_news') && l.lines.some(t => t.includes(A.first) && /stole from|walked off/.test(t)));
+    out.ownerNotTold = !TM.ofEv(B, ev.id) || TM.ofEv(B, ev.id).kind === 'felt';
+    openVillagerCard(D); out.card = document.getElementById('vcbox').innerText; closeVillagerCard();
+    TALK.on.world = false; out.switchOff = true; for (let i = 0; i < 6; i++) { const cv = talkRun(E, F, true); if (cv.turns.some(t => ACTS[t.act].kind === 'world')) out.switchOff = false; } TALK.on.world = true;
+    return out; });
+  check(r.first[0] === 'saw' && r.first[1] === 'did' && r.first[2] === 'felt' && r.dNone, 'an event is remembered first hand by those who saw, did and felt it: ' + JSON.stringify(r.first));
+  check(r.d && r.d.kind === 'told' && r.d.from && r.d.conf < 1 && r.d.hop === 1, 'telling it gives the listener a told version that is less sure: ' + JSON.stringify(r.d));
+  check(r.e && r.e.from && r.e.hop === 2 && r.e.conf < r.d.conf, 'a second telling is another hop and less sure again: ' + JSON.stringify([r.d, r.e]));
+  check(r.lines && r.ownerNotTold, 'the telling is said in words, and nobody tells the person it happened to');
+  check(/Knows/i.test(r.card) && /stole from|walked off/.test(r.card) && /heard it from/.test(r.card), 'the card shows what they know and where from: ' + r.card.slice(0, 200));
+  check(r.switchOff, 'with world talk switched off nobody shares news');
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return 'news: ' + JSON.stringify(r.d) + ' overheard by ' + r.over;
 });
 
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {

@@ -17,6 +17,20 @@ const ACTS: any = {
   remark_state: { kind: 'small', stage: 'topic', when: (c: any, sp: any) => !c.done.remark_state && !!talkState(sp), w: () => 1.4, apply: (c: any, sp: any) => { c.done.remark_state = 1; c.state = talkState(sp); }, replies: ['agree'] },
   ask_how: { kind: 'small', stage: 'topic', when: (c: any) => !c.done.ask_how, w: (c: any, sp: any, li: any) => 1 + Math.max(0, (sp.aff[li.id] || 0)) / 60, apply: (c: any) => { c.done.ask_how = 1; }, replies: ['answer_how'] },
   answer_how: { kind: 'small', stage: 'topic', reply: true, when: () => true, apply: (c: any, sp: any) => { c.state = talkState(sp) || 'fine'; }, replies: [] },
+  /* ---- world: news and what people make of it ---- */
+  ask_news: { kind: 'world', stage: 'topic', when: (c: any, sp: any, li: any) => !c.done.ask_news && !c.done.share_news && !TE.pick(sp, li, c), w: (c: any, sp: any) => 0.7 + (talkHas(sp, 'curious') || talkHas(sp, 'gossipy') ? 0.8 : 0), apply: (c: any) => { c.done.ask_news = 1; }, replies: ['share_news', 'no_news'] },
+  no_news: { kind: 'world', stage: 'topic', reply: true, when: (c: any, sp: any, li: any) => !TE.pick(sp, li, c), apply: () => {}, replies: [] },
+  share_news: { kind: 'world', stage: 'topic', when: (c: any, sp: any, li: any) => (c.done.share_news || 0) < 2 && !!(c.news = TE.pick(sp, li, c)), w: (c: any) => 1 + 4 * Math.min(1, c.news ? c.news.score : 0),
+    apply: (c: any, sp: any, li: any) => {
+      const pk = c.news; c.told = TE.tell(sp, li, pk, c); c.newsHow = pk.m.kind; c.newsConf = pk.m.conf > 0.7 ? 'high' : 'low'; c.newsWho = pk.ev.target != null ? lf2By(pk.ev.target) : null;
+      c.done.share_news = (c.done.share_news || 0) + 1; (c.sharedEv || (c.sharedEv = [])).push(pk.ev.id); TE.overhear(c, sp, li, pk);
+    }, replies: ['react_shock', 'react_amused', 'react_sympathy', 'react_doubt', 'react_delight', 'react_unmoved'] },
+  react_shock: { kind: 'world', stage: 'topic', reply: true, when: (c: any) => !!c.told && c.told.react === 'shock', apply: () => {}, replies: [] },
+  react_amused: { kind: 'world', stage: 'topic', reply: true, when: (c: any) => !!c.told && c.told.react === 'amused', apply: () => {}, replies: [] },
+  react_sympathy: { kind: 'world', stage: 'topic', reply: true, when: (c: any) => !!c.told && c.told.react === 'sympathy', apply: () => {}, replies: [] },
+  react_doubt: { kind: 'world', stage: 'topic', reply: true, when: (c: any) => !!c.told && c.told.react === 'doubt', apply: () => {}, replies: [] },
+  react_delight: { kind: 'world', stage: 'topic', reply: true, when: (c: any) => !!c.told && c.told.react === 'delight', apply: () => {}, replies: [] },
+  react_unmoved: { kind: 'world', stage: 'topic', reply: true, when: (c: any) => !!c.told && c.told.react === 'unmoved', apply: () => {}, replies: [] },
   agree: { kind: 'small', stage: 'topic', reply: true, when: () => true, apply: () => {}, replies: [] },
 };
 /** a short word for how somebody is, from their needs and mood (undefined when nothing stands out) */

@@ -20,11 +20,14 @@ function vcHTML(n: any): string {
   const rel = npcs.filter(o => o !== n && !o.dead && ((n.aff[o.id] || 0) !== 0 || (n.know[o.id] || 0) > 20)).map(o => ({ o, a: n.aff[o.id] || 0, k: n.know[o.id] || 0 }))
     .sort((x, y) => Math.abs(y.a) + y.k * .2 - Math.abs(x.a) - x.k * .2).slice(0, 4).map(r => { const f = vcFeel(r.a, r.k), l = relLabel(n, r.o); return f ? `<li>${f} ${esc(r.o.first)}${l ? ' <span class="dim">· ' + esc(String(l).replace(r.o.first, '').replace(/\s+/g, ' ').trim().replace(/ (to|of|with)$/, '')) + '</span>' : ''}</li>` : ''; }).join('');
   const lately = (n.log || []).slice(-6, -1).reverse().map((e: any) => `<li><span class="dim">${fmtTime(e.t)}</span> ${esc(String(e.text).replace(/\.$/, ''))}</li>`).join('');
+  const heard = (n.tmem || []).filter((m: any) => m.ev != null && m.kind !== 'did').slice(-3).reverse().map((m: any) => { const ev = lf2Ev().find((q: any) => q.id === m.ev); if (!ev) return '';
+    const src = m.kind === 'saw' ? 'saw it' : m.kind === 'felt' ? 'it happened to them' : m.kind === 'overheard' ? 'overheard it' : 'heard it from ' + ((m.from != null && byId(m.from)) ? byId(m.from).first : 'someone');
+    return `<li>${esc(TE.text(ev, m.ver))} <span class="dim">· ${src}${m.conf < 0.5 ? ', not sure' : ''}</span></li>`; }).join('');
   const news = (town.chron || []).filter((c: any) => c.text.indexOf(n.first) >= 0).slice(-3).reverse().map((c: any) => `<li>${esc(c.text)}</li>`).join('');
   return `<b>${esc(typeof nameOf === 'function' ? nameOf(n) : n.first)}</b>${n.player ? ' <span class="dim">(you)</span>' : ''}<div class="dim">${n.age}${n.role ? ' · ' + esc(n.role) : ''}${here ? ' · ' + esc(here) : ''}</div>` +
     `<div class="vcrow"><span class="dim">Right now</span> ${esc(doing)}</div>` +
     `<div class="vcrow"><span class="dim">Feeling</span> ${esc(mood || 'fine')}${hints.length ? ' · ' + esc(hints.join(', ')) : ''}</div>` +
-    (rel ? `<div class="vch">Company</div><ul>${rel}</ul>` : '') + (news ? `<div class="vch">Said about them</div><ul>${news}</ul>` : '') + (lately ? `<div class="vch">Before that</div><ul>${lately}</ul>` : '');
+    (rel ? `<div class="vch">Company</div><ul>${rel}</ul>` : '') + (heard ? `<div class="vch">Knows</div><ul>${heard}</ul>` : '') + (news ? `<div class="vch">Said about them</div><ul>${news}</ul>` : '') + (lately ? `<div class="vch">Before that</div><ul>${lately}</ul>` : '');
 }
 function openVillagerCard(n: any) { VCARD = n || null; vcDraw(true); }
 function closeVillagerCard() { VCARD = null; vcDraw(true); }

@@ -64,6 +64,7 @@ function visArrive() {
   }
   { const B0 = typeof townBalance === 'function' ? townBalance() : null; if (kitOn() && B0 && B0.harvests >= 1 && !(town.tut && town.tut.carpenter) && grp.length === 1) carpArrive(grp[0]); }
   const a = grp[0]; chron(grp.length > 1 ? `${nameOf(a)} and ${nameOf(grp[1])} came ashore, looking as though they had just woken up. ${a.first} ${a.back}.` : `${nameOf(a)} came ashore, looking as though they had just woken up. ${a.first} ${a.back}.`, 'life');
+  lfEmit('arrival', { actor: a, tags: ['news'], sev: 1.6, loud: true, chron: false, text: `${a.first} came ashore` });   // (the island will talk about it: talk/events.ts)
   housingTick();
   for (const n of grp) { if (!n.homeRoom) n.homeless = true; }
   lfShout(a, anyOf(['Excuse me, is this a dream?', 'I think I am still asleep. Hello.', 'This is not where I was a moment ago. ...All right.', 'Is anybody here? Or is that not how it works?', 'Hm. Sand. Of course.']));
