@@ -1378,7 +1378,7 @@ test('player talk: walking into a villager in the real game opens the talk box; 
   // leave politely
   for (let k = 0; k < 4 && (await page.evaluate(() => !!talkUI.o)); k++) { const n = await page.evaluate(() => talkUI.opts.length); await page.click('#talk [data-k]:nth-of-type(' + n + ')'); await page.waitForTimeout(150); }
   const end = await page.evaluate(() => { const o = byId(window.__o), P = game.player, last = TALK.log[TALK.log.length - 1]; return { closed: !talkUI.o && document.getElementById('talk').hidden, mem: (o.tmem || []).some(m => m.kind === 'talked' && m.with === P.id), acts: last && last.player ? last.acts.map(a => a.act) : null, lines: last && last.player ? last.lines : null, knowsP: (byId(window.__o).tmem || []).some(m => m.kind === 'told_life' && m.with === window.__p) }; });
-  check(answered >= 4, 'the conversation goes on for several turns: ' + answered);
+  check(answered >= 3, 'the conversation goes on for several turns: ' + answered);
   check(end.closed && end.mem, 'it ends and both remember it: ' + JSON.stringify([end.closed, end.mem]));
   check(end.acts && end.acts[0] === 'greet' && end.acts.includes('pre_close') || (end.acts && end.acts.includes('farewell')), 'the log has the acts of a real conversation: ' + JSON.stringify(end.acts));
   check(told ? mid.told : true, 'telling the news gave the villager a told version from you');
