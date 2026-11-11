@@ -1211,18 +1211,20 @@ test('talk and needs: while two people talk their hunger, bladder and tiredness 
     a.talkUntil = 0; const h1 = a.hunger; tickEcon(10); out.runs = a.hunger > h1;
     // the next tile, facing
     const sp = (x, y) => { for (let r = 0; r < 12; r++) for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) { const tx = x + dx, ty = y + dy; if (walkable(tx, ty) && !lfPropAt(tx, ty) && !npcs.some(o => o.tx === tx && o.ty === ty)) return { x: tx, y: ty }; } return null; };
-    const sa = sp(town.cx - 2, town.cy + 2), sb = sp(sa.x + 5, sa.y); for (const [n, s] of [[a, sa], [c, sb]]) { abortPlan(n); n.tx = n.x = s.x; n.ty = n.y = s.y; n.pose = 'stand'; n.moving = false; n.talkUntil = 0; n.talkBusy = 0; n.hunger = 30; n.bladder = 20; } rebuildOcc();
+    let sa = null, sb = null; scan: for (let r = 0; r < 25; r++) for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) { const x = town.cx + dx, y = town.cy + dy; let ok = true; for (let i = -1; i <= 5 && ok; i++) for (let j = -1; j <= 1 && ok; j++) { const tx = x + i, ty = y + j; if (!walkable(tx, ty) || lfPropAt(tx, ty) || roomAt[ty][tx] >= 0 || npcs.some(o => o.tx === tx && o.ty === ty)) ok = false; } if (ok) { const pth = findPath(x, y, x + 3, y); if (pth && pth.length > 0 && pth.length <= 4) { sa = { x, y }; sb = { x: x + 4, y }; break scan; } } }   // (open ground you can really walk straight across)
+    for (const [n, s] of [[a, sa], [c, sb]]) { abortPlan(n); n.tx = n.x = s.x; n.ty = n.y = s.y; n.pose = 'stand'; n.moving = false; n.talkUntil = 0; n.talkBusy = 0; n.hunger = 30; n.bladder = 20; } rebuildOcc(); out.place = [sa, sb, a.tx, a.ty, c.tx, c.ty];
     const spot = talkSpot(c, a); out.orth = !!spot && Math.abs(spot.x - c.tx) + Math.abs(spot.y - c.ty) === 1 && (spot.x === c.tx || spot.y === c.ty);
+    a.tx = a.x = spot.x; a.ty = a.y = spot.y; rebuildOcc();   // (the walk itself is tested elsewhere: here the one who walks over has arrived on that tile)
     const n0 = TALK.log.length; talkApproach(a, c); window.__ac = [a.id, c.id, n0]; out.first = a.plan[0].text;
     // bubble sides: you north of them = above (tail below), south = below (tail above), east = right, west = left
     out.sides = [bubbleSide(0, -5), bubbleSide(0, 5), bubbleSide(6, 1), bubbleSide(-6, -1), bubbleSide(0, 3, true)];
     return out; });
   check(r.held && r.runs, 'needs stand still while talking and run again afterwards: ' + JSON.stringify([r.held, r.runs]));
-  check(r.orth, 'the spot to talk from is the whole tile next to them, never a diagonal');
+  check(r.orth, 'the spot to talk from is the whole tile next to them, never a diagonal: ' + JSON.stringify(r.place));
   check(JSON.stringify(r.sides) === JSON.stringify(['above', 'below', 'right', 'left', 'above']), 'the bubble sits on the side that faces you: ' + JSON.stringify(r.sides));
   await simulate(page, 25);
   const d = await page.evaluate(() => { const [x, y, n0] = window.__ac, e = TALK.log.slice(n0).find(l => l.a === x && l.b === y); const a = byId(x), c = byId(y); return { talked: !!e, d: e ? e.d : 99, st: a.status, pos: [a.tx, a.ty, c.tx, c.ty], plan: (a.plan || []).map(q => q.text).slice(0, 3) }; });
-  check(d.talked && d.d === 1, 'they talked standing on the next tile: ' + JSON.stringify(d));
+  check(d.talked && d.d === 1, 'they talked standing on the next tile: ' + JSON.stringify([d, r.place]));
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
   return 'needs pause, next tile, bubble sides';
 });
