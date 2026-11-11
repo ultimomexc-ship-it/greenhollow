@@ -1059,6 +1059,69 @@ test('villager card: clicking a villager opens a card with what they are doing, 
   return 'villager card';
 });
 
+test('talk engine (phase 1): villagers walk up, greet, chat about small things, pre-close and part; the log is acts, the wording is looked up', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await page.evaluate(() => { TALK.words = true; });
+  await simulate(page, 1440 + 10 * 60);
+  const r = await page.evaluate(() => {
+    const L = TALK.log, bad = [];
+    for (const l of L) {
+      const ids = l.acts.map(x => x.act);
+      if (ids[0] !== 'greet' || ids[1] !== 'greet_back') bad.push('opening ' + ids.slice(0, 2));
+      if (ids[ids.length - 3] !== 'pre_close' || ids[ids.length - 2] !== 'farewell' || ids[ids.length - 1] !== 'farewell_back') bad.push('closing ' + ids.slice(-3));
+      if (ids.length < 6 || ids.length > 30) bad.push('length ' + ids.length);
+      if (!l.lines || l.lines.length !== ids.length || l.lines.some(x => /[{}]|undefined|NaN/.test(x))) bad.push('words ' + JSON.stringify(l.lines && l.lines.slice(0, 2)));
+      if (l.a === l.b) bad.push('self');
+    }
+    const a = L.length ? byId(L[0].a) : null;
+    return { n: L.length, bad: bad.slice(0, 3), mem: a ? (a.mem || []).some(m => m.kind === 'talked') : false, pairs: new Set(L.map(l => Math.min(l.a, l.b) + '-' + Math.max(l.a, l.b))).size, heard: L.slice(0, 2).map(l => l.lines.join(' / ')) };
+  });
+  check(r.n >= 15, 'villagers talk through the day: ' + r.n);
+  check(r.bad.length === 0, 'every conversation opens with a greeting, ends with a pre-close and a farewell, has words and no holes: ' + JSON.stringify(r.bad));
+  check(r.mem && r.pairs >= 8, 'both remember it, and many different pairs talk: ' + r.pairs);
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return r.n + ' conversations, ' + r.pairs + ' pairs';
+});
+
+test('talk engine (phase 1): a kind of talk can be switched off, and a line about something that does not exist is never said', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(async () => {
+    const out = {}; TALK.words = true;
+    // a line that needs a castle: there is none, so it is never chosen even though it is the most specific there is
+    lx('remark_place', 'plain', 'The castle looks grand today.', { band: 'day' }, ['feature:castle']);
+    const a = npcs.find(q => !q.dead && !q.player && q.age >= 18), c = npcs.find(q => q !== a && !q.dead && !q.player && q.age >= 18);
+    let seen = false; for (let i = 0; i < 400; i++) if (/castle/.test(lxSay('remark_place', a, c, { done: {} }))) seen = true; out.castleSaid = seen;
+    out.has = [WORLD.has('feature', 'castle'), WORLD.has('item', 'barley'), WORLD.has('person', a.id)];
+    // with small talk off, a conversation is only the rituals
+    TALK.on.small = false; const cv = talkRun(a, c, true); out.ritualOnly = cv.turns.every(t => ACTS[t.act].kind === 'ritual') && cv.turns.length === 5; TALK.on.small = true;
+    return out; });
+  check(!r.castleSaid, 'a line that needs a feature that does not exist is never said');
+  check(r.has[0] === false && r.has[2] === true, 'the registry knows what exists: ' + JSON.stringify(r.has));
+  check(r.ritualOnly, 'with small talk switched off, a conversation is only greeting and farewell');
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return 'registry and switches';
+});
+
+test('talk engine (phase 1): the one who starts walks up to the other, they stand side by side, and what the first was doing carries on', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await simulate(page, 10 * 60);
+  const r = await page.evaluate(() => {
+    const free = npcs.filter(q => !q.dead && !q.player && q.age >= 18 && !q.moving && q.pose !== 'sleep'); const a = free[0], c = free[1]; if (!a || !c) return { skip: true };
+    const spot = (x, y) => { for (let r = 0; r < 12; r++) for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) { const tx = x + dx, ty = y + dy; if (walkable(tx, ty) && !lfPropAt(tx, ty) && !npcs.some(o => o.tx === tx && o.ty === ty)) return { x: tx, y: ty }; } return null; };
+    const P = game.player || (startPlaying(npcs.find(canControl)), game.player), sa = spot(P.tx + 3, P.ty), sb = sa && spot(sa.x + 3, sa.y); if (!sa || !sb) return { skip: true };
+    for (const [n, s] of [[a, sa], [c, sb]]) { abortPlan(n); n.tx = n.x = s.x; n.ty = n.y = s.y; n.pose = 'stand'; n.talkUntil = 0; n.talkBusy = 0; }
+    rebuildOcc(); const n0 = TALK.log.length; talkApproach(a, c); window.__pair = [a.id, c.id, n0]; return { first: a.plan[0].text, d0: lfDist(a, c) };
+  });
+  if (!r.skip) {
+    check(/Going over to/.test(r.first), 'the first sets out to meet the other: ' + JSON.stringify(r));
+    await simulate(page, 20);
+    const d = await page.evaluate(() => { const [x, y, n0] = window.__pair, a = byId(x), c = byId(y); return { d: lfDist(a, c), talked: TALK.log.slice(n0).some(l => (l.a === x && l.b === y)) }; });
+    check(d.talked && d.d <= 2, 'they stood side by side and talked: ' + JSON.stringify(d));
+  }
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return 'approach';
+});
+
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

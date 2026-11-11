@@ -249,9 +249,9 @@ function splitSpeech(text, max?) {
   return out;
 }
 function drainEvents(now) {
-  if (TALK.engine === 'none') { game.events.length = 0; return; }   // the old chat engines are gone; the new one will feed this
   while (game.events.length) {
     const ev = game.events.shift();
+    if (!ev.talk) continue;   // only the talk engine speaks (events pushed by the old calls are dropped)
     for (const l of ev.lines) l.text = cvSpeak(l.text);   // speech is contracted on the way out (dialogue/cv-speech.ts)
     // you only speak when you chose to (walking into someone) or when someone speaks to you first
     if (!ev.focus && !ev.self && ev.lines.length && ev.lines[0].who && ev.lines[0].who.player) continue;

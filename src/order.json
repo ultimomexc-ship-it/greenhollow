@@ -60,5 +60,11 @@
   "ui/hud-villager.ts",
   "ui/sound.ts",
   "ui/loop.ts",
-  "ui/menus-hud.ts"
+  "ui/menus-hud.ts",
+  "talk/registry.ts",
+  "talk/memory.ts",
+  "talk/acts.ts",
+  "talk/lexicon.ts",
+  "talk/shape.ts",
+  "talk/schedule.ts"
 ]
