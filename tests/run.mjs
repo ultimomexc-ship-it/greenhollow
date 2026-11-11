@@ -1173,6 +1173,60 @@ test('talk (visible): bubbles know who is spoken to, the two face each other, an
   return 'visible talk';
 });
 
+test('life events (the contract): kinds are registered, data is required, events are counted and day-logged, the old world events come through the same stream, and lines can only refer to what is defined', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await simulate(page, 1440);
+  const r = await page.evaluate(() => {
+    const out = {}; const n = npcs.find(q => !q.dead && !q.player && q.age >= 18); const throws = f => { try { f(); return false; } catch (e) { return String(e.message || e); } };
+    out.strict = LIFE.strict === true;
+    out.unreg = throws(() => LIFE.emit('no_such_kind', n, {}));
+    out.missing = throws(() => LIFE.emit('bought', n, { item: 'barley' }));
+    const n0 = LIFE.stream.length, d0 = (LIFE.digest(1).kinds.bought || 0); const rec = LIFE.emit('bought', n, { item: 'barley', qty: 3, price: 2 });
+    out.rec = !!rec && LIFE.stream.length === n0 + 1 && LIFE.digest(1).kinds.bought === d0 + 1 && LIFE.today(n).some(e => e.kind === 'bought') && (n.tmem || []).some(m => m.kind === 'life' && m.lk === 'bought');
+    const s0 = LIFE.stream.length; const ev = lfEmit('theft', { actor: n, tags: ['theft'], sev: 1, text: 'x' }); out.legacy = LIFE.stream.length === s0 + 1 && LIFE.stream[LIFE.stream.length - 1].legacy === true && LIFE.today(n).some(e => e.kind === 'theft');
+    // everything a line may name is defined: an 'ev:' line is a registered kind, any other line is a defined act, and every requirement resolves to a known kind of thing
+    const badLines = LEX.filter(e => e.act.startsWith('ev:') ? !REG.has('event', e.act.slice(3)) : !ACTS[e.act]).map(e => e.act); out.badLines = [...new Set(badLines)];
+    const kinds = REG.all('event'); out.kinds = kinds.length; out.badKinds = kinds.filter(k => !k.family || k.tell == null).map(k => k.id);
+    // deleting a definition makes the lint above fail for its lines (so removing a feature forces the clean-up)
+    REG.remove('event', 'arrival'); out.afterRemove = [...new Set(LEX.filter(e => e.act.startsWith('ev:') && !REG.has('event', e.act.slice(3))).map(e => e.act))]; REG.define('event', 'arrival', { family: 'place', needs: [], tell: 0.9, tags: [] });
+    // the day so far: sleeping, privy and eating were reported by the step system
+    const dg = LIFE.digest(2); out.dg = dg.kinds; return out; });
+  check(r.strict, 'the tests run the stream in strict mode');
+  check(/unregistered/.test(r.unreg) && /missing item|missing qty|missing/.test(r.missing), 'an unregistered kind and missing data are refused: ' + JSON.stringify([r.unreg, r.missing]));
+  check(r.rec && r.legacy, 'an event is counted, day-logged and remembered, and the old world events come through the same stream');
+  check(r.badLines.length === 0 && r.badKinds.length === 0, 'every line names a defined act or a registered event kind, and every kind has a family and tellability: ' + JSON.stringify([r.badLines, r.badKinds]));
+  check(r.afterRemove.includes('ev:arrival'), 'deleting a definition leaves its lines flagged');
+  check((r.dg.slept || 0) + (r.dg.slept_rough || 0) >= 5 && (r.dg.ate || 0) >= 5, 'a normal day reports sleeping and eating through the step system: ' + JSON.stringify(r.dg));
+  check(errors.length === 0, 'no errors (strict mode would throw on any unregistered kind): ' + errors.slice(0, 2).join(' | '));
+  return r.kinds + ' kinds registered; day: ' + JSON.stringify(r.dg);
+});
+
+test('talk and needs: while two people talk their hunger, bladder and tiredness stand still; they stand on the next tile, facing; the bubble goes on the side that faces you', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await simulate(page, 9 * 60);
+  const r = await page.evaluate(() => {
+    const out = {}; const free = npcs.filter(q => !q.dead && !q.player && q.age >= 18 && q.pose !== 'sleep'), a = free[0], c = free[1];
+    for (const n of [a, c]) { n.hunger = 40; n.bladder = 30; n.energy = 70; n.talkUntil = game.time + 30; }
+    const h0 = [a.hunger, a.bladder, a.energy]; tickEcon(10); out.held = [a.hunger, a.bladder, a.energy].every((v, i) => v === h0[i]);
+    a.talkUntil = 0; const h1 = a.hunger; tickEcon(10); out.runs = a.hunger > h1;
+    // the next tile, facing
+    const sp = (x, y) => { for (let r = 0; r < 12; r++) for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) { const tx = x + dx, ty = y + dy; if (walkable(tx, ty) && !lfPropAt(tx, ty) && !npcs.some(o => o.tx === tx && o.ty === ty)) return { x: tx, y: ty }; } return null; };
+    const sa = sp(town.cx - 2, town.cy + 2), sb = sp(sa.x + 5, sa.y); for (const [n, s] of [[a, sa], [c, sb]]) { abortPlan(n); n.tx = n.x = s.x; n.ty = n.y = s.y; n.pose = 'stand'; n.moving = false; n.talkUntil = 0; n.talkBusy = 0; n.hunger = 30; n.bladder = 20; } rebuildOcc();
+    const spot = talkSpot(c, a); out.orth = !!spot && Math.abs(spot.x - c.tx) + Math.abs(spot.y - c.ty) === 1 && (spot.x === c.tx || spot.y === c.ty);
+    const n0 = TALK.log.length; talkApproach(a, c); window.__ac = [a.id, c.id, n0]; out.first = a.plan[0].text;
+    // bubble sides: you north of them = above (tail below), south = below (tail above), east = right, west = left
+    out.sides = [bubbleSide(0, -5), bubbleSide(0, 5), bubbleSide(6, 1), bubbleSide(-6, -1), bubbleSide(0, 3, true)];
+    return out; });
+  check(r.held && r.runs, 'needs stand still while talking and run again afterwards: ' + JSON.stringify([r.held, r.runs]));
+  check(r.orth, 'the spot to talk from is the whole tile next to them, never a diagonal');
+  check(JSON.stringify(r.sides) === JSON.stringify(['above', 'below', 'right', 'left', 'above']), 'the bubble sits on the side that faces you: ' + JSON.stringify(r.sides));
+  await simulate(page, 25);
+  const d = await page.evaluate(() => { const [x, y, n0] = window.__ac, e = TALK.log.slice(n0).find(l => l.a === x && l.b === y); const a = byId(x), c = byId(y); return { talked: !!e, d: e ? e.d : 99, st: a.status, pos: [a.tx, a.ty, c.tx, c.ty], plan: (a.plan || []).map(q => q.text).slice(0, 3) }; });
+  check(d.talked && d.d === 1, 'they talked standing on the next tile: ' + JSON.stringify(d));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return 'needs pause, next tile, bubble sides';
+});
+
 test('debug (build mode): hovering a bed says whose it is and where, hovering a villager says what they need next', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

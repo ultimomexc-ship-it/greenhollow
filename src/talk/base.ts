@@ -60,3 +60,6 @@ const talkStep = (_k: any): any => ({ close: true });
 const convBegin = (_o: any, _p: any): any => null;
 const bubbleChat = null;
 const startFocus = (..._a: any[]) => {};
+
+/** while somebody is in a conversation their needs stand still (nobody starves or wets themselves mid-chat, and long talks do not throw the day off) */
+const talkPaused = (n: any) => (n.talkUntil || 0) > game.time && n.pose !== 'sleep';

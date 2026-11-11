@@ -47,9 +47,10 @@ function lifeTick(dt) {
     // eating fills the bladder; company lifts the spirits
     if (n.hunger < n._h - 4) n.bladder += (n._h - n.hunger) * 0.2; n._h = n.hunger;
     if (n.social > n._s + 4) n.fun = Math.min(100, n.fun + (n.social - n._s) * 0.8); n._s = n.social;
-    n.bladder = Math.min(100, n.bladder + dt * (asleep ? 0.07 : 0.17));
-    n.energy = asleep ? Math.min(100, n.energy + dt * 0.21) : Math.max(0, n.energy - dt * 0.06);
-    n.fun = Math.max(0, n.fun - dt * 0.039);
+    const dtn = talkPaused(n) ? 0 : dt;   // (needs wait while somebody is talking)
+    n.bladder = Math.min(100, n.bladder + dtn * (asleep ? 0.07 : 0.17));
+    n.energy = asleep ? Math.min(100, n.energy + dtn * 0.21) : Math.max(0, n.energy - dtn * 0.06);
+    n.fun = Math.max(0, n.fun - dtn * 0.039);
     if (busy && st.act === 'leisure' && !asleep) n.fun = Math.min(100, n.fun + dt * 0.12);
     // mood: the needs, weighted towards the worst of them, plus what has happened lately
     const needs = [100 - n.hunger, 100 - n.bladder, Math.min(100, n.energy + 20), n.social, n.fun], mean = needs.reduce((a, b) => a + b, 0) / 5, mn = Math.min(...needs);

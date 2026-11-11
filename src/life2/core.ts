@@ -80,6 +80,7 @@ function lfEmit(kind, o) {
   for (const q of w) lf2Learn(q, ev, null, 1, !ev.anon || ev.sawActor.includes(q.id));
   if (ev.anon) for (const id of ev.sawActor) { const q = lf2By(id); if (!q || q.dead || w.includes(q) || q === a) continue; const kn = q.kn || (q.kn = {}); if (!kn[ev.id]) { kn[ev.id] = { t: game.time, from: null, cert: 0.85, a: true, quiet: true }; ev.know.push(q.id); } }
   if (o.chron !== false && (ev.sev >= 2 || o.chron) && w.length) chron(lf2Cap(ev.text) + '.', ev.tags.includes('crime') ? 'note' : (o.chronKind || 'life'));
+  if (typeof LIFE !== 'undefined') LIFE.fromLegacy(ev);   // (the one event stream: counted, day-logged, checked against the registry)
   if (typeof TE !== 'undefined') TE.onEmit(ev);   // (the talk engine remembers it: who saw, who did, who felt)
   for (const f of LF2.react) { try { if (f.emit) f.emit(ev); } catch (e) { console.warn('emit', e.message); } }
   return ev;

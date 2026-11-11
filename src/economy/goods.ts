@@ -163,11 +163,12 @@ function tickEcon(dt) {
   lifeTick(dt);
   for (const n of npcs) {
     if (n.infant) continue;
-    n.hunger = Math.min(100, n.hunger + dt * (n.pose === 'sleep' ? 1.8 : 4.6) / 60);
-    if (n.hunger >= 98) { n.starving += dt; n.hungryMin += dt; town.eco.hungryMin += dt; } else if (n.hunger < 90) n.starving = Math.max(0, n.starving - dt * 2);
-    n.health = Math.max(0, n.health - dt * 100 / (5 * 1440));
-    n.joy = Math.max(0, n.joy - dt * 100 / (4 * 1440));
-    n.social = Math.max(0, n.social - dt * 100 / (1.6 * 1440));
+    const dtn = talkPaused(n) ? 0 : dt;   // (needs wait while somebody is talking)
+    n.hunger = Math.min(100, n.hunger + dtn * (n.pose === 'sleep' ? 1.8 : 4.6) / 60);
+    if (n.hunger >= 98) { n.starving += dtn; n.hungryMin += dtn; town.eco.hungryMin += dtn; } else if (n.hunger < 90) n.starving = Math.max(0, n.starving - dt * 2);
+    n.health = Math.max(0, n.health - dtn * 100 / (5 * 1440));
+    n.joy = Math.max(0, n.joy - dtn * 100 / (4 * 1440));
+    n.social = Math.max(0, n.social - dtn * 100 / (1.6 * 1440));
   }
   for (const k in town.fishZones) { const z = town.fishZones[k]; z.stock = Math.min(z.cap, z.stock + dt * z.cap * 0.0006); }
   const hr = Math.floor(game.time / 60); while (lastHr < hr) { lastHr++; hourly(lastHr); }

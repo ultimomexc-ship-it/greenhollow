@@ -179,7 +179,7 @@ function tickNpc(n, dt) {
     }
     if (s.k === 'wait') {
       if (!n.stepStarted) {
-        n.stepStarted = true; n.until = game.time + s.min; applyWait(n, s); logStep(n, s.text);
+        n.stepStarted = true; n.until = game.time + s.min; applyWait(n, s); logStep(n, s.text); if (typeof lifeStep === 'function') lifeStep(n, s);
         if (s.roam) n.roamNext = game.time + s.roam[0] + n.rand() * (s.roam[1] - s.roam[0]);
         n.carry = carryIcon(n); return;
       }
