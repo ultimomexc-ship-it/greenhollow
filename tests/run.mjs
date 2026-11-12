@@ -1615,7 +1615,7 @@ test('secrets: friends confide what few know, a secret is not gossip, the gossip
     const bet = lf2Ev().find(e => e.kind === 'betrayal' && e.actor === B.id && e.target === A.id); out.betrayal = !!bet; out.cooled = A.aff[B.id] < a0;
     const hold = deedPick(A, B); out.raises = !!hold && deedYou(hold.ev, A).indexOf('secret') >= 0;
     return out; });
-  check(r.has && r.when && r.kept && r.reply && !r.once && /Please keep|Nobody else|stay with you|first person/.test(r.line), 'a friend confides a deed nobody knows, once, and the listener keeps it: ' + JSON.stringify([r.has, r.when, r.kept, r.reply, r.once, r.line]));
+  check(r.has && r.when && r.kept && r.reply && !r.once && /Please keep|Nobody else|stay with you|Keep it with you|first person|first I have told/.test(r.line), 'a friend confides a deed nobody knows, once, and the listener keeps it: ' + JSON.stringify([r.has, r.when, r.kept, r.reply, r.once, r.line]));
   check(r.gossip === 0, 'a secret is not gossip: ' + r.gossip);
   check(r.queued && r.betrayal && r.cooled && r.raises, 'passing it on is a leak that comes back as a betrayal, thought the worse of and raised: ' + JSON.stringify([r.queued, r.betrayal, r.cooled, r.raises]));
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));

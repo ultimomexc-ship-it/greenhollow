@@ -247,7 +247,7 @@ LXLI('ate_with', [
   'I shared a table with {about}. The bread was ordinary and I remember it.'
 ]);
 LXLI('found', [
-  'I found {item}. I do not know what it is for. I have decided it is mine.',
+  'I found {item}. I do not know what it is for. It is mine now.',
   'There was {item} on the ground. I picked it up before I had thought about it.',
   'I found {item} today. It was not there yesterday. I have asked nobody.'
 ]);
