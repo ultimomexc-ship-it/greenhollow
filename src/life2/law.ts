@@ -49,7 +49,7 @@ function lf2ReportPlan(n) {
       say(nn, g, [[nn, k.a && a ? anyOf([`Watchman! ${lf2Cap(lf2Low(cvSpeechOf(nn, ev.text, g)))}.${k.mine || !k.from ? ' I saw it with my own eyes.' : ''}`, `You need to know: ${lf2Low(cvSpeechOf(nn, ev.text, g))}.`]) : `Somebody ${lf2Low(ev.text).replace(/^\w+ /, '')}. I do not know who.`], [g, k.a ? anyOf(['Leave it with me.', 'Right. I will find them.', 'Is that so? Thank you.']) : 'I will ask around.']]);
       lf2Learn(g, ev, nn, k.cert * (k.from ? 0.7 : 1), k.a);
       if (!k.a) g.lf2Inv = ev.id;
-      lfEmit('report', { actor: nn, target: a && k.a ? a : null, sev: 1, tags: ['justice'], chron: false, text: `${nn.first} reported ${a && k.a ? a.first : 'a crime'} to the watch` });
+      lfEmit('report', { actor: nn, target: a && k.a ? a : null, sev: 1, tags: ['justice'], chron: false });
     } })];
 }
 
@@ -113,11 +113,11 @@ function lf2Collar(g, a) {
   if (a.coin >= fine && !lf2Has(a, 'greedy') || a.coin >= fine * 2) {
     a.coin -= fine; town.treasury += fine; lf2Compensate(a, fine);
     say(g, a, [[g, `${a.first}, you ${cvSpeechOf(g, lf2CrimeText(a), a)}. That is a fine of ${fine} denarii.`], [a, anyOf(['Fine. Take it.', 'This is robbery.', 'It was worth it.'])]]);
-    lfEmit('fined', { actor: a, sev: 1, tags: ['arrest'], chron: true, text: `The watch fined ${a.first} ${fine} denarii for ${what}` });
+    lfEmit('fined', { actor: a, sev: 1, tags: ['arrest'], chron: true });
   } else {
     const mins = lf2Sentence(a); lf2Jail(a, mins, g);
     say(g, a, [[g, `${a.first}, you are coming with me. You ${cvSpeechOf(g, lf2CrimeText(a), a)}.`], [a, anyOf(['I did nothing!', 'All right, all right.', 'You will regret this.'])]]);
-    lfEmit('arrest', { actor: a, sev: 2, loud: true, tags: ['arrest'], chron: true, text: `The watch arrested ${a.first} for ${what}` });
+    lfEmit('arrest', { actor: a, sev: 2, loud: true, tags: ['arrest'], chron: true });
   }
   a.lf2Priors = (a.lf2Priors || 0) + 1; lf2Clear(a); lfMod(a, 'arrested', 'humiliated by the watch', -12, 900);
 }
@@ -139,13 +139,13 @@ function lf2ArrestDialog(g, a) {
   const fine = lf2Fine(a), what = lf2Charge(a), did = lf2CrimeText(a), w = lf2Wanted()[a.id], evidence = w ? w.cert : 0.5, bribe = Math.round(fine * 1.5);
   const out = (txt) => ({ say: txt, opts: [] });
   lf2Dialog(g, `${a.first}! You are under arrest for ${what}. ${evidence < 0.75 ? 'Word is' : 'People saw'} you ${did}.`, [
-    [`Pay the fine (${fine}${LF2_COIN})`, () => { if (a.coin < fine) return { say: `You have not got ${fine} denarii. The cells it is, then.`, opts: [['Go quietly', () => { lf2PlayerJailed(g, a, 0); return out('In you go.'); }]] }; a.coin -= fine; town.treasury += fine; lf2Compensate(a, fine); a.lf2Priors = (a.lf2Priors || 0) + 1; lf2Clear(a); lfEmit('fined', { actor: a, sev: 1, tags: ['arrest'], chron: true, text: `The watch fined ${a.first} ${fine} denarii for ${what}` }); return out('Good. Do not let me see you again.'); }],
+    [`Pay the fine (${fine}${LF2_COIN})`, () => { if (a.coin < fine) return { say: `You have not got ${fine} denarii. The cells it is, then.`, opts: [['Go quietly', () => { lf2PlayerJailed(g, a, 0); return out('In you go.'); }]] }; a.coin -= fine; town.treasury += fine; lf2Compensate(a, fine); a.lf2Priors = (a.lf2Priors || 0) + 1; lf2Clear(a); lfEmit('fined', { actor: a, sev: 1, tags: ['arrest'], chron: true }); return out('Good. Do not let me see you again.'); }],
     ['Go quietly to the cells', () => { lf2PlayerJailed(g, a, 0); return out('Sensible. Come on.'); }],
     [`Slip them ${bribe}${LF2_COIN}`, () => {
       if (a.coin < bribe) return { say: 'With what? Your charm?', opts: [['Go quietly', () => { lf2PlayerJailed(g, a, 0); return out('In you go.'); }]] };
       const yes = Math.random() < (lf2Has(g, 'greedy') ? 0.85 : (g.aff[a.id] || 0) > 30 ? 0.45 : lf2Has(g, 'devout') || lf2Has(g, 'proud') ? 0.05 : 0.22);
-      if (yes) { a.coin -= bribe; g.coin += bribe; lf2Clear(a); lfEmit('bribe', { actor: a, target: g, sev: 2, tags: ['bribe', 'crime'], aware: true, chron: false, text: `${a.first} bribed the watchman ${g.first}` }); return out(anyOf(['I did not see you. Go.', 'Hm. Must have been somebody else. Off you go.'])); }
-      lfEmit('bribe', { actor: a, target: g, sev: 2, tags: ['bribe', 'crime'], text: `${a.first} tried to bribe the watchman ${g.first}` }); lf2Want(a, lf2Ev()[lf2Ev().length - 1], 1);
+      if (yes) { a.coin -= bribe; g.coin += bribe; lf2Clear(a); lfEmit('bribe', { actor: a, target: g, sev: 2, tags: ['bribe', 'crime'], aware: true, chron: false }); return out(anyOf(['I did not see you. Go.', 'Hm. Must have been somebody else. Off you go.'])); }
+      lfEmit('bribe', { actor: a, target: g, sev: 2, tags: ['bribe', 'crime'] }); lf2Want(a, lf2Ev()[lf2Ev().length - 1], 1);
       return { say: 'A bribe? That is another charge.', opts: [['Go quietly', () => { lf2PlayerJailed(g, a, 120); return out('In you go.'); }]] };
     }],
     ['Deny everything', () => { if (evidence < 0.75 && Math.random() < 0.55) { lf2Clear(a); return out(`Hm. Only gossip, I suppose. I am watching you, ${a.first}.`); } return { say: 'Save it for the magistrate.', opts: [['Go quietly', () => { lf2PlayerJailed(g, a, 0); return out('In you go.'); }]] }; }],
@@ -155,7 +155,7 @@ function lf2ArrestDialog(g, a) {
 function lf2PlayerJailed(g, a, extra) {
   const mins = lf2Sentence(a, extra), what = lf2Charge(a);
   a.lf2Priors = (a.lf2Priors || 0) + 1;
-  lfEmit('arrest', { actor: a, target: g, sev: 2, loud: true, tags: ['arrest'], chron: true, text: `The watch arrested ${a.first} for ${what}` });
+  lfEmit('arrest', { actor: a, target: g, sev: 2, loud: true, tags: ['arrest'], chron: true });
   lf2Jail(a, mins, g);
   lf2Clear(a);
 }
@@ -193,8 +193,8 @@ LF2.verbs.push((n, x, y, o, add) => {
   add('Sleep until they let you out', nn => { const p = nn.player; p.sleeping = true; nn.pose = 'sleep'; p.wakeAt = nn.jail.until + 1; p.needRelease = true; });
   add('Pick the cell lock', nn => {
     let seen = false; for (const g of npcs) if (lf2OnDuty(g) && Math.random() < lf2Notice(g, nn.tx, nn.ty)) seen = true;
-    if (seen || Math.random() < 0.3) { nn.jail.until += 90; lfEmit('escape', { actor: nn, sev: 1, tags: ['crime'], chron: true, text: `${nn.first} was caught trying to pick the lock of the cells` }); lf2Say(nn, seen ? 'A watchman saw you. Another hour and a half.' : 'The pick snapped. They heard. Another hour and a half.'); return; }
-    lf2Release(nn, 'escape'); const ev = lfEmit('escape', { actor: nn, sev: 2, tags: ['crime'], witnessIds: [], chron: false, text: `${nn.first} broke out of the cells` });
+    if (seen || Math.random() < 0.3) { nn.jail.until += 90; lfEmit('escape', { actor: nn, sev: 1, tags: ['crime'], chron: true }); lf2Say(nn, seen ? 'A watchman saw you. Another hour and a half.' : 'The pick snapped. They heard. Another hour and a half.'); return; }
+    lf2Release(nn, 'escape'); const ev = lfEmit('escape', { actor: nn, sev: 2, tags: ['crime'], witnessIds: [], chron: false });
     (town.lf2Later = town.lf2Later || []).push({ at: game.time + 40, f: 'escapeFound', ev: ev.id, who: nn.id });
   }, 15, 'Working at the lock with a bent nail', 'pick');
   add('Shout for the watch', nn => { const g = lf2NearestGuard(nn); lf2Say(nn, `About ${left} more hours, says ${g ? g.first : 'nobody'}.`); });
@@ -211,7 +211,7 @@ function lf2CrimePlan(n, tod) {
   if (greedy && town.tavern && lf2Hr() >= 19 && lf2Hr() < 23.5) { const mark = npcs.find(o => o !== n && !o.dead && (o.drunk || 0) >= 55 && lf2InRoom(o, town.tavern) && o.coin >= 4);
     if (mark) return [goS(() => { const b = besideTile(mark.tx, mark.ty, null); return b ? { x: b.x, y: b.y, face: { dx: Math.sign(mark.tx - b.x), dy: Math.sign(mark.ty - b.y) } } : null; }, 'Sidling up to a drunk'), waitS(2, 'stand', 'Being very friendly with ' + mark.first, { nopie: true, onEnd(nn) {
       if (lfDist(nn, mark) > 2 || lf2Watchers(nn.tx, nn.ty, [nn, mark]) > 1.2) return; const q = Math.max(1, Math.floor(mark.coin * 0.4)); mark.coin -= q; nn.coin += q;
-      const ev = lfEmit('pickpocket', { actor: nn, target: mark, sev: 1, aware: false, tags: ['theft', 'crime'], chron: false, value: q, text: `${nn.first} lifted ${q} denarii from a drunk ${mark.first}` });
+      const ev = lfEmit('pickpocket', { actor: nn, target: mark, sev: 1, aware: false, tags: ['theft', 'crime'], chron: false, value: q });
       (town.lf2Later = town.lf2Later || []).push({ at: game.time + 60 + Math.random() * 300, f: 'noticeTheft', ev: ev.id, who: mark.id, what: q + ' denarii' }); } })]; }
   if (!desperate && Math.random() < 0.5) return null;
   // a barrel in a house where nobody is home and nobody is watching
@@ -221,7 +221,7 @@ function lf2CrimePlan(n, tod) {
   return [goS(sp, desperate ? 'Slipping into a neighbour\'s house, desperate' : 'Wandering somewhere they should not'), waitS(3, 'work', 'Rummaging in someone else\'s barrel', { tool: 'pick', onEnd(nn) {
     if (lf2Watchers(nn.tx, nn.ty, [nn]) > 0.6 && !desperate) { lfShout(nn, '...'); return; }        // lost their nerve
     const pan = r.pantry; let c = 0; for (const g of FOODS) while ((pan[g] || 0) > 0 && c < 2) { pan[g]--; nn.inv[g] = (nn.inv[g] || 0) + 1; c++; }
-    if (c) lfEmit('theft', { actor: nn, target: lf2RoomHead(r), sev: 1, aware: false, value: c * 2, tags: ['theft', 'crime', 'trespass'], chron: false, text: `${nn.first} stole food from the ${lf2Family(r)} family's barrel` });
+    if (c) lfEmit('theft', { actor: nn, target: lf2RoomHead(r), sev: 1, aware: false, value: c * 2, tags: ['theft', 'crime', 'trespass'], chron: false });
   } })];
 }
 LF2.dec.push(lf2CrimePlan);
@@ -230,7 +230,7 @@ LF2.dec.push(lf2CrimePlan);
 const LF2_LATER = {
   noticeTheft(j) { const ev = lf2EvById(j.ev), v = byId(j.who); if (!ev || !v || v.dead) return;
     const saw = ev.witnesses.slice(); lfShout(v, anyOf([`My purse! Somebody has had my purse!`, `Where has my money gone? I have been robbed!`]));
-    lfEmit('robbed', { actor: lf2By(ev.actor), target: v, sev: ev.sev + 1, anon: true, sawActor: saw, cause: ev.id, tags: ['theft', 'crime'], loud: true, text: `${lf2By(ev.actor).first} picked ${v.first}'s pocket`, anonText: `Somebody picked ${v.first}'s pocket` }).anonText = `Somebody picked ${v.first}'s pocket`; },
+    lfEmit('robbed', { actor: lf2By(ev.actor), target: v, sev: ev.sev + 1, anon: true, sawActor: saw, cause: ev.id, tags: ['theft', 'crime'], loud: true, anonText: `Somebody picked ${v.first}'s pocket` }).anonText = `Somebody picked ${v.first}'s pocket`; },
   escapeFound(j) { const ev = lf2EvById(j.ev), a = byId(j.who); if (!ev || !a) return; const g = npcs.find(lf2OnDuty); if (!g) { j.at = game.time + 60; return false; } lf2Learn(g, ev, null, 1, true); lf2Want(a, ev, 1); chron(`The watch found the cells empty: ${a.first} has escaped!`, 'note'); }
 };
 LF2.tickers.push(() => {

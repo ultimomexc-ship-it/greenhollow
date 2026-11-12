@@ -42,6 +42,21 @@ function lxContext(sp: any, li: any, c: any) {
     kid: li.age < 14 ? 'yes' : undefined,
     menu: c.menu,
     reg: lxRegister(sp),
+    // how the speaker is related to who is being talked about, when it is family
+    kin: (() => {
+      const o = c.about,
+        f = sp.fam || {};
+      if (!o || !o.id) return undefined;
+      return f.spouse === o.id || f.partner === o.id
+        ? 'spouse'
+        : (f.kids || []).includes(o.id)
+          ? 'child'
+          : f.mother === o.id || f.father === o.id
+            ? 'parent'
+            : typeof peopleRelated === 'function' && peopleRelated(sp, o)
+              ? 'sibling'
+              : undefined;
+    })(),
     // the speaker has had the same trouble this week (so a line that claims "I know that one" is true): from their own day log
     shared: c.life && c.lifeTrouble && (sp.day || []).some((e: any) => e.kind === c.life.kind && game.time - e.t < 7 * 1440) ? 'yes' : undefined
   };
@@ -118,18 +133,18 @@ function lxSay(act: string, sp: any, li: any, c: any): string {
     const short = cands.filter(e => !lxMarked(e.text));
     if (short.length) cands = short;
   }
-  let best: any = null,
-    bs = -1e9;
-  for (const e of cands) {
+  // pick at random among the lines that score within 1.5 of the best (specific lines still win: each matching tag is worth 2); a line a listener heard fades in three days
+  const scored = cands.map(e => {
     const id = act + '|' + e.text,
-      g = LX_RECENT[id];
-    const heardPenalty = heard[id] != null ? 4 - Math.min(3, (game.time - heard[id]) / 600) : 0;
-    const s = Object.keys(e.tags).length * 2 - heardPenalty - (g != null && game.time - g < 180 ? 2.2 : 0) + Math.random() * 1.5;
-    if (s > bs) {
-      bs = s;
-      best = e;
-    }
-  }
+      g = LX_RECENT[id],
+      h = heard[id];
+    const heardPenalty = h != null ? 4 * Math.max(0, 1 - (game.time - h) / (3 * 1440)) : 0;
+    return { e, s: Object.keys(e.tags).length * 2 - heardPenalty - (g != null && game.time - g < 180 ? 2.2 : 0) };
+  });
+  let top = -1e9;
+  for (const x of scored) if (x.s > top) top = x.s;
+  const near = scored.filter(x => x.s >= top - 1.5);
+  const best: any = near[Math.floor(Math.random() * near.length)].e;
   heard[act + '|' + best.text] = game.time;
   LX_RECENT[act + '|' + best.text] = game.time; // what was said lately, by anyone, is less likely to be said again
   const raw = best.text.replace(/\{(\w+)\}/g, (_m: string, k: string) => (slots[k] != null ? slots[k] : ''));
@@ -221,7 +236,8 @@ function lxVoice(sp: any, li: any, act: string, pack: string, text: string): str
   if (reg === 'chatty') {
     if (statement && !ritual && Math.random() < 0.4) {
       const L = LX_RUNON[pack] || LX_RUNON.plain;
-      return text.replace(/\s*$/, ' ') + L[Math.floor(Math.random() * L.length)];
+      const more = text.replace(/\s*$/, ' ') + L[Math.floor(Math.random() * L.length)];
+      return more.split(/\s+/).length > 22 ? text : more; // (no run-on past twenty-two words)
     }
     return text;
   }

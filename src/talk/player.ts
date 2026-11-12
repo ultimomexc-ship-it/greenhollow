@@ -2,7 +2,7 @@
    the player picks from a short list of what they could say now (acts, said in their own voice by the lexicon); the villager answers and goes on by their own chooser (`talkChoose`).
    When the villager asks something, the options are the answers that fit. Every act has the same effects as it would between two villagers (what is told is remembered, opinions move). */
 
-const PT: any = { s: null as any };
+const PT: any = { s: null as any, fallbacks: 0 }; // fallbacks: how often an option showed its spoken line because it had no label of its own or shared one with another option
 
 /** a word for how well they know each other, for the head of the talk box */
 function closenessWord(o: any, p: any): string {
@@ -227,13 +227,18 @@ function ptOptions(S: any): any[] {
     seen.add(id);
     const what = ptLabel(id, slots),
       group = PT_LABEL[id] ? PT_LABEL[id][0] : A.reply ? 'Answer' : 'Tell';
+    if (!what) PT.fallbacks++;
     out.push({ id, bind, label: what || line, line, group, kind: A.kind, w: Math.random() + (A.kind !== 'small' ? 0.6 : 0) });
   }
   out.sort((a, b) => b.w - a.w);
   const keep = out.slice(0, S.pending ? 6 : 5);
   if (!keep.some(q => q.kind === 'small') && out.some(q => q.kind === 'small')) keep[keep.length - 1] = out.find(q => q.kind === 'small');
   // two options that would read the same are told apart by their words; then the menu is put in order: asking, telling, giving, the heart, small talk
-  for (const q of keep) if (keep.some(r => r !== q && r.label === q.label)) q.label = q.line;
+  for (const q of keep)
+    if (keep.some(r => r !== q && r.label === q.label)) {
+      q.label = q.line;
+      PT.fallbacks++;
+    }
   keep.sort((a, b) => PT_GROUPS.indexOf(a.group) - PT_GROUPS.indexOf(b.group));
   return keep;
 }

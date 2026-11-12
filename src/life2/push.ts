@@ -140,7 +140,7 @@ LF2.tickers.push(() => {
     if (game.player && TALK.on.deed !== false) { const c: any = { a: who, b: game.player, done: {}, turns: [{ by: who.id, act: 'cry_deed', x: { how: sh.pose === 'sleep' ? 'bed' : 'chair' } }], stage: 'topic', t0: game.time }; talkFinish(c, who, game.player, true); }
     who.mood = Math.max(0, (who.mood == null ? 60 : who.mood) - 8);
     const by = null;   // nobody knows who did it, only that it happened
-    if (sh.pose === 'sleep') lfEmit('bed_moved', { actor: sh.by != null ? lf2By(sh.by) : null, target: who, x: who.tx, y: who.ty, sev: 2, tags: ['nuisance', 'embarrass'], anon: true, sawActor: [], witnessIds: [who.id], chron: false, loud: true, text: `${who.first} was carried out of the house in bed` });
+    if (sh.pose === 'sleep') lfEmit('bed_moved', { actor: sh.by != null ? lf2By(sh.by) : null, target: who, x: who.tx, y: who.ty, sev: 2, tags: ['nuisance', 'embarrass'], anon: true, sawActor: [], witnessIds: [who.id], chron: false, loud: true });
     chron(`${who.first} ${sh.pose === 'sleep' ? 'woke up' : 'got up'} ${where}, ${sh.pose === 'sleep' ? 'bed' : 'chair'} and all.`, 'life');
   }
 });

@@ -22,7 +22,7 @@ lx('hint_noted', 'plain', "Noted. I'm listening.");
 lx('gift_loved', 'plain', "{item}! How did you know? It's my favourite.");
 lx('gift_loved', 'plain', "Oh, that's exactly what I'd have chosen. Thank you.");
 lx('gift_disliked', 'plain', "Oh. {item}. Thank you. It's the thought.");
-lx('gift_disliked', 'plain', "That's... kind. I'm not very fond of it, to be honest.");
+lx('gift_disliked', 'plain', "That's kind of you. I'm not very fond of it, to be honest.");
 lx('offer_gift', 'plain', "This is for you, for the other day. We're even now.", { how: 'return' });
 lx('offer_gift', 'plain', "I haven't forgotten that you gave me something. Here.", { how: 'return' });
 lx('send_gift', 'plain', "Could you give {item} to {about} for me? Without saying it's from me?");

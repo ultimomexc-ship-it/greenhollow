@@ -67,3 +67,18 @@ lx('ev1:gift', 'plain', 'I gave {t} a gift');
 lx('ev1:help', 'plain', 'I helped {t} out');
 lx('ev1:lent_hand', 'plain', 'I lent {t} a hand with the work');
 lx('ev1:sick_visit', 'plain', 'I looked in on {t} because of the fever');
+LXP('react_unmoved', ['Huh.', 'Is it.', 'That so.', "Doesn't surprise me.", 'Well, there you go.']);
+
+// event wording for the everyday (TE.text)
+lx('ev:dole', 'plain', '{t} went hungry until the council gave out grain');
+lx('ev:repair', 'plain', '{a} mended something for the village');
+lx('ev:distract', 'plain', '{a} kept {t} from their work');
+lx('ev:courting', 'plain', '{a} began courting {t}');
+lx('ev:tryst', 'plain', '{a} met {t} in secret');
+lx('ev:dice', 'plain', '{a} won money off {t} at dice');
+lx('ev:sing', 'plain', '{a} sang, very drunk');
+lx('ev:stumble', 'plain', '{a} fell flat on their face, drunk');
+lx('ev:smelly', 'plain', '{a} smelled like a midden');
+lx('ev:newclothes', 'plain', '{a} turned up in a fine new tunic');
+lx('ev:knock', 'plain', '{a} came knocking in the middle of the night');
+lx('ev:wake', 'plain', '{a} woke {t} up for no reason');

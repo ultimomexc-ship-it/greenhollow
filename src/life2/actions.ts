@@ -28,11 +28,11 @@ function lf2Loot(pr) {
 function lf2Search(n, pr) {
   const label = LF_NOUN[pr.kind], room = lf2OwnerRoom(pr.x, pr.y), mine = room && room === n.homeRoom, head = mine ? null : lf2RoomHead(room);
   const l = lf2Loot(pr); pr.loot = null; pr.searchedT = game.time;
-  if (!l) { lf2Say(n, anyOf(['Nothing in here but dust.', 'Empty. Just straw and a dead spider.', 'Nothing worth having.'])); if (head) lfEmit('snoop', { actor: n, target: head, x: pr.x, y: pr.y, sev: 1, tags: ['trespass'], aware: false, chron: false, text: `${n.first} was seen rummaging through the ${lf2Family(room)} family's ${label}` }); return; }
+  if (!l) { lf2Say(n, anyOf(['Nothing in here but dust.', 'Empty. Just straw and a dead spider.', 'Nothing worth having.'])); if (head) lfEmit('snoop', { actor: n, target: head, x: pr.x, y: pr.y, sev: 1, tags: ['trespass'], aware: false, chron: false }); return; }
   const what = l.g === 'coin' ? l.q + ' ' + (l.q > 1 ? 'denarii' : 'denarius') : l.q + ' ' + (GOODS[l.g] ? GOODS[l.g].name : l.g);
   if (l.g === 'coin') n.coin += l.q; else n.inv[l.g] = (n.inv[l.g] || 0) + l.q;
   lf2Say(n, 'Found ' + what + '.');
-  if (head) lfEmit('theft', { actor: n, target: head, x: pr.x, y: pr.y, sev: 1, tags: ['theft', 'crime'], aware: false, value: l.g === 'coin' ? l.q : 2, chron: false, text: `${n.first} helped themself to ${what} from the ${lf2Family(room)} family's ${label}` });
+  if (head) lfEmit('theft', { actor: n, target: head, x: pr.x, y: pr.y, sev: 1, tags: ['theft', 'crime'], aware: false, value: l.g === 'coin' ? l.q : 2, chron: false });
 }
 function lf2MoveProp(pr, x, y, by) {
   town.pblock[pr.y * W + pr.x] = 0; town.propAt.delete(pr.y * W + pr.x);
@@ -61,7 +61,7 @@ function lf2AfterPush(n, pr) {
   if (!lfNearDoor(pr.x, pr.y)) return;
   const r = rooms.find(r => !r.dead && r.doorX != null && Math.abs(pr.x - r.doorX) <= 1 && pr.y === (r.side === 'b' ? r.doorY + 1 : r.doorY - 1));
   if (!r) return; const head = r.kind === 'house' ? lf2RoomHead(r) : null;
-  const ev = lfEmit('blockdoor', { actor: n, target: head, x: pr.x, y: pr.y, sev: 1, tags: ['prank', 'nuisance'], aware: false, chron: false, text: `${n.first} shoved a ${LF_NOUN[pr.kind]} against the door of ${r.name}` });
+  const ev = lfEmit('blockdoor', { actor: n, target: head, x: pr.x, y: pr.y, sev: 1, tags: ['prank', 'nuisance'], aware: false, chron: false });
   pr.pushEv = ev.id;
 }
 
@@ -119,7 +119,7 @@ function lf2Shove(n, o) {
   const kid = o.age < 14, recent = (n.lf2Shoves || []).filter(t => game.time - t < 120); recent.push(game.time); n.lf2Shoves = recent;
   if (!o.player) { abortPlan(o); if (walkable(bx, by) && !lf2Occ(bx, by, o) && !lfPropAt(bx, by)) { o.path = [{ x: bx, y: by }]; o.moving = true; o.t = 0; o.pose = 'walk'; } o.plan = [waitS(3, 'stand', 'Picking themself up after a shove', { nopie: true })]; o.si = 0; o.stepStarted = false; o.talkUntil = game.time + 4; faceTo(o, n); }
   const sev = kid || recent.length >= 3 ? 2 : 1;
-  lfEmit('shove', { actor: n, target: o, sev, loud: true, tags: sev > 1 ? ['violence', 'harm'] : ['harm', 'nuisance'], chron: sev > 1, text: `${n.first} shoved ${o.first}${kid ? ', a child,' : ''} out of the way` });
+  lfEmit('shove', { actor: n, target: o, sev, loud: true, tags: sev > 1 ? ['violence', 'harm'] : ['harm', 'nuisance'], chron: sev > 1 });
   if (!o.player) { const brave = lf2Has(o, 'brave') || lf2Has(o, 'grumpy') || lf2Has(o, 'proud'); lfShout(o, brave ? anyOf(['Oi! Watch it!', 'Do that again and see what happens.', 'Who do you think you are?']) : anyOf(['Hey!', 'Ow! What was that for?', 'Please, stop it.'])); }
 }
 
@@ -127,13 +127,13 @@ function lf2Shove(n, o) {
 function lf2Give(n, o, q) {
   if (n.coin < q) { lf2Say(n, 'You do not have ' + q + ' denarii.'); return; }
   n.coin -= q; o.coin = (o.coin || 0) + q; const poor = (o.coin - q) < 5;
-  lfEmit('gift', { actor: n, target: o, sev: poor ? 2 : 1, tags: ['generous', 'kindness'], chron: poor, text: `${n.first} gave ${o.first} ${q} denarii${poor ? ' when they had next to nothing' : ''}` });
+  lfEmit('gift', { actor: n, target: o, sev: poor ? 2 : 1, tags: ['generous', 'kindness'], chron: poor });
   if (!o.player) lfShout(o, poor ? anyOf(['Oh! Thank you. You do not know what this means.', 'Bless you. Truly.']) : anyOf(['For me? Thank you!', 'Well, that is kind.', 'Are you sure? Thank you.']));
 }
 function lf2GiveFood(n, o) {
   const g = FOODS.concat(['bread', 'stew']).find(g => (n.inv[g] || 0) > 0); if (!g) { lf2Say(n, 'You have no food.'); return; }
   n.inv[g]--; const hungry = o.hunger >= 55; o.hunger = Math.max(0, o.hunger - ((GOODS[g] && GOODS[g].sat) || 25));
-  lfEmit('gift', { actor: n, target: o, sev: hungry ? 2 : 1, tags: ['kindness', 'generous'], chron: hungry, text: `${n.first} gave ${o.first} some ${GOODS[g] ? GOODS[g].name : g}${hungry ? ' when they were starving' : ''}` });
+  lfEmit('gift', { actor: n, target: o, sev: hungry ? 2 : 1, tags: ['kindness', 'generous'], chron: hungry });
   if (!o.player) lfShout(o, hungry ? 'Oh, thank you. I was so hungry.' : 'How kind. Thank you.');
 }
 function lf2Distract(n, o) {
@@ -141,18 +141,18 @@ function lf2Distract(n, o) {
   abortPlan(o); o.plan = [waitS(12, 'stand', 'Chatting with ' + n.first + ' (distracted)', { social: true, nopie: true })]; o.si = 0; o.stepStarted = false; faceTo(o, n);
   if (busy) { lfAff(o, n, -2); o.jobSat = Math.max(0, (o.jobSat || 50) - 5); lfShout(o, anyOf(['I really should be working...', 'Oh, go on then. Just for a minute.', 'You are a bad influence.'])); }
   else lfShout(o, anyOf(['Oh, hello!', 'What is it?']));
-  if (busy && o.job) lfEmit('distract', { actor: n, target: o, sev: 1, tags: ['nuisance'], chron: false, text: `${n.first} kept ${o.first} from their work` });
+  if (busy && o.job) lfEmit('distract', { actor: n, target: o, sev: 1, tags: ['nuisance'], chron: false });
 }
 function lf2Help(n, o) {
   const st = o.plan && o.plan[o.si]; if (!st || st.act !== 'work' || !lf2Adj(n, o)) { lf2Say(n, o.first + ' does not need a hand right now.'); return; }
   o.until = Math.max(game.time, (o.until || game.time) - 15); bumpAff(n, o, 4, 8);
-  lfEmit('help', { actor: n, target: o, sev: 1, tags: ['help', 'kindness'], chron: false, text: `${n.first} lent ${o.first} a hand with the work` });
+  lfEmit('help', { actor: n, target: o, sev: 1, tags: ['help', 'kindness'], chron: false });
   lfShout(o, anyOf(['Many hands! Thank you.', 'That went quicker. Thanks!', 'You are a good sort.']));
 }
 function lf2Wake(n, o) {
   if (o.pose !== 'sleep') return; abortPlan(o); o.pose = 'stand'; o.plan = [waitS(10, 'stand', 'Woken up, and grumpy about it', { nopie: true })]; o.si = 0; o.stepStarted = false; o.energy = Math.max(0, (o.energy || 50) - 10); faceTo(o, n);
   lfShout(o, anyOf(['Wha-? What is it? Is something on fire?', 'Go AWAY.', 'Do you know what time it is?']));
-  lfEmit('wake', { actor: n, target: o, sev: 1, tags: ['prank', 'nuisance'], chron: false, text: `${n.first} woke ${o.first} up for no reason` });
+  lfEmit('wake', { actor: n, target: o, sev: 1, tags: ['prank', 'nuisance'], chron: false });
 }
 function lf2Inspect(n, o) {
   if (typeof select === 'function') select(o);
@@ -165,7 +165,7 @@ function lf2StealBarrel(n, r) {
   for (const g of Object.keys(pan).sort((a, b) => ((GOODS[b] && GOODS[b].sat) || 0) - ((GOODS[a] && GOODS[a].sat) || 0))) while ((pan[g] || 0) > 0 && c < 3) { pan[g]--; n.inv[g] = (n.inv[g] || 0) + 1; c++; got.push(g); }
   if (!c) { lf2Say(n, 'Empty. They have nothing either.'); return; }
   lf2Say(n, 'Took ' + c + ' food.');
-  lfEmit('theft', { actor: n, target: lf2RoomHead(r), sev: 1, aware: false, tags: ['theft', 'crime', 'trespass'], chron: false, value: c * 2, text: `${n.first} stole food from the ${lf2Family(r)} family's barrel` });
+  lfEmit('theft', { actor: n, target: lf2RoomHead(r), sev: 1, aware: false, tags: ['theft', 'crime', 'trespass'], chron: false, value: c * 2 });
 }
 /* the verbs for the tile in front of you (or for tile tx, ty) */
 function lf2Verbs(n, tx?, ty?) {

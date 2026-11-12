@@ -8,7 +8,7 @@ lxi('no_news', 'No. I looked, though.');
 lxi('no_news', 'Nothing I would call news. The tide is where it was.');
 lxi('share_news', 'I saw it myself, so I can tell you. {news}.', { how: 'saw' });
 lxi('share_news', 'I was there. {news}. I stood very still.', { how: 'saw', rel: 'friend' });
-lxi('share_news', 'I heard that {news}. I have no reason to doubt it, and no reason to believe it.', { how: 'told' });
+lxi('share_news', 'I heard that {news}. I cannot vouch for it.', { how: 'told' });
 lxi('share_news', 'I overheard something. {news}. I was not meant to, but I was there.', { how: 'overheard' });
 lxi('share_news', 'It may not be true. {news}.', { conf: 'low' });
 lxi('share_news', 'Between us. {news}.', { rel: 'friend' });
@@ -63,3 +63,30 @@ LXI('react_delight', ['Good.', 'I am glad.', 'That is good to hear.', 'Well. Goo
 // first person: said by the one who did it (TE.text with the speaker)
 lxi('ev1:lent_hand', "I did an hour of {t}'s work");
 lxi('ev1:sick_visit', 'I sat with {t} because of the fever');
+LXI('react_unmoved', ['Huh.', 'Is it. Noted.', 'That does not surprise me.', 'Well. There it is.', 'I will file that.']);
+
+// event wording for the everyday (TE.text, island voice)
+lxi('ev:dole', '{t} went hungry, and the council gave out grain');
+lxi('ev:repair', '{a} mended something without being asked');
+lxi('ev:distract', '{a} kept {t} from their work');
+lxi('ev:courting', '{a} began courting {t}, as far as anyone could tell');
+lxi('ev:tryst', '{a} and {t} were seen going the same way, twice');
+lxi('ev:dice', '{a} won money off {t} at dice');
+lxi('ev:sing', '{a} sang, at length, and not well');
+lxi('ev:stumble', '{a} fell over, drunk, and stayed there');
+lxi('ev:smelly', '{a} smelled like a midden');
+lxi('ev:newclothes', '{a} has a new tunic, and mentioned it');
+lxi('ev:knock', '{a} knocked on a door at night');
+lxi('ev:wake', '{a} woke {t} up for no reason');
+
+// event wording, island voice, for the kinds that only had the plain wording
+lxi('ev:arrival', '{a} came ashore with no explanation');
+lxi('ev:arrival', '{a} turned up on the beach');
+lxi('ev:brawl', '{a} and {t} came to blows');
+lxi('ev:charity', '{a} gave to {t} when {t} had nothing');
+lxi('ev:crush', '{a} has a soft spot for {t}');
+lxi('ev:gift', '{a} gave {t} a gift');
+lxi('ev:help', '{a} helped {t} out');
+lxi('ev:jealous', '{a} is jealous of {t}');
+lxi('ev:quarrel', '{a} and {t} had words');
+lxi('ev:rumour', '{a} has been telling tales about {t}');

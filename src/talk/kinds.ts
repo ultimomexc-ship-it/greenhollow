@@ -107,3 +107,24 @@ const LIFE_TROUBLE: any = {
   ill: 'fell ill',
   crop_failed: 'lost a crop'
 };
+
+/* what an event was about, in a few words, for stories that refer back to it ("confronted Tipping in front of everyone over the wall"): REG meta `matter`, the {matter} slot of event lines */
+const EV_MATTER: any = {
+  wall_removed: 'the wall',
+  home_destroyed: 'the house',
+  building_down: 'the building',
+  furniture_removed: 'the furniture',
+  person_pushed: 'the shoving',
+  bed_moved: 'the bed',
+  caught_on_privy: 'the privy',
+  caught_bathing: 'the bath',
+  caught_praying: 'the prayer',
+  theft: 'the theft',
+  shove: 'the shoving',
+  betrayal: 'the secret',
+  quarrel: 'the quarrel',
+  crush: 'the affair',
+  jealous: 'the affair',
+  brawl: 'the fight'
+};
+for (const k of Object.keys(EV_MATTER)) if (REG.has('event', k)) REG.get('event', k).matter = EV_MATTER[k];

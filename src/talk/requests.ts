@@ -80,7 +80,7 @@ favReply(
     li.inv = li.inv || {};
     li.inv[k] = (li.inv[k] || 0) + 1;
     reqDone(li, sp, 'item', 'helped me when I had nothing');
-    lfEmit('help', { actor: sp, target: li, sev: 1, tags: ['kindness', 'help'], chron: false, text: `${sp.first} helped ${li.first}` });
+    lfEmit('help', { actor: sp, target: li, sev: 1, tags: ['kindness', 'help'], chron: false });
   },
   ['favour_thanks'],
   3

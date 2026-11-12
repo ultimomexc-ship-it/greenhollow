@@ -87,3 +87,19 @@ lx('ev1:caught_praying', 'plain', 'I took the wall down and found {t} at prayer'
 lx('ev1:theft', 'plain', 'I stole from {t}');
 lx('ev1:shove', 'plain', 'I pushed {t} around');
 lx('ev1:betrayal', 'plain', "I told {t}'s secret");
+
+// event wording for the crime and the watch (TE.text)
+lx('ev:breakin', 'plain', "{a} broke into {t}'s house");
+lx('ev:pickpocket', 'plain', "{a} picked {t}'s pocket");
+lx('ev:robbed', 'plain', '{a} robbed {t}');
+lx('ev:cheat', 'plain', '{t} caught {a} cheating at dice');
+lx('ev:bribe', 'plain', '{a} bribed the watchman {t}');
+lx('ev:escape', 'plain', '{a} was caught picking the lock of the cells');
+lx('ev:fined', 'plain', 'The watch fined {a}');
+lx('ev:sabotage', 'plain', "{a} wrecked {t}'s work");
+lx('ev:snoop', 'plain', "{a} was seen rummaging through {t}'s things");
+lx('ev:blockdoor', 'plain', "{a} blocked {t}'s door");
+lx('ev:shutin', 'plain', '{a} shut {t} in');
+lx('ev:report', 'plain', '{a} reported {t} to the watch');
+lx('ev:confront', 'plain', '{a} confronted {t} in front of everyone');
+lx('ev:confront', 'plain', '{a} confronted {t} in front of everyone over {matter}');

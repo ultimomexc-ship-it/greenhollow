@@ -89,7 +89,7 @@ LXI('joke', [
   'There is a gull that stands outside the bakery. I think it is in management.',
   'I planted a turnip and told it the plan. It has not commented.',
   'I found a very good stone earlier. I put it down again. That is the whole story and I stand by it.',
-  'Someone asked if I had a map. I said the island was the map. He said it was a poor map. We shook on it.',
+  'Someone asked if I had a map. I said the island was the map. He said it was a poor one.',
   "My bed and I have an understanding. It is mine in the evening and the floor's in the morning.",
   'I tried to whistle a tune I do not know. A bird answered with the same tune. I have not whistled since.'
 ]);
@@ -137,3 +137,15 @@ lxi('mutter', 'Hot enough. It is always hot enough, and then it is hotter.', { h
 lxi('mutter', 'Where did that go. It was here. It was right here.');
 lxi('mutter', 'Nearly done. I have said that all day and it has not been false once.');
 lxi('mutter', 'Back to it. The work does not know it is being watched.');
+LXI(
+  'laugh',
+  [
+    'Ha.',
+    'Ha. That one will keep.',
+    'Ha. I did not see that coming.',
+    'Hm. Ha.',
+    'Ha. I needed that.',
+    'Ha. That was good. I will not say so twice.'
+  ],
+  {}
+);

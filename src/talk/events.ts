@@ -3,7 +3,7 @@
    (`share_news`) moves them from person to person as *versions*: a little less sure each time, and sometimes changed by the one who tells it.
    An event memory: { kind: 'saw' | 'did' | 'felt' | 'told' | 'overheard', ev, evk, conf (0..1), imp (0..1), from, hop, ver: { who, sev, note? }, told: [ids] }. */
 
-const TE = {
+const TE: any = {
   /** how much it matters to this person: how bad or good, how juicy, and whether it touches somebody they know */
   importance(n: any, ev: any): number {
     let spice = 0,
@@ -55,7 +55,12 @@ const TE = {
           .replace(/\{place\}/g, ev.place || 'a building');
       }
     }
-    const tpl = LEX.filter(e => e.act === 'ev:' + ev.kind && e.pack === 'plain');
+    const cause = ev.cause != null ? lf2EvById(ev.cause) : null,
+      matter = cause && REG.get('event', cause.kind) ? REG.get('event', cause.kind).matter : null;
+    const fits = (pk: string) => LEX.filter(e => e.act === 'ev:' + ev.kind && e.pack === pk && (matter || !e.text.includes('{matter}')));
+    const pack = typeof town !== 'undefined' && town && town.pack === 'island' ? 'island' : 'plain';
+    let tpl = fits(pack);
+    if (!tpl.length) tpl = fits('plain');
     if (tpl.length) {
       const e = tpl[ev.id % tpl.length];
       // the same event reads the same way every time it is shown; the teller is "I" and the listener "you" wherever the story names them
@@ -68,10 +73,13 @@ const TE = {
         .replace(/\{(a|t)\}('s)?/g, (m: string, k: string, ps: string, at: number, text: string) =>
           name(k === 'a' ? a : t, 'someone', at, text, !!ps)
         )
+        .replace(/\{matter\}/g, matter || 'it')
         .replace(/\{place\}/g, ev.place || 'a building');
       return out.replace(/\byou was\b/g, 'you were').replace(/\bI were\b/g, 'I was');
     }
-    // an event kind with no template yet: the old sentence, with the blamed name put in
+    // an event kind with no template yet: the old sentence, with the blamed name put in (counted: the aim is none)
+    TE.fallbacks = (TE.fallbacks || 0) + 1;
+    (TE.fallbackKinds || (TE.fallbackKinds = {}))[ev.kind] = 1;
     let tx = String(ev.text || ev.kind);
     const real = ev.actor != null ? lf2By(ev.actor) : null;
     if (real && a !== real) tx = tx.replace(new RegExp('\\b' + real.first + '\\b', 'g'), a ? a.first : 'someone');

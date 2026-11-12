@@ -127,10 +127,10 @@ function itPickLock(n, r) {
   for (const q of inside) if (Math.random() < (q.pose === 'sleep' ? (lf2Has(q, 'anxious') ? 0.25 : 0.06) : 0.5)) heard = q;
   if (Math.random() < 0.3) { n.bag.lockpick = left - 1; playerSay(n, 'Snap. The lockpick broke in the lock.' + (left - 1 > 0 ? '' : ' That was the last one.')); return; }
   if (heard) { if (heard.pose === 'sleep') { heard.pose = 'stand'; abortPlan(heard); } lfShout(heard, anyOf(['Who\'s there?!', 'I hear you! Get away from my door!', 'Thieves! Wake up, everyone!']));
-    lfEmit('breakin', { actor: n, target: heard, sev: 2, loud: true, tags: ['trespass', 'crime'], text: `${n.first} tried to break into ${r.name} in the night` }); return; }
+    lfEmit('breakin', { actor: n, target: heard, sev: 2, loud: true, tags: ['trespass', 'crime'] }); return; }
   if (Math.random() < 0.35) { playerSay(n, 'It won\'t give. Try again.'); return; }
   r.unbarred = dayN() + ':' + n.id; playerSay(n, 'Click. The bar lifts.');
-  lfEmit('breakin', { actor: n, target: lf2RoomHead(r), sev: 2, aware: false, tags: ['trespass', 'crime'], chron: false, text: `${n.first} picked the lock of ${r.name} in the night` });
+  lfEmit('breakin', { actor: n, target: lf2RoomHead(r), sev: 2, aware: false, tags: ['trespass', 'crime'], chron: false });
 }
 LF2.pre.unshift({ player(n, p, fx, fy) {
   if (!n.belt || !LF2.on('nightlocks') || !lf2Night() || !grid[fy] || grid[fy][fx] !== T.DOOR) return null;

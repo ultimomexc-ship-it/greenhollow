@@ -86,8 +86,7 @@ function meddleFlush() {
       witnessIds: wit,
       place: r.place || undefined,
       chron: false,
-      loud: true,
-      text: `${by.first} ${r.kind}`
+      loud: true
     });
     for (const p of ps.filter((q2: any) => q2.exposure)) {
       const v = lf2By(p.id);
@@ -103,8 +102,7 @@ function meddleFlush() {
         sawActor: seen,
         witnessIds: wit,
         chron: true,
-        loud: true,
-        text: `${v.first} was caught out when ${by.first} knocked the wall out`
+        loud: true
       });
       v.mood = Math.max(0, (v.mood == null ? 60 : v.mood) - 10);
       if (wit.length >= 2) chron(`${MEDDLE_INCIDENT[p.exposure]}: ${v.first} was found out when the wall came down.`, 'note');

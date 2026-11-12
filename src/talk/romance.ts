@@ -81,7 +81,7 @@ ACTS.declare = {
   apply: (c: any, sp: any, li: any) => {
     c.done.declare = 1;
     romSet(sp, 'declare' + li.id, 12);
-    lfEmit('crush', { actor: sp, target: li, sev: 1, tags: ['romance'], chron: false, text: `${sp.first} told ${li.first} how they feel` });
+    lfEmit('crush', { actor: sp, target: li, sev: 1, tags: ['romance'], chron: false });
   },
   replies: ['declare_return', 'declare_gentle']
 };

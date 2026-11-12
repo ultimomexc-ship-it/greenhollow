@@ -200,3 +200,14 @@ LXP(
   { shared: 'yes' }
 );
 LXP('empathise', ['That sounds awful.', 'Poor you.', "I'm sorry. That's hard."]);
+LXP(
+  'sympathise_how',
+  [
+    'I am sorry to hear it.',
+    'Sit down a while. Go on.',
+    'That sounds like a long day.',
+    'Have something to eat. See how you feel after.',
+    "Try to rest. It'll look better later."
+  ],
+  {}
+);

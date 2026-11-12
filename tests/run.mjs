@@ -1398,11 +1398,11 @@ test('stalls and the bakery, from the villagers\' side: keepers call out to pass
   await page.evaluate(() => { newTown('farm-bake-test', 'farm'); TALK.words = true; });
   const r0 = await page.evaluate(() => ({ kinds: [...new Set(rooms.filter(q => !q.dead).map(q => q.kind))].sort().join(','), baker: npcs.filter(n => n.job === 'Baker').length, bakerOn: modOn('job.Baker') }));
   check(r0.kinds === 'bakery,house,privy' && r0.baker === 1 && r0.bakerOn, 'the farming village has a bakery and a baker: ' + JSON.stringify(r0));
-  await simulate(page, 5 * 1440);
+  await simulate(page, 8 * 1440);   // (households have little coin in the farming village and buy bread once a morning when they can: five days sat at the edge of two sales)
   const r = await page.evaluate(() => {
     const calls = TALK.log.filter(l => l.acts.some(a => a.act === 'keeper_call')), keepers = new Set(merchants.map(m => m.n.id).concat(npcs.filter(n => n.job === 'Baker').map(n => n.id)));
     const bread = TALK.log.filter(l => l.acts.some(a => a.act === 'shop_greet') && l.lines && l.lines.some(t => /bread/.test(t)));
-    const dg = LIFE.digest(5).kinds, bk = lf2Room('bakery');
+    const dg = LIFE.digest(8).kinds, bk = lf2Room('bakery');
     return { calls: calls.length, callsOk: calls.every(l => keepers.has(l.a) && l.lines && l.lines[0] && !/[{}]|undefined/.test(l.lines[0])), sample: calls.slice(0, 2).map(l => l.lines.join(' | ')), bread: bread.length, baked: dg.baked || 0, breadBought: LIFE.stream.filter(e => e.kind === 'bought' && e.data.item === 'bread').length, dead: npcs.filter(n => n.dead).length, stock: bk && lf2Stock(bk).bread };
   });
   check(r.calls >= 3 && r.callsOk, 'keepers call out to people passing: ' + r.calls + ' ' + JSON.stringify(r.sample));
@@ -1615,7 +1615,7 @@ test('secrets: friends confide what few know, a secret is not gossip, the gossip
     const bet = lf2Ev().find(e => e.kind === 'betrayal' && e.actor === B.id && e.target === A.id); out.betrayal = !!bet; out.cooled = A.aff[B.id] < a0;
     const hold = deedPick(A, B); out.raises = !!hold && deedYou(hold.ev, A).indexOf('secret') >= 0;
     return out; });
-  check(r.has && r.when && r.kept && r.reply && !r.once && /Please keep|Nobody else|stay with you|first person/.test(r.line), 'a friend confides a deed nobody knows, once, and the listener keeps it: ' + JSON.stringify([r.has, r.when, r.kept, r.reply, r.once, r.line]));
+  check(r.has && r.when && r.kept && r.reply && !r.once && /Please keep|Nobody else|stay with you|Keep it with you|first person|first I have told/.test(r.line), 'a friend confides a deed nobody knows, once, and the listener keeps it: ' + JSON.stringify([r.has, r.when, r.kept, r.reply, r.once, r.line]));
   check(r.gossip === 0, 'a secret is not gossip: ' + r.gossip);
   check(r.queued && r.betrayal && r.cooled && r.raises, 'passing it on is a leak that comes back as a betrayal, thought the worse of and raised: ' + JSON.stringify([r.queued, r.betrayal, r.cooled, r.raises]));
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
@@ -1913,6 +1913,37 @@ test('registers are lines: a formal speaker says formal lines, a warm one warm l
   check(!r.regs.warm || r.regs.warm.some(t => r.warm.includes(t)), 'a warm speaker says a warm greeting: ' + JSON.stringify(r.regs.warm.slice(0, 4)));
   check(!r.regs.dry || !r.regs.dry.some(t => r.formal.includes(t) || r.warm.includes(t)), 'a dry speaker says neither: ' + JSON.stringify(r.regs.dry.slice(0, 4)));
   check(!r.hasFormalTable, 'the find-and-replace table is gone');
+  check(!errors.length, 'no errors: ' + errors.join(' | '));
+  await page.close();
+});
+
+test('no opinions asked about somebody\'s own spouse, parent or child; asking after the family covers them', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    const ps = npcs.filter(n => !n.dead && !n.player && n.age >= 25 && !n.infant), A = ps[0], Z = ps[1], B = ps[2];
+    A.fam = Object.assign({}, A.fam, { spouse: Z.id }); Z.fam = Object.assign({}, Z.fam, { spouse: A.id }); B.aff[Z.id] = 40; B.know[A.id] = 40; B.know[Z.id] = 40; B.aff[A.id] = 30;
+    let asked = 0, drew = 0; for (let i = 0; i < 80; i++) { const o = peopleAbout(B, A, 'view'); if (o) { drew++; if (o === Z) asked++; } }
+    const c = { done: {}, turns: [], left: {} }; let fam = false; for (let i = 0; i < 20 && !fam; i++) fam = !!talkBind(c, B, A, 'ask_family');
+    return { asked, drew, fam, skip: peopleSkip(Z, A, B), near: peopleNear(Z, A) };
+  });
+  check(r.asked === 0 && r.skip === true && r.near === true, 'B is never sent to ask A what A makes of A\'s own spouse: ' + JSON.stringify(r));
+  check(r.fam, 'asking after the family is available instead');
+  check(!errors.length, 'no errors: ' + errors.join(' | '));
+  await page.close();
+});
+
+test('every act the player can say or answer with has a menu label in a known group, naming only about, item or news', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    const reps = new Set(); for (const id of Object.keys(ACTS)) for (const x of (ACTS[id].replies || [])) reps.add(x);
+    const SHOP = /^(shop_greet|shop_greet_back|ask_item|quote_price|pay_ok|thank_shop|farewell_shop|cant_afford|make_do|no_stock|offer_goods|bid_price|accept_deal|no_demand|new_stock_remark|keeper_call|call_reply)$/;
+    const ids = Object.keys(ACTS).filter(id => ACTS[id].kind !== 'ritual' && !SHOP.test(id) && ((ACTS[id].stage === 'topic' && !ACTS[id].reply) || reps.has(id)) && !['cry_deed', 'mutter', 'call_child', 'gift_from_nobody', 'gift_anon_reply'].includes(id));
+    const missing = ids.filter(id => !PT_LABEL[id]), badGroup = ids.filter(id => PT_LABEL[id] && !PT_GROUPS.includes(PT_LABEL[id][0])), badSlot = ids.filter(id => PT_LABEL[id] && (PT_LABEL[id][1].match(/\{(\w+)\}/g) || []).some(x => !['{about}', '{item}', '{news}'].includes(x)));
+    const long = ids.filter(id => PT_LABEL[id] && PT_LABEL[id][1].replace(/\{\w+\}/g, 'xxxxxx').length > 40);
+    return { n: ids.length, missing, badGroup, badSlot, long };
+  });
+  check(r.missing.length === 0, 'every act has a label (' + r.n + ' acts); missing: ' + JSON.stringify(r.missing));
+  check(r.badGroup.length === 0 && r.badSlot.length === 0 && r.long.length === 0, 'groups known, slots only about/item/news, labels short: ' + JSON.stringify([r.badGroup, r.badSlot, r.long]));
   check(!errors.length, 'no errors: ' + errors.join(' | '));
   await page.close();
 });

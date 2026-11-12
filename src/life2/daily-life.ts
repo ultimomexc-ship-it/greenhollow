@@ -77,7 +77,7 @@ LF2.tickers.push(() => {
     } else n.lf2Paid = false;
     if (n.clean < 6 && n.pose !== 'sleep' && !n.player && (n.lf2Smell || 0) < game.time) {
       const near = npcs.filter(o => o !== n && !o.dead && o.pose !== 'sleep' && lfDist(o, n) <= 2 && o.age >= 6);
-      if (near.length && Math.random() < 0.12) { n.lf2Smell = game.time + 1440; const o = anyOf(near); lfAff(o, n, -1); lfEmit('smelly', { actor: n, target: o, sev: 1, tags: ['smelly'], chron: false, text: `${n.first} smells like a midden` }); if (Math.random() < 0.5) lfShout(o, anyOf(['*sniff* ...is that you?', 'Phew. Have you been rolling in something?'])); }
+      if (near.length && Math.random() < 0.12) { n.lf2Smell = game.time + 1440; const o = anyOf(near); lfAff(o, n, -1); lfEmit('smelly', { actor: n, target: o, sev: 1, tags: ['smelly'], chron: false }); if (Math.random() < 0.5) lfShout(o, anyOf(['*sniff* ...is that you?', 'Phew. Have you been rolling in something?'])); }
     }
   }
 });
@@ -118,14 +118,14 @@ function lf2Dice(a, b, stake, cheat) {
   const aw = Math.random() < (cheat ? 0.78 : 0.5), win = aw ? a : b, lose = aw ? b : a;
   win.coin += st; lose.coin -= st;
   const caught = cheat && aw && Math.random() < (lf2Has(b, 'curious') ? 0.5 : 0.3) * (b.drunk > 50 ? 0.5 : 1);
-  lfEmit('dice', { actor: win, target: lose, sev: 1, tags: ['gamble'], chron: false, text: `${win.first} won ${st} denarii off ${lose.first} at dice` });
-  if (caught) { lfEmit('cheat', { actor: a, target: b, sev: 2, loud: true, tags: ['deceit', 'crime'], text: `${b.first} caught ${a.first} cheating at dice` }); if (!b.player && (lf2Has(b, 'brave') || lf2Has(b, 'grumpy') || b.drunk > 60) && Math.random() < 0.5) lf2Brawl(b, a); }
+  lfEmit('dice', { actor: win, target: lose, sev: 1, tags: ['gamble'], chron: false });
+  if (caught) { lfEmit('cheat', { actor: a, target: b, sev: 2, loud: true, tags: ['deceit', 'crime'] }); if (!b.player && (lf2Has(b, 'brave') || lf2Has(b, 'grumpy') || b.drunk > 60) && Math.random() < 0.5) lf2Brawl(b, a); }
   return { win, lose, st, caught };
 }
 function lf2Brawl(a, b) {
   if (a.dead || b.dead || a.jail || b.jail) return;
   lfShout(a, anyOf(['That is it! Outside!', 'Say that again!', 'You want a fight? You have got one!']));
-  lfEmit('brawl', { actor: a, target: b, sev: 2, loud: true, tags: ['violence', 'drunk'], text: `${a.first} started a brawl with ${b.first}${town.tavern ? ' at ' + town.tavern.name : ''}` });
+  lfEmit('brawl', { actor: a, target: b, sev: 2, loud: true, tags: ['violence', 'drunk'] });
   for (const o of [a, b]) { if (!o.player) { abortPlan(o); o.plan = [waitS(6, 'work', 'Brawling!', { nopie: true, tool: null })]; o.si = 0; o.stepStarted = false; } lfMod(o, 'brawl', 'bruised from a brawl', -8, 700); o.drunk = Math.max(0, (o.drunk || 0) - 20); }
   lfAff(a, b, -15); lfAff(b, a, -15);
 }
@@ -141,8 +141,8 @@ LF2.tickers.push(() => {
     if ((n.drunk || 0) >= 65 && !n.player && Math.random() < 0.04 && (n.lf2DrunkT || 0) < game.time) {
       n.lf2DrunkT = game.time + 90; const loud = h >= 22 || h < 5;
       const k = Math.random();
-      if (k < 0.45) { lfShout(n, anyOf(['♪ Oh the shepherd had a goat, and the goat had a... hic ♪', '♪ Drink to the emperor! Drink to his horse! ♪', '♪ Laaa la la LAAA ♪'])); lfEmit('sing', { actor: n, sev: 1, loud, tags: loud ? ['drunk', 'nuisance'] : ['drunk', 'funny'], chron: false, text: `${n.first} sang at the top of ${cvPron(n).his} voice, very drunk` }); }
-      else if (k < 0.75) { lfShout(n, anyOf(['Whoops! Who moved the floor?', '*hic* I am FINE.', 'I love you all. Every one of you.'])); lfEmit('stumble', { actor: n, sev: 1, tags: ['drunk', 'embarrass'], chron: false, text: `${n.first} fell flat on their face, drunk` }); }
+      if (k < 0.45) { lfShout(n, anyOf(['♪ Oh the shepherd had a goat, and the goat had a... hic ♪', '♪ Drink to the emperor! Drink to his horse! ♪', '♪ Laaa la la LAAA ♪'])); lfEmit('sing', { actor: n, sev: 1, loud, tags: loud ? ['drunk', 'nuisance'] : ['drunk', 'funny'], chron: false }); }
+      else if (k < 0.75) { lfShout(n, anyOf(['Whoops! Who moved the floor?', '*hic* I am FINE.', 'I love you all. Every one of you.'])); lfEmit('stumble', { actor: n, sev: 1, tags: ['drunk', 'embarrass'], chron: false }); }
       else { const foe = inT.find(o => o !== n && ((n.aff[o.id] || 0) <= -5 || ((o.drunk || 0) > 70 && Math.random() < 0.25)) && !o.player); if (foe) lf2Brawl(n, foe); }
     }
   }
@@ -164,11 +164,11 @@ LF2.verbs.push((n, x, y, o, add) => {
   if (barred) add('Pick the lock', nn => {
     const inside = npcs.filter(q => !q.dead && lf2InRoom(q, r)); let heard = null;
     for (const q of inside) if (Math.random() < (q.pose === 'sleep' ? (lf2Has(q, 'anxious') ? 0.3 : 0.08) : 0.6)) heard = q;
-    if (heard) { if (heard.pose === 'sleep') { heard.pose = 'stand'; abortPlan(heard); } lfShout(heard, anyOf(['Who is there?!', 'I hear you! Get away from my door!', 'Thieves! Wake up, everyone!'])); lfEmit('breakin', { actor: nn, target: heard, sev: 2, loud: true, tags: ['trespass', 'crime'], text: `${nn.first} tried to break into ${r.name} in the night` }); lf2Say(nn, 'Somebody heard you!'); return; }
+    if (heard) { if (heard.pose === 'sleep') { heard.pose = 'stand'; abortPlan(heard); } lfShout(heard, anyOf(['Who is there?!', 'I hear you! Get away from my door!', 'Thieves! Wake up, everyone!'])); lfEmit('breakin', { actor: nn, target: heard, sev: 2, loud: true, tags: ['trespass', 'crime'] }); lf2Say(nn, 'Somebody heard you!'); return; }
     r.unbarred = dayN() + ':' + nn.id; lf2Say(nn, 'Click. The bar lifts.');
-    lfEmit('breakin', { actor: nn, target: lf2RoomHead(r), sev: 2, aware: false, tags: ['trespass', 'crime'], chron: false, text: `${nn.first} picked the lock of ${r.name} in the night` });
+    lfEmit('breakin', { actor: nn, target: lf2RoomHead(r), sev: 2, aware: false, tags: ['trespass', 'crime'], chron: false });
   }, 12, 'Picking the lock', 'pick');
-  add('Knock', nn => { const q = npcs.find(q => !q.dead && lf2InRoom(q, r) && q.pose !== 'sleep'); lf2Say(nn, q ? `${q.first} calls out: "${barred ? 'We are in bed! Go away.' : 'It is open, come in.'}"` : 'No answer.'); if (barred && q) lfEmit('knock', { actor: nn, target: q, sev: 1, tags: ['nuisance'], chron: false, text: `${nn.first} came knocking at ${r.name} in the middle of the night` }); });
+  add('Knock', nn => { const q = npcs.find(q => !q.dead && lf2InRoom(q, r) && q.pose !== 'sleep'); lf2Say(nn, q ? `${q.first} calls out: "${barred ? 'We are in bed! Go away.' : 'It is open, come in.'}"` : 'No answer.'); if (barred && q) lfEmit('knock', { actor: nn, target: q, sev: 1, tags: ['nuisance'], chron: false }); });
   return r.name + (barred ? ' · barred' : '');
 });
 
@@ -185,7 +185,7 @@ function lf2RomanceDaily() {
     const c = npcs.filter(o => o !== n && !o.dead && o.age >= 17 && o.age < 55 && o.female !== n.female && !isKin(n, o) && o !== sp && (n.aff[o.id] || 0) >= (sp ? 35 : 22)).sort((a, b) => (n.aff[b.id] || 0) - (n.aff[a.id] || 0))[0];
     if (!c || Math.random() > (sp ? 0.25 : 0.4)) continue;
     n.crush = c.id; addMem(n, 'crush', `the day I realised I had feelings for ${c.first}`, null, c.id);
-    if (sp) lfEmit('crush', { actor: n, target: c, sev: 1, tags: ['romance'], witnessIds: [], aware: false, chron: false, text: `${n.first} has fallen for ${c.first}, though they are married to ${sp.first}` });
+    if (sp) lfEmit('crush', { actor: n, target: c, sev: 1, tags: ['romance'], witnessIds: [], aware: false, chron: false });
   }
 }
 function lf2TrystPlan(n, tod) {
@@ -202,7 +202,7 @@ function lf2TrystPlan(n, tod) {
   recruit(c, [goS(s2, sp ? 'Slipping out quietly' : `Meeting ${n.first}`), waitS(35, 'stand', sp ? `Meeting ${n.first} in secret` : `Walking out with ${n.first}`, { social: true, nopie: true })], game.time + 90);
   return [goS(spot, sp ? 'Slipping out quietly' : `Meeting ${c.first}`), waitS(35, 'stand', sp ? `Meeting ${c.first} in secret` : `Walking out with ${c.first}`, { social: true, nopie: true, onEnd(nn) {
     if (lfDist(nn, c) > 3) return; bumpAff(nn, c, 6, 12); lfMod(nn, 'tryst', 'giddy after time with ' + c.first, 8, 500);
-    lfEmit(sp ? 'tryst' : 'courting', { actor: nn, target: c, sev: sp ? 2 : 1, x: nn.tx, y: nn.ty, tags: sp ? ['romance', 'affair', 'scandal'] : ['romance'], chron: false, text: sp ? `${nn.first} was seen kissing ${c.first} in secret, behind ${sp.first}'s back` : `${nn.first} and ${c.first} were seen walking out together` });
+    lfEmit(sp ? 'tryst' : 'courting', { actor: nn, target: c, sev: sp ? 2 : 1, x: nn.tx, y: nn.ty, tags: sp ? ['romance', 'affair', 'scandal'] : ['romance'], chron: false });
   } })];
 }
 LF2.dec.push(lf2TrystPlan);
@@ -218,13 +218,13 @@ LF2.dec.push(function (n) {
   if (!n.lf2Confront || n.player) return null; const a = byId(n.lf2Confront.who); const ev = n.lf2Confront.ev; n.lf2Confront = null; if (!a || a.dead || a.jail) return null;
   return [goS(() => { const b = besideTile(a.tx, a.ty, null); return b ? { x: b.x, y: b.y, face: { dx: Math.sign(a.tx - b.x), dy: Math.sign(a.ty - b.y) } } : null; }, `Storming off to find ${a.first}`),
     waitS(5, 'stand', `Having it out with ${a.first}`, { nopie: true, onEnd(nn) { if (lfDist(nn, a) > 3) return; say(nn, a, [[nn, anyOf([`How could you?! Everyone knows!`, `I heard all about it. Do not even try to deny it.`])], [a, anyOf(['It is not what you think!', 'Keep your voice down!', 'I... I am sorry.'])]]);
-      lfEmit('quarrel', { actor: nn, target: a, sev: 2, loud: true, tags: ['scandal', 'embarrass'], cause: ev, text: `${nn.first} screamed at ${a.first} in front of everyone about the affair` }); lfAff(a, nn, -10); } })];
+      lfEmit('quarrel', { actor: nn, target: a, sev: 2, loud: true, tags: ['scandal', 'embarrass'], cause: ev }); lfAff(a, nn, -10); } })];
 });
 /* jealousy: seeing your crush walking out with someone else */
 LF2.react.push(function (o, ev, j, c, first) {
   if (!LF2.on('romance') || !first || !ev.tags.includes('romance') || o.player) return;
   const a = lf2By(ev.actor), t = lf2By(ev.target); if (!a || !t) return;
-  for (const [x, y] of [[a, t], [t, a]]) if (o.crush === x.id && y !== o) { lfAff(o, y, -12); lfMod(o, 'jealous', `jealous of ${y.first}`, -10, 900); if (Math.random() < 0.5) lfEmit('jealous', { actor: o, target: y, sev: 1, tags: ['jealous'], chron: false, text: `${o.first} is eaten up with jealousy over ${x.first} and ${y.first}` }); }
+  for (const [x, y] of [[a, t], [t, a]]) if (o.crush === x.id && y !== o) { lfAff(o, y, -12); lfMod(o, 'jealous', `jealous of ${y.first}`, -10, 900); if (Math.random() < 0.5) lfEmit('jealous', { actor: o, target: y, sev: 1, tags: ['jealous'], chron: false }); }
 });
 LF2.hourly.push(h => { if (h === 9) lf2RomanceDaily(); });
 
@@ -234,8 +234,7 @@ LF2.tickers.push(() => {
     if (n.dead || !n.trapped || n.trapped.lf2) continue;
     const t = n.trapped, pr = t.prop; t.lf2 = true;
     const by = pr && pr.by != null ? byId(pr.by) : null, pe = pr && pr.pushEv ? lf2EvById(pr.pushEv) : null;
-    lfEmit('shutin', { actor: by, target: n, sev: 2, anon: true, sawActor: pe ? pe.witnesses : (pr && pr.seen) || [], cause: pe ? pe.id : null, tags: by ? ['harm', 'prank'] : ['misfortune'], chron: false,
-      text: by ? `${by.first} shut ${n.first} in with a ${LF_NOUN[pr.kind]}` : `${n.first} got shut in by a ${pr ? LF_NOUN[pr.kind] : 'crate'}`, anonText: `Somebody shut ${n.first} in with a ${pr ? LF_NOUN[pr.kind] : 'crate'}` });
+    lfEmit('shutin', { actor: by, target: n, sev: 2, anon: true, sawActor: pe ? pe.witnesses : (pr && pr.seen) || [], cause: pe ? pe.id : null, tags: by ? ['harm', 'prank'] : ['misfortune'], chron: false, anonText: `Somebody shut ${n.first} in with a ${pr ? LF_NOUN[pr.kind] : 'crate'}` });
   }
 });
 
