@@ -51,6 +51,7 @@ const TALK_PURPOSE = [
 function talkBind(c: any, sp: any, li: any, id: string): any {
   const A = ACTS[id];
   if (!A) return null;
+  if (A.minAge && sp.age != null && sp.age < A.minAge && !sp.player) return null; // children say only what children say (talk/ages.ts)
   const view = Object.create(c);
   if (!A.when(view, sp, li)) return null;
   const bind: any = {};

@@ -94,6 +94,7 @@
   "talk/player.ts",
   "talk/barks.ts",
   "talk/schedule.ts",
+  "talk/ages.ts",
   "talk/words/helpers.ts",
   "talk/words/plain-ritual.ts",
   "talk/words/plain-life.ts",

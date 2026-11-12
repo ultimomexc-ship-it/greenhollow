@@ -23,7 +23,7 @@ await page.evaluate(([scenario]) => {
   newTown('playtest', world); if (scenario === 'romance' || scenario === 'meddle' || scenario === 'social') MODS.all();
   TALK.words = true; window.__T = []; window.__B = [];
   const orig = talkFinish;
-  talkFinish = function (c, a, b, listened) { const n0 = TALK.log.length; orig(c, a, b, listened); const e = TALK.log[TALK.log.length - 1]; if (e && TALK.log.length >= n0) window.__T.push({ t: game.time, a: a.first, b: b.first, place: (typeof placeOf === 'function' ? placeOf(a) : ''), acts: e.acts.map(x => x.act), subj: e.acts.map(x => x.x && x.x.about), lines: e.lines || [], kind: e.player ? 'player' : 'npc' }); };
+  talkFinish = function (c, a, b, listened) { const n0 = TALK.log.length; orig(c, a, b, listened); const e = TALK.log[TALK.log.length - 1]; if (e && TALK.log.length >= n0) window.__T.push({ t: game.time, a: a.first, b: b.first, place: (typeof placeOf === 'function' ? placeOf(a) : ''), acts: e.acts.map(x => x.act), subj: e.acts.map(x => x.x && x.x.about), kidActs: e.acts.filter(x => { const q = x.by != null ? byId(x.by) : null; return q && q.age < 12; }).map(x => x.act), lines: e.lines || [], kind: e.player ? 'player' : 'npc' }); };
   startPlaying(npcs.filter(n => !n.dead && n.age >= 18 && !n.infant)[0]);
   if (scenario === 'romance') {   // three couples in the making: one-sided, mutual, and one already walking out a while
     const singles = npcs.filter(n => !n.dead && !n.player && n.age >= 17 && n.age < 45); const ms = singles.filter(n => !n.female), fs = singles.filter(n => n.female), pairs = [];
@@ -134,6 +134,11 @@ const menuLines = [...new Set(data.menu)].map(m => ({ text: m.split(' :: ').slic
 // number agreement: a plural item name (cabbage seeds, beans) next to is/does/has/was
 if (data.plurals.length) { const pl = data.plurals.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), agree = new RegExp('\\b(?:' + pl + ') (?:is|does|has|was)\\b|\\b(?:there (?:is|was)|what (?:does|is)) (?:the )?(?:' + pl + ')\\b', 'i'); rules.push(['number agreement', agree]); }
 const issues = {}; for (const r of [...lines, ...bots, ...menuLines]) for (const [name, rx] of rules) if (rx.test(r.text)) (issues[name] = issues[name] || []).push(name === 'empty' ? 'acts: ' + (r.t ? r.t.acts.join(',') : r.menu ? 'menu ' + r.act : 'bot ' + (r.act || '')) : (r.menu ? '[menu ' + r.act + '] ' : '') + r.text);
+
+// children (under twelve) may say only what children say: any act of theirs outside this list is reported
+const KID_OK = /^(greet|greet_back|farewell|farewell_back|pre_close|backchannel|ask_how|answer_how|sympathise_how|share_gladness|remark_\w+|joke|laugh|groan|wonder|wonder_reply|ask_family|answer_family|ask_where|tell_where|dont_know_where|thanks_where|ask_day|ask_more_day|report_day|nothing_much|acknowledge|empathise|agree|callback|callback_answer|offer_gift|gift_\w+|tell_preference|hint_noted|brag_child|call_child|mutter|ask_why_state|explain_state|explain_unknown|raise_deed|cry_deed|deed_\\w+|quote_price|pay_ok|thank_shop|cant_afford|no_stock|no_demand|make_do|accept_deal|offer_goods|bid_price|call_reply|keeper_call|shrug_off|share_news|ask_news|no_news|react_\w+|ask_item|shop_greet\w*|farewell_shop)$/;
+const kidBad = []; for (const t of data.T) for (const a of (t.kidActs || [])) if (!KID_OK.test(a)) kidBad.push(a + ' (' + t.a + ' & ' + t.b + ')');
+if (kidBad.length) issues['children said'] = kidBad;
 // a time-of-day word said at the wrong hour (bands: morning 5-11, day 11-17, evening 17-22, night)
 const TOD = [[/^(?:good )?morning\b|\bthis morning\b/i, h => h >= 5 && h < 13], [/^(?:good )?afternoon\b|\bthis afternoon\b/i, h => h >= 11 && h < 19], [/^(?:good )?evening\b|\bthis evening\b|\btonight\b/i, h => h >= 16 || h < 5], [/\bsupper\b/i, h => h >= 14 && h < 23]];
 const hourOf = t => (((t.t || 0) % 1440) / 60);

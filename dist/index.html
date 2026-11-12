@@ -30713,6 +30713,7 @@ const TALK_PURPOSE = [
 function talkBind(c, sp, li, id) {
   const A = ACTS[id];
   if (!A) return null;
+  if (A.minAge && sp.age != null && sp.age < A.minAge && !sp.player) return null;
   const view2 = Object.create(c);
   if (!A.when(view2, sp, li)) return null;
   const bind = {};
@@ -31635,6 +31636,79 @@ function talkPass() {
   }
 }
 LF2.tickers.push(talkPass);
+const TALK_MINAGE = {
+  12: [
+    "praise",
+    "thank_praise",
+    "ask_price",
+    "tell_price",
+    "react_price",
+    "ask_opinion",
+    "give_opinion",
+    "no_view",
+    "no_view_g",
+    "gossip_person",
+    "agree_opinion",
+    "differ_opinion",
+    "tell_rep",
+    "rep_own",
+    "rep_deny",
+    "warn",
+    "warn_thanks",
+    "ask_advice",
+    "give_advice",
+    "confide",
+    "secret_keep",
+    "secret_alarmed",
+    "ask_favour",
+    "chase_favour",
+    "favour_give",
+    "favour_promise",
+    "favour_no",
+    "favour_thanks",
+    "favour_hopeful",
+    "apologise",
+    "accept_apology",
+    "reject_apology",
+    "vent",
+    "console",
+    "snap",
+    "snap_back",
+    "let_it_go",
+    "send_gift",
+    "deliver_yes",
+    "deliver_no",
+    "story_preface",
+    "story_invite",
+    "ask_work",
+    "answer_work",
+    "congratulate",
+    "ask_preference",
+    "hint_gift"
+  ],
+  16: [
+    "flirt",
+    "flirt_back",
+    "flirt_rebuff",
+    "declare",
+    "declare_return",
+    "declare_gentle",
+    "ask_to_walk",
+    "walk_yes",
+    "walk_later",
+    "walk_no",
+    "propose",
+    "propose_yes",
+    "propose_later",
+    "propose_no",
+    "glad_courtship",
+    "confront_jealous",
+    "jealous_explain",
+    "jealous_defiant",
+    "jealous_deny"
+  ]
+};
+for (const age of Object.keys(TALK_MINAGE)) for (const id of TALK_MINAGE[age]) if (ACTS[id]) ACTS[id].minAge = +age;
 const lxi = (act, text, tags, requires) => lx(act, "island", text, tags, requires);
 const kidl = (act, text, tags = {}) => {
   lx(act, "plain", text, Object.assign({ age: "child" }, tags));

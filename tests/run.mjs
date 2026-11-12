@@ -1866,6 +1866,22 @@ test('work clothes and bubbles: farmers wear a wide straw hat, miners a hard hat
   await page.close();
 });
 
+test('children say only what children say: no praise, prices, opinions of grown-ups or romance (minAge), but jokes, wonder and greetings', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    const kid = npcs.find(n => !n.dead && n.age >= 5 && n.age < 12 && !n.player), ad = npcs.find(n => !n.dead && n.age >= 25 && !n.player);
+    if (!kid || !ad) return { skip: true };
+    const c = () => ({ done: {}, turns: [], left: {} }), has = (sp, li, id) => { try { return !!talkBind(c(), sp, li, id); } catch (e) { return 'err'; } };
+    return { praise: has(kid, ad, 'praise'), price: has(kid, ad, 'ask_price'), flirt: has(kid, ad, 'flirt'), adultPraise: has(ad, kid, 'praise'), minPraise: ACTS.praise.minAge, minFlirt: ACTS.flirt.minAge, minPrice: ACTS.ask_price.minAge, remark: has(kid, ad, 'remark_time') };
+  });
+  if (!r.skip) {
+    check(r.praise === false && r.price === false && r.flirt === false, 'a child gets no binding for praise, prices or romance: ' + JSON.stringify(r));
+    check(r.minPraise === 12 && r.minFlirt === 16 && r.minPrice === 12, 'the ages are set on the acts (and survive acts redefined later): ' + JSON.stringify(r));
+  }
+  check(!errors.length, 'no errors: ' + errors.join(' | '));
+  await page.close();
+});
+
 test('bindings: asking whether something could be said never changes what is being said; a question and its answer are about the same person; a menu option says what it will say; no line is spoken with a gap in it', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {
