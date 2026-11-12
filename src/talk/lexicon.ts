@@ -40,7 +40,10 @@ function lxContext(sp: any, li: any, c: any) {
     rep: typeof repWord === 'function' ? repWord(sp, li) : undefined,
     age: sp.age < 12 ? 'child' : undefined,
     kid: li.age < 14 ? 'yes' : undefined,
-    menu: c.menu
+    menu: c.menu,
+    // the speaker has had the same trouble this week (so a line that claims "I know that one" is true): from their own day log
+    shared:
+      c.life && c.lifeTrouble && (sp.day || []).some((e: any) => e.kind === c.life.kind && game.time - e.t < 7 * 1440) ? 'yes' : undefined
   };
 }
 /** the values a line can use, from the speaker, the listener and what the turn carries. A slot with no value is undefined: a line that needs it is not said. */

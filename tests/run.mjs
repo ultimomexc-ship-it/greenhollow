@@ -1882,6 +1882,24 @@ test('children say only what children say: no praise, prices, opinions of grown-
   await page.close();
 });
 
+test('sympathy claims only what is true: a listener who had the same trouble this week may say "I know that one", one who did not may only sympathise', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    const ps = npcs.filter(n => !n.dead && !n.player && n.age >= 18 && !n.infant), A = ps[0], B = ps[1];
+    A.day = []; B.day = []; B.day.push({ t: game.time - 60, kind: 'slept_rough' });   // (B slept rough this week, A did not)
+    const c = { life: { kind: 'slept_rough', data: {} }, lifeTrouble: true, done: {}, turns: [], left: {} };
+    const said = (sp, li) => { const seen = new Set(); for (let i = 0; i < 60; i++) { for (const k of Object.keys(LX_RECENT)) delete LX_RECENT[k]; li.heard = {}; seen.add(lxSay('empathise', sp, li, c)); } return [...seen]; };
+    const noShared = said(A, B), withShared = said(B, A);
+    return { noShared, withShared, ctxA: lxContext(A, B, c).shared || null, ctxB: lxContext(B, A, c).shared || null };
+  });
+  const claim = /know that one|same here|me too|had that too|happened to me|same happened/i;
+  check(r.ctxA === null && r.ctxB === 'yes', 'the tag follows the day log: ' + JSON.stringify([r.ctxA, r.ctxB]));
+  check(!r.noShared.some(t => claim.test(t)), 'somebody who did not have the trouble never claims to know it: ' + JSON.stringify(r.noShared));
+  check(r.withShared.some(t => claim.test(t)), 'somebody who did may say so: ' + JSON.stringify(r.withShared.slice(0, 6)));
+  check(!errors.length, 'no errors: ' + errors.join(' | '));
+  await page.close();
+});
+
 test('bindings: asking whether something could be said never changes what is being said; a question and its answer are about the same person; a menu option says what it will say; no line is spoken with a gap in it', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

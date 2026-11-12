@@ -26,7 +26,6 @@ lx('acknowledge', 'plain', 'Busy, then.');
 lx('acknowledge', 'plain', 'I see.');
 lx('empathise', 'plain', 'That sounds rough.');
 lx('empathise', 'plain', "I'm sorry to hear it.");
-lx('empathise', 'plain', 'Ugh. I know that one.');
 lx('empathise', 'plain', 'You poor thing.', { rel: 'friend' });
 lx('empathise', 'plain', 'Somebody ought to do something about that.');
 lx('life:slept', 'plain', 'I slept well enough last night.');
@@ -188,3 +187,6 @@ LXLP('recovered', ["I'm over it. Back on my feet.", 'Feeling myself again, thank
 LXP('answer_how', ['Not well. Fever.', "Rough, to be honest. I'm ill.", "Poorly. I'll be all right."], { state: 'ill' });
 LXP('sympathise_how', ['You should be in bed. Go on.', 'Oh, you poor thing. Rest. I mean it.'], { state: 'ill' });
 LXP('vent', ['I feel dreadful. Hot and cold at once.'], { state: 'ill' });
+// sympathy that claims a shared trouble: only said by somebody who has had the same this week
+LXP('empathise', ['Ugh. I know that one.', "Same here, I'm afraid.", 'I had that too.', "That happened to me as well. It's no fun.", 'Me too. You have my sympathy.'], { shared: 'yes' });
+LXP('empathise', ['That sounds awful.', 'Poor you.', "I'm sorry. That's hard."]);
