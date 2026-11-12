@@ -91,10 +91,9 @@ await page.evaluate(([policy, seed]) => {
     const pl = P, day = +(game.time / 1440).toFixed(2), ppl = npcs.filter(n => !n.dead && n !== pl), st = B.steps, set = (k, ok) => { if (ok && st[k] == null) { st[k] = day; note('step reached: ' + k); } };
     const fam = ppl.filter(n => !n.shop).slice(0, 3), hh = town.yards.filter(y => y.open == null && yardPeople(y).length).length + (yardOfN(pl) ? 0 : 1);
     const roofed = ppl.every(n => rentTrader(n) || (yardHasBed(n) && rentHome(n).roof)), hungry = ppl.filter(n => n.hunger > 70).length, mood = ppl.reduce((s, n) => s + n.mood, 0) / Math.max(1, ppl.length);
-    set('1 shelter the family', fam.length === 3 && fam.every(n => yardOfN(n)) && town.rent && town.rent.total > 0);
-    set('2 first harvest sold', B.firstSale != null || ppl.some(n => !n.shop && (n.day || []).some(e => (e.kind || e.k) === 'sold')));
-    set('3 five households', hh >= 5); set('4 everyone under a roof', st['3 five households'] != null && roofed);
-    set('5 the island thrives', hh >= 12 && roofed && !hungry && mood > 60);
+    progTick(); const names = ['1 shelter the family', '2 first harvest sold', '3 five households', '4 everyone under a roof', '5 the island thrives'], done = (town.prog && town.prog.done) || {};   // (the game's own steps: life2/progress.ts)
+    for (let k = 1; k <= 5; k++) set(names[k - 1], done[k] != null);
+    if (town.decision && town.decision.kind === 'thrive') answerDecision('yes');
     return { hh, hungry, mood };
   };
   B.snap = () => {

@@ -136,3 +136,12 @@ Theft and the watch; bakery; wood; fishing; stone and mining; smith; tavern; bir
 - The keeper is the free adult from the household with the most adults; they leave farming while they keep the stall, and go back when the stall comes down.
 - The carpenter does not take wood or stone yet: `matDisc` is the hook.
 - The trader keeps selling everything; the stalls are cheaper, not exclusive. Crops are still sold only to the trader.
+
+## Decided while building (progression, step 8)
+- Step 1 needs the family's three beds in one yard and 6 field tiles* in it (rent alone is not the test: they may have no coin yet).
+- Step 2 counts a crop the trader buys from anybody, you included.
+- Households count every lived-in yard (the trader's and yours) and you while you have no yard, so the start is 3 of 5.
+- Step 4 counts every bed but the trader's (his stall is his roof), yours included.
+- Step 5*: 12 households, all under a roof, nobody over 70 hunger, average mood over 60. The card is shown once; the pill is then empty.
+- Only the step is shown; the old blank-island requests (privy, bakery, smithy ...) are gone from the Hamlet. Couples living apart still come first.
+- Tuning ahead of step 10, to make a playable build: the trader's carter calls every six hours and leaves 40% of the stall's room (was once a day, 70%). With it the harness (steady, seed 41, 20 days) has rent paid 20 of 35 due on day 20 (was 5 of 33), the player has 0 to 40 coin most days and spends it, step 3 on day 9.

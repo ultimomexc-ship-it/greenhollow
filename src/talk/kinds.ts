@@ -32,6 +32,7 @@ for (const k of ['dice', 'sing', 'stumble', 'smelly', 'newclothes', 'knock', 'wa
 EVK('arrival', 'place', { tell: 0.9 });
 EVK('moved_in', 'home', { tell: 0.5 });
 EVK('stall_opened', 'place', { tell: 0.5 });
+EVK('step_reached', 'place', { needs: ['qty'], tell: 0.1 });
 EVK('came_ashore', 'home', { needs: ['qty'], tell: 0.4 });
 EVK('apart', 'home', { tell: 0.5, tags: ['misfortune'] });
 EVK('rent_paid', 'home', { needs: ['price'], tell: 0.12 });

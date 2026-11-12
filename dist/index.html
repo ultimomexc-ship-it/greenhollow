@@ -9745,6 +9745,7 @@ function answerDecision(k) {
   const d = town.decision;
   if (!d) return;
   town.decision = null;
+  if (d.kind === "thrive") return;
   if (d.kind === "yardwarn") {
     if (k !== "yes") {
       town.yardAck = d.key;
@@ -20076,7 +20077,7 @@ function visitorMutter() {
 LF2.hourly.push(() => visitorMutter());
 function visNeeds() {
   const pl = game.player;
-  if (!pl || !town || town.scenario !== "blank") return;
+  if (!pl || !town || town.scenario !== "blank" && town.scenario !== "hamlet") return;
   for (const n of npcs) {
     if (n.player || n.dead || n.infant || n.pose === "sleep" || Math.hypot(n.tx - pl.tx, n.ty - pl.ty) > 16) continue;
     const said = n.said = n.said || {}, once = (k, t) => {
@@ -20085,13 +20086,13 @@ function visNeeds() {
       lfShout(n, t);
       return true;
     };
-    const homeless = !n.homeRoom || !n.bed || n.bed.owner !== n;
+    const homeless = town.scenario === "hamlet" ? !(n.bed && n.bed.x != null) : !n.homeRoom || !n.bed || n.bed.owner !== n;
     const food = FOODS.reduce((s, g) => s + (n.inv[g] || 0), 0) + (n.homeRoom && n.homeRoom.pantry ? FOODS.reduce((s, g) => s + (n.homeRoom.pantry[g] || 0), 0) : 0);
     if (homeless) {
       once("bed", anyOf(["I have nowhere to sleep. It's all right. Though a bed would be better.", "Is there a spare bed? I do not need much. A blanket would do.", "I would like a bed, if one is going. Walls, a door, a bed inside."]));
       continue;
     }
-    if (!lfPrivies().length && n.bladder > 45) {
+    if (modOn("rule.bladder") && !lfPrivies().length && n.bladder > 45) {
       once("privy", anyOf(["Is there a privy? I only ask because it keeps coming up.", "We need a privy. A seat in a closed room would do."]));
       continue;
     }
@@ -20381,6 +20382,10 @@ function islandNeeds() {
     if (!a || !b) continue;
     const st = [a, b].find((p) => yardOfN(p) && yardBeds(yardOfN(p)).length >= yardBeds(yardOfN(a === p ? b : a) || { cells: [] }).length) || a;
     add("apart", `Room for ${a.first} and ${b.first}`, "We are married and still sleep in two yards. It is a long walk to say goodnight.", `Make room for one more bed in ${yardName(yardOfN(st))}: a free tile inside the fence (move the fence out, or take something away).`, [a, b]);
+  }
+  if (typeof yardOn === "function" && yardOn()) {
+    progNeeds(add);
+    return out;
   }
   if (me && !(me.homeRoom && me.bed && me.bed.owner === me)) add("bed", "A bed for you", alone ? "I woke up on a beach with sand in my shoes and nothing to sleep on. A bed seems the sensible next step." : "I still have no bed. I only mention it because I keep noticing.", "Build a hut: walls, a door, a bed inside. Then leave build mode (B)." + (town.guides && town.guides.hut ? " Follow the markers on the ground." : ""), [me], true);
   else if (B.beds < B.bedsNeeded) {
@@ -26259,6 +26264,7 @@ function hamletStart() {
   }
   fam2(a, c, "parent", "child");
   fam2(b, c, "parent", "child");
+  town.hamletFamily = [a.id, b.id, c.id];
   MODS.only(HAMLET_RECIPE.concat(Object.keys(MODS.defs).filter((k) => k.startsWith("talk."))));
   for (const r of HAMLET_OFF) MODS.set("rule." + r, false);
   MODS.sync();
@@ -26483,6 +26489,21 @@ function bldDeleteStall(x, y) {
   refreshReach();
   return true;
 }
+function hamletCarter() {
+  if (!yardOn()) return;
+  const m = merchants.find((q) => q.def === HAMLET_TRADER_DEF);
+  if (!m) return;
+  for (const g of Object.keys(m.buys)) {
+    const over = (m.stock[g] || 0) - Math.floor(m.buys[g] * 0.4);
+    if (over < 2) continue;
+    m.stock[g] -= over;
+    m.n.coin += Math.round(over * GOODS[g].base * 0.5);
+    town.eco.exported = (town.eco.exported || 0) + over;
+  }
+}
+LF2.hourly.push((h) => {
+  if (h % 6 === 0) hamletCarter();
+});
 const YARD_MIN = 12, YARD_MAX = 400, YARD_GRACE = 1440;
 const yardOn = () => !!(town && town.scenario === "hamlet");
 const yardFence = (p) => !!p && (p.kind === "fence" || p.kind === "gate");
@@ -27148,6 +27169,80 @@ LF2.hourly.push(() => {
   }
   arrTick();
 });
+const PROG_HH = 5, PROG_THRIVE_HH = 12, PROG_FIELDS = 6, PROG_MOOD = 60, PROG_HUNGRY = 70;
+const progState = () => town.prog || (town.prog = { step: 1, done: {}, sold: 0, closed: false });
+const progFamily = () => {
+  const pl = yardPlayer();
+  return (town.hamletFamily || []).map((id) => byId(id)).filter((n) => n && !n.dead && n !== pl);
+};
+function progHouseholds() {
+  const pl = yardPlayer();
+  return (town.yards || []).filter((y) => y.open == null && yardPeople(y).length).length + (pl && !yardOfN(pl) ? 1 : 0);
+}
+function progRoofed() {
+  const ppl = npcs.filter((n) => !n.dead && !rentTrader(n));
+  return [ppl.filter((n) => yardHasBed(n) && rentHome(n).roof).length, ppl.length];
+}
+function progStep(n) {
+  const pl = yardPlayer(), P = progState();
+  if (n === 1) {
+    const fam = progFamily(), y = fam.map(yardOfN).find(Boolean) || null, inYard = fam.filter((f) => yardOfN(f) && yardOfN(f) === y).length, fields = y ? town.crops.filter((c) => yardAtXY(c.x, c.y) === y).length : 0;
+    return { n, title: "Shelter the family", say: inYard < fam.length ? "We have nowhere to sleep. A fence round some beds would do. We would pay for it." : "We have a yard. Some field inside it and we can feed ourselves, and pay you.", how: `Fence a yard with a gate (12 tiles or more inside), put ${fam.length} beds in it and ${PROG_FIELDS} field tiles. The trader sells all of it.`, rows: [["In a yard", inYard, fam.length], ["Field tiles in it", fields, PROG_FIELDS]], who: fam, met: fam.length > 0 && inYard === fam.length && fields >= PROG_FIELDS };
+  }
+  if (n === 2) return { n, title: "The first harvest sold", say: "Something has to grow and then somebody has to sell it. That is the whole plan, as far as I can tell.", how: "Plough, sow, wait about two days, harvest, and sell a crop to the trader (you or anybody).", rows: [["Crops sold to the trader", Math.min(1, P.sold), 1]], who: progFamily(), met: P.sold > 0 };
+  if (n === 3) {
+    const hh = progHouseholds();
+    return { n, title: "Five households", say: "It is quiet. More people would come if there were somewhere to put them.", how: "Build empty yards with beds: one bed brings a single, two a couple, three or more a family. Nobody comes while somebody is without a bed or hungry.", rows: [["Households", hh, PROG_HH]], who: npcs.filter((q) => !q.dead && q !== pl && q.age >= 16).slice(0, 3), met: hh >= PROG_HH };
+  }
+  if (n === 4) {
+    const [r, all] = progRoofed();
+    return { n, title: "Everyone under a roof", say: "It rains here, now and then. We have noticed.", how: "Wall the beds in: wall blocks round them with a door, and a window for more rent. The seed stall can be built now.", rows: [["Beds under a roof", r, all]], who: npcs.filter((q) => !q.dead && q !== pl && !rentTrader(q) && !(yardHasBed(q) && rentHome(q).roof)).slice(0, 3), met: all > 0 && r === all };
+  }
+  if (n === 5) {
+    const hh = progHouseholds(), [r, all] = progRoofed(), ppl = npcs.filter((q) => !q.dead && q !== pl), hungry = ppl.filter((q) => q.hunger > PROG_HUNGRY).length, mood = Math.round(ppl.reduce((s, q) => s + q.mood, 0) / Math.max(1, ppl.length));
+    return { n, title: "The island thrives", say: "We have nearly got the hang of this. Whatever this is.", how: `${PROG_THRIVE_HH} households, everybody under a roof, nobody hungry, and the island content (on average over ${PROG_MOOD}). The carpenter's stall can be built now.`, rows: [["Households", hh, PROG_THRIVE_HH], ["Beds under a roof", r, all], ["Not hungry", ppl.length - hungry, ppl.length], ["Contentment", mood, PROG_MOOD + 1]], who: ppl.filter((q) => q.hunger > PROG_HUNGRY || q.mood <= PROG_MOOD).slice(0, 3), met: hh >= PROG_THRIVE_HH && r === all && !hungry && mood > PROG_MOOD };
+  }
+  return null;
+}
+function progTick() {
+  if (!yardOn() || !town.hamletFamily) return;
+  const P = progState(), pl = game.player;
+  for (let guard = 0; guard < 5 && P.step <= 5; guard++) {
+    const s = progStep(P.step);
+    if (!s || !s.met) break;
+    P.done[P.step] = game.time;
+    chron(`Step ${P.step} of 5: ${s.title.toLowerCase()}.`, "note");
+    LIFE.emit("step_reached", pl || npcs[0], { qty: P.step });
+    if (P.step === 3) hamletUnlock("seedstall");
+    if (P.step === 4) hamletUnlock("carpenter");
+    if (P.step === 5 && !P.closed) {
+      P.closed = true;
+      const days = Math.max(1, Math.ceil(game.time / 1440)), ppl = npcs.filter((q) => !q.dead).length;
+      town.decision = { kind: "thrive", who: pl ? pl.id : 0, title: "The island thrives", text: `Day ${days}. ${progHouseholds()} households, ${ppl} people, everybody under a roof and nobody hungry. You have taken ${town.rent && town.rent.total || 0} coin in rent. Nobody asked how any of you got here, and nobody has asked since.`, opts: [{ k: "yes", label: "Keep playing" }] };
+    } else if (pl && pl.player) playerSay(pl, `Done: ${s.title.toLowerCase()}. ${P.step < 5 ? "Next: " + progStep(P.step + 1).title.toLowerCase() + "." : ""}`);
+    P.step++;
+  }
+}
+LF2.hourly.push(() => progTick());
+function progNeeds(add) {
+  progTick();
+  const P = progState();
+  if (P.step > 5) return;
+  const s = progStep(P.step);
+  if (s) add("step" + s.n, `${s.n}/5 \xB7 ${s.title}`, s.say, s.how, s.who);
+}
+function progRowsHTML() {
+  const P = progState();
+  if (P.step > 5) return '<div class="reqrows"><span>All five steps done <span class="ok">\u2713</span></span></div>';
+  const s = progStep(P.step);
+  if (!s) return "";
+  return `<div class="reqrows">${s.rows.map((r) => `<span>${esc(r[0])} ${r[1] >= r[2] ? '<span class="ok">\u2713</span>' : "<b>" + r[1] + "/" + r[2] + "</b>"}</span>`).join("")}</div><div class="dim reqthen">Step ${s.n} of 5${s.n < 5 ? " \xB7 then: " + esc(progStep(s.n + 1).title.toLowerCase()) : ""}</div>`;
+}
+const _progLog = logTrade;
+logTrade = function(buyer, seller, g, q, total, verb) {
+  if (yardOn() && buyer && buyer.shop && buyer.shop.def === HAMLET_TRADER_DEF && SELLABLE.includes(g) && !String(g).startsWith("seed_")) progState().sold += q || 1;
+  return _progLog.apply(this, arguments);
+};
 function carpWant(needs) {
   if (!town || !kitOn()) return null;
   const B = townBalance(), K = (k) => kitCount(k), placed = (k) => (town.props || []).filter((p) => p.kind === k && !p.fixed).length;
@@ -28259,7 +28354,7 @@ try {
     const cur = n[0], B = townBalance(), open = REQ_OPEN;
     const tr = typeof LIFE !== "undefined" ? LIFE.troubles(7) : [], trS = tr.map((q) => q.kind + q.people).join(",");
     const rentS = typeof rentHUD === "function" ? rentHUD() : "";
-    const s = (typeof rentSig === "function" ? rentSig() : "") + (cur ? cur.id + cur.say : "ok") + "|" + trS + "|" + open + "|" + B.pop + "|" + B.beds + "|" + B.privies + "|" + B.plots + "|" + Math.round(B.stock / 5);
+    const s = (typeof rentSig === "function" ? rentSig() : "") + (cur ? cur.id + cur.say + cur.how : "ok") + (typeof yardOn === "function" && yardOn() ? progRowsHTML() : "") + "|" + trS + "|" + open + "|" + B.pop + "|" + B.beds + "|" + B.privies + "|" + B.plots + "|" + Math.round(B.stock / 5);
     box.hidden = false;
     if (s === sig) return;
     sig = s;
@@ -28269,7 +28364,7 @@ try {
       box.innerHTML += rentS;
       return;
     }
-    box.innerHTML = `<div class="reqcard"><button type="button" class="reqx" data-req="1" title="Close (N)">\xD7</button>` + (cur ? `<b>${esc(cur.title)}</b>${cur.who.length ? ' <span class="dim">\xB7 ' + esc(cur.who.slice(0, 3).join(", ")) + "</span>" : ""}<br>\u201C${esc(cur.say)}\u201D<br><span class="dim">${esc(cur.how)}</span>` : "<b>Everything is in balance.</b>") + (rentS ? `<div class="reqsay">${rentS}</div>` : "") + (tr.length ? `<div class="reqsay"><span class="dim">This week:</span> ` + tr.slice(0, 4).map((q) => `${q.people} ${q.people === 1 ? "person" : "people"} ${esc(q.label)}`).join(" \xB7 ") + `</div>` : "") + `<div class="reqrows"><span>Beds ${mark(B.beds, B.bedsNeeded)}</span>${B.pop > 1 ? `<span>Privies ${mark(B.privies, B.priviesNeeded)}</span><span>Field plots ${mark(B.plots, B.plotsNeeded)}</span>` : ""}<span>Food ${B.stockDays.toFixed(1)} days</span></div>` + (n.length > 1 ? `<div class="dim reqthen">Then: ${esc(n.slice(1, 3).map((x) => x.title).join(" \xB7 "))}</div>` : "") + "</div>";
+    box.innerHTML = `<div class="reqcard"><button type="button" class="reqx" data-req="1" title="Close (N)">\xD7</button>` + (cur ? `<b>${esc(cur.title)}</b>${cur.who.length ? ' <span class="dim">\xB7 ' + esc(cur.who.slice(0, 3).join(", ")) + "</span>" : ""}<br>\u201C${esc(cur.say)}\u201D<br><span class="dim">${esc(cur.how)}</span>` : "<b>Everything is in balance.</b>") + (rentS ? `<div class="reqsay">${rentS}</div>` : "") + (tr.length ? `<div class="reqsay"><span class="dim">This week:</span> ` + tr.slice(0, 4).map((q) => `${q.people} ${q.people === 1 ? "person" : "people"} ${esc(q.label)}`).join(" \xB7 ") + `</div>` : "") + (typeof yardOn === "function" && yardOn() ? progRowsHTML() : `<div class="reqrows"><span>Beds ${mark(B.beds, B.bedsNeeded)}</span>${B.pop > 1 ? `<span>Privies ${mark(B.privies, B.priviesNeeded)}</span><span>Field plots ${mark(B.plots, B.plotsNeeded)}</span>` : ""}<span>Food ${B.stockDays.toFixed(1)} days</span></div>` + (n.length > 1 ? `<div class="dim reqthen">Then: ${esc(n.slice(1, 3).map((x) => x.title).join(" \xB7 "))}</div>` : "")) + "</div>";
   }
   box.addEventListener("click", (e) => {
     if (e.target.closest("[data-req]")) {
@@ -29190,6 +29285,7 @@ for (const k of ["dice", "sing", "stumble", "smelly", "newclothes", "knock", "wa
 EVK("arrival", "place", { tell: 0.9 });
 EVK("moved_in", "home", { tell: 0.5 });
 EVK("stall_opened", "place", { tell: 0.5 });
+EVK("step_reached", "place", { needs: ["qty"], tell: 0.1 });
 EVK("came_ashore", "home", { needs: ["qty"], tell: 0.4 });
 EVK("apart", "home", { tell: 0.5, tags: ["misfortune"] });
 EVK("rent_paid", "home", { needs: ["price"], tell: 0.12 });

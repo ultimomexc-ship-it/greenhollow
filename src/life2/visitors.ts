@@ -105,14 +105,14 @@ LF2.hourly.push(() => visitorMutter());
 
 /* villagers tell you what they are missing (a shout over their head when you are near; each need at most once every six hours per person) */
 function visNeeds() {
-  const pl = game.player; if (!pl || !town || town.scenario !== 'blank') return;
+  const pl = game.player; if (!pl || !town || (town.scenario !== 'blank' && town.scenario !== 'hamlet')) return;
   for (const n of npcs) {
     if (n.player || n.dead || n.infant || n.pose === 'sleep' || Math.hypot(n.tx - pl.tx, n.ty - pl.ty) > 16) continue;
     const said = n.said = n.said || {}, once = (k, t) => { if (game.time - (said[k] || -1e9) < 360) return false; said[k] = game.time; lfShout(n, t); return true; };
-    const homeless = !n.homeRoom || !n.bed || n.bed.owner !== n;
+    const homeless = town.scenario === 'hamlet' ? !(n.bed && n.bed.x != null) : !n.homeRoom || !n.bed || n.bed.owner !== n;
     const food = FOODS.reduce((s, g) => s + (n.inv[g] || 0), 0) + (n.homeRoom && n.homeRoom.pantry ? FOODS.reduce((s, g) => s + (n.homeRoom.pantry[g] || 0), 0) : 0);
     if (homeless) { once('bed', anyOf(["I have nowhere to sleep. It's all right. Though a bed would be better.", 'Is there a spare bed? I do not need much. A blanket would do.', 'I would like a bed, if one is going. Walls, a door, a bed inside.'])); continue; }
-    if (!lfPrivies().length && n.bladder > 45) { once('privy', anyOf(["Is there a privy? I only ask because it keeps coming up.", 'We need a privy. A seat in a closed room would do.'])); continue; }
+    if (modOn('rule.bladder') && !lfPrivies().length && n.bladder > 45) { once('privy', anyOf(["Is there a privy? I only ask because it keeps coming up.", 'We need a privy. A seat in a closed room would do.'])); continue; }
     if (n.hunger > 65 && food < 1) { once('food', anyOf(["I am hungry and I have nothing to eat. It occurred to me that this might be a problem.", 'There is no food. A field, a net, anything.'])); continue; }
     { const nd = (typeof islandNeeds === 'function' ? islandNeeds() : []).find(q => !['bed', 'bed2', 'privy', 'field', 'food', 'harvest'].includes(q.id)); if (nd && game.time - (said['n:' + nd.id] || -1e9) > 720) { said['n:' + nd.id] = game.time; lfShout(n, nd.say); continue; } }
     if (n.energy < 25 && homeless) once('tired', 'I can hardly keep my eyes open. This may or may not be the dream.');

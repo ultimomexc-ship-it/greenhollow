@@ -1692,6 +1692,47 @@ test('hamlet stalls: the seed stall and the carpenter are build items once unloc
   await page.close();
   return 'two stalls, unlocked and built, kept by villagers, cheaper than the trader: ' + r3.serving;
 });
+test('hamlet progression: five steps one at a time in the request pill with exact numbers, step 3 unlocks the seed stall, step 4 the carpenter, step 5 shows the closing card once', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('hamlet-steps', 'hamlet'); const P = game.player, out = {}, TR = npcs.find(n => n.shop), fam = town.hamletFamily.map(byId);
+    const free = (x, y) => walkable(x, y) && !lfPropAt(x, y) && grid[y][x] === T.GRASS && roomAt[y][x] < 0 && !(town.nodeMap && town.nodeMap.has(y * W + x)) && !yardAtXY(x, y);
+    window.__area = (w, h) => { const cand = []; for (let y = 8; y < town.h0 - 8 - h; y++) for (let x = 8; x < W - 8 - w; x++) { const d = Math.hypot(x + w / 2 - town.cx, y + h / 2 - town.cy); if (d > 12 && d < 60) cand.push([d, x, y]); } cand.sort((p, q) => p[0] - q[0]);
+      for (const [, x, y] of cand) { let bad = 0; for (let j = -1; j <= h && bad < 9; j++) for (let i = -1; i <= w && bad < 9; i++) { const g = grid[y + j][x + i]; if (g !== T.GRASS && g !== T.TREE && g !== T.ROCK) bad = 99; else if (!free(x + i, y + j)) bad++; if (lfPropAt(x + i, y + j) || yardAtXY(x + i, y + j)) bad = 99; }
+        if (bad < 9) { for (let j = -1; j <= h; j++) for (let i = -1; i <= w; i++) { const X = x + i, Y = y + j; if (grid[Y][X] !== T.GRASS) setT(X, Y, T.GRASS); if (town.nodeMap && town.nodeMap.has(Y * W + X)) { const nd = town.nodeMap.get(Y * W + X); town.nodes = town.nodes.filter(q => q !== nd); town.nodeMap.delete(Y * W + X); } } town.gridV++; refreshReach(); return [x, y]; } } throw new Error('no ground'); };
+    window.__yard = (w, h, k) => { const [x0, y0] = __area(w, h); for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (i === 0 || j === 0 || i === w - 1 || j === h - 1) lfAddProp(i === 2 && j === h - 1 ? 'gate' : 'fence', x0 + i, y0 + j); for (let i = 0; i < k; i++) lfAddProp('bed', x0 + 1 + i, y0 + 1); yardScan(true); return { x0, y0, y: yardAtXY(x0 + 1, y0 + 1) }; };
+    const pill = () => { const n = islandNeeds(); return n.length ? n[0].title : ''; };
+    out.s1 = pill(); out.s1how = islandNeeds()[0].how; out.rows1 = progRowsHTML().replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(); out.only = islandNeeds().length;
+    // step 1: a yard with their beds and six field tiles
+    const F = __yard(8, 7, 3); yardHousing(); progTick(); out.s1half = [progState().step, pill()];
+    for (let i = 0; i < 6; i++) { const x = F.x0 + 1 + i, y = F.y0 + 4; setT(x, y, T.CROP); town.crops.push({ x, y, f: 'fam', pl: 1, st: 0, t0: 0 }); }
+    progTick(); out.s2 = [progState().step, pill()];
+    // step 2: a crop sold to the trader (by you, at the stall)
+    P.inv.turnip = 2; TR.shop.n.coin = 50; TR.shop.stock.turnip = 0; farmShopDialog(TR.shop); const labels = (talkUI.opts || []).map(o => o[1]); lf2TalkStep('c' + labels.findIndex(l => /^Sell your 2 turnips/.test(l))); closeTalk && closeTalk();
+    progTick(); out.s3 = [progState().step, pill(), progState().sold, hamletUnlocked('seedstall')];
+    // step 3: five households (the trader, the family, you without a yard, and two newcomers)
+    out.hh0 = progHouseholds(); for (const k of [1, 2]) { const Y = __yard(7, 6, k); town.arr = { next: 0, n: 0 }; arrTick(); } yardHousing();
+    out.hh1 = progHouseholds(); progTick(); out.s4 = [progState().step, pill(), hamletUnlocked('seedstall'), hamletUnlocked('carpenter'), hamletBuildKinds().includes('stallseed')];
+    // step 4 and 5 by their conditions (walls round every bed are the rent test's business): everybody roofed
+    const rh = rentHome; window.__rh = rh; rentHome = n => Object.assign(rh(n), { roof: !!yardHasBed(n) }); progTick(); out.s5 = [progState().step, pill(), hamletUnlocked('carpenter')];
+    out.rows5 = progRowsHTML().replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    progHouseholds = () => 12; for (const n of npcs) { n.hunger = 10; n.mood = 80; } progTick();
+    out.card = town.decision && town.decision.kind; out.cardText = town.decision && town.decision.text; out.step = progState().step;
+    answerDecision('yes'); out.after = [!town.decision, pill()]; progTick(); out.once = !town.decision;
+    out.chron = town.chron.filter(c => /^Step \d of 5/.test(c.text)).length;
+    return out;
+  });
+  check(/^1\/5 · Shelter the family$/.test(r.s1) && /3 beds/.test(r.s1how) && /In a yard 0\/3/.test(r.rows1) && /Field tiles in it 0\/6/.test(r.rows1) && r.only === 1, 'step 1 asks for a yard round the family with exact numbers, and nothing else is asked: ' + JSON.stringify([r.s1, r.rows1, r.only]));
+  check(r.s1half[0] === 1 && r.s2[0] === 2 && /^2\/5 · The first harvest sold/.test(r.s2[1]), 'the family in a yard is not enough until it has six field tiles; then step 2: ' + JSON.stringify([r.s1half, r.s2]));
+  check(r.s3[0] === 3 && r.s3[2] === 2 && /^3\/5 · Five households/.test(r.s3[1]) && !r.s3[3], 'a crop sold to the trader is step 2; the seed stall is not yet unlocked: ' + JSON.stringify(r.s3));
+  check(r.hh0 === 3 && r.hh1 === 5 && r.s4[0] === 4 && /^4\/5 · Everyone under a roof/.test(r.s4[1]) && r.s4[2] && !r.s4[3] && r.s4[4], 'five households is step 3 and unlocks the seed stall: ' + JSON.stringify([r.hh0, r.hh1, r.s4]));
+  check(r.s5[0] === 5 && /^5\/5 · The island thrives/.test(r.s5[1]) && r.s5[2] && /Households \d+\/12/.test(r.rows5), 'everyone under a roof is step 4 and unlocks the carpenter: ' + JSON.stringify([r.s5, r.rows5]));
+  check(r.card === 'thrive' && /households/.test(r.cardText) && /coin in rent/.test(r.cardText) && r.step === 6, 'step 5 puts up the closing card: ' + JSON.stringify([r.card, r.cardText]));
+  check(r.after[0] && r.after[1] === '' && r.once && r.chron === 5, 'Keep playing closes it, it does not come back, and the pill is empty: ' + JSON.stringify([r.after, r.once, r.chron]));
+  check(errors.length === 0, 'no page errors: ' + errors.slice(0, 2).join(' | '));
+  await page.close();
+  return 'five steps in order with their numbers; the two unlocks; the closing card once';
+});
 test('ready farming village: only what farming needs; farmers buy seed from the seed seller with real money, keep seed back, sell what they grow to the greengrocer, and talk about it', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

@@ -30,7 +30,7 @@ function hamletStart() {
     n.back = pick(R, VIS_ORD) + ', ' + pick(R, VIS_ARR); npcs.push(n);
   }
   for (const x of npcs) for (const y of npcs) if (x !== y && !x.know[y.id]) { x.know[y.id] = 4; x.aff[y.id] = 8; }
-  fam2(a, c, 'parent', 'child'); fam2(b, c, 'parent', 'child');
+  fam2(a, c, 'parent', 'child'); fam2(b, c, 'parent', 'child'); town.hamletFamily = [a.id, b.id, c.id];
   // the world is a recipe: farming and building, couples and romance, all the talk; the rules of the world that the add-ons will bring back are off
   MODS.only(HAMLET_RECIPE.concat(Object.keys(MODS.defs).filter(k => k.startsWith('talk.')))); for (const r of HAMLET_OFF) MODS.set('rule.' + r, false); MODS.sync();
   // the trading stall by the camp, kept by the trader
@@ -116,3 +116,9 @@ function bldDeleteStall(x: number, y: number): boolean {
   for (const t of st.tiles) { setT(t.x, t.y, T.GRASS); markDirty(t.x, t.y, 1, 1); } town.stalls = town.stalls.filter((q: any) => q !== st); if (st.market) town.markets = town.markets.filter((q: any) => q !== st.market);
   kitGive(k); town.gridV = (town.gridV || 0) + 1; town.lfPV = (town.lfPV || 0) + 1; refreshReach(); return true;
 }
+/** the carter calls at the trader's every six hours and takes what is over 40% of his room, at half price, so the stall keeps buying (the farming village's carter came once a day and left 70%: on one stall for a whole island that stopped the money) */
+function hamletCarter() {
+  if (!yardOn()) return; const m = merchants.find((q: any) => q.def === HAMLET_TRADER_DEF); if (!m) return;
+  for (const g of Object.keys(m.buys)) { const over = (m.stock[g] || 0) - Math.floor(m.buys[g] * 0.4); if (over < 2) continue; m.stock[g] -= over; m.n.coin += Math.round(over * GOODS[g].base * 0.5); town.eco.exported = (town.eco.exported || 0) + over; }
+}
+LF2.hourly.push((h: number) => { if (h % 6 === 0) hamletCarter(); });
