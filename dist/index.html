@@ -28691,13 +28691,14 @@ function lxSlots(sp, li, c, ctx2) {
     money: c.price != null ? lxMoney(c.price) : void 0,
     price: c.price != null ? String(c.price) : void 0,
     about: c.about || void 0,
-    reason: c.reason || "",
+    reason: typeof peopleYou === "function" ? peopleYou(c.reason || "", li) : c.reason || "",
+    // (the listener is "you" in every line, menu labels and previews included)
     them: !c.about ? void 0 : aboutP ? aboutP.female ? "her" : "him" : "them",
     shop: c.shop || "stall",
     item,
     things: item ? lxCount(c.qty, item) : void 0,
     qty: c.qty != null ? String(c.qty) : void 0,
-    news: c.news || void 0,
+    news: typeof peopleYou === "function" && typeof c.news === "string" ? peopleYou(c.news, li) : c.news || void 0,
     deed: c.deed || void 0,
     who: c.who || "them"
   };
@@ -28900,7 +28901,7 @@ function peopleReason(a, b) {
   if (best) {
     if (/^ev:/.test(best.why)) {
       const ev = lf2Ev().find((q) => q.id === +best.why.slice(3));
-      if (ev) return TE.text(ev, { who: ev.actor }).replace(/^./, (c) => c.toUpperCase()) + ".";
+      if (ev) return TE.text(ev, { who: ev.actor }, a).replace(/^./, (c) => c.toUpperCase()) + ".";
     } else if (/^heard/.test(best.why)) return "I " + best.why + ".";
     else return gender + " " + best.why + ".";
   }
@@ -30325,7 +30326,8 @@ ACTS.callback = {
   when: (c, sp, li) => {
     if (c.done.callback) return false;
     const m = lastTalkMem(sp, li);
-    return !!m && !!m.subj && npcs.some((o) => o.first === m.subj) && !m.called && game.time - m.t > 240 && game.time - m.t < 2880 && Math.random() < 0.35;
+    return !!m && !!m.subj && npcs.some((o) => o.first === m.subj) && m.subj !== sp.first && // (somebody who was the subject of the last talk is not reminded of themselves, nor told of it)
+    m.subj !== li.first && !m.called && game.time - m.t > 240 && game.time - m.t < 2880 && Math.random() < 0.35;
   },
   // (only about a person, and not every time)
   apply: (c, sp, li) => {
@@ -30547,7 +30549,7 @@ ACTS.brag_child = {
   w: () => 0.9,
   when: (c, sp, li) => {
     if (c.done.brag_child) return false;
-    const k = (sp.fam.kids || []).map(byId).filter((q) => q && !q.dead && q.age < 14)[0];
+    const k = (sp.fam.kids || []).map(byId).filter((q) => q && !q.dead && q.age < 14 && q !== li)[0];
     if (!k) return false;
     c.kid = k;
     return true;

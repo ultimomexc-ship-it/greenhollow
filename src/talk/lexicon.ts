@@ -58,13 +58,13 @@ function lxSlots(sp: any, li: any, c: any, ctx: any): any {
     money: c.price != null ? lxMoney(c.price) : undefined,
     price: c.price != null ? String(c.price) : undefined,
     about: c.about || undefined,
-    reason: c.reason || '',
+    reason: typeof peopleYou === 'function' ? peopleYou(c.reason || '', li) : c.reason || '',   // (the listener is "you" in every line, menu labels and previews included)
     them: !c.about ? undefined : aboutP ? (aboutP.female ? 'her' : 'him') : 'them',
     shop: c.shop || 'stall',
     item,
     things: item ? lxCount(c.qty, item) : undefined,
     qty: c.qty != null ? String(c.qty) : undefined,
-    news: c.news || undefined,
+    news: typeof peopleYou === 'function' && typeof c.news === 'string' ? peopleYou(c.news, li) : c.news || undefined,
     deed: c.deed || undefined,
     who: c.who || 'them'
   };
