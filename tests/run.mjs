@@ -2139,6 +2139,28 @@ test('truesight: whatever has a clear line of sight is lit at every zoom, even w
   check(!errors.length, errors.slice(0, 3).join(' | '));
   return `${r.views} views at four zooms: nothing visible is hidden`;
 });
+test('truesight: nothing is lit from the corners of a window tile or from its bars: a wall that carries on past the window is lit only where the glass shows it', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 3, town: 'truesight-lab', viewport: { width: 900, height: 600 } });
+  await simulate(page, 12 * 60);
+  const r = await page.evaluate(() => {
+    if (!game.player) startPlaying(canControl(byId(game.steer)) ? byId(game.steer) : npcs.find(canControl)); const L = tsLab(), P = game.player;
+    const home = [L.ox + 2, L.oy]; let w = null;   // (the house window of the lab, with the ground in front of it cleared, wherever the island put the lab)
+    if (tsWindow(home[0], home[1])) { w = home; for (let d = 1; d <= 5; d++) for (let e = -5; e <= 5; e++) { const x = home[0] + e, y = home[1] - d; if (grid[y] && grid[y][x] !== T.WALL && !walkable(x, y)) { setT(x, y, T.GRASS); const pr = lfPropAt(x, y); if (pr) { town.props = town.props.filter(q => q !== pr); town.pblock[y * W + x] = 0; town.propAt.delete(y * W + x); } } } }
+    if (!w) return { skip: true };
+    for (let k = 1; k <= 5; k++) setT(w[0] + 1, w[1] + k, T.WALL); town.gridV = (town.gridV || 0) + 1;   // a wall that carries on south right beside the window
+    for (const n of npcs) if (!n.player) { n.tx = n.x = 2; n.ty = n.y = 2; }
+    P.tx = P.x = w[0] - 1; P.ty = P.y = w[1] - 2; rebuildOcc(); cam.follow = false; cam.z = 5.5; clampCam(); cam.x = (w[0] + 0.5) * TS - cam.cw / cam.z / 2; cam.y = (w[1] + 1.4) * TS - cam.ch / cam.z / 2; clampCam();
+    for (let k = 0; k < 10; k++) { window.__advance(50); render(performance.now(), 0.016, (game.time % 1440) / 60); }
+    const e = [P.x + 0.5, P.y + 0.55], G = tsGeo(), pts = tsPolygon(e[0], e[1], TSIGHT.rect, G), faces = tsFaces(e[0], e[1], pts, G);
+    const whole = faces.filter(q => q[0] === w[0] + 1 && q[1] === w[1] + 1 && q[2] - q[0] === 1 && q[5] - q[1] === 1).length;   // the column's first tile lit whole
+    return { whole, quads: faces.length, w, eye: e }; });
+  if (r.skip) { await page.close(); return; }
+  check(r.quads > 3, 'the window lets some light in (' + r.quads + ' wall faces lit) ' + JSON.stringify(r));
+  check(r.whole === 0, 'the wall tile beside the window is not lit as a whole from the window\'s corner or bar: ' + JSON.stringify(r));
+  check(!errors.length, 'no errors: ' + errors.join(' | '));
+  await page.close();
+});
+
 test('truesight: the solid wall beside a window is never inside what you can see (no beams leaking into the wall bodies)', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 3, town: 'truesight-lab', viewport: { width: 900, height: 600 } });
   await simulate(page, 12 * 60);
