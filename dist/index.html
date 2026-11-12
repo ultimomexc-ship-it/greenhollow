@@ -28293,12 +28293,32 @@ const TE = {
     }
   },
   /** the words for an event in a version of it (who is blamed may differ from who did it) */
-  text(ev, ver) {
+  /** the words for an event as believed (ver.who did it). `speaker` is who is telling it: when they are the doer it is first person ("I knocked a wall out of your house", `ev1:<kind>` lines);
+      `listener` is who hears it, who becomes "you" in those lines. */
+  text(ev, ver, speaker, listener) {
     const who = ver && ver.who !== void 0 ? ver.who : ev.actor, a = who != null ? lf2By(who) : null, t = ev.target != null ? lf2By(ev.target) : null;
+    if (speaker && who != null && who === speaker.id) {
+      const pk = typeof town !== "undefined" && town && town.pack === "island" ? "island" : "plain";
+      let first = LEX.filter((e) => e.act === "ev1:" + ev.kind && e.pack === pk);
+      if (!first.length) first = LEX.filter((e) => e.act === "ev1:" + ev.kind && e.pack === "plain");
+      if (first.length) {
+        const you = listener && t && t === listener;
+        return first[ev.id % first.length].text.replace(/\{t\}'s/g, you ? "your" : t ? t.first + "'s" : "someone's").replace(/\{t\}/g, you ? "you" : t ? t.first : "someone").replace(/\{place\}/g, ev.place || "a building");
+      }
+    }
     const tpl = LEX.filter((e) => e.act === "ev:" + ev.kind && e.pack === "plain");
     if (tpl.length) {
       const e = tpl[ev.id % tpl.length];
-      return e.text.replace(/\{a\}/g, a ? a.first : "someone").replace(/\{t\}/g, t ? t.first : "someone").replace(/\{place\}/g, ev.place || "a building");
+      const name = (p, fallback, at, text, poss) => {
+        if (p && speaker && p === speaker) return poss ? "my" : /(^|, and |and |when |while )$/.test(text.slice(0, at)) ? "I" : "me";
+        if (p && listener && p === listener) return poss ? "your" : "you";
+        return p ? p.first + (poss ? "'s" : "") : fallback + (poss ? "'s" : "");
+      };
+      const out = e.text.replace(
+        /\{(a|t)\}('s)?/g,
+        (m, k, ps, at, text) => name(k === "a" ? a : t, "someone", at, text, !!ps)
+      ).replace(/\{place\}/g, ev.place || "a building");
+      return out.replace(/\byou was\b/g, "you were").replace(/\bI were\b/g, "I was");
     }
     let tx = String(ev.text || ev.kind);
     const real = ev.actor != null ? lf2By(ev.actor) : null;
@@ -28363,7 +28383,7 @@ const TE = {
     const j = TE.appraise(li, ev, ver, conf, sp), actor = ver.who != null ? lf2By(ver.who) : null;
     if (actor && actor !== li && j.v !== 0)
       lfAff(li, actor, j.v * conf * 3, ver.who === ev.actor ? "ev:" + ev.id : "heard what " + actor.first + " did");
-    return { mem, ver, conf, react: j.react, text: TE.text(ev, ver) };
+    return { mem, ver, conf, react: j.react, text: TE.text(ev, ver, sp, li) };
   },
   /** how a listener takes a piece of news: one of shock, amused, sympathy, doubt, delight, unmoved */
   appraise(li, ev, ver, conf, sp) {
@@ -28500,7 +28520,11 @@ const ACTS = {
   share_news: {
     kind: "world",
     stage: "topic",
-    preview: (c) => ({ news: TE.text(c.news.ev, c.news.m.ver), how: c.news.m.kind, conf: c.news.m.conf > 0.7 ? "high" : "low" }),
+    preview: (c, sp, li) => ({
+      news: TE.text(c.news.ev, c.news.m.ver, sp, li),
+      how: c.news.m.kind,
+      conf: c.news.m.conf > 0.7 ? "high" : "low"
+    }),
     when: (c, sp, li) => (c.done.share_news || 0) < 2 && (c.storyNews ? (c.news = c.storyNews, true) : !!(c.news = TE.pick(sp, li, c))),
     w: (c) => 1 + 4 * Math.min(1, c.news ? c.news.score : 0),
     apply: (c, sp, li) => {
@@ -29055,7 +29079,7 @@ function deedYou(ev, sp) {
     case "caught_on_privy":
       return me ? "knocked the wall out while I was on the privy" : "knocked the wall out while " + they + " was on the privy";
     default:
-      return TE.text(ev, { who: null }).replace(/^someone /, "");
+      return TE.text(ev, { who: null }, sp).replace(/^someone /, "");
   }
 }
 function deedPick(sp, li) {
@@ -29857,7 +29881,7 @@ ACTS.confide = {
   stage: "topic",
   preview: (c, sp, li) => {
     const k = secretPick(sp, li);
-    return { news: k ? TE.text(k.ev, k.m.kind === "did" ? { who: sp.id } : k.m.ver) : "" };
+    return { news: k ? TE.text(k.ev, k.m.kind === "did" ? { who: sp.id } : k.m.ver, sp, li) : "" };
   },
   w: (c, sp) => sp.player ? 0.4 : 0.6,
   when: (c, sp, li) => !c.done.confide && !li.infant && li.age >= 10 && (sp.player || (sp.aff[li.id] || 0) > 45 && (sp.know[li.id] || 0) > 30) && !!secretPick(sp, li),
@@ -29882,7 +29906,7 @@ ACTS.confide = {
       mem.secret = true;
       mem.keeper = sp.id;
     }
-    c.told = { text: TE.text(k.ev, ver), react: "" };
+    c.told = { text: TE.text(k.ev, ver, sp, li), react: "" };
     c.secretEv = k.ev;
     lfAff(li, sp, 3, "trusted me with a secret");
     lfAff(sp, li, 2, "kept my confidence");
@@ -32132,8 +32156,12 @@ LXP("ask_news", ["Anything new?", "What's the talk?", "Heard anything worth hear
 LXP("no_news", ["Nothing I'd repeat.", "Quiet as anything.", "Not a word. Not a whisper.", "Nothing at all. I'd tell you.", "Not that I've heard."]);
 lx("ev:lent_hand", "plain", "{a} lent {t} a hand with the work");
 lx("ev:lent_hand", "island", "{a} did an hour of {t}'s work, unasked");
-lx("ev:sick_visit", "plain", "{a} looked in on {t}, who is ill");
-lx("ev:sick_visit", "island", "{a} sat with {t}, who is ill");
+lx("ev:sick_visit", "plain", "{a} looked in on {t} when {t} was ill");
+lx("ev:sick_visit", "island", "{a} sat with {t} when {t} was ill");
+lx("ev1:gift", "plain", "I gave {t} a gift");
+lx("ev1:help", "plain", "I helped {t} out");
+lx("ev1:lent_hand", "plain", "I lent {t} a hand with the work");
+lx("ev1:sick_visit", "plain", "I looked in on {t} because of the fever");
 lx("ask_opinion", "plain", "What do you make of {about}?");
 lx("ask_opinion", "plain", "What's {about} like, really?");
 lx("ask_opinion", "plain", "Do you get on with {about}?");
@@ -32330,6 +32358,18 @@ lx("secret_alarmed", "plain", "That's serious. I'll keep it, but I don't like it
 lx("secret_alarmed", "plain", "Oh. Well. I'll say nothing. I wish you hadn't told me.");
 lx("ev:betrayal", "plain", "{a} told {t}'s secret");
 lx("ev:betrayal", "plain", "{t}'s secret got out, and {a} was the one who told");
+lx("ev1:wall_removed", "plain", "I knocked a wall out of {t}'s house");
+lx("ev1:home_destroyed", "plain", "I pulled {t}'s house down");
+lx("ev1:building_down", "plain", "I pulled down {place}");
+lx("ev1:furniture_removed", "plain", "I took {t}'s furniture away");
+lx("ev1:person_pushed", "plain", "I pushed {t} around");
+lx("ev1:bed_moved", "plain", "I carried {t} out of the house, bed and all");
+lx("ev1:caught_on_privy", "plain", "I knocked the wall out and found {t} on the privy");
+lx("ev1:caught_bathing", "plain", "I knocked the wall out and found {t} bathing");
+lx("ev1:caught_praying", "plain", "I took the wall down and found {t} at prayer");
+lx("ev1:theft", "plain", "I stole from {t}");
+lx("ev1:shove", "plain", "I pushed {t} around");
+lx("ev1:betrayal", "plain", "I told {t}'s secret");
 lx("offer_gift", "plain", "I brought you {item}.");
 lx("offer_gift", "plain", "Here. {item}, for you.");
 lx("offer_gift", "plain", "I thought you could use {item}.");
@@ -33148,6 +33188,8 @@ LXI("react_amused", ["Ha.", "That is quite funny.", "I should not laugh."]);
 LXI("react_sympathy", ["Poor soul.", "That is hard.", "I am sorry to hear it."]);
 LXI("react_doubt", ["Are you sure?", "I doubt that.", "Who says so?"]);
 LXI("react_delight", ["Good.", "I am glad.", "That is good to hear.", "Well. Good.", "That was kind."]);
+lxi("ev1:lent_hand", "I did an hour of {t}'s work");
+lxi("ev1:sick_visit", "I sat with {t} because of the fever");
 lxi("ask_opinion", "What is {about} like? I would like to know before I have to find out.");
 lxi("ask_opinion", "What do you make of {about}?");
 lxi("ask_opinion", "Do you get on with {about}? Be honest. I am only curious.");
@@ -33363,6 +33405,11 @@ lxi("secret_keep", "I will keep it. I am good at keeping things. It is most of w
 lxi("secret_keep", "It stays here. I will not even think about it where people can see.");
 lxi("secret_alarmed", "That is serious. I will keep it. I would like to say that I wish you had not told me, and I have.");
 lxi("secret_alarmed", "I see. I will say nothing. I will think about it quite a lot.");
+lxi("ev1:wall_removed", "I took a wall out of {t}'s house");
+lxi("ev1:home_destroyed", "I took {t}'s house down");
+lxi("ev1:bed_moved", "I carried {t} out of the house, bed and all");
+lxi("ev1:person_pushed", "I pushed {t} about");
+lxi("ev1:theft", "I took what was {t}'s");
 lxi("offer_gift", "I have {item}. I thought of you, which surprised me.");
 lxi("offer_gift", "This is {item}. It is not much. It is what I had.");
 lxi("gift_thanks", "Thank you. I will find a place for it.");

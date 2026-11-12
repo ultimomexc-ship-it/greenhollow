@@ -60,3 +60,6 @@ LXI('react_amused', ['Ha.', 'That is quite funny.', 'I should not laugh.']);
 LXI('react_sympathy', ['Poor soul.', 'That is hard.', 'I am sorry to hear it.']);
 LXI('react_doubt', ['Are you sure?', 'I doubt that.', 'Who says so?']);
 LXI('react_delight', ['Good.', 'I am glad.', 'That is good to hear.', 'Well. Good.', 'That was kind.']);
+// first person: said by the one who did it (TE.text with the speaker)
+lxi('ev1:lent_hand', "I did an hour of {t}'s work");
+lxi('ev1:sick_visit', "I sat with {t} because of the fever");

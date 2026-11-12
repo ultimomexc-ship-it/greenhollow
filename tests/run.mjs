@@ -1192,10 +1192,10 @@ test('life events (the contract): kinds are registered, data is required, events
     out.rec = !!rec && LIFE.stream.length === n0 + 1 && LIFE.digest(1).kinds.bought === d0 + 1 && LIFE.today(n).some(e => e.kind === 'bought') && (n.tmem || []).some(m => m.kind === 'life' && m.lk === 'bought');
     const s0 = LIFE.stream.length; const ev = lfEmit('theft', { actor: n, tags: ['theft'], sev: 1, text: 'x' }); out.legacy = LIFE.stream.length === s0 + 1 && LIFE.stream[LIFE.stream.length - 1].legacy === true && LIFE.today(n).some(e => e.kind === 'theft');
     // everything a line may name is defined: an 'ev:' line is a registered kind, any other line is a defined act, and every requirement resolves to a known kind of thing
-    const badLines = LEX.filter(e => e.act.startsWith('ev:') ? !REG.has('event', e.act.slice(3)) : e.act.startsWith('life:') ? !REG.has('event', e.act.slice(5)) : !ACTS[e.act]).map(e => e.act); out.badLines = [...new Set(badLines)];
+    const badLines = LEX.filter(e => e.act.startsWith('ev:') ? !REG.has('event', e.act.slice(3)) : e.act.startsWith('ev1:') ? !REG.has('event', e.act.slice(4)) : e.act.startsWith('life:') ? !REG.has('event', e.act.slice(5)) : !ACTS[e.act]).map(e => e.act); out.badLines = [...new Set(badLines)];
     const kinds = REG.all('event'); out.kinds = kinds.length; out.badKinds = kinds.filter(k => !k.family || k.tell == null).map(k => k.id);
     // deleting a definition makes the lint above fail for its lines (so removing a feature forces the clean-up)
-    REG.remove('event', 'arrival'); out.afterRemove = [...new Set(LEX.filter(e => e.act.startsWith('ev:') && !REG.has('event', e.act.slice(3))).map(e => e.act))]; REG.define('event', 'arrival', { family: 'place', needs: [], tell: 0.9, tags: [] });
+    REG.remove('event', 'arrival'); out.afterRemove = [...new Set(LEX.filter(e => (e.act.startsWith('ev:') || e.act.startsWith('ev1:')) && !REG.has('event', e.act.slice(e.act.indexOf(':') + 1))).map(e => e.act))]; REG.define('event', 'arrival', { family: 'place', needs: [], tell: 0.9, tags: [] });
     // the day so far: sleeping, privy and eating were reported by the step system
     const dg = LIFE.digest(2); out.dg = dg.kinds; return out; });
   check(r.strict, 'the tests run the stream in strict mode');
@@ -1448,7 +1448,7 @@ test('voice: the island has its own voice (dry, exact, no exclamation marks), ea
   const r = await page.evaluate(() => {
     const out = {}; const known = /^(them|deed|about|reason|op|li|sp|place|job|state|item|things|money|news|who|shop|qty|price|clock)$/;
     const isl = LEX.filter(e => e.pack === 'island'); out.n = isl.length; out.bang = isl.filter(e => /!/.test(e.text)).map(e => e.text).slice(0, 3);
-    out.slots = [...new Set(LEX.filter(e => !e.act.startsWith('ev:')).flatMap(e => (e.text.match(/\{(\w+)\}/g) || []).map(x => x.slice(1, -1))).filter(x => !known.test(x)))];
+    out.slots = [...new Set(LEX.filter(e => !e.act.startsWith('ev:') && !e.act.startsWith('ev1:')).flatMap(e => (e.text.match(/\{(\w+)\}/g) || []).map(x => x.slice(1, -1))).filter(x => !known.test(x)))];
     out.acts = new Set(isl.map(e => e.act)).size; out.cover = [...new Set(LEX.filter(e => e.pack === 'plain').map(e => e.act))].filter(a => !isl.some(e => e.act === a)).length;
     // packs per island
     newTown('v1', 'farm'); out.farm = town.pack; newTown('v2', 'blank'); out.blank = town.pack; newTown('v3', 'village'); out.village = town.pack;

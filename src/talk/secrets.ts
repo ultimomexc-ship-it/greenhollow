@@ -28,7 +28,7 @@ ACTS.confide = {
   stage: 'topic',
   preview: (c: any, sp: any, li: any) => {
     const k = secretPick(sp, li);
-    return { news: k ? TE.text(k.ev, k.m.kind === 'did' ? { who: sp.id } : k.m.ver) : '' };
+    return { news: k ? TE.text(k.ev, k.m.kind === 'did' ? { who: sp.id } : k.m.ver, sp, li) : '' };
   },
   w: (c: any, sp: any) => (sp.player ? 0.4 : 0.6),
   when: (c: any, sp: any, li: any) =>
@@ -55,7 +55,7 @@ ACTS.confide = {
       mem.secret = true;
       mem.keeper = sp.id;
     }
-    c.told = { text: TE.text(k.ev, ver), react: '' };
+    c.told = { text: TE.text(k.ev, ver, sp, li), react: '' };
     c.secretEv = k.ev;
     lfAff(li, sp, 3, 'trusted me with a secret');
     lfAff(sp, li, 2, 'kept my confidence');

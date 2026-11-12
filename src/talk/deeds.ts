@@ -38,7 +38,7 @@ function deedYou(ev: any, sp: any): string {
     case 'caught_on_privy':
       return me ? 'knocked the wall out while I was on the privy' : 'knocked the wall out while ' + they + ' was on the privy';
     default:
-      return TE.text(ev, { who: null }).replace(/^someone /, '');
+      return TE.text(ev, { who: null }, sp).replace(/^someone /, '');
   }
 }
 /** the deed sp holds against li that is worth raising, or null */

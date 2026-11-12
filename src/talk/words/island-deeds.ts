@@ -49,3 +49,9 @@ lxi('secret_keep', 'I will keep it. I am good at keeping things. It is most of w
 lxi('secret_keep', 'It stays here. I will not even think about it where people can see.');
 lxi('secret_alarmed', 'That is serious. I will keep it. I would like to say that I wish you had not told me, and I have.');
 lxi('secret_alarmed', 'I see. I will say nothing. I will think about it quite a lot.');
+// first person: said by the one who did it (TE.text with the speaker)
+lxi('ev1:wall_removed', "I took a wall out of {t}'s house");
+lxi('ev1:home_destroyed', "I took {t}'s house down");
+lxi('ev1:bed_moved', "I carried {t} out of the house, bed and all");
+lxi('ev1:person_pushed', "I pushed {t} about");
+lxi('ev1:theft', "I took what was {t}'s");
