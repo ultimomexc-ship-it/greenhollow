@@ -282,7 +282,13 @@ LXI('vent', ['I feel dreadful. I am hot and cold, and I cannot decide which to c
 LXI('ask_how', ['How are you?', 'How are you keeping?', 'Are you well?', 'How is it with you?']);
 LXI('ask_day', ['How was your day?', 'What did you do today?', 'What have you been at?', 'Busy day?']);
 LXI('nothing_much', ['Not much.', 'Very little.', 'The usual.', 'Nothing to speak of.']);
-LXI('empathise', ['I am sorry.', 'That is hard.', 'That is a bad day.', 'That sounds like a long day.', 'I am sorry. That should not happen to anyone.']);
+LXI('empathise', [
+  'I am sorry.',
+  'That is hard.',
+  'That is a bad day.',
+  'That sounds like a long day.',
+  'I am sorry. That should not happen to anyone.'
+]);
 LXI('acknowledge', ['Good.', 'Well done.', 'That is a fair day.']);
 for (const [st, ls] of [
   ['fine', ['Well enough.', 'I am well.', 'Fine.']],
@@ -317,4 +323,14 @@ LXI('life:found', ['I found {item}.', 'I picked up {item} today.']);
 LXI('life:ill', ['I am not well.', 'I have a fever.']);
 LXI('life:recovered', ['I am better.', 'The fever has gone.']);
 // sympathy that claims a shared trouble: only said by somebody who has had the same this week
-LXI('empathise', ['Ugh. Yes. I know that one.', 'I know.', 'The same happened to me. It does not get better for being shared.', 'I had that too. I will not say it helps.', 'Me too. I will not say it was better.'], { shared: 'yes' });
+LXI(
+  'empathise',
+  [
+    'Ugh. Yes. I know that one.',
+    'I know.',
+    'The same happened to me. It does not get better for being shared.',
+    'I had that too. I will not say it helps.',
+    'Me too. I will not say it was better.'
+  ],
+  { shared: 'yes' }
+);

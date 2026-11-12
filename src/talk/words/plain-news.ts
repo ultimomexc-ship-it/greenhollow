@@ -63,7 +63,7 @@ lx('ev:lent_hand', 'island', "{a} did an hour of {t}'s work, unasked");
 lx('ev:sick_visit', 'plain', '{a} looked in on {t} when {t} was ill');
 lx('ev:sick_visit', 'island', '{a} sat with {t} when {t} was ill');
 // first person: said by the one who did it (TE.text with the speaker)
-lx('ev1:gift', 'plain', "I gave {t} a gift");
-lx('ev1:help', 'plain', "I helped {t} out");
-lx('ev1:lent_hand', 'plain', "I lent {t} a hand with the work");
-lx('ev1:sick_visit', 'plain', "I looked in on {t} because of the fever");
+lx('ev1:gift', 'plain', 'I gave {t} a gift');
+lx('ev1:help', 'plain', 'I helped {t} out');
+lx('ev1:lent_hand', 'plain', 'I lent {t} a hand with the work');
+lx('ev1:sick_visit', 'plain', 'I looked in on {t} because of the fever');

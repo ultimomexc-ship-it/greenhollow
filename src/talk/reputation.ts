@@ -25,10 +25,14 @@ const REP_BAD = ['vandal', 'meddler', 'thief', 'gossip', 'bully'];
 /** what `obs` believes about `subj`: tag -> weight (sum of confidences of what they believe subj did) */
 /** what each person has been told or has seen of everybody else, kept for an hour of game time per observer (dropped when they get a memory, or when a memory's standing changes: `repDirty`) */
 function repDirty() {
-  for (const n of npcs) n._repC = null;
+  for (const n of npcs) if (n._repC) n._repC = null;
 }
 function repTags(obs: any, subj: any): any {
-  const cache = obs._repC && obs._repC.t > game.time - 60 ? obs._repC : (obs._repC = { t: game.time, m: {} });
+  let cache = obs._repC;
+  if (!cache || cache.t <= game.time - 60) {
+    cache = { t: game.time, m: {} };
+    Object.defineProperty(obs, '_repC', { value: cache, writable: true, enumerable: false, configurable: true }); // (a cache, not part of the person: not listed, not saved)
+  }
   if (cache.m[subj.id]) return cache.m[subj.id];
   const out: any = (cache.m[subj.id] = {});
   if (!obs.tmem) return out;

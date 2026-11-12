@@ -77,13 +77,13 @@ lx('ev:betrayal', 'plain', "{t}'s secret got out, and {a} was the one who told")
 // first person: said by the one who did it (TE.text with the speaker)
 lx('ev1:wall_removed', 'plain', "I knocked a wall out of {t}'s house");
 lx('ev1:home_destroyed', 'plain', "I pulled {t}'s house down");
-lx('ev1:building_down', 'plain', "I pulled down {place}");
+lx('ev1:building_down', 'plain', 'I pulled down {place}');
 lx('ev1:furniture_removed', 'plain', "I took {t}'s furniture away");
-lx('ev1:person_pushed', 'plain', "I pushed {t} around");
-lx('ev1:bed_moved', 'plain', "I carried {t} out of the house, bed and all");
-lx('ev1:caught_on_privy', 'plain', "I knocked the wall out and found {t} on the privy");
-lx('ev1:caught_bathing', 'plain', "I knocked the wall out and found {t} bathing");
-lx('ev1:caught_praying', 'plain', "I took the wall down and found {t} at prayer");
-lx('ev1:theft', 'plain', "I stole from {t}");
-lx('ev1:shove', 'plain', "I pushed {t} around");
+lx('ev1:person_pushed', 'plain', 'I pushed {t} around');
+lx('ev1:bed_moved', 'plain', 'I carried {t} out of the house, bed and all');
+lx('ev1:caught_on_privy', 'plain', 'I knocked the wall out and found {t} on the privy');
+lx('ev1:caught_bathing', 'plain', 'I knocked the wall out and found {t} bathing');
+lx('ev1:caught_praying', 'plain', 'I took the wall down and found {t} at prayer');
+lx('ev1:theft', 'plain', 'I stole from {t}');
+lx('ev1:shove', 'plain', 'I pushed {t} around');
 lx('ev1:betrayal', 'plain', "I told {t}'s secret");

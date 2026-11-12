@@ -151,7 +151,9 @@ LXI('pre_close', ['I should get on.', 'Well. I have things to see to.', 'I will 
 // registers (tag `reg`): said only by somebody of that manner; the ritual acts and a few replies
 LXI('greet', ['Good day, {li}. I will be brief.', 'Greetings, {li}.', 'I have come to say that I am here.'], { reg: 'formal' });
 LXI('greet_back', ['Good day. You have found me.', 'Greetings. It is a pleasure, as far as I can tell.', 'Well met, I believe.'], { reg: 'formal' });
-LXI('farewell', ['I will take my leave.', 'Farewell, {li}. I will see that it is noted.', 'I bid you good day. I mean it as written.'], { reg: 'formal' });
+LXI('farewell', ['I will take my leave.', 'Farewell, {li}. I will see that it is noted.', 'I bid you good day. I mean it as written.'], {
+  reg: 'formal'
+});
 LXI('farewell_back', ['Farewell.', 'Good day, then.', 'Until we meet again, as we will.'], { reg: 'formal' });
 LXI('pre_close', ['I must beg your leave.', 'Forgive me. I have something to attend to.'], { reg: 'formal' });
 LXI('greet', ['Hello, {li}. I am glad it is you.', 'There you are. I was about to look for you.', '{li}. Good. Come here.'], { reg: 'warm' });

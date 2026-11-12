@@ -28211,7 +28211,7 @@ const TM = {
   add(n, m) {
     const mem = n.tmem || (n.tmem = []), rec = Object.assign({ t: game.time, conf: 1, imp: 0.3 }, m);
     mem.push(rec);
-    n._repC = null;
+    if (n._repC) n._repC = null;
     if (mem.length > TM.max) {
       let k = 0, best = 1e9;
       for (let i = 0; i < mem.length; i++) {
@@ -30168,10 +30168,14 @@ const REP_KIND = {
 };
 const REP_BAD = ["vandal", "meddler", "thief", "gossip", "bully"];
 function repDirty() {
-  for (const n of npcs) n._repC = null;
+  for (const n of npcs) if (n._repC) n._repC = null;
 }
 function repTags(obs, subj) {
-  const cache = obs._repC && obs._repC.t > game.time - 60 ? obs._repC : obs._repC = { t: game.time, m: {} };
+  let cache = obs._repC;
+  if (!cache || cache.t <= game.time - 60) {
+    cache = { t: game.time, m: {} };
+    Object.defineProperty(obs, "_repC", { value: cache, writable: true, enumerable: false, configurable: true });
+  }
   if (cache.m[subj.id]) return cache.m[subj.id];
   const out = cache.m[subj.id] = {};
   if (!obs.tmem) return out;
@@ -32135,7 +32139,17 @@ LXLP("recovered", ["I'm over it. Back on my feet.", "Feeling myself again, thank
 LXP("answer_how", ["Not well. Fever.", "Rough, to be honest. I'm ill.", "Poorly. I'll be all right."], { state: "ill" });
 LXP("sympathise_how", ["You should be in bed. Go on.", "Oh, you poor thing. Rest. I mean it."], { state: "ill" });
 LXP("vent", ["I feel dreadful. Hot and cold at once."], { state: "ill" });
-LXP("empathise", ["Ugh. I know that one.", "Same here, I'm afraid.", "I had that too.", "That happened to me as well. It's no fun.", "Me too. You have my sympathy."], { shared: "yes" });
+LXP(
+  "empathise",
+  [
+    "Ugh. I know that one.",
+    "Same here, I'm afraid.",
+    "I had that too.",
+    "That happened to me as well. It's no fun.",
+    "Me too. You have my sympathy."
+  ],
+  { shared: "yes" }
+);
 LXP("empathise", ["That sounds awful.", "Poor you.", "I'm sorry. That's hard."]);
 lx("ask_news", "plain", "Any news?");
 lx("ask_news", "plain", "Heard anything lately?");
@@ -32882,7 +32896,9 @@ LXI("farewell_back", ["Goodbye.", "See you.", "Go well."]);
 LXI("pre_close", ["I should get on.", "Well. I have things to see to.", "I will let you go.", "That is all I had.", "I must go."]);
 LXI("greet", ["Good day, {li}. I will be brief.", "Greetings, {li}.", "I have come to say that I am here."], { reg: "formal" });
 LXI("greet_back", ["Good day. You have found me.", "Greetings. It is a pleasure, as far as I can tell.", "Well met, I believe."], { reg: "formal" });
-LXI("farewell", ["I will take my leave.", "Farewell, {li}. I will see that it is noted.", "I bid you good day. I mean it as written."], { reg: "formal" });
+LXI("farewell", ["I will take my leave.", "Farewell, {li}. I will see that it is noted.", "I bid you good day. I mean it as written."], {
+  reg: "formal"
+});
 LXI("farewell_back", ["Farewell.", "Good day, then.", "Until we meet again, as we will."], { reg: "formal" });
 LXI("pre_close", ["I must beg your leave.", "Forgive me. I have something to attend to."], { reg: "formal" });
 LXI("greet", ["Hello, {li}. I am glad it is you.", "There you are. I was about to look for you.", "{li}. Good. Come here."], { reg: "warm" });
@@ -33188,7 +33204,13 @@ LXI("vent", ["I feel dreadful. I am hot and cold, and I cannot decide which to c
 LXI("ask_how", ["How are you?", "How are you keeping?", "Are you well?", "How is it with you?"]);
 LXI("ask_day", ["How was your day?", "What did you do today?", "What have you been at?", "Busy day?"]);
 LXI("nothing_much", ["Not much.", "Very little.", "The usual.", "Nothing to speak of."]);
-LXI("empathise", ["I am sorry.", "That is hard.", "That is a bad day.", "That sounds like a long day.", "I am sorry. That should not happen to anyone."]);
+LXI("empathise", [
+  "I am sorry.",
+  "That is hard.",
+  "That is a bad day.",
+  "That sounds like a long day.",
+  "I am sorry. That should not happen to anyone."
+]);
 LXI("acknowledge", ["Good.", "Well done.", "That is a fair day."]);
 for (const [st, ls] of [
   ["fine", ["Well enough.", "I am well.", "Fine."]],
@@ -33221,7 +33243,17 @@ LXI("life:ate_with", ["I ate with {about}.", "{about} and I shared a table."]);
 LXI("life:found", ["I found {item}.", "I picked up {item} today."]);
 LXI("life:ill", ["I am not well.", "I have a fever."]);
 LXI("life:recovered", ["I am better.", "The fever has gone."]);
-LXI("empathise", ["Ugh. Yes. I know that one.", "I know.", "The same happened to me. It does not get better for being shared.", "I had that too. I will not say it helps.", "Me too. I will not say it was better."], { shared: "yes" });
+LXI(
+  "empathise",
+  [
+    "Ugh. Yes. I know that one.",
+    "I know.",
+    "The same happened to me. It does not get better for being shared.",
+    "I had that too. I will not say it helps.",
+    "Me too. I will not say it was better."
+  ],
+  { shared: "yes" }
+);
 lxi("ask_news", "Has anything happened? Anything at all. I will take a small one.");
 lxi("ask_news", "Any news?");
 lxi("ask_news", "Have you heard anything? About anyone. About anything.");

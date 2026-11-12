@@ -188,5 +188,15 @@ LXP('answer_how', ['Not well. Fever.', "Rough, to be honest. I'm ill.", "Poorly.
 LXP('sympathise_how', ['You should be in bed. Go on.', 'Oh, you poor thing. Rest. I mean it.'], { state: 'ill' });
 LXP('vent', ['I feel dreadful. Hot and cold at once.'], { state: 'ill' });
 // sympathy that claims a shared trouble: only said by somebody who has had the same this week
-LXP('empathise', ['Ugh. I know that one.', "Same here, I'm afraid.", 'I had that too.', "That happened to me as well. It's no fun.", 'Me too. You have my sympathy.'], { shared: 'yes' });
+LXP(
+  'empathise',
+  [
+    'Ugh. I know that one.',
+    "Same here, I'm afraid.",
+    'I had that too.',
+    "That happened to me as well. It's no fun.",
+    'Me too. You have my sympathy.'
+  ],
+  { shared: 'yes' }
+);
 LXP('empathise', ['That sounds awful.', 'Poor you.', "I'm sorry. That's hard."]);

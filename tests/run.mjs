@@ -2307,7 +2307,7 @@ test('levels: villagers move into huts upstairs and underground, walk there by t
 });
 test('work: villagers dig the mine, farmers sow a mix of seeds, a roof can hold a garden; and the sound engine stays silent under test', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 42, town: 'greenhollow-test' });
-  await simulate(page, 2 * 1440);
+  await simulate(page, 3 * 1440);   // (farmers start sowing on the third day: two days sat on the edge of it)
   const r = await page.evaluate(() => {
     const out = {}; out.seeds = [...new Set(town.crops.filter(c => c.seed).map(c => c.seed))].length; out.mineWork = mineWork();
     const ws = npcs.filter(n => n.role === 'Worker' && !n.dead && !n.player && n.cur === 'Farmer').slice(0, 3), w = ws[0]; for (const x of ws) { x.cur = 'Miner'; x.curUntil = game.time + 99999; } window.__miner = w.id; window.__miners = ws.map(x => x.id); /* three, since the watch may call one away */ out.m0 = town.mined || 0; out.coin0 = w.coin || 0;

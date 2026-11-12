@@ -52,6 +52,6 @@ lxi('secret_alarmed', 'I see. I will say nothing. I will think about it quite a 
 // first person: said by the one who did it (TE.text with the speaker)
 lxi('ev1:wall_removed', "I took a wall out of {t}'s house");
 lxi('ev1:home_destroyed', "I took {t}'s house down");
-lxi('ev1:bed_moved', "I carried {t} out of the house, bed and all");
-lxi('ev1:person_pushed', "I pushed {t} about");
+lxi('ev1:bed_moved', 'I carried {t} out of the house, bed and all');
+lxi('ev1:person_pushed', 'I pushed {t} about');
 lxi('ev1:theft', "I took what was {t}'s");
