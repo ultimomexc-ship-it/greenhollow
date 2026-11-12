@@ -30240,7 +30240,8 @@ ACTS.tell_rep = {
   w: (c, sp, li) => 0.5 + Math.max(0, sp.aff[li.id] || 0) / 80,
   when: (c, sp, li) => {
     if (c.done.tell_rep || (sp.aff[li.id] || 0) < 10) return false;
-    const v = repVillage(li), k = Object.keys(v).filter((t) => v[t] >= 2 && REP_BAD.includes(t)).sort((a, b) => v[b] - v[a])[0];
+    const already = (t) => (sp.tmem || []).some((m) => m.kind === "told_rep" && m.with === li.id && m.tag === t && game.time - m.t < 10 * 1440);
+    const v = repVillage(li), k = Object.keys(v).filter((t) => v[t] >= 2 && REP_BAD.includes(t) && !already(t)).sort((a, b) => v[b] - v[a])[0];
     if (!k) return false;
     c.repTag = k;
     c.repN = v[k];
@@ -30252,6 +30253,7 @@ ACTS.tell_rep = {
     c.lifeQty = c.repN;
     li.mood = Math.max(0, (li.mood == null ? 50 : li.mood) - 3);
     lfAff(li, sp, 1, "was honest with me");
+    TM.add(sp, { kind: "told_rep", with: li.id, tag: c.repTag, imp: 0.1 });
   },
   replies: ["rep_own", "rep_deny"]
 };
@@ -30964,7 +30966,7 @@ function talkFinish(c, a, b, listened) {
   if (listened || TALK.words) {
     lines = c.turns.map((t) => {
       const s = t.by === a.id ? a : b, text = talkWords(t, a, b);
-      return text ? { who: s, text } : null;
+      return text ? { who: s, text, act: t.act } : null;
     }).filter(Boolean);
   }
   const solo = !!c.solo || a === b;
@@ -30975,14 +30977,16 @@ function talkFinish(c, a, b, listened) {
       a: a.id,
       to: b !== a ? b.id : null,
       acts: c.turns.slice(),
-      lines: lines ? lines.map((l) => l.who.first + ": " + l.text) : null
+      lines: lines ? lines.map((l) => l.who.first + ": " + l.text) : null,
+      lineActs: lines ? lines.map((l) => l.act) : null
     } : {
       t: game.time,
       a: a.id,
       b: b.id,
       d: lfDist(a, b),
       acts: c.turns.slice(),
-      lines: lines ? lines.map((l) => l.who.first + ": " + l.text) : null
+      lines: lines ? lines.map((l) => l.who.first + ": " + l.text) : null,
+      lineActs: lines ? lines.map((l) => l.act) : null
     }
   );
   if (TALK.log.length > 300) TALK.log.shift();
@@ -32287,6 +32291,24 @@ LXP("warn", [
 LXP("warn_thanks", ["Thanks for the word.", "I had wondered. Thank you.", "I will watch out."]);
 lx("call_child", "plain", "{about}! Come in now, it's getting dark!");
 lx("call_child", "plain", "{about}! Time to come home!");
+lx("tell_rep", "plain", "Word is you {about}. Thought you'd want to know.");
+lx("tell_rep", "plain", "They say you {about}. I'm only passing it on.");
+lx("tell_rep", "plain", "I've heard you {about}, from {qty} people now.");
+lx("tell_rep", "plain", "You {about}, is what's going round.");
+lx("tell_rep", "plain", "I don't believe it, but they say you {about}.");
+lx("tell_rep", "plain", "Folk are saying you {about}. Best you hear it from me.");
+lx("rep_own", "plain", "Fair enough. I did.");
+lx("rep_own", "plain", "I won't argue.");
+lx("rep_own", "plain", "I know. I'm not proud of it.");
+lx("rep_own", "plain", "Yes. I did.");
+lx("rep_own", "plain", "It's true. I'd rather you heard it from me.");
+lx("rep_own", "plain", "I can't say it isn't so.");
+lx("rep_deny", "plain", "That's not true.");
+lx("rep_deny", "plain", "Who's saying that?");
+lx("rep_deny", "plain", "I never did.");
+lx("rep_deny", "plain", "It wasn't me. Truly.");
+lx("rep_deny", "plain", "Somebody's mixed me up with somebody else.");
+lx("rep_deny", "plain", "I'd never. Ask anyone.");
 lx("ev:theft", "plain", "{a} stole from {t}");
 lx("ev:theft", "plain", "{a} walked off with something of {t}'s");
 lx("ev:shove", "plain", "{a} pushed {t} around");
@@ -33358,6 +33380,24 @@ for (const [st, ls] of [
   LXI("answer_family", ls, { state: st });
 lxi("call_child", "{about}. Come in. It is getting dark and I would like you inside.");
 lxi("call_child", "{about}. Home. The light is going and I count you every evening.");
+lxi("tell_rep", "People say you {about}.");
+lxi("tell_rep", "You {about}, according to {qty} people.");
+lxi("tell_rep", "It is going round that you {about}.");
+lxi("tell_rep", "I heard that you {about}. I thought you would rather know.");
+lxi("tell_rep", "{qty} people have told me you {about}. I have not said whether I agree.");
+lxi("tell_rep", "You {about}, they say. I am only the messenger.");
+lxi("rep_own", "It is true.");
+lxi("rep_own", "Yes. I did.");
+lxi("rep_own", "I will not argue with it.");
+lxi("rep_own", "That is fair. I did that.");
+lxi("rep_own", "I know. It is a short list and I am on it.");
+lxi("rep_own", "I cannot say it is wrong.");
+lxi("rep_deny", "That is not true.");
+lxi("rep_deny", "I did not.");
+lxi("rep_deny", "Who said so?");
+lxi("rep_deny", "That was not me. I would know.");
+lxi("rep_deny", "It is a rumour. I have seen what those do.");
+lxi("rep_deny", "Somebody is confusing me with somebody else.");
 lxi("raise_deed", "I have been thinking about who {deed}. I keep arriving at you.", { how: "suspect" });
 lxi("raise_deed", "It is a hunch. Was it you who {deed}?", { how: "suspect" });
 lxi("deed_blame", "I would look at {about}. I am not saying more than that. I am saying that.");

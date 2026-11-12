@@ -23,7 +23,7 @@ await page.evaluate(([scenario]) => {
   newTown('playtest', world); if (scenario === 'romance' || scenario === 'meddle' || scenario === 'social') MODS.all();
   TALK.words = true; window.__T = []; window.__B = [];
   const orig = talkFinish;
-  talkFinish = function (c, a, b, listened) { const n0 = TALK.log.length; orig(c, a, b, listened); const e = TALK.log[TALK.log.length - 1]; if (e && TALK.log.length >= n0) window.__T.push({ t: game.time, a: a.first, b: e.kind === 'bark' ? '' : b.first, place: (typeof placeOf === 'function' ? placeOf(a) : ''), acts: e.acts.map(x => x.act), subj: e.acts.map(x => x.x && x.x.about), kidActs: e.acts.filter(x => { const q = x.by != null ? byId(x.by) : null; return q && q.age < 12; }).map(x => x.act), lines: e.lines || [], kind: e.kind === 'bark' ? 'bark' : e.player ? 'player' : 'npc' }); };
+  talkFinish = function (c, a, b, listened) { const n0 = TALK.log.length; orig(c, a, b, listened); const e = TALK.log[TALK.log.length - 1]; if (e && TALK.log.length >= n0) window.__T.push({ t: game.time, a: a.first, b: e.kind === 'bark' ? '' : b.first, place: (typeof placeOf === 'function' ? placeOf(a) : ''), acts: e.acts.map(x => x.act), subj: e.acts.map(x => x.x && x.x.about), kidActs: e.acts.filter(x => { const q = x.by != null ? byId(x.by) : null; return q && q.age < 12; }).map(x => x.act), lines: e.lines || [], lineActs: e.lineActs || [], kind: e.kind === 'bark' ? 'bark' : e.player ? 'player' : 'npc' }); };
   startPlaying(npcs.filter(n => !n.dead && n.age >= 18 && !n.infant)[0]);
   if (scenario === 'romance') {   // three couples in the making: one-sided, mutual, and one already walking out a while
     const singles = npcs.filter(n => !n.dead && !n.player && n.age >= 17 && n.age < 45); const ms = singles.filter(n => !n.female), fs = singles.filter(n => n.female), pairs = [];
@@ -154,6 +154,10 @@ const talkConvs = data.T.filter(t => t.kind === 'npc' && t.acts.includes('farewe
 const lens = talkConvs.map(t => t.lines.length).sort((a, b) => a - b), medLen = lens[Math.floor(lens.length / 2)] || 0;
 const qa = []; for (const t of data.T) for (let i = 0; i + 1 < t.acts.length; i++) { const pair = { ask_opinion: 'give_opinion', ask_family: 'answer_family', ask_where: 'tell_where' }[t.acts[i]]; if (pair && t.acts[i + 1] === pair && t.subj && t.subj[i] && t.subj[i + 1] && t.subj[i] !== t.subj[i + 1]) qa.push(t.lines[i] + ' / ' + t.lines[i + 1]); }
 if (qa.length) issues['answer about somebody else'] = qa;
+// the same line said by the same person to the same person (not the short formulas): more than twice in a scenario is a repeat
+const triples = {}; const FORMULA = /^(greet|greet_back|farewell|farewell_back|pre_close|backchannel|shop_greet|shop_greet_back|ask_item|quote_price|pay_ok|thank_shop|farewell_shop|cant_afford|no_stock|no_demand|make_do|accept_deal|bid_price|offer_goods|keeper_call|call_reply|new_stock_remark)$/;   // (formulas are meant to repeat)
+for (const t of data.T) if (t.kind !== 'bark') t.lines.forEach((l, i) => { const who = l.split(':')[0], text = l.replace(/^[^:]+: /, ''), other = who === t.a ? t.b : t.a; if (text.length >= 25 && !FORMULA.test(t.lineActs[i] || '')) { const k = who + ' to ' + other + ': ' + text; triples[k] = (triples[k] || 0) + 1; } });
+const repeatedTriples = Object.entries(triples).filter(([, n]) => n > 2).sort((a, b) => b[1] - a[1]);
 const freq = {}; for (const l of lines) freq[l.text] = (freq[l.text] || 0) + 1; const stale = Object.entries(freq).filter(([, n]) => n >= 6).sort((a, b) => b[1] - a[1]).slice(0, 12);
 const uniq = new Set(lines.map(l => l.text)).size;
 let runs = 0; const runEx = []; for (const t of data.T) { let prev = '', n = 0; for (const l of t.lines) { const w = l.split(':')[0]; if (w === prev) { n++; if (n === 2) { runs++; if (runEx.length < 3) runEx.push(t.lines.slice(0, 6).join(' / ')); } } else { prev = w; n = 0; } } }
@@ -169,7 +173,7 @@ ok('conversations happen (>=20/day)', convs.length >= 20 * days, convs.length + 
 ok('no engine errors', errors.length === 0, errors.slice(0, 2).join(' | '));
 ok('no text slips', Object.keys(issues).length === 0, Object.entries(issues).map(([k, v]) => k + ' x' + v.length).join(', '));
 ok('every act supplies what its lines need', Object.keys(data.miss).length === 0, Object.entries(data.miss).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k, v]) => k + ' x' + v).join(', '));
-ok('variety (unique lines >= 30%)', uniq / Math.max(1, lines.length) >= 0.3, (uniq / Math.max(1, lines.length)).toFixed(2));
+ok('variety (unique lines >= 30%, no line said three times by one person to one person)', uniq / Math.max(1, lines.length) >= 0.3 && repeatedTriples.length === 0, (uniq / Math.max(1, lines.length)).toFixed(2) + (repeatedTriples.length ? ' ' + repeatedTriples.slice(0, 2).map(([k, n]) => k.slice(0, 80) + ' x' + n).join(' ; ') : ''));
 if (scenario === 'meddle') {
   ok('people cried out', has('cry_deed')); ok('somebody raised a deed with the bot', has('raise_deed') || data.B.some(b => /You .*(wall|house|privy|bed)/i.test(b.open || '')), 'raise_deed ' + (data.acts.raise_deed || 0));
   ok('news about the deeds travelled', data.blamed.some(b => b.knew >= 4), JSON.stringify(data.blamed.map(b => [b.ev, b.knew])));

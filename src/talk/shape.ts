@@ -326,7 +326,7 @@ function talkFinish(c: any, a: any, b: any, listened?: boolean) {
       .map((t: any) => {
         const s = t.by === a.id ? a : b,
           text = talkWords(t, a, b);
-        return text ? { who: s, text } : null;
+        return text ? { who: s, text, act: t.act } : null;
       })
       .filter(Boolean);
   }
@@ -341,7 +341,8 @@ function talkFinish(c: any, a: any, b: any, listened?: boolean) {
           a: a.id,
           to: b !== a ? b.id : null,
           acts: c.turns.slice(),
-          lines: lines ? lines.map((l: any) => l.who.first + ': ' + l.text) : null
+          lines: lines ? lines.map((l: any) => l.who.first + ': ' + l.text) : null,
+          lineActs: lines ? lines.map((l: any) => l.act) : null
         }
       : {
           t: game.time,
@@ -349,7 +350,8 @@ function talkFinish(c: any, a: any, b: any, listened?: boolean) {
           b: b.id,
           d: lfDist(a, b),
           acts: c.turns.slice(),
-          lines: lines ? lines.map((l: any) => l.who.first + ': ' + l.text) : null
+          lines: lines ? lines.map((l: any) => l.who.first + ': ' + l.text) : null,
+          lineActs: lines ? lines.map((l: any) => l.act) : null
         }
   );
   if (TALK.log.length > 300) TALK.log.shift();

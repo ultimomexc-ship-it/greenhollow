@@ -95,9 +95,10 @@ ACTS.tell_rep = {
   w: (c: any, sp: any, li: any) => 0.5 + Math.max(0, sp.aff[li.id] || 0) / 80,
   when: (c: any, sp: any, li: any) => {
     if (c.done.tell_rep || (sp.aff[li.id] || 0) < 10) return false;
+    const already = (t: string) => (sp.tmem || []).some((m: any) => m.kind === 'told_rep' && m.with === li.id && m.tag === t && game.time - m.t < 10 * 1440); // (what was told once is not told again for ten days)
     const v = repVillage(li),
       k = Object.keys(v)
-        .filter(t => v[t] >= 2 && REP_BAD.includes(t))
+        .filter(t => v[t] >= 2 && REP_BAD.includes(t) && !already(t))
         .sort((a, b) => v[b] - v[a])[0];
     if (!k) return false;
     c.repTag = k;
@@ -110,6 +111,7 @@ ACTS.tell_rep = {
     c.lifeQty = c.repN;
     li.mood = Math.max(0, (li.mood == null ? 50 : li.mood) - 3);
     lfAff(li, sp, 1, 'was honest with me');
+    TM.add(sp, { kind: 'told_rep', with: li.id, tag: c.repTag, imp: 0.1 });
   },
   replies: ['rep_own', 'rep_deny']
 };
