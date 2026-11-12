@@ -1,5 +1,7 @@
 # Hamlet, round 2: first playthrough (for discussion, nothing decided)
 
+The tutorial design is in the Claude Doc "Greenhollow: the first five minutes" (https://claude.ai/artifact/7YntvnAEi49eqLUkR1JEqJ).
+
 The owner's first playthrough of the Hamlet (v116, steps 1-8). Nothing here is decided: each point has what was found, why it happens in the code
 today, and the questions to talk through. The ideas written down before playing are at the end.
 
