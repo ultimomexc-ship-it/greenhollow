@@ -109,7 +109,11 @@ const ACTS: any = {
   share_news: {
     kind: 'world',
     stage: 'topic',
-    preview: (c: any) => ({ news: TE.text(c.news.ev, c.news.m.ver), how: c.news.m.kind, conf: c.news.m.conf > 0.7 ? 'high' : 'low' }),
+    preview: (c: any, sp: any, li: any) => ({
+      news: TE.text(c.news.ev, c.news.m.ver, sp, li),
+      how: c.news.m.kind,
+      conf: c.news.m.conf > 0.7 ? 'high' : 'low'
+    }),
     when: (c: any, sp: any, li: any) =>
       (c.done.share_news || 0) < 2 && (c.storyNews ? ((c.news = c.storyNews), true) : !!(c.news = TE.pick(sp, li, c))),
     w: (c: any) => 1 + 4 * Math.min(1, c.news ? c.news.score : 0),

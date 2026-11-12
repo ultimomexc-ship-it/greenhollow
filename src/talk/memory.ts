@@ -7,6 +7,7 @@ const TM = {
     const mem = n.tmem || (n.tmem = []),
       rec = Object.assign({ t: game.time, conf: 1, imp: 0.3 }, m);
     mem.push(rec);
+    if (n._repC) n._repC = null; // (what this person believes of others may have changed)
     if (mem.length > TM.max) {
       let k = 0,
         best = 1e9;

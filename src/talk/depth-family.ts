@@ -68,7 +68,7 @@ ACTS.brag_child = {
   w: () => 0.9,
   when: (c: any, sp: any, li: any) => {
     if (c.done.brag_child) return false;
-    const k = (sp.fam.kids || []).map(byId).filter((q: any) => q && !q.dead && q.age < 14)[0];
+    const k = (sp.fam.kids || []).map(byId).filter((q: any) => q && !q.dead && q.age < 14 && q !== li)[0]; // (not to the child itself)
     if (!k) return false;
     c.kid = k;
     return true;

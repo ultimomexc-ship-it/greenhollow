@@ -79,6 +79,8 @@ ACTS.callback = {
       !!m &&
       !!m.subj &&
       npcs.some((o: any) => o.first === m.subj) &&
+      m.subj !== sp.first && // (somebody who was the subject of the last talk is not reminded of themselves, nor told of it)
+      m.subj !== li.first &&
       !m.called &&
       game.time - m.t > 240 &&
       game.time - m.t < 2880 &&

@@ -185,7 +185,7 @@ function meddleReactions(r: any, by: any, ps: any[]) {
 function meddleTell(a: any, b: any) {
   const m = (a.tmem || []).filter((q: any) => q.ev != null && q.kind !== 'did').sort((x: any, y: any) => y.t - x.t)[0];
   if (!m || TM.ofEv(b, m.ev)) return;
-  const ev = lf2Ev().find((q: any) => q.id === m.ev);
+  const ev = lf2EvById(m.ev);
   if (!ev) return;
   const c: any = { a, b, done: {}, turns: [], left: {}, news: { m, ev, score: 1 } };
   talkTurn(c, a, b, 'share_news');

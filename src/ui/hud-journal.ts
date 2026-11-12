@@ -12,7 +12,7 @@ function jrText(m: any): string {
   if (m.kind === 'opinion') { const a = byId(m.about); return a ? who(m.from) + ' on ' + a.first + ': ' + ({ fond: 'fond of them', like: 'likes them', neutral: 'no strong view', wary: 'wary of them', dislike: "can't stand them" } as any)[m.word] + (m.reason ? '. ' + m.reason : '') : ''; }
   if (m.kind === 'price') { const g = (GOODS as any)[m.item]; return who(m.from) + ' says ' + (g ? g.name : m.item) + ' costs about ' + lxMoney(m.unit) + ' each'; }
   if (m.kind === 'told_life') { const o = byId(m.with); return o ? o.first + ' has been: ' + ((LIFE_TROUBLE as any)[m.lk] || m.lk.replace(/_/g, ' ')) : ''; }
-  if (m.ev != null && m.kind !== 'life') { const ev = lf2Ev().find((q: any) => q.id === m.ev); if (!ev) return ''; return TE.text(ev, m.ver).replace(/^./, (c: string) => c.toUpperCase()) + (m.kind === 'saw' ? ' (you saw it)' : m.kind === 'felt' ? ' (it happened to you)' : m.kind === 'overheard' ? ' (overheard)' : m.kind === 'told' ? ' (' + who(m.from) + ' told you' + jrPath(m) + (m.conf < 0.5 ? ', not sure' : '') + ')' : ''); }
+  if (m.ev != null && m.kind !== 'life') { const ev = lf2EvById(m.ev); if (!ev) return ''; return TE.text(ev, m.ver).replace(/^./, (c: string) => c.toUpperCase()) + (m.kind === 'saw' ? ' (you saw it)' : m.kind === 'felt' ? ' (it happened to you)' : m.kind === 'overheard' ? ' (overheard)' : m.kind === 'told' ? ' (' + who(m.from) + ' told you' + jrPath(m) + (m.conf < 0.5 ? ', not sure' : '') + ')' : ''); }
   return '';
 }
 function jrHTML(): string {
@@ -32,7 +32,7 @@ function jrHTML(): string {
   const rv = repVillage(p), rep = Object.keys(rv).filter(k => rv[k] >= 1).sort((a, b) => rv[b] - rv[a]).map(k => ({ m: { t: game.time }, t: `${rv[k]} ${rv[k] === 1 ? 'person says' : 'people say'} you ${REP_WORDS[k]}` }));
   groups['What folks say about you'] = rep;
   const open = (p.tmem || []).filter((m: any) => m.kind === 'request' && m.state === 'open').slice(-6).reverse().map((m: any) => { const a = byId(m.from); return a ? { m, t: a.first + (m.req.kind === 'bed' ? ' needs a bed' : ' needs ' + (GOODS[m.req.item] ? GOODS[m.req.item].name : m.req.item)) + ' — you said you would try' } : null; }).filter(Boolean);
-  const sec = (p.tmem || []).filter((m: any) => m.secret && m.keeper != null).slice(-6).reverse().map((m: any) => { const k = byId(m.keeper), ev = lf2Ev().find((q: any) => q.id === m.ev); return k && ev ? { m, t: k.first + ' told you in confidence: ' + TE.text(ev, m.ver) } : null; }).filter(Boolean);
+  const sec = (p.tmem || []).filter((m: any) => m.secret && m.keeper != null).slice(-6).reverse().map((m: any) => { const k = byId(m.keeper), ev = lf2EvById(m.ev); return k && ev ? { m, t: k.first + ' told you in confidence: ' + TE.text(ev, m.ver) } : null; }).filter(Boolean);
   groups = Object.assign({ 'Open threads': open, 'Secrets you keep': sec }, groups);
   const out = Object.keys(groups).filter(k => groups[k].length).map(k => `<div class="vch">${k}</div><ul>${groups[k].slice(0, 8).map((r: any) => `<li>${esc(r.t)} <span class="dim">· ${stamp(r.m.t)}</span></li>`).join('')}</ul>`).join('');
   return out || '<p class="dim">Nothing yet. Talk to people: ask them for news, what they think of someone, what things cost.</p>';

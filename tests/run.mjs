@@ -1192,10 +1192,10 @@ test('life events (the contract): kinds are registered, data is required, events
     out.rec = !!rec && LIFE.stream.length === n0 + 1 && LIFE.digest(1).kinds.bought === d0 + 1 && LIFE.today(n).some(e => e.kind === 'bought') && (n.tmem || []).some(m => m.kind === 'life' && m.lk === 'bought');
     const s0 = LIFE.stream.length; const ev = lfEmit('theft', { actor: n, tags: ['theft'], sev: 1, text: 'x' }); out.legacy = LIFE.stream.length === s0 + 1 && LIFE.stream[LIFE.stream.length - 1].legacy === true && LIFE.today(n).some(e => e.kind === 'theft');
     // everything a line may name is defined: an 'ev:' line is a registered kind, any other line is a defined act, and every requirement resolves to a known kind of thing
-    const badLines = LEX.filter(e => e.act.startsWith('ev:') ? !REG.has('event', e.act.slice(3)) : e.act.startsWith('life:') ? !REG.has('event', e.act.slice(5)) : !ACTS[e.act]).map(e => e.act); out.badLines = [...new Set(badLines)];
+    const badLines = LEX.filter(e => e.act.startsWith('ev:') ? !REG.has('event', e.act.slice(3)) : e.act.startsWith('ev1:') ? !REG.has('event', e.act.slice(4)) : e.act.startsWith('life:') ? !REG.has('event', e.act.slice(5)) : !ACTS[e.act]).map(e => e.act); out.badLines = [...new Set(badLines)];
     const kinds = REG.all('event'); out.kinds = kinds.length; out.badKinds = kinds.filter(k => !k.family || k.tell == null).map(k => k.id);
     // deleting a definition makes the lint above fail for its lines (so removing a feature forces the clean-up)
-    REG.remove('event', 'arrival'); out.afterRemove = [...new Set(LEX.filter(e => e.act.startsWith('ev:') && !REG.has('event', e.act.slice(3))).map(e => e.act))]; REG.define('event', 'arrival', { family: 'place', needs: [], tell: 0.9, tags: [] });
+    REG.remove('event', 'arrival'); out.afterRemove = [...new Set(LEX.filter(e => (e.act.startsWith('ev:') || e.act.startsWith('ev1:')) && !REG.has('event', e.act.slice(e.act.indexOf(':') + 1))).map(e => e.act))]; REG.define('event', 'arrival', { family: 'place', needs: [], tell: 0.9, tags: [] });
     // the day so far: sleeping, privy and eating were reported by the step system
     const dg = LIFE.digest(2); out.dg = dg.kinds; return out; });
   check(r.strict, 'the tests run the stream in strict mode');
@@ -1448,7 +1448,7 @@ test('voice: the island has its own voice (dry, exact, no exclamation marks), ea
   const r = await page.evaluate(() => {
     const out = {}; const known = /^(them|deed|about|reason|op|li|sp|place|job|state|item|things|money|news|who|shop|qty|price|clock)$/;
     const isl = LEX.filter(e => e.pack === 'island'); out.n = isl.length; out.bang = isl.filter(e => /!/.test(e.text)).map(e => e.text).slice(0, 3);
-    out.slots = [...new Set(LEX.filter(e => !e.act.startsWith('ev:')).flatMap(e => (e.text.match(/\{(\w+)\}/g) || []).map(x => x.slice(1, -1))).filter(x => !known.test(x)))];
+    out.slots = [...new Set(LEX.filter(e => !e.act.startsWith('ev:') && !e.act.startsWith('ev1:')).flatMap(e => (e.text.match(/\{(\w+)\}/g) || []).map(x => x.slice(1, -1))).filter(x => !known.test(x)))];
     out.acts = new Set(isl.map(e => e.act)).size; out.cover = [...new Set(LEX.filter(e => e.pack === 'plain').map(e => e.act))].filter(a => !isl.some(e => e.act === a)).length;
     // packs per island
     newTown('v1', 'farm'); out.farm = town.pack; newTown('v2', 'blank'); out.blank = town.pack; newTown('v3', 'village'); out.village = town.pack;
@@ -1866,6 +1866,57 @@ test('work clothes and bubbles: farmers wear a wide straw hat, miners a hard hat
   await page.close();
 });
 
+test('children say only what children say: no praise, prices, opinions of grown-ups or romance (minAge), but jokes, wonder and greetings', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    const kid = npcs.find(n => !n.dead && n.age >= 5 && n.age < 12 && !n.player), ad = npcs.find(n => !n.dead && n.age >= 25 && !n.player);
+    if (!kid || !ad) return { skip: true };
+    const c = () => ({ done: {}, turns: [], left: {} }), has = (sp, li, id) => { try { return !!talkBind(c(), sp, li, id); } catch (e) { return 'err'; } };
+    return { praise: has(kid, ad, 'praise'), price: has(kid, ad, 'ask_price'), flirt: has(kid, ad, 'flirt'), adultPraise: has(ad, kid, 'praise'), minPraise: ACTS.praise.minAge, minFlirt: ACTS.flirt.minAge, minPrice: ACTS.ask_price.minAge, remark: has(kid, ad, 'remark_time') };
+  });
+  if (!r.skip) {
+    check(r.praise === false && r.price === false && r.flirt === false, 'a child gets no binding for praise, prices or romance: ' + JSON.stringify(r));
+    check(r.minPraise === 12 && r.minFlirt === 16 && r.minPrice === 12, 'the ages are set on the acts (and survive acts redefined later): ' + JSON.stringify(r));
+  }
+  check(!errors.length, 'no errors: ' + errors.join(' | '));
+  await page.close();
+});
+
+test('sympathy claims only what is true: a listener who had the same trouble this week may say "I know that one", one who did not may only sympathise', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    const ps = npcs.filter(n => !n.dead && !n.player && n.age >= 18 && !n.infant), A = ps[0], B = ps[1];
+    A.day = []; B.day = []; B.day.push({ t: game.time - 60, kind: 'slept_rough' });   // (B slept rough this week, A did not)
+    const c = { life: { kind: 'slept_rough', data: {} }, lifeTrouble: true, done: {}, turns: [], left: {} };
+    const said = (sp, li) => { const seen = new Set(); for (let i = 0; i < 60; i++) { for (const k of Object.keys(LX_RECENT)) delete LX_RECENT[k]; li.heard = {}; seen.add(lxSay('empathise', sp, li, c)); } return [...seen]; };
+    const noShared = said(A, B), withShared = said(B, A);
+    return { noShared, withShared, ctxA: lxContext(A, B, c).shared || null, ctxB: lxContext(B, A, c).shared || null };
+  });
+  const claim = /know that one|same here|me too|had that too|happened to me|same happened/i;
+  check(r.ctxA === null && r.ctxB === 'yes', 'the tag follows the day log: ' + JSON.stringify([r.ctxA, r.ctxB]));
+  check(!r.noShared.some(t => claim.test(t)), 'somebody who did not have the trouble never claims to know it: ' + JSON.stringify(r.noShared));
+  check(r.withShared.some(t => claim.test(t)), 'somebody who did may say so: ' + JSON.stringify(r.withShared.slice(0, 6)));
+  check(!errors.length, 'no errors: ' + errors.join(' | '));
+  await page.close();
+});
+
+test('registers are lines: a formal speaker says formal lines, a warm one warm lines, a dry one neither; nothing is rewritten by pattern any more', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    const ps = npcs.filter(n => !n.dead && !n.player && n.age >= 18 && !n.infant), A = ps[0], B = ps[1], c = { done: {}, turns: [], left: {} };
+    const regs = {}; for (const reg of ['formal', 'warm', 'dry']) { const sp = npcs.find(n => !n.dead && !n.player && n.age >= 18 && lxRegister(n) === reg); if (!sp) { regs[reg] = null; continue; } const seen = new Set(); for (let i = 0; i < 80; i++) { for (const k of Object.keys(LX_RECENT)) delete LX_RECENT[k]; B.heard = {}; sp.sinceAside = 9; seen.add(lxSay('greet', sp, B === sp ? A : B, c)); } regs[reg] = [...seen]; }
+    const tagged = reg => new Set(LEX.filter(e => e.act === 'greet' && e.tags.reg === reg).map(e => e.text.replace('{li}', B.first)));
+    const reps = {}; for (const reg of ['formal', 'warm', 'dry']) reps[reg] = npcs.filter(n => !n.dead && !n.player && n.age >= 18 && lxRegister(n) === reg).length;
+    return { reps, regs, formal: [...tagged('formal')], warm: [...tagged('warm')], hasFormalTable: typeof LX_FORMAL !== 'undefined' };
+  });
+  check(!r.regs.formal || r.regs.formal.some(t => r.formal.includes(t)), 'a formal speaker says a formal greeting: ' + JSON.stringify(r.regs.formal.slice(0, 4)));
+  check(!r.regs.warm || r.regs.warm.some(t => r.warm.includes(t)), 'a warm speaker says a warm greeting: ' + JSON.stringify(r.regs.warm.slice(0, 4)));
+  check(!r.regs.dry || !r.regs.dry.some(t => r.formal.includes(t) || r.warm.includes(t)), 'a dry speaker says neither: ' + JSON.stringify(r.regs.dry.slice(0, 4)));
+  check(!r.hasFormalTable, 'the find-and-replace table is gone');
+  check(!errors.length, 'no errors: ' + errors.join(' | '));
+  await page.close();
+});
+
 test('bindings: asking whether something could be said never changes what is being said; a question and its answer are about the same person; a menu option says what it will say; no line is spoken with a gap in it', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {
@@ -2256,7 +2307,7 @@ test('levels: villagers move into huts upstairs and underground, walk there by t
 });
 test('work: villagers dig the mine, farmers sow a mix of seeds, a roof can hold a garden; and the sound engine stays silent under test', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 42, town: 'greenhollow-test' });
-  await simulate(page, 2 * 1440);
+  await simulate(page, 3 * 1440);   // (farmers start sowing on the third day: two days sat on the edge of it)
   const r = await page.evaluate(() => {
     const out = {}; out.seeds = [...new Set(town.crops.filter(c => c.seed).map(c => c.seed))].length; out.mineWork = mineWork();
     const ws = npcs.filter(n => n.role === 'Worker' && !n.dead && !n.player && n.cur === 'Farmer').slice(0, 3), w = ws[0]; for (const x of ws) { x.cur = 'Miner'; x.curUntil = game.time + 99999; } window.__miner = w.id; window.__miners = ws.map(x => x.id); /* three, since the watch may call one away */ out.m0 = town.mined || 0; out.coin0 = w.coin || 0;

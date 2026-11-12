@@ -17319,10 +17319,17 @@ const LF2_TRAITMUL = {
 };
 const lf2Ev = () => town.ev || (town.ev = []);
 const lf2By = (id) => id == null ? null : byId(id);
+const LF2_EVIDX = { list: null, len: -1, first: null, map: /* @__PURE__ */ new Map() };
 const lf2EvById = (id) => {
-  const e = lf2Ev();
-  for (let i = e.length - 1; i >= 0; i--) if (e[i].id === id) return e[i];
-  return null;
+  const e = lf2Ev(), x = LF2_EVIDX;
+  if (e !== x.list || e.length !== x.len || e.length && e[0].id !== x.first) {
+    x.map = /* @__PURE__ */ new Map();
+    for (const q of e) x.map.set(q.id, q);
+    x.list = e;
+    x.len = e.length;
+    x.first = e.length ? e[0].id : null;
+  }
+  return x.map.get(id) || null;
 };
 const lf2Has = (n, t) => !!n && n.traits && n.traits.includes(t);
 const lf2Cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
@@ -18496,7 +18503,7 @@ function meddleReactions(r, by, ps) {
 function meddleTell(a, b) {
   const m = (a.tmem || []).filter((q) => q.ev != null && q.kind !== "did").sort((x, y) => y.t - x.t)[0];
   if (!m || TM.ofEv(b, m.ev)) return;
-  const ev = lf2Ev().find((q) => q.id === m.ev);
+  const ev = lf2EvById(m.ev);
   if (!ev) return;
   const c = { a, b, done: {}, turns: [], left: {}, news: { m, ev, score: 1 } };
   talkTurn(c, a, b, "share_news");
@@ -26509,7 +26516,7 @@ function idleRelease(now) {
   }
 }
 const SAVE_VERSION = 1;
-const SAVE_SKIP = /* @__PURE__ */ new Set(["plan", "act", "events", "follow", "slide", "talkUI", "run", "onEnd", "spot"]);
+const SAVE_SKIP = /* @__PURE__ */ new Set(["plan", "act", "events", "follow", "slide", "talkUI", "run", "onEnd", "spot", "_repC"]);
 function ghB64(bytes) {
   let s = "";
   for (let i = 0; i < bytes.length; i += 32768) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 32768));
@@ -27130,13 +27137,13 @@ function vcHTML(n) {
     return f ? `<li>${f} ${esc(r.o.first)}${l ? ' <span class="dim">\xB7 ' + esc(String(l).replace(r.o.first, "").replace(/\s+/g, " ").trim().replace(/ (to|of|with)$/, "")) + "</span>" : ""}</li>` : "";
   }).join("");
   const wants = typeof reqWant === "function" ? reqWant(n) : null, myRep = game.player && !n.player && typeof repWord === "function" ? repWord(n, game.player) : "", hides = (n.tmem || []).some((m) => m.kind === "did" && !m.confided && m.ev != null && game.time - m.t < 1440 * 6 && (() => {
-    const ev = lf2Ev().find((q) => q.id === m.ev);
+    const ev = lf2EvById(m.ev);
     return !!ev && ev.anon && (ev.tags || []).some((t) => ["harm", "theft", "embarrass", "scandal"].includes(t));
   })());
   const hints2 = [wants ? wants.kind === "bed" ? "is looking for a bed" : "would like something to eat" : "", myRep && myRep !== "kind" ? "thinks you " + REP_WORDS[myRep] : myRep === "kind" ? "thinks well of you" : "", hides ? "seems to be keeping something to themselves" : "", { terse: "keeps it short", warm: "warm-spoken", formal: "speaks formally", chatty: "talks a lot" }[typeof lxRegister === "function" ? lxRegister(n) : "dry"] || ""].filter(Boolean);
   const lately = (n.log || []).slice(-6, -1).reverse().map((e) => `<li><span class="dim">${fmtTime(e.t)}</span> ${esc(String(e.text).replace(/\.$/, ""))}</li>`).join("");
   const heard = (n.tmem || []).filter((m) => m.ev != null && m.kind !== "did").slice(-3).reverse().map((m) => {
-    const ev = lf2Ev().find((q) => q.id === m.ev);
+    const ev = lf2EvById(m.ev);
     if (!ev) return "";
     const src = m.kind === "saw" ? "saw it" : m.kind === "felt" ? "it happened to them" : m.kind === "overheard" ? "overheard it" : "heard it from " + (m.from != null && byId(m.from) ? byId(m.from).first : "someone");
     return `<li>${esc(TE.text(ev, m.ver))} <span class="dim">\xB7 ${src}${m.conf < 0.5 ? ", not sure" : ""}</span></li>`;
@@ -27226,7 +27233,7 @@ function jrText(m) {
     return o ? o.first + " has been: " + (LIFE_TROUBLE[m.lk] || m.lk.replace(/_/g, " ")) : "";
   }
   if (m.ev != null && m.kind !== "life") {
-    const ev = lf2Ev().find((q) => q.id === m.ev);
+    const ev = lf2EvById(m.ev);
     if (!ev) return "";
     return TE.text(ev, m.ver).replace(/^./, (c) => c.toUpperCase()) + (m.kind === "saw" ? " (you saw it)" : m.kind === "felt" ? " (it happened to you)" : m.kind === "overheard" ? " (overheard)" : m.kind === "told" ? " (" + who(m.from) + " told you" + jrPath(m) + (m.conf < 0.5 ? ", not sure" : "") + ")" : "");
   }
@@ -27270,7 +27277,7 @@ function jrHTML() {
     return a ? { m, t: a.first + (m.req.kind === "bed" ? " needs a bed" : " needs " + (GOODS[m.req.item] ? GOODS[m.req.item].name : m.req.item)) + " \u2014 you said you would try" } : null;
   }).filter(Boolean);
   const sec = (p.tmem || []).filter((m) => m.secret && m.keeper != null).slice(-6).reverse().map((m) => {
-    const k = byId(m.keeper), ev = lf2Ev().find((q) => q.id === m.ev);
+    const k = byId(m.keeper), ev = lf2EvById(m.ev);
     return k && ev ? { m, t: k.first + " told you in confidence: " + TE.text(ev, m.ver) } : null;
   }).filter(Boolean);
   groups = Object.assign({ "Open threads": open, "Secrets you keep": sec }, groups);
@@ -28204,6 +28211,7 @@ const TM = {
   add(n, m) {
     const mem = n.tmem || (n.tmem = []), rec = Object.assign({ t: game.time, conf: 1, imp: 0.3 }, m);
     mem.push(rec);
+    if (n._repC) n._repC = null;
     if (mem.length > TM.max) {
       let k = 0, best = 1e9;
       for (let i = 0; i < mem.length; i++) {
@@ -28293,12 +28301,32 @@ const TE = {
     }
   },
   /** the words for an event in a version of it (who is blamed may differ from who did it) */
-  text(ev, ver) {
+  /** the words for an event as believed (ver.who did it). `speaker` is who is telling it: when they are the doer it is first person ("I knocked a wall out of your house", `ev1:<kind>` lines);
+      `listener` is who hears it, who becomes "you" in those lines. */
+  text(ev, ver, speaker, listener) {
     const who = ver && ver.who !== void 0 ? ver.who : ev.actor, a = who != null ? lf2By(who) : null, t = ev.target != null ? lf2By(ev.target) : null;
+    if (speaker && who != null && who === speaker.id) {
+      const pk = typeof town !== "undefined" && town && town.pack === "island" ? "island" : "plain";
+      let first = LEX.filter((e) => e.act === "ev1:" + ev.kind && e.pack === pk);
+      if (!first.length) first = LEX.filter((e) => e.act === "ev1:" + ev.kind && e.pack === "plain");
+      if (first.length) {
+        const you = listener && t && t === listener;
+        return first[ev.id % first.length].text.replace(/\{t\}'s/g, you ? "your" : t ? t.first + "'s" : "someone's").replace(/\{t\}/g, you ? "you" : t ? t.first : "someone").replace(/\{place\}/g, ev.place || "a building");
+      }
+    }
     const tpl = LEX.filter((e) => e.act === "ev:" + ev.kind && e.pack === "plain");
     if (tpl.length) {
       const e = tpl[ev.id % tpl.length];
-      return e.text.replace(/\{a\}/g, a ? a.first : "someone").replace(/\{t\}/g, t ? t.first : "someone").replace(/\{place\}/g, ev.place || "a building");
+      const name = (p, fallback, at, text, poss) => {
+        if (p && speaker && p === speaker) return poss ? "my" : /(^|, and |and |when |while )$/.test(text.slice(0, at)) ? "I" : "me";
+        if (p && listener && p === listener) return poss ? "your" : "you";
+        return p ? p.first + (poss ? "'s" : "") : fallback + (poss ? "'s" : "");
+      };
+      const out = e.text.replace(
+        /\{(a|t)\}('s)?/g,
+        (m, k, ps, at, text) => name(k === "a" ? a : t, "someone", at, text, !!ps)
+      ).replace(/\{place\}/g, ev.place || "a building");
+      return out.replace(/\byou was\b/g, "you were").replace(/\bI were\b/g, "I was");
     }
     let tx = String(ev.text || ev.kind);
     const real = ev.actor != null ? lf2By(ev.actor) : null;
@@ -28314,7 +28342,7 @@ const TE = {
     for (const m of mem) {
       if (m.ev == null || m.conf < 0.25 || m.kind === "did" && Math.random() < 0.8 || m.secret && !sp.player && !(talkHas(sp, "gossipy") && Math.random() < 0.12))
         continue;
-      const ev = lf2Ev().find((q) => q.id === m.ev);
+      const ev = lf2EvById(m.ev);
       if (!ev) continue;
       if (ev.actor === li.id || ev.target === li.id || ev.actor === sp.id || ev.target === sp.id || TM.ofEv(li, m.ev) || c && c.sharedEv && c.sharedEv.includes(m.ev) || (m.told || []).includes(li.id))
         continue;
@@ -28363,7 +28391,7 @@ const TE = {
     const j = TE.appraise(li, ev, ver, conf, sp), actor = ver.who != null ? lf2By(ver.who) : null;
     if (actor && actor !== li && j.v !== 0)
       lfAff(li, actor, j.v * conf * 3, ver.who === ev.actor ? "ev:" + ev.id : "heard what " + actor.first + " did");
-    return { mem, ver, conf, react: j.react, text: TE.text(ev, ver) };
+    return { mem, ver, conf, react: j.react, text: TE.text(ev, ver, sp, li) };
   },
   /** how a listener takes a piece of news: one of shock, amused, sympathy, doubt, delight, unmoved */
   appraise(li, ev, ver, conf, sp) {
@@ -28500,7 +28528,11 @@ const ACTS = {
   share_news: {
     kind: "world",
     stage: "topic",
-    preview: (c) => ({ news: TE.text(c.news.ev, c.news.m.ver), how: c.news.m.kind, conf: c.news.m.conf > 0.7 ? "high" : "low" }),
+    preview: (c, sp, li) => ({
+      news: TE.text(c.news.ev, c.news.m.ver, sp, li),
+      how: c.news.m.kind,
+      conf: c.news.m.conf > 0.7 ? "high" : "low"
+    }),
     when: (c, sp, li) => (c.done.share_news || 0) < 2 && (c.storyNews ? (c.news = c.storyNews, true) : !!(c.news = TE.pick(sp, li, c))),
     w: (c) => 1 + 4 * Math.min(1, c.news ? c.news.score : 0),
     apply: (c, sp, li) => {
@@ -28650,7 +28682,10 @@ function lxContext(sp, li, c) {
     rep: typeof repWord === "function" ? repWord(sp, li) : void 0,
     age: sp.age < 12 ? "child" : void 0,
     kid: li.age < 14 ? "yes" : void 0,
-    menu: c.menu
+    menu: c.menu,
+    reg: lxRegister(sp),
+    // the speaker has had the same trouble this week (so a line that claims "I know that one" is true): from their own day log
+    shared: c.life && c.lifeTrouble && (sp.day || []).some((e) => e.kind === c.life.kind && game.time - e.t < 7 * 1440) ? "yes" : void 0
   };
 }
 function lxSlots(sp, li, c, ctx2) {
@@ -28667,13 +28702,14 @@ function lxSlots(sp, li, c, ctx2) {
     money: c.price != null ? lxMoney(c.price) : void 0,
     price: c.price != null ? String(c.price) : void 0,
     about: c.about || void 0,
-    reason: c.reason || "",
+    reason: typeof peopleYou === "function" ? peopleYou(c.reason || "", li) : c.reason || "",
+    // (the listener is "you" in every line, menu labels and previews included)
     them: !c.about ? void 0 : aboutP ? aboutP.female ? "her" : "him" : "them",
     shop: c.shop || "stall",
     item,
     things: item ? lxCount(c.qty, item) : void 0,
     qty: c.qty != null ? String(c.qty) : void 0,
-    news: c.news || void 0,
+    news: typeof peopleYou === "function" && typeof c.news === "string" ? peopleYou(c.news, li) : c.news || void 0,
     deed: c.deed || void 0,
     who: c.who || "them"
   };
@@ -28704,7 +28740,7 @@ function lxSay(act, sp, li, c) {
   let cands = pool(pk);
   if (!cands.length) cands = pool("plain");
   if (!cands.length) return "";
-  const spare = c.menu || sp.sinceAside != null && sp.sinceAside < 3;
+  const spare = c.menu || lxRegister(sp) === "terse" || sp.sinceAside != null && sp.sinceAside < 3;
   if (spare && !act.startsWith("ev:")) {
     const short = cands.filter((e) => !lxMarked(e.text));
     if (short.length) cands = short;
@@ -28785,24 +28821,6 @@ const LX_RUNON = {
     "But I go on. I do that."
   ]
 };
-const LX_FORMAL = [
-  [/\bHello\b/g, "Good day"],
-  [/\bHi\b/g, "Good day"],
-  [/\bBye\b/g, "Farewell"],
-  [/\bGoodbye\b/g, "Farewell"],
-  [/\bSee you\b/g, "Until we meet again"],
-  [/\bI'm\b/g, "I am"],
-  [/\bdon't\b/g, "do not"],
-  [/\bcan't\b/g, "cannot"],
-  [/\bit's\b/gi, "it is"],
-  [/\bI'd\b/g, "I would"],
-  [/\bI'll\b/g, "I shall"],
-  [/\bwon't\b/g, "will not"],
-  [/\bisn't\b/g, "is not"],
-  [/\bthat's\b/gi, "that is"],
-  [/\bwe've\b/g, "we have"],
-  [/\bI've\b/g, "I have"]
-];
 function lxVoice(sp, li, act, pack, text) {
   const reg = lxRegister(sp);
   if (reg === "dry" || !text) return text;
@@ -28810,21 +28828,6 @@ function lxVoice(sp, li, act, pack, text) {
     act
   );
   if (!ritual && !statement) return text;
-  if (reg === "terse") {
-    const first = text.split(/(?<=[.!?])\s+/)[0];
-    return first.length >= 5 && first.split(/\s+/).length >= 3 ? first : text;
-  }
-  if (reg === "warm") {
-    if (!ritual || text.length > 22 || sp.age < 12 || Math.random() > 0.55 || /friend|love|dear/.test(text) || li && text.indexOf(li.first) >= 0)
-      return text;
-    const addr = li.fam && (li.fam.spouse === sp.id || sp.fam.spouse === li.id) ? "love" : sp.fam && (sp.fam.kids || []).includes(li.id) ? "dear" : "friend";
-    return text.replace(/([.!?])\s*$/, ", " + addr + "$1");
-  }
-  if (reg === "formal") {
-    let t = text;
-    for (const [r, s] of LX_FORMAL) t = t.replace(r, s);
-    return t;
-  }
   if (reg === "chatty") {
     if (statement && !ritual && Math.random() < 0.4) {
       const L = LX_RUNON[pack] || LX_RUNON.plain;
@@ -28875,8 +28878,8 @@ function peopleReason(a, b) {
   const f = a.fam || {}, g = b.fam || {}, rel = f.spouse === b.id ? "spouse" : f.partner === b.id ? "partner" : (f.kids || []).includes(b.id) ? "child" : f.mother === b.id || f.father === b.id ? "parent" : f.mother != null && f.mother === g.mother || f.father != null && f.father === g.father ? "sibling" : a.rel && a.rel[b.id], gender = b.female ? "She" : "He";
   if (best) {
     if (/^ev:/.test(best.why)) {
-      const ev = lf2Ev().find((q) => q.id === +best.why.slice(3));
-      if (ev) return TE.text(ev, { who: ev.actor }).replace(/^./, (c) => c.toUpperCase()) + ".";
+      const ev = lf2EvById(+best.why.slice(3));
+      if (ev) return TE.text(ev, { who: ev.actor }, a).replace(/^./, (c) => c.toUpperCase()) + ".";
     } else if (/^heard/.test(best.why)) return "I " + best.why + ".";
     else return gender + " " + best.why + ".";
   }
@@ -29055,14 +29058,14 @@ function deedYou(ev, sp) {
     case "caught_on_privy":
       return me ? "knocked the wall out while I was on the privy" : "knocked the wall out while " + they + " was on the privy";
     default:
-      return TE.text(ev, { who: null }).replace(/^someone /, "");
+      return TE.text(ev, { who: null }, sp).replace(/^someone /, "");
   }
 }
 function deedPick(sp, li) {
   let best = null, bs = 0;
   for (const m of sp.tmem || []) {
     if (m.ev == null || m.raised || m.forgiven || m.conf < 0.5 || !["saw", "felt", "told", "overheard"].includes(m.kind)) continue;
-    const ev = lf2Ev().find((q) => q.id === m.ev);
+    const ev = lf2EvById(m.ev);
     if (!ev) continue;
     const who = m.ver && m.ver.who !== void 0 ? m.ver.who : ev.actor;
     if (who !== li.id) continue;
@@ -29170,6 +29173,7 @@ deedReply(
     c.deedLie = true;
     c.deed.m.ver = Object.assign({}, c.deed.m.ver, { who: X.id, suspect: true });
     c.deed.m.conf = 0.55;
+    repDirty();
     c.deed.m.raised = false;
     lfAff(li, X, -6, "was said to have done it");
   },
@@ -29212,6 +29216,7 @@ deedAnswer(
     const m = c.deed.m;
     if (c.deedAnswer === "deed_deny" && !c.blamed) {
       m.cleared = true;
+      repDirty();
       lfAff(sp, li, 2, "said it was not them");
     } else lfAff(sp, li, 1, "put me straight");
   }
@@ -29273,7 +29278,7 @@ ACTS.offer_gift = {
     if (sp.player) return 0.5;
     const k = giftChoose(sp, li), hungry = k && GOODS[k].sat && (li.hunger || 0) > 60, a = sp.aff[li.id] || 0;
     return 0.15 + ((sp.owes || {})[li.id] ? 1.4 : 0) + (k && giftKnown(sp, li).like.includes(k) ? 0.8 : 0) + (hungry && a > -10 ? 1.5 : 0) + (a > 30 ? 0.5 : 0) + (sp.know && sp.know[li.id] > 20 ? 0.1 : 0) + ((sp.tmem || []).some(
-      (m) => m.kind === "did" && m.ev != null && !m.forgiven && (lf2Ev().find((q) => q.id === m.ev) || {}).target === li.id && (a < 0 || Math.random() < 0.3)
+      (m) => m.kind === "did" && m.ev != null && !m.forgiven && (lf2EvById(m.ev) || {}).target === li.id && (a < 0 || Math.random() < 0.3)
     ) ? 1.2 : 0);
   },
   apply: (c, sp, li) => {
@@ -29287,7 +29292,7 @@ ACTS.offer_gift = {
     c.lifeItem = giftName(k);
     const bad = (li.tmem || []).filter(
       (m) => m.ev != null && !m.forgiven && ["saw", "felt", "told", "overheard"].includes(m.kind) && game.time - m.t < 1440 * 8 && (() => {
-        const ev = lf2Ev().find((q) => q.id === m.ev);
+        const ev = lf2EvById(m.ev);
         return !!ev && ev.actor === sp.id && (ev.tags || []).some((t) => DEED_TAGS.includes(t));
       })()
     ), grievance = bad.length > 0;
@@ -29311,10 +29316,12 @@ ACTS.offer_gift = {
     (li.owes || (li.owes = {}))[sp.id] = game.time;
     c.newsHow = returning ? "return" : "plain";
     for (const m of bad) m.forgiven = true;
+    repDirty();
     for (const m of sp.tmem || [])
       if (m.kind === "did" && m.ev != null) {
-        const ev = lf2Ev().find((q) => q.id === m.ev);
+        const ev = lf2EvById(m.ev);
         if (ev && ev.target === li.id) m.forgiven = true;
+        repDirty();
       }
     if (typeof reqDone === "function") {
       for (const q of li.reqs || [])
@@ -29521,7 +29528,7 @@ LF2.dec.push(function(n) {
 });
 const wrongs = (sp, li) => (sp.tmem || []).filter(
   (m) => m.kind === "did" && m.ev != null && !m.forgiven && !m.sorry && game.time - m.t < 1440 * 10 && (() => {
-    const ev = lf2Ev().find((q) => q.id === m.ev);
+    const ev = lf2EvById(m.ev);
     return !!ev && ev.target === li.id && (ev.tags || []).some((t) => ["harm", "nuisance", "embarrass", "deceit", "theft"].includes(t));
   })()
 );
@@ -29549,13 +29556,15 @@ ACTS.accept_apology = {
     lfAff(li, sp, 2, "forgave me");
     for (const m of li.tmem || [])
       if (m.ev != null && !m.forgiven) {
-        const ev = lf2Ev().find((q) => q.id === m.ev);
+        const ev = lf2EvById(m.ev);
         if (ev && ev.actor === li.id && ev.target === sp.id) m.forgiven = true;
+        repDirty();
       }
     for (const m of sp.tmem || [])
       if (m.ev != null && !m.forgiven) {
-        const ev = lf2Ev().find((q) => q.id === m.ev);
+        const ev = lf2EvById(m.ev);
         if (ev && ev.actor === li.id && ev.target === sp.id) m.forgiven = true;
+        repDirty();
       }
   },
   replies: []
@@ -29574,7 +29583,7 @@ ACTS.reject_apology = {
 const jealousFor = (sp, li) => {
   for (const m of sp.tmem || []) {
     if (m.ev == null || m.raisedJ || !["saw", "told", "overheard", "felt"].includes(m.kind) || game.time - m.t > 1440 * 6) continue;
-    const ev = lf2Ev().find((q) => q.id === m.ev);
+    const ev = lf2EvById(m.ev);
     if (!ev || !["courting", "tryst", "crush"].includes(ev.kind)) continue;
     const other = ev.actor === li.id ? ev.target : ev.target === li.id ? ev.actor : null;
     if (other != null && other !== sp.id) return { m, ev, Y: lf2By(other) };
@@ -29840,7 +29849,7 @@ function secretPick(sp, li) {
   for (const m of sp.tmem || []) {
     if (m.ev == null || !["did", "felt"].includes(m.kind) || m.confided || m.secret) continue;
     if (game.time - m.t > 1440 * 10) continue;
-    const ev = lf2Ev().find((q) => q.id === m.ev);
+    const ev = lf2EvById(m.ev);
     if (!ev || !(ev.tags || []).some((t) => SECRET_TAGS.includes(t))) continue;
     const theirs = TM.ofEv(li, ev.id), wrong = !!theirs && m.kind === "did" && theirs.ver && theirs.ver.who !== sp.id && !theirs.cleared;
     if (!wrong && ((ev.know || []).length > 4 || theirs)) continue;
@@ -29857,7 +29866,7 @@ ACTS.confide = {
   stage: "topic",
   preview: (c, sp, li) => {
     const k = secretPick(sp, li);
-    return { news: k ? TE.text(k.ev, k.m.kind === "did" ? { who: sp.id } : k.m.ver) : "" };
+    return { news: k ? TE.text(k.ev, k.m.kind === "did" ? { who: sp.id } : k.m.ver, sp, li) : "" };
   },
   w: (c, sp) => sp.player ? 0.4 : 0.6,
   when: (c, sp, li) => !c.done.confide && !li.infant && li.age >= 10 && (sp.player || (sp.aff[li.id] || 0) > 45 && (sp.know[li.id] || 0) > 30) && !!secretPick(sp, li),
@@ -29871,10 +29880,12 @@ ACTS.confide = {
     if (old) {
       old.ver = ver;
       old.conf = 1;
+      repDirty();
       old.kind = "told";
       old.from = sp.id;
       old.raised = false;
       old.cleared = false;
+      repDirty();
       mem = old;
       const wrongOne = old.ver;
     } else mem = TM.addEv(li, k.ev, "told", 1, sp, 1, ver);
@@ -29882,7 +29893,7 @@ ACTS.confide = {
       mem.secret = true;
       mem.keeper = sp.id;
     }
-    c.told = { text: TE.text(k.ev, ver), react: "" };
+    c.told = { text: TE.text(k.ev, ver, sp, li), react: "" };
     c.secretEv = k.ev;
     lfAff(li, sp, 3, "trusted me with a secret");
     lfAff(sp, li, 2, "kept my confidence");
@@ -30156,12 +30167,21 @@ const REP_KIND = {
   brawl: "bully"
 };
 const REP_BAD = ["vandal", "meddler", "thief", "gossip", "bully"];
+function repDirty() {
+  for (const n of npcs) if (n._repC) n._repC = null;
+}
 function repTags(obs, subj) {
-  const out = {};
+  let cache = obs._repC;
+  if (!cache || cache.t <= game.time - 60) {
+    cache = { t: game.time, m: {} };
+    Object.defineProperty(obs, "_repC", { value: cache, writable: true, enumerable: false, configurable: true });
+  }
+  if (cache.m[subj.id]) return cache.m[subj.id];
+  const out = cache.m[subj.id] = {};
   if (!obs.tmem) return out;
   for (const m of obs.tmem) {
     if (m.ev == null || m.kind === "did" || m.forgiven || m.cleared) continue;
-    const ev = lf2Ev().find((q) => q.id === m.ev);
+    const ev = lf2EvById(m.ev);
     if (!ev) continue;
     const tag = REP_KIND[ev.kind];
     if (!tag) continue;
@@ -30215,7 +30235,8 @@ ACTS.tell_rep = {
   w: (c, sp, li) => 0.5 + Math.max(0, sp.aff[li.id] || 0) / 80,
   when: (c, sp, li) => {
     if (c.done.tell_rep || (sp.aff[li.id] || 0) < 10) return false;
-    const v = repVillage(li), k = Object.keys(v).filter((t) => v[t] >= 2 && REP_BAD.includes(t)).sort((a, b) => v[b] - v[a])[0];
+    const already = (t) => (sp.tmem || []).some((m) => m.kind === "told_rep" && m.with === li.id && m.tag === t && game.time - m.t < 10 * 1440);
+    const v = repVillage(li), k = Object.keys(v).filter((t) => v[t] >= 2 && REP_BAD.includes(t) && !already(t)).sort((a, b) => v[b] - v[a])[0];
     if (!k) return false;
     c.repTag = k;
     c.repN = v[k];
@@ -30227,6 +30248,7 @@ ACTS.tell_rep = {
     c.lifeQty = c.repN;
     li.mood = Math.max(0, (li.mood == null ? 50 : li.mood) - 3);
     lfAff(li, sp, 1, "was honest with me");
+    TM.add(sp, { kind: "told_rep", with: li.id, tag: c.repTag, imp: 0.1 });
   },
   replies: ["rep_own", "rep_deny"]
 };
@@ -30301,7 +30323,8 @@ ACTS.callback = {
   when: (c, sp, li) => {
     if (c.done.callback) return false;
     const m = lastTalkMem(sp, li);
-    return !!m && !!m.subj && npcs.some((o) => o.first === m.subj) && !m.called && game.time - m.t > 240 && game.time - m.t < 2880 && Math.random() < 0.35;
+    return !!m && !!m.subj && npcs.some((o) => o.first === m.subj) && m.subj !== sp.first && // (somebody who was the subject of the last talk is not reminded of themselves, nor told of it)
+    m.subj !== li.first && !m.called && game.time - m.t > 240 && game.time - m.t < 2880 && Math.random() < 0.35;
   },
   // (only about a person, and not every time)
   apply: (c, sp, li) => {
@@ -30523,7 +30546,7 @@ ACTS.brag_child = {
   w: () => 0.9,
   when: (c, sp, li) => {
     if (c.done.brag_child) return false;
-    const k = (sp.fam.kids || []).map(byId).filter((q) => q && !q.dead && q.age < 14)[0];
+    const k = (sp.fam.kids || []).map(byId).filter((q) => q && !q.dead && q.age < 14 && q !== li)[0];
     if (!k) return false;
     c.kid = k;
     return true;
@@ -30713,6 +30736,7 @@ const TALK_PURPOSE = [
 function talkBind(c, sp, li, id) {
   const A = ACTS[id];
   if (!A) return null;
+  if (A.minAge && sp.age != null && sp.age < A.minAge && !sp.player) return null;
   const view2 = Object.create(c);
   if (!A.when(view2, sp, li)) return null;
   const bind = {};
@@ -30937,31 +30961,43 @@ function talkFinish(c, a, b, listened) {
   if (listened || TALK.words) {
     lines = c.turns.map((t) => {
       const s = t.by === a.id ? a : b, text = talkWords(t, a, b);
-      return text ? { who: s, text } : null;
+      return text ? { who: s, text, act: t.act } : null;
     }).filter(Boolean);
   }
-  TALK.log.push({
-    t: game.time,
-    a: a.id,
-    b: b.id,
-    d: lfDist(a, b),
-    acts: c.turns.slice(),
-    lines: lines ? lines.map((l) => l.who.first + ": " + l.text) : null
-  });
+  const solo = !!c.solo || a === b;
+  TALK.log.push(
+    solo ? {
+      t: game.time,
+      kind: "bark",
+      a: a.id,
+      to: b !== a ? b.id : null,
+      acts: c.turns.slice(),
+      lines: lines ? lines.map((l) => l.who.first + ": " + l.text) : null,
+      lineActs: lines ? lines.map((l) => l.act) : null
+    } : {
+      t: game.time,
+      a: a.id,
+      b: b.id,
+      d: lfDist(a, b),
+      acts: c.turns.slice(),
+      lines: lines ? lines.map((l) => l.who.first + ": " + l.text) : null,
+      lineActs: lines ? lines.map((l) => l.act) : null
+    }
+  );
   if (TALK.log.length > 300) TALK.log.shift();
   const pl = game.player;
   if (lines && lines.length && pl && a !== pl && b !== pl && (lfDist(pl, a) <= TALK.earshot || lfDist(pl, b) <= TALK.earshot)) {
     for (const t of c.turns) {
       if (t.act !== "share_news" || !t.x || t.x.evId == null) continue;
-      const ev = lf2Ev().find((q) => q.id === t.x.evId);
+      const ev = lf2EvById(t.x.evId);
       if (!ev || TM.ofEv(pl, ev.id) || ev.actor === pl.id) continue;
       TM.addEv(pl, ev, "overheard", 0.6, t.by === a.id ? a : b, 1, t.x.ver ? { who: t.x.ver.who, sev: t.x.ver.sev } : void 0);
     }
   }
   if (!lines && pl && typeof sndMurmur === "function") sndMurmur(a);
   if (lines && lines.length) {
-    game.events.push({ time: game.time, a, b, place: placeOf(a), topic: "talk", quiet: false, talk: true, lines });
-  } else {
+    game.events.push({ time: game.time, a, b, place: placeOf(a), topic: "talk", quiet: false, talk: true, lines, self: solo });
+  } else if (!solo) {
     const hold = game.time + c.turns.length * (c.short ? 0.2 : 0.7);
     a.talkUntil = Math.max(a.talkUntil || 0, hold);
     b.talkUntil = Math.max(b.talkUntil || 0, hold);
@@ -30987,7 +31023,19 @@ for (const id of [
 ])
   ACTS[id] = { kind: "trade", stage: "topic", reply: true, when: () => true, apply: () => {
   }, replies: [] };
-function serviceScript(mode, result, newItem) {
+function serviceScript(mode, result, newItem, regular) {
+  if (regular && mode === "sell" && result === "ok")
+    return [
+      ["c", "offer_goods"],
+      ["k", "bid_price"],
+      ["c", "accept_deal"]
+    ];
+  if (regular && mode === "buy" && result === "ok")
+    return [
+      ["c", "ask_item"],
+      ["k", "quote_price"],
+      ["c", "thank_shop"]
+    ];
   const open = [
     ["c", "shop_greet"],
     ["k", "shop_greet_back"]
@@ -31033,8 +31081,12 @@ function talkService(cust, keeper, d) {
   if (!TALK.on.trade || !cust || !keeper || cust === keeper) return;
   const name = WORLD.has("item", d.item) ? WORLD.name("item", d.item) : REG.has("seed", String(d.item).replace(/^seed_/, "")) && String(d.item).startsWith("seed_") ? (GOODS[d.item] || {}).name : String(d.item);
   const c = { a: cust, b: keeper, done: {}, turns: [], stage: "topic", t0: game.time };
+  const last2 = cust.shopped && cust.shopped[keeper.id];
+  const regular = last2 != null && game.time - last2 > 30 && game.time - last2 < 4 * 1440;
+  if (d.result === "ok") (cust.shopped || (cust.shopped = {}))[keeper.id] = game.time;
   const x = { item: name, qty: d.qty || 1, price: d.price, shop: d.shop || "" };
-  for (const [who, act] of serviceScript(d.mode, d.result, !!d.newItem)) c.turns.push({ by: who === "c" ? cust.id : keeper.id, act, x });
+  if (regular && d.result === "ok" && d.mode === "buy") x.how = "regular";
+  for (const [who, act] of serviceScript(d.mode, d.result, !!d.newItem, regular)) c.turns.push({ by: who === "c" ? cust.id : keeper.id, act, x });
   talkFinish(c, cust, keeper, talkListened(cust, keeper));
 }
 function serviceSay(act, speaker, other, d) {
@@ -31431,6 +31483,7 @@ function keeperCalls() {
     const name = WORLD.has("item", call.item) ? WORLD.name("item", call.item) : String(call.item), x = { item: name, price: call.price, call: call.call, shop: call.shop };
     const c = { a: n, b: passer, done: {}, turns: [{ by: n.id, act: "keeper_call", x }], stage: "topic", t0: game.time };
     if (Math.random() < 0.4) c.turns.push({ by: passer.id, act: "call_reply", x });
+    c.solo = c.turns.length === 1;
     faceTo(n, passer);
     talkFinish(c, n, passer, talkListened(n, passer));
   }
@@ -31457,6 +31510,7 @@ function moreBarks() {
           done: {},
           turns: [{ by: n.id, act: "mutter", x: { how: String(n.job).toLowerCase() } }],
           stage: "topic",
+          solo: true,
           t0: game.time
         };
         talkFinish(c, n, n, true);
@@ -31466,7 +31520,15 @@ function moreBarks() {
       const k = (n.fam.kids || []).map(byId).find((q) => q && !q.dead && q.age < 10 && lvlOf(q.ty) === lvlOf(n.ty) && lfDist(n, q) >= 5 && lfDist(n, q) <= 16 && q.pose !== "sleep");
       if (k) {
         n.callT = game.time + 90;
-        const c = { a: n, b: k, done: {}, turns: [{ by: n.id, act: "call_child", x: { aboutName: k.first } }], stage: "topic", t0: game.time };
+        const c = {
+          a: n,
+          b: k,
+          done: {},
+          turns: [{ by: n.id, act: "call_child", x: { aboutName: k.first } }],
+          stage: "topic",
+          solo: true,
+          t0: game.time
+        };
         c.turns[0].x.about = k.first;
         faceTo(n, k);
         talkFinish(c, n, k, true);
@@ -31635,6 +31697,79 @@ function talkPass() {
   }
 }
 LF2.tickers.push(talkPass);
+const TALK_MINAGE = {
+  12: [
+    "praise",
+    "thank_praise",
+    "ask_price",
+    "tell_price",
+    "react_price",
+    "ask_opinion",
+    "give_opinion",
+    "no_view",
+    "no_view_g",
+    "gossip_person",
+    "agree_opinion",
+    "differ_opinion",
+    "tell_rep",
+    "rep_own",
+    "rep_deny",
+    "warn",
+    "warn_thanks",
+    "ask_advice",
+    "give_advice",
+    "confide",
+    "secret_keep",
+    "secret_alarmed",
+    "ask_favour",
+    "chase_favour",
+    "favour_give",
+    "favour_promise",
+    "favour_no",
+    "favour_thanks",
+    "favour_hopeful",
+    "apologise",
+    "accept_apology",
+    "reject_apology",
+    "vent",
+    "console",
+    "snap",
+    "snap_back",
+    "let_it_go",
+    "send_gift",
+    "deliver_yes",
+    "deliver_no",
+    "story_preface",
+    "story_invite",
+    "ask_work",
+    "answer_work",
+    "congratulate",
+    "ask_preference",
+    "hint_gift"
+  ],
+  16: [
+    "flirt",
+    "flirt_back",
+    "flirt_rebuff",
+    "declare",
+    "declare_return",
+    "declare_gentle",
+    "ask_to_walk",
+    "walk_yes",
+    "walk_later",
+    "walk_no",
+    "propose",
+    "propose_yes",
+    "propose_later",
+    "propose_no",
+    "glad_courtship",
+    "confront_jealous",
+    "jealous_explain",
+    "jealous_defiant",
+    "jealous_deny"
+  ]
+};
+for (const age of Object.keys(TALK_MINAGE)) for (const id of TALK_MINAGE[age]) if (ACTS[id]) ACTS[id].minAge = +age;
 const lxi = (act, text, tags, requires) => lx(act, "island", text, tags, requires);
 const kidl = (act, text, tags = {}) => {
   lx(act, "plain", text, Object.assign({ age: "child" }, tags));
@@ -31695,7 +31830,7 @@ lx("greet", "plain", "Oh, it's you. What do you want?", { rel: "sibling" });
 lx("greet", "plain", "{li}. Look what the wind blew in.", { rel: "sibling" });
 lx("greet", "plain", "Have you eaten, {li}?", { rel: "child" });
 lx("greet", "plain", "{li}! Come here and let me look at you.", { rel: "child", kid: "yes" });
-lx("greet", "plain", "Hello. Is there supper?", { rel: "parent", age: "child" });
+lx("greet", "plain", "Hello. Is there food?", { rel: "parent", age: "child" });
 lx("greet", "plain", "Oh, it's you. Can I go out?", { rel: "parent", age: "child" });
 lx("greet", "plain", "Hello. Have you had a day?", { rel: "parent" });
 lx("greet", "plain", "Hello, little one.", { rel: "child", kid: "yes" });
@@ -31708,13 +31843,13 @@ lx("greet_back", "plain", "Hello, dear. I'm fine, don't fuss.", { rel: "child" }
 lx("greet_back", "plain", "Hello. Yes, I've eaten.", { rel: "parent" });
 lx("greet_back", "plain", "Hello! I was only just out there.", { rel: "parent", age: "child" });
 lx("greet_back", "plain", "Hello. Yes, I've eaten. Don't fuss.", { rel: "parent" });
-lx("farewell", "plain", "I'll see you at supper, love.", { rel: "spouse" });
+lx("farewell", "plain", "I'll see you at the table, love.", { rel: "spouse" });
 lx("farewell", "plain", "Mind yourself. Come home safe.", { rel: "spouse" });
 lx("farewell", "plain", "Try not to be an idiot.", { rel: "sibling" });
 lx("farewell", "plain", "Give my regards to nobody. See you.", { rel: "sibling" });
 lx("farewell", "plain", "Wrap up warm, dear.", { rel: "child" });
-lx("farewell", "plain", "Bye. I'll be home for supper.", { rel: "parent" });
-lx("farewell", "plain", "Don't be late for supper.", { rel: "child" });
+lx("farewell", "plain", "Bye. I'll be home soon.", { rel: "parent" });
+lx("farewell", "plain", "Don't be late home.", { rel: "child" });
 lx("farewell", "plain", "Be good. Or be careful.", { rel: "child" });
 lx("backchannel", "plain", "Mm.");
 lx("backchannel", "plain", "I see.");
@@ -31792,6 +31927,32 @@ for (const t of [
   "Until then."
 ])
   lx("farewell_back", "plain", t);
+LXP("greet", ["Good day to you, {li}.", "Greetings, {li}.", "I bid you good day."], { reg: "formal" });
+LXP("greet_back", ["And good day to you.", "Greetings. It is a pleasure.", "Well met."], { reg: "formal" });
+LXP("farewell", ["I take my leave of you.", "Farewell, {li}. May the day go well with you.", "I shall bid you good day."], { reg: "formal" });
+LXP("farewell_back", ["Farewell.", "Good day to you, then.", "Until we meet again."], { reg: "formal" });
+LXP("pre_close", ["I must beg your leave.", "Forgive me; I have duties to attend to."], { reg: "formal" });
+LXP("greet", ["Hello, {li}! It's good to see you.", "There you are, {li}. I was hoping you'd come by.", "{li}! How lovely."], { reg: "warm" });
+LXP("greet", ["Hello, friend. Come and sit a moment."], { reg: "warm", rel: "friend" });
+LXP("greet", ["Hello, love.", "There you are, love."], { reg: "warm", rel: "spouse" });
+LXP("greet", ["Hello, dear. Have you eaten?", "Hello, my dear."], { reg: "warm", rel: "child" });
+LXP("greet_back", ["Oh, hello! Come in, come in.", "Hello, {li}. You've made my day."], { reg: "warm" });
+LXP("greet_back", ["There you are, love."], { reg: "warm", rel: "spouse" });
+LXP("farewell", ["Take care of yourself, {li}.", "Come and see me soon, won't you?"], { reg: "warm" });
+LXP("farewell", ["Bye, love. Be careful."], { reg: "warm", rel: "spouse" });
+LXP("farewell", ["Bye, dear. Be good."], { reg: "warm", rel: "child" });
+LXP("farewell_back", ["Goodbye, {li}. Do come again.", "Look after yourself."], { reg: "warm" });
+LXP("farewell_back", ["Bye, friend."], { reg: "warm", rel: "friend" });
+LXP("pre_close", ["I'm sorry, I must be off, much as I'd love to stay.", "I could talk all day, but the work won't wait."], { reg: "warm" });
+LXP("acknowledge", ["Very good.", "That is commendable.", "I am pleased to hear it."], { reg: "formal" });
+LXP("acknowledge", ["That's wonderful to hear.", "Good for you, truly.", "I'm so glad."], { reg: "warm" });
+LXP("agree", ["Indeed.", "Quite so.", "I concur."], { reg: "formal" });
+LXP("agree", ["I couldn't agree more.", "Yes, exactly. That's just what I think."], { reg: "warm" });
+LXP("answer_how", ["I am well, I thank you.", "Well enough, I thank you for asking."], { reg: "formal" });
+LXP("answer_how", ["I'm well, thank you for asking. And you?", "Better for seeing you, {li}."], { reg: "warm" });
+LXP("greet", ["Hello.", "Right."], { reg: "terse" });
+LXP("farewell", ["Bye.", "Right. Off I go."], { reg: "terse" });
+LXP("acknowledge", ["Good.", "Fine."], { reg: "terse" });
 lx("ask_how", "plain", "How are you?");
 lx("ask_how", "plain", "How have you been?");
 lx("ask_how", "plain", "How are things with you, {li}?", { rel: "friend" });
@@ -31818,7 +31979,6 @@ lx("acknowledge", "plain", "Busy, then.");
 lx("acknowledge", "plain", "I see.");
 lx("empathise", "plain", "That sounds rough.");
 lx("empathise", "plain", "I'm sorry to hear it.");
-lx("empathise", "plain", "Ugh. I know that one.");
 lx("empathise", "plain", "You poor thing.", { rel: "friend" });
 lx("empathise", "plain", "Somebody ought to do something about that.");
 lx("life:slept", "plain", "I slept well enough last night.");
@@ -31827,7 +31987,7 @@ lx("life:slept_rough", "plain", "I slept rough again last night.");
 lx("life:slept_rough", "plain", "Another night on the ground.");
 lx("life:slept_rough", "plain", "Still no bed of my own.");
 lx("life:slept_rough", "plain", "I woke up with sand in my ear.");
-lx("life:no_privy", "plain", "I couldn't find a privy this morning. Not my best hour.");
+lx("life:no_privy", "plain", "I couldn't find a privy earlier. Not my best hour.");
 lx("life:no_privy", "plain", "There's nowhere decent to go round here.");
 lx("life:bladder_emergency", "plain", "I very nearly didn't make it to the privy. Don't ask.");
 lx("life:went_hungry", "plain", "I'm getting hungry. I haven't eaten properly.");
@@ -31839,7 +31999,7 @@ lx("life:bought", "plain", "I bought {things} today.");
 lx("life:bought", "plain", "Picked up {things}.");
 lx("life:sold", "plain", "I sold {things} today.");
 lx("life:planted", "plain", "I planted {things} today.");
-lx("life:planted", "plain", "Put in {things} this morning.");
+lx("life:planted", "plain", "Put in {things} earlier.");
 lx("life:new_in_stock", "plain", "The {shop} has {item} in now.");
 lx("life:new_in_stock", "plain", "Did you know the {shop} is selling {item} now?");
 lx("life:new_in_stock", "plain", "The {shop} finally has {item}.");
@@ -31848,10 +32008,10 @@ lx("life:out_of_stock", "plain", "Went for {item} and the {shop} was out.");
 lx("life:could_not_afford", "plain", "I couldn't afford {item} today.");
 lx("life:could_not_afford", "plain", "Money is tight. I had to leave the {item}.");
 lx("life:could_not_afford", "plain", "Everything costs more than I have.");
-lx("life:price_up", "plain", "{item} has gone up at the {shop}.");
-lx("life:price_down", "plain", "{item} is cheaper at the {shop} now.");
+lx("life:price_up", "plain", "The price of {item} has gone up at the {shop}.");
+lx("life:price_down", "plain", "The price of {item} is down at the {shop} now.");
 lx("life:price_down", "plain", "You can get {item} for less at the {shop} today.");
-lx("life:baked", "plain", "I baked {things} this morning.");
+lx("life:baked", "plain", "I baked {things} earlier.");
 lx("life:baked", "plain", "The oven gave me {things} today.");
 lx("life:cooked", "plain", "I made {things} today.");
 lx("life:forged", "plain", "I turned out {things} today.");
@@ -31868,7 +32028,7 @@ lx("ask_how", "plain", "Are you well? You look tired.", { rel: "parent" });
 lx("ask_how", "plain", "Are you behaving?", { rel: "child", kid: "yes" });
 lx("ask_how", "plain", "How's life, then? Anything I should know before the rest of the family does?", { rel: "sibling" });
 kidl("answer_how", "Fine! I found a good stick.", { state: "fine" });
-kidl("answer_how", "I'm hungry. Is it supper yet?", { state: "hungry" });
+kidl("answer_how", "I'm hungry. Is it time to eat yet?", { state: "hungry" });
 kidl("answer_how", "I'm tired. I'm not tired. I'm tired.", { state: "tired" });
 kidl("answer_how", "Great! I'm having a good day!", { state: "glad" });
 for (const t of [
@@ -31914,7 +32074,7 @@ for (const t of ["Good going.", "That is a fair day.", "Well done.", "Sounds lik
 LXLP("planted", [
   "Got {things} in the ground today.",
   "Put in {things}. Now it's up to the weather.",
-  "Sowed {things} this morning. Fingers crossed.",
+  "Sowed {things} earlier. Fingers crossed.",
   "{things} went in today. Back aches, but they're in."
 ]);
 LXLP("harvested", [
@@ -31930,13 +32090,13 @@ LXLP("bought", [
   "Treated myself to {things}."
 ]);
 LXLP("sold", [
-  "Sold {things} this morning. Decent price.",
+  "Sold {things} earlier. Decent price.",
   "Got rid of {things} at the stall.",
   "Sold {things}. Every coin helps.",
   "{things} went at the stall today."
 ]);
 LXLP("baked", [
-  "Baked {things} this morning. Smells wonderful.",
+  "Baked {things} earlier. Smells wonderful.",
   "{things} out of the oven. Not bad at all.",
   "Got {things} baked before the rush.",
   "{things}, fresh. The whole street knows."
@@ -31955,8 +32115,8 @@ LXLP("went_hungry", ["Went hungry today. Not a crumb.", "Hardly ate. I could eat
 LXLP("no_privy", ["Couldn't find a privy. I won't say what I did.", "Had to make do behind a tree. Not proud of it."]);
 LXLP("new_in_stock", ["Saw {item} at the {shop}. New in.", "The {shop} has {item} now, if you're after some."]);
 LXLP("out_of_stock", ["The {shop} had no {item}. Wasted trip.", "Went for {item} and the {shop} had none. Typical."]);
-LXLP("price_up", ["{item} is dearer at the {shop} these days.", "Noticed {item} has gone up at the {shop}. Of course it has."]);
-LXLP("price_down", ["{item} is cheaper at the {shop}. Worth a trip.", "Good news: {item} is down at the {shop}."]);
+LXLP("price_up", ["The price of {item} is up at the {shop} these days.", "Noticed the price of {item} has gone up at the {shop}. Of course it has."]);
+LXLP("price_down", ["The price of {item} is down at the {shop}. Worth a trip.", "Good news: the price of {item} is down at the {shop}."]);
 LXLP("could_not_afford", ["Couldn't afford {item} today. Next time.", "Had my eye on {item}, but the purse said no."]);
 LXLP("tired", ["Worn out today. Could sleep in a ditch.", "Absolutely done in."]);
 LXP("ask_why_state", ["Why? What's happened?", "Oh? What's the matter?", "Is something wrong?"]);
@@ -31973,12 +32133,24 @@ LXLP("ate_with", [
   "Ate with {about} today. Makes a change from eating alone.",
   "{about} and I shared a table at midday."
 ]);
-LXLP("found", ["Found {item} this morning. No idea whose.", "Look what I picked up: {item}.", "I found {item} by the path. Keeping it."]);
+LXLP("found", ["Found {item} earlier. No idea whose.", "Look what I picked up: {item}.", "I found {item} by the path. Keeping it."]);
 LXLP("ill", ["I'm not well. Something's got hold of me.", "Feeling rough. Fever, I think.", "I'm under the weather. Keep your distance."]);
 LXLP("recovered", ["I'm over it. Back on my feet.", "Feeling myself again, thank goodness.", "The fever's gone. I could eat a horse."]);
 LXP("answer_how", ["Not well. Fever.", "Rough, to be honest. I'm ill.", "Poorly. I'll be all right."], { state: "ill" });
 LXP("sympathise_how", ["You should be in bed. Go on.", "Oh, you poor thing. Rest. I mean it."], { state: "ill" });
 LXP("vent", ["I feel dreadful. Hot and cold at once."], { state: "ill" });
+LXP(
+  "empathise",
+  [
+    "Ugh. I know that one.",
+    "Same here, I'm afraid.",
+    "I had that too.",
+    "That happened to me as well. It's no fun.",
+    "Me too. You have my sympathy."
+  ],
+  { shared: "yes" }
+);
+LXP("empathise", ["That sounds awful.", "Poor you.", "I'm sorry. That's hard."]);
 lx("ask_news", "plain", "Any news?");
 lx("ask_news", "plain", "Heard anything lately?");
 lx("ask_news", "plain", "What's the word today?");
@@ -32018,7 +32190,7 @@ lx("react_unmoved", "plain", "Hm.");
 lx("react_unmoved", "plain", "Is that so.");
 lx("react_unmoved", "plain", "Well.");
 lx("react_unmoved", "plain", "I see.");
-lx("ev:arrival", "plain", "{a} turned up on the beach this morning");
+lx("ev:arrival", "plain", "{a} turned up on the beach");
 lx("ev:arrival", "plain", "{a} came ashore with no explanation");
 lx("ev:quarrel", "plain", "{a} and {t} had words");
 lx("ev:brawl", "plain", "{a} and {t} came to blows");
@@ -32038,8 +32210,12 @@ LXP("ask_news", ["Anything new?", "What's the talk?", "Heard anything worth hear
 LXP("no_news", ["Nothing I'd repeat.", "Quiet as anything.", "Not a word. Not a whisper.", "Nothing at all. I'd tell you.", "Not that I've heard."]);
 lx("ev:lent_hand", "plain", "{a} lent {t} a hand with the work");
 lx("ev:lent_hand", "island", "{a} did an hour of {t}'s work, unasked");
-lx("ev:sick_visit", "plain", "{a} looked in on {t}, who is ill");
-lx("ev:sick_visit", "island", "{a} sat with {t}, who is ill");
+lx("ev:sick_visit", "plain", "{a} looked in on {t} when {t} was ill");
+lx("ev:sick_visit", "island", "{a} sat with {t} when {t} was ill");
+lx("ev1:gift", "plain", "I gave {t} a gift");
+lx("ev1:help", "plain", "I helped {t} out");
+lx("ev1:lent_hand", "plain", "I lent {t} a hand with the work");
+lx("ev1:sick_visit", "plain", "I looked in on {t} because of the fever");
 lx("ask_opinion", "plain", "What do you make of {about}?");
 lx("ask_opinion", "plain", "What's {about} like, really?");
 lx("ask_opinion", "plain", "Do you get on with {about}?");
@@ -32163,6 +32339,24 @@ LXP("warn", [
 LXP("warn_thanks", ["Thanks for the word.", "I had wondered. Thank you.", "I will watch out."]);
 lx("call_child", "plain", "{about}! Come in now, it's getting dark!");
 lx("call_child", "plain", "{about}! Time to come home!");
+lx("tell_rep", "plain", "Word is you {about}. Thought you'd want to know.");
+lx("tell_rep", "plain", "They say you {about}. I'm only passing it on.");
+lx("tell_rep", "plain", "I've heard you {about}, from {qty} people now.");
+lx("tell_rep", "plain", "You {about}, is what's going round.");
+lx("tell_rep", "plain", "I don't believe it, but they say you {about}.");
+lx("tell_rep", "plain", "Folk are saying you {about}. Best you hear it from me.");
+lx("rep_own", "plain", "Fair enough. I did.");
+lx("rep_own", "plain", "I won't argue.");
+lx("rep_own", "plain", "I know. I'm not proud of it.");
+lx("rep_own", "plain", "Yes. I did.");
+lx("rep_own", "plain", "It's true. I'd rather you heard it from me.");
+lx("rep_own", "plain", "I can't say it isn't so.");
+lx("rep_deny", "plain", "That's not true.");
+lx("rep_deny", "plain", "Who's saying that?");
+lx("rep_deny", "plain", "I never did.");
+lx("rep_deny", "plain", "It wasn't me. Truly.");
+lx("rep_deny", "plain", "Somebody's mixed me up with somebody else.");
+lx("rep_deny", "plain", "I'd never. Ask anyone.");
 lx("ev:theft", "plain", "{a} stole from {t}");
 lx("ev:theft", "plain", "{a} walked off with something of {t}'s");
 lx("ev:shove", "plain", "{a} pushed {t} around");
@@ -32236,6 +32430,18 @@ lx("secret_alarmed", "plain", "That's serious. I'll keep it, but I don't like it
 lx("secret_alarmed", "plain", "Oh. Well. I'll say nothing. I wish you hadn't told me.");
 lx("ev:betrayal", "plain", "{a} told {t}'s secret");
 lx("ev:betrayal", "plain", "{t}'s secret got out, and {a} was the one who told");
+lx("ev1:wall_removed", "plain", "I knocked a wall out of {t}'s house");
+lx("ev1:home_destroyed", "plain", "I pulled {t}'s house down");
+lx("ev1:building_down", "plain", "I pulled down {place}");
+lx("ev1:furniture_removed", "plain", "I took {t}'s furniture away");
+lx("ev1:person_pushed", "plain", "I pushed {t} around");
+lx("ev1:bed_moved", "plain", "I carried {t} out of the house, bed and all");
+lx("ev1:caught_on_privy", "plain", "I knocked the wall out and found {t} on the privy");
+lx("ev1:caught_bathing", "plain", "I knocked the wall out and found {t} bathing");
+lx("ev1:caught_praying", "plain", "I took the wall down and found {t} at prayer");
+lx("ev1:theft", "plain", "I stole from {t}");
+lx("ev1:shove", "plain", "I pushed {t} around");
+lx("ev1:betrayal", "plain", "I told {t}'s secret");
 lx("offer_gift", "plain", "I brought you {item}.");
 lx("offer_gift", "plain", "Here. {item}, for you.");
 lx("offer_gift", "plain", "I thought you could use {item}.");
@@ -32363,7 +32569,7 @@ lx("make_do", "plain", "No hurry. It'll keep.");
 lx("make_do", "plain", "Take fewer, then.");
 lx("no_stock", "plain", "Sorry, I'm out of {item} just now.");
 lx("no_stock", "plain", "None left, I'm afraid.");
-lx("no_stock", "plain", "The {item} sold out this morning.");
+lx("no_stock", "plain", "The {item} sold out earlier.");
 lx("shrug_off", "plain", "Next time, then.");
 lx("shrug_off", "plain", "Never mind.");
 lx("shrug_off", "plain", "I'll try again tomorrow.");
@@ -32384,9 +32590,9 @@ lx("new_stock_remark", "plain", "New in: {item}.");
 lx("farewell_shop", "plain", "Good day.");
 lx("farewell_shop", "plain", "See you.");
 lx("farewell_shop", "plain", "Right. Back to it.");
-lx("ask_price", "plain", "What are {item} going for?");
-lx("ask_price", "plain", "Seen what {item} cost lately?");
-lx("ask_price", "plain", "Do you know what {item} are at the moment?");
+lx("ask_price", "plain", "What is the going price of {item}?");
+lx("ask_price", "plain", "Seen the price of {item} lately?");
+lx("ask_price", "plain", "Do you know the price of {item} at the moment?");
 lx("tell_price", "plain", "I paid {money} each last time.");
 lx("tell_price", "plain", "About {money}, when I looked.");
 lx("tell_price", "plain", "{money} each. Not cheap, not dear.");
@@ -32397,7 +32603,7 @@ lx("react_price", "plain", "I'll see if it's cheaper elsewhere.");
 lx("keeper_call", "plain", "New in this week: {item}.", { call: "new" });
 lx("keeper_call", "plain", "Come and see the {item}. Just in.", { call: "new" });
 lx("keeper_call", "plain", "We've {item} now. First of the season.", { call: "new" });
-lx("keeper_call", "plain", "{item} are cheap today. {money} each.", { call: "cheap" });
+lx("keeper_call", "plain", "Cheap today: {item}. {money} each.", { call: "cheap" });
 lx("keeper_call", "plain", "Cheap {item} today, {money} each.", { call: "cheap" });
 lx("keeper_call", "plain", "Fresh {item}, {money} each.");
 lx("keeper_call", "plain", "Get your {item} here.");
@@ -32410,7 +32616,7 @@ lx("call_reply", "plain", "Not now, I'm busy.");
 lx("shrug_off", "plain", "Hm. Well.");
 lx("shrug_off", "plain", "We all have days.");
 LXP("ask_price", [
-  "What would {item} cost me now?",
+  "What would I pay for {item} now?",
   "Do you know the going rate for {item}?",
   "What are you seeing for {item}?",
   "Is {item} dear at the moment?",
@@ -32424,13 +32630,24 @@ LXP("tell_price", [
   "{money} and not a coin less."
 ]);
 LXP("react_price", ["That's about what I expected.", "Dearer than last time.", "Cheaper than I feared.", "Fair enough. I'll think on it."]);
-LXP("shop_greet", ["Hello there.", "Hi. Got a minute?", "Afternoon. Anything good today?", "Hello. Having a quiet day?", "Hello. Is it a busy one?"]);
+LXP("shop_greet", ["Hello there.", "Hi. Got a minute?", "Hello. Having a quiet day?", "Hello. Is it a busy one?"]);
 LXP("shop_greet_back", [
   "Hello. What can I do for you?",
   "Good to see you. What are we after?",
   "Hello. Take your time.",
   "Hello there. What'll it be?"
 ]);
+lx("shop_greet", "plain", "Afternoon. Anything good today?", { band: "day" });
+lx("ask_item", "plain", "The usual.", { how: "regular" });
+lx("ask_item", "plain", "Same as always, please.", { how: "regular" });
+lx("ask_item", "plain", "The usual, if you have it.", { how: "regular" });
+lx("ask_item", "plain", "Another {things}, please.", { how: "regular" });
+lx("ask_item", "plain", "Same again.", { how: "regular" });
+lx("quote_price", "plain", "{money}. As ever.", { how: "regular" });
+lx("quote_price", "plain", "{money}, same as last time.", { how: "regular" });
+lx("quote_price", "plain", "That'll be {money}.", { how: "regular" });
+lx("quote_price", "plain", "{money}. You know the drill.", { how: "regular" });
+lx("quote_price", "plain", "{money}, as usual.", { how: "regular" });
 lx("remark_time", "plain", "Morning goes quickly.", { band: "morning" });
 lx("remark_time", "plain", "Half the day gone already.", { band: "day" });
 lx("remark_time", "plain", "It'll be dark soon.", { band: "evening" });
@@ -32515,7 +32732,7 @@ LXP("joke", [
   "I told the field to grow faster. It grew slower, out of spite.",
   "My neighbour says the weather's turning. It's the same weather it's always had. New haircut, that's all.",
   "They say good fences make good neighbours. Mine fell over. We get on great.",
-  "I put my boots on the wrong feet this morning and walked all day like that. Nobody said a word. Lovely, I thought.",
+  "I put my boots on the wrong feet earlier and walked all day like that. Nobody said a word. Lovely, I thought.",
   "Never trust anyone who says they don't like bread. Or a gull, come to think of it."
 ]);
 LXP("laugh", ["Ha! Good one.", "Ha. That's a good one, that.", "You've got me there."]);
@@ -32566,13 +32783,13 @@ lxi("greet_back", "Hello. I am keeping my hands in my pockets. It is a habit I h
 lxi("greet_back", "Hello. It is good to see you. I mean that exactly.", { rep: "kind" });
 lxi("greet_back", "Ah, {li}. Good. Today is better already.", { rep: "kind" });
 lxi("greet", "There you are. I was about to look for you, which is not the same as worrying.", { rel: "spouse" });
-lxi("greet", "Hello. You are home. That is the best news of the afternoon.", { rel: "spouse" });
+lxi("greet", "Hello. You are home. That is the best news of the day.", { rel: "spouse" });
 lxi("greet", "There you are, {li}.", { rel: "partner" });
 lxi("greet", "It is you. I had hoped for someone else, and then I thought: no.", { rel: "sibling" });
 lxi("greet", "{li}. We have the same eyebrows. I notice every time.", { rel: "sibling" });
 lxi("greet", "Have you eaten? I ask every time. The answer is never the point.", { rel: "child" });
 lxi("greet", "Come here. Let me look at you. You are taller or I am less.", { rel: "child", kid: "yes" });
-lxi("greet", "Hello. Is there supper? I am only asking in general.", { rel: "parent", age: "child" });
+lxi("greet", "Hello. Is there food? I am only asking in general.", { rel: "parent", age: "child" });
 lxi("greet", "Hello. How has the day been, from where you were standing?", { rel: "parent" });
 lxi("greet", "Hello. You are where I left you, or near it.", { rel: "child" });
 lxi("greet", "There you are. I counted. You were still one.", { rel: "child" });
@@ -32581,11 +32798,11 @@ lxi("greet_back", "Hello, love. I am here. It is where I live.", { rel: "spouse"
 lxi("greet_back", "What now? I am joking. Hello.", { rel: "sibling" });
 lxi("greet_back", "Hello. Yes, I have eaten. I would tell you if I had not, which is not true.", { rel: "parent" });
 lxi("greet_back", "Hello. I am here. I am fine. You do not need to look at me like that.", { rel: "parent" });
-lxi("farewell", "I will see you at supper. I will be the one who is hungry.", { rel: "spouse" });
+lxi("farewell", "I will see you at the table. I will be the one who is hungry.", { rel: "spouse" });
 lxi("farewell", "Try not to be an idiot. I say it with love, and with a little concern.", { rel: "sibling" });
 lxi("farewell", "Wrap up warm. It is a mild island, and still.", { rel: "child" });
-lxi("farewell", "Bye. I will be home for supper. Probably before it.", { rel: "parent" });
-lxi("farewell", "Do not be late for supper. I will notice and I will say nothing.", { rel: "child" });
+lxi("farewell", "Bye. I will be home on time. Probably before.", { rel: "parent" });
+lxi("farewell", "Do not be late home. I will notice and I will say nothing.", { rel: "child" });
 lxi("backchannel", "Mm.");
 lxi("backchannel", "I see.");
 lxi("backchannel", "Yes. Well.");
@@ -32632,7 +32849,7 @@ for (const t of [
   "That is the end of what I had.",
   "I should go. I will pretend I have a reason.",
   "I have a few things to be near. I will go and be near them.",
-  "Right. The afternoon will want me soon.",
+  "Right. The day will want me soon.",
   "I will let the conversation end here. It has had a good run.",
   "Off I go. I will not look back, which is a lie."
 ])
@@ -32661,8 +32878,10 @@ for (const t of [
   "And the same to you, exactly."
 ])
   lxi("farewell_back", t);
-LXI("greet", ["Hello, {li}.", "Morning.", "There you are.", "{li}.", "Good day.", "Hello."]);
-LXI("greet_back", ["Hello.", "Hello, {li}.", "Morning.", "Good day.", "Yes. Hello."]);
+LXI("greet", ["Hello, {li}.", "There you are.", "{li}.", "Good day.", "Hello."]);
+LXI("greet", ["Morning."], { band: "morning" });
+LXI("greet_back", ["Hello.", "Hello, {li}.", "Good day.", "Yes. Hello."]);
+LXI("greet_back", ["Morning."], { band: "morning" });
 LXI("farewell", [
   "Goodbye.",
   "I will go on, then.",
@@ -32675,6 +32894,34 @@ LXI("farewell", [
 ]);
 LXI("farewell_back", ["Goodbye.", "See you.", "Go well."]);
 LXI("pre_close", ["I should get on.", "Well. I have things to see to.", "I will let you go.", "That is all I had.", "I must go."]);
+LXI("greet", ["Good day, {li}. I will be brief.", "Greetings, {li}.", "I have come to say that I am here."], { reg: "formal" });
+LXI("greet_back", ["Good day. You have found me.", "Greetings. It is a pleasure, as far as I can tell.", "Well met, I believe."], { reg: "formal" });
+LXI("farewell", ["I will take my leave.", "Farewell, {li}. I will see that it is noted.", "I bid you good day. I mean it as written."], {
+  reg: "formal"
+});
+LXI("farewell_back", ["Farewell.", "Good day, then.", "Until we meet again, as we will."], { reg: "formal" });
+LXI("pre_close", ["I must beg your leave.", "Forgive me. I have something to attend to."], { reg: "formal" });
+LXI("greet", ["Hello, {li}. I am glad it is you.", "There you are. I was about to look for you.", "{li}. Good. Come here."], { reg: "warm" });
+LXI("greet", ["Hello, friend. I kept the good seat."], { reg: "warm", rel: "friend" });
+LXI("greet", ["Hello, love.", "There you are, love."], { reg: "warm", rel: "spouse" });
+LXI("greet", ["Hello, dear. Have you eaten?", "Hello, my dear."], { reg: "warm", rel: "child" });
+LXI("greet_back", ["Oh, hello. Come in.", "Hello, {li}. You have improved the day."], { reg: "warm" });
+LXI("greet_back", ["There you are, love."], { reg: "warm", rel: "spouse" });
+LXI("farewell", ["Take care of yourself, {li}.", "Come and see me soon."], { reg: "warm" });
+LXI("farewell", ["Bye, love. Be careful."], { reg: "warm", rel: "spouse" });
+LXI("farewell", ["Bye, dear. Be good."], { reg: "warm", rel: "child" });
+LXI("farewell_back", ["Goodbye, {li}. Do come again.", "Look after yourself."], { reg: "warm" });
+LXI("farewell_back", ["Bye, friend."], { reg: "warm", rel: "friend" });
+LXI("pre_close", ["I am sorry. I must go, and I would rather not.", "I could talk longer. The work will not allow it."], { reg: "warm" });
+LXI("acknowledge", ["Very good.", "That is commendable.", "I am pleased to hear it."], { reg: "formal" });
+LXI("acknowledge", ["That is good to hear.", "Good for you. I mean it.", "I am glad."], { reg: "warm" });
+LXI("agree", ["Indeed.", "Quite so.", "I concur."], { reg: "formal" });
+LXI("agree", ["I could not agree more.", "Yes. That is exactly what I think."], { reg: "warm" });
+LXI("answer_how", ["I am well, I thank you.", "Well enough, I thank you for asking."], { reg: "formal" });
+LXI("answer_how", ["I am well. Better for seeing you, {li}.", "Well. Thank you for asking."], { reg: "warm" });
+LXI("greet", ["Hello.", "Right."], { reg: "terse" });
+LXI("farewell", ["Bye.", "Right. Off I go."], { reg: "terse" });
+LXI("acknowledge", ["Good.", "Fine."], { reg: "terse" });
 lxi("ask_how", "How are you? I would like to know the real number.");
 lxi("ask_how", "How are things with you, {li}?", { rel: "friend" });
 lxi("ask_how", "How are you getting on?");
@@ -32690,7 +32937,6 @@ lxi("nothing_much", "Very little. Which is also something.");
 lxi("nothing_much", "Nothing worth telling. I walked about. The ground was where I left it.");
 lxi("empathise", "That sounds hard.");
 lxi("empathise", "I am sorry. I do not have anything useful to say, but I am sorry.");
-lxi("empathise", "Ugh. Yes. I know that one.");
 lxi("acknowledge", "Good.");
 lxi("acknowledge", "I see.");
 lxi("acknowledge", "That is a decent day's work.");
@@ -32699,7 +32945,7 @@ lxi("life:slept", "I slept. Properly. I want that noted.");
 lxi("life:slept_rough", "I slept on the ground. The ground was patient with me.");
 lxi("life:slept_rough", "I woke up with sand in my ear again. It is becoming a sort of companion.");
 lxi("life:slept_rough", "I still have no bed. I have started to think of the horizon as my bedroom.");
-lxi("life:no_privy", "I could not find a privy this morning. I will not go into it.");
+lxi("life:no_privy", "I could not find a privy earlier. I will not go into it.");
 lxi("life:bladder_emergency", "I made it. Barely. We do not need to discuss the margin.");
 lxi("life:went_hungry", "I have not eaten properly. I notice it more than I expected to.");
 lxi("life:starving", "I am very hungry. I am saying so in case it matters.");
@@ -32718,13 +32964,13 @@ lxi("life:cooked", "I made {things} today.");
 lxi("life:forged", "I turned out {things} today.");
 lxi("life:woven", "I finished {things} on the loom.");
 lxi("life:new_in_stock", "The {shop} has {item} now. I stood and looked at it for a while.");
-lxi("life:new_in_stock", "The {shop} has {item} on it that nobody ordered. I am not asking.");
+lxi("life:new_in_stock", "The {shop} has {item} on the shelf that nobody ordered. I am not asking.");
 lxi("life:out_of_stock", "The {shop} was out of {item}. It was very quiet there.");
 lxi("life:out_of_stock", "I went for {item} and the {shop} had none. The shelf looked embarrassed.");
 lxi("life:could_not_afford", "I could not afford {item}. I counted twice.");
 lxi("life:could_not_afford", "Money is tight. I had to leave the {item} and walk away from it.");
-lxi("life:price_up", "{item} has gone up at the {shop}. I think the {shop} knows.");
-lxi("life:price_down", "{item} is cheaper at the {shop} today. It will not last. It never does.");
+lxi("life:price_up", "The price of {item} has gone up at the {shop}. I think the {shop} knows.");
+lxi("life:price_down", "The price of {item} is down at the {shop} today. It will not last. It never does.");
 lxi("vent", "I am hungry, as it happens. It has been a while.", { state: "hungry" });
 lxi("vent", "I am very tired. The tiredness has started to feel like a place.", { state: "tired" });
 lxi("vent", "I have been low. It has no cause. That is what is wrong with it.", { state: "low" });
@@ -32735,7 +32981,7 @@ lxi("ask_how", "Are you well? You look tired. You always look tired. It is part 
 lxi("ask_how", "Are you behaving? Do not answer.", { rel: "child", kid: "yes" });
 lxi("ask_how", "How is life, then? Tell me before everyone else does.", { rel: "sibling" });
 kidi("answer_how", "Fine. I found a very good stick.", { state: "fine" });
-kidi("answer_how", "I am hungry. Is it nearly supper? It feels nearly.", { state: "hungry" });
+kidi("answer_how", "I am hungry. Is it nearly time to eat? It feels nearly.", { state: "hungry" });
 kidi("answer_how", "I am tired. I am not tired. I am a bit tired.", { state: "tired" });
 kidi("answer_how", "Good. It has been a good day. I did not expect that of it.", { state: "glad" });
 for (const t of [
@@ -32876,7 +33122,7 @@ LXLI("no_privy", [
   "There was no privy to be had. I will not describe what followed. It was dignified for the most part."
 ]);
 LXLI("new_in_stock", [
-  "There is {item} at the {shop}. It was not there before. I noticed because I notice things in the morning.",
+  "New at the {shop}: {item}. That was not there before. I noticed because I notice things in the morning.",
   "The {shop} is stocking {item}. I did not ask why. The shelf looked pleased."
 ]);
 LXLI("out_of_stock", [
@@ -32884,11 +33130,11 @@ LXLI("out_of_stock", [
   "I went for {item}. The {shop} was out. It was very polite about it."
 ]);
 LXLI("price_up", [
-  "{item} has gone up at the {shop}. Not by much. By enough to be mentioned.",
-  "I noticed {item} costs more at the {shop}. It is a small thing, and I am treating it as a large one."
+  "The price of {item} has gone up at the {shop}. Not by much. By enough to be mentioned.",
+  "I noticed the price of {item} is up at the {shop}. It is a small thing, and I am treating it as a large one."
 ]);
 LXLI("price_down", [
-  "{item} is cheaper at the {shop}. I will believe it when I am holding it.",
+  "The price of {item} is down at the {shop}. I will believe it when I am holding it.",
   "The {shop} has lowered the price of {item}. I did not ask why. I am enjoying it."
 ]);
 LXLI("could_not_afford", [
@@ -32958,7 +33204,13 @@ LXI("vent", ["I feel dreadful. I am hot and cold, and I cannot decide which to c
 LXI("ask_how", ["How are you?", "How are you keeping?", "Are you well?", "How is it with you?"]);
 LXI("ask_day", ["How was your day?", "What did you do today?", "What have you been at?", "Busy day?"]);
 LXI("nothing_much", ["Not much.", "Very little.", "The usual.", "Nothing to speak of."]);
-LXI("empathise", ["I am sorry.", "That is hard.", "That is a bad day.", "I know."]);
+LXI("empathise", [
+  "I am sorry.",
+  "That is hard.",
+  "That is a bad day.",
+  "That sounds like a long day.",
+  "I am sorry. That should not happen to anyone."
+]);
 LXI("acknowledge", ["Good.", "Well done.", "That is a fair day."]);
 for (const [st, ls] of [
   ["fine", ["Well enough.", "I am well.", "Fine."]],
@@ -32981,16 +33233,27 @@ LXI("life:harvested", ["I harvested {things}.", "I brought in {things}.", "{thin
 LXI("life:bought", ["I bought {things}.", "I got {things} at the market."]);
 LXI("life:sold", ["I sold {things}.", "I took {things} to the stall."]);
 LXI("life:baked", ["I baked {things}.", "{things}, out of the oven."]);
-LXI("life:new_in_stock", ["The {shop} has {item} now.", "There is {item} at the {shop}."]);
+LXI("life:new_in_stock", ["The {shop} has {item} now.", "New at the {shop}: {item}."]);
 LXI("life:out_of_stock", ["The {shop} is out of {item}.", "There was no {item} to be had."]);
 LXI("life:could_not_afford", ["I could not afford {item}.", "I had not the money for {item}."]);
-LXI("life:price_up", ["{item} has gone up.", "{item} costs more at the {shop} now."]);
-LXI("life:price_down", ["{item} has come down.", "{item} is cheaper at the {shop} now."]);
+LXI("life:price_up", ["The price of {item} has gone up.", "The price of {item} is up at the {shop} now."]);
+LXI("life:price_down", ["The price of {item} has come down.", "The price of {item} is down at the {shop} now."]);
 LXI("life:worked_with", ["I worked beside {about} today.", "{about} and I did the same rows."]);
 LXI("life:ate_with", ["I ate with {about}.", "{about} and I shared a table."]);
 LXI("life:found", ["I found {item}.", "I picked up {item} today."]);
 LXI("life:ill", ["I am not well.", "I have a fever."]);
 LXI("life:recovered", ["I am better.", "The fever has gone."]);
+LXI(
+  "empathise",
+  [
+    "Ugh. Yes. I know that one.",
+    "I know.",
+    "The same happened to me. It does not get better for being shared.",
+    "I had that too. I will not say it helps.",
+    "Me too. I will not say it was better."
+  ],
+  { shared: "yes" }
+);
 lxi("ask_news", "Has anything happened? Anything at all. I will take a small one.");
 lxi("ask_news", "Any news?");
 lxi("ask_news", "Have you heard anything? About anyone. About anything.");
@@ -33013,7 +33276,7 @@ lxi("react_sympathy", "Poor {who}.");
 lxi("react_sympathy", "That is hard on {who}. I hope someone brought them something to eat.");
 lxi("react_doubt", "That does not sound like the island I know.");
 lxi("react_doubt", "Who told you that? Never mind. I would like to hear it twice.");
-lxi("react_delight", "Well. That is good. I will think about it all afternoon.");
+lxi("react_delight", "Well. That is good. I will think about it all day.");
 lxi("react_delight", "I am glad. It is a strange thing to be glad about, and I am.");
 lxi("react_unmoved", "I see.");
 lxi("react_unmoved", "Mm. Noted.");
@@ -33051,6 +33314,8 @@ LXI("react_amused", ["Ha.", "That is quite funny.", "I should not laugh."]);
 LXI("react_sympathy", ["Poor soul.", "That is hard.", "I am sorry to hear it."]);
 LXI("react_doubt", ["Are you sure?", "I doubt that.", "Who says so?"]);
 LXI("react_delight", ["Good.", "I am glad.", "That is good to hear.", "Well. Good.", "That was kind."]);
+lxi("ev1:lent_hand", "I did an hour of {t}'s work");
+lxi("ev1:sick_visit", "I sat with {t} because of the fever");
 lxi("ask_opinion", "What is {about} like? I would like to know before I have to find out.");
 lxi("ask_opinion", "What do you make of {about}?");
 lxi("ask_opinion", "Do you get on with {about}? Be honest. I am only curious.");
@@ -33217,6 +33482,24 @@ for (const [st, ls] of [
   LXI("answer_family", ls, { state: st });
 lxi("call_child", "{about}. Come in. It is getting dark and I would like you inside.");
 lxi("call_child", "{about}. Home. The light is going and I count you every evening.");
+lxi("tell_rep", "People say you {about}.");
+lxi("tell_rep", "You {about}, according to {qty} people.");
+lxi("tell_rep", "It is going round that you {about}.");
+lxi("tell_rep", "I heard that you {about}. I thought you would rather know.");
+lxi("tell_rep", "{qty} people have told me you {about}. I have not said whether I agree.");
+lxi("tell_rep", "You {about}, they say. I am only the messenger.");
+lxi("rep_own", "It is true.");
+lxi("rep_own", "Yes. I did.");
+lxi("rep_own", "I will not argue with it.");
+lxi("rep_own", "That is fair. I did that.");
+lxi("rep_own", "I know. It is a short list and I am on it.");
+lxi("rep_own", "I cannot say it is wrong.");
+lxi("rep_deny", "That is not true.");
+lxi("rep_deny", "I did not.");
+lxi("rep_deny", "Who said so?");
+lxi("rep_deny", "That was not me. I would know.");
+lxi("rep_deny", "It is a rumour. I have seen what those do.");
+lxi("rep_deny", "Somebody is confusing me with somebody else.");
 lxi("raise_deed", "I have been thinking about who {deed}. I keep arriving at you.", { how: "suspect" });
 lxi("raise_deed", "It is a hunch. Was it you who {deed}?", { how: "suspect" });
 lxi("deed_blame", "I would look at {about}. I am not saying more than that. I am saying that.");
@@ -33249,7 +33532,7 @@ lxi("cry_deed", "That is my wall.", { how: "wall_home" });
 lxi("cry_deed", "That is my house. I am standing in it.", { how: "wall_home" });
 lxi("cry_deed", "I am using this. I am using this right now.", { how: "privy" });
 lxi("cry_deed", "There was a wall there. A moment ago there was a wall.", { how: "privy" });
-lxi("cry_deed", "That was my house. It was there this morning.", { how: "home" });
+lxi("cry_deed", "That was my house. It was there earlier.", { how: "home" });
 lxi("cry_deed", "My house. You have taken my house down.", { how: "home" });
 lxi("cry_deed", "I went to sleep indoors. I am nearly certain of that.", { how: "bed" });
 lxi("cry_deed", "There is a tree where the ceiling was.", { how: "bed" });
@@ -33266,6 +33549,11 @@ lxi("secret_keep", "I will keep it. I am good at keeping things. It is most of w
 lxi("secret_keep", "It stays here. I will not even think about it where people can see.");
 lxi("secret_alarmed", "That is serious. I will keep it. I would like to say that I wish you had not told me, and I have.");
 lxi("secret_alarmed", "I see. I will say nothing. I will think about it quite a lot.");
+lxi("ev1:wall_removed", "I took a wall out of {t}'s house");
+lxi("ev1:home_destroyed", "I took {t}'s house down");
+lxi("ev1:bed_moved", "I carried {t} out of the house, bed and all");
+lxi("ev1:person_pushed", "I pushed {t} about");
+lxi("ev1:theft", "I took what was {t}'s");
 lxi("offer_gift", "I have {item}. I thought of you, which surprised me.");
 lxi("offer_gift", "This is {item}. It is not much. It is what I had.");
 lxi("gift_thanks", "Thank you. I will find a place for it.");
@@ -33304,7 +33592,7 @@ lxi("apologise", "I have been thinking about what I did. I am sorry. It is a sho
 lxi("apologise", "I owe you an apology. I am delivering it as promptly as I could manage.");
 lxi("accept_apology", "Thank you. I accept it. I am relieved to have somewhere to put it.");
 lxi("reject_apology", "No. I am not ready. I may be later.");
-lxi("ask_favour", "I have no food. I have had none since this morning. Could you spare {item}?", { how: "item" });
+lxi("ask_favour", "I have no food. I have had none today. Could you spare {item}?", { how: "item" });
 lxi("ask_favour", "I am hungry in a very exact way. Do you have any {item}?", { how: "item" });
 lxi("ask_favour", "I have no bed. I have a patch of ground that I have grown fond of. A bed would be better.", { how: "bed" });
 lxi("ask_favour", "Would you build me a bed? I would use it for the usual things.", { how: "bed" });
@@ -33384,7 +33672,7 @@ lxi("cant_afford", "I am short. I counted on the way and again just now.");
 lxi("make_do", "It will be here tomorrow. Probably.");
 lxi("make_do", "Come back when you have it. I will not move.");
 lxi("no_stock", "None left. They went quickly.");
-lxi("no_stock", "I have no {item}. I had some this morning. I cannot account for it.");
+lxi("no_stock", "I have no {item}. I had some earlier. I cannot account for it.");
 lxi("shrug_off", "That is all right.");
 lxi("shrug_off", "Tomorrow, then.");
 lxi("offer_goods", "I have {things}.");
@@ -33396,11 +33684,11 @@ lxi("accept_deal", "That will do.");
 lxi("no_demand", "I have enough. Thank you.");
 lxi("no_demand", "The stall is full of {item}. I could not take another one.");
 lxi("new_stock_remark", "We have {item} now.");
-lxi("new_stock_remark", "There is {item} in this week. Nobody ordered it. It arrived.");
+lxi("new_stock_remark", "New this week: {item}. Nobody ordered that. It arrived.");
 lxi("farewell_shop", "Goodbye.");
 lxi("farewell_shop", "See you.");
 lxi("keeper_call", "New: {item}.", { call: "new" });
-lxi("keeper_call", "We have {item} now. It is the first I have seen of it.", { call: "new" });
+lxi("keeper_call", "We have {item} now. This is the first I have seen of that.", { call: "new" });
 lxi("keeper_call", "{item}, {money}. It is a good price. I checked.", { call: "cheap" });
 lxi("keeper_call", "Cheap {item} today. {money}.", { call: "cheap" });
 lxi("keeper_call", "{item}. {money}. That is all I have to say about it.");
@@ -33409,8 +33697,8 @@ lxi("keeper_call", "If anyone needs {item}, I have some.");
 lxi("call_reply", "Maybe later.");
 lxi("call_reply", "Not now. Thank you.");
 lxi("call_reply", "I will think about it. I will probably come back.");
-lxi("ask_price", "Do you know what {item} cost today?");
-lxi("ask_price", "What are {item} going for? I would like an exact figure.");
+lxi("ask_price", "Do you know the price of {item} today?");
+lxi("ask_price", "What is the price of {item}? I would like an exact figure.");
 lxi("tell_price", "{money} each. I wrote it down.");
 lxi("tell_price", "About {money}. I paid it and did not enjoy it.");
 lxi("react_price", "Good to know.");
@@ -33419,9 +33707,9 @@ lxi("react_price", "Fair. Thank you.");
 lxi("shrug_off", "Yes. Well. It is something.");
 lxi("shrug_off", "Everyone has days. Some have more of them.");
 LXI("ask_price", [
-  "What does {item} cost these days? I will need a number, not a mood.",
+  "What is the price of {item} these days? I will need a number, not a mood.",
   "Do you know the price of {item}? I do not, and I dislike not.",
-  "What are {item} fetching? I have a figure in mind and no faith in it.",
+  "What is the going price of {item}? I have a figure in mind and no faith in it.",
   "Is {item} dear just now? Give me a figure and I will give you my opinion of it.",
   "How much for {item}, lately? I am collecting numbers."
 ]);
@@ -33451,6 +33739,16 @@ LXI("shop_greet_back", [
   "Hello. I am here, which is the main thing a stall needs.",
   "Hello. What is it today? I will not guess."
 ]);
+lxi("ask_item", "The usual.", { how: "regular" });
+lxi("ask_item", "Same as before. I have found it reliable.", { how: "regular" });
+lxi("ask_item", "The usual. I will not describe it.", { how: "regular" });
+lxi("ask_item", "Another {things}, please.", { how: "regular" });
+lxi("ask_item", "Same again, if the stall remembers.", { how: "regular" });
+lxi("quote_price", "{money}. As ever.", { how: "regular" });
+lxi("quote_price", "{money}. It has not changed. I checked.", { how: "regular" });
+lxi("quote_price", "{money}, same as last time.", { how: "regular" });
+lxi("quote_price", "{money}. You know the figure.", { how: "regular" });
+lxi("quote_price", "{money}. Nothing has happened to the price.", { how: "regular" });
 lxi("remark_time", "It is {clock}. I checked.");
 lxi("remark_time", "The morning has a lot left in it.", { band: "morning" });
 lxi("remark_time", "The afternoon is the same length as yesterday's, and feels longer.", { band: "day" });
@@ -33467,7 +33765,7 @@ lxi("remark_work", "The {job} work went quietly today. I do not entirely trust t
 lxi("remark_work", "The {job} work went well. I am being careful about saying so.", { state: "glad" });
 lxi("remark_work", "The {job} work is the one thing that has not changed since I arrived, and I am glad of it.");
 lxi("remark_state", "I am hungry in the specific way that means soup.", { state: "hungry" });
-lxi("remark_state", "I have not eaten since this morning. My stomach has opinions.", { state: "hungry" });
+lxi("remark_state", "I have not eaten today. My stomach has opinions.", { state: "hungry" });
 lxi("remark_state", "I am tired. Not sleepy. Tired in a way a bed would not fix at once.", { state: "tired" });
 lxi("remark_state", "I could lie down on almost anything. I have been assessing the ground.", { state: "tired" });
 lxi("remark_state", "I feel unreasonably good today. I have decided not to look into it.", { state: "glad" });
@@ -33539,13 +33837,13 @@ LXI("joke", [
   "I tried to count the days since I arrived. I lost count at the part where I tried to count.",
   "There is a gull that stands outside the bakery. I think it is in management.",
   "I planted a turnip and told it the plan. It has not commented.",
-  "I found a very good stone this morning. I put it down again. That is the whole story and I stand by it.",
+  "I found a very good stone earlier. I put it down again. That is the whole story and I stand by it.",
   "Someone asked if I had a map. I said the island was the map. He said it was a poor map. We shook on it.",
   "My bed and I have an understanding. It is mine in the evening and the floor's in the morning.",
   "I tried to whistle a tune I do not know. A bird answered with the same tune. I have not whistled since."
 ]);
 LXI("laugh", [
-  "Ha. I will be thinking about that in the night. Thank you.",
+  "Ha. I will be thinking about that later. Thank you.",
   "Ha. Yes. I will use that on someone who has not heard it.",
   "Ha. That is the right size for a joke. They are usually too large."
 ]);
@@ -33556,7 +33854,7 @@ LXI("wonder_reply", [
 ]);
 LXI("remark_state", ["I should not be out. I am ill. I wanted to see whether the day was still here."], { state: "ill" });
 LXI("snap", [
-  "Not now. I have used up my patience and it is not yet noon.",
+  "Not now. I have used up my patience and it is still early.",
   "Please. Not today. I am holding the day together with one hand.",
   "I do not want to talk. I want that to be enough."
 ]);
@@ -33571,7 +33869,7 @@ LXI("remark_work", [
   "There is plenty to do.",
   "The work goes on.",
   "I am behind, a little.",
-  "It was a full morning.",
+  "It has been a full day.",
   "The work is the same as yesterday."
 ]);
 LXI("remark_state", ["I am hungry.", "I could eat."], { state: "hungry" });
@@ -33586,7 +33884,7 @@ lxi("mutter", "Not too brown. Not too pale. It is a narrow thing and I am calm a
 lxi("mutter", "There is flour in places I did not know I had.", { how: "baker" });
 lxi("mutter", "Hot enough. It is always hot enough, and then it is hotter.", { how: "smith" });
 lxi("mutter", "Where did that go. It was here. It was right here.");
-lxi("mutter", "Nearly done. I have said that since morning and it has not been false once.");
+lxi("mutter", "Nearly done. I have said that all day and it has not been false once.");
 lxi("mutter", "Back to it. The work does not know it is being watched.");
 
 </script>

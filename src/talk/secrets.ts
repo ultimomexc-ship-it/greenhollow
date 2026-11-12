@@ -10,7 +10,7 @@ function secretPick(sp: any, li: any): any {
   for (const m of sp.tmem || []) {
     if (m.ev == null || !['did', 'felt'].includes(m.kind) || m.confided || m.secret) continue;
     if (game.time - m.t > 1440 * 10) continue;
-    const ev = lf2Ev().find((q: any) => q.id === m.ev);
+    const ev = lf2EvById(m.ev);
     if (!ev || !(ev.tags || []).some((t: string) => SECRET_TAGS.includes(t))) continue;
     const theirs = TM.ofEv(li, ev.id),
       wrong = !!theirs && m.kind === 'did' && theirs.ver && theirs.ver.who !== sp.id && !theirs.cleared; // (they blame somebody else: owning up puts it right)
@@ -28,7 +28,7 @@ ACTS.confide = {
   stage: 'topic',
   preview: (c: any, sp: any, li: any) => {
     const k = secretPick(sp, li);
-    return { news: k ? TE.text(k.ev, k.m.kind === 'did' ? { who: sp.id } : k.m.ver) : '' };
+    return { news: k ? TE.text(k.ev, k.m.kind === 'did' ? { who: sp.id } : k.m.ver, sp, li) : '' };
   },
   w: (c: any, sp: any) => (sp.player ? 0.4 : 0.6),
   when: (c: any, sp: any, li: any) =>
@@ -43,10 +43,12 @@ ACTS.confide = {
     if (old) {
       old.ver = ver;
       old.conf = 1;
+      repDirty();
       old.kind = 'told';
       old.from = sp.id;
       old.raised = false;
       old.cleared = false;
+      repDirty();
       mem = old;
       const wrongOne = old.ver;
     } // (the wrong version is put right)
@@ -55,7 +57,7 @@ ACTS.confide = {
       mem.secret = true;
       mem.keeper = sp.id;
     }
-    c.told = { text: TE.text(k.ev, ver), react: '' };
+    c.told = { text: TE.text(k.ev, ver, sp, li), react: '' };
     c.secretEv = k.ev;
     lfAff(li, sp, 3, 'trusted me with a secret');
     lfAff(sp, li, 2, 'kept my confidence');

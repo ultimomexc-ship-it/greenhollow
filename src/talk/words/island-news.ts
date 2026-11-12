@@ -22,7 +22,7 @@ lxi('react_sympathy', 'Poor {who}.');
 lxi('react_sympathy', 'That is hard on {who}. I hope someone brought them something to eat.');
 lxi('react_doubt', 'That does not sound like the island I know.');
 lxi('react_doubt', 'Who told you that? Never mind. I would like to hear it twice.');
-lxi('react_delight', 'Well. That is good. I will think about it all afternoon.');
+lxi('react_delight', 'Well. That is good. I will think about it all day.');
 lxi('react_delight', 'I am glad. It is a strange thing to be glad about, and I am.');
 lxi('react_unmoved', 'I see.');
 lxi('react_unmoved', 'Mm. Noted.');
@@ -60,3 +60,6 @@ LXI('react_amused', ['Ha.', 'That is quite funny.', 'I should not laugh.']);
 LXI('react_sympathy', ['Poor soul.', 'That is hard.', 'I am sorry to hear it.']);
 LXI('react_doubt', ['Are you sure?', 'I doubt that.', 'Who says so?']);
 LXI('react_delight', ['Good.', 'I am glad.', 'That is good to hear.', 'Well. Good.', 'That was kind.']);
+// first person: said by the one who did it (TE.text with the speaker)
+lxi('ev1:lent_hand', "I did an hour of {t}'s work");
+lxi('ev1:sick_visit', 'I sat with {t} because of the fever');

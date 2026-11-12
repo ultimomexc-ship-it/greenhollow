@@ -40,7 +40,10 @@ function lxContext(sp: any, li: any, c: any) {
     rep: typeof repWord === 'function' ? repWord(sp, li) : undefined,
     age: sp.age < 12 ? 'child' : undefined,
     kid: li.age < 14 ? 'yes' : undefined,
-    menu: c.menu
+    menu: c.menu,
+    reg: lxRegister(sp),
+    // the speaker has had the same trouble this week (so a line that claims "I know that one" is true): from their own day log
+    shared: c.life && c.lifeTrouble && (sp.day || []).some((e: any) => e.kind === c.life.kind && game.time - e.t < 7 * 1440) ? 'yes' : undefined
   };
 }
 /** the values a line can use, from the speaker, the listener and what the turn carries. A slot with no value is undefined: a line that needs it is not said. */
@@ -58,13 +61,13 @@ function lxSlots(sp: any, li: any, c: any, ctx: any): any {
     money: c.price != null ? lxMoney(c.price) : undefined,
     price: c.price != null ? String(c.price) : undefined,
     about: c.about || undefined,
-    reason: c.reason || '',
+    reason: typeof peopleYou === 'function' ? peopleYou(c.reason || '', li) : c.reason || '', // (the listener is "you" in every line, menu labels and previews included)
     them: !c.about ? undefined : aboutP ? (aboutP.female ? 'her' : 'him') : 'them',
     shop: c.shop || 'stall',
     item,
     things: item ? lxCount(c.qty, item) : undefined,
     qty: c.qty != null ? String(c.qty) : undefined,
-    news: c.news || undefined,
+    news: typeof peopleYou === 'function' && typeof c.news === 'string' ? peopleYou(c.news, li) : c.news || undefined,
     deed: c.deed || undefined,
     who: c.who || 'them'
   };
@@ -110,7 +113,7 @@ function lxSay(act: string, sp: any, li: any, c: any): string {
   if (!cands.length) cands = pool('plain');
   if (!cands.length) return '';
   // the voice rule: most lines are short and plain; a line with an aside (a second sentence, or a long one) is allowed at most one time in four per speaker, and never on a menu label
-  const spare = c.menu || (sp.sinceAside != null && sp.sinceAside < 3);
+  const spare = c.menu || lxRegister(sp) === 'terse' || (sp.sinceAside != null && sp.sinceAside < 3); // (a terse speaker never adds an aside)
   if (spare && !act.startsWith('ev:')) {
     const short = cands.filter(e => !lxMarked(e.text));
     if (short.length) cands = short;
@@ -204,24 +207,6 @@ const LX_RUNON: any = {
     'But I go on. I do that.'
   ]
 };
-const LX_FORMAL: [RegExp, string][] = [
-  [/\bHello\b/g, 'Good day'],
-  [/\bHi\b/g, 'Good day'],
-  [/\bBye\b/g, 'Farewell'],
-  [/\bGoodbye\b/g, 'Farewell'],
-  [/\bSee you\b/g, 'Until we meet again'],
-  [/\bI'm\b/g, 'I am'],
-  [/\bdon't\b/g, 'do not'],
-  [/\bcan't\b/g, 'cannot'],
-  [/\bit's\b/gi, 'it is'],
-  [/\bI'd\b/g, 'I would'],
-  [/\bI'll\b/g, 'I shall'],
-  [/\bwon't\b/g, 'will not'],
-  [/\bisn't\b/g, 'is not'],
-  [/\bthat's\b/gi, 'that is'],
-  [/\bwe've\b/g, 'we have'],
-  [/\bI've\b/g, 'I have']
-];
 function lxVoice(sp: any, li: any, act: string, pack: string, text: string): string {
   const reg = lxRegister(sp);
   if (reg === 'dry' || !text) return text;
@@ -232,22 +217,7 @@ function lxVoice(sp: any, li: any, act: string, pack: string, text: string): str
         act
       );
   if (!ritual && !statement) return text;
-  if (reg === 'terse') {
-    const first = text.split(/(?<=[.!?])\s+/)[0];
-    return first.length >= 5 && first.split(/\s+/).length >= 3 ? first : text;
-  } // (a clipped sentence still has to say something: not "4 bread.")
-  if (reg === 'warm') {
-    if (!ritual || text.length > 22 || sp.age < 12 || Math.random() > 0.55 || /friend|love|dear/.test(text) || (li && text.indexOf(li.first) >= 0))
-      return text;
-    const addr =
-      li.fam && (li.fam.spouse === sp.id || sp.fam.spouse === li.id) ? 'love' : sp.fam && (sp.fam.kids || []).includes(li.id) ? 'dear' : 'friend';
-    return text.replace(/([.!?])\s*$/, ', ' + addr + '$1');
-  }
-  if (reg === 'formal') {
-    let t = text;
-    for (const [r, s] of LX_FORMAL) t = t.replace(r, s);
-    return t;
-  }
+  // terse, warm and formal are lines of their own now (tags `reg`): see lxContext and the words files; only the chatty run-on is added to a finished line
   if (reg === 'chatty') {
     if (statement && !ritual && Math.random() < 0.4) {
       const L = LX_RUNON[pack] || LX_RUNON.plain;

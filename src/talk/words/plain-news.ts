@@ -40,7 +40,7 @@ lx('react_unmoved', 'plain', 'Is that so.');
 lx('react_unmoved', 'plain', 'Well.');
 lx('react_unmoved', 'plain', 'I see.');
 /* what happened, as it is told after "I heard that" (event kinds that have no template yet fall back to the old sentence) */
-lx('ev:arrival', 'plain', '{a} turned up on the beach this morning');
+lx('ev:arrival', 'plain', '{a} turned up on the beach');
 lx('ev:arrival', 'plain', '{a} came ashore with no explanation');
 lx('ev:quarrel', 'plain', '{a} and {t} had words');
 lx('ev:brawl', 'plain', '{a} and {t} came to blows');
@@ -60,5 +60,10 @@ LXP('ask_news', ['Anything new?', "What's the talk?", 'Heard anything worth hear
 LXP('no_news', ["Nothing I'd repeat.", 'Quiet as anything.', 'Not a word. Not a whisper.', "Nothing at all. I'd tell you.", "Not that I've heard."]);
 lx('ev:lent_hand', 'plain', '{a} lent {t} a hand with the work');
 lx('ev:lent_hand', 'island', "{a} did an hour of {t}'s work, unasked");
-lx('ev:sick_visit', 'plain', '{a} looked in on {t}, who is ill');
-lx('ev:sick_visit', 'island', '{a} sat with {t}, who is ill');
+lx('ev:sick_visit', 'plain', '{a} looked in on {t} when {t} was ill');
+lx('ev:sick_visit', 'island', '{a} sat with {t} when {t} was ill');
+// first person: said by the one who did it (TE.text with the speaker)
+lx('ev1:gift', 'plain', 'I gave {t} a gift');
+lx('ev1:help', 'plain', 'I helped {t} out');
+lx('ev1:lent_hand', 'plain', 'I lent {t} a hand with the work');
+lx('ev1:sick_visit', 'plain', 'I looked in on {t} because of the fever');

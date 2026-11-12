@@ -16,7 +16,7 @@ lxi('remark_work', 'The {job} work went quietly today. I do not entirely trust t
 lxi('remark_work', 'The {job} work went well. I am being careful about saying so.', { state: 'glad' });
 lxi('remark_work', 'The {job} work is the one thing that has not changed since I arrived, and I am glad of it.');
 lxi('remark_state', 'I am hungry in the specific way that means soup.', { state: 'hungry' });
-lxi('remark_state', 'I have not eaten since this morning. My stomach has opinions.', { state: 'hungry' });
+lxi('remark_state', 'I have not eaten today. My stomach has opinions.', { state: 'hungry' });
 lxi('remark_state', 'I am tired. Not sleepy. Tired in a way a bed would not fix at once.', { state: 'tired' });
 lxi('remark_state', 'I could lie down on almost anything. I have been assessing the ground.', { state: 'tired' });
 lxi('remark_state', 'I feel unreasonably good today. I have decided not to look into it.', { state: 'glad' });
@@ -88,13 +88,13 @@ LXI('joke', [
   'I tried to count the days since I arrived. I lost count at the part where I tried to count.',
   'There is a gull that stands outside the bakery. I think it is in management.',
   'I planted a turnip and told it the plan. It has not commented.',
-  'I found a very good stone this morning. I put it down again. That is the whole story and I stand by it.',
+  'I found a very good stone earlier. I put it down again. That is the whole story and I stand by it.',
   'Someone asked if I had a map. I said the island was the map. He said it was a poor map. We shook on it.',
   "My bed and I have an understanding. It is mine in the evening and the floor's in the morning.",
   'I tried to whistle a tune I do not know. A bird answered with the same tune. I have not whistled since.'
 ]);
 LXI('laugh', [
-  'Ha. I will be thinking about that in the night. Thank you.',
+  'Ha. I will be thinking about that later. Thank you.',
   'Ha. Yes. I will use that on someone who has not heard it.',
   'Ha. That is the right size for a joke. They are usually too large.'
 ]);
@@ -105,7 +105,7 @@ LXI('wonder_reply', [
 ]);
 LXI('remark_state', ['I should not be out. I am ill. I wanted to see whether the day was still here.'], { state: 'ill' });
 LXI('snap', [
-  'Not now. I have used up my patience and it is not yet noon.',
+  'Not now. I have used up my patience and it is still early.',
   'Please. Not today. I am holding the day together with one hand.',
   'I do not want to talk. I want that to be enough.'
 ]);
@@ -120,7 +120,7 @@ LXI('remark_work', [
   'There is plenty to do.',
   'The work goes on.',
   'I am behind, a little.',
-  'It was a full morning.',
+  'It has been a full day.',
   'The work is the same as yesterday.'
 ]);
 LXI('remark_state', ['I am hungry.', 'I could eat.'], { state: 'hungry' });
@@ -135,5 +135,5 @@ lxi('mutter', 'Not too brown. Not too pale. It is a narrow thing and I am calm a
 lxi('mutter', 'There is flour in places I did not know I had.', { how: 'baker' });
 lxi('mutter', 'Hot enough. It is always hot enough, and then it is hotter.', { how: 'smith' });
 lxi('mutter', 'Where did that go. It was here. It was right here.');
-lxi('mutter', 'Nearly done. I have said that since morning and it has not been false once.');
+lxi('mutter', 'Nearly done. I have said that all day and it has not been false once.');
 lxi('mutter', 'Back to it. The work does not know it is being watched.');

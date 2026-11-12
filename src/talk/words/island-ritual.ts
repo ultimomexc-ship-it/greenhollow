@@ -32,13 +32,13 @@ lxi('greet_back', 'Hello. I am keeping my hands in my pockets. It is a habit I h
 lxi('greet_back', 'Hello. It is good to see you. I mean that exactly.', { rep: 'kind' });
 lxi('greet_back', 'Ah, {li}. Good. Today is better already.', { rep: 'kind' });
 lxi('greet', 'There you are. I was about to look for you, which is not the same as worrying.', { rel: 'spouse' });
-lxi('greet', 'Hello. You are home. That is the best news of the afternoon.', { rel: 'spouse' });
+lxi('greet', 'Hello. You are home. That is the best news of the day.', { rel: 'spouse' });
 lxi('greet', 'There you are, {li}.', { rel: 'partner' });
 lxi('greet', 'It is you. I had hoped for someone else, and then I thought: no.', { rel: 'sibling' });
 lxi('greet', '{li}. We have the same eyebrows. I notice every time.', { rel: 'sibling' });
 lxi('greet', 'Have you eaten? I ask every time. The answer is never the point.', { rel: 'child' });
 lxi('greet', 'Come here. Let me look at you. You are taller or I am less.', { rel: 'child', kid: 'yes' });
-lxi('greet', 'Hello. Is there supper? I am only asking in general.', { rel: 'parent', age: 'child' });
+lxi('greet', 'Hello. Is there food? I am only asking in general.', { rel: 'parent', age: 'child' });
 lxi('greet', 'Hello. How has the day been, from where you were standing?', { rel: 'parent' });
 lxi('greet', 'Hello. You are where I left you, or near it.', { rel: 'child' });
 lxi('greet', 'There you are. I counted. You were still one.', { rel: 'child' });
@@ -47,11 +47,11 @@ lxi('greet_back', 'Hello, love. I am here. It is where I live.', { rel: 'spouse'
 lxi('greet_back', 'What now? I am joking. Hello.', { rel: 'sibling' });
 lxi('greet_back', 'Hello. Yes, I have eaten. I would tell you if I had not, which is not true.', { rel: 'parent' });
 lxi('greet_back', 'Hello. I am here. I am fine. You do not need to look at me like that.', { rel: 'parent' });
-lxi('farewell', 'I will see you at supper. I will be the one who is hungry.', { rel: 'spouse' });
+lxi('farewell', 'I will see you at the table. I will be the one who is hungry.', { rel: 'spouse' });
 lxi('farewell', 'Try not to be an idiot. I say it with love, and with a little concern.', { rel: 'sibling' });
 lxi('farewell', 'Wrap up warm. It is a mild island, and still.', { rel: 'child' });
-lxi('farewell', 'Bye. I will be home for supper. Probably before it.', { rel: 'parent' });
-lxi('farewell', 'Do not be late for supper. I will notice and I will say nothing.', { rel: 'child' });
+lxi('farewell', 'Bye. I will be home on time. Probably before.', { rel: 'parent' });
+lxi('farewell', 'Do not be late home. I will notice and I will say nothing.', { rel: 'child' });
 lxi('backchannel', 'Mm.');
 lxi('backchannel', 'I see.');
 lxi('backchannel', 'Yes. Well.');
@@ -98,7 +98,7 @@ for (const t of [
   'That is the end of what I had.',
   'I should go. I will pretend I have a reason.',
   'I have a few things to be near. I will go and be near them.',
-  'Right. The afternoon will want me soon.',
+  'Right. The day will want me soon.',
   'I will let the conversation end here. It has had a good run.',
   'Off I go. I will not look back, which is a lie.'
 ])
@@ -131,8 +131,10 @@ for (const t of [
    the other three need a short line that just says the thing. These are those lines, for the acts said most. One sentence, exact, no ornament:
    the dryness of the island is in what people choose to mention, not in every line having a second half. Add asides elsewhere; keep this file plain. */
 
-LXI('greet', ['Hello, {li}.', 'Morning.', 'There you are.', '{li}.', 'Good day.', 'Hello.']);
-LXI('greet_back', ['Hello.', 'Hello, {li}.', 'Morning.', 'Good day.', 'Yes. Hello.']);
+LXI('greet', ['Hello, {li}.', 'There you are.', '{li}.', 'Good day.', 'Hello.']);
+LXI('greet', ['Morning.'], { band: 'morning' });
+LXI('greet_back', ['Hello.', 'Hello, {li}.', 'Good day.', 'Yes. Hello.']);
+LXI('greet_back', ['Morning.'], { band: 'morning' });
 LXI('farewell', [
   'Goodbye.',
   'I will go on, then.',
@@ -145,3 +147,33 @@ LXI('farewell', [
 ]);
 LXI('farewell_back', ['Goodbye.', 'See you.', 'Go well.']);
 LXI('pre_close', ['I should get on.', 'Well. I have things to see to.', 'I will let you go.', 'That is all I had.', 'I must go.']);
+
+// registers (tag `reg`): said only by somebody of that manner; the ritual acts and a few replies
+LXI('greet', ['Good day, {li}. I will be brief.', 'Greetings, {li}.', 'I have come to say that I am here.'], { reg: 'formal' });
+LXI('greet_back', ['Good day. You have found me.', 'Greetings. It is a pleasure, as far as I can tell.', 'Well met, I believe.'], { reg: 'formal' });
+LXI('farewell', ['I will take my leave.', 'Farewell, {li}. I will see that it is noted.', 'I bid you good day. I mean it as written.'], {
+  reg: 'formal'
+});
+LXI('farewell_back', ['Farewell.', 'Good day, then.', 'Until we meet again, as we will.'], { reg: 'formal' });
+LXI('pre_close', ['I must beg your leave.', 'Forgive me. I have something to attend to.'], { reg: 'formal' });
+LXI('greet', ['Hello, {li}. I am glad it is you.', 'There you are. I was about to look for you.', '{li}. Good. Come here.'], { reg: 'warm' });
+LXI('greet', ['Hello, friend. I kept the good seat.'], { reg: 'warm', rel: 'friend' });
+LXI('greet', ['Hello, love.', 'There you are, love.'], { reg: 'warm', rel: 'spouse' });
+LXI('greet', ['Hello, dear. Have you eaten?', 'Hello, my dear.'], { reg: 'warm', rel: 'child' });
+LXI('greet_back', ['Oh, hello. Come in.', 'Hello, {li}. You have improved the day.'], { reg: 'warm' });
+LXI('greet_back', ['There you are, love.'], { reg: 'warm', rel: 'spouse' });
+LXI('farewell', ['Take care of yourself, {li}.', 'Come and see me soon.'], { reg: 'warm' });
+LXI('farewell', ['Bye, love. Be careful.'], { reg: 'warm', rel: 'spouse' });
+LXI('farewell', ['Bye, dear. Be good.'], { reg: 'warm', rel: 'child' });
+LXI('farewell_back', ['Goodbye, {li}. Do come again.', 'Look after yourself.'], { reg: 'warm' });
+LXI('farewell_back', ['Bye, friend.'], { reg: 'warm', rel: 'friend' });
+LXI('pre_close', ['I am sorry. I must go, and I would rather not.', 'I could talk longer. The work will not allow it.'], { reg: 'warm' });
+LXI('acknowledge', ['Very good.', 'That is commendable.', 'I am pleased to hear it.'], { reg: 'formal' });
+LXI('acknowledge', ['That is good to hear.', 'Good for you. I mean it.', 'I am glad.'], { reg: 'warm' });
+LXI('agree', ['Indeed.', 'Quite so.', 'I concur.'], { reg: 'formal' });
+LXI('agree', ['I could not agree more.', 'Yes. That is exactly what I think.'], { reg: 'warm' });
+LXI('answer_how', ['I am well, I thank you.', 'Well enough, I thank you for asking.'], { reg: 'formal' });
+LXI('answer_how', ['I am well. Better for seeing you, {li}.', 'Well. Thank you for asking.'], { reg: 'warm' });
+LXI('greet', ['Hello.', 'Right.'], { reg: 'terse' });
+LXI('farewell', ['Bye.', 'Right. Off I go.'], { reg: 'terse' });
+LXI('acknowledge', ['Good.', 'Fine.'], { reg: 'terse' });

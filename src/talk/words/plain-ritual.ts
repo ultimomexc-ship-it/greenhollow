@@ -43,7 +43,7 @@ lx('greet', 'plain', "Oh, it's you. What do you want?", { rel: 'sibling' });
 lx('greet', 'plain', '{li}. Look what the wind blew in.', { rel: 'sibling' });
 lx('greet', 'plain', 'Have you eaten, {li}?', { rel: 'child' });
 lx('greet', 'plain', '{li}! Come here and let me look at you.', { rel: 'child', kid: 'yes' });
-lx('greet', 'plain', 'Hello. Is there supper?', { rel: 'parent', age: 'child' });
+lx('greet', 'plain', 'Hello. Is there food?', { rel: 'parent', age: 'child' });
 lx('greet', 'plain', "Oh, it's you. Can I go out?", { rel: 'parent', age: 'child' });
 lx('greet', 'plain', 'Hello. Have you had a day?', { rel: 'parent' });
 lx('greet', 'plain', 'Hello, little one.', { rel: 'child', kid: 'yes' });
@@ -56,13 +56,13 @@ lx('greet_back', 'plain', "Hello, dear. I'm fine, don't fuss.", { rel: 'child' }
 lx('greet_back', 'plain', "Hello. Yes, I've eaten.", { rel: 'parent' });
 lx('greet_back', 'plain', 'Hello! I was only just out there.', { rel: 'parent', age: 'child' });
 lx('greet_back', 'plain', "Hello. Yes, I've eaten. Don't fuss.", { rel: 'parent' });
-lx('farewell', 'plain', "I'll see you at supper, love.", { rel: 'spouse' });
+lx('farewell', 'plain', "I'll see you at the table, love.", { rel: 'spouse' });
 lx('farewell', 'plain', 'Mind yourself. Come home safe.', { rel: 'spouse' });
 lx('farewell', 'plain', 'Try not to be an idiot.', { rel: 'sibling' });
 lx('farewell', 'plain', 'Give my regards to nobody. See you.', { rel: 'sibling' });
 lx('farewell', 'plain', 'Wrap up warm, dear.', { rel: 'child' });
-lx('farewell', 'plain', "Bye. I'll be home for supper.", { rel: 'parent' });
-lx('farewell', 'plain', "Don't be late for supper.", { rel: 'child' });
+lx('farewell', 'plain', "Bye. I'll be home soon.", { rel: 'parent' });
+lx('farewell', 'plain', "Don't be late home.", { rel: 'child' });
 lx('farewell', 'plain', 'Be good. Or be careful.', { rel: 'child' });
 lx('backchannel', 'plain', 'Mm.');
 lx('backchannel', 'plain', 'I see.');
@@ -141,3 +141,31 @@ for (const t of [
   'Until then.'
 ])
   lx('farewell_back', 'plain', t);
+
+// registers (tag `reg`): said only by somebody of that manner; the ritual acts and a few replies
+LXP('greet', ['Good day to you, {li}.', 'Greetings, {li}.', 'I bid you good day.'], { reg: 'formal' });
+LXP('greet_back', ['And good day to you.', 'Greetings. It is a pleasure.', 'Well met.'], { reg: 'formal' });
+LXP('farewell', ['I take my leave of you.', 'Farewell, {li}. May the day go well with you.', 'I shall bid you good day.'], { reg: 'formal' });
+LXP('farewell_back', ['Farewell.', 'Good day to you, then.', 'Until we meet again.'], { reg: 'formal' });
+LXP('pre_close', ['I must beg your leave.', 'Forgive me; I have duties to attend to.'], { reg: 'formal' });
+LXP('greet', ["Hello, {li}! It's good to see you.", "There you are, {li}. I was hoping you'd come by.", '{li}! How lovely.'], { reg: 'warm' });
+LXP('greet', ['Hello, friend. Come and sit a moment.'], { reg: 'warm', rel: 'friend' });
+LXP('greet', ['Hello, love.', 'There you are, love.'], { reg: 'warm', rel: 'spouse' });
+LXP('greet', ['Hello, dear. Have you eaten?', 'Hello, my dear.'], { reg: 'warm', rel: 'child' });
+LXP('greet_back', ['Oh, hello! Come in, come in.', "Hello, {li}. You've made my day."], { reg: 'warm' });
+LXP('greet_back', ['There you are, love.'], { reg: 'warm', rel: 'spouse' });
+LXP('farewell', ['Take care of yourself, {li}.', "Come and see me soon, won't you?"], { reg: 'warm' });
+LXP('farewell', ['Bye, love. Be careful.'], { reg: 'warm', rel: 'spouse' });
+LXP('farewell', ['Bye, dear. Be good.'], { reg: 'warm', rel: 'child' });
+LXP('farewell_back', ['Goodbye, {li}. Do come again.', 'Look after yourself.'], { reg: 'warm' });
+LXP('farewell_back', ['Bye, friend.'], { reg: 'warm', rel: 'friend' });
+LXP('pre_close', ["I'm sorry, I must be off, much as I'd love to stay.", "I could talk all day, but the work won't wait."], { reg: 'warm' });
+LXP('acknowledge', ['Very good.', 'That is commendable.', 'I am pleased to hear it.'], { reg: 'formal' });
+LXP('acknowledge', ["That's wonderful to hear.", 'Good for you, truly.', "I'm so glad."], { reg: 'warm' });
+LXP('agree', ['Indeed.', 'Quite so.', 'I concur.'], { reg: 'formal' });
+LXP('agree', ["I couldn't agree more.", "Yes, exactly. That's just what I think."], { reg: 'warm' });
+LXP('answer_how', ['I am well, I thank you.', 'Well enough, I thank you for asking.'], { reg: 'formal' });
+LXP('answer_how', ["I'm well, thank you for asking. And you?", 'Better for seeing you, {li}.'], { reg: 'warm' });
+LXP('greet', ['Hello.', 'Right.'], { reg: 'terse' });
+LXP('farewell', ['Bye.', 'Right. Off I go.'], { reg: 'terse' });
+LXP('acknowledge', ['Good.', 'Fine.'], { reg: 'terse' });

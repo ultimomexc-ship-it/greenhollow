@@ -23,7 +23,7 @@ await page.evaluate(([scenario]) => {
   newTown('playtest', world); if (scenario === 'romance' || scenario === 'meddle' || scenario === 'social') MODS.all();
   TALK.words = true; window.__T = []; window.__B = [];
   const orig = talkFinish;
-  talkFinish = function (c, a, b, listened) { const n0 = TALK.log.length; orig(c, a, b, listened); const e = TALK.log[TALK.log.length - 1]; if (e && TALK.log.length >= n0) window.__T.push({ t: game.time, a: a.first, b: b.first, place: (typeof placeOf === 'function' ? placeOf(a) : ''), acts: e.acts.map(x => x.act), subj: e.acts.map(x => x.x && x.x.about), lines: e.lines || [], kind: e.player ? 'player' : 'npc' }); };
+  talkFinish = function (c, a, b, listened) { const n0 = TALK.log.length; orig(c, a, b, listened); const e = TALK.log[TALK.log.length - 1]; if (e && TALK.log.length >= n0) window.__T.push({ t: game.time, a: a.first, b: e.kind === 'bark' ? '' : b.first, place: (typeof placeOf === 'function' ? placeOf(a) : ''), acts: e.acts.map(x => x.act), subj: e.acts.map(x => x.x && x.x.about), kidActs: e.acts.filter(x => { const q = x.by != null ? byId(x.by) : null; return q && q.age < 12; }).map(x => x.act), lines: e.lines || [], lineActs: e.lineActs || [], kind: e.kind === 'bark' ? 'bark' : e.player ? 'player' : 'npc' }); };
   startPlaying(npcs.filter(n => !n.dead && n.age >= 18 && !n.infant)[0]);
   if (scenario === 'romance') {   // three couples in the making: one-sided, mutual, and one already walking out a while
     const singles = npcs.filter(n => !n.dead && !n.player && n.age >= 17 && n.age < 45); const ms = singles.filter(n => !n.female), fs = singles.filter(n => n.female), pairs = [];
@@ -39,7 +39,7 @@ await page.evaluate(([scenario]) => {
       const P = game.player; const free = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => ({ x: o.tx + dx, y: o.ty + dy })).find(s => walkable(s.x, s.y) && !tileOwner.get(tkey(s.x, s.y)));
       if (free) { P.tx = P.x = free.x; P.ty = P.y = free.y; P.moving = false; P.path = []; rebuildOcc(); }
       o.talkUntil = 0; const rec = { t: game.time, with: o.first, rel: '', exch: [] };
-      openTalk(o); let say = talkUI.say, opts = (talkUI.opts || []).map(x => [x[0], x[1]]); rec.open = say; const seeMenu = () => { for (const q of (PT.s && PT.s.opts) || []) (window.__M = window.__M || []).push(q.id + ' :: ' + q.label); }; seeMenu();
+      openTalk(o); let say = talkUI.say, opts = (talkUI.opts || []).map(x => [x[0], x[1]]); rec.open = say; const seeMenu = () => { for (const q of (PT.s && PT.s.opts) || []) { (window.__M = window.__M || []).push(q.id + ' :: ' + q.label); (window.__ML = window.__ML || []).push({ with: o.first, act: q.id, text: q.label + ' | ' + (q.line || '') }); } }; seeMenu();
       for (let i = 0; i < steps && opts.length; i++) {
         const pick = BOT.choose(opts, say); if (!pick) break; const qid = PT.s && PT.s.opts && PT.s.opts[+String(pick[0]).slice(1)] ? PT.s.opts[+String(pick[0]).slice(1)].id : pick[0]; const st = ptStep(pick[0]); rec.exch.push({ me: (st.you ? '[' + pick[1] + '] ' + st.you : pick[1]), they: st.say || '', id: qid });
         if (st.close) break; say = st.say; opts = (st.opts || []).map(x => [x[0], x[1]]); seeMenu(); if (pick[0] === 'bye') break;
@@ -109,7 +109,8 @@ const data = await page.evaluate(() => {
   const acts = {}; for (const t of T) for (const a of t.acts) acts[a] = (acts[a] || 0) + 1;
   const all = Object.keys(ACTS), blamed = [], deeds = lf2Ev().filter(e => e.actor === P.id && ['wall_removed', 'home_destroyed', 'building_down', 'bed_moved', 'furniture_removed', 'person_pushed', 'caught_on_privy'].includes(e.kind));
   for (const e of deeds) { const who = {}; for (const o of npcs) { const m = (o.tmem || []).find(q => q.ev === e.id && q.kind !== 'did'); if (m && m.ver && m.ver.who != null) who[m.ver.who === P.id ? 'you' : (byId(m.ver.who) || {}).first] = (who[m.ver.who === P.id ? 'you' : (byId(m.ver.who) || {}).first] || 0) + 1; } blamed.push({ ev: e.kind, anon: !!e.anon, blamed: who, knew: npcs.filter(o => (o.tmem || []).some(q => q.ev === e.id)).length }); }
-  return { T, B, people, acts, unused: all.filter(a => !acts[a] && !ACTS[a].reply === false || (!acts[a])).filter(a => !['cry_deed', 'mutter', 'call_child', 'gift_from_nobody', 'gift_anon_reply'].includes(a)), blamed, rep: repVillage(P), miss: (typeof LX_MISS !== 'undefined' ? LX_MISS : {}), pairs: window.__pairs || [], menu: window.__M || [], pack: town.pack, logLen: TALK.log.length, chron: (town.chron || []).slice(-30).map(c => c.text), player: P.first };
+  const plurals = [...Object.keys(IT_SEEDS).map(k => WORLD.name('seed', k)), ...Object.keys(GOODS).map(k => WORLD.name('item', k))].filter(n => /[^s]s$/.test(n || '')).filter((n, i, a) => a.indexOf(n) === i);   // (names that are plural: a verb next to one has to agree)
+  return { plurals, T, B, people, acts, unused: all.filter(a => !acts[a] && !ACTS[a].reply === false || (!acts[a])).filter(a => !['cry_deed', 'mutter', 'call_child', 'gift_from_nobody', 'gift_anon_reply'].includes(a)), blamed, rep: repVillage(P), miss: (typeof LX_MISS !== 'undefined' ? LX_MISS : {}), pairs: window.__pairs || [], ml: window.__ML || [], menu: window.__M || [], pack: town.pack, logLen: TALK.log.length, chron: (town.chron || []).slice(-30).map(c => c.text), player: P.first };
 });
 await browser.close();
 
@@ -130,15 +131,33 @@ const rules = [
   ['empty', /^\s*$/]
 ];
 const menuLines = [...new Set(data.menu)].map(m => ({ text: m.split(' :: ').slice(1).join(' :: '), act: m.split(' :: ')[0], menu: true }));
+// number agreement: a plural item name (cabbage seeds, beans) next to is/does/has/was
+if (data.plurals.length) { const pl = data.plurals.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), agree = new RegExp('\\b(?:' + pl + ') (?:is|does|has|was)\\b|\\b(?:there (?:is|was)|what (?:does|is)) (?:the )?(?:' + pl + ')\\b', 'i'); rules.push(['number agreement', agree]); }
 const issues = {}; for (const r of [...lines, ...bots, ...menuLines]) for (const [name, rx] of rules) if (rx.test(r.text)) (issues[name] = issues[name] || []).push(name === 'empty' ? 'acts: ' + (r.t ? r.t.acts.join(',') : r.menu ? 'menu ' + r.act : 'bot ' + (r.act || '')) : (r.menu ? '[menu ' + r.act + '] ' : '') + r.text);
+
+// children (under twelve) may say only what children say: any act of theirs outside this list is reported
+const KID_OK = /^(greet|greet_back|farewell|farewell_back|pre_close|backchannel|ask_how|answer_how|sympathise_how|share_gladness|remark_\w+|joke|laugh|groan|wonder|wonder_reply|ask_family|answer_family|ask_where|tell_where|dont_know_where|thanks_where|ask_day|ask_more_day|report_day|nothing_much|acknowledge|empathise|agree|callback|callback_answer|offer_gift|gift_\w+|tell_preference|hint_noted|brag_child|call_child|mutter|ask_why_state|explain_state|explain_unknown|raise_deed|cry_deed|deed_\w+|quote_price|pay_ok|thank_shop|cant_afford|no_stock|no_demand|make_do|accept_deal|offer_goods|bid_price|call_reply|keeper_call|shrug_off|share_news|ask_news|no_news|react_\w+|ask_item|shop_greet\w*|farewell_shop)$/;
+const kidBad = []; for (const t of data.T) for (const a of (t.kidActs || [])) if (!KID_OK.test(a)) kidBad.push(a + ' (' + t.a + ' & ' + t.b + ')');
+if (kidBad.length) issues['children said'] = kidBad;
+// the speaker named in their own line ("Tipping knocked a wall out" said by Tipping): somebody telling what they did says "I"
+for (const r of [...lines, ...bots, ...menuLines]) { const who = r.who || (r.menu ? data.player : ''); if (who && new RegExp('\\b' + who + '\\b').test(r.text)) (issues['speaker named in the third person'] = issues['speaker named in the third person'] || []).push((who) + ': ' + r.text); }
+// a time-of-day word said at the wrong hour (bands: morning 5-11, day 11-17, evening 17-22, night)
+const TOD = [[/^(?:good )?morning\b|\bthis morning\b/i, h => h >= 5 && h < 13], [/^(?:good )?afternoon\b|\bthis afternoon\b/i, h => h >= 11 && h < 19], [/^(?:good )?evening\b|\bthis evening\b|\btonight\b/i, h => h >= 16 || h < 5], [/\bsupper\b/i, h => h >= 14 && h < 23]];
+const hourOf = t => (((t.t || 0) % 1440) / 60);
+for (const t of data.T) for (const l of t.lines) { const text = l.replace(/^[^:]+: /, ''), h = hourOf(t); for (const [rx, okHour] of TOD) if (rx.test(text) && !okHour(h)) (issues['wrong time of day'] = issues['wrong time of day'] || []).push(text + ' (at ' + Math.floor(h) + 'h)'); }
 // the listener named in the third person ("I heard what Agrippina thinks" said to Agrippina)
 const persp = []; for (const t of data.T) for (const l of t.lines) { const who = l.split(':')[0], text = l.replace(/^[^:]+: /, ''), other = who === t.a ? t.b : t.a; if (other && other !== who && new RegExp('(?:thinks of|heard what|fond of|soft spot for|about|like|what) ' + other + '\\b').test(text)) persp.push(`${who} to ${other}: ${text}`); }
+for (const m of data.ml) if (!/^(greet|farewell|pre_close)/.test(m.act) && (new RegExp('\\b' + m.with + '\\b').test(m.text.split(' | ')[0]) || new RegExp('(?:thinks of|heard what|fond of|soft spot for|about|like|what|with|that|of) ' + m.with + '\\b|\\b' + m.with + ' (?:thinks|is|has|was|does|says|likes)\\b').test(m.text.split(' | ')[1] || ''))) persp.push('[menu ' + m.act + '] to ' + m.with + ': ' + m.text);   // (the bot's menu options and the words they would say)
 if (persp.length) issues['listener named in the third person'] = persp;
 const PURPOSE = /^(raise_deed|ask_favour|chase_favour|confront_jealous|declare|ask_to_walk|propose|flirt|confide|story_preface|share_news|warn|apologise|send_gift|offer_gift|callback|report_day|ask_day|ask_news|ask_price|tell_price|keeper_call|shop_greet)$/;
 const talkConvs = data.T.filter(t => t.kind === 'npc' && t.acts.includes('farewell')); const purposeful = talkConvs.filter(t => t.acts.some(a => PURPOSE.test(a))).length;
 const lens = talkConvs.map(t => t.lines.length).sort((a, b) => a - b), medLen = lens[Math.floor(lens.length / 2)] || 0;
 const qa = []; for (const t of data.T) for (let i = 0; i + 1 < t.acts.length; i++) { const pair = { ask_opinion: 'give_opinion', ask_family: 'answer_family', ask_where: 'tell_where' }[t.acts[i]]; if (pair && t.acts[i + 1] === pair && t.subj && t.subj[i] && t.subj[i + 1] && t.subj[i] !== t.subj[i + 1]) qa.push(t.lines[i] + ' / ' + t.lines[i + 1]); }
 if (qa.length) issues['answer about somebody else'] = qa;
+// the same line said by the same person to the same person (not the short formulas): more than twice in a scenario is a repeat
+const triples = {}; const FORMULA = /^(greet|greet_back|farewell|farewell_back|pre_close|backchannel|shop_greet|shop_greet_back|ask_item|quote_price|pay_ok|thank_shop|farewell_shop|cant_afford|no_stock|no_demand|make_do|accept_deal|bid_price|offer_goods|keeper_call|call_reply|new_stock_remark)$/;   // (formulas are meant to repeat)
+for (const t of data.T) if (t.kind !== 'bark') t.lines.forEach((l, i) => { const who = l.split(':')[0], text = l.replace(/^[^:]+: /, ''), other = who === t.a ? t.b : t.a; if (text.length >= 25 && !FORMULA.test(t.lineActs[i] || '')) { const k = who + ' to ' + other + ': ' + text; triples[k] = (triples[k] || 0) + 1; } });
+const repeatedTriples = Object.entries(triples).filter(([, n]) => n > 2).sort((a, b) => b[1] - a[1]);
 const freq = {}; for (const l of lines) freq[l.text] = (freq[l.text] || 0) + 1; const stale = Object.entries(freq).filter(([, n]) => n >= 6).sort((a, b) => b[1] - a[1]).slice(0, 12);
 const uniq = new Set(lines.map(l => l.text)).size;
 let runs = 0; const runEx = []; for (const t of data.T) { let prev = '', n = 0; for (const l of t.lines) { const w = l.split(':')[0]; if (w === prev) { n++; if (n === 2) { runs++; if (runEx.length < 3) runEx.push(t.lines.slice(0, 6).join(' / ')); } } else { prev = w; n = 0; } } }
@@ -149,11 +168,12 @@ const ritual = lines.filter(l => /^(Hello|Morning|Evening|See you|Take care|Good
 let md_pairs = []; const expect = [];
 const has = a => (data.acts[a] || 0) > 0;
 const ok = (name, cond, detail = '') => expect.push({ name, pass: !!cond, detail });
-ok('conversations happen (>=20/day)', data.T.length >= 20 * days, data.T.length + ' in ' + days + ' days');
+const barks = data.T.filter(t => t.kind === 'bark'), convs = data.T.filter(t => t.kind !== 'bark');
+ok('conversations happen (>=20/day)', convs.length >= 20 * days, convs.length + ' in ' + days + ' days');
 ok('no engine errors', errors.length === 0, errors.slice(0, 2).join(' | '));
 ok('no text slips', Object.keys(issues).length === 0, Object.entries(issues).map(([k, v]) => k + ' x' + v.length).join(', '));
 ok('every act supplies what its lines need', Object.keys(data.miss).length === 0, Object.entries(data.miss).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k, v]) => k + ' x' + v).join(', '));
-ok('variety (unique lines >= 30%)', uniq / Math.max(1, lines.length) >= 0.3, (uniq / Math.max(1, lines.length)).toFixed(2));
+ok('variety (unique lines >= 30%, no line said three times by one person to one person)', uniq / Math.max(1, lines.length) >= 0.3 && repeatedTriples.length === 0, (uniq / Math.max(1, lines.length)).toFixed(2) + (repeatedTriples.length ? ' ' + repeatedTriples.slice(0, 2).map(([k, n]) => k.slice(0, 80) + ' x' + n).join(' ; ') : ''));
 if (scenario === 'meddle') {
   ok('people cried out', has('cry_deed')); ok('somebody raised a deed with the bot', has('raise_deed') || data.B.some(b => /You .*(wall|house|privy|bed)/i.test(b.open || '')), 'raise_deed ' + (data.acts.raise_deed || 0));
   ok('news about the deeds travelled', data.blamed.some(b => b.knew >= 4), JSON.stringify(data.blamed.map(b => [b.ev, b.knew])));
@@ -168,7 +188,8 @@ const fmt = t => { const m = Math.floor(t % 1440), d = Math.floor(t / 1440); ret
 const md = [];
 md.push(`# Playtest: ${scenario} (${days} days, seed ${seed}, voice ${data.pack})`, '', `Bot villager: **${data.player}**`, '', ...(data.pairs && data.pairs.length ? ['Couples in the making: ' + data.pairs.map(p => p.join(' & ')).join('; '), ''] : []));
 md.push('## Verdict', '', ...expect.map(e => `- ${e.pass ? 'PASS' : 'WARN'}  ${e.name}${e.detail ? '  (' + e.detail + ')' : ''}`), '');
-md.push('## Numbers', '', `- conversations and barks: ${data.T.length}; spoken lines: ${lines.length}; unique: ${uniq} (${(100 * uniq / Math.max(1, lines.length)).toFixed(0)}%)`, `- conversations with nothing but greeting and goodbye: ${empties}`, `- runs of three lines by one speaker: ${runs}${runEx.length ? ' e.g. ' + runEx[0] : ''}`);
+const stallEx = data.T.filter(t => t.kind !== 'bark' && t.t >= 2 * 1440 && t.acts.some(a => /^(shop_greet|ask_item|offer_goods)$/.test(a))), stallLens = stallEx.map(t => t.lines.length).sort((a, b) => a - b), stallMed = stallLens[Math.floor(stallLens.length / 2)] || 0;
+md.push('## Numbers', '', `- stall exchanges from day 3 on (regulars cannot exist before): ${stallEx.length}, median ${stallMed} lines`, `- conversations: ${data.T.filter(t => t.kind !== 'bark').length}; barks: ${data.T.filter(t => t.kind === 'bark').length}; spoken lines: ${lines.length}; unique: ${uniq} (${(100 * uniq / Math.max(1, lines.length)).toFixed(0)}%)`, `- conversations with nothing but greeting and goodbye: ${empties}`, `- runs of three lines by one speaker: ${runs}${runEx.length ? ' e.g. ' + runEx[0] : ''}`);
 md.push(`- conversations with a real purpose (news, a grudge, a favour, the day, romance): ${purposeful} of ${talkConvs.length} (${(100 * purposeful / Math.max(1, talkConvs.length)).toFixed(0)}%); median length ${medLen} lines, shortest ${lens[0] || 0}, longest ${lens[lens.length - 1] || 0}`);
 { const asked = data.acts.ask_news || 0, none = data.acts.no_news || 0, ops = lines.filter(l => /fond of|soft spot|one of the good ones|all right|nothing against|careful around|cannot stand|do not trust/i.test(l.text)), thin = ops.filter(l => /talked a few times|heard what|heard (good|hard) things/i.test(l.text)).length; md.push(`- "any news?" had an answer ${asked - none} of ${asked} times; opinions with a thin reason ("we have talked", "I heard what X thinks"): ${thin} of ${ops.length}`); }
 md.push(`- acts used: ${Object.keys(data.acts).length} of ${Object.keys(data.acts).length + data.unused.length}`, `- most used: ${Object.entries(data.acts).sort((a, b) => b[1] - a[1]).slice(0, 14).map(([k, v]) => k + ' ' + v).join(', ')}`, `- never used: ${data.unused.join(', ')}`, '');
@@ -180,9 +201,10 @@ md.push('## Days', '');
 for (const s of dailySnapshots) md.push(`### Day ${s.day + 1}`, '', `Events so far: ${JSON.stringify(s.counts)}`, '', `Chronicle: ${s.chron.join(' / ')}`, '', `Journal: ${s.journal}`, '');
 md.push('## The bot\'s own talks', '');
 for (const b of data.B) { if (b.deed) { md.push(`**${fmt(b.t)}  DEED** ${JSON.stringify(b.deed)}`, ''); continue; } md.push(`**${fmt(b.t)}  with ${b.with}**`, '', `> ${String(b.open).replace(/\n/g, ' / ')}`); for (const e of b.exch) md.push(`> **${data.player}:** ${e.me}`, `> ${String(e.they).replace(/\n/g, ' / ')}`); md.push(''); }
+md.push('## Barks', '', ...data.T.filter(t => t.kind === 'bark').map(t => `- ${fmt(t.t)} ${t.a}${t.place ? ' (' + t.place + ')' : ''}: ${t.lines.map(l => l.replace(/^[^:]+: /, '')).join(' / ')}`), '');
 md.push('## Everything the villagers said', '');
-let last = -1; for (const t of data.T) { const d = Math.floor(t.t / 1440); if (d !== last) { md.push(`### Day ${d + 1}`, ''); last = d; } md.push(`**${fmt(t.t)}  ${t.a} & ${t.b}** ${t.place ? '(' + t.place + ')' : ''}`, ...t.lines.map(l => '- ' + l), ''); }
+let last = -1; for (const t of data.T.filter(t => t.kind !== 'bark')) { const d = Math.floor(t.t / 1440); if (d !== last) { md.push(`### Day ${d + 1}`, ''); last = d; } md.push(`**${fmt(t.t)}  ${t.a} & ${t.b}** ${t.place ? '(' + t.place + ')' : ''}`, ...t.lines.map(l => '- ' + l), ''); }
 fs.writeFileSync(path.join(out, scenario + '.md'), md.join('\n')); fs.writeFileSync(path.join(out, scenario + '.json'), JSON.stringify({ expect, issues: Object.fromEntries(Object.entries(issues).map(([k, v]) => [k, v.length])), acts: data.acts, unused: data.unused, blamed: data.blamed, rep: data.rep }, null, 1));
-console.log(`${scenario}: [log ${data.logLen}] ${data.T.length} conversations, ${lines.length} lines (${(100 * uniq / Math.max(1, lines.length)).toFixed(0)}% unique), acts ${Object.keys(data.acts).length}`);
+console.log(`${scenario}: [log ${data.logLen}] ${data.T.filter(t => t.kind !== 'bark').length} conversations, ${lines.length} lines (${(100 * uniq / Math.max(1, lines.length)).toFixed(0)}% unique), acts ${Object.keys(data.acts).length}`);
 for (const e of expect) console.log((e.pass ? 'PASS ' : 'WARN ') + e.name + (e.detail ? '  (' + e.detail + ')' : ''));
 console.log('report: ' + path.join(out, scenario + '.md'));

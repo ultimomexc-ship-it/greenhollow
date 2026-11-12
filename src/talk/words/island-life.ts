@@ -15,7 +15,6 @@ lxi('nothing_much', 'Very little. Which is also something.');
 lxi('nothing_much', 'Nothing worth telling. I walked about. The ground was where I left it.');
 lxi('empathise', 'That sounds hard.');
 lxi('empathise', 'I am sorry. I do not have anything useful to say, but I am sorry.');
-lxi('empathise', 'Ugh. Yes. I know that one.');
 lxi('acknowledge', 'Good.');
 lxi('acknowledge', 'I see.');
 lxi('acknowledge', "That is a decent day's work.");
@@ -24,7 +23,7 @@ lxi('life:slept', 'I slept. Properly. I want that noted.');
 lxi('life:slept_rough', 'I slept on the ground. The ground was patient with me.');
 lxi('life:slept_rough', 'I woke up with sand in my ear again. It is becoming a sort of companion.');
 lxi('life:slept_rough', 'I still have no bed. I have started to think of the horizon as my bedroom.');
-lxi('life:no_privy', 'I could not find a privy this morning. I will not go into it.');
+lxi('life:no_privy', 'I could not find a privy earlier. I will not go into it.');
 lxi('life:bladder_emergency', 'I made it. Barely. We do not need to discuss the margin.');
 lxi('life:went_hungry', 'I have not eaten properly. I notice it more than I expected to.');
 lxi('life:starving', 'I am very hungry. I am saying so in case it matters.');
@@ -43,13 +42,13 @@ lxi('life:cooked', 'I made {things} today.');
 lxi('life:forged', 'I turned out {things} today.');
 lxi('life:woven', 'I finished {things} on the loom.');
 lxi('life:new_in_stock', 'The {shop} has {item} now. I stood and looked at it for a while.');
-lxi('life:new_in_stock', 'The {shop} has {item} on it that nobody ordered. I am not asking.');
+lxi('life:new_in_stock', 'The {shop} has {item} on the shelf that nobody ordered. I am not asking.');
 lxi('life:out_of_stock', 'The {shop} was out of {item}. It was very quiet there.');
 lxi('life:out_of_stock', 'I went for {item} and the {shop} had none. The shelf looked embarrassed.');
 lxi('life:could_not_afford', 'I could not afford {item}. I counted twice.');
 lxi('life:could_not_afford', 'Money is tight. I had to leave the {item} and walk away from it.');
-lxi('life:price_up', '{item} has gone up at the {shop}. I think the {shop} knows.');
-lxi('life:price_down', '{item} is cheaper at the {shop} today. It will not last. It never does.');
+lxi('life:price_up', 'The price of {item} has gone up at the {shop}. I think the {shop} knows.');
+lxi('life:price_down', 'The price of {item} is down at the {shop} today. It will not last. It never does.');
 lxi('vent', 'I am hungry, as it happens. It has been a while.', { state: 'hungry' });
 lxi('vent', 'I am very tired. The tiredness has started to feel like a place.', { state: 'tired' });
 lxi('vent', 'I have been low. It has no cause. That is what is wrong with it.', { state: 'low' });
@@ -60,7 +59,7 @@ lxi('ask_how', 'Are you well? You look tired. You always look tired. It is part 
 lxi('ask_how', 'Are you behaving? Do not answer.', { rel: 'child', kid: 'yes' });
 lxi('ask_how', 'How is life, then? Tell me before everyone else does.', { rel: 'sibling' });
 kidi('answer_how', 'Fine. I found a very good stick.', { state: 'fine' });
-kidi('answer_how', 'I am hungry. Is it nearly supper? It feels nearly.', { state: 'hungry' });
+kidi('answer_how', 'I am hungry. Is it nearly time to eat? It feels nearly.', { state: 'hungry' });
 kidi('answer_how', 'I am tired. I am not tired. I am a bit tired.', { state: 'tired' });
 kidi('answer_how', 'Good. It has been a good day. I did not expect that of it.', { state: 'glad' });
 for (const t of [
@@ -201,7 +200,7 @@ LXLI('no_privy', [
   'There was no privy to be had. I will not describe what followed. It was dignified for the most part.'
 ]);
 LXLI('new_in_stock', [
-  'There is {item} at the {shop}. It was not there before. I noticed because I notice things in the morning.',
+  'New at the {shop}: {item}. That was not there before. I noticed because I notice things in the morning.',
   'The {shop} is stocking {item}. I did not ask why. The shelf looked pleased.'
 ]);
 LXLI('out_of_stock', [
@@ -209,11 +208,11 @@ LXLI('out_of_stock', [
   'I went for {item}. The {shop} was out. It was very polite about it.'
 ]);
 LXLI('price_up', [
-  '{item} has gone up at the {shop}. Not by much. By enough to be mentioned.',
-  'I noticed {item} costs more at the {shop}. It is a small thing, and I am treating it as a large one.'
+  'The price of {item} has gone up at the {shop}. Not by much. By enough to be mentioned.',
+  'I noticed the price of {item} is up at the {shop}. It is a small thing, and I am treating it as a large one.'
 ]);
 LXLI('price_down', [
-  '{item} is cheaper at the {shop}. I will believe it when I am holding it.',
+  'The price of {item} is down at the {shop}. I will believe it when I am holding it.',
   'The {shop} has lowered the price of {item}. I did not ask why. I am enjoying it.'
 ]);
 LXLI('could_not_afford', [
@@ -283,7 +282,13 @@ LXI('vent', ['I feel dreadful. I am hot and cold, and I cannot decide which to c
 LXI('ask_how', ['How are you?', 'How are you keeping?', 'Are you well?', 'How is it with you?']);
 LXI('ask_day', ['How was your day?', 'What did you do today?', 'What have you been at?', 'Busy day?']);
 LXI('nothing_much', ['Not much.', 'Very little.', 'The usual.', 'Nothing to speak of.']);
-LXI('empathise', ['I am sorry.', 'That is hard.', 'That is a bad day.', 'I know.']);
+LXI('empathise', [
+  'I am sorry.',
+  'That is hard.',
+  'That is a bad day.',
+  'That sounds like a long day.',
+  'I am sorry. That should not happen to anyone.'
+]);
 LXI('acknowledge', ['Good.', 'Well done.', 'That is a fair day.']);
 for (const [st, ls] of [
   ['fine', ['Well enough.', 'I am well.', 'Fine.']],
@@ -307,13 +312,25 @@ LXI('life:harvested', ['I harvested {things}.', 'I brought in {things}.', '{thin
 LXI('life:bought', ['I bought {things}.', 'I got {things} at the market.']);
 LXI('life:sold', ['I sold {things}.', 'I took {things} to the stall.']);
 LXI('life:baked', ['I baked {things}.', '{things}, out of the oven.']);
-LXI('life:new_in_stock', ['The {shop} has {item} now.', 'There is {item} at the {shop}.']);
+LXI('life:new_in_stock', ['The {shop} has {item} now.', 'New at the {shop}: {item}.']);
 LXI('life:out_of_stock', ['The {shop} is out of {item}.', 'There was no {item} to be had.']);
 LXI('life:could_not_afford', ['I could not afford {item}.', 'I had not the money for {item}.']);
-LXI('life:price_up', ['{item} has gone up.', '{item} costs more at the {shop} now.']);
-LXI('life:price_down', ['{item} has come down.', '{item} is cheaper at the {shop} now.']);
+LXI('life:price_up', ['The price of {item} has gone up.', 'The price of {item} is up at the {shop} now.']);
+LXI('life:price_down', ['The price of {item} has come down.', 'The price of {item} is down at the {shop} now.']);
 LXI('life:worked_with', ['I worked beside {about} today.', '{about} and I did the same rows.']);
 LXI('life:ate_with', ['I ate with {about}.', '{about} and I shared a table.']);
 LXI('life:found', ['I found {item}.', 'I picked up {item} today.']);
 LXI('life:ill', ['I am not well.', 'I have a fever.']);
 LXI('life:recovered', ['I am better.', 'The fever has gone.']);
+// sympathy that claims a shared trouble: only said by somebody who has had the same this week
+LXI(
+  'empathise',
+  [
+    'Ugh. Yes. I know that one.',
+    'I know.',
+    'The same happened to me. It does not get better for being shared.',
+    'I had that too. I will not say it helps.',
+    'Me too. I will not say it was better.'
+  ],
+  { shared: 'yes' }
+);

@@ -37,17 +37,39 @@ const TE = {
     } // (an unseen deed has no name in the memory of those who only know it happened)
   },
   /** the words for an event in a version of it (who is blamed may differ from who did it) */
-  text(ev: any, ver?: any): string {
+  /** the words for an event as believed (ver.who did it). `speaker` is who is telling it: when they are the doer it is first person ("I knocked a wall out of your house", `ev1:<kind>` lines);
+      `listener` is who hears it, who becomes "you" in those lines. */
+  text(ev: any, ver?: any, speaker?: any, listener?: any): string {
     const who = ver && ver.who !== undefined ? ver.who : ev.actor,
       a = who != null ? lf2By(who) : null,
       t = ev.target != null ? lf2By(ev.target) : null;
+    if (speaker && who != null && who === speaker.id) {
+      const pk = typeof town !== 'undefined' && town && town.pack === 'island' ? 'island' : 'plain';
+      let first = LEX.filter(e => e.act === 'ev1:' + ev.kind && e.pack === pk);
+      if (!first.length) first = LEX.filter(e => e.act === 'ev1:' + ev.kind && e.pack === 'plain');
+      if (first.length) {
+        const you = listener && t && t === listener;
+        return first[ev.id % first.length].text
+          .replace(/\{t\}'s/g, you ? 'your' : t ? t.first + "'s" : "someone's")
+          .replace(/\{t\}/g, you ? 'you' : t ? t.first : 'someone')
+          .replace(/\{place\}/g, ev.place || 'a building');
+      }
+    }
     const tpl = LEX.filter(e => e.act === 'ev:' + ev.kind && e.pack === 'plain');
     if (tpl.length) {
       const e = tpl[ev.id % tpl.length];
-      /* the same event reads the same way every time it is shown */ return e.text
-        .replace(/\{a\}/g, a ? a.first : 'someone')
-        .replace(/\{t\}/g, t ? t.first : 'someone')
+      // the same event reads the same way every time it is shown; the teller is "I" and the listener "you" wherever the story names them
+      const name = (p: any, fallback: string, at: number, text: string, poss: boolean) => {
+        if (p && speaker && p === speaker) return poss ? 'my' : /(^|, and |and |when |while )$/.test(text.slice(0, at)) ? 'I' : 'me';
+        if (p && listener && p === listener) return poss ? 'your' : 'you';
+        return p ? p.first + (poss ? "'s" : '') : fallback + (poss ? "'s" : '');
+      };
+      const out = e.text
+        .replace(/\{(a|t)\}('s)?/g, (m: string, k: string, ps: string, at: number, text: string) =>
+          name(k === 'a' ? a : t, 'someone', at, text, !!ps)
+        )
         .replace(/\{place\}/g, ev.place || 'a building');
+      return out.replace(/\byou was\b/g, 'you were').replace(/\bI were\b/g, 'I was');
     }
     // an event kind with no template yet: the old sentence, with the blamed name put in
     let tx = String(ev.text || ev.kind);
@@ -70,7 +92,7 @@ const TE = {
         (m.secret && !sp.player && !(talkHas(sp, 'gossipy') && Math.random() < 0.12))
       )
         continue;
-      const ev = lf2Ev().find((q: any) => q.id === m.ev);
+      const ev = lf2EvById(m.ev);
       if (!ev) continue; // (a secret is not gossip, unless the gossipy let it slip)
       if (
         ev.actor === li.id ||
@@ -136,7 +158,7 @@ const TE = {
       actor = ver.who != null ? lf2By(ver.who) : null;
     if (actor && actor !== li && j.v !== 0)
       lfAff(li, actor, j.v * conf * 3, ver.who === ev.actor ? 'ev:' + ev.id : 'heard what ' + actor.first + ' did'); // (the reason is the deed itself, said in words when asked)
-    return { mem, ver, conf, react: j.react, text: TE.text(ev, ver) };
+    return { mem, ver, conf, react: j.react, text: TE.text(ev, ver, sp, li) };
   },
   /** how a listener takes a piece of news: one of shock, amused, sympathy, doubt, delight, unmoved */
   appraise(li: any, ev: any, ver: any, conf: number, sp: any): any {

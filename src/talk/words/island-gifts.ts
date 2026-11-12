@@ -37,7 +37,7 @@ lxi('apologise', 'I have been thinking about what I did. I am sorry. It is a sho
 lxi('apologise', 'I owe you an apology. I am delivering it as promptly as I could manage.');
 lxi('accept_apology', 'Thank you. I accept it. I am relieved to have somewhere to put it.');
 lxi('reject_apology', 'No. I am not ready. I may be later.');
-lxi('ask_favour', 'I have no food. I have had none since this morning. Could you spare {item}?', { how: 'item' });
+lxi('ask_favour', 'I have no food. I have had none today. Could you spare {item}?', { how: 'item' });
 lxi('ask_favour', 'I am hungry in a very exact way. Do you have any {item}?', { how: 'item' });
 lxi('ask_favour', 'I have no bed. I have a patch of ground that I have grown fond of. A bed would be better.', { how: 'bed' });
 lxi('ask_favour', 'Would you build me a bed? I would use it for the usual things.', { how: 'bed' });

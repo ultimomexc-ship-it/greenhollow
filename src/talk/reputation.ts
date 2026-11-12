@@ -23,12 +23,22 @@ const REP_KIND: any = {
 };
 const REP_BAD = ['vandal', 'meddler', 'thief', 'gossip', 'bully'];
 /** what `obs` believes about `subj`: tag -> weight (sum of confidences of what they believe subj did) */
+/** what each person has been told or has seen of everybody else, kept for an hour of game time per observer (dropped when they get a memory, or when a memory's standing changes: `repDirty`) */
+function repDirty() {
+  for (const n of npcs) if (n._repC) n._repC = null;
+}
 function repTags(obs: any, subj: any): any {
-  const out: any = {};
+  let cache = obs._repC;
+  if (!cache || cache.t <= game.time - 60) {
+    cache = { t: game.time, m: {} };
+    Object.defineProperty(obs, '_repC', { value: cache, writable: true, enumerable: false, configurable: true }); // (a cache, not part of the person: not listed, not saved)
+  }
+  if (cache.m[subj.id]) return cache.m[subj.id];
+  const out: any = (cache.m[subj.id] = {});
   if (!obs.tmem) return out;
   for (const m of obs.tmem) {
     if (m.ev == null || m.kind === 'did' || m.forgiven || m.cleared) continue;
-    const ev = lf2Ev().find((q: any) => q.id === m.ev);
+    const ev = lf2EvById(m.ev);
     if (!ev) continue;
     const tag = REP_KIND[ev.kind];
     if (!tag) continue;
@@ -95,9 +105,11 @@ ACTS.tell_rep = {
   w: (c: any, sp: any, li: any) => 0.5 + Math.max(0, sp.aff[li.id] || 0) / 80,
   when: (c: any, sp: any, li: any) => {
     if (c.done.tell_rep || (sp.aff[li.id] || 0) < 10) return false;
+    const already = (t: string) =>
+      (sp.tmem || []).some((m: any) => m.kind === 'told_rep' && m.with === li.id && m.tag === t && game.time - m.t < 10 * 1440); // (what was told once is not told again for ten days)
     const v = repVillage(li),
       k = Object.keys(v)
-        .filter(t => v[t] >= 2 && REP_BAD.includes(t))
+        .filter(t => v[t] >= 2 && REP_BAD.includes(t) && !already(t))
         .sort((a, b) => v[b] - v[a])[0];
     if (!k) return false;
     c.repTag = k;
@@ -110,6 +122,7 @@ ACTS.tell_rep = {
     c.lifeQty = c.repN;
     li.mood = Math.max(0, (li.mood == null ? 50 : li.mood) - 3);
     lfAff(li, sp, 1, 'was honest with me');
+    TM.add(sp, { kind: 'told_rep', with: li.id, tag: c.repTag, imp: 0.1 });
   },
   replies: ['rep_own', 'rep_deny']
 };
