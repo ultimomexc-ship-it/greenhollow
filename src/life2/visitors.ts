@@ -62,7 +62,7 @@ function visArrive() {
     setRole(n, 'Worker'); n.coin = 10; n.inv = n.inv || {}; n.inv.grain = (n.inv.grain || 0) + 6; n.seat = null; n.x = n.tx = p.x; n.y = n.ty = p.y; n.back = pick(R, VIS_ORD) + ', ' + pick(R, VIS_ARR); n.newcomer = { t0: game.time, met: [], next: game.time + 20 }; npcs.push(n);
     npcs.forEach(o => { if (o !== n && !n.know[o.id]) { n.know[o.id] = 4; o.know[n.id] = 4; n.aff[o.id] = 8; o.aff[n.id] = 8; } });
   }
-  { const B0 = typeof townBalance === 'function' ? townBalance() : null; if (kitOn() && B0 && B0.harvests >= 1 && !(town.tut && town.tut.carpenter) && grp.length === 1) carpArrive(grp[0]); }
+  { const B0 = typeof townBalance === 'function' ? townBalance() : null; if (kitOn() && town.scenario !== 'hamlet' && B0 && B0.harvests >= 1 && !(town.tut && town.tut.carpenter) && grp.length === 1) carpArrive(grp[0]); }
   const a = grp[0]; chron(grp.length > 1 ? `${nameOf(a)} and ${nameOf(grp[1])} came ashore, looking as though they had just woken up. ${a.first} ${a.back}.` : `${nameOf(a)} came ashore, looking as though they had just woken up. ${a.first} ${a.back}.`, 'life');
   lfEmit('arrival', { actor: a, tags: ['news'], sev: 1.6, loud: true, chron: false });   // (the island will talk about it: talk/events.ts)
   housingTick();

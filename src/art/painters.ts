@@ -2100,6 +2100,23 @@ function blkWall24(g, kind) { shadowE(g, 12, 22.6, 11, 2);
   else { g.save(); g.translate(0, 10); g.beginPath(); g.rect(0, 0, 24, 14); g.clip(); wallFace24(g, kind === 'window'); g.restore(); }
   blkCap(g, kind === 'door' ? 9 : 10); g.fillStyle = 'rgba(42,35,50,.55)'; g.fillRect(0, kind === 'door' ? 9 : 10, 24, 0.8); }
 for (const k of ['wall', 'window', 'door']) T24('blk_' + k, 'furniture', 'Building block, ' + k, g => blkWall24(g, k), { under: null });
+/* fences and gates for the Hamlet's yards: rails run to every side that has another fence or gate (mask W=1, E=2, N=4, S=8) */
+function fence24(g, m) { shadowE(g, 12, 22.6, 10, 2);
+  const R1 = '#a37a46', R2 = '#7c5a30', P1 = '#8d6a3a', P2 = '#5f4424', HI = '#c19a62';
+  const rail = (x, y, w, h) => { g.fillStyle = R1; g.fillRect(x, y, w, h); g.fillStyle = R2; g.fillRect(x, y + h - 1, w, 1); g.fillStyle = HI; g.fillRect(x, y, w, 0.7); };
+  if (m & 1) { rail(0, 11, 12, 2.4); rail(0, 16.4, 12, 2.4); }
+  if (m & 2) { rail(12, 11, 12, 2.4); rail(12, 16.4, 12, 2.4); }
+  if (m & 4) { g.fillStyle = R1; g.fillRect(10.6, 0, 2.8, 12); g.fillStyle = R2; g.fillRect(12.6, 0, 0.8, 12); }
+  if (m & 8) { g.fillStyle = R1; g.fillRect(10.6, 18, 2.8, 6); g.fillStyle = R2; g.fillRect(12.6, 18, 0.8, 6); }
+  g.fillStyle = P1; g.fillRect(9.6, 7.6, 4.8, 14.6); g.fillStyle = P2; g.fillRect(12.8, 7.6, 1.6, 14.6); g.fillStyle = HI; g.fillRect(9.6, 7.6, 4.8, 1.4); }
+function gate24(g, horiz) { shadowE(g, 12, 22.6, 10, 2);
+  const R1 = '#c6a064', R2 = '#8a6a3a', P1 = '#8d6a3a', P2 = '#5f4424';
+  if (horiz) { g.fillStyle = P1; g.fillRect(0.6, 7.6, 3.8, 14.6); g.fillRect(19.6, 7.6, 3.8, 14.6); g.fillStyle = P2; g.fillRect(2.8, 7.6, 1.6, 14.6); g.fillRect(21.8, 7.6, 1.6, 14.6);
+    for (const y of [10.4, 15.4, 19.6]) { g.fillStyle = R1; g.fillRect(4.4, y, 15.2, 2.4); g.fillStyle = R2; g.fillRect(4.4, y + 1.6, 15.2, 0.8); }
+    g.strokeStyle = R2; g.lineWidth = 1.6; g.beginPath(); g.moveTo(4.8, 20.6); g.lineTo(19.2, 11.2); g.stroke(); }
+  else { g.fillStyle = R1; g.fillRect(8, 0, 8, 24); g.fillStyle = R2; for (const y of [3, 9, 15, 21]) g.fillRect(8, y, 8, 1.4); g.fillRect(15.2, 0, 0.8, 24); g.fillStyle = P1; g.fillRect(9.6, 7.6, 4.8, 14.6); g.fillStyle = P2; g.fillRect(12.8, 7.6, 1.6, 14.6); } }
+for (let m = 0; m < 16; m++) T24('fence_' + m, 'furniture', 'Fence block ' + m, g => fence24(g, m), { under: null });
+T24('gate_h', 'furniture', 'Gate, east-west', g => gate24(g, true), { under: null }); T24('gate_v', 'furniture', 'Gate, north-south', g => gate24(g, false), { under: null });
 function stand24(g, draw) { shadowE(g, 12, 22.4, 11, 2.2);
   wood(g, 2.4, 17.4, 19.2, 5, { dir: 'h', planks: 2, seed: 77, P: WOODD, nails: true, knots: 0.1 });
   wood(g, 3.4, 22, 2, 1.8, { dir: 'v', planks: 1, seed: 78, P: WOODD, nails: false, knots: 0 }); wood(g, 18.6, 22, 2, 1.8, { dir: 'v', planks: 1, seed: 79, P: WOODD, nails: false, knots: 0 });

@@ -6,6 +6,8 @@ const YARD_ITEMS: { kind: string; stand: string; art: string; noun: string; name
   { kind: 'bwall', stand: 'yd_wall', art: 'blk_wall', noun: 'wall block', name: 'Wall' },
   { kind: 'bwindow', stand: 'yd_window', art: 'blk_window', noun: 'window block', name: 'Window wall' },
   { kind: 'bdoor', stand: 'yd_door', art: 'blk_door', noun: 'door block', name: 'Door' },
+  { kind: 'fence', stand: '', art: 'fence_3', noun: 'fence', name: 'Fence' },
+  { kind: 'gate', stand: '', art: 'gate_h', noun: 'gate', name: 'Gate' },
   { kind: 'bed', stand: 'yd_bed', art: 'bed', noun: 'bed', name: 'Bed' },
   { kind: 'chair', stand: 'yd_chair', art: 'seat_down', noun: 'chair', name: 'Chair' },
   { kind: 'table', stand: 'yd_table', art: 'table_loose', noun: 'table', name: 'Table' },

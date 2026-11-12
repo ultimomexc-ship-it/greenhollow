@@ -50,7 +50,7 @@ function targetAt0(n, x, y) {
   if (nd) return { key: 'node' + x + ',' + y, min: 7, text: nd.kind === 'berry' ? 'Picking berries' : 'Gathering herbs', tool: 'pick', repeat: true, run(n) {
     const t = Math.min(nd.amt, nd.kind === 'berry' ? 3 : 2); nd.amt -= t; const gd = nd.kind === 'berry' ? 'berries' : 'herbs'; n.inv[gd] = (n.inv[gd] || 0) + t; playerSay(n, '+' + t + ' ' + gd);
   } };
-  if (itBuildOn(n) && n.build.sel === 1 && g === T.CROP) return { key: 'wallC' + x + ',' + y, min: 2, text: 'Digging the plot back to grass', tool: 'hammer', run(nn) { town.crops = town.crops.filter(c => !(c.x === x && c.y === y)); setT(x, y, bldBare(y)); markDirty(x, y, 1, 1); town.gridV = (town.gridV || 0) + 1; if (typeof refreshReach === 'function') refreshReach(); playerSay(nn, 'Gone.'); } };
+  if (itBuildOn(n) && n.build.sel === 1 && g === T.CROP) return { key: 'wallC' + x + ',' + y, min: 2, text: 'Digging the plot back to grass', tool: 'hammer', run(nn) { kitGive('field'); town.crops = town.crops.filter(c => !(c.x === x && c.y === y)); setT(x, y, bldBare(y)); markDirty(x, y, 1, 1); town.gridV = (town.gridV || 0) + 1; if (typeof refreshReach === 'function') refreshReach(); playerSay(nn, 'Gone.'); } };
   if (g === T.WALL && !itBuildOn(n)) { const sr = signRoomAt(x, y); if (sr) return { msg: signText(sr) }; }   // (the sign beside a door)
   { const sh = !itBuildOn(n) && shroomAt(x, y); if (sh) return { key: 'shroom' + x + ',' + y, min: 0.6, text: 'Eating a mushroom', tool: null, run(nn) { eatShroom(nn, sh); } }; }
   if ((g === T.STAIR || g === T.STAIRD || g === T.STAIRM || g === T.STAIRU) && !(itBuildOn(n) && n.build.sel === 1)) { const sa = stairAction(n, x, y); if (sa) return sa; }

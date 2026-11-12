@@ -6,6 +6,9 @@ const HAMLET_SEEDS = ['barley', 'turnip', 'cabbage', 'poppy'];
 const HAMLET_TRADER_DEF: any = { buys: {} as any, sells: {} as any, open: [6, 19], tool: 'wipe', noun: 'trading stall' };
 for (const k of HAMLET_SEEDS) HAMLET_TRADER_DEF.sells['seed_' + k] = IT_SEEDS[k] && IT_SEEDS[k].flower ? 14 : 30;
 for (const g of Object.keys(GROCER_DEF.buys)) HAMLET_TRADER_DEF.buys[g] = GROCER_DEF.buys[g];
+/** what the trader sells for the building kit, in coin each (the harness tunes these) */
+const HAMLET_PRICES: Record<string, number> = { fence: 1, gate: 3, field: 2, bwall: 4, bwindow: 6, bdoor: 6, bed: 10 };
+const HAMLET_BUILD = ['bwall', 'bwindow', 'bdoor', 'bed', 'fence', 'gate', 'field'];
 const HAMLET_RECIPE = ['job.Farmer', 'sys.economy', 'sys.couples', 'sys.romance', 'sys.gossip', 'sys.smalllife', 'event.wedding'];
 const HAMLET_OFF = ['bladder', 'wear', 'births', 'ageing', 'starving', 'mushrooms'];
 
@@ -16,7 +19,7 @@ function hamletStart() {
   if (!P || !TR) throw new Error('no settlers for the hamlet');
   npcs = [P, TR]; town.byId = new Map([[P.id, P], [TR.id, TR]]); town.founders = 2; town.hamletPlayer = P.id; town.tippingId = P.id;
   for (const k of [P, TR]) { for (const f of Object.keys(k.fam || {})) k.fam[f] = Array.isArray(k.fam[f]) ? [] : null; k.rel = {}; k.know = {}; k.aff = {}; k.homeRoom = null; k.bed = { owner: null }; k.seat = null; k.homeless = true; k.inv = k.inv || {}; }
-  town.tents = []; clearTentTiles(); town.crops = []; town.fields = 0; town.chron = []; town.dead = [];
+  town.kit = {}; town.tents = []; clearTentTiles(); town.crops = []; town.fields = 0; town.chron = []; town.dead = [];
   // the family who landed just before you: a couple and a child, with no bed and a little money
   const sn = pick(R, SURNAMES), a: any = newPerson(R, 'Child', ri(R, 24, 32), town.used, { female: false, surname: sn }), b: any = newPerson(R, 'Child', ri(R, 22, 30), town.used, { female: true, surname: sn });
   setSpouse(a, b);

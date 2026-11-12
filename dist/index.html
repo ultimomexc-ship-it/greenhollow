@@ -7577,6 +7577,81 @@ const ART = (function() {
     g.fillRect(0, kind === "door" ? 9 : 10, 24, 0.8);
   }
   for (const k of ["wall", "window", "door"]) T24("blk_" + k, "furniture", "Building block, " + k, (g) => blkWall24(g, k), { under: null });
+  function fence24(g, m) {
+    shadowE(g, 12, 22.6, 10, 2);
+    const R1 = "#a37a46", R2 = "#7c5a30", P1 = "#8d6a3a", P2 = "#5f4424", HI = "#c19a62";
+    const rail = (x, y, w, h) => {
+      g.fillStyle = R1;
+      g.fillRect(x, y, w, h);
+      g.fillStyle = R2;
+      g.fillRect(x, y + h - 1, w, 1);
+      g.fillStyle = HI;
+      g.fillRect(x, y, w, 0.7);
+    };
+    if (m & 1) {
+      rail(0, 11, 12, 2.4);
+      rail(0, 16.4, 12, 2.4);
+    }
+    if (m & 2) {
+      rail(12, 11, 12, 2.4);
+      rail(12, 16.4, 12, 2.4);
+    }
+    if (m & 4) {
+      g.fillStyle = R1;
+      g.fillRect(10.6, 0, 2.8, 12);
+      g.fillStyle = R2;
+      g.fillRect(12.6, 0, 0.8, 12);
+    }
+    if (m & 8) {
+      g.fillStyle = R1;
+      g.fillRect(10.6, 18, 2.8, 6);
+      g.fillStyle = R2;
+      g.fillRect(12.6, 18, 0.8, 6);
+    }
+    g.fillStyle = P1;
+    g.fillRect(9.6, 7.6, 4.8, 14.6);
+    g.fillStyle = P2;
+    g.fillRect(12.8, 7.6, 1.6, 14.6);
+    g.fillStyle = HI;
+    g.fillRect(9.6, 7.6, 4.8, 1.4);
+  }
+  function gate24(g, horiz) {
+    shadowE(g, 12, 22.6, 10, 2);
+    const R1 = "#c6a064", R2 = "#8a6a3a", P1 = "#8d6a3a", P2 = "#5f4424";
+    if (horiz) {
+      g.fillStyle = P1;
+      g.fillRect(0.6, 7.6, 3.8, 14.6);
+      g.fillRect(19.6, 7.6, 3.8, 14.6);
+      g.fillStyle = P2;
+      g.fillRect(2.8, 7.6, 1.6, 14.6);
+      g.fillRect(21.8, 7.6, 1.6, 14.6);
+      for (const y of [10.4, 15.4, 19.6]) {
+        g.fillStyle = R1;
+        g.fillRect(4.4, y, 15.2, 2.4);
+        g.fillStyle = R2;
+        g.fillRect(4.4, y + 1.6, 15.2, 0.8);
+      }
+      g.strokeStyle = R2;
+      g.lineWidth = 1.6;
+      g.beginPath();
+      g.moveTo(4.8, 20.6);
+      g.lineTo(19.2, 11.2);
+      g.stroke();
+    } else {
+      g.fillStyle = R1;
+      g.fillRect(8, 0, 8, 24);
+      g.fillStyle = R2;
+      for (const y of [3, 9, 15, 21]) g.fillRect(8, y, 8, 1.4);
+      g.fillRect(15.2, 0, 0.8, 24);
+      g.fillStyle = P1;
+      g.fillRect(9.6, 7.6, 4.8, 14.6);
+      g.fillStyle = P2;
+      g.fillRect(12.8, 7.6, 1.6, 14.6);
+    }
+  }
+  for (let m = 0; m < 16; m++) T24("fence_" + m, "furniture", "Fence block " + m, (g) => fence24(g, m), { under: null });
+  T24("gate_h", "furniture", "Gate, east-west", (g) => gate24(g, true), { under: null });
+  T24("gate_v", "furniture", "Gate, north-south", (g) => gate24(g, false), { under: null });
   function stand24(g, draw) {
     shadowE(g, 12, 22.4, 11, 2.2);
     wood(g, 2.4, 17.4, 19.2, 5, { dir: "h", planks: 2, seed: 77, P: WOODD, nails: true, knots: 0.1 });
@@ -13389,6 +13464,7 @@ function targetAt0(n, x, y) {
     playerSay(n2, "+" + t + " " + gd);
   } };
   if (itBuildOn(n) && n.build.sel === 1 && g === T.CROP) return { key: "wallC" + x + "," + y, min: 2, text: "Digging the plot back to grass", tool: "hammer", run(nn) {
+    kitGive("field");
     town.crops = town.crops.filter((c2) => !(c2.x === x && c2.y === y));
     setT(x, y, bldBare(y));
     markDirty(x, y, 1, 1);
@@ -17970,7 +18046,15 @@ function lf2Follow(n, p) {
 const PUSH_MAX = 1e6;
 const LF_ROCK_ART = ["boulder_0", "boulder_1", "boulder_2", "boulder_3"];
 Object.assign(LF_NOUN, { rock: "rock" });
-const lfPropArt = (pr) => pr.art ? pr.art : pr.kind === "lamp" ? daylight(GA.hour) < 0.55 ? "lamp_lit" : "lamp_unlit" : pr.kind === "tent" ? "tent_" + (pr.v || 0) % 4 : pr.kind === "rock" ? LF_ROCK_ART[(pr.v || 0) & 3] : pr.kind === "chair" ? "seat_" + ["down", "left", "up", "right"][(pr.rot || 0) & 3] : pr.kind === "bed" ? "bed_head_" + ((pr.rot || 0) & 1 ? "down" : "up") + "_" + (pr.owner && !pr.owner.dead ? (pr.v || 0) % 5 : 5) : LF_ART[pr.kind] || "crate";
+const lfFenceMask = (pr) => {
+  let m = 0;
+  for (const [i, dx, dy] of [[1, -1, 0], [2, 1, 0], [4, 0, -1], [8, 0, 1]]) {
+    const q = town.propAt && town.propAt.get((pr.y + dy) * W + pr.x + dx);
+    if (q && (q.kind === "fence" || q.kind === "gate")) m |= i;
+  }
+  return m;
+};
+const lfPropArt = (pr) => pr.art ? pr.art : pr.kind === "fence" ? "fence_" + lfFenceMask(pr) : pr.kind === "gate" ? "gate_" + (lfFenceMask(pr) & 12 && !(lfFenceMask(pr) & 3) ? "v" : "h") : pr.kind === "lamp" ? daylight(GA.hour) < 0.55 ? "lamp_lit" : "lamp_unlit" : pr.kind === "tent" ? "tent_" + (pr.v || 0) % 4 : pr.kind === "rock" ? LF_ROCK_ART[(pr.v || 0) & 3] : pr.kind === "chair" ? "seat_" + ["down", "left", "up", "right"][(pr.rot || 0) & 3] : pr.kind === "bed" ? "bed_head_" + ((pr.rot || 0) & 1 ? "down" : "up") + "_" + (pr.owner && !pr.owner.dead ? (pr.v || 0) % 5 : 5) : LF_ART[pr.kind] || "crate";
 const PUSH_STATION = { [T.TABLE]: "table", [T.COUNTER]: "counter", [T.FORGE]: "forge", [T.ANVIL]: "anvil", [T.LOOM]: "loom", [T.OVEN]: "oven", [T.SHELF]: "shelf", [T.ALTAR]: "altar", [T.PEW]: "pew" };
 const PUSH_FURNITURE = /* @__PURE__ */ new Set([T.SEAT, T.BED, T.BARREL, ...Object.keys(PUSH_STATION).map(Number)]);
 const pushRoomOf = (x, y) => {
@@ -18680,6 +18764,8 @@ const YARD_ITEMS = [
   { kind: "bwall", stand: "yd_wall", art: "blk_wall", noun: "wall block", name: "Wall" },
   { kind: "bwindow", stand: "yd_window", art: "blk_window", noun: "window block", name: "Window wall" },
   { kind: "bdoor", stand: "yd_door", art: "blk_door", noun: "door block", name: "Door" },
+  { kind: "fence", stand: "", art: "fence_3", noun: "fence", name: "Fence" },
+  { kind: "gate", stand: "", art: "gate_h", noun: "gate", name: "Gate" },
   { kind: "bed", stand: "yd_bed", art: "bed", noun: "bed", name: "Bed" },
   { kind: "chair", stand: "yd_chair", art: "seat_down", noun: "chair", name: "Chair" },
   { kind: "table", stand: "yd_table", art: "table_loose", noun: "table", name: "Table" },
@@ -19888,7 +19974,7 @@ function visArrive() {
   }
   {
     const B0 = typeof townBalance === "function" ? townBalance() : null;
-    if (kitOn() && B0 && B0.harvests >= 1 && !(town.tut && town.tut.carpenter) && grp.length === 1) carpArrive(grp[0]);
+    if (kitOn() && town.scenario !== "hamlet" && B0 && B0.harvests >= 1 && !(town.tut && town.tut.carpenter) && grp.length === 1) carpArrive(grp[0]);
   }
   const a = grp[0];
   chron(grp.length > 1 ? `${nameOf(a)} and ${nameOf(grp[1])} came ashore, looking as though they had just woken up. ${a.first} ${a.back}.` : `${nameOf(a)} came ashore, looking as though they had just woken up. ${a.first} ${a.back}.`, "life");
@@ -20504,7 +20590,8 @@ const KIT_RECIPE = {
   forge: { stone: 6, wood: 2, q: 1 },
   anvil: { stone: 4, q: 1 }
 };
-const kitOn = () => !!window.GH_KIT_LIMITED && !!(town && town.scenario === "blank");
+const kitOn = () => !!(town && town.scenario === "hamlet") || !!window.GH_KIT_LIMITED && !!(town && town.scenario === "blank");
+const kitFree = (kind) => kind === "field" && !(town && town.scenario === "hamlet");
 function kitStart() {
   if (kitOn() && !town.kit) town.kit = Object.assign({}, KIT_START);
 }
@@ -20512,20 +20599,24 @@ const kitCount = (kind) => {
   kitStart();
   return kitOn() ? (town.kit || {})[kind] || 0 : 999;
 };
-const kitHas = (kind) => kind === "field" || !kitOn() || kitCount(kind) > 0;
+const kitHas = (kind) => kitFree(kind) || !kitOn() || kitCount(kind) > 0;
 function kitTake(kind) {
-  if (!kitOn() || kind === "field") return;
+  if (!kitOn() || kitFree(kind)) return;
   kitStart();
   town.kit[kind] = Math.max(0, (town.kit[kind] || 0) - 1);
 }
 function kitGive(kind, q = 1) {
-  if (!kitOn() || !kind || kind === "field") return;
-  if (!(kind in KIT_RECIPE) && !(kind in KIT_START) && kind !== "bench") return;
+  if (!kitOn() || !kind || kitFree(kind)) return;
+  if (!(kind in KIT_RECIPE) && !(kind in KIT_START) && kind !== "bench" && !(typeof HAMLET_PRICES !== "undefined" && kind in HAMLET_PRICES)) return;
   kitStart();
   town.kit[kind] = (town.kit[kind] || 0) + q;
 }
-const kitLabel = (kind) => kitOn() && kind !== "field" ? String(kitCount(kind)) : "\u221E";
+const kitLabel = (kind) => kitOn() && !kitFree(kind) ? String(kitCount(kind)) : "\u221E";
 function kitOut(n, kind) {
+  if (town.scenario === "hamlet") {
+    playerSay(n, "No " + itBuildName(kind).toLowerCase() + " left. The trader sells them, or take something down: it comes back.");
+    return;
+  }
   const ws = typeof lf2Room === "function" ? lf2Room("workshop") : null, has = town.tut && town.tut.carpenter;
   playerSay(n, "No " + (typeof itBuildName === "function" ? itBuildName(kind).toLowerCase() : kind) + " left. " + (ws ? "Bring wood to the carpenter, or take something down: it comes back." : has ? "Set up the workshop so the carpenter can make more, or take something down: it comes back." : "Take something down and it comes back to you."));
 }
@@ -21261,9 +21352,10 @@ const BUILD_ICON = { bed: "bed_head_up_1", chair: "seat_down" };
 const BUILD_DEFAULT = ["bwall", "bwindow", "bdoor", "bed", "chair", "table", "field"];
 const BUILD_CAP = 400;
 function itBuildState(n) {
-  if (!n.build) n.build = { on: false, sel: 0, bar: BUILD_DEFAULT.slice(), prev: null };
+  if (!n.build) n.build = { on: false, sel: 0, bar: (town && town.scenario === "hamlet" ? HAMLET_BUILD : BUILD_DEFAULT).slice(), prev: null };
   return n.build;
 }
+const itBuildList = () => town && town.scenario === "hamlet" ? HAMLET_BUILD.map((k) => YARD_ITEMS.find((q) => q.kind === k)).filter(Boolean) : YARD_ITEMS;
 const itBuildOn = (n) => !!(n && n.build && n.build.on);
 function itBuildToggle(n, on) {
   const b = itBuildState(n);
@@ -21305,6 +21397,7 @@ function itBuildSelect(n, i) {
   const b = itBuildState(n);
   if (!b.on) return;
   const p = n.player;
+  b.fieldHold = false;
   if (i <= 2) {
     b.brush = null;
     b.sel = i === 0 ? 0 : b.sel === i ? 0 : i;
@@ -21318,6 +21411,16 @@ function itBuildSelect(n, i) {
     return;
   }
   const kind = b.bar[i - 3];
+  if (kind === "field" && town.scenario === "hamlet") {
+    b.brush = null;
+    b.sel = 0;
+    if (bldPlaceField(n)) {
+      b.fieldHold = true;
+      b.lastT = n.tx + "," + n.ty;
+    }
+    itSync(true);
+    return;
+  }
   if (kind === "field") {
     b.brush = b.brush === "field" ? null : "field";
     b.sel = 0;
@@ -21331,6 +21434,19 @@ function itBuildSelect(n, i) {
 }
 function bldBrushStep(n) {
   const b = n.build;
+  if (b && b.on && b.fieldHold) {
+    const key2 = n.tx + "," + n.ty;
+    if (b.lastT !== key2) {
+      b.lastT = key2;
+      if (!bldPlaceField(n, true)) {
+        if (!kitHas("field")) {
+          b.fieldHold = false;
+          kitOut(n, "field");
+        }
+      }
+    }
+    return;
+  }
   if (!b || !b.on || b.brush !== "field") return;
   const key = n.tx + "," + n.ty;
   if (b.lastT === key) return;
@@ -21350,7 +21466,30 @@ const itBuildName = (k) => {
 function bldQueue(p) {
   (town.bldQ = town.bldQ || []).push([p.x, p.y]);
 }
+function bldPlaceField(n, quiet) {
+  if (!kitHas("field")) {
+    if (!quiet) kitOut(n, "field");
+    return false;
+  }
+  const f = lf2Front(n), x = f.x, y = f.y;
+  if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) return false;
+  const g = grid[y][x];
+  if (g !== T.GRASS && !(g === T.DECK && isUpperY(y)) || roomAt[y][x] >= 0 || lfPropAt(x, y) || town.siteAt && town.siteAt[y * W + x] || town.nodeMap && town.nodeMap.has(y * W + x) || x === n.tx && y === n.ty) {
+    if (!quiet) playerSay(n, "A field needs bare grass.");
+    return false;
+  }
+  setT(x, y, T.CROP);
+  town.crops.push({ x, y, f: "field" + n.id, pl: 1, st: 0, t0: 0, byField: n.id });
+  kitTake("field");
+  markDirty(x, y, 1, 1);
+  town.gridV = (town.gridV || 0) + 1;
+  if (typeof refreshReach === "function") refreshReach();
+  sndPlace();
+  if (!quiet) playerSay(n, "A field tile.");
+  return true;
+}
 function bldPlaceFront(n, kind) {
+  if (kind === "field" && town.scenario === "hamlet") return bldPlaceField(n) ? {} : null;
   if (!kitHas(kind)) {
     kitOut(n, kind);
     return null;
@@ -21454,7 +21593,7 @@ function itBuildBarHTML(n, face) {
 }
 function itBuildBagHTML(n) {
   const b = itBuildState(n), sel = n._bpick || "";
-  const items = YARD_ITEMS.map((it) => `<button type="button" class="bgcell bi${sel === it.kind ? " worn" : ""}" draggable="true" data-bkind="${it.kind}" title="Drag onto a build slot">${itBuildIcon(it.kind, 34)}<span class="bgname">${esc(it.name)} \xB7 ${kitLabel(it.kind)}</span></button>`).join("");
+  const items = itBuildList().map((it) => `<button type="button" class="bgcell bi${sel === it.kind ? " worn" : ""}" draggable="true" data-bkind="${it.kind}" title="Drag onto a build slot">${itBuildIcon(it.kind, 34)}<span class="bgname">${esc(it.name)} \xB7 ${kitLabel(it.kind)}</span></button>`).join("");
   const slots = b.bar.map((k, j) => `<button type="button" class="hbslot big item" data-bdrop="${j}" title="Build slot ${(j + 4) % 10}"><em>${(j + 4) % 10}</em>${k ? itBuildIcon(k, 38) : ""}</button>`).join("");
   return `<div class="bglab">Build menu \xB7 drag an item onto a build slot (or click an item, then a slot)</div><div class="bgbuild">${items}</div><div class="bglab">Build hotbar \xB7 slots 4-0 (1 pushes, 2 destroys, 3 turns things) \xB7 click a slot while an item is picked to fill it, right-click to empty it</div><div class="bgbelt">${slots}</div>`;
 }
@@ -21465,6 +21604,10 @@ function itBuildAssign(n, j, kind) {
   itBagDraw();
   itSync(true);
 }
+window.addEventListener("keyup", (e) => {
+  const n = game.player;
+  if (n && n.build && n.build.fieldHold && /^[0-9]$/.test(e.key)) n.build.fieldHold = false;
+});
 (function() {
   const bb = document.getElementById("bagbox"), hb = document.getElementById("hotbar");
   if (!bb || !hb) return;
@@ -25918,7 +26061,8 @@ function farmShopDialog(m) {
     const d = { item: GOODS[g].name, qty: got || q, price: tot, shop: m.def.noun };
     return { say: got ? `${m.n.first}: ${serviceSay("bid_price", m.n, n, d)} ${serviceSay("thank_shop", m.n, n, d)} (You have ${money()}.)` : `${m.n.first}: ${serviceSay("no_demand", m.n, n, d)}`, opts: menu() };
   };
-  const menu = () => {
+  const hamlet = m.def === HAMLET_TRADER_DEF;
+  const seedOpts = () => {
     const o = [];
     for (const g of Object.keys(m.sells)) {
       if (!((m.stock[g] || 0) >= 1)) continue;
@@ -25929,14 +26073,45 @@ function farmShopDialog(m) {
         if (n.coin >= p * 5 && m.stock[g] >= 5) o.push([`Buy 5 ${GOODS[g].name} (${p * 5})`, buy(g, 5)]);
       } else o.push([`Buy ${GOODS[g].name} (${p})`, buy(g, 1)]);
     }
+    return o;
+  };
+  const sellOpts = () => {
+    const o = [];
     for (const g of Object.keys(m.buys)) {
       const q = n.inv[g] || 0;
       if (q < 1) continue;
       const p = buyPrice(m, g);
       if (p > 0) o.push([`Sell your ${q} ${GOODS[g].name} (${p} each)`, sell(g)]);
     }
-    o.push(["Leave", () => null]);
     return o;
+  };
+  const buyKit = (k, q) => () => {
+    const p = HAMLET_PRICES[k];
+    let got = 0;
+    while (got < q && n.coin >= p) {
+      pay(n, m.n, p);
+      got++;
+    }
+    if (got) town.kit[k] = (town.kit[k] || 0) + got;
+    const d = { item: LF_NOUN[k] + ((got || q) > 1 ? "s" : ""), qty: got || q, price: got ? got * p : p, shop: m.def.noun };
+    return { say: got ? `${m.n.first}: ${serviceSay("quote_price", m.n, n, d)} ${serviceSay("thank_shop", m.n, n, d)} (You have ${money()} left.)` : `${m.n.first}: ${serviceSay("quote_price", m.n, n, d)} (You have ${money()}.)`, opts: kitMenu() };
+  };
+  const kitMenu = () => {
+    const o = [];
+    for (const k of HAMLET_BUILD) {
+      const p = HAMLET_PRICES[k];
+      o.push([`Buy a ${LF_NOUN[k]} (${p})`, buyKit(k, 1)]);
+      if (n.coin >= p * 5) o.push([`Buy 5 ${LF_NOUN[k]}s (${p * 5})`, buyKit(k, 5)]);
+    }
+    o.push(["Back", () => ({ say: `${m.n.first}: ${serviceSay("shop_greet_back", m.n, n, { item: "", qty: 1, shop: m.def.noun })} (You have ${money()}.)`, opts: menu() })]);
+    return o;
+  };
+  const menu = () => {
+    if (hamlet) {
+      const back = () => ({ say: `${m.n.first}: ${serviceSay("shop_greet_back", m.n, n, { item: "", qty: 1, shop: m.def.noun })} (You have ${money()}.)`, opts: menu() });
+      return [["Buy seed", () => ({ say: `${m.n.first}: What seed? (You have ${money()}.)`, opts: seedOpts().concat([["Back", back]]) })], ["Buy building items", () => ({ say: `${m.n.first}: What are you building? (You have ${money()}.)`, opts: kitMenu() })]].concat(sellOpts(), [["Leave", () => null]]);
+    }
+    return seedOpts().concat(sellOpts(), [["Leave", () => null]]);
   };
   lf2Dialog(m.n, `${m.n.first}: ${serviceSay("shop_greet_back", m.n, n, { item: "", qty: 1, shop: m.def.noun })} (You have ${money()}.)`, menu());
 }
@@ -25944,6 +26119,8 @@ const HAMLET_SEEDS = ["barley", "turnip", "cabbage", "poppy"];
 const HAMLET_TRADER_DEF = { buys: {}, sells: {}, open: [6, 19], tool: "wipe", noun: "trading stall" };
 for (const k of HAMLET_SEEDS) HAMLET_TRADER_DEF.sells["seed_" + k] = IT_SEEDS[k] && IT_SEEDS[k].flower ? 14 : 30;
 for (const g of Object.keys(GROCER_DEF.buys)) HAMLET_TRADER_DEF.buys[g] = GROCER_DEF.buys[g];
+const HAMLET_PRICES = { fence: 1, gate: 3, field: 2, bwall: 4, bwindow: 6, bdoor: 6, bed: 10 };
+const HAMLET_BUILD = ["bwall", "bwindow", "bdoor", "bed", "fence", "gate", "field"];
 const HAMLET_RECIPE = ["job.Farmer", "sys.economy", "sys.couples", "sys.romance", "sys.gossip", "sys.smalllife", "event.wedding"];
 const HAMLET_OFF = ["bladder", "wear", "births", "ageing", "starving", "mushrooms"];
 function hamletStart() {
@@ -25969,6 +26146,7 @@ function hamletStart() {
     k.homeless = true;
     k.inv = k.inv || {};
   }
+  town.kit = {};
   town.tents = [];
   clearTentTiles();
   town.crops = [];

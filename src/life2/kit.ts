@@ -9,14 +9,16 @@ const KIT_RECIPE: Record<string, { wood?: number; stone?: number; q: number }> =
   altar: { stone: 4, q: 1 }, oven: { stone: 6, q: 1 }, forge: { stone: 6, wood: 2, q: 1 }, anvil: { stone: 4, q: 1 },
 };
 /** for testing the build menu has everything, as many as you like; the kit and the carpenter (below) are in place for when it is wanted again */
-const kitOn = () => !!(window as any).GH_KIT_LIMITED && !!(town && town.scenario === 'blank');   // (unlimited unless GH_KIT_LIMITED is set: the tests of the kit and the carpenter set it)
+const kitOn = () => !!(town && town.scenario === 'hamlet') || (!!(window as any).GH_KIT_LIMITED && !!(town && town.scenario === 'blank'));   // (the Hamlet always buys its kit from the trader)
+const kitFree = (kind: string) => kind === 'field' && !(town && town.scenario === 'hamlet');   // (the field brush is free everywhere but the Hamlet, where a field tile costs coin)   // (unlimited unless GH_KIT_LIMITED is set: the tests of the kit and the carpenter set it)
 function kitStart() { if (kitOn() && !town.kit) town.kit = Object.assign({}, KIT_START); }
 const kitCount = (kind: string) => { kitStart(); return kitOn() ? ((town.kit || {})[kind] || 0) : 999; };
-const kitHas = (kind: string) => kind === 'field' || !kitOn() || kitCount(kind) > 0;
-function kitTake(kind: string) { if (!kitOn() || kind === 'field') return; kitStart(); town.kit[kind] = Math.max(0, (town.kit[kind] || 0) - 1); }
-function kitGive(kind: string, q = 1) { if (!kitOn() || !kind || kind === 'field') return; if (!(kind in KIT_RECIPE) && !(kind in KIT_START) && kind !== 'bench') return; kitStart(); town.kit[kind] = (town.kit[kind] || 0) + q; }
-const kitLabel = (kind: string) => kitOn() && kind !== 'field' ? String(kitCount(kind)) : '∞';
+const kitHas = (kind: string) => kitFree(kind) || !kitOn() || kitCount(kind) > 0;
+function kitTake(kind: string) { if (!kitOn() || kitFree(kind)) return; kitStart(); town.kit[kind] = Math.max(0, (town.kit[kind] || 0) - 1); }
+function kitGive(kind: string, q = 1) { if (!kitOn() || !kind || kitFree(kind)) return; if (!(kind in KIT_RECIPE) && !(kind in KIT_START) && kind !== 'bench' && !(typeof HAMLET_PRICES !== 'undefined' && kind in HAMLET_PRICES)) return; kitStart(); town.kit[kind] = (town.kit[kind] || 0) + q; }
+const kitLabel = (kind: string) => kitOn() && !kitFree(kind) ? String(kitCount(kind)) : '∞';
 function kitOut(n: any, kind: string) {
+  if (town.scenario === 'hamlet') { playerSay(n, 'No ' + itBuildName(kind).toLowerCase() + ' left. The trader sells them, or take something down: it comes back.'); return; }
   const ws = typeof lf2Room === 'function' ? lf2Room('workshop') : null, has = town.tut && town.tut.carpenter;
   playerSay(n, 'No ' + (typeof itBuildName === 'function' ? itBuildName(kind).toLowerCase() : kind) + ' left. ' + (ws ? 'Bring wood to the carpenter, or take something down: it comes back.' : has ? 'Set up the workshop so the carpenter can make more, or take something down: it comes back.' : 'Take something down and it comes back to you.'));
 }

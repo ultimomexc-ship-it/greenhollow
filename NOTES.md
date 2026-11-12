@@ -246,3 +246,4 @@ Goal: buy wall/door/window blocks and furniture at the Builder's Yard, push them
 
 ## Hamlet (the minimum game)
 Step 1 of docs/minimum-game-prompts.md is built: scenario `hamlet`, the `rule.*` switches (bladder, wear, births, ageing, starving, mushrooms), the trader's stall and the family. Deviations from the spec: the stall stands on the camp ground (not at the shore); the player keeps the test kit's tools and gets 6 barley seed. Next: step 2 (build menu, fence and field items, the kit bought from the trader).
+Step 2 is built: seven-item build menu, fence and gate blocks (new art), the field tile as a build item (hold to lay a row), the kit bought from the trader. Gates do not let people through yet (a gate is a block until yards, step 3). Next: step 3, yards.

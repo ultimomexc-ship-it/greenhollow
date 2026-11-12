@@ -1338,6 +1338,71 @@ test('hamlet: three households (you, a trader, a family), the add-on rules are o
   await page.close();
   return 'five people; add-on rules off; trader sells four seeds, buys a turnip; no bladder, no wear, no hunger deaths in ten days';
 });
+test('hamlet build menu: seven items, the kit is bought from the trader, fences and gates join up and do not make rooms, a field tile is laid, row-laid by holding the key and refunded by the hammer', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('hamlet-build', 'hamlet'); const P = game.player, out = {}; const m = farmSeller();
+    const free = (x, y) => walkable(x, y) && !lfPropAt(x, y) && grid[y][x] === T.GRASS && roomAt[y][x] < 0 && !(town.siteAt && town.siteAt[y * W + x]) && !(town.nodeMap && town.nodeMap.has(y * W + x));
+    const find = pred => { for (let t = 0; t < 30000; t++) { const x = 8 + Math.floor(Math.random() * (W - 16)), y = 8 + Math.floor(Math.random() * (H - 16)); if (pred(x, y)) return [x, y]; } throw new Error('no ground'); };
+    const place = (x, y, face) => { P.tx = P.x = x; P.ty = P.y = y; P.path = []; P.moving = false; P.face = face; P.player.keys = {}; P.player.act = null; };
+    // the kit starts empty and is bought: three walls
+    out.kit0 = JSON.stringify(town.kit); P.coin = 60; farmShopDialog(m);
+    let labels = (talkUI.opts || []).map(o => o[1]);
+    const click = re => { const i = labels.findIndex(l => re.test(l)); if (i < 0) return false; const st = lf2TalkStep('c' + i); if (st && st.opts) labels = st.opts.map(o => o[1]); return true; };
+    out.top = labels.join('|');
+    out.ok1 = click(/^Buy building items/); out.items = labels.filter(l => /^Buy a /.test(l)).join('|');
+    for (let i = 0; i < 3; i++) click(/^Buy a wall block \(4\)/);
+    out.coin = P.coin; out.walls = town.kit.bwall; click(/^Back/); closeTalk && closeTalk();
+    // a poor player cannot buy
+    P.coin = 1; farmShopDialog(m); labels = (talkUI.opts || []).map(o => o[1]); click(/^Buy building items/); click(/^Buy a bed \(10\)/); out.poorBeds = town.kit.bed || 0; closeTalk && closeTalk(); P.coin = 100;
+    // the build menu: seven items, the bar has them in order
+    itBuildToggle(P, true); const b = itBuildState(P); out.bar = b.bar.join(','); out.list = itBuildList().map(i => i.kind).join(',');
+    out.cells = (itBuildBagHTML(P).match(/data-bkind=/g) || []).length;
+    // an empty kit says so; a bought one is used up
+    const [x0, y0] = find((x, y) => { for (let j = 0; j < 9; j++) for (let i = 0; i < 9; i++) if (!free(x + i, y + j)) return false; return true; });
+    place(x0 + 4, y0 + 4, { dx: 1, dy: 0 }); town.kit = { bwall: 1 }; const w0 = town.props.length; itBuildSelect(P, 3); out.placedWall = town.props.length - w0; out.wallsLeft = town.kit.bwall; itBuildSelect(P, 3); out.refused = town.props.length - w0;
+    // a ring of fences with a gate: they join up, they are not a room
+    const rooms0 = rooms.filter(q => !q.dead).length; const ring = [];
+    for (let i = 0; i < 6; i++) for (const [x, y] of [[x0 + 1 + i, y0 + 1], [x0 + 1 + i, y0 + 6], [x0 + 1, y0 + 1 + i], [x0 + 6, y0 + 1 + i]]) if (!lfPropAt(x, y)) ring.push(lfAddProp(i === 3 && y === y0 + 6 ? 'gate' : 'fence', x, y));
+    for (const p of ring) bldQueue(p); bldTick(); town.lfPV++;
+    out.rooms = rooms.filter(q => !q.dead).length - rooms0; out.stillProps = ring.every(p => town.props.includes(p));
+    const corner = lfPropAt(x0 + 1, y0 + 1), side = lfPropAt(x0 + 3, y0 + 1), gate = lfPropAt(x0 + 4, y0 + 6);
+    out.art = [lfPropArt(corner), lfPropArt(side), lfPropArt(gate), lfPropArt(lfPropAt(x0 + 1, y0 + 3))].join(','); out.artsExist = [corner, side, gate].every(p => !!ART.BYID[lfPropArt(p)]);
+    // the hammer gives a fence back
+    town.kit = {}; itBuildSelect(P, 1); place(x0, y0 + 1, { dx: 1, dy: 0 }); const hit = lifeAct(P, P.player, x0 + 1, y0 + 1, 1, 0); out.fenceHit = !!hit; if (hit) hit.run(P); out.fenceBack = town.kit.fence || 0;
+    // a field tile: one in front of you, paid from the kit; hold the key and walk for a row
+    itBuildSelect(P, 0); town.kit = { field: 4 }; const [fx, fy] = find((x, y) => [0, 1, 2, 3, 4].every(i => free(x + i, y)) && free(x, y + 1)); place(fx, fy, { dx: 1, dy: 0 });
+    itBuildSelect(P, 9); out.f1 = grid[fy][fx + 1] === T.CROP; const c1 = town.crops.find(c => c.x === fx + 1 && c.y === fy); out.ploughed = !!c1 && c1.pl === 1 && !c1.st; out.kitF1 = town.kit.field; out.hold = P.build.fieldHold;
+    P.tx = P.x = fx + 1; bldBrushStep(P); P.tx = P.x = fx + 2; bldBrushStep(P); out.row = [fx + 1, fx + 2, fx + 3].every(x => grid[fy][x] === T.CROP); out.kitF2 = town.kit.field;
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: '0' })); out.released = P.build.fieldHold === false; P.tx = P.x = fx + 3; bldBrushStep(P); out.noMore = grid[fy][fx + 4] !== T.CROP;
+    // out of tiles: the hold stops
+    town.kit.field = 0; itBuildSelect(P, 9); out.fieldOut = grid[fy][fx + 4] !== T.CROP;
+    // the hammer digs a tile back and gives it back
+    itBuildSelect(P, 1); place(fx, fy, { dx: 1, dy: 0 }); const dig = targetAt0(P, fx + 1, fy); out.dig = !!dig && /^wallC/.test(dig.key); if (dig) dig.run(P); out.digged = grid[fy][fx + 1] !== T.CROP && !town.crops.some(c => c.x === fx + 1 && c.y === fy); out.refund = town.kit.field;
+    // not on a path or on a prop
+    town.kit.field = 5; setT(fx + 1, fy, T.PATH); place(fx, fy, { dx: 1, dy: 0 }); itBuildSelect(P, 9); out.notPath = grid[fy][fx + 1] === T.PATH; P.build.fieldHold = false;
+    // a tent-less, privy-less palette: 'toilet' is not offered
+    out.noToilet = !itBuildList().some(i => i.kind === 'toilet');
+    return out;
+  });
+  check(r.kit0 === '{}', 'the kit starts empty: ' + r.kit0);
+  check(r.ok1 && r.coin === 48 && r.walls === 3, 'three walls bought for 12 coin: ' + JSON.stringify([r.ok1, r.coin, r.walls, r.top]));
+  check(r.items === 'Buy a wall block (4)|Buy a window block (6)|Buy a door block (6)|Buy a bed (10)|Buy a fence (1)|Buy a gate (3)|Buy a field plot (2)', 'the trader sells the seven building items: ' + r.items);
+  check(r.poorBeds === 0, 'a bed is not sold to someone with 1 coin');
+  check(r.bar === 'bwall,bwindow,bdoor,bed,fence,gate,field' && r.list === r.bar && r.cells === 7, 'the build menu and bar hold exactly the seven items: ' + JSON.stringify([r.bar, r.list, r.cells]));
+  check(r.placedWall === 1 && r.wallsLeft === 0 && r.refused === 1, 'placing takes one from the kit, an empty kit places nothing: ' + JSON.stringify([r.placedWall, r.wallsLeft, r.refused]));
+  check(r.rooms === 0 && r.stillProps, 'a closed ring of fences and a gate is not a room: ' + JSON.stringify([r.rooms, r.stillProps]));
+  check(r.artsExist && /^fence_10,fence_3,gate_h,fence_12$/.test(r.art), 'fences and gates join up: ' + r.art);
+  check(r.fenceHit && r.fenceBack === 1, 'the hammer takes a fence down and gives it back: ' + JSON.stringify([r.fenceHit, r.fenceBack]));
+  check(r.f1 && r.ploughed && r.kitF1 === 3 && r.hold === true, 'a field tile goes down ploughed, in front of you: ' + JSON.stringify([r.f1, r.ploughed, r.kitF1, r.hold]));
+  check(r.row && r.kitF2 === 1, 'holding the key and walking lays a row: ' + JSON.stringify([r.row, r.kitF2]));
+  check(r.released && r.noMore, 'letting go stops the row: ' + JSON.stringify([r.released, r.noMore]));
+  check(r.fieldOut, 'with no tiles left nothing is laid');
+  check(r.dig && r.digged && r.refund === 1, 'the hammer digs a tile back and refunds it: ' + JSON.stringify([r.dig, r.digged, r.refund]));
+  check(r.notPath, 'a field needs bare grass'); check(r.noToilet, 'no privy seat in the Hamlet palette');
+  await page.close();
+  return 'seven items, the kit is bought, fences join, fields are laid and refunded';
+});
 test('ready farming village: only what farming needs; farmers buy seed from the seed seller with real money, keep seed back, sell what they grow to the greengrocer, and talk about it', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

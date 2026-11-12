@@ -4,7 +4,9 @@
 const BUILD_ICON: any = { bed: 'bed_head_up_1', chair: 'seat_down' };
 const BUILD_DEFAULT = ['bwall', 'bwindow', 'bdoor', 'bed', 'chair', 'table', 'field'];
 const BUILD_CAP = 400;   // loose things on the island before the palette says it is crowded
-function itBuildState(n) { if (!n.build) n.build = { on: false, sel: 0, bar: BUILD_DEFAULT.slice(), prev: null }; return n.build; }
+function itBuildState(n) { if (!n.build) n.build = { on: false, sel: 0, bar: (town && town.scenario === 'hamlet' ? HAMLET_BUILD : BUILD_DEFAULT).slice(), prev: null }; return n.build; }
+/** what the build menu offers: everything, or in the Hamlet only the seven things the minimum game builds with */
+const itBuildList = () => town && town.scenario === 'hamlet' ? HAMLET_BUILD.map(k => YARD_ITEMS.find(q => q.kind === k)).filter(Boolean) as typeof YARD_ITEMS : YARD_ITEMS;
 const itBuildOn = n => !!(n && n.build && n.build.on);
 function itBuildToggle(n, on?: boolean) {
   const b = itBuildState(n); const want = on == null ? !b.on : on; if (want === b.on) return; const p = n.player;
@@ -15,14 +17,17 @@ function itBuildToggle(n, on?: boolean) {
 /** 1 Push (the default), 2 Destroy (the hammer), 3 Turn; 4-9 and 0 put the item in them down in front of you */
 function itBuildSelect(n, i: number) {
   const b = itBuildState(n); if (!b.on) return; const p = n.player;
+  b.fieldHold = false;
   if (i <= 2) { b.brush = null; b.sel = i === 0 ? 0 : b.sel === i ? 0 : i; if (p) { p.act = null; p.lock = false; p.skip = null; p.grace = null; } itSync(true); return; }
   const kind = b.bar[i - 3];
+  if (kind === 'field' && town.scenario === 'hamlet') { b.brush = null; b.sel = 0; if (bldPlaceField(n)) { b.fieldHold = true; b.lastT = n.tx + ',' + n.ty; } itSync(true); return; }   // (a field tile is a thing you buy: one in front of you; hold the key and walk to lay a row)
   if (kind === 'field') { b.brush = b.brush === 'field' ? null : 'field'; b.sel = 0; b.lastT = null; if (p) playerSay(n, b.brush ? 'Field brush: walk over grass to mark a field. Press it again to stop.' : 'Field brush put away.'); itSync(true); return; }   // (a brush, not a thing: it lays plots under your feet as you walk)
   b.brush = null; if (kind) bldPlaceFront(n, kind);
 }
 /** the field brush: the grass under your feet becomes a plot (raw ground; in the world the hoe works it, then seeds go in) */
 function bldBrushStep(n) {
-  const b = n.build; if (!b || !b.on || b.brush !== 'field') return;
+  const b = n.build; if (b && b.on && b.fieldHold) { const key = n.tx + ',' + n.ty; if (b.lastT !== key) { b.lastT = key; if (!bldPlaceField(n, true)) { if (!kitHas('field')) { b.fieldHold = false; kitOut(n, 'field'); } } } return; }
+  if (!b || !b.on || b.brush !== 'field') return;
   const key = n.tx + ',' + n.ty; if (b.lastT === key) return; b.lastT = key;
   const x = n.tx, y = n.ty; if ((grid[y][x] !== T.GRASS && !(grid[y][x] === T.DECK && isUpperY(y))) || roomAt[y][x] >= 0 || lfPropAt(x, y) || (town.siteAt && town.siteAt[y * W + x]) || (town.nodeMap && town.nodeMap.has(y * W + x)) || x < 3 || y < 3 || x >= W - 3 || y >= H - 3) return;
   setT(x, y, T.CROP); town.crops.push({ x, y, f: 'field' + n.id, pl: 0, st: 0, t0: 0, byField: n.id }); markDirty(x, y, 1, 1); town.gridV = (town.gridV || 0) + 1; if (typeof refreshReach === 'function') refreshReach();
@@ -31,7 +36,17 @@ const itBuildName = (k: string) => { const it = YARD_ITEMS.find(q => q.kind === 
 /** put one building item on the free ground nearest the tile in front of you */
 /** a block (or a bed, a privy seat) that has just been put down is looked at like a pushed one: it may close a room */
 function bldQueue(p: any) { (town.bldQ = town.bldQ || []).push([p.x, p.y]); }
+/** the Hamlet's field tile: one ploughed plot on the grass in front of you, paid from the kit */
+function bldPlaceField(n, quiet?: boolean): boolean {
+  if (!kitHas('field')) { if (!quiet) kitOut(n, 'field'); return false; }
+  const f = lf2Front(n), x = f.x, y = f.y; if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) return false;
+  const g = grid[y][x];
+  if ((g !== T.GRASS && !(g === T.DECK && isUpperY(y))) || roomAt[y][x] >= 0 || lfPropAt(x, y) || (town.siteAt && town.siteAt[y * W + x]) || (town.nodeMap && town.nodeMap.has(y * W + x)) || (x === n.tx && y === n.ty)) { if (!quiet) playerSay(n, 'A field needs bare grass.'); return false; }
+  setT(x, y, T.CROP); town.crops.push({ x, y, f: 'field' + n.id, pl: 1, st: 0, t0: 0, byField: n.id }); kitTake('field'); markDirty(x, y, 1, 1); town.gridV = (town.gridV || 0) + 1; if (typeof refreshReach === 'function') refreshReach(); sndPlace();
+  if (!quiet) playerSay(n, 'A field tile.'); return true;
+}
 function bldPlaceFront(n, kind: string) {
+  if (kind === 'field' && town.scenario === 'hamlet') return bldPlaceField(n) ? {} : null;
   if (!kitHas(kind)) { kitOut(n, kind); return null; }
   if (kind === 'stair' || kind === 'stairdown') return stairPlace(n, kind === 'stairdown');
   if (town.props.length >= BUILD_CAP) { playerSay(n, 'The island is full of loose things. Smash some first.'); return null; }
@@ -74,11 +89,12 @@ function itBuildBarHTML(n, face: string) {
 }
 function itBuildBagHTML(n) {
   const b = itBuildState(n), sel = (n as any)._bpick || '';
-  const items = YARD_ITEMS.map(it => `<button type="button" class="bgcell bi${sel === it.kind ? ' worn' : ''}" draggable="true" data-bkind="${it.kind}" title="Drag onto a build slot">${itBuildIcon(it.kind, 34)}<span class="bgname">${esc(it.name)} · ${kitLabel(it.kind)}</span></button>`).join('');
+  const items = itBuildList().map(it => `<button type="button" class="bgcell bi${sel === it.kind ? ' worn' : ''}" draggable="true" data-bkind="${it.kind}" title="Drag onto a build slot">${itBuildIcon(it.kind, 34)}<span class="bgname">${esc(it.name)} · ${kitLabel(it.kind)}</span></button>`).join('');
   const slots = b.bar.map((k, j) => `<button type="button" class="hbslot big item" data-bdrop="${j}" title="Build slot ${(j + 4) % 10}"><em>${(j + 4) % 10}</em>${k ? itBuildIcon(k, 38) : ''}</button>`).join('');
   return `<div class="bglab">Build menu · drag an item onto a build slot (or click an item, then a slot)</div><div class="bgbuild">${items}</div><div class="bglab">Build hotbar · slots 4-0 (1 pushes, 2 destroys, 3 turns things) · click a slot while an item is picked to fill it, right-click to empty it</div><div class="bgbelt">${slots}</div>`;
 }
 function itBuildAssign(n, j: number, kind: string | null) { const b = itBuildState(n); if (j < 0 || j >= b.bar.length) return; b.bar[j] = kind; itBagDraw(); itSync(true); }
+window.addEventListener('keyup', e => { const n = game.player; if (n && n.build && n.build.fieldHold && /^[0-9]$/.test(e.key)) n.build.fieldHold = false; });
 (function () {
   const bb = document.getElementById('bagbox'), hb = document.getElementById('hotbar'); if (!bb || !hb) return;
   const css = document.createElement('style');
