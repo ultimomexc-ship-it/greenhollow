@@ -10,12 +10,13 @@ let REQ_OPEN = false; try { REQ_OPEN = localStorage.getItem('gh.req') === '1'; }
     if (!town || typeof islandNeeds !== 'function') { box.hidden = true; return; }
     const n = islandNeeds(); if (typeof guidesUpdate === 'function') guidesUpdate(n); const cur = n[0], B = townBalance(), open = REQ_OPEN;
     const tr = typeof LIFE !== 'undefined' ? LIFE.troubles(7) : [], trS = tr.map((q: any) => q.kind + q.people).join(',');
-    const s = (cur ? cur.id + cur.say : 'ok') + '|' + trS + '|' + open + '|' + B.pop + '|' + B.beds + '|' + B.privies + '|' + B.plots + '|' + Math.round(B.stock / 5);
+    const rentS = typeof rentHUD === 'function' ? rentHUD() : '';
+    const s = (typeof rentSig === 'function' ? rentSig() : '') + (cur ? cur.id + cur.say : 'ok') + '|' + trS + '|' + open + '|' + B.pop + '|' + B.beds + '|' + B.privies + '|' + B.plots + '|' + Math.round(B.stock / 5);
     box.hidden = false; if (s === sig) return; sig = s;
     const mark = (have, need) => have >= need ? '<span class="ok">✓</span>' : '<b>' + have + '/' + need + '</b>';
-    if (!open) { box.innerHTML = cur ? `<button type="button" class="reqpill${cur.hard ? ' hard' : ''}" data-req="1" title="What the island needs (N)">● ${esc(cur.title)}</button>` : `<button type="button" class="reqpill ok" data-req="1" title="What the island needs (N)">● In balance</button>`; return; }
+    if (!open) { box.innerHTML = cur ? `<button type="button" class="reqpill${cur.hard ? ' hard' : ''}" data-req="1" title="What the island needs (N)">● ${esc(cur.title)}</button>` : `<button type="button" class="reqpill ok" data-req="1" title="What the island needs (N)">● In balance</button>`; box.innerHTML += rentS; return; }
     box.innerHTML = `<div class="reqcard"><button type="button" class="reqx" data-req="1" title="Close (N)">×</button>` + (cur ? `<b>${esc(cur.title)}</b>${cur.who.length ? ' <span class="dim">· ' + esc(cur.who.slice(0, 3).join(', ')) + '</span>' : ''}<br>“${esc(cur.say)}”<br><span class="dim">${esc(cur.how)}</span>` : '<b>Everything is in balance.</b>') +
-      (tr.length ? `<div class="reqsay"><span class="dim">This week:</span> ` + tr.slice(0, 4).map((q: any) => `${q.people} ${q.people === 1 ? 'person' : 'people'} ${esc(q.label)}`).join(' · ') + `</div>` : '') +
+      (rentS ? `<div class="reqsay">${rentS}</div>` : '') + (tr.length ? `<div class="reqsay"><span class="dim">This week:</span> ` + tr.slice(0, 4).map((q: any) => `${q.people} ${q.people === 1 ? 'person' : 'people'} ${esc(q.label)}`).join(' · ') + `</div>` : '') +
       `<div class="reqrows"><span>Beds ${mark(B.beds, B.bedsNeeded)}</span>${B.pop > 1 ? `<span>Privies ${mark(B.privies, B.priviesNeeded)}</span><span>Field plots ${mark(B.plots, B.plotsNeeded)}</span>` : ''}<span>Food ${B.stockDays.toFixed(1)} days</span></div>` + (n.length > 1 ? `<div class="dim reqthen">Then: ${esc(n.slice(1, 3).map(x => x.title).join(' · '))}</div>` : '') + '</div>';
   }
   box.addEventListener('click', (e: any) => { if (e.target.closest('[data-req]')) { REQ_OPEN = !REQ_OPEN; try { localStorage.setItem('gh.req', REQ_OPEN ? '1' : '0'); } catch (err) {} sig = ''; draw(); canvas.focus({ preventScroll: true }); } });

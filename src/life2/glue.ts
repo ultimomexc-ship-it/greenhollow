@@ -35,7 +35,9 @@ function lf2Hourly(hr) { const h = hr % 24; for (const f of LF2.hourly) { try { 
 function lf2PreDecide(n, tod) { if (n.player || n.infant) return null; for (const f of LF2.preD) { try { const p = f(n, tod); if (p) return p; } catch (e) { console.warn('preD', e); } } return null; }
 function lf2Decide(n, tod) { if (n.player || n.infant) return null; for (const f of LF2.dec) { try { const p = f(n, tod); if (p) return p; } catch (e) { console.warn('dec', e); } } return null; }
 function lf2Work0(n, tod) { for (const f of LF2.work) { try { const p = f(n, tod); if (p) return p; } catch (e) { console.warn('work', e); } } return null; }
-function lf2Slow(n, p) { if (p && n.toolQ != null && n.toolQ < 15 && LF2.on('economy')) p.forEach(s => { if (s.k === 'wait' && s.act === 'work') s.min = Math.round(s.min * 1.5); }); return p; }
+function lf2Slow(n, p) { if (p && n.toolQ != null && n.toolQ < 15 && LF2.on('economy')) p.forEach(s => { if (s.k === 'wait' && s.act === 'work') s.min = Math.round(s.min * 1.5); });
+  if (p && yardOn() && (n.mood < 35 || n.hunger > 75)) p.forEach(s => { if (s.k === 'wait' && s.act === 'work') s.min = Math.round(s.min * 1.6); });   // (the Hamlet: a hungry or miserable villager works slowly)
+  return p; }
 LF2.dec.unshift(lf2CookPlan);
 /* guards run when chasing */
 LF2.tickers.push(() => { for (const n of npcs) { if (n.job !== 'Guard') continue; if (n.lf2Base == null) n.lf2Base = n.speed; const st = n.plan && n.plan[n.si]; n.speed = n.lf2Base * (st && /Chasing/.test(st.text || n.status || '') || /Chasing/.test(n.status || '') ? 1.2 : 1); } });

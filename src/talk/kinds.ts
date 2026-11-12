@@ -31,6 +31,9 @@ for (const k of ['crush', 'courting', 'tryst']) EVK(k, 'romance', { tell: 0.7 })
 for (const k of ['dice', 'sing', 'stumble', 'smelly', 'newclothes', 'knock', 'wake']) EVK(k, 'daily', { tell: 0.2 });
 EVK('arrival', 'place', { tell: 0.9 });
 EVK('moved_in', 'home', { tell: 0.5 });
+EVK('rent_paid', 'home', { needs: ['price'], tell: 0.12 });
+EVK('rent_unpaid', 'home', { needs: ['price'], tell: 0.6, tags: ['misfortune'] });
+EVK('no_yard', 'home', { tell: 0.55, tags: ['misfortune'] });
 
 /* ---- the everyday life the talk will be made of (emitters arrive one system at a time; the kind is defined first so the contract can be checked) ---- */
 // trade
@@ -102,6 +105,8 @@ const LIFE_TROUBLE: any = {
   went_hungry: 'went hungry',
   starving: 'are starving',
   could_not_afford: 'could not afford something',
+  rent_unpaid: 'could not pay the rent',
+  no_yard: 'had no yard',
   out_of_stock: 'found it out of stock',
   tool_broke: 'broke a tool',
   lost_bed: 'lost their bed',

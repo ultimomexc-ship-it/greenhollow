@@ -8,7 +8,7 @@ function vcMood(n: any): string[] {
   if (n.pose === 'sleep') out.push('asleep');
   if (n.hunger > 70) out.push('hungry'); if (n.energy != null && n.energy < 25 && n.pose !== 'sleep') out.push('worn out');
   if (n.bladder > 80) out.push('needs a privy'); if (n.social != null && n.social < 22) out.push('lonely');
-  if (!n.homeRoom || n.homeRoom.dead) out.push('no bed of their own');
+  if (typeof yardOn === 'function' && yardOn() ? !yardHasBed(n) : (!n.homeRoom || n.homeRoom.dead)) out.push('no bed of their own');
   return out;
 }
 function vcFeel(a: number, k: number): string { return a >= 60 ? 'very fond of' : a >= 30 ? 'fond of' : a >= 10 ? 'gets on with' : a <= -50 ? 'cannot stand' : a <= -20 ? 'avoids' : k > 20 ? 'knows' : ''; }
@@ -30,6 +30,7 @@ function vcHTML(n: any): string {
     `<div class="vcrow"><span class="dim">Right now</span> ${esc(doing)}</div>` +
     (hints2.length ? `<div class="vcrow"><span class="dim">Notice</span> ${esc(hints2.join(' · '))}</div>` : '') +
     `<div class="vcrow"><span class="dim">Feeling</span> ${esc(mood || 'fine')}${hints.length ? ' · ' + esc(hints.join(', ')) : ''}</div>` +
+    (typeof rentCardRow === 'function' ? rentCardRow(n) : '') +
     (rel ? `<div class="vch">Company</div><ul>${rel}</ul>` : '') + (heard ? `<div class="vch">Knows</div><ul>${heard}</ul>` : '') + (news ? `<div class="vch">Said about them</div><ul>${news}</ul>` : '') + (lately ? `<div class="vch">Before that</div><ul>${lately}</ul>` : '');
 }
 function openVillagerCard(n: any) { VCARD = n || null; vcDraw(true); }

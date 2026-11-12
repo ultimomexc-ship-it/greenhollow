@@ -5,7 +5,7 @@ const HAMLET_SEEDS = ['barley', 'turnip', 'cabbage', 'poppy'];
 /** the one trader: sells four seeds (the building items come in the next step) and buys every crop */
 const HAMLET_TRADER_DEF: any = { buys: {} as any, sells: {} as any, open: [6, 19], tool: 'wipe', noun: 'trading stall' };
 for (const k of HAMLET_SEEDS) HAMLET_TRADER_DEF.sells['seed_' + k] = IT_SEEDS[k] && IT_SEEDS[k].flower ? 14 : 30;
-for (const g of Object.keys(GROCER_DEF.buys)) { HAMLET_TRADER_DEF.buys[g] = GROCER_DEF.buys[g]; if (g !== 'flowers') HAMLET_TRADER_DEF.sells[g] = GROCER_DEF.buys[g]; }   // (he sells food too: a household whose fields fall short buys it back)
+for (const g of Object.keys(GROCER_DEF.buys)) { HAMLET_TRADER_DEF.buys[g] = GROCER_DEF.buys[g] * 3; if (g !== 'flowers') HAMLET_TRADER_DEF.sells[g] = GROCER_DEF.buys[g] * 3; }   // (one stall for the whole island: three times the greengrocer's room)   // (he sells food too: a household whose fields fall short buys it back)
 /** what the trader sells for the building kit, in coin each (the harness tunes these) */
 const HAMLET_PRICES: Record<string, number> = { fence: 1, gate: 3, field: 2, bwall: 4, bwindow: 6, bdoor: 6, bed: 10 };
 const HAMLET_BUILD = ['bwall', 'bwindow', 'bdoor', 'bed', 'fence', 'gate', 'field'];
@@ -38,7 +38,7 @@ function hamletStart() {
   const sy = town.cy + 3, sx = town.cx + 2; setT(sx, sy, T.STALL); setT(sx + 1, sy, T.STALL);
   const st: any = { x: sx, y: sy + 1, face: { dx: 0, dy: -1 }, front: { x: sx, y: sy + 2 }, tiles: [{ x: sx, y: sy }, { x: sx + 1, y: sy }], owner: null, market: mk }; town.stalls.push(st); mk.stalls.push(st);
   setRole(TR, 'Trader', mk); const m = TR.shop;
-  if (m) { m.def = HAMLET_TRADER_DEF; m.buys = HAMLET_TRADER_DEF.buys; m.sells = HAMLET_TRADER_DEF.sells; m.stock = {}; m.newStock = {}; m.n.coin = 60; farmRestock(); m.newStock = {}; m.stock.grain = 40; }
+  if (m) { m.def = HAMLET_TRADER_DEF; m.buys = HAMLET_TRADER_DEF.buys; m.sells = HAMLET_TRADER_DEF.sells; m.stock = {}; m.newStock = {}; m.n.coin = 60; farmRestock(); m.newStock = {}; m.stock.grain = 30; }
   // coin, beds and places
   P.coin = 60; a.coin = 12; b.coin = 8; c.coin = 0; a.inv.grain = 6; b.inv.grain = 6; a.inv.seed_barley = 4; b.inv.seed_turnip = 3; TR.coin = Math.max(TR.coin, 60);
   const taken = new Set<number>(); taken.add(st.front.y * W + st.front.x); taken.add(st.y * W + st.x);

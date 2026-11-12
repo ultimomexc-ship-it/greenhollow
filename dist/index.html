@@ -228,6 +228,8 @@ body.fs #c { height: 100vh !important; height: 100dvh !important; }
 .modcard{position:relative;background:rgba(18,22,24,.95);border:1px solid #4a5a4a;border-left:3px solid #8bb87a;border-radius:8px;padding:9px 30px 9px 12px}.modcard .dim{color:#9a927c}.modh{margin-top:8px;padding-top:4px;border-top:1px solid rgba(255,255,255,.1);color:#b9c9a8;font-size:11px;text-transform:uppercase;letter-spacing:.04em}.modgrid{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;margin-top:3px}.modgrid label{cursor:pointer}.modbtns{margin-top:6px;display:flex;gap:6px}.modbtns button{background:#2a3230;border:1px solid #556;color:#e8e2d0;border-radius:6px;padding:2px 8px;cursor:pointer;font:inherit}
 .jrbox{right:auto;left:10px;top:84px;width:320px}
 
+.rentchip{display:inline-block;margin-left:6px;padding:4px 10px;border-radius:999px;background:rgba(22,27,30,.86);border:1px solid #6b5a2a;color:#e8c88a;font-size:12.5px;white-space:nowrap}.reqsay .rentchip{margin-left:0}
+
 </style>
 </head>
 <body>
@@ -23531,6 +23533,9 @@ function lf2Slow(n, p) {
   if (p && n.toolQ != null && n.toolQ < 15 && LF2.on("economy")) p.forEach((s) => {
     if (s.k === "wait" && s.act === "work") s.min = Math.round(s.min * 1.5);
   });
+  if (p && yardOn() && (n.mood < 35 || n.hunger > 75)) p.forEach((s) => {
+    if (s.k === "wait" && s.act === "work") s.min = Math.round(s.min * 1.6);
+  });
   return p;
 }
 LF2.dec.unshift(lf2CookPlan);
@@ -26156,8 +26161,8 @@ const HAMLET_SEEDS = ["barley", "turnip", "cabbage", "poppy"];
 const HAMLET_TRADER_DEF = { buys: {}, sells: {}, open: [6, 19], tool: "wipe", noun: "trading stall" };
 for (const k of HAMLET_SEEDS) HAMLET_TRADER_DEF.sells["seed_" + k] = IT_SEEDS[k] && IT_SEEDS[k].flower ? 14 : 30;
 for (const g of Object.keys(GROCER_DEF.buys)) {
-  HAMLET_TRADER_DEF.buys[g] = GROCER_DEF.buys[g];
-  if (g !== "flowers") HAMLET_TRADER_DEF.sells[g] = GROCER_DEF.buys[g];
+  HAMLET_TRADER_DEF.buys[g] = GROCER_DEF.buys[g] * 3;
+  if (g !== "flowers") HAMLET_TRADER_DEF.sells[g] = GROCER_DEF.buys[g] * 3;
 }
 const HAMLET_PRICES = { fence: 1, gate: 3, field: 2, bwall: 4, bwindow: 6, bdoor: 6, bed: 10 };
 const HAMLET_BUILD = ["bwall", "bwindow", "bdoor", "bed", "fence", "gate", "field"];
@@ -26246,7 +26251,7 @@ function hamletStart() {
     m.n.coin = 60;
     farmRestock();
     m.newStock = {};
-    m.stock.grain = 40;
+    m.stock.grain = 30;
   }
   P.coin = 60;
   a.coin = 12;
@@ -26600,6 +26605,157 @@ function drawYards(c, now) {
     c.fillText(t, gx * TS + TS / 2, gy * TS - TS * 0.04);
     c.restore();
   }
+}
+const RENT_BASE = 2, RENT_ROOF = 1, RENT_WINDOW = 1, RENT_FLOWERS = 1, RENT_HOUR = 6, RENT_FLOWER_R = 4;
+const rentTrader = (n) => !!(n && n.shop && n.shop.def === HAMLET_TRADER_DEF);
+function rentHome(n) {
+  const o = { yard: null, roof: false, window: false, flowers: false };
+  if (!yardOn() || !yardHasBed(n)) return o;
+  const b = n.bed;
+  o.yard = yardOfN(n);
+  const ri2 = roomAt[b.y][b.x], r = ri2 >= 0 ? rooms[ri2] : null;
+  if (r && !r.dead) {
+    o.roof = true;
+    for (const k of r.walls || []) if (town.win && town.win.has(k) || town.winS && town.winS.has(k)) {
+      o.window = true;
+      break;
+    }
+  }
+  for (const c of town.crops || []) {
+    if (!c.st || Math.max(Math.abs(c.x - b.x), Math.abs(c.y - b.y)) > RENT_FLOWER_R || !itIsFlower(c) || itWilted(c) || cropStage(c) < 4) continue;
+    o.flowers = true;
+    break;
+  }
+  return o;
+}
+function rentOf(n) {
+  const none = { amt: 0, parts: [] };
+  if (!yardOn() || n.dead || n.age < 16 || n === yardPlayer() || n.player || rentTrader(n)) return none;
+  const h = rentHome(n);
+  if (!h.yard) return none;
+  const parts = [["a yard", RENT_BASE]];
+  if (h.roof) parts.push(["a roof", RENT_ROOF]);
+  if (h.roof && h.window) parts.push(["a window", RENT_WINDOW]);
+  if (h.flowers) parts.push(["flowers", RENT_FLOWERS]);
+  return { amt: parts.reduce((s, p) => s + p[1], 0), parts };
+}
+const rentState = () => town.rent || (town.rent = { day: -1, today: 0, due: 0, total: 0 });
+function rentCollect() {
+  if (!yardOn()) return;
+  const pl = yardPlayer();
+  if (!pl) return;
+  const R = rentState(), day = Math.floor(game.time / 1440);
+  if (R.day === day) return;
+  R.day = day;
+  R.today = 0;
+  R.due = 0;
+  for (const n of npcs) {
+    if (n.dead || n === pl || n.age < 16 || rentTrader(n)) continue;
+    const q = rentOf(n);
+    if (!q.amt) {
+      if (!yardOfN(n)) LIFE.emit("no_yard", n, {});
+      n.rentLast = null;
+      continue;
+    }
+    R.due += q.amt;
+    if (n.coin < q.amt) {
+      const y = yardOfN(n);
+      for (const o of yardPeople(y)) {
+        if (o === n || o === pl || o.age < 16 || rentTrader(o)) continue;
+        const t = Math.min(o.coin - (o.rentLast && o.rentLast.t === game.time ? 0 : rentOf(o).amt), q.amt - n.coin);
+        if (t > 0) {
+          o.coin -= t;
+          n.coin += t;
+        }
+        if (n.coin >= q.amt) break;
+      }
+    }
+    if (n.coin >= q.amt) {
+      pay(n, pl, q.amt);
+      R.today += q.amt;
+      R.total += q.amt;
+      n.rentLast = { t: game.time, amt: q.amt, ok: true };
+      LIFE.emit("rent_paid", n, { price: q.amt });
+    } else {
+      n.rentLast = { t: game.time, amt: q.amt, ok: false };
+      lfMod(n, "rent", "could not pay the rent", -10, 1440);
+      LIFE.emit("rent_unpaid", n, { price: q.amt });
+    }
+  }
+  if (pl.player && R.due) playerSay(pl, R.today >= R.due ? `Rent came in: ${R.today} coin.` : R.today ? `Rent came in: ${R.today} coin of ${R.due}. Not everybody could pay.` : "No rent this morning. Nobody had it.");
+}
+function rentContent() {
+  if (!yardOn()) return;
+  const pl = yardPlayer();
+  for (const n of npcs) {
+    if (n.dead || n.infant || n === pl || n.mods === void 0) continue;
+    const h = rentHome(n), set = (id, on, text, v) => {
+      if (on) lfMod(n, id, text, v, 1500);
+      else if ((n.mods || []).some((m) => m.id === id)) n.mods = n.mods.filter((m) => m.id !== id);
+    };
+    set("yard", !h.yard, yardHasBed(n) ? "has a bed but no yard" : "has no bed and no yard", -12);
+    set("roof", h.roof, "sleeps under a roof", 6);
+    set("window", h.roof && h.window, "has a window", 3);
+    set("flowers", h.flowers, "flowers by the bed", 3);
+  }
+}
+LF2.hourly.push((h) => {
+  if (!yardOn()) return;
+  rentContent();
+  if (h === RENT_HOUR) rentCollect();
+});
+function rentErrand(n) {
+  if (!yardOn() || n.player || n.age < 16 || n.shop || (n.rentErr || 0) > game.time) return null;
+  const y = yardOfN(n);
+  if (!y) return null;
+  const due = rentOf(n).amt;
+  if (!due || n.coin >= due * 2) return null;
+  const hh = yardPeople(y).filter((o) => !o.infant).length, st = y.store || {}, spare = foodCount(st) - hh * 6;
+  if (spare < 3) {
+    n.rentErr = game.time + 120;
+    return null;
+  }
+  const g = FOODS.filter((f) => (st[f] || 0) > 0).sort((a, b) => (st[b] || 0) - (st[a] || 0))[0], m = g && findBuyer(n, g, true);
+  if (!m) {
+    n.rentErr = game.time + 90;
+    return null;
+  }
+  const q = Math.min(st[g], spare, 12);
+  n.rentErr = game.time + 240;
+  return [goS(pantrySpot, "Fetching food from the store to sell"), waitS(2, "stand", "Taking what the household can spare", { nopie: true, onEnd(nn) {
+    const t = Math.min(q, st[g] || 0);
+    st[g] -= t;
+    nn.inv[g] = (nn.inv[g] || 0) + t;
+  } }), ...sellStep(n, m, g, q)];
+}
+LF2.dec.push(rentErrand);
+function rentHUD() {
+  const pl = yardPlayer();
+  if (!yardOn() || !pl) return "";
+  const R = rentState();
+  let exp = 0;
+  for (const n of npcs) exp += rentOf(n).amt;
+  return `<span class="rentchip" title="Rent is paid each morning at six by every adult with a yard: ${RENT_BASE} coin, and 1 more each for a roof, a window and flowers near the bed.">${Math.floor(pl.coin)} coin \xB7 rent ${R.day >= 0 && R.due ? `today ${R.today}${R.today < R.due ? " of " + R.due : ""}` : `tomorrow ${exp}`}</span>`;
+}
+const rentSig = () => {
+  if (!yardOn()) return "";
+  const pl = yardPlayer(), R = rentState();
+  let exp = 0;
+  for (const n of npcs) exp += rentOf(n).amt;
+  return Math.floor(pl ? pl.coin : 0) + ":" + R.today + ":" + R.due + ":" + exp;
+};
+function rentCardRow(n) {
+  if (!yardOn() || n.dead) return "";
+  const pl = yardPlayer(), row = (a, b) => `<div class="vcrow"><span class="dim">${a}</span> ${esc(b)}</div>`;
+  const h = rentHome(n), home = !yardHasBed(n) ? "no bed: sleeping rough" : !h.yard ? "a bed, but no yard" : yardName(h.yard).replace(/^./, (c) => c.toUpperCase()) + (h.roof ? ", under a roof" + (h.window ? " with a window" : "") : ", in the open") + (h.flowers ? ", flowers nearby" : "");
+  let out = row("Home", home);
+  if (n !== pl && n.age >= 16 && !rentTrader(n)) {
+    const q = rentOf(n), l = n.rentLast;
+    out += row("Rent", q.amt ? `${q.amt} a day (${q.parts.map((p) => p[0] + " " + p[1]).join(", ")})` + (l ? l.ok ? " \xB7 paid this morning" : " \xB7 could not pay this morning" : "") + ` \xB7 has ${Math.floor(n.coin)} coin` : "none: no yard");
+  }
+  const why = (n.mods || []).filter((m) => ["yard", "roof", "window", "flowers", "rent"].includes(m.id)).map((m) => m.text);
+  if (why.length) out += row("About home", why.join(", "));
+  return out;
 }
 function carpWant(needs) {
   if (!town || !kitOn()) return null;
@@ -27711,16 +27867,18 @@ try {
     if (typeof guidesUpdate === "function") guidesUpdate(n);
     const cur = n[0], B = townBalance(), open = REQ_OPEN;
     const tr = typeof LIFE !== "undefined" ? LIFE.troubles(7) : [], trS = tr.map((q) => q.kind + q.people).join(",");
-    const s = (cur ? cur.id + cur.say : "ok") + "|" + trS + "|" + open + "|" + B.pop + "|" + B.beds + "|" + B.privies + "|" + B.plots + "|" + Math.round(B.stock / 5);
+    const rentS = typeof rentHUD === "function" ? rentHUD() : "";
+    const s = (typeof rentSig === "function" ? rentSig() : "") + (cur ? cur.id + cur.say : "ok") + "|" + trS + "|" + open + "|" + B.pop + "|" + B.beds + "|" + B.privies + "|" + B.plots + "|" + Math.round(B.stock / 5);
     box.hidden = false;
     if (s === sig) return;
     sig = s;
     const mark = (have, need) => have >= need ? '<span class="ok">\u2713</span>' : "<b>" + have + "/" + need + "</b>";
     if (!open) {
       box.innerHTML = cur ? `<button type="button" class="reqpill${cur.hard ? " hard" : ""}" data-req="1" title="What the island needs (N)">\u25CF ${esc(cur.title)}</button>` : `<button type="button" class="reqpill ok" data-req="1" title="What the island needs (N)">\u25CF In balance</button>`;
+      box.innerHTML += rentS;
       return;
     }
-    box.innerHTML = `<div class="reqcard"><button type="button" class="reqx" data-req="1" title="Close (N)">\xD7</button>` + (cur ? `<b>${esc(cur.title)}</b>${cur.who.length ? ' <span class="dim">\xB7 ' + esc(cur.who.slice(0, 3).join(", ")) + "</span>" : ""}<br>\u201C${esc(cur.say)}\u201D<br><span class="dim">${esc(cur.how)}</span>` : "<b>Everything is in balance.</b>") + (tr.length ? `<div class="reqsay"><span class="dim">This week:</span> ` + tr.slice(0, 4).map((q) => `${q.people} ${q.people === 1 ? "person" : "people"} ${esc(q.label)}`).join(" \xB7 ") + `</div>` : "") + `<div class="reqrows"><span>Beds ${mark(B.beds, B.bedsNeeded)}</span>${B.pop > 1 ? `<span>Privies ${mark(B.privies, B.priviesNeeded)}</span><span>Field plots ${mark(B.plots, B.plotsNeeded)}</span>` : ""}<span>Food ${B.stockDays.toFixed(1)} days</span></div>` + (n.length > 1 ? `<div class="dim reqthen">Then: ${esc(n.slice(1, 3).map((x) => x.title).join(" \xB7 "))}</div>` : "") + "</div>";
+    box.innerHTML = `<div class="reqcard"><button type="button" class="reqx" data-req="1" title="Close (N)">\xD7</button>` + (cur ? `<b>${esc(cur.title)}</b>${cur.who.length ? ' <span class="dim">\xB7 ' + esc(cur.who.slice(0, 3).join(", ")) + "</span>" : ""}<br>\u201C${esc(cur.say)}\u201D<br><span class="dim">${esc(cur.how)}</span>` : "<b>Everything is in balance.</b>") + (rentS ? `<div class="reqsay">${rentS}</div>` : "") + (tr.length ? `<div class="reqsay"><span class="dim">This week:</span> ` + tr.slice(0, 4).map((q) => `${q.people} ${q.people === 1 ? "person" : "people"} ${esc(q.label)}`).join(" \xB7 ") + `</div>` : "") + `<div class="reqrows"><span>Beds ${mark(B.beds, B.bedsNeeded)}</span>${B.pop > 1 ? `<span>Privies ${mark(B.privies, B.priviesNeeded)}</span><span>Field plots ${mark(B.plots, B.plotsNeeded)}</span>` : ""}<span>Food ${B.stockDays.toFixed(1)} days</span></div>` + (n.length > 1 ? `<div class="dim reqthen">Then: ${esc(n.slice(1, 3).map((x) => x.title).join(" \xB7 "))}</div>` : "") + "</div>";
   }
   box.addEventListener("click", (e) => {
     if (e.target.closest("[data-req]")) {
@@ -27788,7 +27946,7 @@ function vcMood(n) {
   if (n.energy != null && n.energy < 25 && n.pose !== "sleep") out.push("worn out");
   if (n.bladder > 80) out.push("needs a privy");
   if (n.social != null && n.social < 22) out.push("lonely");
-  if (!n.homeRoom || n.homeRoom.dead) out.push("no bed of their own");
+  if (typeof yardOn === "function" && yardOn() ? !yardHasBed(n) : !n.homeRoom || n.homeRoom.dead) out.push("no bed of their own");
   return out;
 }
 function vcFeel(a, k) {
@@ -27816,7 +27974,7 @@ function vcHTML(n) {
     return `<li>${esc(TE.text(ev, m.ver))} <span class="dim">\xB7 ${src}${m.conf < 0.5 ? ", not sure" : ""}</span></li>`;
   }).join("");
   const news = (town.chron || []).filter((c) => c.text.indexOf(n.first) >= 0).slice(-3).reverse().map((c) => `<li>${esc(c.text)}</li>`).join("");
-  return `<b>${esc(typeof nameOf === "function" ? nameOf(n) : n.first)}</b>${n.player ? ' <span class="dim">(you)</span>' : ""}<div class="dim">${n.age}${n.role ? " \xB7 " + esc(n.role) : ""}${here ? " \xB7 " + esc(here) : ""}</div><div class="vcrow"><span class="dim">Right now</span> ${esc(doing)}</div>` + (hints2.length ? `<div class="vcrow"><span class="dim">Notice</span> ${esc(hints2.join(" \xB7 "))}</div>` : "") + `<div class="vcrow"><span class="dim">Feeling</span> ${esc(mood || "fine")}${hints.length ? " \xB7 " + esc(hints.join(", ")) : ""}</div>` + (rel ? `<div class="vch">Company</div><ul>${rel}</ul>` : "") + (heard ? `<div class="vch">Knows</div><ul>${heard}</ul>` : "") + (news ? `<div class="vch">Said about them</div><ul>${news}</ul>` : "") + (lately ? `<div class="vch">Before that</div><ul>${lately}</ul>` : "");
+  return `<b>${esc(typeof nameOf === "function" ? nameOf(n) : n.first)}</b>${n.player ? ' <span class="dim">(you)</span>' : ""}<div class="dim">${n.age}${n.role ? " \xB7 " + esc(n.role) : ""}${here ? " \xB7 " + esc(here) : ""}</div><div class="vcrow"><span class="dim">Right now</span> ${esc(doing)}</div>` + (hints2.length ? `<div class="vcrow"><span class="dim">Notice</span> ${esc(hints2.join(" \xB7 "))}</div>` : "") + `<div class="vcrow"><span class="dim">Feeling</span> ${esc(mood || "fine")}${hints.length ? " \xB7 " + esc(hints.join(", ")) : ""}</div>` + (typeof rentCardRow === "function" ? rentCardRow(n) : "") + (rel ? `<div class="vch">Company</div><ul>${rel}</ul>` : "") + (heard ? `<div class="vch">Knows</div><ul>${heard}</ul>` : "") + (news ? `<div class="vch">Said about them</div><ul>${news}</ul>` : "") + (lately ? `<div class="vch">Before that</div><ul>${lately}</ul>` : "");
 }
 function openVillagerCard(n) {
   VCARD = n || null;
@@ -28640,6 +28798,9 @@ for (const k of ["crush", "courting", "tryst"]) EVK(k, "romance", { tell: 0.7 })
 for (const k of ["dice", "sing", "stumble", "smelly", "newclothes", "knock", "wake"]) EVK(k, "daily", { tell: 0.2 });
 EVK("arrival", "place", { tell: 0.9 });
 EVK("moved_in", "home", { tell: 0.5 });
+EVK("rent_paid", "home", { needs: ["price"], tell: 0.12 });
+EVK("rent_unpaid", "home", { needs: ["price"], tell: 0.6, tags: ["misfortune"] });
+EVK("no_yard", "home", { tell: 0.55, tags: ["misfortune"] });
 EVK("bought", "trade", { needs: ["item", "qty"], tell: 0.25 });
 EVK("sold", "trade", { needs: ["item", "qty"], tell: 0.2 });
 EVK("could_not_afford", "trade", { needs: ["item"], tell: 0.4, tags: ["misfortune"] });
@@ -28699,6 +28860,8 @@ const LIFE_TROUBLE = {
   went_hungry: "went hungry",
   starving: "are starving",
   could_not_afford: "could not afford something",
+  rent_unpaid: "could not pay the rent",
+  no_yard: "had no yard",
   out_of_stock: "found it out of stock",
   tool_broke: "broke a tool",
   lost_bed: "lost their bed",
@@ -32884,6 +33047,10 @@ LXP(
   ],
   {}
 );
+LXLP("rent_paid", ["I paid the rent this morning.", "Rent is paid. That is one thing settled.", "Paid my rent at six, same as every day."]);
+LXLP("rent_unpaid", ["I could not pay the rent this morning.", "I had nothing for the rent today.", "The rent went unpaid. I do not like that."]);
+LXLP("no_yard", ["I have no yard of my own.", "I have nowhere that is mine. No fence, no field.", "Still no yard. I cannot grow a thing."]);
+LXLP("moved_in", ["We have a yard of our own now.", "I moved into a yard. A bed, a fence, a gate.", "I have a place at last."]);
 lx("ask_news", "plain", "Any news?");
 lx("ask_news", "plain", "Heard anything lately?");
 lx("ask_news", "plain", "What's the word today?");
@@ -34151,6 +34318,10 @@ LXI(
   ],
   {}
 );
+LXLI("rent_paid", ["I paid the rent at six.", "The rent is paid. I checked my pocket twice afterwards.", "I paid my rent this morning."]);
+LXLI("rent_unpaid", ["I could not pay the rent today.", "The rent was due at six. I was not ready at six.", "I had no coin for the rent this morning."]);
+LXLI("no_yard", ["I have no yard.", "I have a patch of ground I stand on. It is not mine.", "No fence has my name on it yet."]);
+LXLI("moved_in", ["I have a yard now.", "I moved in behind a fence. It has a gate.", "There is a bed with a fence round it, and it is mine."]);
 lxi("ask_news", "Has anything happened? Anything at all. I will take a small one.");
 lxi("ask_news", "Any news?");
 lxi("ask_news", "Have you heard anything? About anyone. About anything.");

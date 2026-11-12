@@ -1486,6 +1486,71 @@ test('hamlet yards: a fence ring with a gate is a yard, beds inside make the hou
   await page.close();
   return 'yards close, open with a day of grace, house the family, keep fields to their household, warn before leaving, and save';
 });
+test('hamlet rent: adults with a yard pay each morning (more for a roof, a window, flowers), unpaid rent is not a debt and weighs on them, children and the trader pay nothing, a household short of coin sells from its store, the HUD and the card say so', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('hamlet-rent', 'hamlet'); const P = game.player, out = {}; const TR = npcs.find(n => n.shop), fam = npcs.filter(n => n !== P && n !== TR), dad = fam.find(n => n.age >= 16 && !n.female), mum = fam.find(n => n.age >= 16 && n.female), kid = fam.find(n => n.age < 16);
+    const free = (x, y) => walkable(x, y) && !lfPropAt(x, y) && grid[y][x] === T.GRASS && roomAt[y][x] < 0 && !(town.nodeMap && town.nodeMap.has(y * W + x)) && !yardAtXY(x, y);
+    const area = (w, h) => { let best = null; for (let y = 8; y < town.h0 - 8 - h; y++) for (let x = 8; x < W - 8 - w; x++) { let bad = 0; for (let j = -1; j <= h && bad < 9; j++) for (let i = -1; i <= w && bad < 9; i++) { const g = grid[y + j][x + i]; if (g !== T.GRASS && g !== T.TREE && g !== T.ROCK) bad = 99; else if (!free(x + i, y + j)) bad++; if (lfPropAt(x + i, y + j) || yardAtXY(x + i, y + j)) bad = 99; } if (bad < 9 && Math.hypot(x - town.cx, y - town.cy) > 14) { best = [x, y]; break; } if (best) break; } if (!best) throw new Error('no ground'); for (let j = -1; j <= h; j++) for (let i = -1; i <= w; i++) { const X = best[0] + i, Y = best[1] + j; if (grid[Y][X] !== T.GRASS) setT(X, Y, T.GRASS); if (town.nodeMap && town.nodeMap.has(Y * W + X)) { const nd = town.nodeMap.get(Y * W + X); town.nodes = town.nodes.filter(q => q !== nd); town.nodeMap.delete(Y * W + X); } } town.gridV++; refreshReach(); return best; };
+    const [ax, ay] = area(13, 13); window.__a = [ax, ay];
+    for (let j = 0; j < 13; j++) for (let i = 0; i < 13; i++) if (i === 0 || j === 0 || i === 12 || j === 12) lfAddProp(i === 6 && j === 12 ? 'gate' : 'fence', ax + i, ay + j);
+    const beds = [[3, 3], [9, 3], [6, 9]].map(([i, j]) => lfAddProp('bed', ax + i, ay + j)); yardHousing(); const Y = yardAtXY(ax + 6, ay + 6); window.__Y = Y;
+    out.in = fam.every(n => yardOfN(n) === Y);
+    // plain yard: 2 coin each adult; nothing from the child, the trader or you
+    out.rents = [rentOf(dad).amt, rentOf(mum).amt, rentOf(kid).amt, rentOf(TR).amt, rentOf(P).amt].join();
+    dad.coin = 2; mum.coin = 1; const c0 = P.coin; rentState().day = -1; rentCollect();
+    out.paid = [P.coin - c0, dad.coin, mum.coin, dad.rentLast.ok, mum.rentLast.ok, rentState().today, rentState().due, mum.mods.some(m => m.id === 'rent')];
+    rentCollect(); out.once = P.coin - c0;
+    // the next morning she has coin: she pays that day's rent and nothing for yesterday
+    mum.coin = 9; rentState().day = -1; rentCollect(); out.noDebt = mum.coin; out.covered = dad.rentLast.ok && dad.coin === 0;
+    // a room round the father's bed, with a window, and poppies in bloom beside it
+    const bx = dad.bed.x, by = dad.bed.y, q = [];
+    for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) if (Math.abs(i) === 2 || Math.abs(j) === 2) { const x = bx + i, y = by + j; if (lfPropAt(x, y)) continue; q.push(lfAddProp(i === 0 && j === 2 ? 'bdoor' : i === 0 && j === -2 ? 'bwindow' : 'bwall', x, y)); }
+    out.others = [mum, kid].map(n => Math.max(Math.abs(n.bed.x - bx), Math.abs(n.bed.y - by)));
+    return out;
+  });
+  check(r.in, 'the family lives in the yard');
+  check(r.rents === '2,2,0,0,0', 'two coin from each adult with a yard, nothing from the child, the trader or you: ' + r.rents);
+  check(r.paid[0] === 2 && r.paid[1] === 0 && r.paid[2] === 1 && r.paid[3] === true && r.paid[4] === false && r.paid[5] === 2 && r.paid[6] === 4 && r.paid[7], 'who can pay pays, who cannot does not and feels it: ' + JSON.stringify(r.paid));
+  check(r.once === 2, 'rent is collected once a day'); check(r.noDebt === 5 && r.covered, 'unpaid rent is not a debt, and the household covers for one another: ' + JSON.stringify([r.noDebt, r.covered]));
+  const r2 = await page.evaluate(() => {
+    const P = game.player, out = {}; const TR = npcs.find(n => n.shop), fam = npcs.filter(n => n !== P && n !== TR), dad = fam.find(n => n.age >= 16 && !n.female), mum = fam.find(n => n.age >= 16 && n.female), kid = fam.find(n => n.age < 16);
+    const bx = dad.bed.x, by = dad.bed.y;
+    for (const p of town.props.slice()) if (['bwall', 'bdoor', 'bwindow'].includes(p.kind)) bldQueue(p); bldTick(); visHomes(); yardHousing();
+    out.room = roomAt[by][bx] >= 0; out.stillYard = yardOfN(dad) === __Y && fam.every(n => yardOfN(n) === __Y); out.home = JSON.stringify(rentHome(dad), (k, v) => k === 'yard' ? !!v : v);
+    out.roof = rentOf(dad).amt; out.mum = rentOf(mum).amt;
+    const fk = __Y.cells.find(k => { const x = k % W, y = (k / W) | 0; return Math.max(Math.abs(x - bx), Math.abs(y - by)) <= 4 && Math.max(Math.abs(x - bx), Math.abs(y - by)) >= 3 && grid[y][x] === T.GRASS && !lfPropAt(x, y) && roomAt[y][x] < 0 && [mum, kid].every(o => Math.max(Math.abs(x - o.bed.x), Math.abs(y - o.bed.y)) > 4); });
+    const c = { x: fk % W, y: (fk / W) | 0, f: 'fl', pl: 1, st: 1, seed: 'poppy', t0: 0 }; c.t0 = game.time - itGrow(c) - 5; setT(c.x, c.y, T.CROP); town.crops.push(c);
+    out.all = rentOf(dad).amt; out.parts = rentOf(dad).parts.map(p => p[0]).join();
+    rentContent(); out.mods = dad.mods.filter(m => ['yard', 'roof', 'window', 'flowers'].includes(m.id)).map(m => m.id + m.v).sort().join(); out.pmods = (P.mods || []).some(m => m.id === 'yard');
+    // somebody whose bed stands outside every yard: no rent, and they mind
+    const stray = lfAddProp('bed', P.bed.x + 1, P.bed.y); const kb = kid.bed; kid.bed.owner = null; stray.owner = kid; kid.bed = stray; yardHousing(); rentContent();
+    out.stray = [yardOfN(kid) == null, kid.mods.some(m => m.id === 'yard' && m.v < 0)]; stray.owner = null; kb.owner = kid; kid.bed = kb; yardHousing(); rentContent(); out.back = !kid.mods.some(m => m.id === 'yard');
+    // a miserable or hungry villager works slowly
+    const m0 = dad.mood, h0 = dad.hunger; dad.mood = 20; dad.hunger = 10; out.slow = lf2Slow(dad, [{ k: 'wait', act: 'work', min: 10 }])[0].min; dad.mood = 70; out.fast = lf2Slow(dad, [{ k: 'wait', act: 'work', min: 10 }])[0].min; dad.mood = m0; dad.hunger = h0;
+    // the screen
+    out.hud = rentHUD().replace(/<[^>]+>/g, ''); out.card = rentCardRow(dad).replace(/<[^>]+>/g, ' '); out.cardKid = /Rent/.test(rentCardRow(kid));
+    // short of coin with a full store: somebody takes the spare food to the trader
+    dad.coin = 0; mum.coin = 0; __Y.store = { grain: 40 }; for (const n of fam) { n.hunger = 5; n.inv.grain = 0; }
+    return out;
+  });
+  check(r2.room && r2.stillYard, 'a room inside the yard is still the yard: ' + JSON.stringify([r2.room, r2.stillYard]));
+  check(r2.roof === 4 && r2.mum === 2 && r2.all === 5 && r2.parts === 'a yard,a roof,a window,flowers', 'a roof, a window and flowers each add a coin for the one who has them: ' + JSON.stringify([r2.roof, r2.mum, r2.all, r2.parts, r2.home]));
+  check(r2.mods === 'flowers3,roof6,window3' && !r2.pmods, 'what you built shows in their contentment: ' + r2.mods);
+  check(r2.stray[0] && r2.stray[1] && r2.back, 'a bed outside every yard: no yard, and they mind: ' + JSON.stringify(r2.stray));
+  check(r2.slow === 16 && r2.fast === 10, 'a miserable villager works slowly: ' + r2.slow);
+  check(/\d+ coin · rent/.test(r2.hud), 'the screen shows your coin and the rent: ' + r2.hud);
+  check(/Rent\s+5 a day \(a yard 2, a roof 1, a window 1, flowers 1\)/.test(r2.card) && /under a roof with a window/.test(r2.card) && !r2.cardKid, 'the card says what they pay and why: ' + r2.card);
+  await simulate(page, 8 * 60);
+  const r3 = await page.evaluate(() => {
+    const P = game.player, TR = npcs.find(n => n.shop), fam = npcs.filter(n => n !== P && n !== TR);
+    return { coin: fam.reduce((s, n) => s + n.coin, 0), store: __Y.store.grain, alive: npcs.filter(n => !n.dead).length, steps: fam.map(n => (n.log || []).map(e => e.text).slice(-7).join('/')).join(' | ') };
+  });
+  check(r3.coin > 0 && r3.store < 40, 'a household short of coin sells what its store can spare: ' + JSON.stringify(r3));
+  check(errors.length === 0, 'no page errors: ' + errors.slice(0, 2).join(' | '));
+  await page.close();
+  return 'rent 2 to 5 a head, paid at six, no debts; contentment from the home; the store is sold from when coin is short';
+});
 test('ready farming village: only what farming needs; farmers buy seed from the seed seller with real money, keep seed back, sell what they grow to the greengrocer, and talk about it', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {
