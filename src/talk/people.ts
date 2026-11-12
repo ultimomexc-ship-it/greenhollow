@@ -85,11 +85,37 @@ function peopleReason(a: any, b: any): string {
   return ''; // (no reason worth giving: the opinion is said without one, rather than with 'we have talked')
 }
 /** somebody this person has a view of, who is not one of the two talking */
+/** close family: spouse, partner, parent, child */
+const peopleNear = (a: any, b: any): boolean => {
+  const f = a.fam || {},
+    g = b.fam || {};
+  return (
+    f.spouse === b.id ||
+    f.partner === b.id ||
+    g.spouse === a.id ||
+    g.partner === a.id ||
+    f.mother === b.id ||
+    f.father === b.id ||
+    g.mother === a.id ||
+    g.father === a.id ||
+    (f.kids || []).includes(b.id) ||
+    (g.kids || []).includes(a.id)
+  );
+};
+/** close family of any kind, siblings too */
+const peopleRelated = (a: any, b: any): boolean => {
+  const f = a.fam || {},
+    g = b.fam || {};
+  return peopleNear(a, b) || (f.mother != null && f.mother === g.mother) || (f.father != null && f.father === g.father);
+};
+/** an opinion is not asked about somebody's own spouse, parent or child (that is what asking after the family is for), nor about family both of them share */
+const peopleSkip = (o: any, asked: any, other: any): boolean => peopleNear(o, asked) || (peopleRelated(o, asked) && peopleRelated(o, other));
 function peopleAbout(sp: any, li: any, need: 'view' | 'strong'): any {
   const cands = npcs.filter(
     (o: any) =>
       o !== sp &&
       o !== li &&
+      !peopleSkip(o, li, sp) &&
       !o.dead &&
       !o.infant &&
       o.age >= 6 &&

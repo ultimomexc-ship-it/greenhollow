@@ -63,3 +63,4 @@ LXI('react_delight', ['Good.', 'I am glad.', 'That is good to hear.', 'Well. Goo
 // first person: said by the one who did it (TE.text with the speaker)
 lxi('ev1:lent_hand', "I did an hour of {t}'s work");
 lxi('ev1:sick_visit', 'I sat with {t} because of the fever');
+LXI('react_unmoved', ['Huh.', 'Is it. Noted.', 'That does not surprise me.', 'Well. There it is.', 'I will file that.']);

@@ -102,3 +102,4 @@ lx('mutter', 'plain', 'Again. A little harder.', { how: 'smith' });
 lx('mutter', 'plain', 'Now where did that go.');
 lx('mutter', 'plain', 'Nearly done. Nearly.');
 lx('mutter', 'plain', 'Back to it, then.');
+LXP('laugh', ['Ha.', 'Ha. Good one.', "Ha. I didn't see that coming.", 'Ha. I needed that.', "That's a good one. I'll use it."], {});

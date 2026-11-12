@@ -141,3 +141,17 @@ lx('rep_deny', 'plain', 'I never did.');
 lx('rep_deny', 'plain', "It wasn't me. Truly.");
 lx('rep_deny', 'plain', "Somebody's mixed me up with somebody else.");
 lx('rep_deny', 'plain', "I'd never. Ask anyone.");
+
+// an opinion of one's own family (only reached for siblings and, in old saves, others): tag `kin` is how the speaker is related to who is being talked about
+LXP('give_opinion', ['{about} is my other half, and I am fond of them. {reason}'], { kin: 'spouse', op: 'fond' });
+LXP('give_opinion', ['{about} is my spouse. We manage. {reason}'], { kin: 'spouse', op: 'wary' });
+LXP('give_opinion', ['{about} is my spouse and a good one. {reason}'], { kin: 'spouse', op: 'like' });
+LXP('give_opinion', ["{about} is my child. I'm biased. {reason}"], { kin: 'child', op: 'fond' });
+LXP('give_opinion', ['{about} is my child, and a handful. {reason}'], { kin: 'child', op: 'wary' });
+LXP('give_opinion', ["{about} is my child. I'm proud of them. {reason}"], { kin: 'child', op: 'like' });
+LXP('give_opinion', ['{about} is my parent. I owe them a great deal. {reason}'], { kin: 'parent', op: 'fond' });
+LXP('give_opinion', ["{about} is my parent. We don't always agree. {reason}"], { kin: 'parent', op: 'wary' });
+LXP('give_opinion', ['{about} is my parent. I could do worse. {reason}'], { kin: 'parent', op: 'like' });
+LXP('give_opinion', ["{about} is my sibling. I'd do anything for them. {reason}"], { kin: 'sibling', op: 'fond' });
+LXP('give_opinion', ['{about} is my sibling. We argue. {reason}'], { kin: 'sibling', op: 'wary' });
+LXP('give_opinion', ['{about} is my sibling. We get on. {reason}'], { kin: 'sibling', op: 'like' });

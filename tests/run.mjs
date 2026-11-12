@@ -1917,6 +1917,37 @@ test('registers are lines: a formal speaker says formal lines, a warm one warm l
   await page.close();
 });
 
+test('no opinions asked about somebody\'s own spouse, parent or child; asking after the family covers them', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    const ps = npcs.filter(n => !n.dead && !n.player && n.age >= 25 && !n.infant), A = ps[0], Z = ps[1], B = ps[2];
+    A.fam = Object.assign({}, A.fam, { spouse: Z.id }); Z.fam = Object.assign({}, Z.fam, { spouse: A.id }); B.aff[Z.id] = 40; B.know[A.id] = 40; B.know[Z.id] = 40; B.aff[A.id] = 30;
+    let asked = 0, drew = 0; for (let i = 0; i < 80; i++) { const o = peopleAbout(B, A, 'view'); if (o) { drew++; if (o === Z) asked++; } }
+    const c = { done: {}, turns: [], left: {} }; let fam = false; for (let i = 0; i < 20 && !fam; i++) fam = !!talkBind(c, B, A, 'ask_family');
+    return { asked, drew, fam, skip: peopleSkip(Z, A, B), near: peopleNear(Z, A) };
+  });
+  check(r.asked === 0 && r.skip === true && r.near === true, 'B is never sent to ask A what A makes of A\'s own spouse: ' + JSON.stringify(r));
+  check(r.fam, 'asking after the family is available instead');
+  check(!errors.length, 'no errors: ' + errors.join(' | '));
+  await page.close();
+});
+
+test('every act the player can say or answer with has a menu label in a known group, naming only about, item or news', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    const reps = new Set(); for (const id of Object.keys(ACTS)) for (const x of (ACTS[id].replies || [])) reps.add(x);
+    const SHOP = /^(shop_greet|shop_greet_back|ask_item|quote_price|pay_ok|thank_shop|farewell_shop|cant_afford|make_do|no_stock|offer_goods|bid_price|accept_deal|no_demand|new_stock_remark|keeper_call|call_reply)$/;
+    const ids = Object.keys(ACTS).filter(id => ACTS[id].kind !== 'ritual' && !SHOP.test(id) && ((ACTS[id].stage === 'topic' && !ACTS[id].reply) || reps.has(id)) && !['cry_deed', 'mutter', 'call_child', 'gift_from_nobody', 'gift_anon_reply'].includes(id));
+    const missing = ids.filter(id => !PT_LABEL[id]), badGroup = ids.filter(id => PT_LABEL[id] && !PT_GROUPS.includes(PT_LABEL[id][0])), badSlot = ids.filter(id => PT_LABEL[id] && (PT_LABEL[id][1].match(/\{(\w+)\}/g) || []).some(x => !['{about}', '{item}', '{news}'].includes(x)));
+    const long = ids.filter(id => PT_LABEL[id] && PT_LABEL[id][1].replace(/\{\w+\}/g, 'xxxxxx').length > 40);
+    return { n: ids.length, missing, badGroup, badSlot, long };
+  });
+  check(r.missing.length === 0, 'every act has a label (' + r.n + ' acts); missing: ' + JSON.stringify(r.missing));
+  check(r.badGroup.length === 0 && r.badSlot.length === 0 && r.long.length === 0, 'groups known, slots only about/item/news, labels short: ' + JSON.stringify([r.badGroup, r.badSlot, r.long]));
+  check(!errors.length, 'no errors: ' + errors.join(' | '));
+  await page.close();
+});
+
 test('bindings: asking whether something could be said never changes what is being said; a question and its answer are about the same person; a menu option says what it will say; no line is spoken with a gap in it', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

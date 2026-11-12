@@ -137,3 +137,15 @@ lxi('mutter', 'Hot enough. It is always hot enough, and then it is hotter.', { h
 lxi('mutter', 'Where did that go. It was here. It was right here.');
 lxi('mutter', 'Nearly done. I have said that all day and it has not been false once.');
 lxi('mutter', 'Back to it. The work does not know it is being watched.');
+LXI(
+  'laugh',
+  [
+    'Ha.',
+    'Ha. That one will keep.',
+    'Ha. I did not see that coming.',
+    'Hm. Ha.',
+    'Ha. I needed that.',
+    'Ha. That was good. I will not say so twice.'
+  ],
+  {}
+);

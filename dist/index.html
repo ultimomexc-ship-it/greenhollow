@@ -28684,6 +28684,12 @@ function lxContext(sp, li, c) {
     kid: li.age < 14 ? "yes" : void 0,
     menu: c.menu,
     reg: lxRegister(sp),
+    // how the speaker is related to who is being talked about, when it is family
+    kin: (() => {
+      const o = c.about, f2 = sp.fam || {};
+      if (!o || !o.id) return void 0;
+      return f2.spouse === o.id || f2.partner === o.id ? "spouse" : (f2.kids || []).includes(o.id) ? "child" : f2.mother === o.id || f2.father === o.id ? "parent" : typeof peopleRelated === "function" && peopleRelated(sp, o) ? "sibling" : void 0;
+    })(),
     // the speaker has had the same trouble this week (so a line that claims "I know that one" is true): from their own day log
     shared: c.life && c.lifeTrouble && (sp.day || []).some((e) => e.kind === c.life.kind && game.time - e.t < 7 * 1440) ? "yes" : void 0
   };
@@ -28745,16 +28751,15 @@ function lxSay(act, sp, li, c) {
     const short = cands.filter((e) => !lxMarked(e.text));
     if (short.length) cands = short;
   }
-  let best = null, bs = -1e9;
-  for (const e of cands) {
-    const id = act + "|" + e.text, g = LX_RECENT[id];
-    const heardPenalty = heard[id] != null ? 4 - Math.min(3, (game.time - heard[id]) / 600) : 0;
-    const s = Object.keys(e.tags).length * 2 - heardPenalty - (g != null && game.time - g < 180 ? 2.2 : 0) + Math.random() * 1.5;
-    if (s > bs) {
-      bs = s;
-      best = e;
-    }
-  }
+  const scored = cands.map((e) => {
+    const id = act + "|" + e.text, g = LX_RECENT[id], h = heard[id];
+    const heardPenalty = h != null ? 4 * Math.max(0, 1 - (game.time - h) / (3 * 1440)) : 0;
+    return { e, s: Object.keys(e.tags).length * 2 - heardPenalty - (g != null && game.time - g < 180 ? 2.2 : 0) };
+  });
+  let top = -1e9;
+  for (const x of scored) if (x.s > top) top = x.s;
+  const near = scored.filter((x) => x.s >= top - 1.5);
+  const best = near[Math.floor(Math.random() * near.length)].e;
   heard[act + "|" + best.text] = game.time;
   LX_RECENT[act + "|" + best.text] = game.time;
   const raw = best.text.replace(/\{(\w+)\}/g, (_m, k) => slots[k] != null ? slots[k] : "");
@@ -28890,9 +28895,18 @@ function peopleReason(a, b) {
   if (a.homeRoom != null && a.homeRoom === b.homeRoom) return "We share a roof.";
   return "";
 }
+const peopleNear = (a, b) => {
+  const f = a.fam || {}, g = b.fam || {};
+  return f.spouse === b.id || f.partner === b.id || g.spouse === a.id || g.partner === a.id || f.mother === b.id || f.father === b.id || g.mother === a.id || g.father === a.id || (f.kids || []).includes(b.id) || (g.kids || []).includes(a.id);
+};
+const peopleRelated = (a, b) => {
+  const f = a.fam || {}, g = b.fam || {};
+  return peopleNear(a, b) || f.mother != null && f.mother === g.mother || f.father != null && f.father === g.father;
+};
+const peopleSkip = (o, asked, other) => peopleNear(o, asked) || peopleRelated(o, asked) && peopleRelated(o, other);
 function peopleAbout(sp, li, need) {
   const cands = npcs.filter(
-    (o) => o !== sp && o !== li && !o.dead && !o.infant && o.age >= 6 && !o.player && (need === "strong" ? Math.abs(sp.aff[o.id] || 0) >= 20 : Math.abs(sp.aff[o.id] || 0) >= 14)
+    (o) => o !== sp && o !== li && !peopleSkip(o, li, sp) && !o.dead && !o.infant && o.age >= 6 && !o.player && (need === "strong" ? Math.abs(sp.aff[o.id] || 0) >= 20 : Math.abs(sp.aff[o.id] || 0) >= 14)
   );
   return cands.length ? cands[Math.floor(Math.random() * cands.length)] : null;
 }
@@ -31125,7 +31139,7 @@ ACTS.tell_price = {
 };
 ACTS.react_price = { kind: "trade", stage: "topic", reply: true, when: () => true, apply: () => {
 }, replies: [] };
-const PT = { s: null };
+const PT = { s: null, fallbacks: 0 };
 function closenessWord(o, p) {
   const rel = o.rel && o.rel[p.id], a = o.aff[p.id] || 0, k = o.know[p.id] || 0;
   if (rel && ["spouse", "partner", "parent", "child", "sibling"].includes(rel)) return rel;
@@ -31336,12 +31350,17 @@ function ptOptions(S) {
     if (!line) continue;
     seen.add(id);
     const what = ptLabel(id, slots), group = PT_LABEL[id] ? PT_LABEL[id][0] : A.reply ? "Answer" : "Tell";
+    if (!what) PT.fallbacks++;
     out.push({ id, bind, label: what || line, line, group, kind: A.kind, w: Math.random() + (A.kind !== "small" ? 0.6 : 0) });
   }
   out.sort((a, b) => b.w - a.w);
   const keep = out.slice(0, S.pending ? 6 : 5);
   if (!keep.some((q) => q.kind === "small") && out.some((q) => q.kind === "small")) keep[keep.length - 1] = out.find((q) => q.kind === "small");
-  for (const q of keep) if (keep.some((r) => r !== q && r.label === q.label)) q.label = q.line;
+  for (const q of keep)
+    if (keep.some((r) => r !== q && r.label === q.label)) {
+      q.label = q.line;
+      PT.fallbacks++;
+    }
   keep.sort((a, b) => PT_GROUPS.indexOf(a.group) - PT_GROUPS.indexOf(b.group));
   return keep;
 }
@@ -32151,6 +32170,17 @@ LXP(
   { shared: "yes" }
 );
 LXP("empathise", ["That sounds awful.", "Poor you.", "I'm sorry. That's hard."]);
+LXP(
+  "sympathise_how",
+  [
+    "I am sorry to hear it.",
+    "Sit down a while. Go on.",
+    "That sounds like a long day.",
+    "Have something to eat. See how you feel after.",
+    "Try to rest. It'll look better later."
+  ],
+  {}
+);
 lx("ask_news", "plain", "Any news?");
 lx("ask_news", "plain", "Heard anything lately?");
 lx("ask_news", "plain", "What's the word today?");
@@ -32216,6 +32246,7 @@ lx("ev1:gift", "plain", "I gave {t} a gift");
 lx("ev1:help", "plain", "I helped {t} out");
 lx("ev1:lent_hand", "plain", "I lent {t} a hand with the work");
 lx("ev1:sick_visit", "plain", "I looked in on {t} because of the fever");
+LXP("react_unmoved", ["Huh.", "Is it.", "That so.", "Doesn't surprise me.", "Well, there you go."]);
 lx("ask_opinion", "plain", "What do you make of {about}?");
 lx("ask_opinion", "plain", "What's {about} like, really?");
 lx("ask_opinion", "plain", "Do you get on with {about}?");
@@ -32357,6 +32388,18 @@ lx("rep_deny", "plain", "I never did.");
 lx("rep_deny", "plain", "It wasn't me. Truly.");
 lx("rep_deny", "plain", "Somebody's mixed me up with somebody else.");
 lx("rep_deny", "plain", "I'd never. Ask anyone.");
+LXP("give_opinion", ["{about} is my other half, and I am fond of them. {reason}"], { kin: "spouse", op: "fond" });
+LXP("give_opinion", ["{about} is my spouse. We manage. {reason}"], { kin: "spouse", op: "wary" });
+LXP("give_opinion", ["{about} is my spouse and a good one. {reason}"], { kin: "spouse", op: "like" });
+LXP("give_opinion", ["{about} is my child. I'm biased. {reason}"], { kin: "child", op: "fond" });
+LXP("give_opinion", ["{about} is my child, and a handful. {reason}"], { kin: "child", op: "wary" });
+LXP("give_opinion", ["{about} is my child. I'm proud of them. {reason}"], { kin: "child", op: "like" });
+LXP("give_opinion", ["{about} is my parent. I owe them a great deal. {reason}"], { kin: "parent", op: "fond" });
+LXP("give_opinion", ["{about} is my parent. We don't always agree. {reason}"], { kin: "parent", op: "wary" });
+LXP("give_opinion", ["{about} is my parent. I could do worse. {reason}"], { kin: "parent", op: "like" });
+LXP("give_opinion", ["{about} is my sibling. I'd do anything for them. {reason}"], { kin: "sibling", op: "fond" });
+LXP("give_opinion", ["{about} is my sibling. We argue. {reason}"], { kin: "sibling", op: "wary" });
+LXP("give_opinion", ["{about} is my sibling. We get on. {reason}"], { kin: "sibling", op: "like" });
 lx("ev:theft", "plain", "{a} stole from {t}");
 lx("ev:theft", "plain", "{a} walked off with something of {t}'s");
 lx("ev:shove", "plain", "{a} pushed {t} around");
@@ -32751,6 +32794,7 @@ lx("mutter", "plain", "Again. A little harder.", { how: "smith" });
 lx("mutter", "plain", "Now where did that go.");
 lx("mutter", "plain", "Nearly done. Nearly.");
 lx("mutter", "plain", "Back to it, then.");
+LXP("laugh", ["Ha.", "Ha. Good one.", "Ha. I didn't see that coming.", "Ha. I needed that.", "That's a good one. I'll use it."], {});
 lxi("greet", "Morning, {li}.", { band: "morning" });
 lxi("greet", "Good morning. I woke at some point before this and have been waiting for someone to say it to.", { band: "morning" });
 lxi("greet", "Afternoon, {li}.", { band: "day" });
@@ -33254,6 +33298,17 @@ LXI(
   ],
   { shared: "yes" }
 );
+LXI(
+  "sympathise_how",
+  [
+    "I am sorry to hear it.",
+    "Rest, if you can.",
+    "That sounds like a long day.",
+    "Sit down for a minute. I will stay.",
+    "Eat something. Then see how it looks."
+  ],
+  {}
+);
 lxi("ask_news", "Has anything happened? Anything at all. I will take a small one.");
 lxi("ask_news", "Any news?");
 lxi("ask_news", "Have you heard anything? About anyone. About anything.");
@@ -33316,6 +33371,7 @@ LXI("react_doubt", ["Are you sure?", "I doubt that.", "Who says so?"]);
 LXI("react_delight", ["Good.", "I am glad.", "That is good to hear.", "Well. Good.", "That was kind."]);
 lxi("ev1:lent_hand", "I did an hour of {t}'s work");
 lxi("ev1:sick_visit", "I sat with {t} because of the fever");
+LXI("react_unmoved", ["Huh.", "Is it. Noted.", "That does not surprise me.", "Well. There it is.", "I will file that."]);
 lxi("ask_opinion", "What is {about} like? I would like to know before I have to find out.");
 lxi("ask_opinion", "What do you make of {about}?");
 lxi("ask_opinion", "Do you get on with {about}? Be honest. I am only curious.");
@@ -33500,6 +33556,18 @@ lxi("rep_deny", "Who said so?");
 lxi("rep_deny", "That was not me. I would know.");
 lxi("rep_deny", "It is a rumour. I have seen what those do.");
 lxi("rep_deny", "Somebody is confusing me with somebody else.");
+LXI("give_opinion", ["{about} is my spouse. I am fond of them, which was the arrangement. {reason}"], { kin: "spouse", op: "fond" });
+LXI("give_opinion", ["{about} is my spouse. We manage. {reason}"], { kin: "spouse", op: "wary" });
+LXI("give_opinion", ["{about} is my spouse and a good one. I say it quietly. {reason}"], { kin: "spouse", op: "like" });
+LXI("give_opinion", ["{about} is my child. I am biased and I have checked. {reason}"], { kin: "child", op: "fond" });
+LXI("give_opinion", ["{about} is my child, and a handful. {reason}"], { kin: "child", op: "wary" });
+LXI("give_opinion", ["{about} is my child. I am proud, in a measured way. {reason}"], { kin: "child", op: "like" });
+LXI("give_opinion", ["{about} is my parent. I owe them a great deal. {reason}"], { kin: "parent", op: "fond" });
+LXI("give_opinion", ["{about} is my parent. We do not always agree. {reason}"], { kin: "parent", op: "wary" });
+LXI("give_opinion", ["{about} is my parent. I could have done worse. {reason}"], { kin: "parent", op: "like" });
+LXI("give_opinion", ["{about} is my sibling. I would do anything for them. {reason}"], { kin: "sibling", op: "fond" });
+LXI("give_opinion", ["{about} is my sibling. We argue. It is how we talk. {reason}"], { kin: "sibling", op: "wary" });
+LXI("give_opinion", ["{about} is my sibling. We get on. {reason}"], { kin: "sibling", op: "like" });
 lxi("raise_deed", "I have been thinking about who {deed}. I keep arriving at you.", { how: "suspect" });
 lxi("raise_deed", "It is a hunch. Was it you who {deed}?", { how: "suspect" });
 lxi("deed_blame", "I would look at {about}. I am not saying more than that. I am saying that.");
@@ -33886,6 +33954,18 @@ lxi("mutter", "Hot enough. It is always hot enough, and then it is hotter.", { h
 lxi("mutter", "Where did that go. It was here. It was right here.");
 lxi("mutter", "Nearly done. I have said that all day and it has not been false once.");
 lxi("mutter", "Back to it. The work does not know it is being watched.");
+LXI(
+  "laugh",
+  [
+    "Ha.",
+    "Ha. That one will keep.",
+    "Ha. I did not see that coming.",
+    "Hm. Ha.",
+    "Ha. I needed that.",
+    "Ha. That was good. I will not say so twice."
+  ],
+  {}
+);
 
 </script>
 </body>

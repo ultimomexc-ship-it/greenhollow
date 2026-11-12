@@ -334,3 +334,14 @@ LXI(
   ],
   { shared: 'yes' }
 );
+LXI(
+  'sympathise_how',
+  [
+    'I am sorry to hear it.',
+    'Rest, if you can.',
+    'That sounds like a long day.',
+    'Sit down for a minute. I will stay.',
+    'Eat something. Then see how it looks.'
+  ],
+  {}
+);

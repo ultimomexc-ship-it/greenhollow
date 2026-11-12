@@ -67,3 +67,4 @@ lx('ev1:gift', 'plain', 'I gave {t} a gift');
 lx('ev1:help', 'plain', 'I helped {t} out');
 lx('ev1:lent_hand', 'plain', 'I lent {t} a hand with the work');
 lx('ev1:sick_visit', 'plain', 'I looked in on {t} because of the fever');
+LXP('react_unmoved', ['Huh.', 'Is it.', 'That so.', "Doesn't surprise me.", 'Well, there you go.']);
