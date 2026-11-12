@@ -28675,6 +28675,7 @@ function lxContext(sp, li, c) {
     age: sp.age < 12 ? "child" : void 0,
     kid: li.age < 14 ? "yes" : void 0,
     menu: c.menu,
+    reg: lxRegister(sp),
     // the speaker has had the same trouble this week (so a line that claims "I know that one" is true): from their own day log
     shared: c.life && c.lifeTrouble && (sp.day || []).some((e) => e.kind === c.life.kind && game.time - e.t < 7 * 1440) ? "yes" : void 0
   };
@@ -28731,7 +28732,7 @@ function lxSay(act, sp, li, c) {
   let cands = pool(pk);
   if (!cands.length) cands = pool("plain");
   if (!cands.length) return "";
-  const spare = c.menu || sp.sinceAside != null && sp.sinceAside < 3;
+  const spare = c.menu || lxRegister(sp) === "terse" || sp.sinceAside != null && sp.sinceAside < 3;
   if (spare && !act.startsWith("ev:")) {
     const short = cands.filter((e) => !lxMarked(e.text));
     if (short.length) cands = short;
@@ -28812,24 +28813,6 @@ const LX_RUNON = {
     "But I go on. I do that."
   ]
 };
-const LX_FORMAL = [
-  [/\bHello\b/g, "Good day"],
-  [/\bHi\b/g, "Good day"],
-  [/\bBye\b/g, "Farewell"],
-  [/\bGoodbye\b/g, "Farewell"],
-  [/\bSee you\b/g, "Until we meet again"],
-  [/\bI'm\b/g, "I am"],
-  [/\bdon't\b/g, "do not"],
-  [/\bcan't\b/g, "cannot"],
-  [/\bit's\b/gi, "it is"],
-  [/\bI'd\b/g, "I would"],
-  [/\bI'll\b/g, "I shall"],
-  [/\bwon't\b/g, "will not"],
-  [/\bisn't\b/g, "is not"],
-  [/\bthat's\b/gi, "that is"],
-  [/\bwe've\b/g, "we have"],
-  [/\bI've\b/g, "I have"]
-];
 function lxVoice(sp, li, act, pack, text) {
   const reg = lxRegister(sp);
   if (reg === "dry" || !text) return text;
@@ -28837,21 +28820,6 @@ function lxVoice(sp, li, act, pack, text) {
     act
   );
   if (!ritual && !statement) return text;
-  if (reg === "terse") {
-    const first = text.split(/(?<=[.!?])\s+/)[0];
-    return first.length >= 5 && first.split(/\s+/).length >= 3 ? first : text;
-  }
-  if (reg === "warm") {
-    if (!ritual || text.length > 22 || sp.age < 12 || Math.random() > 0.55 || /friend|love|dear/.test(text) || li && text.indexOf(li.first) >= 0)
-      return text;
-    const addr = li.fam && (li.fam.spouse === sp.id || sp.fam.spouse === li.id) ? "love" : sp.fam && (sp.fam.kids || []).includes(li.id) ? "dear" : "friend";
-    return text.replace(/([.!?])\s*$/, ", " + addr + "$1");
-  }
-  if (reg === "formal") {
-    let t = text;
-    for (const [r, s] of LX_FORMAL) t = t.replace(r, s);
-    return t;
-  }
   if (reg === "chatty") {
     if (statement && !ritual && Math.random() < 0.4) {
       const L = LX_RUNON[pack] || LX_RUNON.plain;
@@ -31918,6 +31886,32 @@ for (const t of [
   "Until then."
 ])
   lx("farewell_back", "plain", t);
+LXP("greet", ["Good day to you, {li}.", "Greetings, {li}.", "I bid you good day."], { reg: "formal" });
+LXP("greet_back", ["And good day to you.", "Greetings. It is a pleasure.", "Well met."], { reg: "formal" });
+LXP("farewell", ["I take my leave of you.", "Farewell, {li}. May the day go well with you.", "I shall bid you good day."], { reg: "formal" });
+LXP("farewell_back", ["Farewell.", "Good day to you, then.", "Until we meet again."], { reg: "formal" });
+LXP("pre_close", ["I must beg your leave.", "Forgive me; I have duties to attend to."], { reg: "formal" });
+LXP("greet", ["Hello, {li}! It's good to see you.", "There you are, {li}. I was hoping you'd come by.", "{li}! How lovely."], { reg: "warm" });
+LXP("greet", ["Hello, friend. Come and sit a moment."], { reg: "warm", rel: "friend" });
+LXP("greet", ["Hello, love.", "There you are, love."], { reg: "warm", rel: "spouse" });
+LXP("greet", ["Hello, dear. Have you eaten?", "Hello, my dear."], { reg: "warm", rel: "child" });
+LXP("greet_back", ["Oh, hello! Come in, come in.", "Hello, {li}. You've made my day."], { reg: "warm" });
+LXP("greet_back", ["There you are, love."], { reg: "warm", rel: "spouse" });
+LXP("farewell", ["Take care of yourself, {li}.", "Come and see me soon, won't you?"], { reg: "warm" });
+LXP("farewell", ["Bye, love. Be careful."], { reg: "warm", rel: "spouse" });
+LXP("farewell", ["Bye, dear. Be good."], { reg: "warm", rel: "child" });
+LXP("farewell_back", ["Goodbye, {li}. Do come again.", "Look after yourself."], { reg: "warm" });
+LXP("farewell_back", ["Bye, friend."], { reg: "warm", rel: "friend" });
+LXP("pre_close", ["I'm sorry, I must be off, much as I'd love to stay.", "I could talk all day, but the work won't wait."], { reg: "warm" });
+LXP("acknowledge", ["Very good.", "That is commendable.", "I am pleased to hear it."], { reg: "formal" });
+LXP("acknowledge", ["That's wonderful to hear.", "Good for you, truly.", "I'm so glad."], { reg: "warm" });
+LXP("agree", ["Indeed.", "Quite so.", "I concur."], { reg: "formal" });
+LXP("agree", ["I couldn't agree more.", "Yes, exactly. That's just what I think."], { reg: "warm" });
+LXP("answer_how", ["I am well, I thank you.", "Well enough, I thank you for asking."], { reg: "formal" });
+LXP("answer_how", ["I'm well, thank you for asking. And you?", "Better for seeing you, {li}."], { reg: "warm" });
+LXP("greet", ["Morning.", "Hello."], { reg: "terse" });
+LXP("farewell", ["Bye.", "Right. Off I go."], { reg: "terse" });
+LXP("acknowledge", ["Good.", "Fine."], { reg: "terse" });
 lx("ask_how", "plain", "How are you?");
 lx("ask_how", "plain", "How have you been?");
 lx("ask_how", "plain", "How are things with you, {li}?", { rel: "friend" });
@@ -32839,6 +32833,32 @@ LXI("farewell", [
 ]);
 LXI("farewell_back", ["Goodbye.", "See you.", "Go well."]);
 LXI("pre_close", ["I should get on.", "Well. I have things to see to.", "I will let you go.", "That is all I had.", "I must go."]);
+LXI("greet", ["Good day, {li}. I will be brief.", "Greetings, {li}.", "I have come to say that I am here."], { reg: "formal" });
+LXI("greet_back", ["Good day. You have found me.", "Greetings. It is a pleasure, as far as I can tell.", "Well met, I believe."], { reg: "formal" });
+LXI("farewell", ["I will take my leave.", "Farewell, {li}. I will see that it is noted.", "I bid you good day. I mean it as written."], { reg: "formal" });
+LXI("farewell_back", ["Farewell.", "Good day, then.", "Until we meet again, as we will."], { reg: "formal" });
+LXI("pre_close", ["I must beg your leave.", "Forgive me. I have something to attend to."], { reg: "formal" });
+LXI("greet", ["Hello, {li}. I am glad it is you.", "There you are. I was about to look for you.", "{li}. Good. Come here."], { reg: "warm" });
+LXI("greet", ["Hello, friend. I kept the good seat."], { reg: "warm", rel: "friend" });
+LXI("greet", ["Hello, love.", "There you are, love."], { reg: "warm", rel: "spouse" });
+LXI("greet", ["Hello, dear. Have you eaten?", "Hello, my dear."], { reg: "warm", rel: "child" });
+LXI("greet_back", ["Oh, hello. Come in.", "Hello, {li}. You have improved the day."], { reg: "warm" });
+LXI("greet_back", ["There you are, love."], { reg: "warm", rel: "spouse" });
+LXI("farewell", ["Take care of yourself, {li}.", "Come and see me soon."], { reg: "warm" });
+LXI("farewell", ["Bye, love. Be careful."], { reg: "warm", rel: "spouse" });
+LXI("farewell", ["Bye, dear. Be good."], { reg: "warm", rel: "child" });
+LXI("farewell_back", ["Goodbye, {li}. Do come again.", "Look after yourself."], { reg: "warm" });
+LXI("farewell_back", ["Bye, friend."], { reg: "warm", rel: "friend" });
+LXI("pre_close", ["I am sorry. I must go, and I would rather not.", "I could talk longer. The work will not allow it."], { reg: "warm" });
+LXI("acknowledge", ["Very good.", "That is commendable.", "I am pleased to hear it."], { reg: "formal" });
+LXI("acknowledge", ["That is good to hear.", "Good for you. I mean it.", "I am glad."], { reg: "warm" });
+LXI("agree", ["Indeed.", "Quite so.", "I concur."], { reg: "formal" });
+LXI("agree", ["I could not agree more.", "Yes. That is exactly what I think."], { reg: "warm" });
+LXI("answer_how", ["I am well, I thank you.", "Well enough, I thank you for asking."], { reg: "formal" });
+LXI("answer_how", ["I am well. Better for seeing you, {li}.", "Well. Thank you for asking."], { reg: "warm" });
+LXI("greet", ["Morning.", "Hello."], { reg: "terse" });
+LXI("farewell", ["Bye.", "Right. Off I go."], { reg: "terse" });
+LXI("acknowledge", ["Good.", "Fine."], { reg: "terse" });
 lxi("ask_how", "How are you? I would like to know the real number.");
 lxi("ask_how", "How are things with you, {li}?", { rel: "friend" });
 lxi("ask_how", "How are you getting on?");

@@ -1900,6 +1900,23 @@ test('sympathy claims only what is true: a listener who had the same trouble thi
   await page.close();
 });
 
+test('registers are lines: a formal speaker says formal lines, a warm one warm lines, a dry one neither; nothing is rewritten by pattern any more', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    const ps = npcs.filter(n => !n.dead && !n.player && n.age >= 18 && !n.infant), A = ps[0], B = ps[1], c = { done: {}, turns: [], left: {} };
+    const regs = {}; for (const reg of ['formal', 'warm', 'dry']) { const sp = npcs.find(n => !n.dead && !n.player && n.age >= 18 && lxRegister(n) === reg); if (!sp) { regs[reg] = null; continue; } const seen = new Set(); for (let i = 0; i < 80; i++) { for (const k of Object.keys(LX_RECENT)) delete LX_RECENT[k]; B.heard = {}; sp.sinceAside = 9; seen.add(lxSay('greet', sp, B === sp ? A : B, c)); } regs[reg] = [...seen]; }
+    const tagged = reg => new Set(LEX.filter(e => e.act === 'greet' && e.tags.reg === reg).map(e => e.text.replace('{li}', B.first)));
+    const reps = {}; for (const reg of ['formal', 'warm', 'dry']) reps[reg] = npcs.filter(n => !n.dead && !n.player && n.age >= 18 && lxRegister(n) === reg).length;
+    return { reps, regs, formal: [...tagged('formal')], warm: [...tagged('warm')], hasFormalTable: typeof LX_FORMAL !== 'undefined' };
+  });
+  check(!r.regs.formal || r.regs.formal.some(t => r.formal.includes(t)), 'a formal speaker says a formal greeting: ' + JSON.stringify(r.regs.formal.slice(0, 4)));
+  check(!r.regs.warm || r.regs.warm.some(t => r.warm.includes(t)), 'a warm speaker says a warm greeting: ' + JSON.stringify(r.regs.warm.slice(0, 4)));
+  check(!r.regs.dry || !r.regs.dry.some(t => r.formal.includes(t) || r.warm.includes(t)), 'a dry speaker says neither: ' + JSON.stringify(r.regs.dry.slice(0, 4)));
+  check(!r.hasFormalTable, 'the find-and-replace table is gone');
+  check(!errors.length, 'no errors: ' + errors.join(' | '));
+  await page.close();
+});
+
 test('bindings: asking whether something could be said never changes what is being said; a question and its answer are about the same person; a menu option says what it will say; no line is spoken with a gap in it', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

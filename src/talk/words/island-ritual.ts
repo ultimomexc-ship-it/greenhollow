@@ -147,3 +147,31 @@ LXI('farewell', [
 ]);
 LXI('farewell_back', ['Goodbye.', 'See you.', 'Go well.']);
 LXI('pre_close', ['I should get on.', 'Well. I have things to see to.', 'I will let you go.', 'That is all I had.', 'I must go.']);
+
+// registers (tag `reg`): said only by somebody of that manner; the ritual acts and a few replies
+LXI('greet', ['Good day, {li}. I will be brief.', 'Greetings, {li}.', 'I have come to say that I am here.'], { reg: 'formal' });
+LXI('greet_back', ['Good day. You have found me.', 'Greetings. It is a pleasure, as far as I can tell.', 'Well met, I believe.'], { reg: 'formal' });
+LXI('farewell', ['I will take my leave.', 'Farewell, {li}. I will see that it is noted.', 'I bid you good day. I mean it as written.'], { reg: 'formal' });
+LXI('farewell_back', ['Farewell.', 'Good day, then.', 'Until we meet again, as we will.'], { reg: 'formal' });
+LXI('pre_close', ['I must beg your leave.', 'Forgive me. I have something to attend to.'], { reg: 'formal' });
+LXI('greet', ['Hello, {li}. I am glad it is you.', 'There you are. I was about to look for you.', '{li}. Good. Come here.'], { reg: 'warm' });
+LXI('greet', ['Hello, friend. I kept the good seat.'], { reg: 'warm', rel: 'friend' });
+LXI('greet', ['Hello, love.', 'There you are, love.'], { reg: 'warm', rel: 'spouse' });
+LXI('greet', ['Hello, dear. Have you eaten?', 'Hello, my dear.'], { reg: 'warm', rel: 'child' });
+LXI('greet_back', ['Oh, hello. Come in.', 'Hello, {li}. You have improved the day.'], { reg: 'warm' });
+LXI('greet_back', ['There you are, love.'], { reg: 'warm', rel: 'spouse' });
+LXI('farewell', ['Take care of yourself, {li}.', 'Come and see me soon.'], { reg: 'warm' });
+LXI('farewell', ['Bye, love. Be careful.'], { reg: 'warm', rel: 'spouse' });
+LXI('farewell', ['Bye, dear. Be good.'], { reg: 'warm', rel: 'child' });
+LXI('farewell_back', ['Goodbye, {li}. Do come again.', 'Look after yourself.'], { reg: 'warm' });
+LXI('farewell_back', ['Bye, friend.'], { reg: 'warm', rel: 'friend' });
+LXI('pre_close', ['I am sorry. I must go, and I would rather not.', 'I could talk longer. The work will not allow it.'], { reg: 'warm' });
+LXI('acknowledge', ['Very good.', 'That is commendable.', 'I am pleased to hear it.'], { reg: 'formal' });
+LXI('acknowledge', ['That is good to hear.', 'Good for you. I mean it.', 'I am glad.'], { reg: 'warm' });
+LXI('agree', ['Indeed.', 'Quite so.', 'I concur.'], { reg: 'formal' });
+LXI('agree', ['I could not agree more.', 'Yes. That is exactly what I think.'], { reg: 'warm' });
+LXI('answer_how', ['I am well, I thank you.', 'Well enough, I thank you for asking.'], { reg: 'formal' });
+LXI('answer_how', ['I am well. Better for seeing you, {li}.', 'Well. Thank you for asking.'], { reg: 'warm' });
+LXI('greet', ['Morning.', 'Hello.'], { reg: 'terse' });
+LXI('farewell', ['Bye.', 'Right. Off I go.'], { reg: 'terse' });
+LXI('acknowledge', ['Good.', 'Fine.'], { reg: 'terse' });
