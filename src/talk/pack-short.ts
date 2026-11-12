@@ -3,14 +3,31 @@
    the dryness of the island is in what people choose to mention, not in every line having a second half. Add asides elsewhere; keep this file plain. */
 
 {
-  const S = (act: string, lines: string[], tags: any = {}) => { for (const t of lines) lxi(act, t, tags); };
+  const S = (act: string, lines: string[], tags: any = {}) => {
+    for (const t of lines) lxi(act, t, tags);
+  };
   S('greet', ['Hello, {li}.', 'Morning.', 'There you are.', '{li}.', 'Good day.', 'Hello.']);
   S('greet_back', ['Hello.', 'Hello, {li}.', 'Morning.', 'Good day.', 'Yes. Hello.']);
-  S('farewell', ['Goodbye.', 'I will go on, then.', 'See you, {li}.', 'I should get back.', 'Until later.', 'Be well.', 'That is me.', 'Right. Goodbye.']);
+  S('farewell', [
+    'Goodbye.',
+    'I will go on, then.',
+    'See you, {li}.',
+    'I should get back.',
+    'Until later.',
+    'Be well.',
+    'That is me.',
+    'Right. Goodbye.'
+  ]);
   S('farewell_back', ['Goodbye.', 'See you.', 'Go well.']);
   S('pre_close', ['I should get on.', 'Well. I have things to see to.', 'I will let you go.', 'That is all I had.', 'I must go.']);
   S('remark_place', ['It is quiet here.', 'This is a good spot.', 'Nobody about.', 'The path wants mending.', 'I like this corner.']);
-  S('remark_work', ['There is plenty to do.', 'The work goes on.', 'I am behind, a little.', 'It was a full morning.', 'The work is the same as yesterday.']);
+  S('remark_work', [
+    'There is plenty to do.',
+    'The work goes on.',
+    'I am behind, a little.',
+    'It was a full morning.',
+    'The work is the same as yesterday.'
+  ]);
   S('remark_state', ['I am hungry.', 'I could eat.'], { state: 'hungry' });
   S('remark_state', ['I am tired.', 'I want to sit down.'], { state: 'tired' });
   S('remark_state', ['I feel well today.', 'It is a good day.'], { state: 'glad' });
@@ -36,8 +53,24 @@
   S('agree_opinion', ['I think so too.', 'Yes. The same.', 'That is how I find them.']);
   S('ask_opinion', ['What do you make of {about}?', 'How do you find {about}?', 'Do you know {about}?']);
   S('ask_family', ['How is {about}?', 'Is {about} well?', 'How is {about} keeping?']);
-  for (const [st, ls] of [['fine', ['{about} is well.', '{about} is fine.']], ['hungry', ['{about} is hungry.']], ['tired', ['{about} is tired.', '{about} is worn out.']], ['glad', ['{about} is in good spirits.']], ['low', ['{about} is low.', '{about} has been quiet.']], ['ill', ['{about} is ill.', '{about} has a fever.']]] as any) S('answer_family', ls, { state: st });
-  for (const [st, ls] of [['fine', ['Well enough.', 'I am well.', 'Fine.']], ['hungry', ['Hungry.', 'I have not eaten.']], ['tired', ['Tired.', 'I am worn out.']], ['glad', ['Well. Very well.', 'It is a good day.']], ['low', ['Not at my best.', 'A little low.']], ['ill', ['Not well.', 'I have a fever.']]] as any) S('answer_how', ls, { state: st });
+  for (const [st, ls] of [
+    ['fine', ['{about} is well.', '{about} is fine.']],
+    ['hungry', ['{about} is hungry.']],
+    ['tired', ['{about} is tired.', '{about} is worn out.']],
+    ['glad', ['{about} is in good spirits.']],
+    ['low', ['{about} is low.', '{about} has been quiet.']],
+    ['ill', ['{about} is ill.', '{about} has a fever.']]
+  ] as any)
+    S('answer_family', ls, { state: st });
+  for (const [st, ls] of [
+    ['fine', ['Well enough.', 'I am well.', 'Fine.']],
+    ['hungry', ['Hungry.', 'I have not eaten.']],
+    ['tired', ['Tired.', 'I am worn out.']],
+    ['glad', ['Well. Very well.', 'It is a good day.']],
+    ['low', ['Not at my best.', 'A little low.']],
+    ['ill', ['Not well.', 'I have a fever.']]
+  ] as any)
+    S('answer_how', ls, { state: st });
   // the day, told plainly
   const L = (k: string, ls: string[]) => S('life:' + k, ls);
   L('slept', ['I slept well.', 'I had a full night.']);

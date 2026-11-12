@@ -8472,7 +8472,25 @@ function generateTown(seed, size) {
   spawnNodes(18);
   return town;
 }
-const TALK = { engine: "new", on: { ritual: true, small: true, world: true, life: true, trade: true, person: true, deed: true, secret: true, feeling: true, economy: true, gift: true, romance: true, family: true, law: true } };
+const TALK = {
+  engine: "new",
+  on: {
+    ritual: true,
+    small: true,
+    world: true,
+    life: true,
+    trade: true,
+    person: true,
+    deed: true,
+    secret: true,
+    feeling: true,
+    economy: true,
+    gift: true,
+    romance: true,
+    family: true,
+    law: true
+  }
+};
 TALK.dial = { distort: 1, sev: 1 };
 const anyOf = (a) => a[Math.floor(Math.random() * a.length)];
 const dayN = () => Math.floor(game.time / 1440);
@@ -18354,9 +18372,19 @@ function meddleNote(kind, x, y, by, o = {}) {
   if (!people.length && !res.length) return;
   q.push({ kind, x, y, by: by.id, t: game.time, place: o.place || "", people });
 }
-const MEDDLE_TAGS = { home_destroyed: ["harm", "nuisance"], building_down: ["harm", "nuisance"], furniture_removed: ["nuisance"], person_pushed: ["nuisance", "embarrass"] };
+const MEDDLE_TAGS = {
+  home_destroyed: ["harm", "nuisance"],
+  building_down: ["harm", "nuisance"],
+  furniture_removed: ["nuisance"],
+  person_pushed: ["nuisance", "embarrass"]
+};
 const MEDDLE_EXPOSED = { privy: "caught_on_privy", bath: "caught_bathing", pray: "caught_praying" };
-const MEDDLE_INCIDENT = { privy: "The Day of the Open Privy", bath: "The Day of the Open Bath", pray: "The Interrupted Prayer", home: "The Day the House Came Down" };
+const MEDDLE_INCIDENT = {
+  privy: "The Day of the Open Privy",
+  bath: "The Day of the Open Bath",
+  pray: "The Interrupted Prayer",
+  home: "The Day the House Came Down"
+};
 function meddleFlush() {
   const q = town.meddleQ;
   if (!q || !q.length) return;
@@ -18373,11 +18401,38 @@ function meddleFlush() {
     }
     const seen = ps.filter((p) => p.sawYou).map((p) => p.id), wit = [...new Set(ps.filter((p) => p.sees || p.home).map((p) => p.id))];
     const tags = MEDDLE_TAGS[r.kind] || ["nuisance", "embarrass"];
-    lfEmit(r.kind, { actor: by, target: main, x: r.x, y: r.y, sev: r.kind === "home_destroyed" ? 3 : 2, tags, anon: !seen.length, sawActor: seen, witnessIds: wit, place: r.place || void 0, chron: false, loud: true, text: `${by.first} ${r.kind}` });
+    lfEmit(r.kind, {
+      actor: by,
+      target: main,
+      x: r.x,
+      y: r.y,
+      sev: r.kind === "home_destroyed" ? 3 : 2,
+      tags,
+      anon: !seen.length,
+      sawActor: seen,
+      witnessIds: wit,
+      place: r.place || void 0,
+      chron: false,
+      loud: true,
+      text: `${by.first} ${r.kind}`
+    });
     for (const p of ps.filter((q2) => q2.exposure)) {
       const v = lf2By(p.id);
       if (!v) continue;
-      lfEmit(MEDDLE_EXPOSED[p.exposure], { actor: by, target: v, x: v.tx, y: v.ty, sev: 2, tags: ["embarrass", "scandal"], anon: !seen.length, sawActor: seen, witnessIds: wit, chron: true, loud: true, text: `${v.first} was caught out when ${by.first} knocked the wall out` });
+      lfEmit(MEDDLE_EXPOSED[p.exposure], {
+        actor: by,
+        target: v,
+        x: v.tx,
+        y: v.ty,
+        sev: 2,
+        tags: ["embarrass", "scandal"],
+        anon: !seen.length,
+        sawActor: seen,
+        witnessIds: wit,
+        chron: true,
+        loud: true,
+        text: `${v.first} was caught out when ${by.first} knocked the wall out`
+      });
       v.mood = Math.max(0, (v.mood == null ? 60 : v.mood) - 10);
       if (wit.length >= 2) chron(`${MEDDLE_INCIDENT[p.exposure]}: ${v.first} was found out when the wall came down.`, "note");
     }
@@ -18389,7 +18444,12 @@ function meddleFlush() {
       const hurt = p.home || !!p.exposure;
       if (hurt) n.mood = Math.max(0, (n.mood == null ? 60 : n.mood) - (r.kind === "home_destroyed" ? 18 : 8));
       if (p.sawYou) {
-        lfAff(n, by, (hurt ? -9 : -3) * TALK.dial.sev, r.kind === "home_destroyed" ? "pulled down a house" : p.exposure ? "knocked the wall out while I was in the middle of something" : r.kind === "bed_moved" ? "moved a bed" : r.kind === "furniture_removed" ? "took my furniture" : r.kind === "person_pushed" ? "pushed me about" : "knocked a wall down");
+        lfAff(
+          n,
+          by,
+          (hurt ? -9 : -3) * TALK.dial.sev,
+          r.kind === "home_destroyed" ? "pulled down a house" : p.exposure ? "knocked the wall out while I was in the middle of something" : r.kind === "bed_moved" ? "moved a bed" : r.kind === "furniture_removed" ? "took my furniture" : r.kind === "person_pushed" ? "pushed me about" : "knocked a wall down"
+        );
         cried.push({ n, p });
       }
     }
@@ -18413,7 +18473,8 @@ function meddleReactions(r, by, ps) {
     const hurt = p.home || !!p.exposure;
     let type = "";
     if (p.exposure) type = Math.random() < 0.7 ? "flee" : "stare";
-    else if (hurt) type = p.sawYou && bold && !shy ? "confront" : r.kind === "home_destroyed" || Math.random() < 0.5 ? "stare" : chatty ? "tell" : "stare";
+    else if (hurt)
+      type = p.sawYou && bold && !shy ? "confront" : r.kind === "home_destroyed" || Math.random() < 0.5 ? "stare" : chatty ? "tell" : "stare";
     else type = chatty ? "tell" : Math.random() < 0.5 ? "stare" : "";
     if (type) n.react = { type, x: r.x, y: r.y, by: by.id, until: game.time + 240, ev: r.kind };
   }
@@ -18435,37 +18496,63 @@ LF2.dec.push(function(n) {
   n.react = null;
   if (game.time > r.until) return null;
   const by = lf2By(r.by), site = () => besideTile(r.x, r.y, null);
-  if (r.type === "stare") return [goS(() => {
-    const b = site();
-    return b ? { x: b.x, y: b.y, face: { dx: Math.sign(r.x - b.x), dy: Math.sign(r.y - b.y) } } : null;
-  }, "Going to see what happened"), waitS(8 + Math.random() * 8, "stand", "Staring at the damage", { nopie: true })];
-  if (r.type === "confront" && by) return [goS(() => {
-    const b = besideTile(by.tx, by.ty, null);
-    return b ? { x: b.x, y: b.y, face: { dx: Math.sign(by.tx - b.x), dy: Math.sign(by.ty - b.y) } } : null;
-  }, `Looking for ${by.first} to have it out`), waitS(20, "stand", `Waiting for ${by.first} to explain`, { nopie: true })];
+  if (r.type === "stare")
+    return [
+      goS(() => {
+        const b = site();
+        return b ? { x: b.x, y: b.y, face: { dx: Math.sign(r.x - b.x), dy: Math.sign(r.y - b.y) } } : null;
+      }, "Going to see what happened"),
+      waitS(8 + Math.random() * 8, "stand", "Staring at the damage", { nopie: true })
+    ];
+  if (r.type === "confront" && by)
+    return [
+      goS(() => {
+        const b = besideTile(by.tx, by.ty, null);
+        return b ? { x: b.x, y: b.y, face: { dx: Math.sign(by.tx - b.x), dy: Math.sign(by.ty - b.y) } } : null;
+      }, `Looking for ${by.first} to have it out`),
+      waitS(20, "stand", `Waiting for ${by.first} to explain`, { nopie: true })
+    ];
   if (r.type === "flee") {
     let spot = null;
     for (let i = 0; i < 20 && !spot; i++) {
       const x = r.x + Math.round((Math.random() * 2 - 1) * 14), y = r.y + Math.round((Math.random() * 2 - 1) * 8);
-      if (x > 2 && y > 2 && x < W - 2 && y < GH() - 2 && walkable(x, y) && Math.hypot(x - r.x, y - r.y) > 9 && lvlOf(y) === lvlOf(n.ty)) spot = { x, y };
+      if (x > 2 && y > 2 && x < W - 2 && y < GH() - 2 && walkable(x, y) && Math.hypot(x - r.x, y - r.y) > 9 && lvlOf(y) === lvlOf(n.ty))
+        spot = { x, y };
     }
     if (!spot) return null;
     return [goS(spot, "Hurrying away, mortified"), waitS(10, "stand", "Trying to forget it", { nopie: true })];
   }
   if (r.type === "tell") {
-    const F = npcs.filter((o) => o !== n && !o.dead && !o.infant && o.age >= 10 && o.pose !== "sleep" && (n.aff[o.id] || 0) > 15 && lvlOf(o.ty) === lvlOf(n.ty)).sort((a, b) => lfDist(n, a) - lfDist(n, b))[0];
+    const F = npcs.filter(
+      (o) => o !== n && !o.dead && !o.infant && o.age >= 10 && o.pose !== "sleep" && (n.aff[o.id] || 0) > 15 && lvlOf(o.ty) === lvlOf(n.ty)
+    ).sort((a, b) => lfDist(n, a) - lfDist(n, b))[0];
     if (!F) return null;
-    return [goS(() => {
-      const b = besideTile(F.tx, F.ty, null);
-      return b ? { x: b.x, y: b.y, face: { dx: Math.sign(F.tx - b.x), dy: Math.sign(F.ty - b.y) } } : null;
-    }, `Going to tell ${F.first} what happened`), waitS(2, "stand", `Telling ${F.first} what happened`, { nopie: true, onEnd(nn) {
-      if (lfDist(nn, F) <= 3) meddleTell(nn, F);
-    } })];
+    return [
+      goS(() => {
+        const b = besideTile(F.tx, F.ty, null);
+        return b ? { x: b.x, y: b.y, face: { dx: Math.sign(F.tx - b.x), dy: Math.sign(F.ty - b.y) } } : null;
+      }, `Going to tell ${F.first} what happened`),
+      waitS(2, "stand", `Telling ${F.first} what happened`, {
+        nopie: true,
+        onEnd(nn) {
+          if (lfDist(nn, F) <= 3) meddleTell(nn, F);
+        }
+      })
+    ];
   }
   return null;
 });
 LF2.feat.smalllife = true;
-const SMALL_FINDS = ["a shell with a hole in it", "a smooth green stone", "a coin nobody recognises", "a gull feather", "a button", "a key that fits nothing", "a piece of blue glass", "a very straight stick"];
+const SMALL_FINDS = [
+  "a shell with a hole in it",
+  "a smooth green stone",
+  "a coin nobody recognises",
+  "a gull feather",
+  "a button",
+  "a key that fits nothing",
+  "a piece of blue glass",
+  "a very straight stick"
+];
 const smallAct = (n) => {
   const s = n.plan && n.plan[n.si];
   return s && s.k === "wait" && !n.moving ? s.act : "";
@@ -18479,37 +18566,59 @@ const smallOnce = (a, key) => {
 function smallLifeHour(h) {
   if (!town || !LF2.feat.smalllife) return;
   const ps = npcs.filter((n) => !n.dead && !n.infant && !n.inShip && n.age >= 8);
-  for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) {
-    const a = ps[i], b = ps[j];
-    if (lvlOf(a.ty) !== lvlOf(b.ty) || lfDist(a, b) > 7) continue;
-    const aa = smallAct(a), ab = smallAct(b), near = lfDist(a, b) <= 3;
-    if (aa === "work" && ab === "work" && a.job && a.job === b.job && smallOnce(a, "w" + b.id) && smallOnce(b, "w" + a.id)) {
-      lfAff(a, b, 1.5, "worked beside me");
-      lfAff(b, a, 1.5, "worked beside me");
-      if (!a.player) LIFE.emit("worked_with", a, { with: b.id });
-      if (!b.player) LIFE.emit("worked_with", b, { with: a.id });
-    }
-    if (near && aa === "eat" && ab === "eat" && smallOnce(a, "e" + b.id) && smallOnce(b, "e" + a.id)) {
-      lfAff(a, b, 1, "ate with me");
-      lfAff(b, a, 1, "ate with me");
-      const kin = typeof isKin === "function" && isKin(a, b);
-      if (!kin) {
-        if (!a.player) LIFE.emit("ate_with", a, { with: b.id });
-        if (!b.player) LIFE.emit("ate_with", b, { with: a.id });
+  for (let i = 0; i < ps.length; i++)
+    for (let j = i + 1; j < ps.length; j++) {
+      const a = ps[i], b = ps[j];
+      if (lvlOf(a.ty) !== lvlOf(b.ty) || lfDist(a, b) > 7) continue;
+      const aa = smallAct(a), ab = smallAct(b), near = lfDist(a, b) <= 3;
+      if (aa === "work" && ab === "work" && a.job && a.job === b.job && smallOnce(a, "w" + b.id) && smallOnce(b, "w" + a.id)) {
+        lfAff(a, b, 1.5, "worked beside me");
+        lfAff(b, a, 1.5, "worked beside me");
+        if (!a.player) LIFE.emit("worked_with", a, { with: b.id });
+        if (!b.player) LIFE.emit("worked_with", b, { with: a.id });
+      }
+      if (near && aa === "eat" && ab === "eat" && smallOnce(a, "e" + b.id) && smallOnce(b, "e" + a.id)) {
+        lfAff(a, b, 1, "ate with me");
+        lfAff(b, a, 1, "ate with me");
+        const kin = typeof isKin === "function" && isKin(a, b);
+        if (!kin) {
+          if (!a.player) LIFE.emit("ate_with", a, { with: b.id });
+          if (!b.player) LIFE.emit("ate_with", b, { with: a.id });
+        }
+      }
+      for (const [w, h2] of [
+        [a, b],
+        [b, a]
+      ]) {
+        if (smallAct(w) !== "work" || !["leisure", "stand"].includes(smallAct(h2)) || h2.player || h2.age < 12 || (h2.aff[w.id] || 0) < 0 || Math.random() > 0.04 || !smallOnce(h2, "h" + w.id))
+          continue;
+        lfAff(w, h2, 4, "lent me a hand");
+        lfEmit("lent_hand", {
+          actor: h2,
+          target: w,
+          sev: 1,
+          tags: ["help", "kindness"],
+          chron: false,
+          text: `${h2.first} lent ${w.first} a hand with the work`
+        });
+      }
+      for (const [sick, v] of [
+        [a, b],
+        [b, a]
+      ]) {
+        if (!sick.ill || v.ill || v.player || v.age < 12 || (v.aff[sick.id] || 0) < 20 || !near || !smallOnce(v, "v" + sick.id)) continue;
+        lfAff(sick, v, 4, "came to see me when I was ill");
+        sick.mood = Math.min(100, (sick.mood == null ? 50 : sick.mood) + 4);
+        lfEmit("sick_visit", {
+          actor: v,
+          target: sick,
+          sev: 1,
+          tags: ["kindness"],
+          chron: false,
+          text: `${v.first} looked in on ${sick.first}, who is ill`
+        });
       }
     }
-    for (const [w, h2] of [[a, b], [b, a]]) {
-      if (smallAct(w) !== "work" || !["leisure", "stand"].includes(smallAct(h2)) || h2.player || h2.age < 12 || (h2.aff[w.id] || 0) < 0 || Math.random() > 0.04 || !smallOnce(h2, "h" + w.id)) continue;
-      lfAff(w, h2, 4, "lent me a hand");
-      lfEmit("lent_hand", { actor: h2, target: w, sev: 1, tags: ["help", "kindness"], chron: false, text: `${h2.first} lent ${w.first} a hand with the work` });
-    }
-    for (const [sick, v] of [[a, b], [b, a]]) {
-      if (!sick.ill || v.ill || v.player || v.age < 12 || (v.aff[sick.id] || 0) < 20 || !near || !smallOnce(v, "v" + sick.id)) continue;
-      lfAff(sick, v, 4, "came to see me when I was ill");
-      sick.mood = Math.min(100, (sick.mood == null ? 50 : sick.mood) + 4);
-      lfEmit("sick_visit", { actor: v, target: sick, sev: 1, tags: ["kindness"], chron: false, text: `${v.first} looked in on ${sick.first}, who is ill` });
-    }
-  }
   for (const n of ps) {
     if (n.player) continue;
     if (h >= 8 && h <= 19 && n.pose !== "sleep" && roomAt[n.ty] && roomAt[n.ty][n.tx] < 0 && Math.random() < 0.012) {
@@ -27809,7 +27918,22 @@ const WORLD = {
   }
 };
 const EVK = (id, family, o) => REG.define("event", id, Object.assign({ family, needs: [], tell: 0.3, tags: [] }, o || {}));
-for (const k of ["theft", "breakin", "pickpocket", "robbed", "cheat", "bribe", "escape", "arrest", "fined", "sabotage", "snoop", "blockdoor", "shutin"]) EVK(k, "crime", { tell: 0.7 });
+for (const k of [
+  "theft",
+  "breakin",
+  "pickpocket",
+  "robbed",
+  "cheat",
+  "bribe",
+  "escape",
+  "arrest",
+  "fined",
+  "sabotage",
+  "snoop",
+  "blockdoor",
+  "shutin"
+])
+  EVK(k, "crime", { tell: 0.7 });
 for (const k of ["quarrel", "brawl", "shove", "confront", "jealous", "rumour", "report"]) EVK(k, "social", { tell: 0.6 });
 for (const k of ["lent_hand", "sick_visit"]) EVK(k, "people", { tell: 0.25 });
 for (const k of ["gift", "help", "charity", "dole", "repair", "distract"]) EVK(k, "people", { tell: 0.4 });
@@ -27864,10 +27988,30 @@ EVK("caught_praying", "meddle", { tell: 0.9, tags: ["embarrass", "scandal"] });
 EVK("betrayal", "social", { tell: 0.8, tags: ["deceit", "harm"] });
 EVK("building_down", "meddle", { tell: 0.9, tags: ["harm"] });
 EVK("caught_on_privy", "meddle", { tell: 1, tags: ["embarrass", "scandal"] });
-if (typeof GOODS !== "undefined") for (const g of Object.keys(GOODS)) REG.define("item", g, { name: String(GOODS[g].name || g).toLowerCase(), category: "good" });
-if (typeof IT_SEEDS !== "undefined") for (const k of Object.keys(IT_SEEDS)) REG.define("seed", k, { name: String(IT_SEEDS[k].word || k), category: "seed" });
-const LIFE_TROUBLE = { slept_rough: "slept rough", no_privy: "could not find a privy", bladder_emergency: "only just made it", went_hungry: "went hungry", starving: "are starving", could_not_afford: "could not afford something", out_of_stock: "found it out of stock", tool_broke: "broke a tool", lost_bed: "lost their bed", ill: "fell ill", crop_failed: "lost a crop" };
-const LIFE = { strict: !!(typeof window !== "undefined" && window.GH_LIFE_STRICT), stream: [], n: 0, warned: {}, listeners: [] };
+if (typeof GOODS !== "undefined")
+  for (const g of Object.keys(GOODS)) REG.define("item", g, { name: String(GOODS[g].name || g).toLowerCase(), category: "good" });
+if (typeof IT_SEEDS !== "undefined")
+  for (const k of Object.keys(IT_SEEDS)) REG.define("seed", k, { name: String(IT_SEEDS[k].word || k), category: "seed" });
+const LIFE_TROUBLE = {
+  slept_rough: "slept rough",
+  no_privy: "could not find a privy",
+  bladder_emergency: "only just made it",
+  went_hungry: "went hungry",
+  starving: "are starving",
+  could_not_afford: "could not afford something",
+  out_of_stock: "found it out of stock",
+  tool_broke: "broke a tool",
+  lost_bed: "lost their bed",
+  ill: "fell ill",
+  crop_failed: "lost a crop"
+};
+const LIFE = {
+  strict: !!(typeof window !== "undefined" && window.GH_LIFE_STRICT),
+  stream: [],
+  n: 0,
+  warned: {},
+  listeners: []
+};
 LIFE.refuse = function(msg) {
   if (LIFE.strict) throw new Error(msg);
   const k = msg.slice(0, 60);
@@ -27883,7 +28027,15 @@ LIFE.emit = function(kind, who, data) {
   data = data || {};
   const miss = (def.needs || []).filter((k) => data[k] == null);
   if (miss.length) return LIFE.refuse("LIFE.emit(" + kind + "): missing " + miss.join(", "));
-  const rec = { id: ++LIFE.n, kind, fam: def.family, who: who ? who.id : null, t: game.time, place: data.place || (who ? placeOf(who) : ""), data };
+  const rec = {
+    id: ++LIFE.n,
+    kind,
+    fam: def.family,
+    who: who ? who.id : null,
+    t: game.time,
+    place: data.place || (who ? placeOf(who) : ""),
+    data
+  };
   LIFE.stream.push(rec);
   if (LIFE.stream.length > 600) LIFE.stream.shift();
   const day = Math.floor(game.time / 1440), st = town.lifeStats || (town.lifeStats = {});
@@ -27913,7 +28065,16 @@ LIFE.emit = function(kind, who, data) {
 LIFE.fromLegacy = function(ev) {
   const def = REG.get("event", ev.kind);
   if (!def) return LIFE.refuse('lfEmit: unregistered event kind "' + ev.kind + '" (define it in talk/kinds.ts)');
-  const who = ev.actor != null ? lf2By(ev.actor) : null, rec = { id: ++LIFE.n, kind: ev.kind, fam: def.family, who: ev.actor, t: ev.t, place: ev.place || "", data: { ev: ev.id, target: ev.target }, legacy: true };
+  const who = ev.actor != null ? lf2By(ev.actor) : null, rec = {
+    id: ++LIFE.n,
+    kind: ev.kind,
+    fam: def.family,
+    who: ev.actor,
+    t: ev.t,
+    place: ev.place || "",
+    data: { ev: ev.id, target: ev.target },
+    legacy: true
+  };
   LIFE.stream.push(rec);
   if (LIFE.stream.length > 600) LIFE.stream.shift();
   const day = Math.floor(game.time / 1440), st = town.lifeStats || (town.lifeStats = {});
@@ -27932,11 +28093,13 @@ LIFE.today = function(n) {
 };
 LIFE.digest = function(days) {
   const st = town.lifeStats || {}, today = Math.floor(game.time / 1440), kinds = {}, fams = {};
-  for (const k of Object.keys(st)) if (+k > today - (days || 7)) for (const e of Object.keys(st[k])) {
-    kinds[e] = (kinds[e] || 0) + st[k][e];
-    const f = (REG.get("event", e) || {}).family || "?";
-    fams[f] = (fams[f] || 0) + st[k][e];
-  }
+  for (const k of Object.keys(st))
+    if (+k > today - (days || 7))
+      for (const e of Object.keys(st[k])) {
+        kinds[e] = (kinds[e] || 0) + st[k][e];
+        const f = (REG.get("event", e) || {}).family || "?";
+        fams[f] = (fams[f] || 0) + st[k][e];
+      }
   return { kinds, fams };
 };
 function lifeStep(n, s) {
@@ -27977,7 +28140,14 @@ LIFE.recent = function(n, listener) {
     const def = REG.get("event", e.kind);
     if (!def || e.data && e.data.ev != null) continue;
     if (!LEX.some((l) => l.act === "life:" + e.kind)) continue;
-    const key = e.kind + "|" + (e.data.item || e.data.seed || e.data.where || e.data.with || e.data.thing || ""), g = groups[key] || (groups[key] = { kind: e.kind, def, data: Object.assign({}, e.data, { qty: 0 }), ids: [], t: e.t, trouble: (def.tags || []).includes("misfortune") });
+    const key = e.kind + "|" + (e.data.item || e.data.seed || e.data.where || e.data.with || e.data.thing || ""), g = groups[key] || (groups[key] = {
+      kind: e.kind,
+      def,
+      data: Object.assign({}, e.data, { qty: 0 }),
+      ids: [],
+      t: e.t,
+      trouble: (def.tags || []).includes("misfortune")
+    });
     g.data.qty += e.data.qty || 1;
     g.ids.push(e.id);
     g.t = Math.max(g.t, e.t);
@@ -27995,10 +28165,11 @@ LIFE.troubles = function(days) {
   for (const kind of Object.keys(LIFE_TROUBLE)) {
     let n = 0;
     const ppl = {};
-    for (const k of Object.keys(st)) if (+k > today - (days || 7)) {
-      n += st[k][kind] || 0;
-      for (const id of who[k] && who[k][kind] || []) ppl[id] = 1;
-    }
+    for (const k of Object.keys(st))
+      if (+k > today - (days || 7)) {
+        n += st[k][kind] || 0;
+        for (const id of who[k] && who[k][kind] || []) ppl[id] = 1;
+      }
     if (n) out.push({ kind, n, people: Object.keys(ppl).length, label: LIFE_TROUBLE[kind] });
   }
   return out.sort((a, b) => b.people - a.people || b.n - a.n);
@@ -28007,7 +28178,8 @@ LIFE.lastPrice = function(n, item) {
   const log = n.day || [];
   for (let i = log.length - 1; i >= 0; i--) {
     const e = log[i];
-    if ((e.kind === "bought" || e.kind === "sold") && e.data.item === item && e.data.price != null && e.data.qty) return Math.max(1, Math.round(e.data.price / e.data.qty));
+    if ((e.kind === "bought" || e.kind === "sold") && e.data.item === item && e.data.price != null && e.data.qty)
+      return Math.max(1, Math.round(e.data.price / e.data.qty));
   }
   const mem = n.tmem || [];
   for (let i = mem.length - 1; i >= 0; i--) if (mem[i].kind === "price" && mem[i].item === item) return mem[i].unit;
@@ -28046,11 +28218,29 @@ const TM = {
     if (TM.ofEv(n, ev.id)) return null;
     if ((how === "told" || how === "overheard") && ev.know && !(n.kn && n.kn[ev.id])) {
       const who = ver && ver.who != null ? ver.who : null;
-      (n.kn || (n.kn = {}))[ev.id] = { t: game.time, from: from ? from.id : null, cert: conf, a: who != null, who: who != null ? who : void 0, hop: hop || 0, imp: 0.5 };
+      (n.kn || (n.kn = {}))[ev.id] = {
+        t: game.time,
+        from: from ? from.id : null,
+        cert: conf,
+        a: who != null,
+        who: who != null ? who : void 0,
+        hop: hop || 0,
+        imp: 0.5
+      };
       ev.know.push(n.id);
       if (from && ev.chain) ev.chain.push({ from: from.id, to: n.id, t: game.time });
     }
-    return TM.add(n, { kind: how, ev: ev.id, evk: ev.kind, conf, imp: TE.importance(n, ev), from: from ? from.id : null, hop: hop || 0, ver: ver || { who: ev.actor, sev: ev.sev }, told: [] });
+    return TM.add(n, {
+      kind: how,
+      ev: ev.id,
+      evk: ev.kind,
+      conf,
+      imp: TE.importance(n, ev),
+      from: from ? from.id : null,
+      hop: hop || 0,
+      ver: ver || { who: ev.actor, sev: ev.sev },
+      told: []
+    });
   },
   ofEv(n, evId) {
     const mem = n.tmem;
@@ -28108,10 +28298,12 @@ const TE = {
     const gossip = talkHas(sp, "gossipy") ? 1.4 : talkHas(sp, "shy") ? 0.7 : 1;
     let best = null, bs = 0.1;
     for (const m of mem) {
-      if (m.ev == null || m.conf < 0.25 || m.kind === "did" && Math.random() < 0.8 || m.secret && !sp.player && !(talkHas(sp, "gossipy") && Math.random() < 0.12)) continue;
+      if (m.ev == null || m.conf < 0.25 || m.kind === "did" && Math.random() < 0.8 || m.secret && !sp.player && !(talkHas(sp, "gossipy") && Math.random() < 0.12))
+        continue;
       const ev = lf2Ev().find((q) => q.id === m.ev);
       if (!ev) continue;
-      if (ev.actor === li.id || ev.target === li.id || ev.actor === sp.id || ev.target === sp.id || TM.ofEv(li, m.ev) || c && c.sharedEv && c.sharedEv.includes(m.ev) || (m.told || []).includes(li.id)) continue;
+      if (ev.actor === li.id || ev.target === li.id || ev.actor === sp.id || ev.target === sp.id || TM.ofEv(li, m.ev) || c && c.sharedEv && c.sharedEv.includes(m.ev) || (m.told || []).includes(li.id))
+        continue;
       const age = (game.time - m.t) / 1440, rel = 0.6 + (li.aff[ev.actor] != null || li.aff[ev.target] != null ? 0.5 : 0) + (li.know && (li.know[ev.actor] > 10 || li.know[ev.target] > 10) ? 0.3 : 0);
       const sc = m.imp * Math.exp(-age / 3) * rel * gossip * (1 + 1.5 * Math.exp(-(game.time - m.t) / 180)) * (0.8 + Math.random() * 0.4);
       if (sc > bs) {
@@ -28155,7 +28347,8 @@ const TE = {
     (m.told = m.told || []).push(li.id);
     if (m.secret && typeof secretLeak === "function") secretLeak(m, sp, li, ev);
     const j = TE.appraise(li, ev, ver, conf, sp), actor = ver.who != null ? lf2By(ver.who) : null;
-    if (actor && actor !== li && j.v !== 0) lfAff(li, actor, j.v * conf * 3, ver.who === ev.actor ? "ev:" + ev.id : "heard what " + actor.first + " did");
+    if (actor && actor !== li && j.v !== 0)
+      lfAff(li, actor, j.v * conf * 3, ver.who === ev.actor ? "ev:" + ev.id : "heard what " + actor.first + " did");
     return { mem, ver, conf, react: j.react, text: TE.text(ev, ver) };
   },
   /** how a listener takes a piece of news: one of shock, amused, sympathy, doubt, delight, unmoved */
@@ -28181,7 +28374,8 @@ const TE = {
   /** people close by hear it too, less surely, and without being told */
   overhear(c, sp, li, pk) {
     for (const o of npcs) {
-      if (o === sp || o === li || o.dead || o.infant || o.age < 6 || o.pose === "sleep" || o.player || lfDist(o, sp) > 6 || TM.ofEv(o, pk.ev.id) || Math.random() > 0.5) continue;
+      if (o === sp || o === li || o.dead || o.infant || o.age < 6 || o.pose === "sleep" || o.player || lfDist(o, sp) > 6 || TM.ofEv(o, pk.ev.id) || Math.random() > 0.5)
+        continue;
       TM.addEv(o, pk.ev, "overheard", Math.min(0.7, pk.m.conf * 0.6), sp, (pk.m.hop || 0) + 1, Object.assign({}, pk.m.ver));
     }
   }
@@ -28189,38 +28383,92 @@ const TE = {
 const talkHas = (n, t) => (n.traits || []).includes(t);
 const ACTS = {
   /* ---- ritual: openings, pre-closings, farewells ---- */
-  greet: { kind: "ritual", stage: "open", when: (c) => !c.done.greet, apply: (c) => {
-    c.done.greet = 1;
-  }, replies: ["greet_back"] },
+  greet: {
+    kind: "ritual",
+    stage: "open",
+    when: (c) => !c.done.greet,
+    apply: (c) => {
+      c.done.greet = 1;
+    },
+    replies: ["greet_back"]
+  },
   greet_back: { kind: "ritual", stage: "open", reply: true, when: () => true, apply: () => {
   }, replies: [] },
-  pre_close: { kind: "ritual", stage: "close", when: (c) => !c.done.pre_close, apply: (c) => {
-    c.done.pre_close = 1;
-  }, replies: ["farewell"] },
+  pre_close: {
+    kind: "ritual",
+    stage: "close",
+    when: (c) => !c.done.pre_close,
+    apply: (c) => {
+      c.done.pre_close = 1;
+    },
+    replies: ["farewell"]
+  },
   farewell: { kind: "ritual", stage: "close", reply: true, when: () => true, apply: () => {
   }, replies: ["farewell_back"] },
   farewell_back: { kind: "ritual", stage: "close", reply: true, when: () => true, apply: () => {
   }, replies: [] },
   /* ---- small talk: remarks that maintain the bond ---- */
-  remark_time: { kind: "small", stage: "topic", when: (c) => !c.done.remark_time, w: () => 0.4, apply: (c) => {
-    c.done.remark_time = 1;
-  }, replies: ["agree"] },
-  remark_place: { kind: "small", stage: "topic", when: (c, sp) => !c.done.remark_place && !!placeOf(sp), w: () => 1, apply: (c) => {
-    c.done.remark_place = 1;
-  }, replies: ["agree"] },
-  remark_work: { kind: "small", stage: "topic", when: (c, sp) => !c.done.remark_work && !!sp.job, w: (c, sp) => 1.3 + (sp.pose === "work" ? 0.5 : 0), apply: (c) => {
-    c.done.remark_work = 1;
-  }, replies: ["agree"] },
-  remark_state: { kind: "small", stage: "topic", when: (c, sp) => !c.done.remark_state && !!talkState(sp), w: () => 1.4, apply: (c, sp) => {
-    c.done.remark_state = 1;
-    c.state = talkState(sp);
-  }, replies: ["agree"] },
-  ask_how: { kind: "small", stage: "topic", when: (c) => !c.done.ask_how, w: (c, sp, li) => 1 + Math.max(0, sp.aff[li.id] || 0) / 60, apply: (c) => {
-    c.done.ask_how = 1;
-  }, replies: ["answer_how"] },
-  answer_how: { kind: "small", stage: "topic", reply: true, when: () => true, apply: (c, sp) => {
-    c.state = talkState(sp) || "fine";
-  }, replies: [] },
+  remark_time: {
+    kind: "small",
+    stage: "topic",
+    when: (c) => !c.done.remark_time,
+    w: () => 0.4,
+    apply: (c) => {
+      c.done.remark_time = 1;
+    },
+    replies: ["agree"]
+  },
+  remark_place: {
+    kind: "small",
+    stage: "topic",
+    when: (c, sp) => !c.done.remark_place && !!placeOf(sp),
+    w: () => 1,
+    apply: (c) => {
+      c.done.remark_place = 1;
+    },
+    replies: ["agree"]
+  },
+  remark_work: {
+    kind: "small",
+    stage: "topic",
+    when: (c, sp) => !c.done.remark_work && !!sp.job,
+    w: (c, sp) => 1.3 + (sp.pose === "work" ? 0.5 : 0),
+    apply: (c) => {
+      c.done.remark_work = 1;
+    },
+    replies: ["agree"]
+  },
+  remark_state: {
+    kind: "small",
+    stage: "topic",
+    when: (c, sp) => !c.done.remark_state && !!talkState(sp),
+    w: () => 1.4,
+    apply: (c, sp) => {
+      c.done.remark_state = 1;
+      c.state = talkState(sp);
+    },
+    replies: ["agree"]
+  },
+  ask_how: {
+    kind: "small",
+    stage: "topic",
+    when: (c) => !c.done.ask_how,
+    w: (c, sp, li) => 1 + Math.max(0, sp.aff[li.id] || 0) / 60,
+    apply: (c) => {
+      c.done.ask_how = 1;
+    },
+    replies: ["answer_how"]
+  },
+  answer_how: {
+    kind: "small",
+    stage: "topic",
+    reply: true,
+    when: () => true,
+    apply: (c, sp) => {
+      c.state = talkState(sp) || "fine";
+    },
+    replies: []
+  },
   /* ---- world: news and what people make of it ---- */
   ask_news: {
     kind: "world",
@@ -28259,27 +28507,68 @@ const ACTS = {
   }, replies: [] },
   react_amused: { kind: "world", stage: "topic", reply: true, when: (c) => !!c.told && c.told.react === "amused", apply: () => {
   }, replies: [] },
-  react_sympathy: { kind: "world", stage: "topic", reply: true, when: (c) => !!c.told && c.told.react === "sympathy", apply: () => {
-  }, replies: [] },
+  react_sympathy: {
+    kind: "world",
+    stage: "topic",
+    reply: true,
+    when: (c) => !!c.told && c.told.react === "sympathy",
+    apply: () => {
+    },
+    replies: []
+  },
   react_doubt: { kind: "world", stage: "topic", reply: true, when: (c) => !!c.told && c.told.react === "doubt", apply: () => {
   }, replies: [] },
-  react_delight: { kind: "world", stage: "topic", reply: true, when: (c) => !!c.told && c.told.react === "delight", apply: () => {
-  }, replies: [] },
-  react_unmoved: { kind: "world", stage: "topic", reply: true, when: (c) => !!c.told && c.told.react === "unmoved", apply: () => {
-  }, replies: [] },
+  react_delight: {
+    kind: "world",
+    stage: "topic",
+    reply: true,
+    when: (c) => !!c.told && c.told.react === "delight",
+    apply: () => {
+    },
+    replies: []
+  },
+  react_unmoved: {
+    kind: "world",
+    stage: "topic",
+    reply: true,
+    when: (c) => !!c.told && c.told.react === "unmoved",
+    apply: () => {
+    },
+    replies: []
+  },
   /* ---- life: the ordinary day, told from what really happened (talk/life.ts) ---- */
-  ask_day: { kind: "life", stage: "topic", when: (c, sp, li) => !c.done.ask_day && !c.done.report_day && !LIFE.recent(sp, li).length && LIFE.recent(li, sp).length > 0, w: (c, sp) => 0.8 + (talkHas(sp, "curious") || talkHas(sp, "sociable") ? 0.6 : 0), apply: (c) => {
-    c.done.ask_day = 1;
-  }, replies: ["report_day", "nothing_much"] },
-  nothing_much: { kind: "life", stage: "topic", reply: true, when: (c, sp, li) => !LIFE.recent(sp, li).length, apply: () => {
-  }, replies: [] },
+  ask_day: {
+    kind: "life",
+    stage: "topic",
+    when: (c, sp, li) => !c.done.ask_day && !c.done.report_day && !LIFE.recent(sp, li).length && LIFE.recent(li, sp).length > 0,
+    w: (c, sp) => 0.8 + (talkHas(sp, "curious") || talkHas(sp, "sociable") ? 0.6 : 0),
+    apply: (c) => {
+      c.done.ask_day = 1;
+    },
+    replies: ["report_day", "nothing_much"]
+  },
+  nothing_much: {
+    kind: "life",
+    stage: "topic",
+    reply: true,
+    when: (c, sp, li) => !LIFE.recent(sp, li).length,
+    apply: () => {
+    },
+    replies: []
+  },
   report_day: {
     kind: "life",
     stage: "topic",
     preview: (c) => {
       const g = c.life;
       const wo = g.data.with != null ? byId(g.data.with) : null;
-      return { line: "life:" + g.kind, qty: g.data.qty || 1, item: g.data.thing || (g.data.seed ? WORLD.name("seed", g.data.seed) : g.data.item ? WORLD.name("item", g.data.item) : ""), shop: g.data.place || "", about: wo ? wo.first : void 0 };
+      return {
+        line: "life:" + g.kind,
+        qty: g.data.qty || 1,
+        item: g.data.thing || (g.data.seed ? WORLD.name("seed", g.data.seed) : g.data.item ? WORLD.name("item", g.data.item) : ""),
+        shop: g.data.place || "",
+        about: wo ? wo.first : void 0
+      };
     },
     when: (c, sp, li) => (c.done.report_day || 0) < 2 && !!(c.life = LIFE.recent(sp, li)[0]),
     w: (c) => 0.9 + 2 * Math.min(1, c.life ? c.life.score : 0),
@@ -28307,9 +28596,17 @@ const ACTS = {
   },
   acknowledge: { kind: "life", stage: "topic", reply: true, when: (c) => !c.lifeTrouble, apply: () => {
   }, replies: [] },
-  empathise: { kind: "life", stage: "topic", reply: true, when: (c) => !!c.lifeTrouble, w: () => 3, apply: (c, sp, li) => {
-    lfAff(sp, li, 1, "listened to my troubles");
-  }, replies: [] },
+  empathise: {
+    kind: "life",
+    stage: "topic",
+    reply: true,
+    when: (c) => !!c.lifeTrouble,
+    w: () => 3,
+    apply: (c, sp, li) => {
+      lfAff(sp, li, 1, "listened to my troubles");
+    },
+    replies: []
+  },
   agree: { kind: "small", stage: "topic", reply: true, when: () => true, apply: () => {
   }, replies: [] }
 };
@@ -28576,7 +28873,20 @@ lx("call_reply", "plain", "Not now, I'm busy.");
 function lxContext(sp, li, c) {
   const f = sp.fam || {}, g = li.fam || {};
   const rel = f.spouse === li.id ? "spouse" : f.partner === li.id ? "partner" : (f.kids || []).includes(li.id) ? "child" : f.mother === li.id || f.father === li.id ? "parent" : f.mother != null && f.mother === g.mother || f.father != null && f.father === g.father ? "sibling" : typeof isKin === "function" && isKin(sp, li) ? "kin" : sp.rel && sp.rel[li.id] === "friend" || (sp.aff[li.id] || 0) > 30 ? "friend" : sp.know && (sp.know[li.id] || 0) > 10 ? "acquaintance" : "stranger";
-  return { band: todBand(game.time), rel, state: c.state || talkState(sp) || "fine", trait: (sp.traits || [])[0], how: c.how, conf: c.conf, call: c.call, op: c.op, rep: typeof repWord === "function" ? repWord(sp, li) : void 0, age: sp.age < 12 ? "child" : void 0, kid: li.age < 14 ? "yes" : void 0, menu: c.menu };
+  return {
+    band: todBand(game.time),
+    rel,
+    state: c.state || talkState(sp) || "fine",
+    trait: (sp.traits || [])[0],
+    how: c.how,
+    conf: c.conf,
+    call: c.call,
+    op: c.op,
+    rep: typeof repWord === "function" ? repWord(sp, li) : void 0,
+    age: sp.age < 12 ? "child" : void 0,
+    kid: li.age < 14 ? "yes" : void 0,
+    menu: c.menu
+  };
 }
 function lxSlots(sp, li, c, ctx2) {
   const place = String(placeOf(sp) || "").replace(/^(in|at)\s+/, "");
@@ -28613,12 +28923,15 @@ function lxSay(act, sp, li, c) {
   const ctx2 = lxContext(sp, li, c);
   const slots = lxSlots(sp, li, c, ctx2);
   const heard = li.heard || (li.heard = {});
-  const fits = (e) => Object.keys(e.tags).every((k) => k === "trait" ? (sp.traits || []).includes(e.tags[k]) : k === "rel" && e.tags[k] === "kin" ? ["kin", "spouse", "partner", "child", "parent", "sibling"].includes(ctx2.rel) : k === "rel" && e.tags[k] === "partner" ? ["partner", "spouse"].includes(ctx2.rel) : e.tags[k] === ctx2[k]);
+  const fits = (e) => Object.keys(e.tags).every(
+    (k) => k === "trait" ? (sp.traits || []).includes(e.tags[k]) : k === "rel" && e.tags[k] === "kin" ? ["kin", "spouse", "partner", "child", "parent", "sibling"].includes(ctx2.rel) : k === "rel" && e.tags[k] === "partner" ? ["partner", "spouse"].includes(ctx2.rel) : e.tags[k] === ctx2[k]
+  );
   const filled = (e) => {
-    for (const k of lxSlotsOf(e)) if (slots[k] === void 0) {
-      LX_MISS[act + ":" + k] = (LX_MISS[act + ":" + k] || 0) + 1;
-      return false;
-    }
+    for (const k of lxSlotsOf(e))
+      if (slots[k] === void 0) {
+        LX_MISS[act + ":" + k] = (LX_MISS[act + ":" + k] || 0) + 1;
+        return false;
+      }
     return true;
   };
   const pool = (pack) => LEX.filter((e) => e.act === act && e.pack === pack && WORLD.ok(e.requires) && fits(e) && filled(e));
@@ -28646,8 +28959,11 @@ function lxSay(act, sp, li, c) {
   const raw = best.text.replace(/\{(\w+)\}/g, (_m, k) => slots[k] != null ? slots[k] : "");
   const plainNow = spare || lxMarked(best.text);
   const voiced = c.menu ? raw : plainNow && lxRegister(sp) === "chatty" ? raw : lxVoice(sp, li, act, pk, plainNow ? raw : lxTic(sp, act, pk, raw));
-  if (!c.menu && !act.startsWith("ev:")) sp.sinceAside = lxMarked(best.text) || voiced.length > raw.length + 8 ? 0 : (sp.sinceAside == null ? 3 : sp.sinceAside) + 1;
-  return placeWords(voiced.replace(/\s{2,}/g, " ").replace(/\s+$/, "").replace(/(^|[.!?]\s+)([a-z])/g, (_m, a, b) => a + b.toUpperCase()));
+  if (!c.menu && !act.startsWith("ev:"))
+    sp.sinceAside = lxMarked(best.text) || voiced.length > raw.length + 8 ? 0 : (sp.sinceAside == null ? 3 : sp.sinceAside) + 1;
+  return placeWords(
+    voiced.replace(/\s{2,}/g, " ").replace(/\s+$/, "").replace(/(^|[.!?]\s+)([a-z])/g, (_m, a, b) => a + b.toUpperCase())
+  );
 }
 function lxCount(qty, name) {
   name = name || "something";
@@ -28672,21 +28988,70 @@ const LX_TICS = {
   island: ["as far as I know,", "more or less,", "I think", "for what it is worth,", "in my experience,", "probably", "to be fair,"]
 };
 const LX_TIC_ACTS = /^(remark_|share_news|answer_how|report_day|life:|tell_price|nothing_much)/;
-const LX_REG = ["dry", "dry", "dry", "dry", "dry", "dry", "dry", "dry", "dry", "terse", "terse", "terse", "warm", "warm", "warm", "formal", "formal", "chatty", "chatty", "chatty"];
+const LX_REG = [
+  "dry",
+  "dry",
+  "dry",
+  "dry",
+  "dry",
+  "dry",
+  "dry",
+  "dry",
+  "dry",
+  "terse",
+  "terse",
+  "terse",
+  "warm",
+  "warm",
+  "warm",
+  "formal",
+  "formal",
+  "chatty",
+  "chatty",
+  "chatty"
+];
 const lxRegister = (n) => LX_REG[(Math.imul((n.id | 0) + 11, 2246822519) >>> 0) % LX_REG.length];
-const LX_RUNON = { plain: ["But I do go on.", "Anyway, enough about me.", "Mind you, that is just me.", "I could say more."], island: ["Ignore me. I run on.", "I could say more. I am choosing not to, for now.", "That is just how it looks from here.", "But I go on. I do that."] };
-const LX_FORMAL = [[/\bHello\b/g, "Good day"], [/\bHi\b/g, "Good day"], [/\bBye\b/g, "Farewell"], [/\bGoodbye\b/g, "Farewell"], [/\bSee you\b/g, "Until we meet again"], [/\bI'm\b/g, "I am"], [/\bdon't\b/g, "do not"], [/\bcan't\b/g, "cannot"], [/\bit's\b/gi, "it is"], [/\bI'd\b/g, "I would"], [/\bI'll\b/g, "I shall"], [/\bwon't\b/g, "will not"], [/\bisn't\b/g, "is not"], [/\bthat's\b/gi, "that is"], [/\bwe've\b/g, "we have"], [/\bI've\b/g, "I have"]];
+const LX_RUNON = {
+  plain: ["But I do go on.", "Anyway, enough about me.", "Mind you, that is just me.", "I could say more."],
+  island: [
+    "Ignore me. I run on.",
+    "I could say more. I am choosing not to, for now.",
+    "That is just how it looks from here.",
+    "But I go on. I do that."
+  ]
+};
+const LX_FORMAL = [
+  [/\bHello\b/g, "Good day"],
+  [/\bHi\b/g, "Good day"],
+  [/\bBye\b/g, "Farewell"],
+  [/\bGoodbye\b/g, "Farewell"],
+  [/\bSee you\b/g, "Until we meet again"],
+  [/\bI'm\b/g, "I am"],
+  [/\bdon't\b/g, "do not"],
+  [/\bcan't\b/g, "cannot"],
+  [/\bit's\b/gi, "it is"],
+  [/\bI'd\b/g, "I would"],
+  [/\bI'll\b/g, "I shall"],
+  [/\bwon't\b/g, "will not"],
+  [/\bisn't\b/g, "is not"],
+  [/\bthat's\b/gi, "that is"],
+  [/\bwe've\b/g, "we have"],
+  [/\bI've\b/g, "I have"]
+];
 function lxVoice(sp, li, act, pack, text) {
   const reg = lxRegister(sp);
   if (reg === "dry" || !text) return text;
-  const ritual = /^(greet|greet_back|farewell|farewell_back|pre_close)$/.test(act), statement = LX_TIC_ACTS.test(act) || /^(answer_how|answer_work|callback_answer|acknowledge|agree|joke|wonder|brag_child|tell_back|give_advice|share_gladness|sympathise_how)$/.test(act);
+  const ritual = /^(greet|greet_back|farewell|farewell_back|pre_close)$/.test(act), statement = LX_TIC_ACTS.test(act) || /^(answer_how|answer_work|callback_answer|acknowledge|agree|joke|wonder|brag_child|tell_back|give_advice|share_gladness|sympathise_how)$/.test(
+    act
+  );
   if (!ritual && !statement) return text;
   if (reg === "terse") {
     const first = text.split(/(?<=[.!?])\s+/)[0];
     return first.length >= 5 && first.split(/\s+/).length >= 3 ? first : text;
   }
   if (reg === "warm") {
-    if (!ritual || text.length > 22 || sp.age < 12 || Math.random() > 0.55 || /friend|love|dear/.test(text) || li && text.indexOf(li.first) >= 0) return text;
+    if (!ritual || text.length > 22 || sp.age < 12 || Math.random() > 0.55 || /friend|love|dear/.test(text) || li && text.indexOf(li.first) >= 0)
+      return text;
     const addr = li.fam && (li.fam.spouse === sp.id || sp.fam.spouse === li.id) ? "love" : sp.fam && (sp.fam.kids || []).includes(li.id) ? "dear" : "friend";
     return text.replace(/([.!?])\s*$/, ", " + addr + "$1");
   }
@@ -28923,8 +29288,11 @@ function peopleWord(a, b) {
 function peopleReason(a, b) {
   const L = a.why && a.why[b.id] || [], sgn = Math.sign(a.aff[b.id] || 0);
   const rf = a.refl && a.refl[b.id];
-  if (rf && (rf.w === "good" && sgn >= 0 || rf.w === "unkind" && sgn <= 0) && Math.random() < 0.6) return (b.female ? "She" : "He") + (rf.w === "good" ? " is always good to me." : " is never kind to me.");
-  const best = L.filter((x) => !PEOPLE_GENERIC.includes(x.why) && (sgn === 0 || Math.sign(x.v) === sgn)).sort((x, y) => Math.abs(y.v) * (/^heard/.test(y.why) ? 0.4 : 1) - Math.abs(x.v) * (/^heard/.test(x.why) ? 0.4 : 1))[0];
+  if (rf && (rf.w === "good" && sgn >= 0 || rf.w === "unkind" && sgn <= 0) && Math.random() < 0.6)
+    return (b.female ? "She" : "He") + (rf.w === "good" ? " is always good to me." : " is never kind to me.");
+  const best = L.filter((x) => !PEOPLE_GENERIC.includes(x.why) && (sgn === 0 || Math.sign(x.v) === sgn)).sort(
+    (x, y) => Math.abs(y.v) * (/^heard/.test(y.why) ? 0.4 : 1) - Math.abs(x.v) * (/^heard/.test(x.why) ? 0.4 : 1)
+  )[0];
   const f = a.fam || {}, g = b.fam || {}, rel = f.spouse === b.id ? "spouse" : f.partner === b.id ? "partner" : (f.kids || []).includes(b.id) ? "child" : f.mother === b.id || f.father === b.id ? "parent" : f.mother != null && f.mother === g.mother || f.father != null && f.father === g.father ? "sibling" : a.rel && a.rel[b.id], gender = b.female ? "She" : "He";
   if (best) {
     if (/^ev:/.test(best.why)) {
@@ -28933,20 +29301,29 @@ function peopleReason(a, b) {
     } else if (/^heard/.test(best.why)) return "I " + best.why + ".";
     else return gender + " " + best.why + ".";
   }
-  if (rel && PEOPLE_RELS[rel]) return gender + " is " + (rel === "child" ? b.female ? "my daughter" : "my son" : rel === "parent" ? b.female ? "my mother" : "my father" : rel === "sibling" ? b.female ? "my sister" : "my brother" : rel === "spouse" ? b.female ? "my wife" : "my husband" : PEOPLE_RELS[rel]) + ".";
+  if (rel && PEOPLE_RELS[rel])
+    return gender + " is " + (rel === "child" ? b.female ? "my daughter" : "my son" : rel === "parent" ? b.female ? "my mother" : "my father" : rel === "sibling" ? b.female ? "my sister" : "my brother" : rel === "spouse" ? b.female ? "my wife" : "my husband" : PEOPLE_RELS[rel]) + ".";
   if (rel === "friend") return "We get on.";
   if (a.job && a.job === b.job) return "We work side by side.";
   if (a.homeRoom != null && a.homeRoom === b.homeRoom) return "We share a roof.";
   return "";
 }
 function peopleAbout(sp, li, need) {
-  const cands = npcs.filter((o) => o !== sp && o !== li && !o.dead && !o.infant && o.age >= 6 && !o.player && (need === "strong" ? Math.abs(sp.aff[o.id] || 0) >= 20 : Math.abs(sp.aff[o.id] || 0) >= 14));
+  const cands = npcs.filter(
+    (o) => o !== sp && o !== li && !o.dead && !o.infant && o.age >= 6 && !o.player && (need === "strong" ? Math.abs(sp.aff[o.id] || 0) >= 20 : Math.abs(sp.aff[o.id] || 0) >= 14)
+  );
   return cands.length ? cands[Math.floor(Math.random() * cands.length)] : null;
 }
 function peopleHear(li, from, about, word, reason) {
   TM.add(li, { kind: "opinion", about: about.id, from: from.id, word, reason, conf: 0.8, imp: 0.3 });
   const dir = word === "fond" ? 1.5 : word === "like" ? 0.8 : word === "dislike" ? -1.5 : word === "wary" ? -0.8 : 0;
-  if (dir && li.aff) lfAff(li, about, dir * (0.5 + Math.max(0, li.aff[from.id] || 0) / 100), "heard " + (dir > 0 ? "good" : "hard") + " things about " + (about.female ? "her" : "him") + " from " + from.first);
+  if (dir && li.aff)
+    lfAff(
+      li,
+      about,
+      dir * (0.5 + Math.max(0, li.aff[from.id] || 0) / 100),
+      "heard " + (dir > 0 ? "good" : "hard") + " things about " + (about.female ? "her" : "him") + " from " + from.first
+    );
 }
 const peopleYou = (text, li) => !li || !text ? text : text.replace(new RegExp("what " + li.first + " thinks", "g"), "what you think").replace(new RegExp("\\b" + li.first + "\\b", "g"), "you");
 const peopleSet = (c, sp, about, li) => {
@@ -28955,8 +29332,15 @@ const peopleSet = (c, sp, about, li) => {
   c.reason = peopleYou(peopleReason(sp, about), li);
 };
 for (const id of ["ask_opinion", "give_opinion", "gossip_person", "agree_opinion", "differ_opinion", "no_view", "ask_family", "answer_family"])
-  ACTS[id] = { kind: "person", stage: "topic", reply: !["ask_opinion", "gossip_person", "ask_family"].includes(id), when: () => true, apply: () => {
-  }, replies: [] };
+  ACTS[id] = {
+    kind: "person",
+    stage: "topic",
+    reply: !["ask_opinion", "gossip_person", "ask_family"].includes(id),
+    when: () => true,
+    apply: () => {
+    },
+    replies: []
+  };
 ACTS.ask_opinion = {
   kind: "person",
   stage: "topic",
@@ -28975,15 +29359,30 @@ ACTS.ask_opinion = {
   },
   replies: ["give_opinion", "no_view"]
 };
-ACTS.give_opinion = { kind: "person", stage: "topic", reply: true, preview: (c, sp) => c.about ? { about: c.about.first, op: peopleWord(sp, c.about), reason: peopleReason(sp, c.about) } : {}, when: (c, sp) => !!c.about && (Math.abs(sp.aff[c.about.id] || 0) >= 6 || (sp.know[c.about.id] || 0) > 12), apply: (c, sp, li) => {
-  peopleSet(c, sp, c.about, li);
-  c.aboutName = c.about.first;
-  peopleHear(li, sp, c.about, c.op, c.reason);
-}, replies: [] };
-ACTS.no_view = { kind: "person", stage: "topic", reply: true, when: (c, sp) => !!c.about && !(Math.abs(sp.aff[c.about.id] || 0) >= 6 || (sp.know[c.about.id] || 0) > 12), apply: (c) => {
-  c.aboutName = c.about.first;
-  c.op = "none";
-}, replies: [] };
+ACTS.give_opinion = {
+  kind: "person",
+  stage: "topic",
+  reply: true,
+  preview: (c, sp) => c.about ? { about: c.about.first, op: peopleWord(sp, c.about), reason: peopleReason(sp, c.about) } : {},
+  when: (c, sp) => !!c.about && (Math.abs(sp.aff[c.about.id] || 0) >= 6 || (sp.know[c.about.id] || 0) > 12),
+  apply: (c, sp, li) => {
+    peopleSet(c, sp, c.about, li);
+    c.aboutName = c.about.first;
+    peopleHear(li, sp, c.about, c.op, c.reason);
+  },
+  replies: []
+};
+ACTS.no_view = {
+  kind: "person",
+  stage: "topic",
+  reply: true,
+  when: (c, sp) => !!c.about && !(Math.abs(sp.aff[c.about.id] || 0) >= 6 || (sp.know[c.about.id] || 0) > 12),
+  apply: (c) => {
+    c.aboutName = c.about.first;
+    c.op = "none";
+  },
+  replies: []
+};
 ACTS.gossip_person = {
   kind: "person",
   stage: "topic",
@@ -29007,8 +29406,15 @@ ACTS.gossip_person = {
 };
 ACTS.agree_opinion.when = (c, sp) => !!c.about && Math.sign(sp.aff[c.about.id] || 0) === Math.sign(c.op === "fond" || c.op === "like" ? 1 : c.op === "dislike" || c.op === "wary" ? -1 : 0) && Math.abs(sp.aff[c.about.id] || 0) >= 6;
 ACTS.differ_opinion.when = (c, sp) => !!c.about && Math.abs(sp.aff[c.about.id] || 0) >= 6 && Math.sign(sp.aff[c.about.id]) === -Math.sign(c.op === "fond" || c.op === "like" ? 1 : c.op === "dislike" || c.op === "wary" ? -1 : 0);
-ACTS.no_view_g = { kind: "person", stage: "topic", reply: true, when: (c, sp) => !!c.about && !(Math.abs(sp.aff[c.about.id] || 0) >= 6), apply: () => {
-}, replies: [] };
+ACTS.no_view_g = {
+  kind: "person",
+  stage: "topic",
+  reply: true,
+  when: (c, sp) => !!c.about && !(Math.abs(sp.aff[c.about.id] || 0) >= 6),
+  apply: () => {
+  },
+  replies: []
+};
 function peopleKin(n) {
   const f = n.fam || {};
   const ids = [f.spouse, f.mother, f.father].concat(f.kids || []).filter((x) => x != null);
@@ -29033,10 +29439,18 @@ ACTS.ask_family = {
   },
   replies: ["answer_family"]
 };
-ACTS.answer_family = { kind: "person", stage: "topic", reply: true, preview: (c) => c.about ? { about: c.about.first, state: c.famState || talkState(c.about) || "fine" } : {}, when: (c) => !!c.about, apply: (c) => {
-  c.state = c.famState || talkState(c.about) || "fine";
-  c.aboutName = c.about.first;
-}, replies: [] };
+ACTS.answer_family = {
+  kind: "person",
+  stage: "topic",
+  reply: true,
+  preview: (c) => c.about ? { about: c.about.first, state: c.famState || talkState(c.about) || "fine" } : {},
+  when: (c) => !!c.about,
+  apply: (c) => {
+    c.state = c.famState || talkState(c.about) || "fine";
+    c.aboutName = c.about.first;
+  },
+  replies: []
+};
 lx("ask_opinion", "plain", "What do you make of {about}?");
 lx("ask_opinion", "plain", "What's {about} like, really?");
 lx("ask_opinion", "plain", "Do you get on with {about}?");
@@ -29189,66 +29603,121 @@ ACTS.cry_deed = { kind: "deed", stage: "topic", when: () => false, apply: () => 
 }, replies: [] };
 const deedGuilty = (c, sp) => !!c.deed && c.deed.ev.actor === sp.id;
 const deedReply = (id, next, fx, ok = () => true, w = () => 1) => {
-  ACTS[id] = { kind: "deed", stage: "topic", reply: true, when: (c, sp, li) => !!c.deed && ok(c, sp, li), w: (c, sp) => w(c, sp), apply: (c, sp, li) => {
-    c.deedAnswer = id;
-    fx(c, sp, li);
-  }, replies: next };
+  ACTS[id] = {
+    kind: "deed",
+    stage: "topic",
+    reply: true,
+    when: (c, sp, li) => !!c.deed && ok(c, sp, li),
+    w: (c, sp) => w(c, sp),
+    apply: (c, sp, li) => {
+      c.deedAnswer = id;
+      fx(c, sp, li);
+    },
+    replies: next
+  };
 };
-deedReply("deed_sorry", ["deed_forgive", "deed_cold"], (c, sp, li) => {
-  lfAff(li, sp, 3, "said sorry");
-}, deedGuilty);
-deedReply("deed_defend", ["deed_cold"], (c, sp, li) => {
-  lfAff(li, sp, -3, "did not think it was wrong");
-}, deedGuilty);
-deedReply("deed_deny", ["deed_believe", "deed_doubt"], (c, sp, li) => {
-  c.deedLie = deedGuilty(c, sp);
-}, () => true, (c, sp) => deedGuilty(c, sp) ? 1 : 4);
-deedReply("deed_shrug", ["deed_cold"], (c, sp, li) => {
-  lfAff(li, sp, -4, "shrugged it off");
-}, deedGuilty);
+deedReply(
+  "deed_sorry",
+  ["deed_forgive", "deed_cold"],
+  (c, sp, li) => {
+    lfAff(li, sp, 3, "said sorry");
+  },
+  deedGuilty
+);
+deedReply(
+  "deed_defend",
+  ["deed_cold"],
+  (c, sp, li) => {
+    lfAff(li, sp, -3, "did not think it was wrong");
+  },
+  deedGuilty
+);
+deedReply(
+  "deed_deny",
+  ["deed_believe", "deed_doubt"],
+  (c, sp, li) => {
+    c.deedLie = deedGuilty(c, sp);
+  },
+  () => true,
+  (c, sp) => deedGuilty(c, sp) ? 1 : 4
+);
+deedReply(
+  "deed_shrug",
+  ["deed_cold"],
+  (c, sp, li) => {
+    lfAff(li, sp, -4, "shrugged it off");
+  },
+  deedGuilty
+);
 const blameWho = (c, sp, li) => {
   const cands = npcs.filter((o) => !o.dead && !o.infant && o.age >= 12 && o !== sp && o !== li && o.id !== c.deed.ev.target);
   return cands.filter((o) => (sp.aff[o.id] || 0) < -10)[0] || cands[Math.floor(Math.random() * cands.length)];
 };
-deedReply("deed_blame", ["deed_believe", "deed_doubt"], (c, sp, li) => {
-  const X = c.blameCand && c.blameCand !== sp && c.blameCand !== li ? c.blameCand : blameWho(c, sp, li);
-  c.blameCand = null;
-  if (!X) return;
-  c.blamed = X;
-  c.aboutName = X.first;
-  c.deedLie = true;
-  c.deed.m.ver = Object.assign({}, c.deed.m.ver, { who: X.id, suspect: true });
-  c.deed.m.conf = 0.55;
-  c.deed.m.raised = false;
-  lfAff(li, X, -6, "was said to have done it");
-}, (c, sp) => deedGuilty(c, sp) && npcs.length > 3, (c, sp) => sp.player ? 1 : 0.7);
+deedReply(
+  "deed_blame",
+  ["deed_believe", "deed_doubt"],
+  (c, sp, li) => {
+    const X = c.blameCand && c.blameCand !== sp && c.blameCand !== li ? c.blameCand : blameWho(c, sp, li);
+    c.blameCand = null;
+    if (!X) return;
+    c.blamed = X;
+    c.aboutName = X.first;
+    c.deedLie = true;
+    c.deed.m.ver = Object.assign({}, c.deed.m.ver, { who: X.id, suspect: true });
+    c.deed.m.conf = 0.55;
+    c.deed.m.raised = false;
+    lfAff(li, X, -6, "was said to have done it");
+  },
+  (c, sp) => deedGuilty(c, sp) && npcs.length > 3,
+  (c, sp) => sp.player ? 1 : 0.7
+);
 ACTS.deed_blame.preview = (c, sp, li) => {
   const X = blameWho(c, sp, li);
   c.blameCand = X;
   return { about: X ? X.first : "" };
 };
 const deedAnswer = (id, ok, fx) => {
-  ACTS[id] = { kind: "deed", stage: "topic", reply: true, when: (c, sp, li) => !!c.deed && ok(c, sp, li), w: () => 1, apply: (c, sp, li) => {
-    if (fx) fx(c, sp, li);
-  }, replies: [] };
+  ACTS[id] = {
+    kind: "deed",
+    stage: "topic",
+    reply: true,
+    when: (c, sp, li) => !!c.deed && ok(c, sp, li),
+    w: () => 1,
+    apply: (c, sp, li) => {
+      if (fx) fx(c, sp, li);
+    },
+    replies: []
+  };
 };
-deedAnswer("deed_forgive", (c, sp, li) => (sp.aff[li.id] || 0) > -28, (c, sp, li) => {
-  lfAff(sp, li, 4, "forgave me");
-});
+deedAnswer(
+  "deed_forgive",
+  (c, sp, li) => (sp.aff[li.id] || 0) > -28,
+  (c, sp, li) => {
+    lfAff(sp, li, 4, "forgave me");
+  }
+);
 deedAnswer("deed_cold", (c, sp, li) => (sp.aff[li.id] || 0) <= -28 || c.deedAnswer !== "deed_sorry");
-deedAnswer("deed_believe", (c, sp, li) => {
-  const m = c.deed.m;
-  return m.ver && m.ver.suspect || m.kind !== "saw" && m.kind !== "felt";
-}, (c, sp, li) => {
-  const m = c.deed.m;
-  if (c.deedAnswer === "deed_deny" && !c.blamed) {
-    m.cleared = true;
-    lfAff(sp, li, 2, "said it was not them");
-  } else lfAff(sp, li, 1, "put me straight");
-});
-deedAnswer("deed_doubt", (c) => true, (c, sp, li) => {
-  lfAff(sp, li, -3, "lied to me");
-});
+deedAnswer(
+  "deed_believe",
+  (c, sp, li) => {
+    const m = c.deed.m;
+    return m.ver && m.ver.suspect || m.kind !== "saw" && m.kind !== "felt";
+  },
+  (c, sp, li) => {
+    const m = c.deed.m;
+    if (c.deedAnswer === "deed_deny" && !c.blamed) {
+      m.cleared = true;
+      lfAff(sp, li, 2, "said it was not them");
+    } else lfAff(sp, li, 1, "put me straight");
+  }
+);
+deedAnswer(
+  "deed_doubt",
+  (c) => true,
+  (c, sp, li) => {
+    lfAff(sp, li, -3, "lied to me");
+  }
+);
 lx("raise_deed", "plain", "You {deed}. I would like to know why.", { how: "victim" });
 lx("raise_deed", "plain", "I know it was you. You {deed}.", { how: "victim" });
 lx("raise_deed", "plain", "You {deed}. I was there.", { how: "victim" });
@@ -29365,7 +29834,8 @@ function giftTastes(n) {
 function giftKnown(sp, li) {
   const out = { like: [], dislike: [] };
   for (const m of sp.tmem || []) if (m.kind === "pref" && m.about === li.id) (m.like ? out.like : out.dislike).push(m.item);
-  if (sp.fam && (sp.fam.spouse === li.id || sp.fam.mother === li.id || sp.fam.father === li.id || (sp.fam.kids || []).includes(li.id)) && !out.like.length) out.like.push(giftTastes(li).like[0]);
+  if (sp.fam && (sp.fam.spouse === li.id || sp.fam.mother === li.id || sp.fam.father === li.id || (sp.fam.kids || []).includes(li.id)) && !out.like.length)
+    out.like.push(giftTastes(li).like[0]);
   return out;
 }
 const giftLearn = (sp, li, item, like) => {
@@ -29401,7 +29871,9 @@ ACTS.offer_gift = {
   w: (c, sp, li) => {
     if (sp.player) return 0.5;
     const k = giftChoose(sp, li), hungry = k && GOODS[k].sat && (li.hunger || 0) > 60, a = sp.aff[li.id] || 0;
-    return 0.15 + ((sp.owes || {})[li.id] ? 1.4 : 0) + (k && giftKnown(sp, li).like.includes(k) ? 0.8 : 0) + (hungry && a > -10 ? 1.5 : 0) + (a > 30 ? 0.5 : 0) + (sp.know && sp.know[li.id] > 20 ? 0.1 : 0) + ((sp.tmem || []).some((m) => m.kind === "did" && m.ev != null && !m.forgiven && (lf2Ev().find((q) => q.id === m.ev) || {}).target === li.id && (a < 0 || Math.random() < 0.3)) ? 1.2 : 0);
+    return 0.15 + ((sp.owes || {})[li.id] ? 1.4 : 0) + (k && giftKnown(sp, li).like.includes(k) ? 0.8 : 0) + (hungry && a > -10 ? 1.5 : 0) + (a > 30 ? 0.5 : 0) + (sp.know && sp.know[li.id] > 20 ? 0.1 : 0) + ((sp.tmem || []).some(
+      (m) => m.kind === "did" && m.ev != null && !m.forgiven && (lf2Ev().find((q) => q.id === m.ev) || {}).target === li.id && (a < 0 || Math.random() < 0.3)
+    ) ? 1.2 : 0);
   },
   apply: (c, sp, li) => {
     c.done.offer_gift = 1;
@@ -29412,10 +29884,12 @@ ACTS.offer_gift = {
       return;
     }
     c.lifeItem = giftName(k);
-    const bad = (li.tmem || []).filter((m) => m.ev != null && !m.forgiven && ["saw", "felt", "told", "overheard"].includes(m.kind) && game.time - m.t < 1440 * 8 && (() => {
-      const ev = lf2Ev().find((q) => q.id === m.ev);
-      return !!ev && ev.actor === sp.id && (ev.tags || []).some((t) => DEED_TAGS.includes(t));
-    })()), grievance = bad.length > 0;
+    const bad = (li.tmem || []).filter(
+      (m) => m.ev != null && !m.forgiven && ["saw", "felt", "told", "overheard"].includes(m.kind) && game.time - m.t < 1440 * 8 && (() => {
+        const ev = lf2Ev().find((q) => q.id === m.ev);
+        return !!ev && ev.actor === sp.id && (ev.tags || []).some((t) => DEED_TAGS.includes(t));
+      })()
+    ), grievance = bad.length > 0;
     if ((li.aff[sp.id] || 0) < -45) {
       c.giftResult = "refused";
       return;
@@ -29424,22 +29898,36 @@ ACTS.offer_gift = {
     li.inv = li.inv || {};
     li.inv[k] = (li.inv[k] || 0) + 1;
     const value = GOODS[k].base || 1, wanted = GOODS[k].sat && (li.hunger || 0) > 55 || k === "flowers", ta = giftTastes(li), loved = ta.like.includes(k), hated = ta.dislike.includes(k), returning = !!(sp.owes && sp.owes[li.id]);
-    lfAff(li, sp, 0.35 * (2 + value * 0.8 + (wanted ? 3 : 0) + (loved ? 7 : 0) - (hated ? 9 : 0) + (grievance ? value * 0.8 + 4 : 0)), "gave me " + c.lifeItem);
+    lfAff(
+      li,
+      sp,
+      0.35 * (2 + value * 0.8 + (wanted ? 3 : 0) + (loved ? 7 : 0) - (hated ? 9 : 0) + (grievance ? value * 0.8 + 4 : 0)),
+      "gave me " + c.lifeItem
+    );
     if (loved) giftLearn(sp, li, k, true);
     else if (hated) giftLearn(sp, li, k, false);
     if (sp.owes) delete sp.owes[li.id];
     (li.owes || (li.owes = {}))[sp.id] = game.time;
     c.newsHow = returning ? "return" : "plain";
     for (const m of bad) m.forgiven = true;
-    for (const m of sp.tmem || []) if (m.kind === "did" && m.ev != null) {
-      const ev = lf2Ev().find((q) => q.id === m.ev);
-      if (ev && ev.target === li.id) m.forgiven = true;
-    }
+    for (const m of sp.tmem || [])
+      if (m.kind === "did" && m.ev != null) {
+        const ev = lf2Ev().find((q) => q.id === m.ev);
+        if (ev && ev.target === li.id) m.forgiven = true;
+      }
     if (typeof reqDone === "function") {
-      for (const q of li.reqs || []) if (q.kind === "item" && q.item === k && q.state !== "done" && q.state !== "failed") reqDone(li, sp, "item", "gave me what I needed");
+      for (const q of li.reqs || [])
+        if (q.kind === "item" && q.item === k && q.state !== "done" && q.state !== "failed") reqDone(li, sp, "item", "gave me what I needed");
     }
     c.giftResult = hated ? "disliked" : grievance ? "amends" : loved ? "loved" : wanted ? "wanted" : "plain";
-    lfEmit("gift", { actor: sp, target: li, sev: 1, tags: hated ? [] : ["kindness", "generous"], chron: false, text: `${sp.first} gave ${li.first} ${c.lifeItem}` });
+    lfEmit("gift", {
+      actor: sp,
+      target: li,
+      sev: 1,
+      tags: hated ? [] : ["kindness", "generous"],
+      chron: false,
+      text: `${sp.first} gave ${li.first} ${c.lifeItem}`
+    });
   },
   replies: ["gift_thanks", "gift_delight", "gift_amends", "gift_refuse", "gift_loved", "gift_disliked"]
 };
@@ -29495,9 +29983,18 @@ ACTS.ask_preference = {
   },
   replies: ["tell_preference"]
 };
-ACTS.tell_preference = { kind: "gift", stage: "topic", reply: true, preview: (c) => ({ item: c.prefItem ? giftName(c.prefItem) : "", how: c.prefLike ? "like" : "dislike" }), when: (c) => !!c.prefItem, w: () => 1, apply: (c) => {
-  c.newsHow = c.prefLike ? "like" : "dislike";
-}, replies: [] };
+ACTS.tell_preference = {
+  kind: "gift",
+  stage: "topic",
+  reply: true,
+  preview: (c) => ({ item: c.prefItem ? giftName(c.prefItem) : "", how: c.prefLike ? "like" : "dislike" }),
+  when: (c) => !!c.prefItem,
+  w: () => 1,
+  apply: (c) => {
+    c.newsHow = c.prefLike ? "like" : "dislike";
+  },
+  replies: []
+};
 ACTS.hint_gift = {
   kind: "gift",
   stage: "topic",
@@ -29546,7 +30043,9 @@ lxi("gift_disliked", "It is kind. I do not like it. Both of those are true.");
 lxi("offer_gift", "This is for the other day. I do not like to be owed things.", { how: "return" });
 lxi("offer_gift", "You gave me something. I am returning the favour in kind. Almost in kind.", { how: "return" });
 function sendTarget(sp, li) {
-  const cands = npcs.filter((o) => o !== sp && o !== li && !o.dead && !o.infant && o.age >= 12 && ((sp.aff[o.id] || 0) > 22 || sp.crush === o.id) && !!giftChoose(sp, o));
+  const cands = npcs.filter(
+    (o) => o !== sp && o !== li && !o.dead && !o.infant && o.age >= 12 && ((sp.aff[o.id] || 0) > 22 || sp.crush === o.id) && !!giftChoose(sp, o)
+  );
   cands.sort((a, b) => (sp.crush === b.id ? 100 : 0) + (sp.aff[b.id] || 0) - ((sp.crush === a.id ? 100 : 0) + (sp.aff[a.id] || 0)));
   return cands[0] || null;
 }
@@ -29605,7 +30104,19 @@ function parcelGive(n) {
   X.inv = X.inv || {};
   X.inv[P.item] = (X.inv[P.item] || 0) + 1;
   const ta = giftTastes(X), loved = ta.like.includes(P.item), hated = ta.dislike.includes(P.item), value = GOODS[P.item] && GOODS[P.item].base || 1;
-  const ev = lfEmit("gift", { actor: g, target: X, x: X.tx, y: X.ty, sev: 1, tags: ["kindness", "generous"], anon: true, sawActor: [n.id], witnessIds: [n.id, X.id], chron: false, text: `${g ? g.first : "Somebody"} sent ${X.first} ${giftName(P.item)}` });
+  const ev = lfEmit("gift", {
+    actor: g,
+    target: X,
+    x: X.tx,
+    y: X.ty,
+    sev: 1,
+    tags: ["kindness", "generous"],
+    anon: true,
+    sawActor: [n.id],
+    witnessIds: [n.id, X.id],
+    chron: false,
+    text: `${g ? g.first : "Somebody"} sent ${X.first} ${giftName(P.item)}`
+  });
   const m = TM.ofEv(X, ev.id), guess = m && m.ver && m.ver.who != null ? lf2By(m.ver.who) : null;
   const gain = 0.35 * (2 + value * 0.8 + (loved ? 7 : 0) - (hated ? 9 : 0));
   if (guess) lfAff(X, guess, gain, "left me a gift");
@@ -29615,7 +30126,17 @@ function parcelGive(n) {
     if (loved) giftLearn(g, X, P.item, true);
     else if (hated) giftLearn(g, X, P.item, false);
   }
-  const c = { a: n, b: X, done: {}, turns: [{ by: n.id, act: "gift_from_nobody", x: { item: giftName(P.item), how: "plain" } }, { by: X.id, act: "gift_anon_reply", x: { item: giftName(P.item), how: loved ? "like" : hated ? "dislike" : "plain" } }], stage: "topic", t0: game.time };
+  const c = {
+    a: n,
+    b: X,
+    done: {},
+    turns: [
+      { by: n.id, act: "gift_from_nobody", x: { item: giftName(P.item), how: "plain" } },
+      { by: X.id, act: "gift_anon_reply", x: { item: giftName(P.item), how: loved ? "like" : hated ? "dislike" : "plain" } }
+    ],
+    stage: "topic",
+    t0: game.time
+  };
   faceTo(n, X);
   talkFinish(c, n, X, talkListened(n, X));
 }
@@ -29635,17 +30156,25 @@ LF2.dec.push(function(n) {
     parcelBack(n);
     return null;
   }
-  return [goS(() => {
-    const b = besideTile(X.tx, X.ty, null);
-    return b ? { x: b.x, y: b.y, face: { dx: Math.sign(X.tx - b.x), dy: Math.sign(X.ty - b.y) } } : null;
-  }, `Taking something to ${X.first}`), waitS(1, "stand", `Handing ${X.first} something`, { nopie: true, onEnd(nn) {
-    parcelGive(nn);
-  } })];
+  return [
+    goS(() => {
+      const b = besideTile(X.tx, X.ty, null);
+      return b ? { x: b.x, y: b.y, face: { dx: Math.sign(X.tx - b.x), dy: Math.sign(X.ty - b.y) } } : null;
+    }, `Taking something to ${X.first}`),
+    waitS(1, "stand", `Handing ${X.first} something`, {
+      nopie: true,
+      onEnd(nn) {
+        parcelGive(nn);
+      }
+    })
+  ];
 });
-const wrongs = (sp, li) => (sp.tmem || []).filter((m) => m.kind === "did" && m.ev != null && !m.forgiven && !m.sorry && game.time - m.t < 1440 * 10 && (() => {
-  const ev = lf2Ev().find((q) => q.id === m.ev);
-  return !!ev && ev.target === li.id && (ev.tags || []).some((t) => ["harm", "nuisance", "embarrass", "deceit", "theft"].includes(t));
-})());
+const wrongs = (sp, li) => (sp.tmem || []).filter(
+  (m) => m.kind === "did" && m.ev != null && !m.forgiven && !m.sorry && game.time - m.t < 1440 * 10 && (() => {
+    const ev = lf2Ev().find((q) => q.id === m.ev);
+    return !!ev && ev.target === li.id && (ev.tags || []).some((t) => ["harm", "nuisance", "embarrass", "deceit", "theft"].includes(t));
+  })()
+);
 ACTS.apologise = {
   kind: "feeling",
   stage: "topic",
@@ -29668,20 +30197,30 @@ ACTS.accept_apology = {
   apply: (c, sp, li) => {
     lfAff(sp, li, 6, "said sorry");
     lfAff(li, sp, 2, "forgave me");
-    for (const m of li.tmem || []) if (m.ev != null && !m.forgiven) {
-      const ev = lf2Ev().find((q) => q.id === m.ev);
-      if (ev && ev.actor === li.id && ev.target === sp.id) m.forgiven = true;
-    }
-    for (const m of sp.tmem || []) if (m.ev != null && !m.forgiven) {
-      const ev = lf2Ev().find((q) => q.id === m.ev);
-      if (ev && ev.actor === li.id && ev.target === sp.id) m.forgiven = true;
-    }
+    for (const m of li.tmem || [])
+      if (m.ev != null && !m.forgiven) {
+        const ev = lf2Ev().find((q) => q.id === m.ev);
+        if (ev && ev.actor === li.id && ev.target === sp.id) m.forgiven = true;
+      }
+    for (const m of sp.tmem || [])
+      if (m.ev != null && !m.forgiven) {
+        const ev = lf2Ev().find((q) => q.id === m.ev);
+        if (ev && ev.actor === li.id && ev.target === sp.id) m.forgiven = true;
+      }
   },
   replies: []
 };
-ACTS.reject_apology = { kind: "feeling", stage: "topic", reply: true, when: (c, sp, li) => (sp.aff[li.id] || 0) <= -40, w: () => 2, apply: (c, sp, li) => {
-  lfAff(sp, li, -1, "would not hear me out");
-}, replies: [] };
+ACTS.reject_apology = {
+  kind: "feeling",
+  stage: "topic",
+  reply: true,
+  when: (c, sp, li) => (sp.aff[li.id] || 0) <= -40,
+  w: () => 2,
+  apply: (c, sp, li) => {
+    lfAff(sp, li, -1, "would not hear me out");
+  },
+  replies: []
+};
 const jealousFor = (sp, li) => {
   for (const m of sp.tmem || []) {
     if (m.ev == null || m.raisedJ || !["saw", "told", "overheard", "felt"].includes(m.kind) || game.time - m.t > 1440 * 6) continue;
@@ -29708,9 +30247,17 @@ ACTS.confront_jealous = {
   },
   replies: ["jealous_explain", "jealous_defiant", "jealous_deny"]
 };
-ACTS.jealous_explain = { kind: "romance", stage: "topic", reply: true, when: (c, sp) => !c.jealousY || sp.fam.partner !== c.jealousY.id, w: () => 2, apply: (c, sp, li) => {
-  lfAff(li, sp, 3, "explained");
-}, replies: [] };
+ACTS.jealous_explain = {
+  kind: "romance",
+  stage: "topic",
+  reply: true,
+  when: (c, sp) => !c.jealousY || sp.fam.partner !== c.jealousY.id,
+  w: () => 2,
+  apply: (c, sp, li) => {
+    lfAff(li, sp, 3, "explained");
+  },
+  replies: []
+};
 ACTS.jealous_defiant = {
   kind: "romance",
   stage: "topic",
@@ -29727,9 +30274,17 @@ ACTS.jealous_defiant = {
   },
   replies: []
 };
-ACTS.jealous_deny = { kind: "romance", stage: "topic", reply: true, when: () => true, w: () => 0.8, apply: (c, sp, li) => {
-  lfAff(li, sp, -1, "did not believe me");
-}, replies: [] };
+ACTS.jealous_deny = {
+  kind: "romance",
+  stage: "topic",
+  reply: true,
+  when: () => true,
+  w: () => 0.8,
+  apply: (c, sp, li) => {
+    lfAff(li, sp, -1, "did not believe me");
+  },
+  replies: []
+};
 lx("send_gift", "plain", "Could you give {item} to {about} for me? Without saying it's from me?");
 lx("send_gift", "plain", "I've something for {about}. {item}. Would you take it over? Don't say who.");
 lx("deliver_yes", "plain", "All right. My lips are sealed.");
@@ -29825,33 +30380,68 @@ ACTS.ask_favour = {
   replies: ["favour_give", "favour_promise", "favour_no"]
 };
 const favReply = (id, ok, fx, next, w = 1) => {
-  ACTS[id] = { kind: "economy", stage: "topic", reply: true, when: (c, sp, li) => !!c.req && ok(c, sp, li), w: () => w, apply: fx, replies: next };
+  ACTS[id] = {
+    kind: "economy",
+    stage: "topic",
+    reply: true,
+    when: (c, sp, li) => !!c.req && ok(c, sp, li),
+    w: () => w,
+    apply: fx,
+    replies: next
+  };
 };
-favReply("favour_give", (c, sp) => reqCanGive(sp, c.req), (c, sp, li) => {
-  const k = c.req.item;
-  sp.inv[k]--;
-  li.inv = li.inv || {};
-  li.inv[k] = (li.inv[k] || 0) + 1;
-  reqDone(li, sp, "item", "helped me when I had nothing");
-  lfEmit("help", { actor: sp, target: li, sev: 1, tags: ["kindness", "help"], chron: false, text: `${sp.first} helped ${li.first}` });
-}, ["favour_thanks"], 3);
-favReply("favour_promise", (c, sp) => !!sp.player, (c, sp, li) => {
-  TM.add(sp, { kind: "request", from: li.id, req: c.req, state: "open", conf: 1, imp: 0.6 });
-  const r = (li.reqs || []).find((q) => q.state === "asked" && q.to === sp.id);
-  if (r) {
-    r.state = "promised";
-    r.tp = game.time;
-  }
-}, ["favour_hopeful"]);
-favReply("favour_no", (c, sp) => !reqCanGive(sp, c.req) || !sp.player, (c, sp, li) => {
-  const r = (li.reqs || []).find((q) => q.state === "asked" && q.to === sp.id);
-  if (r) r.state = "failed";
-  lfAff(li, sp, -1.5, "would not help");
-}, [], 0.6);
-favReply("favour_thanks", () => true, () => {
-}, []);
-favReply("favour_hopeful", () => true, () => {
-}, []);
+favReply(
+  "favour_give",
+  (c, sp) => reqCanGive(sp, c.req),
+  (c, sp, li) => {
+    const k = c.req.item;
+    sp.inv[k]--;
+    li.inv = li.inv || {};
+    li.inv[k] = (li.inv[k] || 0) + 1;
+    reqDone(li, sp, "item", "helped me when I had nothing");
+    lfEmit("help", { actor: sp, target: li, sev: 1, tags: ["kindness", "help"], chron: false, text: `${sp.first} helped ${li.first}` });
+  },
+  ["favour_thanks"],
+  3
+);
+favReply(
+  "favour_promise",
+  (c, sp) => !!sp.player,
+  (c, sp, li) => {
+    TM.add(sp, { kind: "request", from: li.id, req: c.req, state: "open", conf: 1, imp: 0.6 });
+    const r = (li.reqs || []).find((q) => q.state === "asked" && q.to === sp.id);
+    if (r) {
+      r.state = "promised";
+      r.tp = game.time;
+    }
+  },
+  ["favour_hopeful"]
+);
+favReply(
+  "favour_no",
+  (c, sp) => !reqCanGive(sp, c.req) || !sp.player,
+  (c, sp, li) => {
+    const r = (li.reqs || []).find((q) => q.state === "asked" && q.to === sp.id);
+    if (r) r.state = "failed";
+    lfAff(li, sp, -1.5, "would not help");
+  },
+  [],
+  0.6
+);
+favReply(
+  "favour_thanks",
+  () => true,
+  () => {
+  },
+  []
+);
+favReply(
+  "favour_hopeful",
+  () => true,
+  () => {
+  },
+  []
+);
 ACTS.chase_favour = {
   kind: "economy",
   stage: "topic",
@@ -29870,19 +30460,20 @@ ACTS.chase_favour = {
   replies: ["favour_give", "favour_promise", "favour_no"]
 };
 LF2.hourly.push(() => {
-  for (const n of npcs) for (const r of n.reqs || []) {
-    if (r.state === "done" || r.state === "failed") continue;
-    const h = lf2By(r.to);
-    if (r.kind === "bed" && !n.homeless && h) {
-      r.state = "done";
-      lfAff(n, h, 6, "got me a bed");
-      for (const m of h.tmem || []) if (m.kind === "request" && m.from === n.id && m.state === "open") m.state = "done";
-    } else if (r.state === "promised" && game.time - r.tp > 1440 * 3 && h) {
-      r.state = "failed";
-      lfAff(n, h, -4, "promised and did nothing");
-      for (const m of h.tmem || []) if (m.kind === "request" && m.from === n.id && m.state === "open") m.state = "failed";
-    } else if (r.state === "asked" && game.time - r.t > 1440) r.state = "failed";
-  }
+  for (const n of npcs)
+    for (const r of n.reqs || []) {
+      if (r.state === "done" || r.state === "failed") continue;
+      const h = lf2By(r.to);
+      if (r.kind === "bed" && !n.homeless && h) {
+        r.state = "done";
+        lfAff(n, h, 6, "got me a bed");
+        for (const m of h.tmem || []) if (m.kind === "request" && m.from === n.id && m.state === "open") m.state = "done";
+      } else if (r.state === "promised" && game.time - r.tp > 1440 * 3 && h) {
+        r.state = "failed";
+        lfAff(n, h, -4, "promised and did nothing");
+        for (const m of h.tmem || []) if (m.kind === "request" && m.from === n.id && m.state === "open") m.state = "failed";
+      } else if (r.state === "asked" && game.time - r.t > 1440) r.state = "failed";
+    }
 });
 ACTS.vent = {
   kind: "feeling",
@@ -29897,18 +30488,42 @@ ACTS.vent = {
   },
   replies: ["console", "shrug_off"]
 };
-ACTS.console = { kind: "feeling", stage: "topic", reply: true, when: (c, sp, li) => (sp.aff[li.id] || 0) > -10, w: () => 2, apply: (c, sp, li) => {
-  li.mood = Math.min(100, (li.mood == null ? 50 : li.mood) + 3);
-  lfAff(li, sp, 1.5, "listened to me");
-}, replies: [] };
-ACTS.shrug_off = { kind: "feeling", stage: "topic", reply: true, when: () => true, w: () => 0.6, apply: (c, sp, li) => {
-  lfAff(li, sp, -1, "did not care");
-}, replies: [] };
-ACTS.praise = { kind: "feeling", stage: "topic", preview: () => ({}), w: () => 0.9, when: (c, sp, li) => !c.done.praise && (sp.aff[li.id] || 0) > 35 && !li.infant, apply: (c, sp, li) => {
-  c.done.praise = 1;
-  lfAff(li, sp, 1.5, "was kind about me");
-  li.mood = Math.min(100, (li.mood == null ? 50 : li.mood) + 2);
-}, replies: ["thank_praise"] };
+ACTS.console = {
+  kind: "feeling",
+  stage: "topic",
+  reply: true,
+  when: (c, sp, li) => (sp.aff[li.id] || 0) > -10,
+  w: () => 2,
+  apply: (c, sp, li) => {
+    li.mood = Math.min(100, (li.mood == null ? 50 : li.mood) + 3);
+    lfAff(li, sp, 1.5, "listened to me");
+  },
+  replies: []
+};
+ACTS.shrug_off = {
+  kind: "feeling",
+  stage: "topic",
+  reply: true,
+  when: () => true,
+  w: () => 0.6,
+  apply: (c, sp, li) => {
+    lfAff(li, sp, -1, "did not care");
+  },
+  replies: []
+};
+ACTS.praise = {
+  kind: "feeling",
+  stage: "topic",
+  preview: () => ({}),
+  w: () => 0.9,
+  when: (c, sp, li) => !c.done.praise && (sp.aff[li.id] || 0) > 35 && !li.infant,
+  apply: (c, sp, li) => {
+    c.done.praise = 1;
+    lfAff(li, sp, 1.5, "was kind about me");
+    li.mood = Math.min(100, (li.mood == null ? 50 : li.mood) + 2);
+  },
+  replies: ["thank_praise"]
+};
 ACTS.thank_praise = { kind: "feeling", stage: "topic", reply: true, when: () => true, w: () => 1, apply: () => {
 }, replies: [] };
 lx("ask_favour", "plain", "I have nothing to eat. Could you spare some {item}?", { how: "item" });
@@ -30019,11 +30634,27 @@ ACTS.confide = {
   replies: ["secret_keep", "secret_alarmed"]
 };
 const secretServe = (c) => c.secretEv && ((c.secretEv.sev || 1) >= 3 || (c.secretEv.tags || []).some((t) => ["theft", "harm", "violence"].includes(t)));
-ACTS.secret_keep = { kind: "secret", stage: "topic", reply: true, when: (c) => !!c.secretEv && !secretServe(c), w: () => 1, apply: () => {
-}, replies: [] };
-ACTS.secret_alarmed = { kind: "secret", stage: "topic", reply: true, when: (c) => !!c.secretEv && secretServe(c), w: () => 1, apply: (c, sp, li) => {
-  lfAff(sp, li, -2, "did something serious");
-}, replies: [] };
+ACTS.secret_keep = {
+  kind: "secret",
+  stage: "topic",
+  reply: true,
+  when: (c) => !!c.secretEv && !secretServe(c),
+  w: () => 1,
+  apply: () => {
+  },
+  replies: []
+};
+ACTS.secret_alarmed = {
+  kind: "secret",
+  stage: "topic",
+  reply: true,
+  when: (c) => !!c.secretEv && secretServe(c),
+  w: () => 1,
+  apply: (c, sp, li) => {
+    lfAff(sp, li, -2, "did something serious");
+  },
+  replies: []
+};
 function secretLeak(m, by, to, ev) {
   if (!m.secret || m.keeper == null || m.keeper === by.id) return;
   (town.leaks || (town.leaks = [])).push({ keeper: m.keeper, by: by.id, to: to.id, ev: ev.id, t: game.time });
@@ -30039,7 +30670,20 @@ LF2.hourly.push(() => {
     }
     const k = lf2By(l.keeper), b = lf2By(l.by);
     if (!k || !b || k.dead || b.dead) continue;
-    const ev = lfEmit("betrayal", { actor: b, target: k, x: k.tx, y: k.ty, sev: 2, tags: ["deceit", "harm"], anon: false, witnessIds: [k.id], chron: !!k.player, chronKind: "note", loud: false, text: `${b.first} told ${k.first}'s secret` });
+    const ev = lfEmit("betrayal", {
+      actor: b,
+      target: k,
+      x: k.tx,
+      y: k.ty,
+      sev: 2,
+      tags: ["deceit", "harm"],
+      anon: false,
+      witnessIds: [k.id],
+      chron: !!k.player,
+      chronKind: "note",
+      loud: false,
+      text: `${b.first} told ${k.first}'s secret`
+    });
     lfAff(k, b, -10, "told my secret");
   }
   town.leaks = keep;
@@ -30175,10 +30819,18 @@ ACTS.walk_yes = {
   },
   replies: ["glad_courtship"]
 };
-ACTS.walk_later = { kind: "romance", stage: "topic", reply: true, when: (c, sp, li) => romOK(sp, li), w: () => 0.8, apply: (c, sp, li) => {
-  romSet(li, "walk" + sp.id, 6);
-  li.waitCourt = game.time + 6 * 1440;
-}, replies: [] };
+ACTS.walk_later = {
+  kind: "romance",
+  stage: "topic",
+  reply: true,
+  when: (c, sp, li) => romOK(sp, li),
+  w: () => 0.8,
+  apply: (c, sp, li) => {
+    romSet(li, "walk" + sp.id, 6);
+    li.waitCourt = game.time + 6 * 1440;
+  },
+  replies: []
+};
 ACTS.walk_no = {
   kind: "romance",
   stage: "topic",
@@ -30217,9 +30869,17 @@ ACTS.propose_yes = {
   },
   replies: []
 };
-ACTS.propose_later = { kind: "romance", stage: "topic", reply: true, when: () => true, w: () => 0.7, apply: (c, sp, li) => {
-  sp.waitMarry = li.waitMarry = game.time + 8 * 1440;
-}, replies: [] };
+ACTS.propose_later = {
+  kind: "romance",
+  stage: "topic",
+  reply: true,
+  when: () => true,
+  w: () => 0.7,
+  apply: (c, sp, li) => {
+    sp.waitMarry = li.waitMarry = game.time + 8 * 1440;
+  },
+  replies: []
+};
 ACTS.propose_no = {
   kind: "romance",
   stage: "topic",
@@ -30289,7 +30949,24 @@ lxi("propose_yes", "Yes. I will. It is a very quick decision and I find I have n
 lxi("propose_yes", "Yes. I thought you would never ask. Yes.");
 lxi("propose_later", "Not yet. Ask me again later. I am not refusing, I am being slow.");
 lxi("propose_no", "No. I am sorry. I cannot, and I would rather say so now.");
-const REP_KIND = { wall_removed: "vandal", home_destroyed: "vandal", building_down: "vandal", bed_moved: "meddler", caught_on_privy: "meddler", theft: "thief", pickpocket: "thief", robbed: "thief", breakin: "thief", cheat: "thief", gift: "kind", help: "kind", charity: "kind", betrayal: "gossip", shove: "bully", brawl: "bully" };
+const REP_KIND = {
+  wall_removed: "vandal",
+  home_destroyed: "vandal",
+  building_down: "vandal",
+  bed_moved: "meddler",
+  caught_on_privy: "meddler",
+  theft: "thief",
+  pickpocket: "thief",
+  robbed: "thief",
+  breakin: "thief",
+  cheat: "thief",
+  gift: "kind",
+  help: "kind",
+  charity: "kind",
+  betrayal: "gossip",
+  shove: "bully",
+  brawl: "bully"
+};
 const REP_BAD = ["vandal", "meddler", "thief", "gossip", "bully"];
 function repTags(obs, subj) {
   const out = {};
@@ -30324,7 +31001,9 @@ function repWord(sp, li) {
 function repSuspect(w, ev) {
   const tag = REP_KIND[ev.kind], cands = npcs.filter((c) => !c.dead && !c.infant && c.age >= 12 && c !== w && c.id !== ev.target);
   if (!cands.length) return null;
-  const ws = cands.map((c) => 0.25 + Math.max(0, -(w.aff[c.id] || 0)) / 40 + ((w.know[c.id] || 0) < 8 ? 0.4 : 0) + (tag ? (repTags(w, c)[tag] || 0) * 0.9 : 0) + (c.id === ev.actor ? 0.5 : 0));
+  const ws = cands.map(
+    (c) => 0.25 + Math.max(0, -(w.aff[c.id] || 0)) / 40 + ((w.know[c.id] || 0) < 8 ? 0.4 : 0) + (tag ? (repTags(w, c)[tag] || 0) * 0.9 : 0) + (c.id === ev.actor ? 0.5 : 0)
+  );
   const none = 1.3, total = ws.reduce((a, b) => a + b, 0) + none;
   let r = Math.random() * total;
   for (let i = 0; i < cands.length; i++) {
@@ -30333,7 +31012,14 @@ function repSuspect(w, ev) {
   }
   return null;
 }
-const REP_WORDS = { vandal: "knock things down", meddler: "move things that are not yours", thief: "take what is not yours", gossip: "cannot keep a secret", bully: "throw your weight about", kind: "are good to people" };
+const REP_WORDS = {
+  vandal: "knock things down",
+  meddler: "move things that are not yours",
+  thief: "take what is not yours",
+  gossip: "cannot keep a secret",
+  bully: "throw your weight about",
+  kind: "are good to people"
+};
 ACTS.tell_rep = {
   kind: "person",
   stage: "topic",
@@ -30387,7 +31073,10 @@ lxi("greet_back", "Ah, {li}. Good. Today is better already.", { rep: "kind" });
 const talkSubject = (c) => c.aboutName || c.lifeItem || null;
 const LX_LINKS = {
   plain: { linked: ["Speaking of which, ", "On that note, ", "And while we are on it, "], fresh: ["Anyway. ", "Oh, and ", "Changing the subject: "] },
-  island: { linked: ["Related to that, ", "On that subject, ", "Staying with it for a moment, "], fresh: ["Anyway. ", "Unrelated, but ", "On a different note, "] }
+  island: {
+    linked: ["Related to that, ", "On that subject, ", "Staying with it for a moment, "],
+    fresh: ["Anyway. ", "Unrelated, but ", "On a different note, "]
+  }
 };
 function lxLink(text, link) {
   const pk = typeof town !== "undefined" && town && town.pack || "plain", L = (LX_LINKS[pk] || LX_LINKS.plain)[link];
@@ -30422,8 +31111,16 @@ ACTS.story_preface = {
   },
   replies: ["story_invite"]
 };
-ACTS.story_invite = { kind: "world", stage: "topic", reply: true, when: (c) => !!c.storyNews, w: () => 1, apply: () => {
-}, replies: ["share_news"] };
+ACTS.story_invite = {
+  kind: "world",
+  stage: "topic",
+  reply: true,
+  when: (c) => !!c.storyNews,
+  w: () => 1,
+  apply: () => {
+  },
+  replies: ["share_news"]
+};
 lx("story_preface", "plain", "You won't believe what I heard.");
 lx("story_preface", "plain", "Have you got a minute? I've something to tell you.");
 lx("story_preface", "plain", "Sit down for this one.");
@@ -30497,24 +31194,56 @@ function reflect(n) {
 LF2.hourly.push((h) => {
   if (h === 3) for (const n of npcs) reflect(n);
 });
-ACTS.joke = { kind: "small", stage: "topic", preview: () => ({}), w: (c, sp) => 0.25 + (talkHas(sp, "jovial") || talkHas(sp, "cheerful") ? 1.2 : 0), when: (c, sp) => !c.done.joke && (sp.mood == null || sp.mood > 40), apply: (c) => {
-  c.done.joke = 1;
-}, replies: ["laugh", "groan"] };
-ACTS.laugh = { kind: "small", stage: "topic", reply: true, when: () => true, w: (c, sp) => 1 + (talkHas(sp, "jovial") ? 1 : 0), apply: (c, sp, li) => {
-  lfAff(sp, li, 0.5, "made me laugh");
-  sp.mood = Math.min(100, (sp.mood == null ? 50 : sp.mood) + 2);
-}, replies: [] };
+ACTS.joke = {
+  kind: "small",
+  stage: "topic",
+  preview: () => ({}),
+  w: (c, sp) => 0.25 + (talkHas(sp, "jovial") || talkHas(sp, "cheerful") ? 1.2 : 0),
+  when: (c, sp) => !c.done.joke && (sp.mood == null || sp.mood > 40),
+  apply: (c) => {
+    c.done.joke = 1;
+  },
+  replies: ["laugh", "groan"]
+};
+ACTS.laugh = {
+  kind: "small",
+  stage: "topic",
+  reply: true,
+  when: () => true,
+  w: (c, sp) => 1 + (talkHas(sp, "jovial") ? 1 : 0),
+  apply: (c, sp, li) => {
+    lfAff(sp, li, 0.5, "made me laugh");
+    sp.mood = Math.min(100, (sp.mood == null ? 50 : sp.mood) + 2);
+  },
+  replies: []
+};
 ACTS.groan = { kind: "small", stage: "topic", reply: true, when: () => true, w: () => 0.7, apply: () => {
 }, replies: [] };
-ACTS.wonder = { kind: "small", stage: "topic", preview: () => ({}), w: () => 0.3, when: (c, sp) => !c.done.wonder, apply: (c) => {
-  c.done.wonder = 1;
-}, replies: ["wonder_reply"] };
+ACTS.wonder = {
+  kind: "small",
+  stage: "topic",
+  preview: () => ({}),
+  w: () => 0.3,
+  when: (c, sp) => !c.done.wonder,
+  apply: (c) => {
+    c.done.wonder = 1;
+  },
+  replies: ["wonder_reply"]
+};
 ACTS.wonder_reply = { kind: "small", stage: "topic", reply: true, when: () => true, w: () => 1, apply: () => {
 }, replies: [] };
-ACTS.ask_work = { kind: "person", stage: "topic", preview: (c, sp, li) => ({ about: li.first }), w: () => 0.8, when: (c, sp, li) => !c.done.ask_work && !!li.job && li.age >= 12 && (sp.know[li.id] || 0) < 60, apply: (c, sp, li) => {
-  c.done.ask_work = 1;
-  c.aboutName = li.first;
-}, replies: ["answer_work"] };
+ACTS.ask_work = {
+  kind: "person",
+  stage: "topic",
+  preview: (c, sp, li) => ({ about: li.first }),
+  w: () => 0.8,
+  when: (c, sp, li) => !c.done.ask_work && !!li.job && li.age >= 12 && (sp.know[li.id] || 0) < 60,
+  apply: (c, sp, li) => {
+    c.done.ask_work = 1;
+    c.aboutName = li.first;
+  },
+  replies: ["answer_work"]
+};
 ACTS.answer_work = { kind: "person", stage: "topic", reply: true, when: (c, sp) => !!sp.job, w: () => 1, apply: () => {
 }, replies: [] };
 ACTS.ask_where = {
@@ -30524,7 +31253,9 @@ ACTS.ask_where = {
   w: () => 0.9,
   when: (c, sp, li) => {
     if (c.done.ask_where) return false;
-    const kin = (o) => sp.fam && (sp.fam.spouse === o.id || sp.fam.partner === o.id || (sp.fam.kids || []).includes(o.id)), X = npcs.find((o) => o !== sp && o !== li && !o.dead && !o.infant && o.age >= 12 && lfDist(sp, o) > 12 && (sp.crush === o.id || kin(o) || (sp.reqs || []).some((r) => r.to === o.id && r.state === "promised")));
+    const kin = (o) => sp.fam && (sp.fam.spouse === o.id || sp.fam.partner === o.id || (sp.fam.kids || []).includes(o.id)), X = npcs.find(
+      (o) => o !== sp && o !== li && !o.dead && !o.infant && o.age >= 12 && lfDist(sp, o) > 12 && (sp.crush === o.id || kin(o) || (sp.reqs || []).some((r) => r.to === o.id && r.state === "promised"))
+    );
     if (!X) return false;
     c.whereObj = X;
     return true;
@@ -30539,10 +31270,19 @@ const whereText = (X) => {
   const pl = String(placeOf(X) || "").replace(/^(in|at)\s+/, "");
   return !pl ? "about somewhere" : /^the /.test(pl) ? "at " + pl : "in " + pl;
 };
-ACTS.tell_where = { kind: "person", stage: "topic", reply: true, preview: (c) => ({ about: c.whereObj ? c.whereObj.first : "", reason: c.whereObj ? whereText(c.whereObj) : "" }), when: (c, sp) => !!c.whereObj && lfDist(sp, c.whereObj) <= 30 && lvlOf(sp.ty) === lvlOf(c.whereObj.ty), w: () => 3, apply: (c, sp, li) => {
-  c.reason = whereText(c.whereObj);
-  li.seek = { id: c.whereObj.id, until: game.time + 120 };
-}, replies: ["thanks_where"] };
+ACTS.tell_where = {
+  kind: "person",
+  stage: "topic",
+  reply: true,
+  preview: (c) => ({ about: c.whereObj ? c.whereObj.first : "", reason: c.whereObj ? whereText(c.whereObj) : "" }),
+  when: (c, sp) => !!c.whereObj && lfDist(sp, c.whereObj) <= 30 && lvlOf(sp.ty) === lvlOf(c.whereObj.ty),
+  w: () => 3,
+  apply: (c, sp, li) => {
+    c.reason = whereText(c.whereObj);
+    li.seek = { id: c.whereObj.id, until: game.time + 120 };
+  },
+  replies: ["thanks_where"]
+};
 ACTS.thanks_where = { kind: "person", stage: "topic", reply: true, when: () => true, w: () => 1, apply: () => {
 }, replies: [] };
 LF2.dec.push(function(n) {
@@ -30552,14 +31292,31 @@ LF2.dec.push(function(n) {
   if (game.time > s.until) return null;
   const X = lf2By(s.id);
   if (!X || X.dead || X.pose === "sleep" || lvlOf(X.ty) !== lvlOf(n.ty)) return null;
-  return [goS(() => {
-    const b = besideTile(X.tx, X.ty, null);
-    return b ? { x: b.x, y: b.y, face: { dx: Math.sign(X.tx - b.x), dy: Math.sign(X.ty - b.y) } } : null;
-  }, `Going to find ${X.first}`), waitS(2, "stand", `Looking for a word with ${X.first}`, { nopie: true })];
+  return [
+    goS(() => {
+      const b = besideTile(X.tx, X.ty, null);
+      return b ? { x: b.x, y: b.y, face: { dx: Math.sign(X.tx - b.x), dy: Math.sign(X.ty - b.y) } } : null;
+    }, `Going to find ${X.first}`),
+    waitS(2, "stand", `Looking for a word with ${X.first}`, { nopie: true })
+  ];
 });
-ACTS.dont_know_where = { kind: "person", stage: "topic", reply: true, when: (c, sp) => !!c.whereObj && !(lfDist(sp, c.whereObj) <= 30 && lvlOf(sp.ty) === lvlOf(c.whereObj.ty)), w: () => 3, apply: () => {
-}, replies: [] };
-const REP_THIRD = { vandal: "knock things down", meddler: "move things that are not theirs", thief: "take what is not theirs", gossip: "cannot keep a secret", bully: "throw their weight about" };
+ACTS.dont_know_where = {
+  kind: "person",
+  stage: "topic",
+  reply: true,
+  when: (c, sp) => !!c.whereObj && !(lfDist(sp, c.whereObj) <= 30 && lvlOf(sp.ty) === lvlOf(c.whereObj.ty)),
+  w: () => 3,
+  apply: () => {
+  },
+  replies: []
+};
+const REP_THIRD = {
+  vandal: "knock things down",
+  meddler: "move things that are not theirs",
+  thief: "take what is not theirs",
+  gossip: "cannot keep a secret",
+  bully: "throw their weight about"
+};
 ACTS.warn = {
   kind: "world",
   stage: "topic",
@@ -30588,15 +31345,31 @@ ACTS.warn = {
   },
   replies: ["warn_thanks"]
 };
-ACTS.warn_thanks = { kind: "world", stage: "topic", reply: true, when: () => true, w: () => 1, apply: (c, sp, li) => {
-  lfAff(sp, li, 1, "looked out for me");
-}, replies: [] };
-ACTS.ask_advice = { kind: "person", stage: "topic", preview: () => ({}), w: () => 1.1, when: (c, sp, li) => {
-  if (c.done.ask_advice || !(sp.hunger > 55)) return false;
-  return WORLD.has("feature", "bakery") || WORLD.has("feature", "tavern");
-}, apply: (c) => {
-  c.done.ask_advice = 1;
-}, replies: ["give_advice"] };
+ACTS.warn_thanks = {
+  kind: "world",
+  stage: "topic",
+  reply: true,
+  when: () => true,
+  w: () => 1,
+  apply: (c, sp, li) => {
+    lfAff(sp, li, 1, "looked out for me");
+  },
+  replies: []
+};
+ACTS.ask_advice = {
+  kind: "person",
+  stage: "topic",
+  preview: () => ({}),
+  w: () => 1.1,
+  when: (c, sp, li) => {
+    if (c.done.ask_advice || !(sp.hunger > 55)) return false;
+    return WORLD.has("feature", "bakery") || WORLD.has("feature", "tavern");
+  },
+  apply: (c) => {
+    c.done.ask_advice = 1;
+  },
+  replies: ["give_advice"]
+};
 ACTS.give_advice = { kind: "person", stage: "topic", reply: true, when: () => true, w: () => 1, apply: () => {
 }, replies: [] };
 ACTS.brag_child = {
@@ -30618,13 +31391,29 @@ ACTS.brag_child = {
   },
   replies: ["congratulate"]
 };
-ACTS.congratulate = { kind: "person", stage: "topic", reply: true, when: () => true, w: () => 1, apply: (c, sp, li) => {
-  lfAff(sp, li, 0.5, "was glad for me");
-}, replies: [] };
-ACTS.tell_back = { kind: "person", stage: "topic", preview: (c, sp) => ({ about: sp.back || "" }), w: () => 0.9, when: (c, sp) => !c.done.tell_back && !!sp.back, apply: (c, sp) => {
-  c.done.tell_back = 1;
-  c.aboutName = sp.back;
-}, replies: ["tell_back_reply"] };
+ACTS.congratulate = {
+  kind: "person",
+  stage: "topic",
+  reply: true,
+  when: () => true,
+  w: () => 1,
+  apply: (c, sp, li) => {
+    lfAff(sp, li, 0.5, "was glad for me");
+  },
+  replies: []
+};
+ACTS.tell_back = {
+  kind: "person",
+  stage: "topic",
+  preview: (c, sp) => ({ about: sp.back || "" }),
+  w: () => 0.9,
+  when: (c, sp) => !c.done.tell_back && !!sp.back,
+  apply: (c, sp) => {
+    c.done.tell_back = 1;
+    c.aboutName = sp.back;
+  },
+  replies: ["tell_back_reply"]
+};
 ACTS.tell_back_reply = { kind: "person", stage: "topic", reply: true, when: () => true, w: () => 1, apply: () => {
 }, replies: [] };
 lx("joke", "plain", "A man told me his wall was holding up the ceiling. It turned out to be the other way round.");
@@ -30811,41 +31600,242 @@ kidi("remark_time", "Is it lunch yet? It feels like lunch.");
 kidi("remark_time", "It is a long day when you are small.");
 kidi("remark_place", "I like it here. There is room to run, and nobody has said not to.");
 kidi("remark_work", "I am helping. Mostly I am watching. It is also work.");
-for (const t of ["Good to see you, {li}.", "Oh, {li}. How are things?", "Hey, {li}.", "Well met, {li}.", "{li}! Just the person.", "Ah, {li}.", "Busy day, {li}?", "Hello there, {li}.", "Is that you, {li}? It is."]) lx("greet", "plain", t);
-for (const t of ["Hello to you.", "Ah, hello.", "Oh! Hello, {li}.", "Good to see you too.", "Hello, hello.", "There you are.", "Hello. How are you?", "Hey.", "Well. Hello."]) lx("greet_back", "plain", t);
-for (const t of ["I'd better get on.", "Well. Work waits.", "Must dash.", "I won't keep you.", "That's me, then.", "Right. Off I go.", "Mustn't stand about.", "Time I wasn't here.", "I should leave you to it."]) lx("pre_close", "plain", t);
-for (const t of ["Take care, {li}.", "Until next time.", "Safe on your way.", "Good day to you.", "Be well.", "Mind how you go.", "Cheerio.", "Look after yourself.", "All the best."]) lx("farewell", "plain", t);
-for (const t of ["And you.", "Take care.", "Be well.", "Right you are.", "Goodbye, then.", "Off you go.", "See you around.", "Cheers.", "Until then."]) lx("farewell_back", "plain", t);
-for (const t of ["I know.", "Quite.", "True enough.", "That's right.", "Exactly so.", "I'd say so.", "Yes. Quite.", "Without a doubt.", "You're not wrong."]) lx("agree", "plain", t);
-for (const t of ["Hello. I did not expect to see you, and yet.", "Ah, {li}. I was just thinking of something else.", "Good. You are here. I was about to start talking to myself.", "Hello. It is a day of some kind.", "{li}. Yes. There you are.", "Ah. Company. I had been preparing for none.", "Hello, {li}. I will say it first this time.", "Hello. I see you have arrived, as one does.", "{li}. Good. I had a thought and nobody to give it to."]) lxi("greet", t);
-for (const t of ["Hello. I was about to say that.", "Ah. Hello. I had a feeling.", "Hello. I am pleased and slightly startled.", "Yes. Hello. It is that time.", "Hello. Come to think of it, I was hoping.", "Hello to you, in return.", "Good. Hello. That is out of the way.", "Hello. I have been standing here on purpose.", "Ah, {li}. The island does arrange things."]) lxi("greet_back", t);
-for (const t of ["I should get on. The day has noticed me.", "Well. That is that, for now.", "I will leave you to it. You were doing something.", "That is the end of what I had.", "I should go. I will pretend I have a reason.", "I have a few things to be near. I will go and be near them.", "Right. The afternoon will want me soon.", "I will let the conversation end here. It has had a good run.", "Off I go. I will not look back, which is a lie."]) lxi("pre_close", t);
-for (const t of ["Take care, {li}. The island is small but it has edges.", "Until next time. I will be somewhere.", "Be well. I mean it in the ordinary way.", "Goodbye, {li}. It was a good length.", "Mind how you go. There is a lot of ground.", "Look after yourself. Somebody has to, and I am here.", "All the best. I have no better phrase.", "Good day to you. It is, so far.", "See you. I say it as a matter of course."]) lxi("farewell", t);
-for (const t of ["And you.", "Yes. Goodbye.", "Be well, then.", "Off you go. I will watch for a moment.", "See you. I will be here, or near.", "Goodbye. It was good.", "Quite. Goodbye.", "Right. Until then.", "And the same to you, exactly."]) lxi("farewell_back", t);
-for (const t of ["Yes. I was going to say that.", "Quite. It is what I think too.", "That is right. I am glad somebody said it.", "True. It does not make it simpler.", "I agree. I wish I did not.", "Yes. That is it exactly.", "Mm. Yes. I would put it that way.", "You are right. I have been thinking so since Tuesday.", "Agreed. That is a rare thing."]) lxi("agree", t);
-for (const t of ["Fine, thanks. You?", "Can't grumble.", "Getting by.", "Not bad. Not bad at all.", "Same as ever.", "Well enough.", "Mustn't complain.", "Fair to middling."]) lx("answer_how", "plain", t, { state: "fine" });
-for (const t of ["Fine. I looked into it and there is nothing to report.", "Fine. The day has not asked much of me.", "Well enough. I have checked.", "About a five. A good, honest five.", "Fine. There is a small noise in my left knee, which is the news.", "Fine. I was going to say I was well and it is true, which surprised me.", "Steady. That is the word I have settled on.", "Not bad. I say that and wait for the day to hear me."]) lxi("answer_how", t, { state: "fine" });
-for (const t of ["Better than I deserve.", "Grand, really.", "On top of the world, nearly.", "Very well, as it happens."]) lx("answer_how", "plain", t, { state: "glad" });
-for (const t of ["Good. I would like to say why. I cannot.", "Very well. I have decided to enjoy it before it is noticed.", "Better than I expected. I recalibrated my expectations on the way here.", "Well. In a way that does not need explaining."]) lxi("answer_how", t, { state: "glad" });
-for (const t of ["Not great, to be honest.", "Low. It'll pass.", "I've had better days.", "Could be better."]) lx("answer_how", "plain", t, { state: "low" });
-for (const t of ["Low. It has no address, so I cannot send it back.", "Not well. It is a grey kind of not well, not an interesting one.", "I have had better days. I could name three.", "Flat. Like a field after rain, if the field had opinions."]) lxi("answer_how", t, { state: "low" });
-for (const t of ["Hungry! Starving, nearly.", "Hungry, to be honest. My stomach's been talking.", "Starving. Is there bread?"]) lx("answer_how", "plain", t, { state: "hungry" });
-for (const t of ["Hungry. It is a precise feeling and I recognise it.", "Hungry. My stomach has started to make announcements.", "Hungry. I have thought about bread more than is dignified."]) lxi("answer_how", t, { state: "hungry" });
+for (const t of [
+  "Good to see you, {li}.",
+  "Oh, {li}. How are things?",
+  "Hey, {li}.",
+  "Well met, {li}.",
+  "{li}! Just the person.",
+  "Ah, {li}.",
+  "Busy day, {li}?",
+  "Hello there, {li}.",
+  "Is that you, {li}? It is."
+])
+  lx("greet", "plain", t);
+for (const t of [
+  "Hello to you.",
+  "Ah, hello.",
+  "Oh! Hello, {li}.",
+  "Good to see you too.",
+  "Hello, hello.",
+  "There you are.",
+  "Hello. How are you?",
+  "Hey.",
+  "Well. Hello."
+])
+  lx("greet_back", "plain", t);
+for (const t of [
+  "I'd better get on.",
+  "Well. Work waits.",
+  "Must dash.",
+  "I won't keep you.",
+  "That's me, then.",
+  "Right. Off I go.",
+  "Mustn't stand about.",
+  "Time I wasn't here.",
+  "I should leave you to it."
+])
+  lx("pre_close", "plain", t);
+for (const t of [
+  "Take care, {li}.",
+  "Until next time.",
+  "Safe on your way.",
+  "Good day to you.",
+  "Be well.",
+  "Mind how you go.",
+  "Cheerio.",
+  "Look after yourself.",
+  "All the best."
+])
+  lx("farewell", "plain", t);
+for (const t of [
+  "And you.",
+  "Take care.",
+  "Be well.",
+  "Right you are.",
+  "Goodbye, then.",
+  "Off you go.",
+  "See you around.",
+  "Cheers.",
+  "Until then."
+])
+  lx("farewell_back", "plain", t);
+for (const t of [
+  "I know.",
+  "Quite.",
+  "True enough.",
+  "That's right.",
+  "Exactly so.",
+  "I'd say so.",
+  "Yes. Quite.",
+  "Without a doubt.",
+  "You're not wrong."
+])
+  lx("agree", "plain", t);
+for (const t of [
+  "Hello. I did not expect to see you, and yet.",
+  "Ah, {li}. I was just thinking of something else.",
+  "Good. You are here. I was about to start talking to myself.",
+  "Hello. It is a day of some kind.",
+  "{li}. Yes. There you are.",
+  "Ah. Company. I had been preparing for none.",
+  "Hello, {li}. I will say it first this time.",
+  "Hello. I see you have arrived, as one does.",
+  "{li}. Good. I had a thought and nobody to give it to."
+])
+  lxi("greet", t);
+for (const t of [
+  "Hello. I was about to say that.",
+  "Ah. Hello. I had a feeling.",
+  "Hello. I am pleased and slightly startled.",
+  "Yes. Hello. It is that time.",
+  "Hello. Come to think of it, I was hoping.",
+  "Hello to you, in return.",
+  "Good. Hello. That is out of the way.",
+  "Hello. I have been standing here on purpose.",
+  "Ah, {li}. The island does arrange things."
+])
+  lxi("greet_back", t);
+for (const t of [
+  "I should get on. The day has noticed me.",
+  "Well. That is that, for now.",
+  "I will leave you to it. You were doing something.",
+  "That is the end of what I had.",
+  "I should go. I will pretend I have a reason.",
+  "I have a few things to be near. I will go and be near them.",
+  "Right. The afternoon will want me soon.",
+  "I will let the conversation end here. It has had a good run.",
+  "Off I go. I will not look back, which is a lie."
+])
+  lxi("pre_close", t);
+for (const t of [
+  "Take care, {li}. The island is small but it has edges.",
+  "Until next time. I will be somewhere.",
+  "Be well. I mean it in the ordinary way.",
+  "Goodbye, {li}. It was a good length.",
+  "Mind how you go. There is a lot of ground.",
+  "Look after yourself. Somebody has to, and I am here.",
+  "All the best. I have no better phrase.",
+  "Good day to you. It is, so far.",
+  "See you. I say it as a matter of course."
+])
+  lxi("farewell", t);
+for (const t of [
+  "And you.",
+  "Yes. Goodbye.",
+  "Be well, then.",
+  "Off you go. I will watch for a moment.",
+  "See you. I will be here, or near.",
+  "Goodbye. It was good.",
+  "Quite. Goodbye.",
+  "Right. Until then.",
+  "And the same to you, exactly."
+])
+  lxi("farewell_back", t);
+for (const t of [
+  "Yes. I was going to say that.",
+  "Quite. It is what I think too.",
+  "That is right. I am glad somebody said it.",
+  "True. It does not make it simpler.",
+  "I agree. I wish I did not.",
+  "Yes. That is it exactly.",
+  "Mm. Yes. I would put it that way.",
+  "You are right. I have been thinking so since Tuesday.",
+  "Agreed. That is a rare thing."
+])
+  lxi("agree", t);
+for (const t of [
+  "Fine, thanks. You?",
+  "Can't grumble.",
+  "Getting by.",
+  "Not bad. Not bad at all.",
+  "Same as ever.",
+  "Well enough.",
+  "Mustn't complain.",
+  "Fair to middling."
+])
+  lx("answer_how", "plain", t, { state: "fine" });
+for (const t of [
+  "Fine. I looked into it and there is nothing to report.",
+  "Fine. The day has not asked much of me.",
+  "Well enough. I have checked.",
+  "About a five. A good, honest five.",
+  "Fine. There is a small noise in my left knee, which is the news.",
+  "Fine. I was going to say I was well and it is true, which surprised me.",
+  "Steady. That is the word I have settled on.",
+  "Not bad. I say that and wait for the day to hear me."
+])
+  lxi("answer_how", t, { state: "fine" });
+for (const t of ["Better than I deserve.", "Grand, really.", "On top of the world, nearly.", "Very well, as it happens."])
+  lx("answer_how", "plain", t, { state: "glad" });
+for (const t of [
+  "Good. I would like to say why. I cannot.",
+  "Very well. I have decided to enjoy it before it is noticed.",
+  "Better than I expected. I recalibrated my expectations on the way here.",
+  "Well. In a way that does not need explaining."
+])
+  lxi("answer_how", t, { state: "glad" });
+for (const t of ["Not great, to be honest.", "Low. It'll pass.", "I've had better days.", "Could be better."])
+  lx("answer_how", "plain", t, { state: "low" });
+for (const t of [
+  "Low. It has no address, so I cannot send it back.",
+  "Not well. It is a grey kind of not well, not an interesting one.",
+  "I have had better days. I could name three.",
+  "Flat. Like a field after rain, if the field had opinions."
+])
+  lxi("answer_how", t, { state: "low" });
+for (const t of ["Hungry! Starving, nearly.", "Hungry, to be honest. My stomach's been talking.", "Starving. Is there bread?"])
+  lx("answer_how", "plain", t, { state: "hungry" });
+for (const t of [
+  "Hungry. It is a precise feeling and I recognise it.",
+  "Hungry. My stomach has started to make announcements.",
+  "Hungry. I have thought about bread more than is dignified."
+])
+  lxi("answer_how", t, { state: "hungry" });
 for (const t of ["Tired. Could sleep standing.", "Worn out, honestly.", "Weary to the bone."]) lx("answer_how", "plain", t, { state: "tired" });
-for (const t of ["Tired. I could sleep standing. I may be.", "Worn out. The kind that sits behind the eyes.", "Tired in a way that sleep might help."]) lxi("answer_how", t, { state: "tired" });
-for (const t of ["How are things?", "How's the day treating you?", "Keeping well?", "And how are you?", "How've you been keeping?"]) lx("ask_how", "plain", t);
-for (const t of ["How are you holding up?", "How is the day treating you? I mean honestly.", "Are you keeping well? I ask in case.", "How have you been, since last time? Give me the short version.", "And you? How are things on your side of the island?"]) lxi("ask_how", t);
+for (const t of [
+  "Tired. I could sleep standing. I may be.",
+  "Worn out. The kind that sits behind the eyes.",
+  "Tired in a way that sleep might help."
+])
+  lxi("answer_how", t, { state: "tired" });
+for (const t of ["How are things?", "How's the day treating you?", "Keeping well?", "And how are you?", "How've you been keeping?"])
+  lx("ask_how", "plain", t);
+for (const t of [
+  "How are you holding up?",
+  "How is the day treating you? I mean honestly.",
+  "Are you keeping well? I ask in case.",
+  "How have you been, since last time? Give me the short version.",
+  "And you? How are things on your side of the island?"
+])
+  lxi("ask_how", t);
 lx("thanks_where", "plain", "Thanks. I'll go and find {them}.");
 lx("thanks_where", "plain", "Right. That's where I'll look.");
 lxi("thanks_where", "Thank you. I will go and look there. I may not find {them}, but I will have gone.");
 lxi("thanks_where", "Good. That is somewhere to start.");
 ACTS.answer_how.replies = ["sympathise_how", "share_gladness"];
-ACTS.sympathise_how = { kind: "feeling", stage: "topic", reply: true, when: (c) => ["low", "tired", "hungry"].includes(c.state), w: () => 3, apply: (c, sp, li) => {
-  li.mood = Math.min(100, (li.mood == null ? 50 : li.mood) + 2);
-  lfAff(li, sp, 1, "asked after me");
-}, replies: [] };
-ACTS.share_gladness = { kind: "feeling", stage: "topic", reply: true, when: (c) => c.state === "glad", w: () => 2, apply: () => {
-}, replies: [] };
+ACTS.sympathise_how = {
+  kind: "feeling",
+  stage: "topic",
+  reply: true,
+  when: (c) => ["low", "tired", "hungry"].includes(c.state),
+  w: () => 3,
+  apply: (c, sp, li) => {
+    li.mood = Math.min(100, (li.mood == null ? 50 : li.mood) + 2);
+    lfAff(li, sp, 1, "asked after me");
+  },
+  replies: []
+};
+ACTS.share_gladness = {
+  kind: "feeling",
+  stage: "topic",
+  reply: true,
+  when: (c) => c.state === "glad",
+  w: () => 2,
+  apply: () => {
+  },
+  replies: []
+};
 lx("sympathise_how", "plain", "Oh. I'm sorry to hear that.", { state: "low" });
 lx("sympathise_how", "plain", "Do you want to talk about it? I've time.", { state: "low" });
 lx("sympathise_how", "plain", "You should eat something. Have you tried the baker?", { state: "hungry" });
@@ -30862,95 +31852,490 @@ lx("share_gladness", "plain", "Good. I'm glad to hear it.");
 lx("share_gladness", "plain", "That's good to hear.");
 lxi("share_gladness", "Good. I am glad. I will try not to be suspicious of it.");
 lxi("share_gladness", "Good. Hold on to it. It does not come in great quantity.");
-for (const t of ["Nothing new. I'd tell you.", "Not since, no.", "A little. Not much to tell.", "Same as before, really.", "Oh, don't ask. Well. Do ask. Later.", "Better, I think. Thanks for remembering."]) lx("callback_answer", "plain", t);
-for (const t of ["No change. I will tell you if there is.", "A little. It is too early to say what kind.", "It has gone quiet, which I am choosing to see as progress.", "I thought about it again after you left. That was the only development.", "Better, I think. I have stopped checking.", "Worse, in a small way. I am keeping an eye on it."]) lxi("callback_answer", t);
-for (const t of ["Good going.", "That's a fair day.", "Well done.", "Not bad at all.", "Sounds like it went well.", "That's something to be glad of."]) lx("acknowledge", "plain", t);
-for (const t of ["That is a respectable day.", "Good. I would call that a day.", "That sounds like it went well. I will take your word for it.", "Well done. I mean that in a measured way.", "That is more than I managed, so well done.", "Good. Somebody should have a good day. It might as well be you."]) lxi("acknowledge", t);
-for (const t of ["Is that so. I had not noticed.", "Hm. I will have a look.", "Odd. But there we are.", "Well. If you say so.", "Is it. Well."]) lx("acknowledge", "plain", t, { how: "neutral" });
-for (const t of ["I see. I will keep an eye on it, from a distance.", "Is that so. I had not noticed, which says something about me.", "Hm. That is something to know.", "Well. If you say so. I am inclined to.", "Odd. And yet it is the sort of thing that happens here."]) lxi("acknowledge", t, { how: "neutral" });
+for (const t of [
+  "Nothing new. I'd tell you.",
+  "Not since, no.",
+  "A little. Not much to tell.",
+  "Same as before, really.",
+  "Oh, don't ask. Well. Do ask. Later.",
+  "Better, I think. Thanks for remembering."
+])
+  lx("callback_answer", "plain", t);
+for (const t of [
+  "No change. I will tell you if there is.",
+  "A little. It is too early to say what kind.",
+  "It has gone quiet, which I am choosing to see as progress.",
+  "I thought about it again after you left. That was the only development.",
+  "Better, I think. I have stopped checking.",
+  "Worse, in a small way. I am keeping an eye on it."
+])
+  lxi("callback_answer", t);
+for (const t of [
+  "Good going.",
+  "That's a fair day.",
+  "Well done.",
+  "Not bad at all.",
+  "Sounds like it went well.",
+  "That's something to be glad of."
+])
+  lx("acknowledge", "plain", t);
+for (const t of [
+  "That is a respectable day.",
+  "Good. I would call that a day.",
+  "That sounds like it went well. I will take your word for it.",
+  "Well done. I mean that in a measured way.",
+  "That is more than I managed, so well done.",
+  "Good. Somebody should have a good day. It might as well be you."
+])
+  lxi("acknowledge", t);
+for (const t of ["Is that so. I had not noticed.", "Hm. I will have a look.", "Odd. But there we are.", "Well. If you say so.", "Is it. Well."])
+  lx("acknowledge", "plain", t, { how: "neutral" });
+for (const t of [
+  "I see. I will keep an eye on it, from a distance.",
+  "Is that so. I had not noticed, which says something about me.",
+  "Hm. That is something to know.",
+  "Well. If you say so. I am inclined to.",
+  "Odd. And yet it is the sort of thing that happens here."
+])
+  lxi("acknowledge", t, { how: "neutral" });
 for (const t of ["Good going.", "That is a fair day.", "Well done.", "Sounds like it went well."]) lx("acknowledge", "plain", t, { how: "good" });
-for (const t of ["That is a respectable day.", "Well done. I mean it in a measured way.", "That sounds like it went well. I will take your word for it.", "Good. Somebody should have a good day."]) lxi("acknowledge", t, { how: "good" });
-for (const t of ["{about} was {reason}, the last I saw.", "Try {reason}. That is where {about} was.", "I passed {about} {reason} not long ago.", "{about}? {reason}, I believe."]) lx("tell_where", "plain", t);
-for (const t of ["{about} is {reason}. I looked, on the way past. I do not know why.", "{about} was {reason} a short while ago. People stay where they are, mostly.", "Try {reason}. I would not swear to it. I would swear to most of it.", "{about} is {reason}. I saw them from a distance, which is how I see most people.", "I think {about} is {reason}. I have a good feeling about that, in a general way."]) lxi("tell_where", t);
+for (const t of [
+  "That is a respectable day.",
+  "Well done. I mean it in a measured way.",
+  "That sounds like it went well. I will take your word for it.",
+  "Good. Somebody should have a good day."
+])
+  lxi("acknowledge", t, { how: "good" });
+for (const t of [
+  "{about} was {reason}, the last I saw.",
+  "Try {reason}. That is where {about} was.",
+  "I passed {about} {reason} not long ago.",
+  "{about}? {reason}, I believe."
+])
+  lx("tell_where", "plain", t);
+for (const t of [
+  "{about} is {reason}. I looked, on the way past. I do not know why.",
+  "{about} was {reason} a short while ago. People stay where they are, mostly.",
+  "Try {reason}. I would not swear to it. I would swear to most of it.",
+  "{about} is {reason}. I saw them from a distance, which is how I see most people.",
+  "I think {about} is {reason}. I have a good feeling about that, in a general way."
+])
+  lxi("tell_where", t);
 for (const t of ["Thanks. I'll try there.", "Right. Good to know.", "Ah. Thanks, I'll go and see."]) lx("thanks_where", "plain", t);
-for (const t of ["Thank you. That narrows it down.", "Good. That is somewhere to start. Thank you.", "Right. I will walk that way and see what the island says."]) lxi("thanks_where", t);
+for (const t of [
+  "Thank you. That narrows it down.",
+  "Good. That is somewhere to start. Thank you.",
+  "Right. I will walk that way and see what the island says."
+])
+  lxi("thanks_where", t);
 const LXP = (act, lines, tags = {}) => {
   for (const t of lines) lx(act, "plain", t, tags);
 };
 const LXI = (act, lines, tags = {}) => {
   for (const t of lines) lxi(act, t, tags);
 };
-LXP("ask_opinion", ["What do you think of {about}?", "Be honest. How do you find {about}?", "How do you get on with {about}?", "{about}. What's your view?", "Tell me about {about}. Properly."]);
-LXI("ask_opinion", ["How do you find {about}? I am asking out of something between curiosity and need.", "What is your view of {about}? I would like one, and I am short.", "Tell me about {about}. Leave out the weather.", "{about}. What do you make of them? Take your time. I have mine.", "How are you with {about}? I never know how people are with people."]);
-LXP("ask_family", ["How's {about} keeping?", "And how is {about}? Still the same?", "Is {about} all right? I haven't seen them.", "How's {about} been lately?", "Tell {about} I was asking after them."]);
-LXI("ask_family", ["How is {about} getting on? I mean in the exact sense.", "And {about}? I have not seen {about} in a while, which is how I know I should ask.", "How has {about} been, since the last time we spoke of {about}?", "Is {about} all right? Say yes if you can and the truth if you cannot.", "Give me the short version of {about}."]);
-LXP("agree_opinion", ["That's how I see it too.", "Exactly my feeling.", "I've always thought so.", "Well said. I couldn't put it better.", "Mm. Same here."]);
-LXI("agree_opinion", ["That is how I see it as well. It is a relief to find out.", "Exactly. I have had that opinion for some time and nowhere to put it.", "Yes. I had begun to think I imagined it.", "I agree. I did not want to be the first to say.", "Same. It is nice to be wrong in company, if we are."]);
-LXP("remark_place", ["Pleasant enough {place}.", "I like it {place} at this hour.", "{place} is a good spot for a think.", "Never changes, {place}. I like that.", "Always something going on {place}."]);
-LXI("remark_place", ["I come {place} more than I mean to. I think the ground is fond of me.", "{place}. It looks the same as it did, which I am treating as good news.", "Something is slightly different {place}. I cannot find what. I will keep looking.", "I like it {place} when nobody is. I like it with you here too. That is a small lie.", "It is quieter {place} than it used to be. Or I am louder."]);
+LXP("ask_opinion", [
+  "What do you think of {about}?",
+  "Be honest. How do you find {about}?",
+  "How do you get on with {about}?",
+  "{about}. What's your view?",
+  "Tell me about {about}. Properly."
+]);
+LXI("ask_opinion", [
+  "How do you find {about}? I am asking out of something between curiosity and need.",
+  "What is your view of {about}? I would like one, and I am short.",
+  "Tell me about {about}. Leave out the weather.",
+  "{about}. What do you make of them? Take your time. I have mine.",
+  "How are you with {about}? I never know how people are with people."
+]);
+LXP("ask_family", [
+  "How's {about} keeping?",
+  "And how is {about}? Still the same?",
+  "Is {about} all right? I haven't seen them.",
+  "How's {about} been lately?",
+  "Tell {about} I was asking after them."
+]);
+LXI("ask_family", [
+  "How is {about} getting on? I mean in the exact sense.",
+  "And {about}? I have not seen {about} in a while, which is how I know I should ask.",
+  "How has {about} been, since the last time we spoke of {about}?",
+  "Is {about} all right? Say yes if you can and the truth if you cannot.",
+  "Give me the short version of {about}."
+]);
+LXP("agree_opinion", [
+  "That's how I see it too.",
+  "Exactly my feeling.",
+  "I've always thought so.",
+  "Well said. I couldn't put it better.",
+  "Mm. Same here."
+]);
+LXI("agree_opinion", [
+  "That is how I see it as well. It is a relief to find out.",
+  "Exactly. I have had that opinion for some time and nowhere to put it.",
+  "Yes. I had begun to think I imagined it.",
+  "I agree. I did not want to be the first to say.",
+  "Same. It is nice to be wrong in company, if we are."
+]);
+LXP("remark_place", [
+  "Pleasant enough {place}.",
+  "I like it {place} at this hour.",
+  "{place} is a good spot for a think.",
+  "Never changes, {place}. I like that.",
+  "Always something going on {place}."
+]);
+LXI("remark_place", [
+  "I come {place} more than I mean to. I think the ground is fond of me.",
+  "{place}. It looks the same as it did, which I am treating as good news.",
+  "Something is slightly different {place}. I cannot find what. I will keep looking.",
+  "I like it {place} when nobody is. I like it with you here too. That is a small lie.",
+  "It is quieter {place} than it used to be. Or I am louder."
+]);
 LXP("ask_news", ["Anything new?", "What's the talk?", "Heard anything worth hearing?", "Any word from anywhere?", "Anything I've missed?"]);
-LXI("ask_news", ["Is there news? I would settle for a small rumour.", "What is being said? I mean by people, not the wind.", "Have you heard anything I have not? That is a low bar and I would be pleased.", "Anything new? I have been staring at the same thing for hours.", "What is the island saying today? I am prepared to be unsurprised."]);
+LXI("ask_news", [
+  "Is there news? I would settle for a small rumour.",
+  "What is being said? I mean by people, not the wind.",
+  "Have you heard anything I have not? That is a low bar and I would be pleased.",
+  "Anything new? I have been staring at the same thing for hours.",
+  "What is the island saying today? I am prepared to be unsurprised."
+]);
 LXP("no_news", ["Nothing I'd repeat.", "Quiet as anything.", "Not a word. Not a whisper.", "Nothing at all. I'd tell you.", "Not that I've heard."]);
-LXI("no_news", ["Nothing. I checked the usual places. They were the usual.", "Nothing. A cloud went over. That was about all of it.", "Nothing I would call news. A man looked at a wall for some time. That was it.", "Nothing. I will tell you the moment there is something, which will be after you have already heard.", "No. The island is keeping its counsel today. It does that.", "Nothing. Somebody sneezed near the well. People talked of nothing else for a minute."]);
-LXP("ask_price", ["What would {item} cost me now?", "Do you know the going rate for {item}?", "What are you seeing for {item}?", "Is {item} dear at the moment?", "Heard what {item} fetch?"]);
-LXI("ask_price", ["What does {item} cost these days? I will need a number, not a mood.", "Do you know the price of {item}? I do not, and I dislike not.", "What are {item} fetching? I have a figure in mind and no faith in it.", "Is {item} dear just now? Give me a figure and I will give you my opinion of it.", "How much for {item}, lately? I am collecting numbers."]);
-LXP("tell_price", ["{money}, last I looked.", "About {money} each, I think.", "It was {money} the other day.", "{money}. It's fair.", "{money} and not a coin less."]);
-LXI("tell_price", ["{money}. I counted it twice, then a third time, for company.", "About {money}. It was that when I stopped looking.", "{money} each. I am reporting, not recommending.", "{money}. I did not argue. I do not know how.", "{money}. The number has been the same for a while, which is a comfort."]);
+LXI("no_news", [
+  "Nothing. I checked the usual places. They were the usual.",
+  "Nothing. A cloud went over. That was about all of it.",
+  "Nothing I would call news. A man looked at a wall for some time. That was it.",
+  "Nothing. I will tell you the moment there is something, which will be after you have already heard.",
+  "No. The island is keeping its counsel today. It does that.",
+  "Nothing. Somebody sneezed near the well. People talked of nothing else for a minute."
+]);
+LXP("ask_price", [
+  "What would {item} cost me now?",
+  "Do you know the going rate for {item}?",
+  "What are you seeing for {item}?",
+  "Is {item} dear at the moment?",
+  "Heard what {item} fetch?"
+]);
+LXI("ask_price", [
+  "What does {item} cost these days? I will need a number, not a mood.",
+  "Do you know the price of {item}? I do not, and I dislike not.",
+  "What are {item} fetching? I have a figure in mind and no faith in it.",
+  "Is {item} dear just now? Give me a figure and I will give you my opinion of it.",
+  "How much for {item}, lately? I am collecting numbers."
+]);
+LXP("tell_price", [
+  "{money}, last I looked.",
+  "About {money} each, I think.",
+  "It was {money} the other day.",
+  "{money}. It's fair.",
+  "{money} and not a coin less."
+]);
+LXI("tell_price", [
+  "{money}. I counted it twice, then a third time, for company.",
+  "About {money}. It was that when I stopped looking.",
+  "{money} each. I am reporting, not recommending.",
+  "{money}. I did not argue. I do not know how.",
+  "{money}. The number has been the same for a while, which is a comfort."
+]);
 LXP("answer_family", ["{about} is fine. Same as ever.", "{about}'s doing well, thanks for asking.", "{about} is keeping busy."], { state: "fine" });
-LXI("answer_family", ["{about} is fine. I have looked, and they appear to be.", "{about} is well. I am as surprised as you.", "{about} is busy. I say it with pride and mild alarm."], { state: "fine" });
+LXI(
+  "answer_family",
+  [
+    "{about} is fine. I have looked, and they appear to be.",
+    "{about} is well. I am as surprised as you.",
+    "{about} is busy. I say it with pride and mild alarm."
+  ],
+  { state: "fine" }
+);
 LXP("answer_family", ["{about} is on top of the world, for once.", "{about}'s in a grand mood."], { state: "glad" });
-LXI("answer_family", ["{about} is cheerful. I do not know why and I am being careful with it.", "{about} is in a good mood. It has the feel of weather."], { state: "glad" });
+LXI(
+  "answer_family",
+  ["{about} is cheerful. I do not know why and I am being careful with it.", "{about} is in a good mood. It has the feel of weather."],
+  { state: "glad" }
+);
 LXP("answer_family", ["{about}'s not been right lately.", "{about} is low. Worries me a bit."], { state: "low" });
-LXI("answer_family", ["{about} is low. I do not have the cure. I have a blanket, which I have offered.", "{about} has been quiet in a way I do not like."], { state: "low" });
+LXI(
+  "answer_family",
+  ["{about} is low. I do not have the cure. I have a blanket, which I have offered.", "{about} has been quiet in a way I do not like."],
+  { state: "low" }
+);
 LXP("answer_family", ["{about} is worn out. Needs a good rest.", "{about} is tired through. Can't blame them."], { state: "tired" });
-LXI("answer_family", ["{about} is tired. The kind that is also a mood.", "{about} is worn out. I have suggested sleep. It was received with suspicion."], { state: "tired" });
-LXP("praise", ["You've a way of making a day better. Just so you know.", "I don't say it enough: I'm glad of you.", "You're one of the good ones, you are."]);
-LXI("praise", ["You make the island more bearable. I did not plan to say it, and now it is said.", "I wanted to say that you are easy to be around. I have checked, and it is true.", "You are good at being here. That is rarer than it sounds."]);
+LXI(
+  "answer_family",
+  ["{about} is tired. The kind that is also a mood.", "{about} is worn out. I have suggested sleep. It was received with suspicion."],
+  { state: "tired" }
+);
+LXP("praise", [
+  "You've a way of making a day better. Just so you know.",
+  "I don't say it enough: I'm glad of you.",
+  "You're one of the good ones, you are."
+]);
+LXI("praise", [
+  "You make the island more bearable. I did not plan to say it, and now it is said.",
+  "I wanted to say that you are easy to be around. I have checked, and it is true.",
+  "You are good at being here. That is rarer than it sounds."
+]);
 LXP("thank_praise", ["Well. Thanks. That's made my day.", "You'll make me blush. Thank you.", "That's kind. I'll keep it."]);
-LXI("thank_praise", ["Thank you. I am going to be careful with that. It is a delicate thing to be handed.", "That is kind. I will think about it at a quiet moment.", "Thank you. I do not know what to do with my face."]);
+LXI("thank_praise", [
+  "Thank you. I am going to be careful with that. It is a delicate thing to be handed.",
+  "That is kind. I will think about it at a quiet moment.",
+  "Thank you. I do not know what to do with my face."
+]);
 LXP("react_price", ["That's about what I expected.", "Dearer than last time.", "Cheaper than I feared.", "Fair enough. I'll think on it."]);
-LXI("react_price", ["That is about what I expected. I am disappointed to be right.", "Dearer. I will complain to the air and then pay it.", "Cheaper than I feared. I will be suspicious of it for a day.", "Fair. Fair is the worst price. It leaves nothing to say."]);
+LXI("react_price", [
+  "That is about what I expected. I am disappointed to be right.",
+  "Dearer. I will complain to the air and then pay it.",
+  "Cheaper than I feared. I will be suspicious of it for a day.",
+  "Fair. Fair is the worst price. It leaves nothing to say."
+]);
 LXP("remark_work", ["Busy with the {job} work, as ever.", "The {job} work keeps me out of trouble.", "Can't complain about the {job} work."]);
-LXI("remark_work", ["The {job} work is going. I have stopped timing it.", "I think I am good at the {job} work. I have not asked anyone.", "The {job} work has a rhythm. I am slightly behind it.", "At the {job} work, a good day looks identical to a bad one except for the last hour."]);
-LXP("joke", ["A gull stole my lunch. I said that's theft. It said nothing. Typical lawyer.", "I told the field to grow faster. It grew slower, out of spite.", "My neighbour says the weather's turning. It's the same weather it's always had. New haircut, that's all.", "They say good fences make good neighbours. Mine fell over. We get on great.", "I put my boots on the wrong feet this morning and walked all day like that. Nobody said a word. Lovely, I thought.", "Never trust anyone who says they don't like bread. Or a gull, come to think of it."]);
-LXI("joke", ["I tried to count the days since I arrived. I lost count at the part where I tried to count.", "There is a gull that stands outside the bakery. I think it is in management.", "I planted a turnip and told it the plan. It has not commented.", "I found a very good stone this morning. I put it down again. That is the whole story and I stand by it.", "Someone asked if I had a map. I said the island was the map. He said it was a poor map. We shook on it.", "My bed and I have an understanding. It is mine in the evening and the floor's in the morning.", "I tried to whistle a tune I do not know. A bird answered with the same tune. I have not whistled since."]);
+LXI("remark_work", [
+  "The {job} work is going. I have stopped timing it.",
+  "I think I am good at the {job} work. I have not asked anyone.",
+  "The {job} work has a rhythm. I am slightly behind it.",
+  "At the {job} work, a good day looks identical to a bad one except for the last hour."
+]);
+LXP("joke", [
+  "A gull stole my lunch. I said that's theft. It said nothing. Typical lawyer.",
+  "I told the field to grow faster. It grew slower, out of spite.",
+  "My neighbour says the weather's turning. It's the same weather it's always had. New haircut, that's all.",
+  "They say good fences make good neighbours. Mine fell over. We get on great.",
+  "I put my boots on the wrong feet this morning and walked all day like that. Nobody said a word. Lovely, I thought.",
+  "Never trust anyone who says they don't like bread. Or a gull, come to think of it."
+]);
+LXI("joke", [
+  "I tried to count the days since I arrived. I lost count at the part where I tried to count.",
+  "There is a gull that stands outside the bakery. I think it is in management.",
+  "I planted a turnip and told it the plan. It has not commented.",
+  "I found a very good stone this morning. I put it down again. That is the whole story and I stand by it.",
+  "Someone asked if I had a map. I said the island was the map. He said it was a poor map. We shook on it.",
+  "My bed and I have an understanding. It is mine in the evening and the floor's in the morning.",
+  "I tried to whistle a tune I do not know. A bird answered with the same tune. I have not whistled since."
+]);
 LXP("laugh", ["Ha! Good one.", "Ha. That's a good one, that.", "You've got me there."]);
-LXI("laugh", ["Ha. I will be thinking about that in the night. Thank you.", "Ha. Yes. I will use that on someone who has not heard it.", "Ha. That is the right size for a joke. They are usually too large."]);
+LXI("laugh", [
+  "Ha. I will be thinking about that in the night. Thank you.",
+  "Ha. Yes. I will use that on someone who has not heard it.",
+  "Ha. That is the right size for a joke. They are usually too large."
+]);
 LXP("wonder_reply", ["I've wondered that myself.", "Hm. Never thought of it.", "Now you've got me thinking."]);
-LXI("wonder_reply", ["I have wondered that too. I did not come to a conclusion. I came to a seat.", "I have no answer. I do have a feeling, and it is the same as yours.", "That is a good question. It will stay with me. I will not thank you."]);
+LXI("wonder_reply", [
+  "I have wondered that too. I did not come to a conclusion. I came to a seat.",
+  "I have no answer. I do have a feeling, and it is the same as yours.",
+  "That is a good question. It will stay with me. I will not thank you."
+]);
 LXP("congratulate", ["Lovely. They grow up fast.", "That's wonderful to hear.", "You must be very proud."]);
-LXI("congratulate", ["That is wonderful. I mean it in the standard way and a little more.", "You must be proud. It shows in the way you said it, quietly.", "They are doing well, then. It is not always the case. It is good to hear when it is."]);
+LXI("congratulate", [
+  "That is wonderful. I mean it in the standard way and a little more.",
+  "You must be proud. It shows in the way you said it, quietly.",
+  "They are doing well, then. It is not always the case. It is good to hear when it is."
+]);
 LXP("hint_noted", ["I'll bear that in mind.", "Good to know.", "Is that so? I'll remember."]);
-LXI("hint_noted", ["I will remember that. I am not promising what I will do with it.", "Noted. I have somewhere to put it.", "Good to know. I will keep it somewhere I can find it."]);
+LXI("hint_noted", [
+  "I will remember that. I am not promising what I will do with it.",
+  "Noted. I have somewhere to put it.",
+  "Good to know. I will keep it somewhere I can find it."
+]);
 const LXL = (kind, plain, island) => {
   for (const t of plain) lx("life:" + kind, "plain", t);
   for (const t of island) lxi("life:" + kind, t);
 };
-LXL("planted", ["Got {things} in the ground today.", "Put in {things}. Now it's up to the weather.", "Sowed {things} this morning. Fingers crossed.", "{things} went in today. Back aches, but they're in."], ["Planted {things}. They went in without objection, which is how it usually goes.", "I put in {things} and stood there a while. It is a good way to spend a standing.", "I sowed {things}. I said a few words over them. It was mostly the weather.", "{things} went in today. I will check on them tomorrow and pretend I did not already."]);
-LXL("harvested", ["Brought in {things}. Not a bad haul.", "Got {things} off the field today.", "Harvested {things}. Good to see it come to something.", "{things} in the barn. A fair day's work."], ["I harvested {things}. They had been waiting for me, and it was not clear they minded.", "{things}, brought in. I felt briefly like a person with a plan.", "I gathered {things}. I counted them twice. It is a small joy and I allow it.", "The field gave me {things}. I said thank you. I did not know to whom."]);
-LXL("bought", ["Bought {things} earlier.", "Got {things} at the stall. Fair price.", "Picked up {things} on the way.", "Treated myself to {things}."], ["I bought {things}. I paid the number I was told, and it was accepted.", "I got {things}. The stall and I understand each other now.", "I bought {things}. I carried them home like a person with a purpose.", "{things}, bought. I did not haggle. I have not learned how, and it is not too late."]);
-LXL("sold", ["Sold {things} this morning. Decent price.", "Got rid of {things} at the stall.", "Sold {things}. Every coin helps.", "{things} went at the stall today."], ["I sold {things}. The keeper counted the coins like a man making a promise.", "{things} sold. It felt good and slightly like losing something.", "I sold {things} and walked off with the same face I came with.", "{things} went. I was paid. The arrangement worked, which is rarer than it should be."]);
-LXL("baked", ["Baked {things} this morning. Smells wonderful.", "{things} out of the oven. Not bad at all.", "Got {things} baked before the rush.", "{things}, fresh. The whole street knows."], ["I baked {things}. The room smelled like something that would be forgiven.", "{things} out of the oven. They looked at me with their whole crust.", "I baked {things}. I did not burn any. I am noting it for the record.", "{things}. The oven and I worked well together today. I will not mention it to the oven."]);
-LXL("cooked", ["Cooked {things} today. Turned out all right.", "Got {things} on the fire. Not bad."], ["I cooked {things}. It was edible, and for some people that is a calling.", "{things}, cooked. The pot and I are friends again."]);
-LXL("forged", ["Forged {things} today. Hard on the arms.", "{things} done at the forge. Not pretty. Strong."], ["I forged {things}. The metal agreed, eventually.", "{things}, forged. I looked at them for a while. They looked back, being hard."]);
-LXL("woven", ["Wove {things} today. Slow, steady work.", "Got {things} off the loom."], ["I wove {things}. It is a patient trade. The cloth does not hurry and neither do I.", "{things}, woven. I felt, briefly, like a thread."]);
-LXL("ate", ["Had a proper meal today. Felt like a new person.", "Ate well. Made all the difference.", "Got a good meal in me at last."], ["I ate properly. I had forgotten how much of the day it fixes.", "I had a meal. It was a good meal. I want that said while it is still true.", "I ate. It was uneventful. I am grateful for the uneventful."]);
-LXL("slept", ["Slept well last night. First time in a while.", "Had a good night's sleep.", "Slept like the dead."], ["I slept in a bed. I want to say that again, slowly.", "I slept well. I woke up and the day was still there. I counted that as a gift.", "I slept all the way through. I do not know where I went. It was restful."]);
-LXL("slept_rough", ["Slept on the ground last night. Never again.", "No bed again. My back'll hate me for a week.", "Slept rough. Cold, hard, and I'm done with it."], ["I slept on the ground. The ground was patient with me. My back has reservations.", "No bed again. I made a nest of what I had. The island heard it and said nothing.", "I slept rough. I have decided to think of it as a short story."]);
-LXL("went_hungry", ["Went hungry today. Not a crumb.", "Hardly ate. I could eat a horse.", "Missed my dinner. Stomach's been loud all day."], ["I have not eaten today. My stomach has started to make announcements.", "I went without. It is a precise feeling and I recognise it.", "I missed the meal. The day has taken on a certain sharpness."]);
-LXL("no_privy", ["Couldn't find a privy. I won't say what I did.", "Had to make do behind a tree. Not proud of it."], ["I could not find a privy. I made an arrangement with a tree. We both said nothing.", "There was no privy to be had. I will not describe what followed. It was dignified for the most part."]);
-LXL("new_in_stock", ["Saw {item} at the {shop}. New in.", "The {shop} has {item} now, if you're after some."], ["There is {item} at the {shop}. It was not there before. I noticed because I notice things in the morning.", "The {shop} is stocking {item}. I did not ask why. The shelf looked pleased."]);
-LXL("out_of_stock", ["The {shop} had no {item}. Wasted trip.", "Went for {item} and the {shop} had none. Typical."], ["The {shop} had no {item}. I stood there until it felt rude to stay.", "I went for {item}. The {shop} was out. It was very polite about it."]);
-LXL("price_up", ["{item} is dearer at the {shop} these days.", "Noticed {item} has gone up at the {shop}. Of course it has."], ["{item} has gone up at the {shop}. Not by much. By enough to be mentioned.", "I noticed {item} costs more at the {shop}. It is a small thing, and I am treating it as a large one."]);
-LXL("price_down", ["{item} is cheaper at the {shop}. Worth a trip.", "Good news: {item} is down at the {shop}."], ["{item} is cheaper at the {shop}. I will believe it when I am holding it.", "The {shop} has lowered the price of {item}. I did not ask why. I am enjoying it."]);
-LXL("could_not_afford", ["Couldn't afford {item} today. Next time.", "Had my eye on {item}, but the purse said no."], ["I could not afford {item}. I looked at it for a long time, to be fair to it.", "I wanted {item} and the purse said no. It has said no before. It is consistent."]);
-LXL("tired", ["Worn out today. Could sleep in a ditch.", "Absolutely done in."], ["I am very tired. It has a kind of weight, like a coat.", "I am worn out. The tiredness has started to feel like a place."]);
+LXL(
+  "planted",
+  [
+    "Got {things} in the ground today.",
+    "Put in {things}. Now it's up to the weather.",
+    "Sowed {things} this morning. Fingers crossed.",
+    "{things} went in today. Back aches, but they're in."
+  ],
+  [
+    "Planted {things}. They went in without objection, which is how it usually goes.",
+    "I put in {things} and stood there a while. It is a good way to spend a standing.",
+    "I sowed {things}. I said a few words over them. It was mostly the weather.",
+    "{things} went in today. I will check on them tomorrow and pretend I did not already."
+  ]
+);
+LXL(
+  "harvested",
+  [
+    "Brought in {things}. Not a bad haul.",
+    "Got {things} off the field today.",
+    "Harvested {things}. Good to see it come to something.",
+    "{things} in the barn. A fair day's work."
+  ],
+  [
+    "I harvested {things}. They had been waiting for me, and it was not clear they minded.",
+    "{things}, brought in. I felt briefly like a person with a plan.",
+    "I gathered {things}. I counted them twice. It is a small joy and I allow it.",
+    "The field gave me {things}. I said thank you. I did not know to whom."
+  ]
+);
+LXL(
+  "bought",
+  ["Bought {things} earlier.", "Got {things} at the stall. Fair price.", "Picked up {things} on the way.", "Treated myself to {things}."],
+  [
+    "I bought {things}. I paid the number I was told, and it was accepted.",
+    "I got {things}. The stall and I understand each other now.",
+    "I bought {things}. I carried them home like a person with a purpose.",
+    "{things}, bought. I did not haggle. I have not learned how, and it is not too late."
+  ]
+);
+LXL(
+  "sold",
+  [
+    "Sold {things} this morning. Decent price.",
+    "Got rid of {things} at the stall.",
+    "Sold {things}. Every coin helps.",
+    "{things} went at the stall today."
+  ],
+  [
+    "I sold {things}. The keeper counted the coins like a man making a promise.",
+    "{things} sold. It felt good and slightly like losing something.",
+    "I sold {things} and walked off with the same face I came with.",
+    "{things} went. I was paid. The arrangement worked, which is rarer than it should be."
+  ]
+);
+LXL(
+  "baked",
+  [
+    "Baked {things} this morning. Smells wonderful.",
+    "{things} out of the oven. Not bad at all.",
+    "Got {things} baked before the rush.",
+    "{things}, fresh. The whole street knows."
+  ],
+  [
+    "I baked {things}. The room smelled like something that would be forgiven.",
+    "{things} out of the oven. They looked at me with their whole crust.",
+    "I baked {things}. I did not burn any. I am noting it for the record.",
+    "{things}. The oven and I worked well together today. I will not mention it to the oven."
+  ]
+);
+LXL(
+  "cooked",
+  ["Cooked {things} today. Turned out all right.", "Got {things} on the fire. Not bad."],
+  ["I cooked {things}. It was edible, and for some people that is a calling.", "{things}, cooked. The pot and I are friends again."]
+);
+LXL(
+  "forged",
+  ["Forged {things} today. Hard on the arms.", "{things} done at the forge. Not pretty. Strong."],
+  ["I forged {things}. The metal agreed, eventually.", "{things}, forged. I looked at them for a while. They looked back, being hard."]
+);
+LXL(
+  "woven",
+  ["Wove {things} today. Slow, steady work.", "Got {things} off the loom."],
+  ["I wove {things}. It is a patient trade. The cloth does not hurry and neither do I.", "{things}, woven. I felt, briefly, like a thread."]
+);
+LXL(
+  "ate",
+  ["Had a proper meal today. Felt like a new person.", "Ate well. Made all the difference.", "Got a good meal in me at last."],
+  [
+    "I ate properly. I had forgotten how much of the day it fixes.",
+    "I had a meal. It was a good meal. I want that said while it is still true.",
+    "I ate. It was uneventful. I am grateful for the uneventful."
+  ]
+);
+LXL(
+  "slept",
+  ["Slept well last night. First time in a while.", "Had a good night's sleep.", "Slept like the dead."],
+  [
+    "I slept in a bed. I want to say that again, slowly.",
+    "I slept well. I woke up and the day was still there. I counted that as a gift.",
+    "I slept all the way through. I do not know where I went. It was restful."
+  ]
+);
+LXL(
+  "slept_rough",
+  ["Slept on the ground last night. Never again.", "No bed again. My back'll hate me for a week.", "Slept rough. Cold, hard, and I'm done with it."],
+  [
+    "I slept on the ground. The ground was patient with me. My back has reservations.",
+    "No bed again. I made a nest of what I had. The island heard it and said nothing.",
+    "I slept rough. I have decided to think of it as a short story."
+  ]
+);
+LXL(
+  "went_hungry",
+  ["Went hungry today. Not a crumb.", "Hardly ate. I could eat a horse.", "Missed my dinner. Stomach's been loud all day."],
+  [
+    "I have not eaten today. My stomach has started to make announcements.",
+    "I went without. It is a precise feeling and I recognise it.",
+    "I missed the meal. The day has taken on a certain sharpness."
+  ]
+);
+LXL(
+  "no_privy",
+  ["Couldn't find a privy. I won't say what I did.", "Had to make do behind a tree. Not proud of it."],
+  [
+    "I could not find a privy. I made an arrangement with a tree. We both said nothing.",
+    "There was no privy to be had. I will not describe what followed. It was dignified for the most part."
+  ]
+);
+LXL(
+  "new_in_stock",
+  ["Saw {item} at the {shop}. New in.", "The {shop} has {item} now, if you're after some."],
+  [
+    "There is {item} at the {shop}. It was not there before. I noticed because I notice things in the morning.",
+    "The {shop} is stocking {item}. I did not ask why. The shelf looked pleased."
+  ]
+);
+LXL(
+  "out_of_stock",
+  ["The {shop} had no {item}. Wasted trip.", "Went for {item} and the {shop} had none. Typical."],
+  ["The {shop} had no {item}. I stood there until it felt rude to stay.", "I went for {item}. The {shop} was out. It was very polite about it."]
+);
+LXL(
+  "price_up",
+  ["{item} is dearer at the {shop} these days.", "Noticed {item} has gone up at the {shop}. Of course it has."],
+  [
+    "{item} has gone up at the {shop}. Not by much. By enough to be mentioned.",
+    "I noticed {item} costs more at the {shop}. It is a small thing, and I am treating it as a large one."
+  ]
+);
+LXL(
+  "price_down",
+  ["{item} is cheaper at the {shop}. Worth a trip.", "Good news: {item} is down at the {shop}."],
+  [
+    "{item} is cheaper at the {shop}. I will believe it when I am holding it.",
+    "The {shop} has lowered the price of {item}. I did not ask why. I am enjoying it."
+  ]
+);
+LXL(
+  "could_not_afford",
+  ["Couldn't afford {item} today. Next time.", "Had my eye on {item}, but the purse said no."],
+  [
+    "I could not afford {item}. I looked at it for a long time, to be fair to it.",
+    "I wanted {item} and the purse said no. It has said no before. It is consistent."
+  ]
+);
+LXL(
+  "tired",
+  ["Worn out today. Could sleep in a ditch.", "Absolutely done in."],
+  ["I am very tired. It has a kind of weight, like a coat.", "I am worn out. The tiredness has started to feel like a place."]
+);
 LXP("shop_greet", ["Hello there.", "Hi. Got a minute?", "Afternoon. Anything good today?", "Hello. Having a quiet day?", "Hello. Is it a busy one?"]);
-LXI("shop_greet", ["Hello. I come with a short list and a long hope.", "Good day. I have an errand and a purse.", "Hello. I will be quick, which is what everyone says.", "Hello. I am here for a thing.", "Hello. I was passing and decided to be a customer."]);
-LXP("shop_greet_back", ["Hello. What can I do for you?", "Good to see you. What are we after?", "Hello. Take your time.", "Hello there. What'll it be?"]);
-LXI("shop_greet_back", ["Hello. Tell me what you want and I will tell you what I have.", "Good day. The stall is open and I am at it.", "Hello. I am here, which is the main thing a stall needs.", "Hello. What is it today? I will not guess."]);
+LXI("shop_greet", [
+  "Hello. I come with a short list and a long hope.",
+  "Good day. I have an errand and a purse.",
+  "Hello. I will be quick, which is what everyone says.",
+  "Hello. I am here for a thing.",
+  "Hello. I was passing and decided to be a customer."
+]);
+LXP("shop_greet_back", [
+  "Hello. What can I do for you?",
+  "Good to see you. What are we after?",
+  "Hello. Take your time.",
+  "Hello there. What'll it be?"
+]);
+LXI("shop_greet_back", [
+  "Hello. Tell me what you want and I will tell you what I have.",
+  "Good day. The stall is open and I am at it.",
+  "Hello. I am here, which is the main thing a stall needs.",
+  "Hello. What is it today? I will not guess."
+]);
 for (const t of ["I'm glad. I was nervous.", "Good. Good. I wasn't sure.", "Well. That's a weight off."]) lx("glad_courtship", "plain", t);
-for (const t of ["Good. I had rehearsed a second answer in case. I will keep it.", "I am glad. I was a little frightened. That is private.", "Well. That has gone better than the version in my head."]) lxi("glad_courtship", t);
+for (const t of [
+  "Good. I had rehearsed a second answer in case. I will keep it.",
+  "I am glad. I was a little frightened. That is private.",
+  "Well. That has gone better than the version in my head."
+])
+  lxi("glad_courtship", t);
 ACTS.glad_courtship = { kind: "romance", stage: "topic", reply: true, when: () => true, w: () => 1, apply: () => {
 }, replies: [] };
 function stateWhy(n, state2) {
@@ -30968,36 +32353,143 @@ function stateWhy(n, state2) {
   if (state2 === "tired" && n.job) return "has been at the " + String(n.job).toLowerCase() + " work since first light";
   return "";
 }
-ACTS.ask_why_state = { kind: "person", stage: "topic", reply: true, when: (c) => !!c.about && ["low", "tired", "hungry"].includes(c.state), w: () => 1, apply: () => {
-}, replies: ["explain_state", "explain_unknown"] };
-ACTS.explain_state = { kind: "person", stage: "topic", reply: true, when: (c) => !!c.about && !!stateWhy(c.about, c.state), w: () => 3, apply: (c) => {
-  c.reason = stateWhy(c.about, c.state);
-}, replies: [] };
-ACTS.explain_unknown = { kind: "person", stage: "topic", reply: true, when: (c) => !!c.about && !stateWhy(c.about, c.state), w: () => 3, apply: () => {
-}, replies: [] };
+ACTS.ask_why_state = {
+  kind: "person",
+  stage: "topic",
+  reply: true,
+  when: (c) => !!c.about && ["low", "tired", "hungry"].includes(c.state),
+  w: () => 1,
+  apply: () => {
+  },
+  replies: ["explain_state", "explain_unknown"]
+};
+ACTS.explain_state = {
+  kind: "person",
+  stage: "topic",
+  reply: true,
+  when: (c) => !!c.about && !!stateWhy(c.about, c.state),
+  w: () => 3,
+  apply: (c) => {
+    c.reason = stateWhy(c.about, c.state);
+  },
+  replies: []
+};
+ACTS.explain_unknown = {
+  kind: "person",
+  stage: "topic",
+  reply: true,
+  when: (c) => !!c.about && !stateWhy(c.about, c.state),
+  w: () => 3,
+  apply: () => {
+  },
+  replies: []
+};
 ACTS.ask_family.follow = ["ask_why_state"];
-ACTS.ask_more_day = { kind: "life", stage: "topic", reply: true, when: (c, sp, li) => (c.done.report_day || 0) === 1 && LIFE.recent(li, sp).length > 0, w: () => 1, apply: () => {
-}, replies: ["report_day"] };
+ACTS.ask_more_day = {
+  kind: "life",
+  stage: "topic",
+  reply: true,
+  when: (c, sp, li) => (c.done.report_day || 0) === 1 && LIFE.recent(li, sp).length > 0,
+  w: () => 1,
+  apply: () => {
+  },
+  replies: ["report_day"]
+};
 ACTS.ask_day.follow = ["ask_more_day"];
 LXP("ask_why_state", ["Why? What's happened?", "Oh? What's the matter?", "Is something wrong?"]);
-LXI("ask_why_state", ["Why? What happened? You can give me the short version.", "What is the matter? I would rather know.", "Is something wrong? I mean in particular."]);
+LXI("ask_why_state", [
+  "Why? What happened? You can give me the short version.",
+  "What is the matter? I would rather know.",
+  "Is something wrong? I mean in particular."
+]);
 LXP("explain_state", ["{about} {reason}.", "Well. {about} {reason}. That'll do it.", "{about} {reason}, that's why."]);
-LXI("explain_state", ["{about} {reason}. I do not think there is more to it than that.", "{about} {reason}. It would do it to anyone.", "It is simple. {about} {reason}."]);
+LXI("explain_state", [
+  "{about} {reason}. I do not think there is more to it than that.",
+  "{about} {reason}. It would do it to anyone.",
+  "It is simple. {about} {reason}."
+]);
 LXP("explain_unknown", ["I couldn't tell you. {about} won't say.", "No idea. I've asked."]);
 LXI("explain_unknown", ["I do not know. {about} has not said, and I have stopped asking.", "Nobody knows. {about} least of all."]);
 LXP("ask_more_day", ["And besides that?", "Anything else?", "And the rest of the day?"]);
-LXI("ask_more_day", ["And apart from that? I am interested in the whole of it.", "Anything else? I have time for a second thing.", "And after that?"]);
-LXL("worked_with", ["Worked alongside {about} today. Good company in a field.", "{about} and I got through a fair bit together today.", "Spent the day working next to {about}."], ["I worked beside {about} today. We said about nine words. They were the right ones.", "{about} and I worked the same ground today. It goes faster with two, or it feels as though it does.", "I spent the day next to {about}. I know how {about} breathes when the work is hard now."]);
-LXL("ate_with", ["Had a bite with {about} earlier.", "Ate with {about} today. Makes a change from eating alone.", "{about} and I shared a table at midday."], ["I ate with {about}. Neither of us mentioned it. It was pleasant.", "{about} and I had a meal at the same time, in the same place. I am calling it lunch together.", "I shared a table with {about}. The bread was ordinary and I remember it."]);
-LXL("found", ["Found {item} this morning. No idea whose.", "Look what I picked up: {item}.", "I found {item} by the path. Keeping it."], ["I found {item}. I do not know what it is for. I have decided it is mine.", "There was {item} on the ground. I picked it up before I had thought about it.", "I found {item} today. It was not there yesterday. I have asked nobody."]);
-LXL("ill", ["I'm not well. Something's got hold of me.", "Feeling rough. Fever, I think.", "I'm under the weather. Keep your distance."], ["I am unwell. It arrived in the night, like the rest of us.", "I have a fever. I am told it is the ordinary kind. I do not find that comforting.", "I am not well. I am upright, which I am counting."]);
-LXL("recovered", ["I'm over it. Back on my feet.", "Feeling myself again, thank goodness.", "The fever's gone. I could eat a horse."], ["I am better. I woke up and it had gone, without a word.", "The fever has left. I did not see it go. I am not going to look for it.", "I am well again. Everything tastes of something."]);
+LXI("ask_more_day", [
+  "And apart from that? I am interested in the whole of it.",
+  "Anything else? I have time for a second thing.",
+  "And after that?"
+]);
+LXL(
+  "worked_with",
+  [
+    "Worked alongside {about} today. Good company in a field.",
+    "{about} and I got through a fair bit together today.",
+    "Spent the day working next to {about}."
+  ],
+  [
+    "I worked beside {about} today. We said about nine words. They were the right ones.",
+    "{about} and I worked the same ground today. It goes faster with two, or it feels as though it does.",
+    "I spent the day next to {about}. I know how {about} breathes when the work is hard now."
+  ]
+);
+LXL(
+  "ate_with",
+  ["Had a bite with {about} earlier.", "Ate with {about} today. Makes a change from eating alone.", "{about} and I shared a table at midday."],
+  [
+    "I ate with {about}. Neither of us mentioned it. It was pleasant.",
+    "{about} and I had a meal at the same time, in the same place. I am calling it lunch together.",
+    "I shared a table with {about}. The bread was ordinary and I remember it."
+  ]
+);
+LXL(
+  "found",
+  ["Found {item} this morning. No idea whose.", "Look what I picked up: {item}.", "I found {item} by the path. Keeping it."],
+  [
+    "I found {item}. I do not know what it is for. I have decided it is mine.",
+    "There was {item} on the ground. I picked it up before I had thought about it.",
+    "I found {item} today. It was not there yesterday. I have asked nobody."
+  ]
+);
+LXL(
+  "ill",
+  ["I'm not well. Something's got hold of me.", "Feeling rough. Fever, I think.", "I'm under the weather. Keep your distance."],
+  [
+    "I am unwell. It arrived in the night, like the rest of us.",
+    "I have a fever. I am told it is the ordinary kind. I do not find that comforting.",
+    "I am not well. I am upright, which I am counting."
+  ]
+);
+LXL(
+  "recovered",
+  ["I'm over it. Back on my feet.", "Feeling myself again, thank goodness.", "The fever's gone. I could eat a horse."],
+  [
+    "I am better. I woke up and it had gone, without a word.",
+    "The fever has left. I did not see it go. I am not going to look for it.",
+    "I am well again. Everything tastes of something."
+  ]
+);
 LXP("answer_how", ["Not well. Fever.", "Rough, to be honest. I'm ill.", "Poorly. I'll be all right."], { state: "ill" });
-LXI("answer_how", ["Unwell. I have a fever and an opinion about it.", "Not well. I am upright. That is the summary.", "Ill. It is the ordinary kind, I am told, by people who do not have it."], { state: "ill" });
+LXI(
+  "answer_how",
+  [
+    "Unwell. I have a fever and an opinion about it.",
+    "Not well. I am upright. That is the summary.",
+    "Ill. It is the ordinary kind, I am told, by people who do not have it."
+  ],
+  { state: "ill" }
+);
 LXP("answer_family", ["{about} is ill. A fever.", "{about}'s poorly. In bed, mostly."], { state: "ill" });
-LXI("answer_family", ["{about} is ill. A fever. I have been bringing water and being told to go away.", "{about} is unwell. It is not serious. It is not nothing."], { state: "ill" });
+LXI(
+  "answer_family",
+  ["{about} is ill. A fever. I have been bringing water and being told to go away.", "{about} is unwell. It is not serious. It is not nothing."],
+  { state: "ill" }
+);
 LXP("sympathise_how", ["You should be in bed. Go on.", "Oh, you poor thing. Rest. I mean it."], { state: "ill" });
-LXI("sympathise_how", ["You should be lying down. I will say it again if you are still here in a minute.", "I am sorry. Rest. The island will manage without you for a day. It managed before."], { state: "ill" });
+LXI(
+  "sympathise_how",
+  [
+    "You should be lying down. I will say it again if you are still here in a minute.",
+    "I am sorry. Rest. The island will manage without you for a day. It managed before."
+  ],
+  { state: "ill" }
+);
 LXP("vent", ["I feel dreadful. Hot and cold at once."], { state: "ill" });
 LXI("vent", ["I feel dreadful. I am hot and cold, and I cannot decide which to complain about."], { state: "ill" });
 LXP("remark_state", ["I shouldn't be out. I'm not well."], { state: "ill" });
@@ -31023,23 +32515,48 @@ ACTS.snap = {
   },
   replies: ["snap_back", "let_it_go"]
 };
-ACTS.snap_back = { kind: "feeling", stage: "topic", reply: true, when: (c, sp, li) => talkHas(sp, "prickly") || talkHas(sp, "proud") || (sp.aff[li.id] || 0) < 0, w: () => 2, apply: (c, sp, li) => {
-  lfAff(li, sp, -2, "snapped back");
-}, replies: [] };
+ACTS.snap_back = {
+  kind: "feeling",
+  stage: "topic",
+  reply: true,
+  when: (c, sp, li) => talkHas(sp, "prickly") || talkHas(sp, "proud") || (sp.aff[li.id] || 0) < 0,
+  w: () => 2,
+  apply: (c, sp, li) => {
+    lfAff(li, sp, -2, "snapped back");
+  },
+  replies: []
+};
 ACTS.let_it_go = { kind: "feeling", stage: "topic", reply: true, when: () => true, w: () => 1.5, apply: () => {
 }, replies: [] };
 LXP("snap", ["Not now. I've no patience left today.", "Oh, leave it, will you.", "Do I look like I want to talk?"]);
-LXI("snap", ["Not now. I have used up my patience and it is not yet noon.", "Please. Not today. I am holding the day together with one hand.", "I do not want to talk. I want that to be enough."]);
+LXI("snap", [
+  "Not now. I have used up my patience and it is not yet noon.",
+  "Please. Not today. I am holding the day together with one hand.",
+  "I do not want to talk. I want that to be enough."
+]);
 LXP("snap_back", ["No need for that.", "Charming. I was only asking.", "Suit yourself."]);
-LXI("snap_back", ["There was no need for that. I will remember there was no need.", "I was only asking. I will ask somebody else, then, about everything.", "Very well. I withdraw the hello."]);
+LXI("snap_back", [
+  "There was no need for that. I will remember there was no need.",
+  "I was only asking. I will ask somebody else, then, about everything.",
+  "Very well. I withdraw the hello."
+]);
 LXP("let_it_go", ["All right. Another time.", "Fair enough. I'll leave you be."]);
 LXI("let_it_go", ["All right. Another time. There is plenty of it.", "I will leave you be. It is the thing I am best at."]);
 lx("ev:lent_hand", "plain", "{a} lent {t} a hand with the work");
 lx("ev:lent_hand", "island", "{a} did an hour of {t}'s work, unasked");
 lx("ev:sick_visit", "plain", "{a} looked in on {t}, who is ill");
 lx("ev:sick_visit", "island", "{a} sat with {t}, who is ill");
-LXP("warn", ["Mind yourself around {about}. They {reason}.", "Between us, about {about}: they {reason}. Keep an eye out.", "You should know about {about}. They {reason}."]);
-LXI("warn", ["Be careful with {about}. They {reason}.", "A word about {about}. They {reason}.", "I would keep an eye on {about}. They {reason}. I have seen it.", "You may want to know about {about}. They {reason}."]);
+LXP("warn", [
+  "Mind yourself around {about}. They {reason}.",
+  "Between us, about {about}: they {reason}. Keep an eye out.",
+  "You should know about {about}. They {reason}."
+]);
+LXI("warn", [
+  "Be careful with {about}. They {reason}.",
+  "A word about {about}. They {reason}.",
+  "I would keep an eye on {about}. They {reason}. I have seen it.",
+  "You may want to know about {about}. They {reason}."
+]);
 LXP("warn_thanks", ["Thanks for the word.", "I had wondered. Thank you.", "I will watch out."]);
 LXI("warn_thanks", ["Thank you.", "I will keep it in mind.", "I had wondered about that.", "Noted. Thank you for saying so.", "I will watch, then."]);
 {
@@ -31048,11 +32565,26 @@ LXI("warn_thanks", ["Thank you.", "I will keep it in mind.", "I had wondered abo
   };
   S("greet", ["Hello, {li}.", "Morning.", "There you are.", "{li}.", "Good day.", "Hello."]);
   S("greet_back", ["Hello.", "Hello, {li}.", "Morning.", "Good day.", "Yes. Hello."]);
-  S("farewell", ["Goodbye.", "I will go on, then.", "See you, {li}.", "I should get back.", "Until later.", "Be well.", "That is me.", "Right. Goodbye."]);
+  S("farewell", [
+    "Goodbye.",
+    "I will go on, then.",
+    "See you, {li}.",
+    "I should get back.",
+    "Until later.",
+    "Be well.",
+    "That is me.",
+    "Right. Goodbye."
+  ]);
   S("farewell_back", ["Goodbye.", "See you.", "Go well."]);
   S("pre_close", ["I should get on.", "Well. I have things to see to.", "I will let you go.", "That is all I had.", "I must go."]);
   S("remark_place", ["It is quiet here.", "This is a good spot.", "Nobody about.", "The path wants mending.", "I like this corner."]);
-  S("remark_work", ["There is plenty to do.", "The work goes on.", "I am behind, a little.", "It was a full morning.", "The work is the same as yesterday."]);
+  S("remark_work", [
+    "There is plenty to do.",
+    "The work goes on.",
+    "I am behind, a little.",
+    "It was a full morning.",
+    "The work is the same as yesterday."
+  ]);
   S("remark_state", ["I am hungry.", "I could eat."], { state: "hungry" });
   S("remark_state", ["I am tired.", "I want to sit down."], { state: "tired" });
   S("remark_state", ["I feel well today.", "It is a good day."], { state: "glad" });
@@ -31078,8 +32610,24 @@ LXI("warn_thanks", ["Thank you.", "I will keep it in mind.", "I had wondered abo
   S("agree_opinion", ["I think so too.", "Yes. The same.", "That is how I find them."]);
   S("ask_opinion", ["What do you make of {about}?", "How do you find {about}?", "Do you know {about}?"]);
   S("ask_family", ["How is {about}?", "Is {about} well?", "How is {about} keeping?"]);
-  for (const [st, ls] of [["fine", ["{about} is well.", "{about} is fine."]], ["hungry", ["{about} is hungry."]], ["tired", ["{about} is tired.", "{about} is worn out."]], ["glad", ["{about} is in good spirits."]], ["low", ["{about} is low.", "{about} has been quiet."]], ["ill", ["{about} is ill.", "{about} has a fever."]]]) S("answer_family", ls, { state: st });
-  for (const [st, ls] of [["fine", ["Well enough.", "I am well.", "Fine."]], ["hungry", ["Hungry.", "I have not eaten."]], ["tired", ["Tired.", "I am worn out."]], ["glad", ["Well. Very well.", "It is a good day."]], ["low", ["Not at my best.", "A little low."]], ["ill", ["Not well.", "I have a fever."]]]) S("answer_how", ls, { state: st });
+  for (const [st, ls] of [
+    ["fine", ["{about} is well.", "{about} is fine."]],
+    ["hungry", ["{about} is hungry."]],
+    ["tired", ["{about} is tired.", "{about} is worn out."]],
+    ["glad", ["{about} is in good spirits."]],
+    ["low", ["{about} is low.", "{about} has been quiet."]],
+    ["ill", ["{about} is ill.", "{about} has a fever."]]
+  ])
+    S("answer_family", ls, { state: st });
+  for (const [st, ls] of [
+    ["fine", ["Well enough.", "I am well.", "Fine."]],
+    ["hungry", ["Hungry.", "I have not eaten."]],
+    ["tired", ["Tired.", "I am worn out."]],
+    ["glad", ["Well. Very well.", "It is a good day."]],
+    ["low", ["Not at my best.", "A little low."]],
+    ["ill", ["Not well.", "I have a fever."]]
+  ])
+    S("answer_how", ls, { state: st });
   const L = (k, ls) => S("life:" + k, ls);
   L("slept", ["I slept well.", "I had a full night."]);
   L("slept_rough", ["I slept on the ground.", "I slept outside again.", "I had no bed last night."]);
@@ -31113,7 +32661,28 @@ function talkBudget(n, o) {
   if (n.hunger > 80) b -= 1;
   return Math.max(1, b);
 }
-const TALK_PURPOSE = ["raise_deed", "ask_favour", "chase_favour", "confront_jealous", "declare", "ask_to_walk", "propose", "flirt", "confide", "story_preface", "share_news", "warn", "apologise", "send_gift", "offer_gift", "callback", "report_day", "ask_day", "ask_news", "snap"];
+const TALK_PURPOSE = [
+  "raise_deed",
+  "ask_favour",
+  "chase_favour",
+  "confront_jealous",
+  "declare",
+  "ask_to_walk",
+  "propose",
+  "flirt",
+  "confide",
+  "story_preface",
+  "share_news",
+  "warn",
+  "apologise",
+  "send_gift",
+  "offer_gift",
+  "callback",
+  "report_day",
+  "ask_day",
+  "ask_news",
+  "snap"
+];
 function talkBind(c, sp, li, id) {
   const A = ACTS[id];
   if (!A) return null;
@@ -31266,7 +32835,12 @@ function talkRun(a, b, listened, short) {
     }
     if (!id) {
       if (small >= smallMax) break;
-      id = talkChoose(c, sp, li, TALK_TOPICS().filter((k) => !TALK_PURPOSE.includes(k)));
+      id = talkChoose(
+        c,
+        sp,
+        li,
+        TALK_TOPICS().filter((k) => !TALK_PURPOSE.includes(k))
+      );
       bind = null;
       if (!id) break;
       small++;
@@ -31307,7 +32881,10 @@ function talkRun(a, b, listened, short) {
     say2(closer, other, "farewell");
     if (Math.random() < 0.5) say2(other, closer, "farewell_back");
   }
-  for (const [x, y] of [[a, b], [b, a]]) {
+  for (const [x, y] of [
+    [a, b],
+    [b, a]
+  ]) {
     TM.add(x, { kind: "talked", with: y.id, imp: 0.2, n: c.turns.length, subj: c.lastSubj });
     x.social = Math.min(100, (x.social == null ? 50 : x.social) + 5 + c.turns.length);
     lfAff(x, y, 1, "chatted");
@@ -31336,7 +32913,14 @@ function talkFinish(c, a, b, listened) {
       return text ? { who: s, text } : null;
     }).filter(Boolean);
   }
-  TALK.log.push({ t: game.time, a: a.id, b: b.id, d: lfDist(a, b), acts: c.turns.slice(), lines: lines ? lines.map((l) => l.who.first + ": " + l.text) : null });
+  TALK.log.push({
+    t: game.time,
+    a: a.id,
+    b: b.id,
+    d: lfDist(a, b),
+    acts: c.turns.slice(),
+    lines: lines ? lines.map((l) => l.who.first + ": " + l.text) : null
+  });
   if (TALK.log.length > 300) TALK.log.shift();
   const pl = game.player;
   if (lines && lines.length && pl && a !== pl && b !== pl && (lfDist(pl, a) <= TALK.earshot || lfDist(pl, b) <= TALK.earshot)) {
@@ -31356,18 +32940,67 @@ function talkFinish(c, a, b, listened) {
     b.talkUntil = Math.max(b.talkUntil || 0, hold);
   }
 }
-for (const id of ["shop_greet", "shop_greet_back", "ask_item", "quote_price", "pay_ok", "thank_shop", "cant_afford", "make_do", "no_stock", "shrug_off", "offer_goods", "bid_price", "accept_deal", "no_demand", "new_stock_remark", "farewell_shop"])
+for (const id of [
+  "shop_greet",
+  "shop_greet_back",
+  "ask_item",
+  "quote_price",
+  "pay_ok",
+  "thank_shop",
+  "cant_afford",
+  "make_do",
+  "no_stock",
+  "shrug_off",
+  "offer_goods",
+  "bid_price",
+  "accept_deal",
+  "no_demand",
+  "new_stock_remark",
+  "farewell_shop"
+])
   ACTS[id] = { kind: "trade", stage: "topic", reply: true, when: () => true, apply: () => {
   }, replies: [] };
 function serviceScript(mode, result, newItem) {
-  const open = [["c", "shop_greet"], ["k", "shop_greet_back"]];
+  const open = [
+    ["c", "shop_greet"],
+    ["k", "shop_greet_back"]
+  ];
   if (mode === "buy") {
-    if (result === "ok") return open.concat([["c", "ask_item"], ["k", "quote_price"], ["c", "pay_ok"], ["k", "thank_shop"]], newItem ? [["k", "new_stock_remark"]] : [], [["c", "farewell_shop"]]);
-    if (result === "none") return open.concat([["c", "ask_item"], ["k", "no_stock"], ["c", "shrug_off"]]);
-    return open.concat([["c", "ask_item"], ["k", "quote_price"], ["c", "cant_afford"], ["k", "make_do"]]);
+    if (result === "ok")
+      return open.concat(
+        [
+          ["c", "ask_item"],
+          ["k", "quote_price"],
+          ["c", "pay_ok"],
+          ["k", "thank_shop"]
+        ],
+        newItem ? [["k", "new_stock_remark"]] : [],
+        [["c", "farewell_shop"]]
+      );
+    if (result === "none")
+      return open.concat([
+        ["c", "ask_item"],
+        ["k", "no_stock"],
+        ["c", "shrug_off"]
+      ]);
+    return open.concat([
+      ["c", "ask_item"],
+      ["k", "quote_price"],
+      ["c", "cant_afford"],
+      ["k", "make_do"]
+    ]);
   }
-  if (result === "ok") return open.concat([["c", "offer_goods"], ["k", "bid_price"], ["c", "accept_deal"], ["k", "thank_shop"]]);
-  return open.concat([["c", "offer_goods"], ["k", "no_demand"]]);
+  if (result === "ok")
+    return open.concat([
+      ["c", "offer_goods"],
+      ["k", "bid_price"],
+      ["c", "accept_deal"],
+      ["k", "thank_shop"]
+    ]);
+  return open.concat([
+    ["c", "offer_goods"],
+    ["k", "no_demand"]
+  ]);
 }
 function talkService(cust, keeper, d) {
   if (!TALK.on.trade || !cust || !keeper || cust === keeper) return;
@@ -31381,20 +33014,36 @@ function serviceSay(act, speaker, other, d) {
   return lxSay(act, speaker, other, { item: d.item, qty: d.qty, price: d.price, shop: d.shop || "" });
 }
 const PRICE_ITEMS = () => Object.keys(GOODS).filter((g) => GOODS[g].base);
-ACTS.ask_price = { kind: "trade", stage: "topic", preview: (c) => ({ pitem: WORLD.has("item", c.priceItem) ? WORLD.name("item", c.priceItem) : GOODS[c.priceItem].name }), when: (c, sp, li) => {
-  if (c.done.ask_price) return false;
-  const items = PRICE_ITEMS().filter((g) => LIFE.lastPrice(li, g) != null && LIFE.lastPrice(sp, g) == null);
-  if (!items.length) return false;
-  c.priceItem = items[Math.floor(Math.random() * items.length)];
-  return true;
-}, w: () => 0.7, apply: (c) => {
-  c.done.ask_price = 1;
-  c.priceName = WORLD.has("item", c.priceItem) ? WORLD.name("item", c.priceItem) : GOODS[c.priceItem].name;
-}, replies: ["tell_price"] };
-ACTS.tell_price = { kind: "trade", stage: "topic", reply: true, preview: (c, sp) => ({ price: LIFE.lastPrice(sp, c.priceItem) }), when: (c, sp) => !!c.priceItem && LIFE.lastPrice(sp, c.priceItem) != null, apply: (c, sp, li) => {
-  c.priceUnit = LIFE.lastPrice(sp, c.priceItem);
-  TM.add(li, { kind: "price", item: c.priceItem, unit: c.priceUnit, from: sp.id, conf: 0.8, imp: 0.15 });
-}, replies: ["react_price"] };
+ACTS.ask_price = {
+  kind: "trade",
+  stage: "topic",
+  preview: (c) => ({ pitem: WORLD.has("item", c.priceItem) ? WORLD.name("item", c.priceItem) : GOODS[c.priceItem].name }),
+  when: (c, sp, li) => {
+    if (c.done.ask_price) return false;
+    const items = PRICE_ITEMS().filter((g) => LIFE.lastPrice(li, g) != null && LIFE.lastPrice(sp, g) == null);
+    if (!items.length) return false;
+    c.priceItem = items[Math.floor(Math.random() * items.length)];
+    return true;
+  },
+  w: () => 0.7,
+  apply: (c) => {
+    c.done.ask_price = 1;
+    c.priceName = WORLD.has("item", c.priceItem) ? WORLD.name("item", c.priceItem) : GOODS[c.priceItem].name;
+  },
+  replies: ["tell_price"]
+};
+ACTS.tell_price = {
+  kind: "trade",
+  stage: "topic",
+  reply: true,
+  preview: (c, sp) => ({ price: LIFE.lastPrice(sp, c.priceItem) }),
+  when: (c, sp) => !!c.priceItem && LIFE.lastPrice(sp, c.priceItem) != null,
+  apply: (c, sp, li) => {
+    c.priceUnit = LIFE.lastPrice(sp, c.priceItem);
+    TM.add(li, { kind: "price", item: c.priceItem, unit: c.priceUnit, from: sp.id, conf: 0.8, imp: 0.15 });
+  },
+  replies: ["react_price"]
+};
 ACTS.react_price = { kind: "trade", stage: "topic", reply: true, when: () => true, apply: () => {
 }, replies: [] };
 const PT = { s: null };
@@ -31555,7 +33204,17 @@ function ptLabel(id, x) {
   return ok ? t : L[1].replace(/[:]?\s*(about |after |of |to |where )?\{\w+\}.*$/, "").trim();
 }
 function ptBegin(o, p) {
-  const c = { a: p, b: o, stage: "open", done: {}, turns: [], left: { [p.id]: 99, [o.id]: talkBudget(o, p) + 1.5 }, last: null, t0: game.time, player: true };
+  const c = {
+    a: p,
+    b: o,
+    stage: "open",
+    done: {},
+    turns: [],
+    left: { [p.id]: 99, [o.id]: talkBudget(o, p) + 1.5 },
+    last: null,
+    t0: game.time,
+    player: true
+  };
   const S = PT.s = { c, o, p, pending: null, opts: [], closing: false };
   talkS = { pt: S };
   talkTurn(c, p, o, "greet");
@@ -31682,7 +33341,10 @@ function ptEnd() {
   PT.s = null;
   const c = S.c, o = S.o, p = S.p;
   if (talkS && talkS.pt) talkS = null;
-  for (const [x, y] of [[o, p], [p, o]]) {
+  for (const [x, y] of [
+    [o, p],
+    [p, o]
+  ]) {
     TM.add(x, { kind: "talked", with: y.id, imp: 0.25, n: c.turns.length, subj: c.lastSubj });
     x.social = Math.min(100, (x.social == null ? 50 : x.social) + 6 + c.turns.length);
   }
@@ -31690,11 +33352,20 @@ function ptEnd() {
   lfAff(p, o, 1, "talked with me");
   o.know[p.id] = Math.min(100, (o.know[p.id] || 0) + 3);
   p.know[o.id] = Math.min(100, (p.know[o.id] || 0) + 3);
-  TALK.log.push({ t: game.time, a: p.id, b: o.id, d: lfDist(p, o), acts: c.turns.slice(), lines: c.turns.map((t) => (t.by === p.id ? p : o).first + ": " + talkWords(t, p, o)), player: true });
+  TALK.log.push({
+    t: game.time,
+    a: p.id,
+    b: o.id,
+    d: lfDist(p, o),
+    acts: c.turns.slice(),
+    lines: c.turns.map((t) => (t.by === p.id ? p : o).first + ": " + talkWords(t, p, o)),
+    player: true
+  });
   if (TALK.log.length > 300) TALK.log.shift();
 }
-for (const id of ["keeper_call", "call_reply"]) ACTS[id] = { kind: "trade", stage: "topic", reply: true, when: () => true, apply: () => {
-}, replies: [] };
+for (const id of ["keeper_call", "call_reply"])
+  ACTS[id] = { kind: "trade", stage: "topic", reply: true, when: () => true, apply: () => {
+  }, replies: [] };
 function keeperCallFor(K) {
   if (K.stall) {
     const m = K.stall, goods = Object.keys(m.sells).filter((g3) => (m.stock[g3] || 0) >= 2 && !(g3.startsWith("seed_") && !farmSeedRange().includes(g3.slice(5))));
@@ -31712,17 +33383,20 @@ function keeperCallFor(K) {
 function keeperCalls() {
   if (!town || !TALK.running || !TALK.on.trade || !game.player) return;
   const keepers = merchants.filter((m) => m.n && !m.n.dead).map((m) => ({ n: m.n, stall: m }));
-  if (typeof lf2Room === "function") for (const k of ["bakery"]) {
-    const r = lf2Room(k);
-    const s = r && lf2Server(r);
-    if (s) keepers.push({ n: s, room: r });
-  }
+  if (typeof lf2Room === "function")
+    for (const k of ["bakery"]) {
+      const r = lf2Room(k);
+      const s = r && lf2Server(r);
+      if (s) keepers.push({ n: s, room: r });
+    }
   for (const K of keepers) {
     const n = K.n;
     if ((n.callNext || 0) > game.time) continue;
     n.callNext = game.time + 25 + Math.random() * 40;
     if (n.pose === "sleep" || (n.talkUntil || 0) > game.time || K.stall && !K.stall.serving) continue;
-    const near = npcs.filter((o) => o !== n && !o.dead && !o.player && o.age >= 10 && o.pose !== "sleep" && !(o.talkUntil > game.time) && !o.shop && lvlOf(o.ty) === lvlOf(n.ty) && lfDist(o, n) >= 2 && lfDist(o, n) <= 8);
+    const near = npcs.filter(
+      (o) => o !== n && !o.dead && !o.player && o.age >= 10 && o.pose !== "sleep" && !(o.talkUntil > game.time) && !o.shop && lvlOf(o.ty) === lvlOf(n.ty) && lfDist(o, n) >= 2 && lfDist(o, n) <= 8
+    );
     if (!near.length) continue;
     const passer = near[Math.floor(Math.random() * near.length)];
     const call = keeperCallFor(K);
@@ -31742,13 +33416,22 @@ ACTS.call_child = { kind: "family", stage: "topic", when: () => false, apply: ()
 const MUTTER_JOBS = ["Farmer", "Baker", "Smith", "Merchant", "Shopkeeper", "Miller", "Miner", "Carpenter", "Priest", "Fisher", "Worker"];
 function moreBarks() {
   if (!town || !TALK.running || !game.player || game.time % 7 > 1.1) return;
-  const P = game.player, near = npcs.filter((n) => !n.dead && !n.player && !n.infant && n.age >= 6 && lvlOf(n.ty) === lvlOf(P.ty) && lfDist(P, n) <= TALK.earshot && n.pose !== "sleep" && !(n.talkUntil > game.time));
+  const P = game.player, near = npcs.filter(
+    (n) => !n.dead && !n.player && !n.infant && n.age >= 6 && lvlOf(n.ty) === lvlOf(P.ty) && lfDist(P, n) <= TALK.earshot && n.pose !== "sleep" && !(n.talkUntil > game.time)
+  );
   for (const n of near) {
     if (TALK.on.small && !n.moving && (n.mutterT || 0) < game.time && n.job && MUTTER_JOBS.includes(String(n.job))) {
       n.mutterT = game.time + 70 + Math.random() * 90;
       const s = n.plan && n.plan[n.si];
       if (s && s.k === "wait" && /work|plough|sow|harvest|bak|knead|forge|hammer|sweep|stock|dig|saw|cut|tend|mend|weav|serving|stall/i.test(String(s.text || "")) && Math.random() < 0.6) {
-        const c = { a: n, b: n, done: {}, turns: [{ by: n.id, act: "mutter", x: { how: String(n.job).toLowerCase() } }], stage: "topic", t0: game.time };
+        const c = {
+          a: n,
+          b: n,
+          done: {},
+          turns: [{ by: n.id, act: "mutter", x: { how: String(n.job).toLowerCase() } }],
+          stage: "topic",
+          t0: game.time
+        };
         talkFinish(c, n, n, true);
       }
     }
@@ -31814,9 +33497,15 @@ function talkIdle(n) {
 }
 function talkSpot(b, from) {
   let best = null, bd = 1e9;
-  for (const [dx, dy] of [[0, 1], [1, 0], [-1, 0], [0, -1]]) {
+  for (const [dx, dy] of [
+    [0, 1],
+    [1, 0],
+    [-1, 0],
+    [0, -1]
+  ]) {
     const x = b.tx + dx, y = b.ty + dy;
-    if (!walkable(x, y) || lfPropAt(x, y) || roomAt[y][x] !== roomAt[b.ty][b.tx] || npcs.some((o) => o !== b && o !== from && o.tx === x && o.ty === y && !o.dead)) continue;
+    if (!walkable(x, y) || lfPropAt(x, y) || roomAt[y][x] !== roomAt[b.ty][b.tx] || npcs.some((o) => o !== b && o !== from && o.tx === x && o.ty === y && !o.dead))
+      continue;
     const d = from ? Math.abs(from.tx - x) + Math.abs(from.ty - y) : 0;
     if (d < bd) {
       bd = d;
@@ -31877,16 +33566,19 @@ function talkApproach(a, b) {
   a.chatTarget = null;
   a.plan = [
     goS(() => talkSpot(b, a) || { x: b.tx, y: b.ty, face: null }, "Going over to " + b.first),
-    waitS(1, "stand", "Talking with " + b.first, { nopie: true, onEnd(nn) {
-      if (b.dead || b.pose === "sleep" || lfDist(nn, b) !== 1) {
+    waitS(1, "stand", "Talking with " + b.first, {
+      nopie: true,
+      onEnd(nn) {
+        if (b.dead || b.pose === "sleep" || lfDist(nn, b) !== 1) {
+          nn.talkBusy = b.talkBusy = 0;
+          return;
+        }
+        faceTo(nn, b);
+        faceTo(b, nn);
+        talkRun(nn, b, talkListened(nn, b));
         nn.talkBusy = b.talkBusy = 0;
-        return;
       }
-      faceTo(nn, b);
-      faceTo(b, nn);
-      talkRun(nn, b, talkListened(nn, b));
-      nn.talkBusy = b.talkBusy = 0;
-    } })
+    })
   ].concat(rest);
   a.si = 0;
   a.stepStarted = false;
@@ -31912,7 +33604,8 @@ LF2.tickers.push(talkTick);
   badge.textContent = "hyper talk (H)";
   stage.appendChild(badge);
   window.addEventListener("keydown", (e) => {
-    if (e.key !== "h" && e.key !== "H" || e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || "") || !town) return;
+    if (e.key !== "h" && e.key !== "H" || e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || "") || !town)
+      return;
     TALK.hyper = !TALK.hyper;
     TALK.words = TALK.hyper;
     badge.hidden = !TALK.hyper;
@@ -31920,7 +33613,9 @@ LF2.tickers.push(talkTick);
 })();
 function talkPass() {
   if (!town || !TALK.running || !game.player || !TALK.on.ritual || TALK.hyper) return;
-  const mv = npcs.filter((n) => !n.dead && !n.player && !n.infant && n.age >= 8 && n.pose !== "sleep" && !n.inShip && !n.trapped && !n.jail && (n.talkUntil || 0) <= game.time && (n.passNext || 0) <= game.time && n.hunger < 88 && n.bladder < 80 && !(n.plan && n.plan[n.si] && n.plan[n.si].nopie));
+  const mv = npcs.filter(
+    (n) => !n.dead && !n.player && !n.infant && n.age >= 8 && n.pose !== "sleep" && !n.inShip && !n.trapped && !n.jail && (n.talkUntil || 0) <= game.time && (n.passNext || 0) <= game.time && n.hunger < 88 && n.bladder < 80 && !(n.plan && n.plan[n.si] && n.plan[n.si].nopie)
+  );
   for (let i = 0; i < mv.length; i++) {
     const a = mv[i];
     if ((a.passNext || 0) > game.time || (a.talkUntil || 0) > game.time) continue;
