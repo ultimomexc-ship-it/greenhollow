@@ -3,7 +3,7 @@
    Same seed = same run. Use it to read the game without playing it.
 
      node tools/playtest.mjs <scenario> [--days=5] [--seed=41] [--out=/tmp/playtest] [--file=dist/index.html]
-   scenarios: village (a quiet week on the farming island), meddle (the bot does a series of deeds and answers for them), social (the bot talks to everybody, every day),
+   scenarios: hamlet (the minimum game: a family yard is built, rent is collected, newcomers come, the bot talks to everybody), village (a quiet week on the farming island), meddle (the bot does a series of deeds and answers for them), social (the bot talks to everybody, every day),
               romance (everything on, the plain village, nobody steered but watched) */
 import path from 'node:path';
 import fs from 'node:fs';
@@ -19,12 +19,20 @@ const { page, errors } = await openGame(browser, path.resolve(file), { rng: seed
 
 /* ---- the bot and the recorder, inside the page ---- */
 await page.evaluate(([scenario]) => {
-  const world = scenario === 'romance' ? 'village' : 'farm';
+  const world = scenario === 'romance' ? 'village' : scenario === 'hamlet' ? 'hamlet' : 'farm';
   newTown('playtest', world); if (scenario === 'romance' || scenario === 'meddle' || scenario === 'social') MODS.all();
   TALK.words = true; window.__T = []; window.__B = [];
   const orig = talkFinish;
   talkFinish = function (c, a, b, listened) { const n0 = TALK.log.length; for (const t of c.turns) if ((t.act === 'ask_opinion' || t.act === 'gossip_person') && t.x && t.x.about) { const sp = t.by === a.id ? a : b, li = sp === a ? b : a, o = npcs.find(q => q.first === t.x.about); if (o && typeof peopleNear === 'function' && peopleNear(o, li)) window.__KIN = (window.__KIN || 0) + 1; } orig(c, a, b, listened); const e = TALK.log[TALK.log.length - 1]; if (e && TALK.log.length >= n0) window.__T.push({ t: game.time, a: a.first, b: e.kind === 'bark' ? '' : b.first, place: (typeof placeOf === 'function' ? placeOf(a) : ''), acts: e.acts.map(x => x.act), subj: e.acts.map(x => x.x && x.x.about), kidActs: e.acts.filter(x => { const q = x.by != null ? byId(x.by) : null; return q && q.age < 12; }).map(x => x.act), lines: e.lines || [], lineActs: e.lineActs || [], kind: e.kind === 'bark' ? 'bark' : e.player ? 'player' : 'npc' }); };
-  startPlaying(npcs.filter(n => !n.dead && n.age >= 18 && !n.infant)[0]);
+  if (scenario === 'hamlet') {   // a yard for the family with beds and fields, a second yard empty and waiting: rent, arrivals and the talk about them
+    const free = (x, y) => walkable(x, y) && !lfPropAt(x, y) && grid[y][x] === T.GRASS && roomAt[y][x] < 0 && !(town.nodeMap && town.nodeMap.has(y * W + x)) && !yardAtXY(x, y);
+    const area = (w, h) => { const cand = []; for (let y = 8; y < town.h0 - 8 - h; y++) for (let x = 8; x < W - 8 - w; x++) { const d = Math.hypot(x + w / 2 - town.cx, y + h / 2 - town.cy); if (d > 12 && d < 60) cand.push([d, x, y]); } cand.sort((p, q) => p[0] - q[0]);
+      for (const [, x, y] of cand) { let bad = 0; for (let j = -1; j <= h && bad < 9; j++) for (let i = -1; i <= w && bad < 9; i++) { const g = grid[y + j][x + i]; if (g !== T.GRASS && g !== T.TREE && g !== T.ROCK) bad = 99; else if (!free(x + i, y + j)) bad++; if (lfPropAt(x + i, y + j) || yardAtXY(x + i, y + j)) bad = 99; }
+        if (bad < 9) { for (let j = -1; j <= h; j++) for (let i = -1; i <= w; i++) { const X = x + i, Y = y + j; if (grid[Y][X] !== T.GRASS) setT(X, Y, T.GRASS); if (town.nodeMap && town.nodeMap.has(Y * W + X)) { const nd = town.nodeMap.get(Y * W + X); town.nodes = town.nodes.filter(q => q !== nd); town.nodeMap.delete(Y * W + X); } } town.gridV++; return [x, y]; } } throw new Error('no ground'); };
+    const yard = (w, h, k, fields) => { const [x0, y0] = area(w, h); for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (i === 0 || j === 0 || i === w - 1 || j === h - 1) lfAddProp(i === 3 && j === h - 1 ? 'gate' : 'fence', x0 + i, y0 + j); for (let i = 0; i < k; i++) lfAddProp('bed', x0 + 1 + i, y0 + 1); for (let i = 0; i < fields; i++) { const x = x0 + 1 + (i % (w - 2)), y = y0 + 3 + Math.floor(i / (w - 2)); setT(x, y, T.CROP); town.crops.push({ x, y, f: 'pt' + x0, pl: 1, st: 0, t0: 0, byField: 1 }); } };
+    yard(8, 7, 3, 12); yard(7, 6, 2, 0); refreshReach(); yardScan(true); yardHousing();
+    for (const n of npcs) if (n.age >= 16 && !n.player && !n.shop) n.coin = 1;   // (so some of the rent goes unpaid and is talked about)
+  } else startPlaying(npcs.filter(n => !n.dead && n.age >= 18 && !n.infant)[0]);
   if (scenario === 'romance') {   // three couples in the making: one-sided, mutual, and one already walking out a while
     const singles = npcs.filter(n => !n.dead && !n.player && n.age >= 17 && n.age < 45); const ms = singles.filter(n => !n.female), fs = singles.filter(n => n.female), pairs = [];
     for (const m of ms) { const f = fs.find(x => !pairs.some(p => p[1] === x) && romOK(m, x)); if (f) pairs.push([m, f]); if (pairs.length === 3) break; }
@@ -110,7 +118,8 @@ const data = await page.evaluate(() => {
   const all = Object.keys(ACTS), blamed = [], deeds = lf2Ev().filter(e => e.actor === P.id && ['wall_removed', 'home_destroyed', 'building_down', 'bed_moved', 'furniture_removed', 'person_pushed', 'caught_on_privy'].includes(e.kind));
   for (const e of deeds) { const who = {}; for (const o of npcs) { const m = (o.tmem || []).find(q => q.ev === e.id && q.kind !== 'did'); if (m && m.ver && m.ver.who != null) who[m.ver.who === P.id ? 'you' : (byId(m.ver.who) || {}).first] = (who[m.ver.who === P.id ? 'you' : (byId(m.ver.who) || {}).first] || 0) + 1; } blamed.push({ ev: e.kind, anon: !!e.anon, blamed: who, knew: npcs.filter(o => (o.tmem || []).some(q => q.ev === e.id)).length }); }
   const plurals = [...Object.keys(IT_SEEDS).map(k => WORLD.name('seed', k)), ...Object.keys(GOODS).map(k => WORLD.name('item', k))].filter(n => /[^s]s$/.test(n || '')).filter((n, i, a) => a.indexOf(n) === i);   // (names that are plural: a verb next to one has to agree)
-  return { plurals, T, B, people, acts, unused: all.filter(a => !acts[a] && !ACTS[a].reply === false || (!acts[a])).filter(a => !['cry_deed', 'mutter', 'call_child', 'gift_from_nobody', 'gift_anon_reply'].includes(a)), blamed, rep: repVillage(P), miss: (typeof LX_MISS !== 'undefined' ? LX_MISS : {}), pairs: window.__pairs || [], kinAsked: window.__KIN || 0, fallbacks2: TE.fallbacks || 0, fbKinds: Object.keys(TE.fallbackKinds || {}), ml: window.__ML || [], fallbacks: typeof PT !== 'undefined' ? PT.fallbacks : 0, menu: window.__M || [], pack: town.pack, logLen: TALK.log.length, chron: (town.chron || []).slice(-30).map(c => c.text), player: P.first };
+  const lifeKinds = LIFE.digest(8).kinds;
+  return { lifeKinds, plurals, T, B, people, acts, unused: all.filter(a => !acts[a] && !ACTS[a].reply === false || (!acts[a])).filter(a => !['cry_deed', 'mutter', 'call_child', 'gift_from_nobody', 'gift_anon_reply'].includes(a)), blamed, rep: repVillage(P), miss: (typeof LX_MISS !== 'undefined' ? LX_MISS : {}), pairs: window.__pairs || [], kinAsked: window.__KIN || 0, fallbacks2: TE.fallbacks || 0, fbKinds: Object.keys(TE.fallbackKinds || {}), ml: window.__ML || [], fallbacks: typeof PT !== 'undefined' ? PT.fallbacks : 0, menu: window.__M || [], pack: town.pack, logLen: TALK.log.length, chron: (town.chron || []).slice(-30).map(c => c.text), player: P.first };
 });
 await browser.close();
 
@@ -183,6 +192,7 @@ if (scenario === 'meddle') {
   ok('an unseen deed was blamed on somebody', data.blamed.some(b => b.anon && Object.keys(b.blamed).some(k => k !== 'you')), JSON.stringify(data.blamed.filter(b => b.anon)));
   ok('a reputation formed', Object.keys(data.rep).length > 0, JSON.stringify(data.rep));
 }
+if (scenario === 'hamlet') { ok('rent was talked about', ['rent_paid', 'rent_unpaid', 'no_yard', 'moved_in', 'came_ashore'].some(k => data.lifeKinds && data.lifeKinds[k]), JSON.stringify(data.lifeKinds)); ok('the new states were said', lines.some(l => /rent|bed|yard|fence|ground/i.test(l.text)), ''); }
 if (scenario === 'romance') ok('romance acts fired', ['flirt', 'declare', 'ask_to_walk', 'propose'].some(has), JSON.stringify(['flirt', 'declare', 'ask_to_walk', 'propose'].map(a => [a, data.acts[a] || 0])));
 if (scenario === 'social') { const mute = data.B.flatMap(b => (b.exch || []).filter(e => e.id !== 'bye' && !/Goodbye|^Leave|Say nothing/.test(e.me) && !e.they).map(e => e.id + ': ' + e.me)); ok('the bot got answers every time', mute.length === 0, mute.slice(0, 4).join(' | ')); ok('people told the bot things (news/opinion/day)', ['share_news', 'give_opinion', 'report_day', 'answer_family'].some(has)); }
 

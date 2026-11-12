@@ -235,6 +235,10 @@ const ACTS: any = {
 function talkState(n: any): string | undefined {
   if (n.ill) return 'ill';
   if (n.hunger > 70) return 'hungry';
+  if (typeof yardOn === 'function' && yardOn() && !n.player) {
+    if (!yardHasBed(n)) return 'bedless';
+    if (n.rentLast && !n.rentLast.ok && game.time - n.rentLast.t < 1440) return 'behind';
+  }
   if (n.energy != null && n.energy < 30) return 'tired';
   if (n.mood != null && n.mood > 78) return 'glad';
   if (n.mood != null && n.mood < 32) return 'low';

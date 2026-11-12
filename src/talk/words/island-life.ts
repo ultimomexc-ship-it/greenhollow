@@ -347,10 +347,46 @@ LXI(
 );
 
 /* the Hamlet: rent, yards and moving in (life2/rent.ts, yards.ts) */
-LXLI('rent_paid', ['I paid the rent at six.', 'The rent is paid. I checked my pocket twice afterwards.', 'I paid my rent this morning.']);
-LXLI('rent_unpaid', ['I could not pay the rent today.', 'The rent was due at six. I was not ready at six.', 'I had no coin for the rent this morning.']);
+LXLI('rent_paid', ['I paid the rent at six.', 'The rent is paid. I checked my pocket twice afterwards.', 'I paid my rent today.']);
+LXLI('rent_unpaid', ['I could not pay the rent today.', 'The rent was due at six. I was not ready at six.', 'I had no coin for the rent today.']);
 LXLI('no_yard', ['I have no yard.', 'I have a patch of ground I stand on. It is not mine.', 'No fence has my name on it yet.']);
 LXLI('moved_in', ['I have a yard now.', 'I moved in behind a fence. It has a gate.', 'There is a bed with a fence round it, and it is mine.']);
-LXLI('came_ashore', ['I came ashore today.', 'I arrived this morning. The yard was already there, with a bed in it.', 'I landed today. I have decided not to ask how.']);
-LXLI('apart', ['We are married and sleep in two yards.', 'There is no room in the yard for my bed. We say goodnight across a fence.', 'I live apart from the one I married. Temporarily, I am told.']);
-LXLI('stall_opened', ['I keep a stall now.', 'I opened a stall today. Nobody has asked yet what I am selling.', 'I have a counter and a sign. I am a shopkeeper, apparently.']);
+LXLI('came_ashore', [
+  'I came ashore today.',
+  'I arrived today. The yard was already there, with a bed in it.',
+  'I landed today. I have decided not to ask how.'
+]);
+LXLI('apart', [
+  'We are married and sleep in two yards.',
+  'There is no room in the yard for my bed. We say goodnight across a fence.',
+  'I live apart from the one I married. Temporarily, I am told.'
+]);
+LXLI('stall_opened', [
+  'I keep a stall now.',
+  'I opened a stall today. Nobody has asked yet what I am selling.',
+  'I have a counter and a sign. I am a shopkeeper, apparently.'
+]);
+
+/* the Hamlet's two new ways of being: no bed, and behind with the rent */
+lxi('answer_how', 'No bed yet. Otherwise fine.', { state: 'bedless' });
+lxi('answer_how', 'I sleep on the ground. It is firm.', { state: 'bedless' });
+lxi('answer_how', 'Behind with the rent. I have noticed.', { state: 'behind' });
+lxi('answer_how', 'Short this week. The rent noticed first.', { state: 'behind' });
+lxi('remark_state', 'I have nowhere to sleep. The ground is doing its best.', { state: 'bedless' });
+lxi('remark_state', 'I could not pay the rent today. I counted twice.', { state: 'behind' });
+lxi('vent', 'I have no bed. I have started to know the ground personally.', { state: 'bedless' });
+lxi('vent', 'I would like a bed. I would like it more each night.', { state: 'bedless' });
+lxi('vent', 'I am behind with the rent. It is not a debt. It feels like one.', { state: 'behind' });
+lxi('vent', 'I had nothing for the rent today. It was a short walk home.', { state: 'behind' });
+lxi('sympathise_how', 'A yard and a bed. That is all it would take. I mention it as a fact.', { state: 'bedless' });
+lxi('sympathise_how', 'Somebody will build something. It is mostly how things happen here.', { state: 'bedless' });
+lxi('sympathise_how', 'It is not a debt. It is only a day you could not pay. They pass.', { state: 'behind' });
+lxi('sympathise_how', 'The crop will come in. It always has, so far.', { state: 'behind' });
+lxi('answer_family', '{about} has nowhere to sleep. We are working on it.', { state: 'bedless' });
+lxi('answer_family', '{about} is behind with the rent. It is bothering {about} more than it should.', { state: 'behind' });
+lxi('remark_place', 'The fence {place} has held. I trust a fence that has held.', {}, ['feature:yards']);
+lxi('remark_place', 'Everybody has a yard {place} and a gate. It is orderly in a way I did not expect.', {}, ['feature:yards']);
+lxi('remark_place', 'The rent is paid at six. It is the one thing {place} that is on time.', {}, ['feature:rent']);
+lxi('remark_work', 'I have a field of my own. It is a small thing and I think about it often.', {}, ['feature:yards']);
+lxi('remark_state', 'I have no bed. I am told it is a phase.', { state: 'bedless' });
+lxi('remark_state', 'The rent was due and I was not ready. It was brief.', { state: 'behind' });

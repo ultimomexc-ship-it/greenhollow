@@ -166,7 +166,7 @@ ACTS.vent = {
   w: (c: any, sp: any, li: any) => 1.5 + Math.max(0, sp.aff[li.id] || 0) / 50,
   when: (c: any, sp: any, li: any) =>
     !c.done.vent &&
-    ['hungry', 'tired', 'low'].includes(talkState(sp) as string) &&
+    ['hungry', 'tired', 'low', 'bedless', 'behind'].includes(talkState(sp) as string) &&
     ((sp.aff[li.id] || 0) > 8 || sp.player || (sp.know[li.id] || 0) > 25),
   apply: (c: any, sp: any, li: any) => {
     c.done.vent = 1;

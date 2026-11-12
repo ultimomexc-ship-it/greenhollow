@@ -61,7 +61,8 @@ lxi('brag_child', '{about} is {qty} now. I did not see it happen. I looked away 
 lxi('brag_child', 'My {about} is {qty}. It is going well. I am rarely asked.');
 lxi('congratulate', 'You must be proud. I would be. Is that the word? Yes.');
 lxi('congratulate', 'That is wonderful. They are quite something at that age.');
-lxi('tell_back', 'Before I came here I {about}. I mention it only because nobody asks.');
+lxi('tell_back', 'Before I came here I {about}.');
+lxi('tell_back', 'Where was I before? I {about}. Nobody asks.');
 lxi('tell_back_reply', 'That is quite a story. I believe it. That is the strange part.');
 lxi('tell_back_reply', 'I see. I find I am not surprised. I have stopped being surprised.');
 lxi('thanks_where', 'Thank you. I will go and look there. I may not find {them}, but I will have gone.');

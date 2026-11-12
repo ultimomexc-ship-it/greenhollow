@@ -213,10 +213,46 @@ LXP(
 );
 
 /* the Hamlet: rent, yards and moving in (life2/rent.ts, yards.ts) */
-LXLP('rent_paid', ['I paid the rent this morning.', 'Rent is paid. That is one thing settled.', 'Paid my rent at six, same as every day.']);
-LXLP('rent_unpaid', ['I could not pay the rent this morning.', 'I had nothing for the rent today.', 'The rent went unpaid. I do not like that.']);
+LXLP('rent_paid', ['I paid the rent today.', 'Rent is paid. That is one thing settled.', 'Paid my rent at six, same as every day.']);
+LXLP('rent_unpaid', ['I could not pay the rent today.', 'I had nothing for the rent today.', 'The rent went unpaid. I do not like that.']);
 LXLP('no_yard', ['I have no yard of my own.', 'I have nowhere that is mine. No fence, no field.', 'Still no yard. I cannot grow a thing.']);
 LXLP('moved_in', ['We have a yard of our own now.', 'I moved into a yard. A bed, a fence, a gate.', 'I have a place at last.']);
-LXLP('came_ashore', ['I came ashore today. There was a yard waiting.', 'We landed this morning and found a yard with beds in it.', 'I only just arrived. Somebody had put out a bed for me.']);
-LXLP('apart', ['We are married and still sleep in two yards.', 'There is no room for my bed in our yard yet.', 'Every night I walk home alone after saying goodnight.']);
-LXLP('stall_opened', ['I have a stall now. I opened it this morning.', 'I opened my stall today. Business is slow but honest.', 'I am keeping a stall these days.']);
+LXLP('came_ashore', [
+  'I came ashore today. There was a yard waiting.',
+  'We landed today and found a yard with beds in it.',
+  'I only just arrived. Somebody had put out a bed for me.'
+]);
+LXLP('apart', [
+  'We are married and still sleep in two yards.',
+  'There is no room for my bed in our yard yet.',
+  'Every night I walk home alone after saying goodnight.'
+]);
+LXLP('stall_opened', [
+  'I have a stall now. I opened it this morning.',
+  'I opened my stall today. Business is slow but honest.',
+  'I am keeping a stall these days.'
+]);
+
+/* the Hamlet's two new ways of being: no bed, and behind with the rent */
+lx('answer_how', 'plain', 'No bed yet. Otherwise fine.', { state: 'bedless' });
+lx('answer_how', 'plain', 'Sleeping on the ground, to be honest.', { state: 'bedless' });
+lx('answer_how', 'plain', "Behind with the rent. It's weighing on me.", { state: 'behind' });
+lx('answer_how', 'plain', "Short this week. I couldn't pay the rent.", { state: 'behind' });
+lx('remark_state', 'plain', "I've nowhere to sleep. Still.", { state: 'bedless' });
+lx('remark_state', 'plain', "I couldn't pay the rent today.", { state: 'behind' });
+lx('vent', 'plain', "I've no bed. It's wearing on me.", { state: 'bedless' });
+lx('vent', 'plain', "I can't sleep on the ground much longer.", { state: 'bedless' });
+lx('vent', 'plain', "I'm behind with the rent and I don't know how I'll catch up.", { state: 'behind' });
+lx('vent', 'plain', "I couldn't pay today. I hate that.", { state: 'behind' });
+lx('sympathise_how', 'plain', "That's hard. A yard and a bed would help, wouldn't it?", { state: 'bedless' });
+lx('sympathise_how', 'plain', "You can't go on like that. Something will turn up.", { state: 'bedless' });
+lx('sympathise_how', 'plain', "Rent's a worry. It'll be easier when the crop comes in.", { state: 'behind' });
+lx('sympathise_how', 'plain', "Try not to fret about it. It isn't a debt, they say.", { state: 'behind' });
+lx('answer_family', 'plain', '{about} has nowhere to sleep.', { state: 'bedless' });
+lx('answer_family', 'plain', '{about} is behind with the rent.', { state: 'behind' });
+lx('remark_place', 'plain', 'That fence has held up well {place}.', {}, ['feature:yards']);
+lx('remark_place', 'plain', 'You can tell whose yard is whose from the fences {place}.', {}, ['feature:yards']);
+lx('remark_place', 'plain', 'Rent day comes round quick {place}.', {}, ['feature:rent']);
+lx('remark_work', 'plain', 'Good to have a field of my own to work.', {}, ['feature:yards']);
+lx('remark_state', 'plain', "Still no bed. It's getting old.", { state: 'bedless' });
+lx('remark_state', 'plain', "I'm behind with the rent.", { state: 'behind' });

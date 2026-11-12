@@ -33,7 +33,7 @@ function arrArrive(y: any): any[] {
   const how = grp.length === 1 ? 'single' : k >= 3 ? 'family' : 'couple';
   const sh = shoreTiles.length ? shoreTiles[Math.floor(R() * shoreTiles.length)] : null, p = sh ? { x: sh.x, y: sh.y } : { x: town.cx, y: town.cy };
   grp.forEach((n, i) => {
-    n.x = n.tx = p.x; n.y = n.ty = p.y; n.back = pick(R, VIS_ORD) + ', ' + pick(R, VIS_ARR); n.newcomer = { t0: game.time, met: [], next: game.time + 20 };
+    n.x = n.tx = p.x; n.y = n.ty = p.y; if (n.adult) n.back = pick(R, VIS_ORD) + ', ' + pick(R, VIS_ARR); n.newcomer = { t0: game.time, met: [], next: game.time + 20 };
     if (n.adult) { n.coin = how === 'single' ? 8 : 10; n.inv.grain = 4; n.inv.seed_barley = 3; if (i === 1) n.inv.seed_turnip = 2; }   // (a little money and seed of their own*)
     npcs.push(n); const b = beds[i]; if (b) { b.owner = n; n.bed = b; }
   });

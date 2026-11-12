@@ -30,6 +30,8 @@ const WORLD = {
       case 'feature':
         if (id === 'tavern') return !!town.tavern;
         if (id === 'church' || id === 'chapel') return !!town.church;
+        if (id === 'yards') return typeof yardOn === 'function' && yardOn() && !!(town.yards && town.yards.length);
+        if (id === 'rent') return typeof yardOn === 'function' && yardOn() && !!(town.rent && town.rent.total > 0);
         return rooms.some((r: any) => !r.dead && (r.kind === id || r.fn === id));
       case 'item':
         return typeof GOODS !== 'undefined' && !!GOODS[id];

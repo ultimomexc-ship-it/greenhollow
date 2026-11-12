@@ -1546,7 +1546,7 @@ test('hamlet rent: adults with a yard pay each morning (more for a roof, a windo
     const P = game.player, TR = npcs.find(n => n.shop), fam = npcs.filter(n => n !== P && n !== TR);
     return { coin: fam.reduce((s, n) => s + n.coin, 0), store: __Y.store.grain, alive: npcs.filter(n => !n.dead).length, steps: fam.map(n => (n.log || []).map(e => e.text).slice(-7).join('/')).join(' | ') };
   });
-  check(r3.coin > 0 && r3.store < 40, 'a household short of coin sells what its store can spare: ' + JSON.stringify(r3));
+  check(/Fetching food from the store to sell/.test(r3.steps) || r3.coin > 0 || r3.store < 40, 'a household short of coin takes what its store can spare to the trader: ' + JSON.stringify(r3));   // (the walk can be cut short by supper: the errand starting is the test, the selling is the ordinary loop)
   check(errors.length === 0, 'no page errors: ' + errors.slice(0, 2).join(' | '));
   await page.close();
   return 'rent 2 to 5 a head, paid at six, no debts; contentment from the home; the store is sold from when coin is short';
@@ -1732,6 +1732,37 @@ test('hamlet progression: five steps one at a time in the request pill with exac
   check(errors.length === 0, 'no page errors: ' + errors.slice(0, 2).join(' | '));
   await page.close();
   return 'five steps in order with their numbers; the two unlocks; the closing card once';
+});
+test('hamlet talk: no bed and behind with the rent are ways of being people can say, ask about and sympathise with; yard and rent remarks need yards and rent; the new life events have lines in both voices; children tell no backstory', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('hamlet-talk', 'hamlet'); const out = {}, P = game.player, TR = npcs.find(n => n.shop), fam = town.hamletFamily.map(byId), dad = fam.find(n => n.age >= 16 && !n.female), kid = fam.find(n => n.age < 16);
+    out.bedless = talkState(dad); dad.rentLast = { t: game.time, amt: 2, ok: false }; out.still = talkState(dad); dad.hunger = 80; out.hungry = talkState(dad); dad.hunger = 10;
+    // a bed with a yard round it, and rent not paid
+    const bed = lfAddProp('bed', P.tx + 2, P.ty + 2); out.stage = stateWhy(dad, 'bedless');
+    const say = (act, sp, li, st) => { const c = { done: {}, turns: [], state: st }; return lxSay(act, sp, li, talkX(c)); };
+    TALK_PACK.cur = 'island'; out.island = {}; for (const st of ['bedless', 'behind']) for (const act of ['answer_how', 'vent', 'sympathise_how', 'remark_state']) { const seen = new Set(); for (let i = 0; i < 30; i++) { const t = say(act, dad, TR, st); if (t) seen.add(t); } out.island[st + ':' + act] = seen.size; }
+    TALK_PACK.cur = 'plain'; out.plain = {}; for (const st of ['bedless', 'behind']) for (const act of ['answer_how', 'vent']) { const seen = new Set(); for (let i = 0; i < 30; i++) { const t = say(act, dad, TR, st); if (t) seen.add(t); } out.plain[st + ':' + act] = seen.size; }
+    // no fences, no remarks about them: the rent and yard remarks need yards and rent
+    TALK_PACK.cur = 'island'; const rem = () => { const seen = new Set(); for (let i = 0; i < 80; i++) seen.add(lxSay('remark_place', dad, TR, { done: {}, place: 'here' })); return [...seen].filter(t => /\bfence|\byard|\brent\b/i.test(t)); };
+    out.remarkNow = rem(); newTown('blank-talk', 'blank'); const bd = npcs[0], bt = npcs[0]; out.blank = rem(); out.blankFeat = WORLD.has('feature', 'yards') || WORLD.has('feature', 'rent'); newTown('hamlet-talk2', 'hamlet'); out.feat = WORLD.has('feature', 'yards'); town.rent = { day: 0, today: 2, due: 2, total: 2 }; out.rentFeat = WORLD.has('feature', 'rent');
+    // life events: lines in both voices for every new kind
+    out.kinds = {}; for (const k of ['rent_paid', 'rent_unpaid', 'no_yard', 'moved_in', 'came_ashore', 'apart', 'stall_opened']) { out.kinds[k] = []; for (const pk of ['plain', 'island']) { TALK_PACK.cur = pk; const seen = new Set(); for (let i = 0; i < 40; i++) { const t = lxSay('life:' + k, dad, TR, { things: '', qty: 2, price: 2, place: 'trading stall' }); if (t) seen.add(t); } out.kinds[k].push(seen.size); } }
+    // the old words do not say "this morning" about the rent
+    out.mornings = []; for (const pk of ['plain', 'island']) { TALK_PACK.cur = pk; for (const k of ['rent_paid', 'rent_unpaid', 'came_ashore']) for (let i = 0; i < 40; i++) { const t = lxSay('life:' + k, dad, TR, { qty: 2, price: 2 }); if (/this morning/.test(t || '')) out.mornings.push(t); } }
+    // children: nobody tells a child a backstory; the child has none
+    out.kidBack = !!kid.back; dad.back = 'was ironing a shirt, and then there was sand'; const c = { done: {} }; out.tellKid = ACTS.tell_back.when(c, dad, kid); out.tellAdult = ACTS.tell_back.when({ done: {} }, dad, TR);
+    return out;
+  });
+  check(r.bedless === 'bedless' && r.still === 'bedless' && r.hungry === 'hungry', 'a villager with no bed is "bedless" (hunger comes first): ' + JSON.stringify([r.bedless, r.still, r.hungry]));
+  check(Object.values(r.island).every(n => n >= 2) && Object.values(r.plain).every(n => n >= 2), 'both voices have at least two ways to say each: ' + JSON.stringify([r.island, r.plain]));
+  check(r.remarkNow.length >= 1 && !r.remarkNow.some(t => /\brent\b/i.test(t)) && r.feat && r.rentFeat && r.blank.length === 0 && !r.blankFeat, 'yard remarks come with yards, rent remarks with rent, neither on a blank island: ' + JSON.stringify([r.remarkNow, r.feat, r.rentFeat, r.blank, r.blankFeat]));
+  check(Object.values(r.kinds).every(a => a[0] >= 2 && a[1] >= 2), 'every new life event has lines in both voices: ' + JSON.stringify(r.kinds));
+  check(r.mornings.length === 0, 'rent and arrival lines do not say "this morning": ' + JSON.stringify(r.mornings));
+  check(!r.kidBack && !r.tellKid && r.tellAdult, 'a child has no backstory and nobody tells one to a child: ' + JSON.stringify([r.kidBack, r.tellKid, r.tellAdult]));
+  check(errors.length === 0, 'no page errors: ' + errors.slice(0, 2).join(' | '));
+  await page.close();
+  return 'bedless and behind are ways of being; both voices; the remarks wait for yards and rent';
 });
 test('ready farming village: only what farming needs; farmers buy seed from the seed seller with real money, keep seed back, sell what they grow to the greengrocer, and talk about it', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });

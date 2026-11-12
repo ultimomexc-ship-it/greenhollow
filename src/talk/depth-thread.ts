@@ -8,7 +8,7 @@ ACTS.sympathise_how = {
   kind: 'feeling',
   stage: 'topic',
   reply: true,
-  when: (c: any) => ['low', 'tired', 'hungry'].includes(c.state),
+  when: (c: any) => ['low', 'tired', 'hungry', 'bedless', 'behind'].includes(c.state),
   w: () => 3,
   apply: (c: any, sp: any, li: any) => {
     li.mood = Math.min(100, (li.mood == null ? 50 : li.mood) + 2);
@@ -37,6 +37,8 @@ function stateWhy(n: any, state: string): string {
   if (felt.includes('furniture_removed') || felt.includes('bed_moved')) return 'had the bed taken from under them, more or less';
   if (n.ill) return 'has a fever';
   if (n.homeless || !n.bed || n.bed.x == null) return 'has no bed to go to';
+  if (typeof yardOn === 'function' && yardOn() && !yardOfN(n)) return 'has a bed and no yard to put it in';
+  if (log.includes('rent_unpaid')) return 'could not pay the rent this morning';
   if (log.includes('starving') || log.includes('went_hungry')) return 'has not had a proper meal in days';
   if (log.includes('could_not_afford')) return 'could not pay for what was needed';
   if (log.includes('slept_rough')) return 'slept on the ground last night';
@@ -48,7 +50,7 @@ ACTS.ask_why_state = {
   kind: 'person',
   stage: 'topic',
   reply: true,
-  when: (c: any) => !!c.about && ['low', 'tired', 'hungry'].includes(c.state),
+  when: (c: any) => !!c.about && ['low', 'tired', 'hungry', 'bedless', 'behind'].includes(c.state),
   w: () => 1,
   apply: () => {},
   replies: ['explain_state', 'explain_unknown']
@@ -84,7 +86,7 @@ ACTS.ask_more_day = {
   replies: ['report_day']
 };
 ACTS.ask_day.follow = ['ask_more_day'];
-ACTS.sympathise_how.when = (c: any) => ['low', 'tired', 'hungry', 'ill'].includes(c.state);
+ACTS.sympathise_how.when = (c: any) => ['low', 'tired', 'hungry', 'ill', 'bedless', 'behind'].includes(c.state);
 {
   const w0 = ACTS.vent.when;
   ACTS.vent.when = (c: any, sp: any, li: any) =>

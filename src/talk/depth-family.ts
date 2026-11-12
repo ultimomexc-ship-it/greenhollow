@@ -96,7 +96,7 @@ ACTS.tell_back = {
   stage: 'topic',
   preview: (c: any, sp: any) => ({ about: sp.back || '' }),
   w: () => 0.9,
-  when: (c: any, sp: any) => !c.done.tell_back && !!sp.back,
+  when: (c: any, sp: any, li: any) => !c.done.tell_back && !!sp.back && li.age >= 16,
   apply: (c: any, sp: any) => {
     c.done.tell_back = 1;
     c.aboutName = sp.back;

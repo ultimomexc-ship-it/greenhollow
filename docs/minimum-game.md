@@ -145,3 +145,9 @@ Theft and the watch; bakery; wood; fishing; stone and mining; smith; tavern; bir
 - Step 5*: 12 households, all under a roof, nobody over 70 hunger, average mood over 60. The card is shown once; the pill is then empty.
 - Only the step is shown; the old blank-island requests (privy, bakery, smithy ...) are gone from the Hamlet. Couples living apart still come first.
 - Tuning ahead of step 10, to make a playable build: the trader's carter calls every six hours and leaves 40% of the stall's room (was once a day, 70%). With it the harness (steady, seed 41, 20 days) has rent paid 20 of 35 due on day 20 (was 5 of 33), the player has 0 to 40 coin most days and spends it, step 3 on day 9.
+
+## Decided while building (words, step 9)
+- Two states of being, said and sympathised with like hunger: no bed (`bedless`) and behind with the rent (`behind`, for a day after an unpaid morning). Hunger still comes first.
+- Nobody says "this morning" about the rent or an arrival: the lint caught it, and the tale is told in the evening as often as not.
+- Backstories ("was ironing a shirt, and then there was sand") belong to adults. A child came with their parents and has no story of their own. The island voice's version of the line lost its aside: it was over the 22-word lint on the longer stories.
+- Read in a six-day hamlet run (seed 41, 42, 43): rent comes up as soon as anybody is short, mostly said by the same two or three people; the lines repeat more than in the village because there are fewer people. That will improve with more households and is not a words problem.

@@ -27,7 +27,7 @@ function hamletStart() {
   for (const n of [a, b, c]) {
     n.adult = n.age >= 16; n.infant = false; n.age = ageNow(n); updateLook(n); n.rand = rng(town.seed + n.id * 977); n.jit = 0; n.bornHere = false;
     n.homeRoom = null; n.bed = { owner: null }; n.seat = null; n.homeless = true; routine(R, n); town.byId.set(n.id, n); initNpcSim(n); if (n.adult) setRole(n, 'Worker'); n.inv = n.inv || {};
-    n.back = pick(R, VIS_ORD) + ', ' + pick(R, VIS_ARR); npcs.push(n);
+    if (n.adult) n.back = pick(R, VIS_ORD) + ', ' + pick(R, VIS_ARR); npcs.push(n);   // (a child came with their parents and has no story of their own)
   }
   for (const x of npcs) for (const y of npcs) if (x !== y && !x.know[y.id]) { x.know[y.id] = 4; x.aff[y.id] = 8; }
   fam2(a, c, 'parent', 'child'); fam2(b, c, 'parent', 'child'); town.hamletFamily = [a.id, b.id, c.id];
