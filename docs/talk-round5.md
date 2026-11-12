@@ -33,7 +33,7 @@ opinion with no real reason is now said without one.)
 - **"Mind you, you didn't hear it from me"**: no linking phrase on a line that already opens with one.
 - Three plain-pack lines with a stray "...".
 
-## What still reads badly (my list, needs judgement)
+## What still reads badly (my list, needs judgement; also in NOTES.md)
 
 1. **Opinions without history.** About a third of opinions have nothing behind them. Small life gives reasons
    between people who work or eat together; people who merely pass each other have none. Wants two or three more

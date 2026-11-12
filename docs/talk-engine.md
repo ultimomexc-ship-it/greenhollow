@@ -3,7 +3,24 @@
 One conversation system, one memory, for everybody on the island. This document says what we are building, why, what we already learned the hard way,
 what the research says about how people really talk, and how all of it becomes a game that is believable and, above all, fun.
 
-Status: design. The old chat engines are gone (git tag `last-with-old-talk` keeps them); nobody talks yet. `src/talk/base.ts` holds quiet stand-ins.
+Status: built and running (this document is the design it was built from; `CLAUDE.md`, section Talk, says how it is put together now). The old chat engines are gone (git tag `last-with-old-talk` keeps them); `src/talk/base.ts` holds quiet stand-ins for a few old calls.
+
+| section | status |
+|---|---|
+| 3, 3b (architecture, meddling) | built (`life2/meddle.ts`, `talk/deeds.ts`, reactions as plans) |
+| 3c, 3d (life events, guardrails) | built (`LIFE.emit`, `kinds.ts`, the contract tests); `lfEmit` calls carry data only |
+| 4 world registry | built (`REG`, `WORLD`) |
+| 5 memory engine | built (`TM`, versions and belief, reflection at 3am, secrets); forgetting is trimming by importance |
+| 6.1 to 6.5 conversation | built (ritual levels, agenda, topic links, stories, shared ground); 6.6 groups: parked |
+| 7 acts | built; acts are data, with `minAge`, `follow`, `preview` |
+| 8 choosers | built (`talkChoose`, the player's menu with labels by intent) |
+| 9 lexicon | built, in `src/talk/words/` by voice and subject; the voice rule is code (`lxMarked`); registers are tagged lines |
+| 10 where and when | built (`talkTick`, `TALK.range`, earshot, barks); groups parked |
+| 11 barks | built (`barks.ts`, solo barks) |
+| 12 presentation | built (bubbles behind the speaker, `NAME: text`, rings and threads, the villager card and journal) |
+| 13 tests, lint, metrics | built (`tests/run.mjs`, `tools/playtest.mjs`, `tools/lexdump.mjs`, `tools/talkstats.mjs`) |
+| law talk (accuse, confess, question) | parked on purpose |
+
 
 ---
 

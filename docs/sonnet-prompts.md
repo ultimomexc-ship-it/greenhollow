@@ -1,5 +1,7 @@
 # Prompts for the smaller talk-engine tasks
 
+**All twenty are done** (see NOTES.md and docs/talk-review.md). They are kept as a record of what each asked for.
+
 Each block below is a complete prompt: paste one into a new session on this repository. They are independent unless
 a prompt says otherwise. Suggested order: 12 first (it stops a recurring build break), then 13, then the rest in any
 order. Do 13 before any prompt that adds many lines, so the words land in the right files.
