@@ -8355,7 +8355,7 @@ function resetWorld() {
 }
 const lfBedAt = (x, y) => {
   const p = town.propAt && town.propAt.get(y * W + x);
-  return !!p && (p.kind === "bed" || p.kind === "chair" || p.kind === "pew");
+  return !!p && (p.kind === "bed" || p.kind === "chair" || p.kind === "pew" || p.kind === "gate");
 };
 function walkable(x, y) {
   return x >= 0 && y >= 0 && x < W && y < H && !BLOCKED.has(grid[y][x]) && !(town && town.block && town.block[y * W + x]) && !(town && town.hgt && town.hgt[y * W + x] >= 0) && !(town && town.fmask && town.fmask[y * W + x]) && !(town && town.pblock && town.pblock[y * W + x] && !LF.seeThru && !lfBedAt(x, y));
@@ -9496,6 +9496,10 @@ function houseRooms() {
   return rooms.filter((r) => r.kind === "house" && !r.dead);
 }
 function housingTick() {
+  if (yardOn()) {
+    yardHousing();
+    return;
+  }
   const homes = houseRooms();
   const needy = npcs.filter((n) => n.age >= 3 && !n.waitHouse && (!homeOK(n) || n.bed.owner !== n));
   needy.forEach((n) => {
@@ -9738,6 +9742,13 @@ function answerDecision(k) {
   const d = town.decision;
   if (!d) return;
   town.decision = null;
+  if (d.kind === "yardwarn") {
+    if (k !== "yes") {
+      town.yardAck = d.key;
+      if (game.player) itBuildToggle(game.player, false);
+    }
+    return;
+  }
   const o = byId(d.who), p = game.player;
   if (!o || o.dead || !p) return;
   if (d.kind === "court") {
@@ -10385,8 +10396,16 @@ function cropStage(c) {
 }
 const foodCount = (p) => FOODS.reduce((s, g) => s + (p[g] || 0), 0);
 const foodSat = (p) => FOODS.reduce((s, g) => s + (p[g] || 0) * GOODS[g].sat, 0);
-const hhOf = (n) => n.homeRoom ? npcs.filter((o) => o.homeRoom === n.homeRoom) : [n];
-const pantryOf = (n) => n.homeRoom ? n.homeRoom.pantry || (n.homeRoom.pantry = {}) : n.inv;
+const hhOf = (n) => {
+  const y = yardHome(n);
+  if (y) return yardPeople(y);
+  return n.homeRoom ? npcs.filter((o) => o.homeRoom === n.homeRoom) : [n];
+};
+const pantryOf = (n) => {
+  const y = yardHome(n);
+  if (y) return y.store || (y.store = {});
+  return n.homeRoom ? n.homeRoom.pantry || (n.homeRoom.pantry = {}) : n.inv;
+};
 const pantryDays = (n) => foodSat(pantryOf(n)) / (Math.max(1, hhOf(n).filter((o) => !o.infant).length) * 100);
 const carried = (n) => SELLABLE.reduce((s, g) => s + (n.inv[g] || 0), 0) + (n.inv.wood || 0) + (n.inv.stone || 0);
 const coinsOf = (n) => Math.floor(n.coin);
@@ -10756,6 +10775,16 @@ function pickFrom(arr, n) {
   return { x: t.x, y: t.y, face: t.face || null };
 }
 function floorSpot(room, n) {
+  if (!room && n) {
+    const y = yardHome(n);
+    if (y) {
+      for (const [dx, dy] of [[0, 1], [1, 0], [-1, 0], [0, -1], [1, 1], [-1, 1]]) {
+        const x = n.bed.x + dx, yy = n.bed.y + dy;
+        if (walkable(x, yy) && !lfPropAt(x, yy) && yardAtXY(x, yy) === y) return { x, y: yy };
+      }
+      return { x: n.bed.x, y: n.bed.y };
+    }
+  }
   if (!room) {
     const pl = n ? plazaNear(n) : plazaTiles, p = pl[(n && n.id || 0) % pl.length] || { x: town.cx, y: town.cy };
     return { x: p.x, y: p.y };
@@ -10800,7 +10829,7 @@ function eatSat(n, pool) {
   return ate;
 }
 function stash(n) {
-  if (!n.homeRoom) return;
+  if (!n.homeRoom && !yardHome(n)) return;
   const p = pantryOf(n), hh = hhOf(n).length;
   FOODS.forEach((g) => {
     const q = n.inv[g] || 0;
@@ -10839,7 +10868,7 @@ function sellStep(n, m, g, qty) {
 function haulPlan(n) {
   const steps = [];
   const foodHave = FOODS.some((g) => (n.inv[g] || 0) > 0);
-  if (foodHave && n.homeRoom && pantryDays(n) < 3.5) steps.push(goS(pantrySpot, "Taking food home"), waitS(2, "stand", "Stocking the pantry", { onEnd: stash }));
+  if (foodHave && (n.homeRoom || yardHome(n)) && pantryDays(n) < 3.5) steps.push(goS(pantrySpot, "Taking food home"), waitS(2, "stand", "Stocking the pantry", { onEnd: stash }));
   let sold = 0;
   for (const g of SELLABLE) {
     const q = n.inv[g] || 0;
@@ -11006,7 +11035,7 @@ function barPlan(n, tod) {
   return [goS(c.spots.bar, "Opening the bar"), waitS(25, "work", "Pouring drinks", { tool: "wipe" })];
 }
 function farmPlan(n) {
-  const free = town.crops.filter((c) => !c.claim && itFarmersPlot(c));
+  const free = town.crops.filter((c) => !c.claim && itFarmersPlot(c) && yardMine(n, c));
   let list, kind;
   list = free.filter((c) => c.st && cropStage(c) === 4);
   kind = "harvest";
@@ -11274,8 +11303,8 @@ function farmSeed(n) {
   return q < 0.35 ? fav : q < 0.55 ? fav2 : food[Math.floor(q * 997 % food.length)];
 }
 const fieldPlowed = (c) => town.crops.every((o) => o.f !== c.f || o.pl);
-function farmWork() {
-  return town.crops.some((c) => !c.claim && itFarmersPlot(c) && (c.st && cropStage(c) === 4 || !c.pl || !c.st && c.pl && fieldPlowed(c)));
+function farmWork(n) {
+  return town.crops.some((c) => !c.claim && itFarmersPlot(c) && (!n || yardMine(n, c)) && (c.st && cropStage(c) === 4 || !c.pl || !c.st && c.pl && fieldPlowed(c)));
 }
 function foodDaysNow() {
   let t = 0;
@@ -11302,7 +11331,9 @@ function pickAgenda(n) {
   });
   const fd = foodDaysNow(), need = Math.max(0, 3.5 - fd), sc = {};
   if (shoreTiles.length && fishAvail()) sc.Fisher = 5 + need * 20;
-  if (farmWork()) sc.Farmer = 5 + need * 18;
+  if (yardOn()) {
+    if (farmWork(n)) sc.Farmer = 60;
+  } else if (farmWork()) sc.Farmer = 5 + need * 18;
   if (town.nodes.some((x) => x.amt >= 1 && reach[x.y * W + x.x])) sc.Gatherer = 5 + need * 16;
   if (town.scenario === "blank" && typeof lf2Room === "function") {
     const ws = lf2Room("workshop");
@@ -11326,7 +11357,7 @@ function pickAgenda(n) {
   {
     const pop = npcs.length, tasks = town.crops.filter((c) => !c.claim && (c.st && cropStage(c) === 4 || !c.pl || !c.st && fieldPlowed(c))).length;
     const capF = { Fisher: Math.max(1, Math.ceil(pop / 7)), Gatherer: Math.max(1, Math.ceil(pop / 7)), Farmer: Math.max(1, Math.ceil(tasks / 6)), Miner: Math.max(1, Math.floor(pop / 8)) };
-    if (fd >= 1.5) {
+    if (fd >= 1.5 && !yardOn()) {
       for (const r in capF) if (sc[r] && (cnt[r] || 0) >= capF[r]) sc[r] *= 0.15;
     }
   }
@@ -13488,6 +13519,7 @@ function targetAt0(n, x, y) {
   }
   if (g === T.EARTH && !itBuildOn(n)) return digAction(n, x, y);
   const c = cropAt(x, y);
+  if (c && !itBuildOn(n) && !yardMine(n, c)) return { msg: `This field belongs to ${yardName(yardAtXY(c.x, c.y))}. They would notice.` };
   if (c && !itBuildOn(n)) {
     const st = c.st ? cropStage(c) : 0, fl = !!c.st && itIsFlower(c);
     if (fl && itWilted(c)) return { key: "crop" + x + "," + y + "h", min: 2, text: "Clearing the withered flowers", tool: "hoe", walkOn: true, run(n2) {
@@ -19893,14 +19925,16 @@ function visHomes() {
     }
     visToilet(r);
     if (r.kind !== "house" || !r.hut) continue;
-    for (const b of r.beds) if (!inside.includes(b) && b.owner) {
-      const o = b.owner;
-      if (o && o.bed === b) {
-        o.bed = { owner: null };
-        o.homeless = true;
-        o.homeRoom = null;
+    if (!yardOn()) {
+      for (const b of r.beds) if (!inside.includes(b) && b.owner) {
+        const o = b.owner;
+        if (o && o.bed === b) {
+          o.bed = { owner: null };
+          o.homeless = true;
+          o.homeRoom = null;
+        }
+        b.owner = null;
       }
-      b.owner = null;
     }
     r.beds = r.beds.filter((b) => inside.includes(b));
     for (const p of inside) if (!r.beds.includes(p)) {
@@ -20364,6 +20398,7 @@ function needsHTML() {
   return head + sheet;
 }
 function tutFarmers() {
+  if (yardOn()) return;
   if (typeof farmWork !== "function" || !farmWork() || !modOn("job.Farmer")) return;
   const tasks = town.crops.filter((c) => !c.claim && itFarmersPlot(c) && (c.st && cropStage(c) === 4 || !c.pl || !c.st && c.pl && fieldPlowed(c))).length, want = Math.max(1, Math.ceil(tasks / 6));
   const farmers = npcs.filter((n) => !n.dead && !n.player && n.role === "Worker" && n.cur === "Farmer").length;
@@ -21362,6 +21397,7 @@ function itBuildToggle(n, on) {
   const want = on == null ? !b.on : on;
   if (want === b.on) return;
   const p = n.player;
+  if (!want && typeof yardLeaveCheck === "function" && yardLeaveCheck(n)) return;
   if (want) {
     b.prev = { sel: n.sel || 0, mode: n.mode };
     b.on = true;
@@ -24144,6 +24180,7 @@ function render(now, dtSec, hourOfDay) {
   drawNodes(c, now);
   if (typeof drawShrooms === "function") drawShrooms(c, now);
   if (typeof drawSigns === "function") drawSigns(c, now);
+  if (typeof drawYards === "function") drawYards(c, now);
   if (typeof drawStallSigns === "function") drawStallSigns(c, now);
   if (typeof drawGuides === "function") drawGuides(c, now);
   drawSites(c, now);
@@ -26118,12 +26155,16 @@ function farmShopDialog(m) {
 const HAMLET_SEEDS = ["barley", "turnip", "cabbage", "poppy"];
 const HAMLET_TRADER_DEF = { buys: {}, sells: {}, open: [6, 19], tool: "wipe", noun: "trading stall" };
 for (const k of HAMLET_SEEDS) HAMLET_TRADER_DEF.sells["seed_" + k] = IT_SEEDS[k] && IT_SEEDS[k].flower ? 14 : 30;
-for (const g of Object.keys(GROCER_DEF.buys)) HAMLET_TRADER_DEF.buys[g] = GROCER_DEF.buys[g];
+for (const g of Object.keys(GROCER_DEF.buys)) {
+  HAMLET_TRADER_DEF.buys[g] = GROCER_DEF.buys[g];
+  if (g !== "flowers") HAMLET_TRADER_DEF.sells[g] = GROCER_DEF.buys[g];
+}
 const HAMLET_PRICES = { fence: 1, gate: 3, field: 2, bwall: 4, bwindow: 6, bdoor: 6, bed: 10 };
 const HAMLET_BUILD = ["bwall", "bwindow", "bdoor", "bed", "fence", "gate", "field"];
 const HAMLET_RECIPE = ["job.Farmer", "sys.economy", "sys.couples", "sys.romance", "sys.gossip", "sys.smalllife", "event.wedding"];
 const HAMLET_OFF = ["bladder", "wear", "births", "ageing", "starving", "mushrooms"];
 function hamletStart() {
+  town.scenario = "hamlet";
   town.farmEcon = true;
   town.farmDay0 = Math.floor(game.time / 1440);
   town.eco.exported = town.eco.exported || 0;
@@ -26205,11 +26246,16 @@ function hamletStart() {
     m.n.coin = 60;
     farmRestock();
     m.newStock = {};
+    m.stock.grain = 40;
   }
   P.coin = 60;
   a.coin = 12;
   b.coin = 8;
   c.coin = 0;
+  a.inv.grain = 6;
+  b.inv.grain = 6;
+  a.inv.seed_barley = 4;
+  b.inv.seed_turnip = 3;
   TR.coin = Math.max(TR.coin, 60);
   const taken = /* @__PURE__ */ new Set();
   taken.add(st.front.y * W + st.front.x);
@@ -26246,14 +26292,314 @@ function hamletStart() {
   if (!town.props) lfInitProps();
   bedFor(P, cx - 5, cy + 3);
   put(P, cx - 4, cy + 3);
-  bedFor(TR, cx + 6, cy + 4);
+  {
+    const okT = (x, y) => x > 4 && y > 4 && x < W - 5 && y < (town.h0 || H) - 5 && (grid[y][x] === T.GRASS || grid[y][x] === T.PATH) && walkable(x, y) && !lfPropAt(x, y) && !taken.has(y * W + x) && !(town.nodeMap && town.nodeMap.has(y * W + x));
+    let at = null;
+    for (let r = 7; r < 22 && !at; r++) for (let k = 0; k < 40 && !at; k++) {
+      const an = k / 40 * 6.283, x0 = Math.round(cx + Math.cos(an) * r * 1.2), y0 = Math.round(cy + Math.sin(an) * r);
+      let ok = true;
+      for (let j = -1; j <= 5 && ok; j++) for (let i = -1; i <= 6 && ok; i++) if (!okT(x0 + i, y0 + j)) ok = false;
+      if (ok) at = { x: x0, y: y0 };
+    }
+    if (at) {
+      const gx = at.x + (at.x > cx ? 0 : 5), gy = at.y + 2;
+      for (let j = 0; j < 5; j++) for (let i = 0; i < 6; i++) if (i === 0 || j === 0 || i === 5 || j === 4) {
+        const f = lfAddProp(at.x + i === gx && at.y + j === gy ? "gate" : "fence", at.x + i, at.y + j);
+        f.rot = 0;
+        taken.add((at.y + j) * W + at.x + i);
+      }
+      bedFor(TR, at.x + 2, at.y + 2);
+    } else bedFor(TR, cx + 6, cy + 4);
+  }
   put(TR, st.front.x, st.front.y);
   put(a, cx, cy + 1);
   put(b, cx + 1, cy + 1);
   put(c, cx, cy + 2);
   town.lfPV = (town.lfPV || 0) + 1;
   rebuildOcc();
+  refreshReach();
+  yardScan(true);
+  yardHousing();
   chron("You came ashore with a little money and a bed. A trader keeps a stall by the camp, and a family landed just before you with nowhere to sleep. Build them a yard and they will pay to live in it.", "note");
+}
+const YARD_MIN = 12, YARD_MAX = 400, YARD_GRACE = 1440;
+const yardOn = () => !!(town && town.scenario === "hamlet");
+const yardFence = (p) => !!p && (p.kind === "fence" || p.kind === "gate");
+const yardAtXY = (x, y) => yardOn() && town.yardAt && town.yardAt.get(y * W + x) || null;
+const yardHasBed = (n) => !!(n && n.bed && n.bed.x != null && town.propAt && town.propAt.get(n.bed.y * W + n.bed.x) === n.bed);
+const yardOfN = (n) => yardHasBed(n) ? yardAtXY(n.bed.x, n.bed.y) : null;
+const yardHome = (n) => yardOn() ? yardOfN(n) : null;
+const yardPeople = (y) => npcs.filter((n) => !n.dead && yardOfN(n) === y);
+const yardBeds = (y) => (town.props || []).filter((p) => p.kind === "bed" && town.yardAt.get(p.y * W + p.x) === y);
+const yardFreeBeds = (y) => yardBeds(y).filter((p) => !p.owner || p.owner.dead || p.owner.bed !== p);
+const yardPlayer = () => town.hamletPlayer != null && byId(town.hamletPlayer) || game.player || null;
+function yardName(y) {
+  if (!y) return "nobody";
+  const ppl = yardPeople(y), pl = yardPlayer();
+  if (pl && ppl.includes(pl)) return "your yard";
+  const ad = ppl.filter((n) => n.age >= 16)[0] || ppl[0];
+  return ad ? ad.shop ? `${ad.first}'s yard` : `the ${ad.surname} yard` : "an empty yard";
+}
+function yardMine(n, c) {
+  if (!yardOn()) return true;
+  const y = yardAtXY(c.x, c.y), pl = yardPlayer();
+  if (n === pl || n.player) return !y || y === yardOfN(n) || !yardPeople(y).length;
+  return !!y && y === yardOfN(n);
+}
+function yardScan(force) {
+  if (!yardOn()) return;
+  if (!town.yards) town.yards = [];
+  if (!town.yardAt) town.yardAt = /* @__PURE__ */ new Map();
+  const sig = (town.lfPV || 0) + ":" + (town.props || []).length;
+  if (force || sig !== town.yardSig) {
+    town.yardSig = sig;
+    const N = W * H, m = new Uint8Array(N), stack = new Int32Array(N);
+    let sp = 0;
+    let any = false;
+    for (const p of town.props || []) if (yardFence(p)) {
+      m[p.y * W + p.x] = p.kind === "gate" ? 3 : 2;
+      any = true;
+    }
+    const found = [];
+    if (any) {
+      const push = (k) => {
+        if (!m[k]) {
+          m[k] = 1;
+          stack[sp++] = k;
+        }
+      };
+      for (let x = 0; x < W; x++) {
+        push(x);
+        push((H - 1) * W + x);
+      }
+      for (let y = 0; y < H; y++) {
+        push(y * W);
+        push(y * W + W - 1);
+      }
+      while (sp) {
+        const k = stack[--sp], x = k % W, y = k / W | 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+          push(ny * W + nx);
+        }
+      }
+      for (const p of town.props) {
+        if (!yardFence(p)) continue;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const sx = p.x + dx, sy = p.y + dy;
+          if (sx < 0 || sy < 0 || sx >= W || sy >= H || m[sy * W + sx]) continue;
+          const cells = [], fences = /* @__PURE__ */ new Set(), gates = /* @__PURE__ */ new Set();
+          sp = 0;
+          m[sy * W + sx] = 4;
+          stack[sp++] = sy * W + sx;
+          while (sp) {
+            const k = stack[--sp], x = k % W, y = k / W | 0;
+            cells.push(k);
+            for (let ey = -1; ey <= 1; ey++) for (let ex = -1; ex <= 1; ex++) {
+              if (!ex && !ey) continue;
+              const nx = x + ex, ny = y + ey;
+              if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+              const q = ny * W + nx, v = m[q];
+              if (!v) {
+                m[q] = 4;
+                stack[sp++] = q;
+              } else if (v === 2) fences.add(q);
+              else if (v === 3) {
+                fences.add(q);
+                gates.add(q);
+              }
+            }
+          }
+          if (cells.length >= YARD_MIN && cells.length <= YARD_MAX && gates.size) found.push({ cells, fences: [...fences], gates: [...gates] });
+        }
+      }
+    }
+    const old = town.yards, at = town.yardAt, taken = /* @__PURE__ */ new Set(), next = [];
+    found.sort((a, b) => b.cells.length - a.cells.length);
+    for (const f of found) {
+      const cnt = /* @__PURE__ */ new Map();
+      for (const k of f.cells) {
+        const o = at.get(k);
+        if (o && !taken.has(o)) cnt.set(o, (cnt.get(o) || 0) + 1);
+      }
+      let best = null, bn = 0;
+      for (const [o, c] of cnt) if (c > bn) {
+        bn = c;
+        best = o;
+      }
+      const y = best || { id: town.yardSeq = (town.yardSeq || 0) + 1, store: {}, made: game.time };
+      taken.add(y);
+      y.cells = f.cells;
+      y.fences = f.fences;
+      y.gates = f.gates;
+      y.open = null;
+      next.push(y);
+    }
+    for (const o of old) if (!taken.has(o)) {
+      if (o.open == null) o.open = game.time;
+      next.push(o);
+    }
+    town.yards = next;
+  }
+  const keep = [];
+  let changed = false;
+  for (const y of town.yards) {
+    if (y.open != null && game.time - y.open >= YARD_GRACE) {
+      changed = true;
+      y.gone = true;
+      continue;
+    }
+    keep.push(y);
+  }
+  const at2 = /* @__PURE__ */ new Map();
+  for (const y of keep) if (y.open == null) for (const k of y.cells) at2.set(k, y);
+  for (const y of keep) if (y.open != null) {
+    for (const k of y.cells) if (!at2.has(k) && !(town.propAt.get(k) && yardFence(town.propAt.get(k)))) at2.set(k, y);
+  }
+  if (changed) {
+    for (const y of town.yards) if (y.gone) {
+      const heir = y.cells.map((k) => at2.get(k)).find(Boolean), ppl = npcs.filter((n) => !n.dead && yardHasBed(n) && town.yardAt.get(n.bed.y * W + n.bed.x) === y), to = heir ? heir.store : ppl[0] ? ppl[0].inv : null;
+      if (to) for (const g of Object.keys(y.store || {})) to[g] = (to[g] || 0) + y.store[g];
+    }
+  }
+  town.yards = keep;
+  town.yardAt = at2;
+  for (const y of keep) y.household = yardPeople(y).map((n) => n.id);
+}
+function yardGroup(n) {
+  const out = /* @__PURE__ */ new Set([n]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const o of npcs) {
+      if (o.dead || out.has(o)) continue;
+      for (const q of out) {
+        if (q.fam.spouse === o.id || o.fam.spouse === q.id || o.age < 16 && (o.fam.mother === q.id || o.fam.father === q.id) || q.age < 16 && (q.fam.mother === o.id || q.fam.father === o.id)) {
+          out.add(o);
+          grew = true;
+          break;
+        }
+      }
+    }
+  }
+  return [...out];
+}
+function yardHousing() {
+  if (!yardOn()) return;
+  yardScan();
+  const pl = yardPlayer();
+  for (const p of town.props || []) if (p.kind === "bed" && p.owner && (p.owner.dead || p.owner.bed !== p)) p.owner = null;
+  const sync = (n) => {
+    const has = yardHasBed(n);
+    if (!has && !(n.bed && n.bed.x != null && grid[n.bed.y] && grid[n.bed.y][n.bed.x] === T.BED)) n.bed = { owner: null };
+    if (has) {
+      const ri2 = roomAt[n.bed.y][n.bed.x], r = ri2 >= 0 ? rooms[ri2] : null;
+      n.homeRoom = r && !r.dead && r.hut ? r : null;
+      n.seat = null;
+    }
+    n.homeless = !(n.bed && n.bed.x != null);
+  };
+  for (const n of npcs) if (!n.dead) sync(n);
+  const give = (n, b) => {
+    b.owner = n;
+    n.bed = b;
+    sync(n);
+    if (typeof abortPlan === "function" && !n.player) abortPlan(n);
+  };
+  const done = /* @__PURE__ */ new Set();
+  for (const n of npcs) {
+    if (n.dead || done.has(n) || !n.homeless || n.infant) continue;
+    const grp = yardGroup(n);
+    grp.forEach((o) => done.add(o));
+    const need = grp.filter((o) => o.homeless).sort((a, b) => a.age - b.age);
+    if (!need.length) continue;
+    if (grp.includes(pl)) {
+      if (pl.homeless) {
+        const b = (town.props || []).filter((p) => p.kind === "bed" && !p.owner && !(yardAtXY(p.x, p.y) && yardPeople(yardAtXY(p.x, p.y)).length)).sort((a, c) => Math.hypot(a.x - pl.tx, a.y - pl.ty) - Math.hypot(c.x - pl.tx, c.y - pl.ty))[0];
+        if (b) give(pl, b);
+      }
+    }
+    let y = grp.map(yardOfN).find((q) => q && q.open == null) || null;
+    if (!y) y = town.yards.filter((q) => q.open == null && !yardPeople(q).length && yardFreeBeds(q).length).sort((a, b) => (yardFreeBeds(b).length >= need.length ? 1 : 0) - (yardFreeBeds(a).length >= need.length ? 1 : 0) || a.id - b.id)[0] || null;
+    if (!y) continue;
+    const moved = [];
+    for (const o of need) {
+      if (o === pl) continue;
+      const b = yardFreeBeds(y)[0];
+      if (!b) break;
+      give(o, b);
+      moved.push(o);
+    }
+    if (moved.length) {
+      chron(`${moved.map((o) => o.first).join(" and ")} moved into ${moved.length < grp.length && grp.some((o) => !moved.includes(o) && yardOfN(o) === y) ? "the family yard" : "a yard of their own"}.`, "life");
+      LIFE.emit("moved_in", moved.find((o) => o.age >= 16) || moved[0], { qty: moved.length });
+    }
+  }
+  for (const y of town.yards) y.household = yardPeople(y).map((n) => n.id);
+}
+LF2.hourly.push(() => {
+  if (yardOn()) {
+    yardScan(true);
+    yardHousing();
+  }
+});
+function yardWarnings() {
+  if (!yardOn()) return [];
+  yardScan();
+  const out = [], pl = yardPlayer();
+  for (const n of npcs) {
+    if (n.dead || n === pl || !yardHasBed(n) || yardOfN(n)) continue;
+    out.push(`${n.first}'s bed is outside every yard. ${n.first} will pay no rent and has no fields.`);
+  }
+  for (const y of town.yards) if (y.open != null) {
+    const ppl = npcs.filter((n) => !n.dead && yardOfN(n) === y);
+    if (ppl.length) out.push(`The fence round ${yardName(y)} is open. Close it within a day, or ${ppl.map((n) => n === pl ? "you" : n.first).join(" and ")} will have no yard.`);
+  }
+  return out;
+}
+function yardLeaveCheck(n) {
+  if (!yardOn()) return false;
+  const w = yardWarnings(), key = w.join("|");
+  if (!w.length) {
+    town.yardAck = "";
+    return false;
+  }
+  if (key === town.yardAck) return false;
+  town.decision = { kind: "yardwarn", who: n.id, key, title: "Before you go", text: w.slice(0, 5).join(" ") + (w.length > 5 ? ` And ${w.length - 5} more.` : ""), opts: [{ k: "yes", label: "Back to building" }, { k: "no", label: "Leave anyway" }] };
+  return true;
+}
+function drawYards(c, now) {
+  if (!yardOn() || !town.yards || !town.yards.length || cam.z < 0.6) return;
+  const pl = game.player, build = !!(pl && typeof itBuildOn === "function" && itBuildOn(pl)), v = gaView();
+  for (const y of town.yards) {
+    if (build) {
+      c.fillStyle = y.open != null ? "rgba(232,170,60,.16)" : yardPeople(y).length ? "rgba(120,210,110,.2)" : "rgba(150,190,235,.2)";
+      for (const k of y.cells) {
+        const x = k % W, yy = k / W | 0;
+        if (x < v.x0 || x >= v.x1 || yy < v.y0 || yy >= v.y1 || town.yardAt.get(k) !== y) continue;
+        c.fillRect(x * TS, yy * TS, TS, TS);
+      }
+    }
+    if (cam.z < 0.9 || y.open != null) continue;
+    const g = y.gates[0];
+    if (g == null) continue;
+    const gx = g % W, gy = g / W | 0;
+    if (gx < v.x0 || gx >= v.x1 || gy < v.y0 || gy >= v.y1) continue;
+    if (!build && !(pl && Math.abs(pl.tx - gx) + Math.abs(pl.ty - gy) <= 4)) continue;
+    const t = yardName(y).replace(/^./, (ch) => ch.toUpperCase());
+    c.save();
+    c.font = `600 ${Math.round(TS * 0.36)}px sans-serif`;
+    c.textAlign = "center";
+    c.textBaseline = "bottom";
+    const w = c.measureText(t).width + TS * 0.3;
+    c.fillStyle = "rgba(22,27,30,.82)";
+    c.fillRect(gx * TS + TS / 2 - w / 2, gy * TS - TS * 0.46, w, TS * 0.46);
+    c.fillStyle = "#e8c88a";
+    c.fillText(t, gx * TS + TS / 2, gy * TS - TS * 0.04);
+    c.restore();
+  }
 }
 function carpWant(needs) {
   if (!town || !kitOn()) return null;
@@ -28293,6 +28639,7 @@ for (const k of ["gift", "help", "charity", "dole", "repair", "distract"]) EVK(k
 for (const k of ["crush", "courting", "tryst"]) EVK(k, "romance", { tell: 0.7 });
 for (const k of ["dice", "sing", "stumble", "smelly", "newclothes", "knock", "wake"]) EVK(k, "daily", { tell: 0.2 });
 EVK("arrival", "place", { tell: 0.9 });
+EVK("moved_in", "home", { tell: 0.5 });
 EVK("bought", "trade", { needs: ["item", "qty"], tell: 0.25 });
 EVK("sold", "trade", { needs: ["item", "qty"], tell: 0.2 });
 EVK("could_not_afford", "trade", { needs: ["item"], tell: 0.4, tags: ["misfortune"] });

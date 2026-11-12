@@ -1,6 +1,6 @@
 /* ---------- work plans ---------- */
 function farmPlan(n) {
-  const free = town.crops.filter(c => !c.claim && itFarmersPlot(c)); let list, kind;   // (the player's garden and what the player sowed are left alone)
+  const free = town.crops.filter(c => !c.claim && itFarmersPlot(c) && yardMine(n, c)); let list, kind;   // (the player's garden and what the player sowed are left alone)
   list = free.filter(c => c.st && cropStage(c) === 4); kind = 'harvest';
   if (!list.length) { list = free.filter(c => !c.st && c.pl && fieldPlowed(c)); kind = 'sow'; }
   if (!list.length) { list = free.filter(c => !c.pl); kind = 'plow'; }
@@ -129,7 +129,7 @@ function farmSeed(n) {
   return q < 0.35 ? fav : q < 0.55 ? fav2 : food[Math.floor((q * 997) % food.length)];
 }
 const fieldPlowed = c => town.crops.every(o => o.f !== c.f || o.pl);
-function farmWork() { return town.crops.some(c => !c.claim && itFarmersPlot(c) && ((c.st && cropStage(c) === 4) || !c.pl || (!c.st && c.pl && fieldPlowed(c)))); }
+function farmWork(n?) { return town.crops.some(c => !c.claim && itFarmersPlot(c) && (!n || yardMine(n, c)) && ((c.st && cropStage(c) === 4) || !c.pl || (!c.st && c.pl && fieldPlowed(c)))); }
 function foodDaysNow() {
   let t = 0; const seen = new Set(); const pop = Math.max(1, npcs.filter(n => !n.infant).length);
   npcs.forEach(n => { if (n.homeRoom && !seen.has(n.homeRoom)) { seen.add(n.homeRoom); t += foodSat(n.homeRoom.pantry || {}); } t += foodSat(n.inv); });
@@ -142,7 +142,7 @@ function pickAgenda(n) {
   const cnt = {}; npcs.forEach(p => { if (p !== n && p.role === 'Worker' && p.cur && !p.player) cnt[p.cur] = (cnt[p.cur] || 0) + 1; });   // (the villager you steer takes no job from anybody)
   const fd = foodDaysNow(), need = Math.max(0, 3.5 - fd), sc: any = {};
   if (shoreTiles.length && fishAvail()) sc.Fisher = 5 + need * 20;
-  if (farmWork()) sc.Farmer = 5 + need * 18;
+  if (yardOn()) { if (farmWork(n)) sc.Farmer = 60; } else if (farmWork()) sc.Farmer = 5 + need * 18;   // (with yards, a household works its own fields and nobody else's)
   if (town.nodes.some(x => x.amt >= 1 && reach[x.y * W + x.x])) sc.Gatherer = 5 + need * 16;
   if (town.scenario === 'blank' && typeof lf2Room === 'function') { const ws = lf2Room('workshop'); if (ws && !n.player && (lf2Stock(ws).wood || 0) < 14 && ((cnt as any).Woodcutter || 0) < Math.max(1, Math.floor(npcs.length / 3)) && typeof carpWant === 'function' && carpWant()) sc.Woodcutter = 22; }   // (everybody helps with the wood the carpenter needs)
   if (typeof mineWork === 'function' && fd >= 2.0 && !n.player && mineWork()) sc.Miner = 14;   // (when the island is fed, somebody goes down to dig)
@@ -153,7 +153,7 @@ function pickAgenda(n) {
     else { const k = Math.min(1.6, 1 + (3.0 - fd) * 0.4); if (sc.Fisher) sc.Fisher *= k; if (sc.Farmer) sc.Farmer *= k; if (sc.Gatherer) sc.Gatherer *= k; } }
   { const pop = npcs.length, tasks = town.crops.filter(c => !c.claim && ((c.st && cropStage(c) === 4) || !c.pl || (!c.st && fieldPlowed(c)))).length;
     const capF = { Fisher: Math.max(1, Math.ceil(pop / 7)), Gatherer: Math.max(1, Math.ceil(pop / 7)), Farmer: Math.max(1, Math.ceil(tasks / 6)), Miner: Math.max(1, Math.floor(pop / 8)) };
-    if (fd >= 1.5) for (const r in capF) if (sc[r] && (cnt[r] || 0) >= capF[r]) sc[r] *= 0.15; }
+    if (fd >= 1.5 && !yardOn()) for (const r in capF) if (sc[r] && (cnt[r] || 0) >= capF[r]) sc[r] *= 0.15; }
   lfJobBias(n, sc);
   for (const r of Object.keys(sc)) if (!modOn('job.' + r)) delete sc[r];   // (a switched-off job is nobody's choice: docs/world-modules.md)
   if (n.pref && sc[n.pref]) sc[n.pref] += 10;

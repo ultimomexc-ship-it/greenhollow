@@ -20,8 +20,9 @@ function marketPrice(g) { const ps = merchants.filter(m => m.sells[g] && (m.stoc
 function cropStage(c) { if (!c.st) return 0; const p = (game.time - c.t0) / (typeof itGrow === 'function' ? itGrow(c) : GROW); return p >= 1 ? 4 : p > .66 ? 3 : p > .3 ? 2 : 1; }
 const foodCount = p => FOODS.reduce((s, g) => s + (p[g] || 0), 0);
 const foodSat = p => FOODS.reduce((s, g) => s + (p[g] || 0) * GOODS[g].sat, 0);
-const hhOf = n => n.homeRoom ? npcs.filter(o => o.homeRoom === n.homeRoom) : [n];
-const pantryOf = n => n.homeRoom ? (n.homeRoom.pantry || (n.homeRoom.pantry = {})) : n.inv;
+/* (in a world with yards, the household is the yard's people and its pantry the yard's store: life2/yards.ts) */
+const hhOf = n => { const y = yardHome(n); if (y) return yardPeople(y); return n.homeRoom ? npcs.filter(o => o.homeRoom === n.homeRoom) : [n]; };
+const pantryOf = n => { const y = yardHome(n); if (y) return y.store || (y.store = {}); return n.homeRoom ? (n.homeRoom.pantry || (n.homeRoom.pantry = {})) : n.inv; };
 const pantryDays = n => foodSat(pantryOf(n)) / (Math.max(1, hhOf(n).filter(o => !o.infant).length) * 100);
 const carried = n => SELLABLE.reduce((s, g) => s + (n.inv[g] || 0), 0) + (n.inv.wood || 0) + (n.inv.stone || 0);
 const coinsOf = n => Math.floor(n.coin);

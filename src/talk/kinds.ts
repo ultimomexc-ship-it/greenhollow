@@ -30,6 +30,7 @@ for (const k of ['gift', 'help', 'charity', 'dole', 'repair', 'distract']) EVK(k
 for (const k of ['crush', 'courting', 'tryst']) EVK(k, 'romance', { tell: 0.7 });
 for (const k of ['dice', 'sing', 'stumble', 'smelly', 'newclothes', 'knock', 'wake']) EVK(k, 'daily', { tell: 0.2 });
 EVK('arrival', 'place', { tell: 0.9 });
+EVK('moved_in', 'home', { tell: 0.5 });
 
 /* ---- the everyday life the talk will be made of (emitters arrive one system at a time; the kind is defined first so the contract can be checked) ---- */
 // trade

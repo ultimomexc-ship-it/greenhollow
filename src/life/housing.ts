@@ -1,6 +1,7 @@
 /* ---------- housing manager ---------- */
 function houseRooms() { return rooms.filter(r => r.kind === 'house' && !r.dead); }
 function housingTick() {
+  if (yardOn()) { yardHousing(); return; }   // (the Hamlet houses people by yard: life2/yards.ts)
   const homes = houseRooms();
   // anyone without a valid home or bed looks for a free bed, near kin first
   const needy = npcs.filter(n => n.age >= 3 && !n.waitHouse && (!homeOK(n) || n.bed.owner !== n));

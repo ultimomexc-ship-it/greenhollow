@@ -56,6 +56,7 @@ function targetAt0(n, x, y) {
   if ((g === T.STAIR || g === T.STAIRD || g === T.STAIRM || g === T.STAIRU) && !(itBuildOn(n) && n.build.sel === 1)) { const sa = stairAction(n, x, y); if (sa) return sa; }
   if (g === T.EARTH && !itBuildOn(n)) return digAction(n, x, y);
   const c = cropAt(x, y);
+  if (c && !itBuildOn(n) && !yardMine(n, c)) return { msg: `This field belongs to ${yardName(yardAtXY(c.x, c.y))}. They would notice.` };
   if (c && !itBuildOn(n)) {
     const st = c.st ? cropStage(c) : 0, fl = !!c.st && itIsFlower(c);
     if (fl && itWilted(c)) return { key: 'crop' + x + ',' + y + 'h', min: 2, text: 'Clearing the withered flowers', tool: 'hoe', walkOn: true, run(n) { if (c.st) { const sd = c.seed; c.st = 0; c.seed = null; itGiveStack(n, 'seed_' + sd, 1); playerSay(n, 'Cleared. The ground is ready again. +1 seed'); } } };

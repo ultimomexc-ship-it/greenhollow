@@ -60,6 +60,7 @@
   "life2/items-trade.ts",
   "life2/farm.ts",
   "life2/hamlet.ts",
+  "life2/yards.ts",
   "life2/carpenter.ts",
   "ui/controls-camera.ts",
   "ui/saves.ts",

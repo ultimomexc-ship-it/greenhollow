@@ -91,3 +91,14 @@ its yard -> crops are sold to the trader for coin -> rent is paid to you -> you 
 
 ## Add-ons later (each a module: one new thing to sell, one new thing to build)
 Theft and the watch; bakery; wood; fishing; stone and mining; smith; tavern; births and ageing.
+
+## Decided while building (yards, step 3)
+- Only fences and gates close a yard: a wall, a tree or the shore does not count as part of the ring. Fences touching only at a corner leak (the same rule as walls).
+- A yard needs a gate, 12 to 400 tiles inside. A gate is walked through by everybody; a fence by nobody.
+- The bedless are housed automatically: a family goes together into a yard nobody lives in (or the one a relative already lives in). Free beds in a yard where strangers live are not handed out: no lodgers by accident. With too few beds the youngest get them first and the rest follow when beds appear.
+- A bed outside every yard is still slept in by its owner; they just have no yard (no rent, no fields).
+- You may farm fields in a yard nobody lives in yet (you laid them); once a household moves in they are theirs.
+- An open yard holds its claim for one game day; time in build mode does not count (time stands still there).
+- The warning card is not repeated for the same list of problems once you chose Leave anyway.
+- The trader sells food as well as seed, so a household can buy what its fields do not give yet. The family starts with 12 grain and 7 seed.
+- Saves: no version bump; a Hamlet saved before yards finds its yards on the next scan.

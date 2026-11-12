@@ -35,7 +35,7 @@ function visHomes() {
     if (r.kind === 'room' && inside.length && r.doorX != null) { r.kind = 'house'; r.name = 'Hut'; r.pantry = r.pantry || {}; r.hut = true; if (!r.hearth) r.hearth = { none: true }; }   // (a hut has no kitchen: the village's "hearth in every house" would drop an oven tile in it, which stays behind as a blocked tile when the hut comes down)
     visToilet(r);
     if (r.kind !== 'house' || !r.hut) continue;
-    for (const b of r.beds) if (!inside.includes(b) && b.owner) { const o = b.owner; if (o && o.bed === b) { o.bed = { owner: null }; o.homeless = true; o.homeRoom = null; } b.owner = null; }
+    if (!yardOn()) for (const b of r.beds) if (!inside.includes(b) && b.owner) { const o = b.owner; if (o && o.bed === b) { o.bed = { owner: null }; o.homeless = true; o.homeRoom = null; } b.owner = null; }
     r.beds = r.beds.filter(b => inside.includes(b));
     for (const p of inside) if (!r.beds.includes(p)) { p.owner = p.owner || null; r.beds.push(p); }
     if (!r.beds.length) { r.kind = 'room'; r.name = 'Room'; r.hut = false; }

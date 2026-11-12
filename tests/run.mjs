@@ -1403,6 +1403,89 @@ test('hamlet build menu: seven items, the kit is bought from the trader, fences 
   await page.close();
   return 'seven items, the kit is bought, fences join, fields are laid and refunded';
 });
+test('hamlet yards: a fence ring with a gate is a yard, beds inside make the household, the family moves in and farms only its own fields, an open yard keeps its claim for a day, a warning card on leaving build mode, save and restore', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('hamlet-yards', 'hamlet'); const P = game.player, out = {}; const TR = npcs.find(n => n.shop), fam = npcs.filter(n => n !== P && n !== TR), dad = fam.find(n => n.age >= 16 && !n.female), kid = fam.find(n => n.age < 16);
+    window.__free = (x, y) => walkable(x, y) && !lfPropAt(x, y) && grid[y][x] === T.GRASS && roomAt[y][x] < 0 && !(town.nodeMap && town.nodeMap.has(y * W + x)) && !yardAtXY(x, y);
+    window.__area = (w, h) => { for (let t = 0; t < 60000; t++) { const x = 8 + Math.floor(Math.random() * (W - 16 - w)), y = 8 + Math.floor(Math.random() * (town.h0 - 16 - h)); let ok = true; for (let j = -1; j <= h && ok; j++) for (let i = -1; i <= w && ok; i++) if (!__free(x + i, y + j)) ok = false; if (ok) return [x, y]; } throw new Error('no ground'); };
+    window.__ring = (x0, y0, w, h, gate) => { const ps = []; for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (i === 0 || j === 0 || i === w - 1 || j === h - 1) ps.push(lfAddProp(gate && i === gate[0] && j === gate[1] ? 'gate' : 'fence', x0 + i, y0 + j)); return ps; };
+    window.__del = pr => { town.pblock[pr.y * W + pr.x] = 0; town.propAt.delete(pr.y * W + pr.x); town.props = town.props.filter(q => q !== pr); town.lfPV++; };
+    window.__move = (pr, x, y) => { town.pblock[pr.y * W + pr.x] = 0; town.propAt.delete(pr.y * W + pr.x); pr.x = x; pr.y = y; town.propAt.set(y * W + x, pr); town.pblock[y * W + x] = 1; town.lfPV++; };
+    // the start: the trader has a yard, the family has no beds, your bed is in the open
+    out.start = [town.yards.length, yardOfN(TR) === town.yards[0], yardName(town.yards[0]), fam.every(n => n.homeless), !yardOfN(P) && yardHasBed(P)];
+    const g0 = town.yards[0].gates[0]; out.gateWalk = walkable(g0 % W, (g0 / W) | 0); const f0 = town.yards[0].fences.find(k => !town.yards[0].gates.includes(k)); out.fenceBlocks = !walkable(f0 % W, (f0 / W) | 0);
+    // a ring with no gate, and one too small, are not yards
+    const [ax, ay] = __area(7, 6); const noGate = __ring(ax, ay, 7, 6, null); yardScan(); out.noGate = town.yards.length; noGate.forEach(__del);
+    const small = __ring(ax, ay, 5, 4, [2, 3]); yardScan(); out.small = town.yards.length; small.forEach(__del);
+    // a yard for the family: a ring with a gate, three beds, six field tiles
+    const ring = __ring(ax, ay, 7, 6, [3, 5]); const beds = [0, 1, 2].map(i => lfAddProp('bed', ax + 1 + i, ay + 1));
+    for (let i = 0; i < 5; i++) { setT(ax + 1 + i, ay + 3, T.CROP); town.crops.push({ x: ax + 1 + i, y: ay + 3, f: 'fam', pl: 1, st: 0, t0: 0 }); }
+    yardHousing(); const Y = yardAtXY(ax + 2, ay + 2); out.yard = [town.yards.length, !!Y, Y && Y.cells.length, Y && Y.gates.length, Y && Y.fences.length];
+    out.moved = fam.map(n => yardOfN(n) === Y).join(); out.name = yardName(Y); out.house = Y.household.length; out.notHomeless = fam.every(n => !n.homeless); out.hh = hhOf(dad).length; out.pantry = pantryOf(dad) === Y.store;
+    window.__Y = Y; window.__ring0 = ring; window.__a = [ax, ay];
+    // fields: the family's are theirs; yours are the ones outside every yard
+    const mine = __area(4, 2); for (let i = 0; i < 3; i++) { setT(mine[0] + i, mine[1], T.CROP); town.crops.push({ x: mine[0] + i, y: mine[1], f: 'me', pl: 1, st: 0, t0: 0 }); }
+    const cIn = town.crops.find(c => c.f === 'fam'), cOut = town.crops.find(c => c.f === 'me'); window.__mine = mine;
+    out.rights = [yardMine(dad, cIn), yardMine(TR, cIn), yardMine(P, cIn), yardMine(dad, cOut), yardMine(P, cOut)].join();
+    const t = targetAt0(P, cIn.x, cIn.y); out.refuse = t && t.msg; const t2 = targetAt0(P, cOut.x, cOut.y); out.own = !!(t2 && t2.key);
+    return out;
+  });
+  check(r.start[0] === 1 && r.start[1] && /yard$/.test(r.start[2]) && r.start[3] && r.start[4], 'at the start the trader has the only yard, the family has no beds and yours is in the open: ' + JSON.stringify(r.start));
+  check(r.gateWalk && r.fenceBlocks, 'a gate is walked through and a fence is not');
+  check(r.noGate === 1 && r.small === 1, 'a ring with no gate, or too small, is not a yard: ' + JSON.stringify([r.noGate, r.small]));
+  check(r.yard[0] === 2 && r.yard[2] === 20 && r.yard[3] === 1 && r.yard[4] === 22, 'a ring of fences with a gate is a yard: ' + JSON.stringify(r.yard));
+  check(r.moved === 'true,true,true' && r.house === 3 && r.notHomeless && /^the \w+ yard$/.test(r.name), 'the family moves into its beds, together: ' + JSON.stringify([r.moved, r.house, r.name]));
+  check(r.hh === 3 && r.pantry, 'the household is the yard, its pantry the yard store');
+  check(r.rights === 'true,false,false,false,true', 'fields belong to the yard they are in; those outside every yard are yours: ' + r.rights);
+  check(/belongs to the \w+ yard/.test(r.refuse || '') && r.own, 'the hoe refuses a field in somebody else\'s yard: ' + r.refuse);
+  await simulate(page, 2 * 1440);
+  const r2 = await page.evaluate(() => {
+    const out = {}; const fam = town.crops.filter(c => c.f === 'fam'), me = town.crops.filter(c => c.f === 'me');
+    out.famSown = fam.filter(c => c.st > 0).length; out.meSown = me.filter(c => c.st > 0).length; out.store = JSON.stringify(__Y.store);
+    out.sleep = npcs.filter(n => yardOfN(n) === __Y).map(n => (n.log || []).some(e => /Sleeping/.test(e.text)) || n.pose === 'sleep').join();
+    return out;
+  });
+  check(r2.famSown >= 3 && r2.meSown === 0, 'the family sows its own fields and leaves yours alone: ' + JSON.stringify(r2));
+  const r3 = await page.evaluate(() => {
+    const out = {}, P = game.player, Y = __Y, id = Y.id, [ax, ay] = __a; const TR = npcs.find(n => n.shop), fam = yardPeople(Y), kid = fam.find(n => n.age < 16);
+    // leaving build mode with the fence open: a card; Back to building keeps you in, closing the fence lets you leave
+    itBuildToggle(P, true); const gone = __ring0.find(p => p.kind === 'fence' && p.x === ax); __del(gone); yardScan();
+    out.open = [Y.open != null, town.yards.includes(Y), fam.every(n => yardOfN(n) === Y)];
+    itBuildToggle(P, false); out.card = town.decision && town.decision.kind; out.text = town.decision && town.decision.text; out.stillOn = itBuildOn(P);
+    answerDecision('yes'); out.back = itBuildOn(P) && !town.decision;
+    const again = lfAddProp('fence', gone.x, gone.y); yardScan(); out.closed = [Y.open == null, Y.id === id, town.yards.length];
+    itBuildToggle(P, false); out.left = !itBuildOn(P) && !town.decision;
+    // leave anyway: the card is not shown twice for the same thing
+    itBuildToggle(P, true); __del(again); itBuildToggle(P, false); out.card2 = !!town.decision; answerDecision('no'); out.left2 = !itBuildOn(P); itBuildToggle(P, true); itBuildToggle(P, false); out.noNag = !town.decision && !itBuildOn(P);
+    window.__again = again; return out;
+  });
+  check(r3.open.every(Boolean), 'an opened yard keeps its claim: ' + JSON.stringify(r3.open));
+  check(r3.card === 'yardwarn' && r3.stillOn && /fence round .* is open/.test(r3.text), 'leaving build mode with a yard open puts up a card: ' + JSON.stringify([r3.card, r3.text]));
+  check(r3.back && r3.closed[0] && r3.closed[1] && r3.closed[2] === 2 && r3.left, 'Back to building keeps you in; closed again it is the same yard and you can leave: ' + JSON.stringify(r3));
+  check(r3.card2 && r3.left2 && r3.noNag, 'Leave anyway leaves, and the same warning is not shown again');
+  await simulate(page, 26 * 60);
+  const r4 = await page.evaluate(() => {
+    const out = {}, P = game.player, Y = __Y, [ax, ay] = __a; const TR = npcs.find(n => n.shop), fam = npcs.filter(n => n !== P && n !== TR), kid = fam.find(n => n.age < 16);
+    out.gone = [!town.yards.includes(Y), town.yards.length, fam.every(n => yardHasBed(n) && !yardOfN(n))]; out.warn = yardWarnings().length;
+    // closed again: a yard again, and the family is its household because their beds stand in it
+    lfAddProp('fence', __again.x, __again.y); yardHousing(); const Y2 = yardAtXY(ax + 2, ay + 2); out.again = [!!Y2, Y2 && yardPeople(Y2).length]; window.__Y = Y2;
+    // a bed pushed into another yard moves its owner, and nobody else
+    const ty = yardOfN(TR), free = ty.cells.find(k => !town.propAt.get(k)); __move(kid.bed, free % W, (free / W) | 0); yardHousing();
+    out.kid = [yardOfN(kid) === ty, yardPeople(ty).length, yardPeople(Y2).length];
+    // save and restore
+    const json = isleCapture(); isleRestore(json); const k2 = npcs.find(n => n.id === kid.id), t2 = npcs.find(n => n.shop);
+    out.saved = [town.yards.length, town.yardAt.size > 20, yardOfN(k2) === yardOfN(t2), yardPeople(yardOfN(t2)).length, town.yards.every(y => y.cells.every(k => town.yardAt.get(k) === y))];
+    return out;
+  });
+  check(r4.gone[0] && r4.gone[1] === 1 && r4.gone[2] && r4.warn === 3, 'after a day open the yard is gone and its people have beds but no yard: ' + JSON.stringify(r4));
+  check(r4.again[0] && r4.again[1] === 3, 'closing the ring makes it a yard again with the same household: ' + JSON.stringify(r4.again));
+  check(r4.kid[0] && r4.kid[1] === 2 && r4.kid[2] === 2, 'a bed moved into another yard takes its owner with it, and nobody else: ' + JSON.stringify(r4.kid));
+  check(r4.saved[0] === 2 && r4.saved.slice(1, 3).every(Boolean) && r4.saved[3] === 2 && r4.saved[4], 'yards survive save and restore: ' + JSON.stringify(r4.saved));
+  check(errors.length === 0, 'no page errors: ' + errors.slice(0, 2).join(' | '));
+  await page.close();
+  return 'yards close, open with a day of grace, house the family, keep fields to their household, warn before leaving, and save';
+});
 test('ready farming village: only what farming needs; farmers buy seed from the seed seller with real money, keep seed back, sell what they grow to the greengrocer, and talk about it', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

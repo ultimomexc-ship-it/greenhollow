@@ -89,7 +89,9 @@ function askMarriage(o) {
 }
 /** what you answered (the card calls this) */
 function answerDecision(k) {
-  const d = town.decision; if (!d) return; town.decision = null; const o = byId(d.who), p = game.player; if (!o || o.dead || !p) return;
+  const d = town.decision; if (!d) return; town.decision = null;
+  if (d.kind === 'yardwarn') { if (k !== 'yes') { town.yardAck = d.key; if (game.player) itBuildToggle(game.player, false); } return; }   // (Back to building / Leave anyway: life2/yards.ts)
+  const o = byId(d.who), p = game.player; if (!o || o.dead || !p) return;
   if (d.kind === 'court') {
     if (k === 'yes') { startCourtship(p, o); playerSay(p, 'I said yes. It seemed like the right answer, and I did not argue with it.'); }
     else if (k === 'later') { o.waitCourt = game.time + 6 * 1440; playerSay(p, 'I said not yet. ' + o.first + ' nodded as though that was a reasonable thing to say.'); }

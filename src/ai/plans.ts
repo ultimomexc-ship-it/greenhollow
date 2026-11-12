@@ -8,6 +8,7 @@ function pickFrom(arr, n) {
   return { x: t.x, y: t.y, face: t.face || null };
 }
 function floorSpot(room, n) {
+  if (!room && n) { const y = yardHome(n); if (y) { for (const [dx, dy] of [[0, 1], [1, 0], [-1, 0], [0, -1], [1, 1], [-1, 1]]) { const x = n.bed.x + dx, yy = n.bed.y + dy; if (walkable(x, yy) && !lfPropAt(x, yy) && yardAtXY(x, yy) === y) return { x, y: yy }; } return { x: n.bed.x, y: n.bed.y }; } }   // (home is beside your bed in the yard)
   if (!room) { const pl = n ? plazaNear(n) : plazaTiles, p = pl[(n && n.id || 0) % pl.length] || { x: town.cx, y: town.cy }; return { x: p.x, y: p.y }; }
   const tiles = [];
   for (let y = room.y + 1; y < room.y + room.h - 1; y++) for (let x = room.x + 1; x < room.x + room.w - 1; x++) {
@@ -39,7 +40,7 @@ function eatSat(n, pool) {
   return ate;
 }
 function stash(n) {
-  if (!n.homeRoom) return;
+  if (!n.homeRoom && !yardHome(n)) return;
   const p = pantryOf(n), hh = hhOf(n).length;
   FOODS.forEach(g => { const q = n.inv[g] || 0; if (q > 0) { const room = Math.max(0, hh * 14 - foodCount(p)); const t = Math.min(q, room); p[g] = (p[g] || 0) + t; n.inv[g] -= t; } });
 }
@@ -54,7 +55,7 @@ function sellStep(n, m, g, qty) {
 function haulPlan(n) {
   const steps = [];
   const foodHave = FOODS.some(g => (n.inv[g] || 0) > 0);
-  if (foodHave && n.homeRoom && pantryDays(n) < 3.5) steps.push(goS(pantrySpot, 'Taking food home'), waitS(2, 'stand', 'Stocking the pantry', { onEnd: stash }));
+  if (foodHave && (n.homeRoom || yardHome(n)) && pantryDays(n) < 3.5) steps.push(goS(pantrySpot, 'Taking food home'), waitS(2, 'stand', 'Stocking the pantry', { onEnd: stash }));
   let sold = 0;
   for (const g of SELLABLE) {
     const q = n.inv[g] || 0; if (q < 1) continue;
