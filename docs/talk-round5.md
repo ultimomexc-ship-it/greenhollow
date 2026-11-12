@@ -65,4 +65,4 @@ opinion with no real reason is now said without one.)
 - The Tests section of `CLAUDE.md` still describes the suite as it was many rounds ago (it says 85 tests; there
   are 99). Prompt 20.
 - `NOTES.md` has not been brought up to date with the talk work. Prompt 20.
-- `src/talk/depth.ts` is a grab-bag of acts and words (340 long lines). Prompts 12 and 13.
+- (done) `depth.ts` was split and the words moved out: prompts 12 and 13.

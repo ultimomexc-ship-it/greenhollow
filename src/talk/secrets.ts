@@ -120,18 +120,3 @@ LF2.hourly.push(() => {
   }
   town.leaks = keep;
 });
-
-lx('confide', 'plain', 'Can I tell you something? {news}. Please keep it to yourself.');
-lx('confide', 'plain', 'I have to tell someone. {news}. Nobody else knows.');
-lx('secret_keep', 'plain', "I won't say a word.");
-lx('secret_keep', 'plain', 'It stays with me.');
-lx('secret_alarmed', 'plain', "That's serious. I'll keep it, but I don't like it.");
-lx('secret_alarmed', 'plain', "Oh. Well. I'll say nothing. I wish you hadn't told me.");
-lx('ev:betrayal', 'plain', "{a} told {t}'s secret");
-lx('ev:betrayal', 'plain', "{t}'s secret got out, and {a} was the one who told");
-lxi('confide', 'I am going to tell you something. {news}. I would like it to stay with you.');
-lxi('confide', 'Nobody knows this. {news}. You are the first person I have said it to.');
-lxi('secret_keep', 'I will keep it. I am good at keeping things. It is most of what I do.');
-lxi('secret_keep', 'It stays here. I will not even think about it where people can see.');
-lxi('secret_alarmed', 'That is serious. I will keep it. I would like to say that I wish you had not told me, and I have.');
-lxi('secret_alarmed', 'I see. I will say nothing. I will think about it quite a lot.');

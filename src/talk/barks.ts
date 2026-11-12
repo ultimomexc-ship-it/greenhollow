@@ -123,26 +123,3 @@ function moreBarks() {
   }
 }
 LF2.tickers.push(moreBarks);
-lx('mutter', 'plain', 'Where did I put that?', { how: 'farmer' });
-lx('mutter', 'plain', "Rain tomorrow, or it won't be.", { how: 'farmer' });
-lx('mutter', 'plain', 'Another row. And another after that.', { how: 'farmer' });
-lx('mutter', 'plain', 'Not too brown. Not too pale.', { how: 'baker' });
-lx('mutter', 'plain', 'Flour in everything. Flour in my ears.', { how: 'baker' });
-lx('mutter', 'plain', 'Hot enough. Hot enough to argue with.', { how: 'smith' });
-lx('mutter', 'plain', 'Again. A little harder.', { how: 'smith' });
-lx('mutter', 'plain', 'Now where did that go.');
-lx('mutter', 'plain', 'Nearly done. Nearly.');
-lx('mutter', 'plain', 'Back to it, then.');
-lx('call_child', 'plain', "{about}! Come in now, it's getting dark!");
-lx('call_child', 'plain', '{about}! Time to come home!');
-lxi('mutter', 'I put it down somewhere. I put it down on purpose.', { how: 'farmer' });
-lxi('mutter', 'There will be rain, or there will not. I have decided to be ready for both.', { how: 'farmer' });
-lxi('mutter', 'Another row. The rows are the same. I check.', { how: 'farmer' });
-lxi('mutter', 'Not too brown. Not too pale. It is a narrow thing and I am calm about it.', { how: 'baker' });
-lxi('mutter', 'There is flour in places I did not know I had.', { how: 'baker' });
-lxi('mutter', 'Hot enough. It is always hot enough, and then it is hotter.', { how: 'smith' });
-lxi('mutter', 'Where did that go. It was here. It was right here.');
-lxi('mutter', 'Nearly done. I have said that since morning and it has not been false once.');
-lxi('mutter', 'Back to it. The work does not know it is being watched.');
-lxi('call_child', '{about}. Come in. It is getting dark and I would like you inside.');
-lxi('call_child', '{about}. Home. The light is going and I count you every evening.');
