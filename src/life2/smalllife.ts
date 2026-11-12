@@ -74,8 +74,7 @@ function smallLifeHour(h: number) {
           target: w,
           sev: 1,
           tags: ['help', 'kindness'],
-          chron: false,
-          text: `${h.first} lent ${w.first} a hand with the work`
+          chron: false
         });
       }
       // a visit to somebody who is ill
@@ -91,8 +90,7 @@ function smallLifeHour(h: number) {
           target: sick,
           sev: 1,
           tags: ['kindness'],
-          chron: false,
-          text: `${v.first} looked in on ${sick.first}, who is ill`
+          chron: false
         });
       }
     }

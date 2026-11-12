@@ -18,7 +18,7 @@ ACTS.snap = {
     c.left[sp.id] = 0;
     c.left[li.id] = Math.min(c.left[li.id], 0.9);
     lfAff(li, sp, -3, 'snapped at me');
-    lfEmit('quarrel', { actor: sp, target: li, sev: 1, tags: ['nuisance'], chron: false, text: `${sp.first} snapped at ${li.first}` });
+    lfEmit('quarrel', { actor: sp, target: li, sev: 1, tags: ['nuisance'], chron: false });
   },
   replies: ['snap_back', 'let_it_go']
 };

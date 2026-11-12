@@ -17385,7 +17385,7 @@ function lfEmit(kind, o) {
     y: o.y != null ? o.y : a ? a.ty : t ? t.ty : 0,
     sev: o.sev == null ? 1 : o.sev,
     tags: o.tags || [],
-    text: o.text || kind,
+    text: kind,
     anonText: o.anonText || null,
     mem: o.mem || null,
     cause: o.cause || null,
@@ -17397,6 +17397,7 @@ function lfEmit(kind, o) {
     witnesses: [],
     place: o.place || (a ? placeOf(a) : "")
   };
+  ev.text = o.text || (typeof TE !== "undefined" ? TE.text(ev) : kind);
   const evs = lf2Ev();
   evs.push(ev);
   if (evs.length > 1500) evs.splice(0, evs.length - 1500);
@@ -17627,14 +17628,14 @@ function lf2Search(n, pr) {
   pr.searchedT = game.time;
   if (!l) {
     lf2Say(n, anyOf(["Nothing in here but dust.", "Empty. Just straw and a dead spider.", "Nothing worth having."]));
-    if (head) lfEmit("snoop", { actor: n, target: head, x: pr.x, y: pr.y, sev: 1, tags: ["trespass"], aware: false, chron: false, text: `${n.first} was seen rummaging through the ${lf2Family(room)} family's ${label}` });
+    if (head) lfEmit("snoop", { actor: n, target: head, x: pr.x, y: pr.y, sev: 1, tags: ["trespass"], aware: false, chron: false });
     return;
   }
   const what = l.g === "coin" ? l.q + " " + (l.q > 1 ? "denarii" : "denarius") : l.q + " " + (GOODS[l.g] ? GOODS[l.g].name : l.g);
   if (l.g === "coin") n.coin += l.q;
   else n.inv[l.g] = (n.inv[l.g] || 0) + l.q;
   lf2Say(n, "Found " + what + ".");
-  if (head) lfEmit("theft", { actor: n, target: head, x: pr.x, y: pr.y, sev: 1, tags: ["theft", "crime"], aware: false, value: l.g === "coin" ? l.q : 2, chron: false, text: `${n.first} helped themself to ${what} from the ${lf2Family(room)} family's ${label}` });
+  if (head) lfEmit("theft", { actor: n, target: head, x: pr.x, y: pr.y, sev: 1, tags: ["theft", "crime"], aware: false, value: l.g === "coin" ? l.q : 2, chron: false });
 }
 function lf2MoveProp(pr, x, y, by) {
   town.pblock[pr.y * W + pr.x] = 0;
@@ -17681,7 +17682,7 @@ function lf2AfterPush(n, pr) {
   const r = rooms.find((r2) => !r2.dead && r2.doorX != null && Math.abs(pr.x - r2.doorX) <= 1 && pr.y === (r2.side === "b" ? r2.doorY + 1 : r2.doorY - 1));
   if (!r) return;
   const head = r.kind === "house" ? lf2RoomHead(r) : null;
-  const ev = lfEmit("blockdoor", { actor: n, target: head, x: pr.x, y: pr.y, sev: 1, tags: ["prank", "nuisance"], aware: false, chron: false, text: `${n.first} shoved a ${LF_NOUN[pr.kind]} against the door of ${r.name}` });
+  const ev = lfEmit("blockdoor", { actor: n, target: head, x: pr.x, y: pr.y, sev: 1, tags: ["prank", "nuisance"], aware: false, chron: false });
   pr.pushEv = ev.id;
 }
 function lifeAct(n, p, fx, fy, dx, dy) {
@@ -17793,7 +17794,7 @@ function lf2Shove(n, o) {
     faceTo(o, n);
   }
   const sev = kid || recent.length >= 3 ? 2 : 1;
-  lfEmit("shove", { actor: n, target: o, sev, loud: true, tags: sev > 1 ? ["violence", "harm"] : ["harm", "nuisance"], chron: sev > 1, text: `${n.first} shoved ${o.first}${kid ? ", a child," : ""} out of the way` });
+  lfEmit("shove", { actor: n, target: o, sev, loud: true, tags: sev > 1 ? ["violence", "harm"] : ["harm", "nuisance"], chron: sev > 1 });
   if (!o.player) {
     const brave = lf2Has(o, "brave") || lf2Has(o, "grumpy") || lf2Has(o, "proud");
     lfShout(o, brave ? anyOf(["Oi! Watch it!", "Do that again and see what happens.", "Who do you think you are?"]) : anyOf(["Hey!", "Ow! What was that for?", "Please, stop it."]));
@@ -17807,7 +17808,7 @@ function lf2Give(n, o, q) {
   n.coin -= q;
   o.coin = (o.coin || 0) + q;
   const poor = o.coin - q < 5;
-  lfEmit("gift", { actor: n, target: o, sev: poor ? 2 : 1, tags: ["generous", "kindness"], chron: poor, text: `${n.first} gave ${o.first} ${q} denarii${poor ? " when they had next to nothing" : ""}` });
+  lfEmit("gift", { actor: n, target: o, sev: poor ? 2 : 1, tags: ["generous", "kindness"], chron: poor });
   if (!o.player) lfShout(o, poor ? anyOf(["Oh! Thank you. You do not know what this means.", "Bless you. Truly."]) : anyOf(["For me? Thank you!", "Well, that is kind.", "Are you sure? Thank you."]));
 }
 function lf2GiveFood(n, o) {
@@ -17819,7 +17820,7 @@ function lf2GiveFood(n, o) {
   n.inv[g]--;
   const hungry = o.hunger >= 55;
   o.hunger = Math.max(0, o.hunger - (GOODS[g] && GOODS[g].sat || 25));
-  lfEmit("gift", { actor: n, target: o, sev: hungry ? 2 : 1, tags: ["kindness", "generous"], chron: hungry, text: `${n.first} gave ${o.first} some ${GOODS[g] ? GOODS[g].name : g}${hungry ? " when they were starving" : ""}` });
+  lfEmit("gift", { actor: n, target: o, sev: hungry ? 2 : 1, tags: ["kindness", "generous"], chron: hungry });
   if (!o.player) lfShout(o, hungry ? "Oh, thank you. I was so hungry." : "How kind. Thank you.");
 }
 function lf2Distract(n, o) {
@@ -17834,7 +17835,7 @@ function lf2Distract(n, o) {
     o.jobSat = Math.max(0, (o.jobSat || 50) - 5);
     lfShout(o, anyOf(["I really should be working...", "Oh, go on then. Just for a minute.", "You are a bad influence."]));
   } else lfShout(o, anyOf(["Oh, hello!", "What is it?"]));
-  if (busy && o.job) lfEmit("distract", { actor: n, target: o, sev: 1, tags: ["nuisance"], chron: false, text: `${n.first} kept ${o.first} from their work` });
+  if (busy && o.job) lfEmit("distract", { actor: n, target: o, sev: 1, tags: ["nuisance"], chron: false });
 }
 function lf2Help(n, o) {
   const st = o.plan && o.plan[o.si];
@@ -17844,7 +17845,7 @@ function lf2Help(n, o) {
   }
   o.until = Math.max(game.time, (o.until || game.time) - 15);
   bumpAff(n, o, 4, 8);
-  lfEmit("help", { actor: n, target: o, sev: 1, tags: ["help", "kindness"], chron: false, text: `${n.first} lent ${o.first} a hand with the work` });
+  lfEmit("help", { actor: n, target: o, sev: 1, tags: ["help", "kindness"], chron: false });
   lfShout(o, anyOf(["Many hands! Thank you.", "That went quicker. Thanks!", "You are a good sort."]));
 }
 function lf2Wake(n, o) {
@@ -17857,7 +17858,7 @@ function lf2Wake(n, o) {
   o.energy = Math.max(0, (o.energy || 50) - 10);
   faceTo(o, n);
   lfShout(o, anyOf(["Wha-? What is it? Is something on fire?", "Go AWAY.", "Do you know what time it is?"]));
-  lfEmit("wake", { actor: n, target: o, sev: 1, tags: ["prank", "nuisance"], chron: false, text: `${n.first} woke ${o.first} up for no reason` });
+  lfEmit("wake", { actor: n, target: o, sev: 1, tags: ["prank", "nuisance"], chron: false });
 }
 function lf2Inspect(n, o) {
   if (typeof select === "function") select(o);
@@ -17879,7 +17880,7 @@ function lf2StealBarrel(n, r) {
     return;
   }
   lf2Say(n, "Took " + c + " food.");
-  lfEmit("theft", { actor: n, target: lf2RoomHead(r), sev: 1, aware: false, tags: ["theft", "crime", "trespass"], chron: false, value: c * 2, text: `${n.first} stole food from the ${lf2Family(r)} family's barrel` });
+  lfEmit("theft", { actor: n, target: lf2RoomHead(r), sev: 1, aware: false, tags: ["theft", "crime", "trespass"], chron: false, value: c * 2 });
 }
 function lf2Verbs(n, tx, ty) {
   const front = tx === void 0 ? lf2Front(n) : { x: tx, y: ty }, x = front.x, y = front.y, out = [], o = lf2Occ(x, y, n), add = (label, f, min, text, tool) => out.push({ label, mod: null, f, min: min || 0, text: text || label, tool: tool || null });
@@ -18181,7 +18182,7 @@ LF2.tickers.push(() => {
     }
     who.mood = Math.max(0, (who.mood == null ? 60 : who.mood) - 8);
     const by = null;
-    if (sh.pose === "sleep") lfEmit("bed_moved", { actor: sh.by != null ? lf2By(sh.by) : null, target: who, x: who.tx, y: who.ty, sev: 2, tags: ["nuisance", "embarrass"], anon: true, sawActor: [], witnessIds: [who.id], chron: false, loud: true, text: `${who.first} was carried out of the house in bed` });
+    if (sh.pose === "sleep") lfEmit("bed_moved", { actor: sh.by != null ? lf2By(sh.by) : null, target: who, x: who.tx, y: who.ty, sev: 2, tags: ["nuisance", "embarrass"], anon: true, sawActor: [], witnessIds: [who.id], chron: false, loud: true });
     chron(`${who.first} ${sh.pose === "sleep" ? "woke up" : "got up"} ${where}, ${sh.pose === "sleep" ? "bed" : "chair"} and all.`, "life");
   }
 });
@@ -18434,8 +18435,7 @@ function meddleFlush() {
       witnessIds: wit,
       place: r.place || void 0,
       chron: false,
-      loud: true,
-      text: `${by.first} ${r.kind}`
+      loud: true
     });
     for (const p of ps.filter((q2) => q2.exposure)) {
       const v = lf2By(p.id);
@@ -18451,8 +18451,7 @@ function meddleFlush() {
         sawActor: seen,
         witnessIds: wit,
         chron: true,
-        loud: true,
-        text: `${v.first} was caught out when ${by.first} knocked the wall out`
+        loud: true
       });
       v.mood = Math.max(0, (v.mood == null ? 60 : v.mood) - 10);
       if (wit.length >= 2) chron(`${MEDDLE_INCIDENT[p.exposure]}: ${v.first} was found out when the wall came down.`, "note");
@@ -18619,8 +18618,7 @@ function smallLifeHour(h) {
           target: w,
           sev: 1,
           tags: ["help", "kindness"],
-          chron: false,
-          text: `${h2.first} lent ${w.first} a hand with the work`
+          chron: false
         });
       }
       for (const [sick, v] of [
@@ -18635,8 +18633,7 @@ function smallLifeHour(h) {
           target: sick,
           sev: 1,
           tags: ["kindness"],
-          chron: false,
-          text: `${v.first} looked in on ${sick.first}, who is ill`
+          chron: false
         });
       }
     }
@@ -19890,7 +19887,7 @@ function visArrive() {
   }
   const a = grp[0];
   chron(grp.length > 1 ? `${nameOf(a)} and ${nameOf(grp[1])} came ashore, looking as though they had just woken up. ${a.first} ${a.back}.` : `${nameOf(a)} came ashore, looking as though they had just woken up. ${a.first} ${a.back}.`, "life");
-  lfEmit("arrival", { actor: a, tags: ["news"], sev: 1.6, loud: true, chron: false, text: `${a.first} came ashore` });
+  lfEmit("arrival", { actor: a, tags: ["news"], sev: 1.6, loud: true, chron: false });
   housingTick();
   for (const n of grp) {
     if (!n.homeRoom) n.homeless = true;
@@ -21998,7 +21995,7 @@ function lf2BuilderPlan(n, tod) {
       if (br.broken) {
         const w = br.broken;
         br.broken = null;
-        lfEmit("repair", { actor: nn, sev: 1, tags: ["help"], chron: true, text: `${nn.first} mended the ${w.what} at ${br.name}` });
+        lfEmit("repair", { actor: nn, sev: 1, tags: ["help"], chron: true });
       }
     } })];
   }
@@ -22070,7 +22067,7 @@ function lf2ShopPlan(n, tod) {
   if (sh && n.coin >= 40 && Math.random() < 0.08 && (lf2Stock(sh).cloth || 0) > 0) return go(sh, "cloth", 1, "Treating themself to new cloth", (nn) => {
     nn.inv.cloth--;
     lfMod(nn, "newclothes", "showing off a new tunic", 6, 900);
-    lfEmit("newclothes", { actor: nn, sev: 1, tags: ["rich"], chron: false, text: `${nn.first} has a fine new tunic` });
+    lfEmit("newclothes", { actor: nn, sev: 1, tags: ["rich"], chron: false });
   });
   return null;
 }
@@ -22119,7 +22116,7 @@ function lf2Sabotage(n, r, x, y) {
   const what = LF2_STATION[grid[y][x]] || "counter", J = Object.keys(LF2_JOBS).find((k) => LF2_JOBS[k].room === r.kind && LF2_JOBS[k].recipe);
   r.broken = { what, spot: J ? LF2_JOBS[J].spot : "front", t: game.time, by: n.id };
   const w = J ? npcs.find((o) => o.job === J && !o.dead) : null;
-  const ev = lfEmit("sabotage", { actor: n, target: w, x, y, sev: 2, aware: false, tags: ["sabotage", "crime", "harm"], chron: false, text: `${n.first} wrecked the ${what} at ${r.name}` });
+  const ev = lfEmit("sabotage", { actor: n, target: w, x, y, sev: 2, aware: false, tags: ["sabotage", "crime", "harm"], chron: false });
   r.broken.ev = ev.id;
   lf2Say(n, `The ${what} will not work until somebody mends it.`);
 }
@@ -22133,7 +22130,7 @@ function lf2StealStock(n, r, g) {
   s[g] -= q;
   n.inv[g] = (n.inv[g] || 0) + q;
   lf2Say(n, "Swiped " + q + " " + GOODS[g].name + ".");
-  lfEmit("theft", { actor: n, target: lf2Server(r) || npcs.find((o) => LF2_JOBS[o.job] && LF2_JOBS[o.job].room === r.kind && !o.dead), x: n.tx, y: n.ty, sev: g === "tools" ? 2 : 1, aware: false, value: q * GOODS[g].base, tags: ["theft", "crime"], chron: false, text: `${n.first} swiped ${q} ${GOODS[g].name} from ${r.name}` });
+  lfEmit("theft", { actor: n, target: lf2Server(r) || npcs.find((o) => LF2_JOBS[o.job] && LF2_JOBS[o.job].room === r.kind && !o.dead), x: n.tx, y: n.ty, sev: g === "tools" ? 2 : 1, aware: false, value: q * GOODS[g].base, tags: ["theft", "crime"], chron: false });
 }
 LF2.pre.push({ player(n, p, fx, fy) {
   const r = lf2CounterRoom(fx, fy), g = grid[fy] && grid[fy][fx];
@@ -22250,7 +22247,7 @@ LF2.tickers.push(() => {
     n.lf2Dole = game.time + 600;
     n.inv.grain = (n.inv.grain || 0) + 3;
     town.treasury -= 3;
-    lfEmit("dole", { target: n, sev: 1, tags: ["misfortune"], witnessIds: [], aware: false, chron: false, text: `${n.first} was so hungry the council handed out grain from the dole` });
+    lfEmit("dole", { target: n, sev: 1, tags: ["misfortune"], witnessIds: [], aware: false, chron: false });
   }
 });
 LF2.work.push((n, tod) => {
@@ -22275,7 +22272,7 @@ function lf2HungryPlan(n, tod) {
       nn.inv[g] = (nn.inv[g] || 0) + 1;
       got = 1;
       const k = lf2Server(r) || npcs.find((o) => LF2_JOBS[o.job] && LF2_JOBS[o.job].room === r.kind && !o.dead);
-      if (k && k !== nn) lfEmit("charity", { actor: k, target: nn, sev: 1, tags: ["kindness", "generous"], chron: false, text: `${k.first} gave ${nn.first} free ${GOODS[g].name}, seeing how hungry ${cvPron(nn).he} was` });
+      if (k && k !== nn) lfEmit("charity", { actor: k, target: nn, sev: 1, tags: ["kindness", "generous"], chron: false });
     }
     eatSat(nn, nn.inv);
   } })];
@@ -22374,7 +22371,7 @@ function lf2ReportPlan(n) {
       say(nn, g, [[nn, k.a && a ? anyOf([`Watchman! ${lf2Cap(lf2Low(cvSpeechOf(nn, ev.text, g)))}.${k.mine || !k.from ? " I saw it with my own eyes." : ""}`, `You need to know: ${lf2Low(cvSpeechOf(nn, ev.text, g))}.`]) : `Somebody ${lf2Low(ev.text).replace(/^\w+ /, "")}. I do not know who.`], [g, k.a ? anyOf(["Leave it with me.", "Right. I will find them.", "Is that so? Thank you."]) : "I will ask around."]]);
       lf2Learn(g, ev, nn, k.cert * (k.from ? 0.7 : 1), k.a);
       if (!k.a) g.lf2Inv = ev.id;
-      lfEmit("report", { actor: nn, target: a && k.a ? a : null, sev: 1, tags: ["justice"], chron: false, text: `${nn.first} reported ${a && k.a ? a.first : "a crime"} to the watch` });
+      lfEmit("report", { actor: nn, target: a && k.a ? a : null, sev: 1, tags: ["justice"], chron: false });
     } })
   ];
 }
@@ -22521,12 +22518,12 @@ function lf2Collar(g, a) {
     town.treasury += fine;
     lf2Compensate(a, fine);
     say(g, a, [[g, `${a.first}, you ${cvSpeechOf(g, lf2CrimeText(a), a)}. That is a fine of ${fine} denarii.`], [a, anyOf(["Fine. Take it.", "This is robbery.", "It was worth it."])]]);
-    lfEmit("fined", { actor: a, sev: 1, tags: ["arrest"], chron: true, text: `The watch fined ${a.first} ${fine} denarii for ${what}` });
+    lfEmit("fined", { actor: a, sev: 1, tags: ["arrest"], chron: true });
   } else {
     const mins = lf2Sentence(a);
     lf2Jail(a, mins, g);
     say(g, a, [[g, `${a.first}, you are coming with me. You ${cvSpeechOf(g, lf2CrimeText(a), a)}.`], [a, anyOf(["I did nothing!", "All right, all right.", "You will regret this."])]]);
-    lfEmit("arrest", { actor: a, sev: 2, loud: true, tags: ["arrest"], chron: true, text: `The watch arrested ${a.first} for ${what}` });
+    lfEmit("arrest", { actor: a, sev: 2, loud: true, tags: ["arrest"], chron: true });
   }
   a.lf2Priors = (a.lf2Priors || 0) + 1;
   lf2Clear(a);
@@ -22593,7 +22590,7 @@ function lf2ArrestDialog(g, a) {
       lf2Compensate(a, fine);
       a.lf2Priors = (a.lf2Priors || 0) + 1;
       lf2Clear(a);
-      lfEmit("fined", { actor: a, sev: 1, tags: ["arrest"], chron: true, text: `The watch fined ${a.first} ${fine} denarii for ${what}` });
+      lfEmit("fined", { actor: a, sev: 1, tags: ["arrest"], chron: true });
       return out("Good. Do not let me see you again.");
     }],
     ["Go quietly to the cells", () => {
@@ -22610,10 +22607,10 @@ function lf2ArrestDialog(g, a) {
         a.coin -= bribe;
         g.coin += bribe;
         lf2Clear(a);
-        lfEmit("bribe", { actor: a, target: g, sev: 2, tags: ["bribe", "crime"], aware: true, chron: false, text: `${a.first} bribed the watchman ${g.first}` });
+        lfEmit("bribe", { actor: a, target: g, sev: 2, tags: ["bribe", "crime"], aware: true, chron: false });
         return out(anyOf(["I did not see you. Go.", "Hm. Must have been somebody else. Off you go."]));
       }
-      lfEmit("bribe", { actor: a, target: g, sev: 2, tags: ["bribe", "crime"], text: `${a.first} tried to bribe the watchman ${g.first}` });
+      lfEmit("bribe", { actor: a, target: g, sev: 2, tags: ["bribe", "crime"] });
       lf2Want(a, lf2Ev()[lf2Ev().length - 1], 1);
       return { say: "A bribe? That is another charge.", opts: [["Go quietly", () => {
         lf2PlayerJailed(g, a, 120);
@@ -22642,7 +22639,7 @@ function lf2ArrestDialog(g, a) {
 function lf2PlayerJailed(g, a, extra) {
   const mins = lf2Sentence(a, extra), what = lf2Charge(a);
   a.lf2Priors = (a.lf2Priors || 0) + 1;
-  lfEmit("arrest", { actor: a, target: g, sev: 2, loud: true, tags: ["arrest"], chron: true, text: `The watch arrested ${a.first} for ${what}` });
+  lfEmit("arrest", { actor: a, target: g, sev: 2, loud: true, tags: ["arrest"], chron: true });
   lf2Jail(a, mins, g);
   lf2Clear(a);
 }
@@ -22701,12 +22698,12 @@ LF2.verbs.push((n, x, y, o, add) => {
     for (const g of npcs) if (lf2OnDuty(g) && Math.random() < lf2Notice(g, nn.tx, nn.ty)) seen = true;
     if (seen || Math.random() < 0.3) {
       nn.jail.until += 90;
-      lfEmit("escape", { actor: nn, sev: 1, tags: ["crime"], chron: true, text: `${nn.first} was caught trying to pick the lock of the cells` });
+      lfEmit("escape", { actor: nn, sev: 1, tags: ["crime"], chron: true });
       lf2Say(nn, seen ? "A watchman saw you. Another hour and a half." : "The pick snapped. They heard. Another hour and a half.");
       return;
     }
     lf2Release(nn, "escape");
-    const ev = lfEmit("escape", { actor: nn, sev: 2, tags: ["crime"], witnessIds: [], chron: false, text: `${nn.first} broke out of the cells` });
+    const ev = lfEmit("escape", { actor: nn, sev: 2, tags: ["crime"], witnessIds: [], chron: false });
     (town.lf2Later = town.lf2Later || []).push({ at: game.time + 40, f: "escapeFound", ev: ev.id, who: nn.id });
   }, 15, "Working at the lock with a bent nail", "pick");
   add("Shout for the watch", (nn) => {
@@ -22730,7 +22727,7 @@ function lf2CrimePlan(n, tod) {
       const q = Math.max(1, Math.floor(mark.coin * 0.4));
       mark.coin -= q;
       nn.coin += q;
-      const ev = lfEmit("pickpocket", { actor: nn, target: mark, sev: 1, aware: false, tags: ["theft", "crime"], chron: false, value: q, text: `${nn.first} lifted ${q} denarii from a drunk ${mark.first}` });
+      const ev = lfEmit("pickpocket", { actor: nn, target: mark, sev: 1, aware: false, tags: ["theft", "crime"], chron: false, value: q });
       (town.lf2Later = town.lf2Later || []).push({ at: game.time + 60 + Math.random() * 300, f: "noticeTheft", ev: ev.id, who: mark.id, what: q + " denarii" });
     } })];
   }
@@ -22752,7 +22749,7 @@ function lf2CrimePlan(n, tod) {
       nn.inv[g] = (nn.inv[g] || 0) + 1;
       c++;
     }
-    if (c) lfEmit("theft", { actor: nn, target: lf2RoomHead(r), sev: 1, aware: false, value: c * 2, tags: ["theft", "crime", "trespass"], chron: false, text: `${nn.first} stole food from the ${lf2Family(r)} family's barrel` });
+    if (c) lfEmit("theft", { actor: nn, target: lf2RoomHead(r), sev: 1, aware: false, value: c * 2, tags: ["theft", "crime", "trespass"], chron: false });
   } })];
 }
 LF2.dec.push(lf2CrimePlan);
@@ -22762,7 +22759,7 @@ const LF2_LATER = {
     if (!ev || !v || v.dead) return;
     const saw = ev.witnesses.slice();
     lfShout(v, anyOf([`My purse! Somebody has had my purse!`, `Where has my money gone? I have been robbed!`]));
-    lfEmit("robbed", { actor: lf2By(ev.actor), target: v, sev: ev.sev + 1, anon: true, sawActor: saw, cause: ev.id, tags: ["theft", "crime"], loud: true, text: `${lf2By(ev.actor).first} picked ${v.first}'s pocket`, anonText: `Somebody picked ${v.first}'s pocket` }).anonText = `Somebody picked ${v.first}'s pocket`;
+    lfEmit("robbed", { actor: lf2By(ev.actor), target: v, sev: ev.sev + 1, anon: true, sawActor: saw, cause: ev.id, tags: ["theft", "crime"], loud: true, anonText: `Somebody picked ${v.first}'s pocket` }).anonText = `Somebody picked ${v.first}'s pocket`;
   },
   escapeFound(j) {
     const ev = lf2EvById(j.ev), a = byId(j.who);
@@ -22935,7 +22932,7 @@ LF2.tickers.push(() => {
         n.lf2Smell = game.time + 1440;
         const o = anyOf(near);
         lfAff(o, n, -1);
-        lfEmit("smelly", { actor: n, target: o, sev: 1, tags: ["smelly"], chron: false, text: `${n.first} smells like a midden` });
+        lfEmit("smelly", { actor: n, target: o, sev: 1, tags: ["smelly"], chron: false });
         if (Math.random() < 0.5) lfShout(o, anyOf(["*sniff* ...is that you?", "Phew. Have you been rolling in something?"]));
       }
     }
@@ -22996,9 +22993,9 @@ function lf2Dice(a, b, stake, cheat) {
   win.coin += st;
   lose.coin -= st;
   const caught = cheat && aw && Math.random() < (lf2Has(b, "curious") ? 0.5 : 0.3) * (b.drunk > 50 ? 0.5 : 1);
-  lfEmit("dice", { actor: win, target: lose, sev: 1, tags: ["gamble"], chron: false, text: `${win.first} won ${st} denarii off ${lose.first} at dice` });
+  lfEmit("dice", { actor: win, target: lose, sev: 1, tags: ["gamble"], chron: false });
   if (caught) {
-    lfEmit("cheat", { actor: a, target: b, sev: 2, loud: true, tags: ["deceit", "crime"], text: `${b.first} caught ${a.first} cheating at dice` });
+    lfEmit("cheat", { actor: a, target: b, sev: 2, loud: true, tags: ["deceit", "crime"] });
     if (!b.player && (lf2Has(b, "brave") || lf2Has(b, "grumpy") || b.drunk > 60) && Math.random() < 0.5) lf2Brawl(b, a);
   }
   return { win, lose, st, caught };
@@ -23006,7 +23003,7 @@ function lf2Dice(a, b, stake, cheat) {
 function lf2Brawl(a, b) {
   if (a.dead || b.dead || a.jail || b.jail) return;
   lfShout(a, anyOf(["That is it! Outside!", "Say that again!", "You want a fight? You have got one!"]));
-  lfEmit("brawl", { actor: a, target: b, sev: 2, loud: true, tags: ["violence", "drunk"], text: `${a.first} started a brawl with ${b.first}${town.tavern ? " at " + town.tavern.name : ""}` });
+  lfEmit("brawl", { actor: a, target: b, sev: 2, loud: true, tags: ["violence", "drunk"] });
   for (const o of [a, b]) {
     if (!o.player) {
       abortPlan(o);
@@ -23043,10 +23040,10 @@ LF2.tickers.push(() => {
       const k = Math.random();
       if (k < 0.45) {
         lfShout(n, anyOf(["\u266A Oh the shepherd had a goat, and the goat had a... hic \u266A", "\u266A Drink to the emperor! Drink to his horse! \u266A", "\u266A Laaa la la LAAA \u266A"]));
-        lfEmit("sing", { actor: n, sev: 1, loud, tags: loud ? ["drunk", "nuisance"] : ["drunk", "funny"], chron: false, text: `${n.first} sang at the top of ${cvPron(n).his} voice, very drunk` });
+        lfEmit("sing", { actor: n, sev: 1, loud, tags: loud ? ["drunk", "nuisance"] : ["drunk", "funny"], chron: false });
       } else if (k < 0.75) {
         lfShout(n, anyOf(["Whoops! Who moved the floor?", "*hic* I am FINE.", "I love you all. Every one of you."]));
-        lfEmit("stumble", { actor: n, sev: 1, tags: ["drunk", "embarrass"], chron: false, text: `${n.first} fell flat on their face, drunk` });
+        lfEmit("stumble", { actor: n, sev: 1, tags: ["drunk", "embarrass"], chron: false });
       } else {
         const foe = inT.find((o) => o !== n && ((n.aff[o.id] || 0) <= -5 || (o.drunk || 0) > 70 && Math.random() < 0.25) && !o.player);
         if (foe) lf2Brawl(n, foe);
@@ -23090,18 +23087,18 @@ LF2.verbs.push((n, x, y, o, add) => {
         abortPlan(heard);
       }
       lfShout(heard, anyOf(["Who is there?!", "I hear you! Get away from my door!", "Thieves! Wake up, everyone!"]));
-      lfEmit("breakin", { actor: nn, target: heard, sev: 2, loud: true, tags: ["trespass", "crime"], text: `${nn.first} tried to break into ${r.name} in the night` });
+      lfEmit("breakin", { actor: nn, target: heard, sev: 2, loud: true, tags: ["trespass", "crime"] });
       lf2Say(nn, "Somebody heard you!");
       return;
     }
     r.unbarred = dayN() + ":" + nn.id;
     lf2Say(nn, "Click. The bar lifts.");
-    lfEmit("breakin", { actor: nn, target: lf2RoomHead(r), sev: 2, aware: false, tags: ["trespass", "crime"], chron: false, text: `${nn.first} picked the lock of ${r.name} in the night` });
+    lfEmit("breakin", { actor: nn, target: lf2RoomHead(r), sev: 2, aware: false, tags: ["trespass", "crime"], chron: false });
   }, 12, "Picking the lock", "pick");
   add("Knock", (nn) => {
     const q = npcs.find((q2) => !q2.dead && lf2InRoom(q2, r) && q2.pose !== "sleep");
     lf2Say(nn, q ? `${q.first} calls out: "${barred ? "We are in bed! Go away." : "It is open, come in."}"` : "No answer.");
-    if (barred && q) lfEmit("knock", { actor: nn, target: q, sev: 1, tags: ["nuisance"], chron: false, text: `${nn.first} came knocking at ${r.name} in the middle of the night` });
+    if (barred && q) lfEmit("knock", { actor: nn, target: q, sev: 1, tags: ["nuisance"], chron: false });
   });
   return r.name + (barred ? " \xB7 barred" : "");
 });
@@ -23118,7 +23115,7 @@ function lf2RomanceDaily() {
     if (!c || Math.random() > (sp ? 0.25 : 0.4)) continue;
     n.crush = c.id;
     addMem(n, "crush", `the day I realised I had feelings for ${c.first}`, null, c.id);
-    if (sp) lfEmit("crush", { actor: n, target: c, sev: 1, tags: ["romance"], witnessIds: [], aware: false, chron: false, text: `${n.first} has fallen for ${c.first}, though they are married to ${sp.first}` });
+    if (sp) lfEmit("crush", { actor: n, target: c, sev: 1, tags: ["romance"], witnessIds: [], aware: false, chron: false });
   }
 }
 function lf2TrystPlan(n, tod) {
@@ -23153,7 +23150,7 @@ function lf2TrystPlan(n, tod) {
     if (lfDist(nn, c) > 3) return;
     bumpAff(nn, c, 6, 12);
     lfMod(nn, "tryst", "giddy after time with " + c.first, 8, 500);
-    lfEmit(sp ? "tryst" : "courting", { actor: nn, target: c, sev: sp ? 2 : 1, x: nn.tx, y: nn.ty, tags: sp ? ["romance", "affair", "scandal"] : ["romance"], chron: false, text: sp ? `${nn.first} was seen kissing ${c.first} in secret, behind ${sp.first}'s back` : `${nn.first} and ${c.first} were seen walking out together` });
+    lfEmit(sp ? "tryst" : "courting", { actor: nn, target: c, sev: sp ? 2 : 1, x: nn.tx, y: nn.ty, tags: sp ? ["romance", "affair", "scandal"] : ["romance"], chron: false });
   } })];
 }
 LF2.dec.push(lf2TrystPlan);
@@ -23181,7 +23178,7 @@ LF2.dec.push(function(n) {
     waitS(5, "stand", `Having it out with ${a.first}`, { nopie: true, onEnd(nn) {
       if (lfDist(nn, a) > 3) return;
       say(nn, a, [[nn, anyOf([`How could you?! Everyone knows!`, `I heard all about it. Do not even try to deny it.`])], [a, anyOf(["It is not what you think!", "Keep your voice down!", "I... I am sorry."])]]);
-      lfEmit("quarrel", { actor: nn, target: a, sev: 2, loud: true, tags: ["scandal", "embarrass"], cause: ev, text: `${nn.first} screamed at ${a.first} in front of everyone about the affair` });
+      lfEmit("quarrel", { actor: nn, target: a, sev: 2, loud: true, tags: ["scandal", "embarrass"], cause: ev });
       lfAff(a, nn, -10);
     } })
   ];
@@ -23193,7 +23190,7 @@ LF2.react.push(function(o, ev, j, c, first) {
   for (const [x, y] of [[a, t], [t, a]]) if (o.crush === x.id && y !== o) {
     lfAff(o, y, -12);
     lfMod(o, "jealous", `jealous of ${y.first}`, -10, 900);
-    if (Math.random() < 0.5) lfEmit("jealous", { actor: o, target: y, sev: 1, tags: ["jealous"], chron: false, text: `${o.first} is eaten up with jealousy over ${x.first} and ${y.first}` });
+    if (Math.random() < 0.5) lfEmit("jealous", { actor: o, target: y, sev: 1, tags: ["jealous"], chron: false });
   }
 });
 LF2.hourly.push((h) => {
@@ -23205,18 +23202,7 @@ LF2.tickers.push(() => {
     const t = n.trapped, pr = t.prop;
     t.lf2 = true;
     const by = pr && pr.by != null ? byId(pr.by) : null, pe = pr && pr.pushEv ? lf2EvById(pr.pushEv) : null;
-    lfEmit("shutin", {
-      actor: by,
-      target: n,
-      sev: 2,
-      anon: true,
-      sawActor: pe ? pe.witnesses : pr && pr.seen || [],
-      cause: pe ? pe.id : null,
-      tags: by ? ["harm", "prank"] : ["misfortune"],
-      chron: false,
-      text: by ? `${by.first} shut ${n.first} in with a ${LF_NOUN[pr.kind]}` : `${n.first} got shut in by a ${pr ? LF_NOUN[pr.kind] : "crate"}`,
-      anonText: `Somebody shut ${n.first} in with a ${pr ? LF_NOUN[pr.kind] : "crate"}`
-    });
+    lfEmit("shutin", { actor: by, target: n, sev: 2, anon: true, sawActor: pe ? pe.witnesses : pr && pr.seen || [], cause: pe ? pe.id : null, tags: by ? ["harm", "prank"] : ["misfortune"], chron: false, anonText: `Somebody shut ${n.first} in with a ${pr ? LF_NOUN[pr.kind] : "crate"}` });
   }
 });
 function lf2Dialog(o, say2, opts) {
@@ -23272,7 +23258,7 @@ LF2.dec.push(function(n) {
     say(nn, q, [[nn, anyOf([`I hear you have been talking about me.`, `What have you been saying about me?`])], [q, anyOf(["What? I never said a word!", "Who told you that?", "Not this again."])]]);
     lfAff(q, nn, -6);
     lfAff(nn, q, -4);
-    lfEmit("quarrel", { actor: nn, target: q, sev: 1, loud: true, tags: ["nuisance", "embarrass"], chron: false, text: `${nn.first} and ${q.first} had a row over some gossip` });
+    lfEmit("quarrel", { actor: nn, target: q, sev: 1, loud: true, tags: ["nuisance", "embarrass"], chron: false });
   } })];
 });
 LF2.dec.push(function(n) {
@@ -23601,7 +23587,7 @@ function lf2GrudgePlan(n, tod) {
     return [goS(near, `Going to have it out with ${a.first}`), waitS(4, "stand", `Having it out with ${a.first}`, { nopie: true, onEnd(nn) {
       if (lfDist(nn, a) > 3) return;
       say(nn, a, [[nn, anyOf([`I know it was you. ${lf2Cap(why)}.`, `Did you think I would not find out?`, `You owe me an apology, ${a.first}.`])], [a, a.player ? "" : anyOf(["Prove it.", "I... I am sorry.", "Get out of my face."])]]);
-      lfEmit("confront", { actor: nn, target: a, sev: 1, loud: true, tags: ["embarrass"], cause: g.ev, chron: false, text: `${nn.first} confronted ${a.first} in front of everyone about how ${why}` });
+      lfEmit("confront", { actor: nn, target: a, sev: 1, loud: true, tags: ["embarrass"], cause: g.ev, chron: false });
       if ((lf2Has(nn, "brave") || (nn.drunk || 0) > 50) && Math.random() < 0.25 && LF2.on("tavern")) lf2Brawl(nn, a);
     } })];
   }
@@ -23616,7 +23602,7 @@ function lf2GrudgePlan(n, tod) {
       if (lfDist(nn, f) > 3) return;
       const kinds = [["theft", `${a.first} is light-fingered, everyone knows it`], ["deceit", `${a.first} cannot be trusted with anything`], ["drunk", `${a.first} is drunk half the time`]];
       const k = anyOf(kinds);
-      const fe = lfEmit("rumour", { actor: a, sev: 1, tags: [k[0]], fake: true, witnessIds: [], chron: false, text: k[1] });
+      const fe = lfEmit("rumour", { actor: a, sev: 1, tags: [k[0]], fake: true, witnessIds: [], chron: false });
       fe.liar = nn.id;
       fe.know = [nn.id];
       delete (a.kn || {})[fe.id];
@@ -23637,7 +23623,7 @@ function lf2GrudgePlan(n, tod) {
       nn.inv[g2] = (nn.inv[g2] || 0) + 1;
       c++;
     }
-    if (c) lfEmit("theft", { actor: nn, target: a, sev: 1, aware: false, cause: g.ev, tags: ["theft", "crime", "trespass"], chron: false, text: `${nn.first} stole from ${a.first}'s barrel to get even` });
+    if (c) lfEmit("theft", { actor: nn, target: a, sev: 1, aware: false, cause: g.ev, tags: ["theft", "crime", "trespass"], chron: false });
   } })];
 }
 LF2.dec.push(lf2GrudgePlan);
@@ -25600,7 +25586,7 @@ function itPickLock(n, r) {
       abortPlan(heard);
     }
     lfShout(heard, anyOf(["Who's there?!", "I hear you! Get away from my door!", "Thieves! Wake up, everyone!"]));
-    lfEmit("breakin", { actor: n, target: heard, sev: 2, loud: true, tags: ["trespass", "crime"], text: `${n.first} tried to break into ${r.name} in the night` });
+    lfEmit("breakin", { actor: n, target: heard, sev: 2, loud: true, tags: ["trespass", "crime"] });
     return;
   }
   if (Math.random() < 0.35) {
@@ -25609,7 +25595,7 @@ function itPickLock(n, r) {
   }
   r.unbarred = dayN() + ":" + n.id;
   playerSay(n, "Click. The bar lifts.");
-  lfEmit("breakin", { actor: n, target: lf2RoomHead(r), sev: 2, aware: false, tags: ["trespass", "crime"], chron: false, text: `${n.first} picked the lock of ${r.name} in the night` });
+  lfEmit("breakin", { actor: n, target: lf2RoomHead(r), sev: 2, aware: false, tags: ["trespass", "crime"], chron: false });
 }
 LF2.pre.unshift({ player(n, p, fx, fy) {
   if (!n.belt || !LF2.on("nightlocks") || !lf2Night() || !grid[fy] || grid[fy][fx] !== T.DOOR) return null;
@@ -28334,7 +28320,10 @@ const TE = {
       }
     }
     const cause = ev.cause != null ? lf2EvById(ev.cause) : null, matter = cause && REG.get("event", cause.kind) ? REG.get("event", cause.kind).matter : null;
-    const tpl = LEX.filter((e) => e.act === "ev:" + ev.kind && e.pack === "plain" && (matter || !e.text.includes("{matter}")));
+    const fits = (pk) => LEX.filter((e) => e.act === "ev:" + ev.kind && e.pack === pk && (matter || !e.text.includes("{matter}")));
+    const pack = typeof town !== "undefined" && town && town.pack === "island" ? "island" : "plain";
+    let tpl = fits(pack);
+    if (!tpl.length) tpl = fits("plain");
     if (tpl.length) {
       const e = tpl[ev.id % tpl.length];
       const name = (p, fallback, at, text, poss) => {
@@ -29370,8 +29359,7 @@ ACTS.offer_gift = {
       target: li,
       sev: 1,
       tags: hated ? [] : ["kindness", "generous"],
-      chron: false,
-      text: `${sp.first} gave ${li.first} ${c.lifeItem}`
+      chron: false
     });
   },
   replies: ["gift_thanks", "gift_delight", "gift_amends", "gift_refuse", "gift_loved", "gift_disliked"]
@@ -29508,8 +29496,7 @@ function parcelGive(n) {
     anon: true,
     sawActor: [n.id],
     witnessIds: [n.id, X.id],
-    chron: false,
-    text: `${g ? g.first : "Somebody"} sent ${X.first} ${giftName(P.item)}`
+    chron: false
   });
   const m = TM.ofEv(X, ev.id), guess = m && m.ver && m.ver.who != null ? lf2By(m.ver.who) : null;
   const gain = 0.35 * (2 + value * 0.8 + (loved ? 7 : 0) - (hated ? 9 : 0));
@@ -29753,7 +29740,7 @@ favReply(
     li.inv = li.inv || {};
     li.inv[k] = (li.inv[k] || 0) + 1;
     reqDone(li, sp, "item", "helped me when I had nothing");
-    lfEmit("help", { actor: sp, target: li, sev: 1, tags: ["kindness", "help"], chron: false, text: `${sp.first} helped ${li.first}` });
+    lfEmit("help", { actor: sp, target: li, sev: 1, tags: ["kindness", "help"], chron: false });
   },
   ["favour_thanks"],
   3
@@ -29985,8 +29972,7 @@ LF2.hourly.push(() => {
       witnessIds: [k.id],
       chron: !!k.player,
       chronKind: "note",
-      loud: false,
-      text: `${b.first} told ${k.first}'s secret`
+      loud: false
     });
     lfAff(k, b, -10, "told my secret");
   }
@@ -30052,7 +30038,7 @@ ACTS.declare = {
   apply: (c, sp, li) => {
     c.done.declare = 1;
     romSet(sp, "declare" + li.id, 12);
-    lfEmit("crush", { actor: sp, target: li, sev: 1, tags: ["romance"], chron: false, text: `${sp.first} told ${li.first} how they feel` });
+    lfEmit("crush", { actor: sp, target: li, sev: 1, tags: ["romance"], chron: false });
   },
   replies: ["declare_return", "declare_gentle"]
 };
@@ -30723,7 +30709,7 @@ ACTS.snap = {
     c.left[sp.id] = 0;
     c.left[li.id] = Math.min(c.left[li.id], 0.9);
     lfAff(li, sp, -3, "snapped at me");
-    lfEmit("quarrel", { actor: sp, target: li, sev: 1, tags: ["nuisance"], chron: false, text: `${sp.first} snapped at ${li.first}` });
+    lfEmit("quarrel", { actor: sp, target: li, sev: 1, tags: ["nuisance"], chron: false });
   },
   replies: ["snap_back", "let_it_go"]
 };
@@ -33547,6 +33533,16 @@ lxi("ev:smelly", "{a} smelled like a midden");
 lxi("ev:newclothes", "{a} has a new tunic, and mentioned it");
 lxi("ev:knock", "{a} knocked on a door at night");
 lxi("ev:wake", "{a} woke {t} up for no reason");
+lxi("ev:arrival", "{a} came ashore with no explanation");
+lxi("ev:arrival", "{a} turned up on the beach");
+lxi("ev:brawl", "{a} and {t} came to blows");
+lxi("ev:charity", "{a} gave to {t} when {t} had nothing");
+lxi("ev:crush", "{a} has a soft spot for {t}");
+lxi("ev:gift", "{a} gave {t} a gift");
+lxi("ev:help", "{a} helped {t} out");
+lxi("ev:jealous", "{a} is jealous of {t}");
+lxi("ev:quarrel", "{a} and {t} had words");
+lxi("ev:rumour", "{a} has been telling tales about {t}");
 lxi("ask_opinion", "What is {about} like? I would like to know before I have to find out.");
 lxi("ask_opinion", "What do you make of {about}?");
 lxi("ask_opinion", "Do you get on with {about}? Be honest. I am only curious.");
@@ -33811,6 +33807,29 @@ lxi("ev:shutin", "{a} shut {t} in");
 lxi("ev:report", "{a} went to the watch about {t}");
 lxi("ev:confront", "{a} confronted {t} in front of everyone");
 lxi("ev:confront", "{a} confronted {t} in front of everyone over {matter}");
+lxi("ev:arrest", "{a} was taken in by the watch");
+lxi("ev:bed_moved", "{t} was carried out of the house in their sleep");
+lxi("ev:bed_moved", "{t} woke up outdoors, bed and all");
+lxi("ev:betrayal", "{a} told {t}'s secret");
+lxi("ev:betrayal", "{t}'s secret got out, and {a} was the one who told");
+lxi("ev:building_down", "{a} pulled down {place}");
+lxi("ev:caught_bathing", "{a} knocked the wall out while {t} was bathing");
+lxi("ev:caught_bathing", "{t} was caught bathing when the wall came down");
+lxi("ev:caught_on_privy", "{a} knocked the wall out while {t} was on the privy");
+lxi("ev:caught_on_privy", "{t} was caught on the privy when the wall came down");
+lxi("ev:caught_praying", "{a} took the wall down while {t} was at prayer");
+lxi("ev:caught_praying", "{t} was praying when the wall came down");
+lxi("ev:furniture_removed", "{a} took {t}'s furniture away");
+lxi("ev:furniture_removed", "{t} came home and the furniture was gone");
+lxi("ev:home_destroyed", "{a} pulled {t}'s house down");
+lxi("ev:home_destroyed", "{t}'s house came down, and {a} was there");
+lxi("ev:person_pushed", "{a} pushed {t} around");
+lxi("ev:person_pushed", "{t} was shoved about, and {a} did it");
+lxi("ev:shove", "{a} pushed {t} around");
+lxi("ev:theft", "{a} stole from {t}");
+lxi("ev:theft", "{a} walked off with something of {t}'s");
+lxi("ev:wall_removed", "{a} knocked a wall out of {t}'s house");
+lxi("ev:wall_removed", "{t}'s wall was knocked down, and {a} did it");
 lxi("offer_gift", "I have {item}. I thought of you, which surprised me.");
 lxi("offer_gift", "This is {item}. It is not much. It is what I had.");
 lxi("gift_thanks", "Thank you. I will find a place for it.");

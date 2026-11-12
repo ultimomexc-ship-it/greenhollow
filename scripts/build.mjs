@@ -33,6 +33,11 @@ for (const f of order.filter(GUARDED)) {
 }
 if (suspect.length) throw new Error('a // comment inside a long line may be hiding code after it (put the comment on the line above, or split the line):\n' + suspect.join('\n'));
 
+// Game code reports what happened as data (lfEmit / LIFE.emit); only the lexicon has words (the `ev:<kind>` lines). A `text:` in an lfEmit call is an English sentence in game code.
+const texty = [];
+for (const f of order) { const t = fs.readFileSync(path.join(src, f), 'utf8'), m = t.match(/lfEmit\((?:[^;]|\n)*?[{,\s]text\s*:/); if (m && !t.slice(0, m.index).split('\n').pop().trim().startsWith('//') && !f.endsWith('core.ts')) texty.push('  src/' + f + ': ' + m[0].slice(0, 60).replace(/\s+/g, ' ')); }
+if (texty.length) throw new Error('lfEmit calls must not carry a `text:` sentence (add an `ev:<kind>` line to the words files instead):\n' + texty.join('\n'));
+
 const joined = order.map(f => `// ---- src/${f} ----\n` + fs.readFileSync(path.join(src, f), 'utf8')).join('\n');
 let js;
 try {

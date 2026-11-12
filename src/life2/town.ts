@@ -207,7 +207,7 @@ function lf2LabourPlan(n, tod) {
 function lf2BuilderPlan(n, tod) {
   n.tidy = true;
   const br = rooms.find(r => !r.dead && r.broken);
-  if (br) { const sp = lf2Spot(br, br.broken.spot) || lf2Spot(br, 'front'); if (sp) return [goS(sp, `Going to mend the ${br.broken.what} at ${br.name}`), waitS(35, 'work', `Mending the ${br.broken.what}`, { tool: 'hammer', onEnd(nn) { if (br.broken) { const w = br.broken; br.broken = null; lfEmit('repair', { actor: nn, sev: 1, tags: ['help'], chron: true, text: `${nn.first} mended the ${w.what} at ${br.name}` }); } } })]; }
+  if (br) { const sp = lf2Spot(br, br.broken.spot) || lf2Spot(br, 'front'); if (sp) return [goS(sp, `Going to mend the ${br.broken.what} at ${br.name}`), waitS(35, 'work', `Mending the ${br.broken.what}`, { tool: 'hammer', onEnd(nn) { if (br.broken) { const w = br.broken; br.broken = null; lfEmit('repair', { actor: nn, sev: 1, tags: ['help'], chron: true }); } } })]; }
   const tp = typeof lfTidyPlan === 'function' ? lfTidyPlan(n) : null; if (tp) return tp;
   const r = anyOf(rooms.filter(r => !r.dead && r.kind !== 'privy')); if (!r) return null;
   const b = besideTile(r.doorX, r.side === 'b' ? r.doorY + 1 : r.doorY - 1, null);
@@ -240,7 +240,7 @@ function lf2ShopPlan(n, tod) {
   }
   // new clothes, now and then, for those doing well
   const sh = lf2Room('shop');
-  if (sh && n.coin >= 40 && Math.random() < 0.08 && (lf2Stock(sh).cloth || 0) > 0) return go(sh, 'cloth', 1, 'Treating themself to new cloth', (nn) => { nn.inv.cloth--; lfMod(nn, 'newclothes', 'showing off a new tunic', 6, 900); lfEmit('newclothes', { actor: nn, sev: 1, tags: ['rich'], chron: false, text: `${nn.first} has a fine new tunic` }); });
+  if (sh && n.coin >= 40 && Math.random() < 0.08 && (lf2Stock(sh).cloth || 0) > 0) return go(sh, 'cloth', 1, 'Treating themself to new cloth', (nn) => { nn.inv.cloth--; lfMod(nn, 'newclothes', 'showing off a new tunic', 6, 900); lfEmit('newclothes', { actor: nn, sev: 1, tags: ['rich'], chron: false }); });
   return null;
 }
 
@@ -269,13 +269,13 @@ function lf2Sabotage(n, r, x, y) {
   const what = LF2_STATION[grid[y][x]] || 'counter', J = Object.keys(LF2_JOBS).find(k => LF2_JOBS[k].room === r.kind && LF2_JOBS[k].recipe);
   r.broken = { what, spot: J ? LF2_JOBS[J].spot : 'front', t: game.time, by: n.id };
   const w = J ? npcs.find(o => o.job === J && !o.dead) : null;
-  const ev = lfEmit('sabotage', { actor: n, target: w, x, y, sev: 2, aware: false, tags: ['sabotage', 'crime', 'harm'], chron: false, text: `${n.first} wrecked the ${what} at ${r.name}` });
+  const ev = lfEmit('sabotage', { actor: n, target: w, x, y, sev: 2, aware: false, tags: ['sabotage', 'crime', 'harm'], chron: false });
   r.broken.ev = ev.id; lf2Say(n, `The ${what} will not work until somebody mends it.`);
 }
 function lf2StealStock(n, r, g) {
   const s = lf2Stock(r); if (!(s[g] > 0)) { lf2Say(n, 'Nothing to take.'); return; }
   const q = Math.min(s[g], g === 'tools' ? 1 : 2); s[g] -= q; n.inv[g] = (n.inv[g] || 0) + q; lf2Say(n, 'Swiped ' + q + ' ' + GOODS[g].name + '.');
-  lfEmit('theft', { actor: n, target: lf2Server(r) || npcs.find(o => LF2_JOBS[o.job] && LF2_JOBS[o.job].room === r.kind && !o.dead), x: n.tx, y: n.ty, sev: g === 'tools' ? 2 : 1, aware: false, value: q * GOODS[g].base, tags: ['theft', 'crime'], chron: false, text: `${n.first} swiped ${q} ${GOODS[g].name} from ${r.name}` });
+  lfEmit('theft', { actor: n, target: lf2Server(r) || npcs.find(o => LF2_JOBS[o.job] && LF2_JOBS[o.job].room === r.kind && !o.dead), x: n.tx, y: n.ty, sev: g === 'tools' ? 2 : 1, aware: false, value: q * GOODS[g].base, tags: ['theft', 'crime'], chron: false });
 }
 LF2.pre.push({ player(n, p, fx, fy) {
   const r = lf2CounterRoom(fx, fy), g = grid[fy] && grid[fy][fx];
@@ -331,7 +331,7 @@ LF2.tickers.push(() => {
   if (p && LF2_JOBS[p.job] && !p.lf2Kept) { const k = p.job; p.job = 'Farmer'; const c = npcs.filter(o => !o.dead && !o.player && o.role === 'Worker' && o.age >= 18 && o.age < 60 && !o.shop && !LF2_JOBS[o.job]).sort((a, b) => (LF2_JOBS[k].fit || []).filter(t => lf2Has(b, t)).length - (LF2_JOBS[k].fit || []).filter(t => lf2Has(a, t)).length)[0]; if (c) lf2SetJob(c, k, true); }
   // the grain dole: nobody is left to starve to death in the street
   if (LF2.on('economy')) for (const n of npcs) { if (n.dead || n.player || n.infant || !(n.starving > (n.age < 14 ? 120 : 300)) || (n.lf2Dole || 0) > game.time) continue; n.lf2Dole = game.time + 600; n.inv.grain = (n.inv.grain || 0) + 3; town.treasury -= 3;
-    lfEmit('dole', { target: n, sev: 1, tags: ['misfortune'], witnessIds: [], aware: false, chron: false, text: `${n.first} was so hungry the council handed out grain from the dole` }); }
+    lfEmit('dole', { target: n, sev: 1, tags: ['misfortune'], witnessIds: [], aware: false, chron: false }); }
 });
 LF2.work.push((n, tod) => {
   if (LF2_JOBS[n.job]) return lf2WorkPlan(n, tod);
@@ -348,7 +348,7 @@ function lf2HungryPlan(n, tod) {
     const s = lf2Stock(r), g = Object.keys(LF2_SELL[r.kind]).find(g => FOODS.includes(g) && (s[g] || 0) > 0); if (!g) return;
     let got = LF2.on('economy') ? lf2Buy(nn, r, g, 2) : 0;
     if (!got) { s[g]--; nn.inv[g] = (nn.inv[g] || 0) + 1; got = 1; const k = lf2Server(r) || npcs.find(o => LF2_JOBS[o.job] && LF2_JOBS[o.job].room === r.kind && !o.dead);
-      if (k && k !== nn) lfEmit('charity', { actor: k, target: nn, sev: 1, tags: ['kindness', 'generous'], chron: false, text: `${k.first} gave ${nn.first} free ${GOODS[g].name}, seeing how hungry ${cvPron(nn).he} was` }); }
+      if (k && k !== nn) lfEmit('charity', { actor: k, target: nn, sev: 1, tags: ['kindness', 'generous'], chron: false }); }
     eatSat(nn, nn.inv);
   } })];
 }

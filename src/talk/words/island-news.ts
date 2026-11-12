@@ -78,3 +78,15 @@ lxi('ev:smelly', '{a} smelled like a midden');
 lxi('ev:newclothes', '{a} has a new tunic, and mentioned it');
 lxi('ev:knock', '{a} knocked on a door at night');
 lxi('ev:wake', '{a} woke {t} up for no reason');
+
+// event wording, island voice, for the kinds that only had the plain wording
+lxi('ev:arrival', '{a} came ashore with no explanation');
+lxi('ev:arrival', '{a} turned up on the beach');
+lxi('ev:brawl', '{a} and {t} came to blows');
+lxi('ev:charity', '{a} gave to {t} when {t} had nothing');
+lxi('ev:crush', '{a} has a soft spot for {t}');
+lxi('ev:gift', '{a} gave {t} a gift');
+lxi('ev:help', '{a} helped {t} out');
+lxi('ev:jealous', '{a} is jealous of {t}');
+lxi('ev:quarrel', '{a} and {t} had words');
+lxi('ev:rumour', '{a} has been telling tales about {t}');

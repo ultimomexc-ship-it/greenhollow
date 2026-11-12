@@ -80,7 +80,8 @@ function lfEmit(kind, o) {
   const a = o.actor || null, t = o.target || null;
   const ev: any = { id: (town.evId = (town.evId || 0) + 1), kind, t: game.time, actor: a ? a.id : null, target: t ? t.id : null,
     x: o.x != null ? o.x : (a ? a.tx : t ? t.tx : 0), y: o.y != null ? o.y : (a ? a.ty : t ? t.ty : 0), sev: o.sev == null ? 1 : o.sev, tags: o.tags || [],
-    text: o.text || kind, anonText: o.anonText || null, mem: o.mem || null, cause: o.cause || null, fake: !!o.fake, anon: !!o.anon, know: [], chain: [], effects: [], witnesses: [], place: o.place || (a ? placeOf(a) : '') };
+    text: kind, anonText: o.anonText || null, mem: o.mem || null, cause: o.cause || null, fake: !!o.fake, anon: !!o.anon, know: [], chain: [], effects: [], witnesses: [], place: o.place || (a ? placeOf(a) : '') };
+  ev.text = o.text || (typeof TE !== 'undefined' ? TE.text(ev) : kind);   // (game code reports what happened as data: the sentence comes from the lexicon's event lines, `ev:<kind>`)
   const evs = lf2Ev(); evs.push(ev); if (evs.length > 1500) evs.splice(0, evs.length - 1500);
   let w = o.witnessIds ? o.witnessIds.map(lf2By).filter(Boolean) : lf2Witnesses(ev.x, ev.y, [a], o.loud);
   if (t && o.aware !== false && !t.dead && (t.pose !== 'sleep' || o.loud) && !w.includes(t)) w.push(t);

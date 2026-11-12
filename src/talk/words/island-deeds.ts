@@ -71,3 +71,28 @@ lxi('ev:shutin', '{a} shut {t} in');
 lxi('ev:report', '{a} went to the watch about {t}');
 lxi('ev:confront', '{a} confronted {t} in front of everyone');
 lxi('ev:confront', '{a} confronted {t} in front of everyone over {matter}');
+
+// event wording, island voice, for the kinds that only had the plain wording
+lxi('ev:arrest', '{a} was taken in by the watch');
+lxi('ev:bed_moved', '{t} was carried out of the house in their sleep');
+lxi('ev:bed_moved', '{t} woke up outdoors, bed and all');
+lxi('ev:betrayal', "{a} told {t}'s secret");
+lxi('ev:betrayal', "{t}'s secret got out, and {a} was the one who told");
+lxi('ev:building_down', '{a} pulled down {place}');
+lxi('ev:caught_bathing', '{a} knocked the wall out while {t} was bathing');
+lxi('ev:caught_bathing', '{t} was caught bathing when the wall came down');
+lxi('ev:caught_on_privy', '{a} knocked the wall out while {t} was on the privy');
+lxi('ev:caught_on_privy', '{t} was caught on the privy when the wall came down');
+lxi('ev:caught_praying', '{a} took the wall down while {t} was at prayer');
+lxi('ev:caught_praying', '{t} was praying when the wall came down');
+lxi('ev:furniture_removed', "{a} took {t}'s furniture away");
+lxi('ev:furniture_removed', '{t} came home and the furniture was gone');
+lxi('ev:home_destroyed', "{a} pulled {t}'s house down");
+lxi('ev:home_destroyed', "{t}'s house came down, and {a} was there");
+lxi('ev:person_pushed', '{a} pushed {t} around');
+lxi('ev:person_pushed', '{t} was shoved about, and {a} did it');
+lxi('ev:shove', '{a} pushed {t} around');
+lxi('ev:theft', '{a} stole from {t}');
+lxi('ev:theft', "{a} walked off with something of {t}'s");
+lxi('ev:wall_removed', "{a} knocked a wall out of {t}'s house");
+lxi('ev:wall_removed', "{t}'s wall was knocked down, and {a} did it");

@@ -142,8 +142,7 @@ ACTS.offer_gift = {
       target: li,
       sev: 1,
       tags: hated ? [] : ['kindness', 'generous'],
-      chron: false,
-      text: `${sp.first} gave ${li.first} ${c.lifeItem}`
+      chron: false
     });
   },
   replies: ['gift_thanks', 'gift_delight', 'gift_amends', 'gift_refuse', 'gift_loved', 'gift_disliked']

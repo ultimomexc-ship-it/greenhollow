@@ -115,8 +115,7 @@ LF2.hourly.push(() => {
       witnessIds: [k.id],
       chron: !!k.player,
       chronKind: 'note',
-      loud: false,
-      text: `${b.first} told ${k.first}'s secret`
+      loud: false
     });
     lfAff(k, b, -10, 'told my secret');
   }

@@ -57,7 +57,10 @@ const TE: any = {
     }
     const cause = ev.cause != null ? lf2EvById(ev.cause) : null,
       matter = cause && REG.get('event', cause.kind) ? REG.get('event', cause.kind).matter : null;
-    const tpl = LEX.filter(e => e.act === 'ev:' + ev.kind && e.pack === 'plain' && (matter || !e.text.includes('{matter}')));
+    const fits = (pk: string) => LEX.filter(e => e.act === 'ev:' + ev.kind && e.pack === pk && (matter || !e.text.includes('{matter}')));
+    const pack = typeof town !== 'undefined' && town && town.pack === 'island' ? 'island' : 'plain';
+    let tpl = fits(pack);
+    if (!tpl.length) tpl = fits('plain');
     if (tpl.length) {
       const e = tpl[ev.id % tpl.length];
       // the same event reads the same way every time it is shown; the teller is "I" and the listener "you" wherever the story names them

@@ -85,8 +85,7 @@ function parcelGive(n: any) {
     anon: true,
     sawActor: [n.id],
     witnessIds: [n.id, X.id],
-    chron: false,
-    text: `${g ? g.first : 'Somebody'} sent ${X.first} ${giftName(P.item)}`
+    chron: false
   });
   const m = TM.ofEv(X, ev.id),
     guess = m && m.ver && m.ver.who != null ? lf2By(m.ver.who) : null;
