@@ -10389,7 +10389,7 @@ function buyPrice(m, g) {
   if (!k) return 0;
   const f = (m.stock[g] || 0) / k;
   if (f >= 1) return 0;
-  return Math.max(1, Math.round(GOODS[g].base * (1 - 0.55 * f)));
+  return Math.max(1, Math.round(GOODS[g].base * (1 - 0.55 * f) * (m.def.pay || 1)));
 }
 function marketPrice(g) {
   const ps = merchants.filter((m) => m.sells[g] && (m.stock[g] || 0) > 0).map((m) => sellPrice(m, g));
@@ -26192,8 +26192,11 @@ function farmShopDialog(m) {
   };
   lf2Dialog(m.n, `${m.n.first}: ${serviceSay("shop_greet_back", m.n, n, { item: "", qty: 1, shop: m.def.noun })} (You have ${money()}.)`, menu());
 }
+const HAMLET_TUNE = { pay: 1, carter: 0.5, carterKeep: 0.4, rentBase: 2, rentRoof: 1, rentWindow: 1, rentFlowers: 1, startCoin: 60, famCoin: 20 };
 const HAMLET_SEEDS = ["barley", "turnip", "cabbage", "poppy"];
-const HAMLET_TRADER_DEF = { buys: {}, sells: {}, open: [6, 19], tool: "wipe", noun: "trading stall" };
+const HAMLET_TRADER_DEF = { buys: {}, sells: {}, open: [6, 19], tool: "wipe", noun: "trading stall", get pay() {
+  return HAMLET_TUNE.pay;
+} };
 for (const k of HAMLET_SEEDS) HAMLET_TRADER_DEF.sells["seed_" + k] = IT_SEEDS[k] && IT_SEEDS[k].flower ? 14 : 30;
 for (const g of Object.keys(GROCER_DEF.buys)) {
   HAMLET_TRADER_DEF.buys[g] = GROCER_DEF.buys[g] * 3;
@@ -26289,9 +26292,9 @@ function hamletStart() {
     m.newStock = {};
     m.stock.grain = 30;
   }
-  P.coin = 60;
-  a.coin = 12;
-  b.coin = 8;
+  P.coin = HAMLET_TUNE.startCoin;
+  a.coin = Math.round(HAMLET_TUNE.famCoin * 0.6);
+  b.coin = HAMLET_TUNE.famCoin - a.coin;
   c.coin = 0;
   a.inv.grain = 6;
   b.inv.grain = 6;
@@ -26389,7 +26392,7 @@ function hamletRestock() {
       continue;
     }
     for (const g of Object.keys(m.sells)) {
-      if (g.startsWith("seed_") && !(m.def.range || HAMLET_SEEDS).includes(g.slice(5))) continue;
+      if (!g.startsWith("seed_") || !(m.def.range || HAMLET_SEEDS).includes(g.slice(5))) continue;
       const cap0 = m.sells[g], was = m.stock[g] || 0;
       if (was >= cap0 * 0.9) continue;
       m.stock[g] = Math.round(cap0 * (0.8 + Math.random() * 0.2));
@@ -26494,10 +26497,10 @@ function hamletCarter() {
   const m = merchants.find((q) => q.def === HAMLET_TRADER_DEF);
   if (!m) return;
   for (const g of Object.keys(m.buys)) {
-    const over = (m.stock[g] || 0) - Math.floor(m.buys[g] * 0.4);
+    const over = (m.stock[g] || 0) - Math.floor(m.buys[g] * HAMLET_TUNE.carterKeep);
     if (over < 2) continue;
     m.stock[g] -= over;
-    m.n.coin += Math.round(over * GOODS[g].base * 0.5);
+    m.n.coin += Math.round(over * GOODS[g].base * HAMLET_TUNE.carter);
     town.eco.exported = (town.eco.exported || 0) + over;
   }
 }
@@ -26783,7 +26786,8 @@ function drawYards(c, now) {
     c.restore();
   }
 }
-const RENT_BASE = 2, RENT_ROOF = 1, RENT_WINDOW = 1, RENT_FLOWERS = 1, RENT_HOUR = 6, RENT_FLOWER_R = 4;
+const RENT_HOUR = 6, RENT_FLOWER_R = 4;
+const RENT_BASE = 2, RENT_ROOF = 1, RENT_WINDOW = 1, RENT_FLOWERS = 1;
 const rentTrader = (n) => !!(n && n.shop && n.shop.def === HAMLET_TRADER_DEF);
 function rentHome(n) {
   const o = { yard: null, roof: false, window: false, flowers: false };
@@ -26810,10 +26814,10 @@ function rentOf(n) {
   if (!yardOn() || n.dead || n.age < 16 || n === yardPlayer() || n.player || rentTrader(n)) return none;
   const h = rentHome(n);
   if (!h.yard) return none;
-  const parts = [["a yard", RENT_BASE]];
-  if (h.roof) parts.push(["a roof", RENT_ROOF]);
-  if (h.roof && h.window) parts.push(["a window", RENT_WINDOW]);
-  if (h.flowers) parts.push(["flowers", RENT_FLOWERS]);
+  const T2 = HAMLET_TUNE, parts = [["a yard", T2.rentBase]];
+  if (h.roof) parts.push(["a roof", T2.rentRoof]);
+  if (h.roof && h.window) parts.push(["a window", T2.rentWindow]);
+  if (h.flowers) parts.push(["flowers", T2.rentFlowers]);
   return { amt: parts.reduce((s, p) => s + p[1], 0), parts };
 }
 const rentState = () => town.rent || (town.rent = { day: -1, today: 0, due: 0, total: 0 });
@@ -26912,7 +26916,7 @@ function rentHUD() {
   const R = rentState();
   let exp = 0;
   for (const n of npcs) exp += rentOf(n).amt;
-  return `<span class="rentchip" title="Rent is paid each morning at six by every adult with a yard: ${RENT_BASE} coin, and 1 more each for a roof, a window and flowers near the bed.">${Math.floor(pl.coin)} coin \xB7 rent ${R.day >= 0 && R.due ? `today ${R.today}${R.today < R.due ? " of " + R.due : ""}` : `tomorrow ${exp}`}</span>`;
+  return `<span class="rentchip" title="Rent is paid each morning at six by every adult with a yard: ${HAMLET_TUNE.rentBase} coin, and more for a roof, a window and flowers near the bed.">${Math.floor(pl.coin)} coin \xB7 rent ${R.day >= 0 && R.due ? `today ${R.today}${R.today < R.due ? " of " + R.due : ""}` : `tomorrow ${exp}`}</span>`;
 }
 const rentSig = () => {
   if (!yardOn()) return "";

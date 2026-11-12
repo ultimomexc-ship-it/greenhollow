@@ -1,9 +1,11 @@
 /* The Hamlet: the minimum game (docs/minimum-game.md). Building and farming only, with a trader, a family and you. Everything else is switched off as modules
    (a recipe plus the rules in modules.ts: no bladder, no tool wear, no births or ageing, no death from hunger, no mushrooms). Nothing is deleted: each switch is an add-on for later. */
 
+/** the numbers the harness tunes (tools/balance.mjs --tune=pay=1.5,carter=0.9): what the trader pays for crops against the going rate, what the carter pays him for the surplus and how much of his room he leaves, and the rent */
+const HAMLET_TUNE: any = { pay: 1, carter: 0.5, carterKeep: 0.4, rentBase: 2, rentRoof: 1, rentWindow: 1, rentFlowers: 1, startCoin: 60, famCoin: 20 };
 const HAMLET_SEEDS = ['barley', 'turnip', 'cabbage', 'poppy'];
 /** the one trader: sells four seeds (the building items come in the next step) and buys every crop */
-const HAMLET_TRADER_DEF: any = { buys: {} as any, sells: {} as any, open: [6, 19], tool: 'wipe', noun: 'trading stall' };
+const HAMLET_TRADER_DEF: any = { buys: {} as any, sells: {} as any, open: [6, 19], tool: 'wipe', noun: 'trading stall', get pay() { return HAMLET_TUNE.pay; } };
 for (const k of HAMLET_SEEDS) HAMLET_TRADER_DEF.sells['seed_' + k] = IT_SEEDS[k] && IT_SEEDS[k].flower ? 14 : 30;
 for (const g of Object.keys(GROCER_DEF.buys)) { HAMLET_TRADER_DEF.buys[g] = GROCER_DEF.buys[g] * 3; if (g !== 'flowers') HAMLET_TRADER_DEF.sells[g] = GROCER_DEF.buys[g] * 3; }   // (one stall for the whole island: three times the greengrocer's room)   // (he sells food too: a household whose fields fall short buys it back)
 /** what the trader sells for the building kit, in coin each (the harness tunes these) */
@@ -40,7 +42,7 @@ function hamletStart() {
   setRole(TR, 'Trader', mk); const m = TR.shop;
   if (m) { m.def = HAMLET_TRADER_DEF; m.buys = HAMLET_TRADER_DEF.buys; m.sells = HAMLET_TRADER_DEF.sells; m.stock = {}; m.newStock = {}; m.n.coin = 60; farmRestock(); m.newStock = {}; m.stock.grain = 30; }
   // coin, beds and places
-  P.coin = 60; a.coin = 12; b.coin = 8; c.coin = 0; a.inv.grain = 6; b.inv.grain = 6; a.inv.seed_barley = 4; b.inv.seed_turnip = 3; TR.coin = Math.max(TR.coin, 60);
+  P.coin = HAMLET_TUNE.startCoin; a.coin = Math.round(HAMLET_TUNE.famCoin * 0.6); b.coin = HAMLET_TUNE.famCoin - a.coin; c.coin = 0; a.inv.grain = 6; b.inv.grain = 6; a.inv.seed_barley = 4; b.inv.seed_turnip = 3; TR.coin = Math.max(TR.coin, 60);
   const taken = new Set<number>(); taken.add(st.front.y * W + st.front.x); taken.add(st.y * W + st.x);
   const spot = (x0: number, y0: number) => { for (let r = 0; r < 8; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; const x = x0 + dx, y = y0 + dy; if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3 || !walkable(x, y) || lfPropAt(x, y) || taken.has(y * W + x) || grid[y][x] === T.STALL) continue; taken.add(y * W + x); return { x, y }; } return { x: x0, y: y0 }; };
   const bedFor = (n: any, x0: number, y0: number) => { const p = spot(x0, y0), pr: any = lfAddProp('bed', p.x, p.y); pr.v = Math.floor(R() * 5); pr.rot = 0; pr.owner = n; n.bed = pr; return pr; };
@@ -82,7 +84,8 @@ function hamletRestock() {
   if (!yardOn()) return;
   for (const m of merchants) {
     if (![HAMLET_TRADER_DEF, HAMLET_SEEDSTALL_DEF].includes(m.def)) { if (m.def === HAMLET_CARP_DEF && m.n.coin < 25) m.n.coin += 25; continue; }
-    for (const g of Object.keys(m.sells)) { if (g.startsWith('seed_') && !(m.def.range || HAMLET_SEEDS).includes(g.slice(5))) continue; const cap0 = m.sells[g], was = m.stock[g] || 0; if (was >= cap0 * 0.9) continue; m.stock[g] = Math.round(cap0 * (0.8 + Math.random() * 0.2)); m.n.coin -= Math.min(Math.max(0, m.n.coin), Math.round((m.stock[g] - was) * GOODS[g].base * 0.4)); }
+    // (seed only: the food on his shelf is what farmers sold him, never made up)
+    for (const g of Object.keys(m.sells)) { if (!g.startsWith('seed_') || !(m.def.range || HAMLET_SEEDS).includes(g.slice(5))) continue; const cap0 = m.sells[g], was = m.stock[g] || 0; if (was >= cap0 * 0.9) continue; m.stock[g] = Math.round(cap0 * (0.8 + Math.random() * 0.2)); m.n.coin -= Math.min(Math.max(0, m.n.coin), Math.round((m.stock[g] - was) * GOODS[g].base * 0.4)); }
     if (m.n.coin < 25) m.n.coin += 25;
   }
 }
@@ -119,6 +122,6 @@ function bldDeleteStall(x: number, y: number): boolean {
 /** the carter calls at the trader's every six hours and takes what is over 40% of his room, at half price, so the stall keeps buying (the farming village's carter came once a day and left 70%: on one stall for a whole island that stopped the money) */
 function hamletCarter() {
   if (!yardOn()) return; const m = merchants.find((q: any) => q.def === HAMLET_TRADER_DEF); if (!m) return;
-  for (const g of Object.keys(m.buys)) { const over = (m.stock[g] || 0) - Math.floor(m.buys[g] * 0.4); if (over < 2) continue; m.stock[g] -= over; m.n.coin += Math.round(over * GOODS[g].base * 0.5); town.eco.exported = (town.eco.exported || 0) + over; }
+  for (const g of Object.keys(m.buys)) { const over = (m.stock[g] || 0) - Math.floor(m.buys[g] * HAMLET_TUNE.carterKeep); if (over < 2) continue; m.stock[g] -= over; m.n.coin += Math.round(over * GOODS[g].base * HAMLET_TUNE.carter); town.eco.exported = (town.eco.exported || 0) + over; }
 }
 LF2.hourly.push((h: number) => { if (h % 6 === 0) hamletCarter(); });

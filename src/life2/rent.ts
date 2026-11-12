@@ -2,7 +2,8 @@
    depends on what you built for them. Unpaid rent is not a debt: it is simply not paid, and it weighs on them. Contentment is the mood they already have, moved by
    having a yard, a roof, a window and flowers; a hungry or miserable villager works slowly. Nobody dies of any of it. */
 
-const RENT_BASE = 2, RENT_ROOF = 1, RENT_WINDOW = 1, RENT_FLOWERS = 1, RENT_HOUR = 6, RENT_FLOWER_R = 4;
+const RENT_HOUR = 6, RENT_FLOWER_R = 4;   // (the amounts are HAMLET_TUNE: rentBase, rentRoof, rentWindow, rentFlowers)
+const RENT_BASE = 2, RENT_ROOF = 1, RENT_WINDOW = 1, RENT_FLOWERS = 1;   // (the starting values, for the tests and the tooltip)
 const rentTrader = (n: any) => !!(n && n.shop && n.shop.def === HAMLET_TRADER_DEF);
 /** what somebody's home is like: { yard, roof, window, flowers } (all false without a bed) */
 function rentHome(n: any): any {
@@ -17,7 +18,7 @@ function rentHome(n: any): any {
 function rentOf(n: any): any {
   const none = { amt: 0, parts: [] as any[] }; if (!yardOn() || n.dead || n.age < 16 || n === yardPlayer() || n.player || rentTrader(n)) return none;
   const h = rentHome(n); if (!h.yard) return none;
-  const parts: any[] = [['a yard', RENT_BASE]]; if (h.roof) parts.push(['a roof', RENT_ROOF]); if (h.roof && h.window) parts.push(['a window', RENT_WINDOW]); if (h.flowers) parts.push(['flowers', RENT_FLOWERS]);
+  const T = HAMLET_TUNE, parts: any[] = [['a yard', T.rentBase]]; if (h.roof) parts.push(['a roof', T.rentRoof]); if (h.roof && h.window) parts.push(['a window', T.rentWindow]); if (h.flowers) parts.push(['flowers', T.rentFlowers]);
   return { amt: parts.reduce((s, p) => s + p[1], 0), parts };
 }
 const rentState = (): any => town.rent || (town.rent = { day: -1, today: 0, due: 0, total: 0 });
@@ -62,7 +63,7 @@ LF2.dec.push(rentErrand);
 function rentHUD(): string {
   const pl = yardPlayer(); if (!yardOn() || !pl) return ''; const R = rentState();
   let exp = 0; for (const n of npcs) exp += rentOf(n).amt;
-  return `<span class="rentchip" title="Rent is paid each morning at six by every adult with a yard: ${RENT_BASE} coin, and 1 more each for a roof, a window and flowers near the bed.">${Math.floor(pl.coin)} coin · rent ${R.day >= 0 && R.due ? `today ${R.today}${R.today < R.due ? ' of ' + R.due : ''}` : `tomorrow ${exp}`}</span>`;
+  return `<span class="rentchip" title="Rent is paid each morning at six by every adult with a yard: ${HAMLET_TUNE.rentBase} coin, and more for a roof, a window and flowers near the bed.">${Math.floor(pl.coin)} coin · rent ${R.day >= 0 && R.due ? `today ${R.today}${R.today < R.due ? ' of ' + R.due : ''}` : `tomorrow ${exp}`}</span>`;
 }
 const rentSig = () => { if (!yardOn()) return ''; const pl = yardPlayer(), R = rentState(); let exp = 0; for (const n of npcs) exp += rentOf(n).amt; return Math.floor(pl ? pl.coin : 0) + ':' + R.today + ':' + R.due + ':' + exp; };
 /** the villager card: what they pay and why, and what they think of where they live */

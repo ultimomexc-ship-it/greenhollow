@@ -3,6 +3,7 @@
    Same seed = same run. Use it before and after changing a price, a yield or a rent.
 
      node tools/balance.mjs [--days=30] [--seed=41] [--policy=steady|greedy|lazy] [--out=/tmp/claude-0/balance] [--file=dist/index.html]
+                            [--tune=pay=1.5,carter=1,rentBase=3] [--price=bed=8,field=1] [--tag=name]   (HAMLET_TUNE and HAMLET_PRICES, for trying a number without a build)
 
    The bot is a model of a player, not a player: it pays the trader's prices (HAMLET_PRICES) and puts things down at once (build mode stops time anyway), clears
    trees and rocks where it builds (free, as the hammer is), and farms its own fields at up to BOT.acts actions an hour between 6 and 20.
@@ -16,13 +17,14 @@ import { launch, openGame, simulate } from '../tests/lib.mjs';
 
 const args = process.argv.slice(2);
 const opt = (k, d) => { const a = args.find(x => x.startsWith('--' + k + '=')); return a ? a.slice(k.length + 3) : d; };
-const days = +opt('days', 30), seed = +opt('seed', 41), policy = opt('policy', 'steady'), out = opt('out', '/tmp/claude-0/balance'), file = opt('file', 'dist/index.html');
+const tune = opt('tune', ''), price = opt('price', ''), days = +opt('days', 30), seed = +opt('seed', 41), policy = opt('policy', 'steady'), out = opt('out', '/tmp/claude-0/balance'), file = opt('file', 'dist/index.html');
 fs.mkdirSync(out, { recursive: true });
 
 const browser = await launch();
 const { page, errors } = await openGame(browser, path.resolve(file), { rng: seed, town: 'balance-' + seed });
 
-await page.evaluate(([policy, seed]) => {
+await page.evaluate(([policy, seed, tune, price]) => {
+  for (const kv of tune.split(',').filter(Boolean)) { const [k, v] = kv.split('='); HAMLET_TUNE[k] = +v; } for (const kv of price.split(',').filter(Boolean)) { const [k, v] = kv.split('='); HAMLET_PRICES[k] = +v; }
   newTown('balance-' + seed, 'hamlet');
   const P = game.player, TR = npcs.find(n => n.shop), PR = HAMLET_PRICES;
   const B = window.BOT = { policy, acts: 6, spent: 0, farm: 0, spentDay: 0, farmDay: 0, built: [], log: [], cycle: 0, stuck: 0, wantCost: 0, want: '', ownTarget: 12, firstSale: null, steps: {} };
@@ -30,6 +32,8 @@ await page.evaluate(([policy, seed]) => {
   const spend = c => { pay(P, TR, c); B.spent += c; B.spentDay += c; };
   const drop = (x, y) => { const pr = lfPropAt(x, y); if (pr) { town.pblock[y * W + x] = 0; town.propAt.delete(y * W + x); town.props = town.props.filter(q => q !== pr); } if (town.nodeMap && town.nodeMap.has(y * W + x)) { const nd = town.nodeMap.get(y * W + x); town.nodes = town.nodes.filter(q => q !== nd); town.nodeMap.delete(y * W + x); } if (grid[y][x] !== T.GRASS) setT(x, y, T.GRASS); };
   /** ground for a w x h block (one tile of margin), as near the stall as there is: grass, trees and rocks only (the bot clears them), nothing built, no yard */
+  /* what each villager earned selling and spent buying, from the trade log (the player's own sales are the bot's `farm`) */
+  B.flow = {}; const _lt = logTrade; logTrade = function (buyer, seller, g, q, total) { const f = id => B.flow[id] || (B.flow[id] = { earn: 0, spend: 0 }); if (buyer && buyer.id != null && !buyer.shop) f(buyer.id).spend += total; if (seller && seller.id != null && !seller.shop) f(seller.id).earn += total; return _lt.apply(this, arguments); };
   B.ground = (w, h) => {
     const sx = TR.shop.front.x, sy = TR.shop.front.y, cand = [];
     for (let y = 6; y < town.h0 - 6 - h; y++) for (let x = 6; x < W - 6 - w; x++) { const d = Math.hypot(x + w / 2 - sx, y + h / 2 - sy); if (d < 70) cand.push([d, x, y]); }
@@ -81,6 +85,7 @@ await page.evaluate(([policy, seed]) => {
     if (B.own.n < B.ownTarget) return { what: 'own fields', cost: PR.field * 3, run: () => B.ownField(Math.min(6, Math.floor(P.coin / PR.field))) };
     const hh = town.yards.filter(y => y.open == null && yardPeople(y).length).length + (yardOfN(pl) ? 0 : 1);
     if (pol === 'steady' && hh >= 5) for (const r of lived) { if (!r.room) return { what: 'a room round the beds', cost: r.pl.room, run: () => B.roomFor(r) }; if (!r.flowers) return { what: 'poppies by the beds', cost: r.pl.flowers, run: () => B.flowersFor(r) }; }
+    for (const r of empty) { const Y = town.yards.find(y => y.id === r.id); if (Y && !yardFreeBeds(Y).length) { const k = [1, 2, 4][B.cycle % 3]; return { what: `${k} bed${k > 1 ? 's' : ''} for an empty yard`, cost: PR.bed * k, run: () => { let n = 0; for (let i = 0; i < k; i++) { const sp = arrBedSpot(Y, null); if (!sp) break; const b = lfAddProp('bed', sp.x, sp.y); b.v = i; b.rot = 0; n++; } spend(PR.bed * n); yardScan(true); yardHousing(); B.cycle++; note('put ' + n + ' beds in an empty yard'); } }; } }
     for (const r of empty) if (r.fields < r.pl.fields) return { what: 'fields for the empty yard', cost: PR.field * 3, run: () => B.fieldsFor(r, Math.min(6, Math.floor(P.coin / PR.field))) };
     if (!empty.length) { const k = pol === 'greedy' ? 2 : [1, 2, 4][B.cycle % 3], y = B.yardPlan(k), cost = y.shell + (pol === 'greedy' ? y.room + y.flowers : 0); return { what: `an empty yard with ${k} bed${k > 1 ? 's' : ''}`, cost, run: () => { if (B.buildYard(k, pol === 'greedy')) B.cycle++; } }; }
     return null;
@@ -99,12 +104,12 @@ await page.evaluate(([policy, seed]) => {
   B.snap = () => {
     const pl = P, ppl = npcs.filter(n => !n.dead && n !== pl), c = B.check(), R = town.rent || { today: 0, due: 0, total: 0 };
     const all = npcs.reduce((s, n) => s + (n.coin || 0), 0);
-    const hhs = town.yards.filter(y => y.open == null && yardPeople(y).length && !yardPeople(y).some(rentTrader)).map(y => { const p = yardPeople(y), ad = p.filter(n => n.age >= 16); return { id: y.id, name: yardName(y), people: p.length, coin: Math.round(ad.reduce((s, n) => s + n.coin, 0)), store: foodCount(y.store || {}), due: ad.reduce((s, n) => s + rentOf(n).amt, 0), unpaid: ad.filter(n => n.rentLast && !n.rentLast.ok).length, hungry: p.filter(n => n.hunger > 70).length, mood: Math.round(p.reduce((s, n) => s + n.mood, 0) / p.length), fields: town.crops.filter(q => yardAtXY(q.x, q.y) === y).length }; });
+    const hhs = town.yards.filter(y => y.open == null && yardPeople(y).length && !yardPeople(y).some(rentTrader)).map(y => { const p = yardPeople(y), ad = p.filter(n => n.age >= 16); return { id: y.id, name: yardName(y), people: p.length, coin: Math.round(ad.reduce((s, n) => s + n.coin, 0)), store: foodCount(y.store || {}), due: ad.reduce((s, n) => s + rentOf(n).amt, 0), unpaid: ad.filter(n => n.rentLast && !n.rentLast.ok).length, hungry: p.filter(n => n.hunger > 70).length, mood: Math.round(p.reduce((s, n) => s + n.mood, 0) / p.length), fields: town.crops.filter(q => yardAtXY(q.x, q.y) === y).length, earn: Math.round(p.reduce((t, q) => t + (B.flow[q.id] ? B.flow[q.id].earn : 0), 0)), spend: Math.round(p.reduce((t, q) => t + (B.flow[q.id] ? B.flow[q.id].spend : 0), 0)) }; });
     const s = { day: Math.floor(game.time / 1440), pop: npcs.filter(n => !n.dead).length, hh: c.hh, coin: Math.round(pl.coin), rent: R.today, due: R.due, rentTotal: R.total, farm: B.farmDay, spent: B.spentDay, all: Math.round(all), trader: Math.round(TR.coin), traderGrain: Math.round(TR.shop.stock.grain || 0), exported: town.eco.exported || 0, harvests: (town.tut && town.tut.harvests) || 0, hungry: c.hungry, bedless: ppl.filter(n => !yardHasBed(n)).length, mood: Math.round(c.mood), want: B.want, wantCost: B.wantCost, hhs, apart: (town.apart || []).length };
     /* stuck = a day wanting something, short of its price, and buying nothing */
     if (B.want && pl.coin < B.wantCost && !B.spentDay) B.stuck++; else B.stuck = 0; s.stuck = B.stuck; B.farmDay = 0; B.spentDay = 0; return s;
   };
-}, [policy, seed]);
+}, [policy, seed, tune, price]);
 
 /* ---- play ---- */
 const daysOut = []; let maxHungry = 0;
@@ -116,8 +121,9 @@ for (let d = 0; d < days; d++) {
   const s = await page.evaluate(() => BOT.snap()); s.maxHungry = maxHungry; maxHungry = 0; daysOut.push(s);
   process.stdout.write(`day ${String(s.day).padStart(2)}  pop ${String(s.pop).padStart(2)}  hh ${String(s.hh).padStart(2)}  coin ${String(s.coin).padStart(4)}  rent ${s.rent}/${s.due}  farm ${s.farm}  spent ${s.spent}  hungry ${s.maxHungry}  mood ${s.mood}  next: ${s.want || '-'} (${s.wantCost})\n`);
 }
+if (opt('why', '')) console.log(await page.evaluate(() => JSON.stringify({ blocked: arrBlocked(), arrYard: !!arrYard(), arr: town.arr, bedless: npcs.filter(n => !n.dead && n !== game.player && n.age >= 3 && !yardHasBed(n)).map(n => [n.first, n.age, n.homeless, !!n.moveBed]), hungry: npcs.filter(n => n.hunger > 70).map(n => [n.first, Math.round(n.hunger), n.status]), empty: town.yards.filter(y => !yardPeople(y).length).map(y => [y.id, yardFreeBeds(y).length, y.open]) })));
 if (opt('debug', '')) console.log(await page.evaluate(() => JSON.stringify({ own: BOT.own, built: BOT.built.map(r => [r.x0, r.y0, r.pl.w, r.pl.h, r.id]), yards: town.yards.map(y => { const xs = y.cells.map(k => k % W), ys = y.cells.map(k => (k / W) | 0); return [y.id, y.cells.length, Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys), y.gates.length, y.open]; }) })));
-const fin = await page.evaluate(() => ({ strayFields: town.crops.filter(c => typeof c.f === 'number').length, steps: BOT.steps, log: BOT.log, spent: BOT.spent, farm: BOT.farm, rent: (town.rent || {}).total || 0, prices: HAMLET_PRICES, rentRule: [RENT_BASE, RENT_ROOF, RENT_WINDOW, RENT_FLOWERS], weddings: town.weddings, digest: LIFE.digest(60).kinds }));
+const fin = await page.evaluate(() => ({ strayFields: town.crops.filter(c => typeof c.f === 'number').length, steps: BOT.steps, log: BOT.log, spent: BOT.spent, farm: BOT.farm, rent: (town.rent || {}).total || 0, prices: HAMLET_PRICES, tune: HAMLET_TUNE, rentRule: [HAMLET_TUNE.rentBase, HAMLET_TUNE.rentRoof, HAMLET_TUNE.rentWindow, HAMLET_TUNE.rentFlowers], weddings: town.weddings, digest: LIFE.digest(60).kinds }));
 await browser.close();
 
 /* ---- the report ---- */
@@ -125,7 +131,7 @@ const SP = '▁▂▃▄▅▆▇█', spark = a => { const mx = Math.max(1, ...
 const col = k => daysOut.map(s => s[k]);
 const flags = [];
 const hhStat = new Map();
-for (const s of daysOut) for (const h of s.hhs) { const q = hhStat.get(h.id) || { name: h.name, days: 0, broke: 0, unpaid: 0, hungry: 0, coin: [], people: h.people, fields: h.fields }; q.days++; if (h.coin < h.due) q.broke++; if (h.unpaid) q.unpaid++; if (h.hungry) q.hungry++; q.coin.push(h.coin); q.name = h.name; q.people = h.people; q.fields = h.fields; hhStat.set(h.id, q); }
+for (const s of daysOut) for (const h of s.hhs) { const q = hhStat.get(h.id) || { name: h.name, days: 0, broke: 0, unpaid: 0, hungry: 0, coin: [], people: h.people, fields: h.fields, earn0: h.earn, spend0: h.spend }; q.days++; if (h.coin < h.due) q.broke++; if (h.unpaid) q.unpaid++; if (h.hungry) q.hungry++; q.coin.push(h.coin); q.name = h.name; q.people = h.people; q.fields = h.fields; q.earn = h.earn - q.earn0; q.spend = h.spend - q.spend0; hhStat.set(h.id, q); }
 for (const q of hhStat.values()) { if (q.days >= 4 && q.broke / q.days > 0.6) flags.push(`${q.name} (${q.people} people, ${q.fields} field tiles) is broke most days: under a day's rent in coin on ${q.broke} of ${q.days} days, rent unpaid on ${q.unpaid}.`); if (q.days >= 4 && q.hungry / q.days > 0.4) flags.push(`${q.name} is hungry on ${q.hungry} of ${q.days} days.`); }
 { let run = 0, worst = 0, at = 0; daysOut.forEach(s => { run = s.stuck ? run + 1 : 0; if (run > worst) { worst = run; at = s.day; } }); if (worst >= 3) flags.push(`The player is stuck: ${worst} days in a row (to day ${at}) without the coin for the next thing (${daysOut[at - 1] ? daysOut[at - 1].want + ', ' + daysOut[at - 1].wantCost + ' coin' : ''}).`); }
 if (policy !== 'lazy' && daysOut.some(s => s.coin > 300 && !s.want)) flags.push('Coin piles up with nothing to buy: over 300 coin and nothing wanted.');
@@ -138,6 +144,7 @@ if (daysOut.some(s => s.bedless > 0 && s.day > 3)) flags.push('Somebody had no b
 
 const L = [];
 L.push(`# Balance: ${policy}, seed ${seed}, ${days} days`, '');
+L.push(`Tuning: ${Object.entries(fin.tune).map(([k, v]) => k + ' ' + v).join(', ')}.`, '');
 L.push(`Prices: ${Object.entries(fin.prices).map(([k, v]) => k + ' ' + v).join(', ')}. Rent: ${fin.rentRule[0]} a yard, +${fin.rentRule[1]} roof, +${fin.rentRule[2]} window, +${fin.rentRule[3]} flowers.`, '');
 L.push('## Verdict', '', flags.length ? flags.map(f => '- ' + f).join('\n') : '- Nothing flagged.', '');
 L.push('## Steps', '', '| step | day reached |', '| --- | --- |', ...['1 shelter the family', '2 first harvest sold', '3 five households', '4 everyone under a roof', '5 the island thrives'].map(k => `| ${k} | ${fin.steps[k] != null ? fin.steps[k] : 'not reached'} |`), '');
@@ -145,10 +152,10 @@ L.push('## Totals', '', `- Rent collected: ${fin.rent} coin. The player's own cr
 L.push('## Curves (one mark a day)', '', '```', `player coin   ${spark(col('coin'))}  ${Math.min(...col('coin'))}..${Math.max(...col('coin'))}`, `rent paid     ${spark(col('rent'))}  0..${Math.max(...col('rent'))}`, `rent due      ${spark(col('due'))}  0..${Math.max(...col('due'))}`, `own farm coin ${spark(col('farm'))}  0..${Math.max(...col('farm'))}`, `spent         ${spark(col('spent'))}  0..${Math.max(...col('spent'))}`, `all coin      ${spark(col('all'))}  ${Math.min(...col('all'))}..${Math.max(...col('all'))}`, `trader coin   ${spark(col('trader'))}  ${Math.min(...col('trader'))}..${Math.max(...col('trader'))}`, `people        ${spark(col('pop'))}  ${Math.min(...col('pop'))}..${Math.max(...col('pop'))}`, `households    ${spark(col('hh'))}  ${Math.min(...col('hh'))}..${Math.max(...col('hh'))}`, `hungry (max)  ${spark(col('maxHungry'))}  0..${Math.max(...col('maxHungry'))}`, `mood          ${spark(col('mood'))}  ${Math.min(...col('mood'))}..${Math.max(...col('mood'))}`, '```', '');
 L.push('## Day by day', '', '| day | people | households | player coin | rent paid / due | own farm | spent | all coin | trader coin | trader grain | harvests | hungry (max) | no bed | mood | wants next |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
   ...daysOut.map(s => `| ${s.day} | ${s.pop} | ${s.hh} | ${s.coin} | ${s.rent} / ${s.due} | ${s.farm} | ${s.spent} | ${s.all} | ${s.trader} | ${s.traderGrain} | ${s.harvests} | ${s.maxHungry} | ${s.bedless} | ${s.mood} | ${s.want ? s.want + ' (' + s.wantCost + ')' : '-'} |`), '');
-L.push('## Households', '', '| household | people | field tiles | days | coin (first..last, low) | days under a day\'s rent | days rent unpaid | days hungry |', '| --- | --- | --- | --- | --- | --- | --- | --- |', ...[...hhStat.values()].map(q => `| ${q.name} | ${q.people} | ${q.fields} | ${q.days} | ${q.coin[0]}..${q.coin.at(-1)}, low ${Math.min(...q.coin)} \`${spark(q.coin)}\` | ${q.broke} | ${q.unpaid} | ${q.hungry} |`), '');
+L.push('## Households', '', '| household | people | field tiles | days | coin (first..last, low) | days under a day\'s rent | days rent unpaid | days hungry | sold for | bought for |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |', ...[...hhStat.values()].map(q => `| ${q.name} | ${q.people} | ${q.fields} | ${q.days} | ${q.coin[0]}..${q.coin.at(-1)}, low ${Math.min(...q.coin)} \`${spark(q.coin)}\` | ${q.broke} | ${q.unpaid} | ${q.hungry} | ${q.earn || 0} | ${q.spend || 0} |`), '');
 L.push('## What the bot did', '', ...fin.log.map(l => '- ' + l), '');
 if (errors.length) L.push('## Page errors', '', ...errors.slice(0, 10).map(e => '- ' + e), '');
-const base = path.join(out, `balance-${policy}-${seed}`);
+const base = path.join(out, `balance-${policy}-${seed}${opt('tag', '') ? '-' + opt('tag', '') : ''}`);
 fs.writeFileSync(base + '.md', L.join('\n')); fs.writeFileSync(base + '.json', JSON.stringify({ policy, seed, days, flags, steps: fin.steps, totals: { rent: fin.rent, farm: fin.farm, spent: fin.spent }, daysOut, households: [...hhStat.values()], log: fin.log, errors }, null, 1));
 console.log('\n' + (flags.length ? flags.map(f => '! ' + f).join('\n') : 'Nothing flagged.') + '\n\nwrote ' + base + '.md');
 if (errors.length) { console.log('page errors:', errors.slice(0, 3)); process.exitCode = 1; }
