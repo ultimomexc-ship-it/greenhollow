@@ -217,3 +217,5 @@ LXLP('rent_paid', ['I paid the rent this morning.', 'Rent is paid. That is one t
 LXLP('rent_unpaid', ['I could not pay the rent this morning.', 'I had nothing for the rent today.', 'The rent went unpaid. I do not like that.']);
 LXLP('no_yard', ['I have no yard of my own.', 'I have nowhere that is mine. No fence, no field.', 'Still no yard. I cannot grow a thing.']);
 LXLP('moved_in', ['We have a yard of our own now.', 'I moved into a yard. A bed, a fence, a gate.', 'I have a place at last.']);
+LXLP('came_ashore', ['I came ashore today. There was a yard waiting.', 'We landed this morning and found a yard with beds in it.', 'I only just arrived. Somebody had put out a bed for me.']);
+LXLP('apart', ['We are married and still sleep in two yards.', 'There is no room for my bed in our yard yet.', 'Every night I walk home alone after saying goodnight.']);

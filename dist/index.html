@@ -9846,6 +9846,10 @@ function marry(a, b) {
   town.treasury -= Math.min(town.treasury, 20);
   chron(`${nameOf(groom)} and ${bride.first} were married ${town.church ? "at the chapel" : "by the camp fire"}. The whole town came.`, "love");
   calAdd("wedding", `${nameOf(groom)} and ${nameOf(bride)} were married`);
+  if (typeof yardOn === "function" && yardOn()) {
+    arrWedMove(a, b);
+    return;
+  }
   const ra = a.homeRoom, rb = b.homeRoom;
   const cands = [[ra, a, b], [rb, b, a]].filter(([r]) => r && !r.dead && bedsFree(r) >= 1);
   if (ra === rb) return;
@@ -20031,7 +20035,7 @@ function visitorTick() {
     town.ovenSweep = game.time;
     clearOrphanOvens();
   }
-  if (town.scenario !== "blank" && town.scenario !== "hamlet") return;
+  if (town.scenario !== "blank") return;
   const v = town.vis = town.vis || { next: null, n: 0 };
   const day = game.time / 1440;
   if (v.next == null) {
@@ -20138,6 +20142,11 @@ function visIntroTick() {
     }
     if (game.time < (nc.next || 0)) continue;
     if (!isAwake(n, game.time % 1440)) continue;
+    if (n.hunger > 60) continue;
+    {
+      const st = n.plan && n.plan[n.si];
+      if (st && (st.act === "eat" || /eat|food|larder|shopping/i.test(st.text || ""))) continue;
+    }
     const others = npcs.filter((o) => o !== n && !o.dead && !o.infant && !nc.met.includes(o.id) && o.pose !== "sleep").sort((a, b) => (b.player ? 1e3 : 0) - (a.player ? 1e3 : 0) || Math.hypot(a.tx - n.tx, a.ty - n.ty) - Math.hypot(b.tx - n.tx, b.ty - n.ty));
     const t = others[0];
     if (!t) {
@@ -20357,6 +20366,12 @@ function islandNeeds() {
   const add = (id, title, say2, how, who, hard = false) => out.push({ id, title, say: say2, how, hard, who: who.map((n) => n.player ? "you" : n.first) });
   const has = (k) => !!(typeof lf2Room === "function" && lf2Room(k));
   const me = B.people.find((n) => n.player);
+  if (typeof yardOn === "function" && yardOn()) for (const q of town.apart || []) {
+    const a = byId(q.a), b = byId(q.b);
+    if (!a || !b) continue;
+    const st = [a, b].find((p) => yardOfN(p) && yardBeds(yardOfN(p)).length >= yardBeds(yardOfN(a === p ? b : a) || { cells: [] }).length) || a;
+    add("apart", `Room for ${a.first} and ${b.first}`, "We are married and still sleep in two yards. It is a long walk to say goodnight.", `Make room for one more bed in ${yardName(yardOfN(st))}: a free tile inside the fence (move the fence out, or take something away).`, [a, b]);
+  }
   if (me && !(me.homeRoom && me.bed && me.bed.owner === me)) add("bed", "A bed for you", alone ? "I woke up on a beach with sand in my shoes and nothing to sleep on. A bed seems the sensible next step." : "I still have no bed. I only mention it because I keep noticing.", "Build a hut: walls, a door, a bed inside. Then leave build mode (B)." + (town.guides && town.guides.hut ? " Follow the markers on the ground." : ""), [me], true);
   else if (B.beds < B.bedsNeeded) {
     const n = B.bedsNeeded - B.beds;
@@ -26757,6 +26772,241 @@ function rentCardRow(n) {
   if (why.length) out += row("About home", why.join(", "));
   return out;
 }
+const ARR_FIRST = 0.5, ARR_GAP = [1.5, 2.5], ARR_KIDS = 3;
+function arrYard() {
+  if (!yardOn()) return null;
+  yardScan();
+  return town.yards.filter((y) => y.open == null && !yardPeople(y).length && yardFreeBeds(y).length).sort((a, b) => yardFreeBeds(b).length - yardFreeBeds(a).length || a.id - b.id)[0] || null;
+}
+function arrBlocked() {
+  const pl = yardPlayer();
+  if (npcs.some((n) => !n.dead && n !== pl && n.age >= 3 && !yardHasBed(n))) return "bedless";
+  if (npcs.some((n) => !n.dead && n !== pl && n.hunger > 70 && yardOfN(n))) return "hungry";
+  return null;
+}
+function arrMake(R, age, o) {
+  const n = newPerson(R, "Child", age, town.used, o);
+  n.adult = n.age >= 16;
+  n.infant = false;
+  n.age = ageNow(n);
+  updateLook(n);
+  n.rand = rng(town.seed + n.id * 977);
+  n.jit = 0;
+  n.bornHere = false;
+  n.homeRoom = null;
+  n.bed = { owner: null };
+  n.seat = null;
+  n.homeless = true;
+  routine(R, n);
+  town.byId.set(n.id, n);
+  initNpcSim(n);
+  if (n.adult) setRole(n, "Worker");
+  n.inv = n.inv || {};
+  n.coin = 0;
+  return n;
+}
+function arrArrive(y) {
+  const R = rng(town.seed + Math.floor(game.time) * 13), beds = yardFreeBeds(y), k = beds.length, sn = pick(R, SURNAMES);
+  const male = npcs.filter((n) => n.age >= 16 && !n.female).length, fem = npcs.filter((n) => n.age >= 16 && n.female).length;
+  const grp = [arrMake(R, ri(R, 20, 36), { female: male > fem ? true : male < fem ? false : chance(R, 0.5), surname: sn })];
+  if (k >= 2) {
+    const b = arrMake(R, ri(R, 20, 36), { female: !grp[0].female, surname: sn });
+    setSpouse(grp[0], b);
+    grp.push(b);
+  }
+  if (k >= 3) {
+    const mum = grp.find((n) => n.female), dad = grp.find((n) => !n.female);
+    for (let i = 0; i < Math.min(ARR_KIDS, k - 2); i++) {
+      const c = arrMake(R, ri(R, 4, 13), { mother: mum, father: dad, surname: sn });
+      linkKin(mum, dad, c);
+      fam2(mum, c, "parent", "child");
+      fam2(dad, c, "parent", "child");
+      grp.push(c);
+    }
+    for (const c of grp) for (const d of grp) if (c !== d && c.age < 16 && d.age < 16) fam2(c, d, "sibling");
+  }
+  const how = grp.length === 1 ? "single" : k >= 3 ? "family" : "couple";
+  const sh = shoreTiles.length ? shoreTiles[Math.floor(R() * shoreTiles.length)] : null, p = sh ? { x: sh.x, y: sh.y } : { x: town.cx, y: town.cy };
+  grp.forEach((n, i) => {
+    n.x = n.tx = p.x;
+    n.y = n.ty = p.y;
+    n.back = pick(R, VIS_ORD) + ", " + pick(R, VIS_ARR);
+    n.newcomer = { t0: game.time, met: [], next: game.time + 20 };
+    if (n.adult) {
+      n.coin = how === "single" ? 8 : 10;
+      n.inv.grain = 4;
+      n.inv.seed_barley = 3;
+      if (i === 1) n.inv.seed_turnip = 2;
+    }
+    npcs.push(n);
+    const b = beds[i];
+    if (b) {
+      b.owner = n;
+      n.bed = b;
+    }
+  });
+  for (const n of grp) npcs.forEach((o) => {
+    if (o !== n && !n.know[o.id]) {
+      n.know[o.id] = 4;
+      o.know[n.id] = 4;
+      n.aff[o.id] = 8;
+      o.aff[n.id] = 8;
+    }
+  });
+  yardHousing();
+  refreshReach();
+  const a = grp[0], names = grp.filter((n) => n.adult).map((n) => n.first).join(" and ") + (grp.length > 2 ? ` and ${grp.length - 2 === 1 ? "a child" : grp.length - 2 + " children"}` : "");
+  chron(`${names} came ashore, looking as though they had just woken up, and went straight to the empty yard. ${a.first} ${a.back}.`, "life");
+  lfEmit("arrival", { actor: a, tags: ["news"], sev: 1.6, loud: true, chron: false });
+  for (const n of grp) if (n.adult) LIFE.emit("came_ashore", n, { qty: grp.length, how });
+  lfShout(a, anyOf(["Excuse me, is this a dream?", "Hm. Sand. Of course.", "There is a yard with our name on it, apparently.", "Is anybody here? Or is that not how it works?"]));
+  const pl = game.player;
+  if (pl && pl.player) playerSay(pl, `${names} came ashore and went to the empty yard. I did not have to explain anything.`);
+  return grp;
+}
+function arrTick() {
+  if (!yardOn()) return;
+  const v = town.arr = town.arr || { next: null, n: 0 }, day = game.time / 1440;
+  const y = arrYard();
+  if (!y) {
+    v.next = null;
+    return;
+  }
+  if (v.next == null) v.next = day + ARR_FIRST;
+  if (day < v.next || arrBlocked()) return;
+  arrArrive(y);
+  v.n++;
+  v.next = day + ARR_GAP[0] + Math.random() * (ARR_GAP[1] - ARR_GAP[0]);
+}
+function arrBedSpot(y, near) {
+  let best = null, bd = 1e9;
+  for (const k of y.cells) {
+    const x = k % W, yy = k / W | 0, g = grid[yy][x];
+    if (g !== T.GRASS && g !== T.PATH && g !== T.FLOOR && g !== T.SAND || lfPropAt(x, yy) || !walkable(x, yy) || tileOwner.get(k) || town.nodeMap && town.nodeMap.has(k)) continue;
+    const d = near ? Math.abs(x - near.x) + Math.abs(yy - near.y) : 0;
+    if (d < bd) {
+      bd = d;
+      best = { x, y: yy };
+    }
+  }
+  return best;
+}
+function arrWedMove(a, b) {
+  if (!yardOn() || a.dead || b.dead) return;
+  const ya = yardOfN(a), yb = yardOfN(b);
+  if (ya && ya === yb) {
+    arrApartClear(a, b);
+    return;
+  }
+  let mover, stay;
+  if (!ya && !yb) return;
+  if (!ya || !yb) {
+    mover = ya ? b : a;
+    stay = ya ? a : b;
+  } else {
+    const na = yardBeds(ya).length, nb = yardBeds(yb).length;
+    mover = na < nb ? a : nb < na ? b : a.id > b.id ? a : b;
+    stay = mover === a ? b : a;
+  }
+  const y = yardOfN(stay), spot = arrBedSpot(y, stay.bed);
+  if (!spot || !yardHasBed(mover)) {
+    const ap = town.apart = town.apart || [];
+    if (!ap.some((q) => q.a === a.id && q.b === b.id)) {
+      ap.push({ a: a.id, b: b.id, t: game.time });
+      chron(`${a.first} and ${b.first} are married but live in two yards: there is no room for another bed in ${yardName(y)}.`, "family");
+      LIFE.emit("apart", mover, { who: stay.id });
+    }
+    return;
+  }
+  arrApartClear(a, b);
+  if (mover.player || mover === yardPlayer()) {
+    arrMoveBed(mover, spot);
+    playerSay(mover, `I moved my bed into ${yardName(y).replace(/^your/, "our")}. It seemed simplest.`);
+    return;
+  }
+  mover.moveBed = { x: spot.x, y: spot.y, yard: y.id, to: stay.id };
+  if (typeof abortPlan === "function") abortPlan(mover);
+}
+function arrApartClear(a, b) {
+  if (town.apart) town.apart = town.apart.filter((q) => !(q.a === a.id && q.b === b.id || q.a === b.id && q.b === a.id));
+}
+function arrMoveBed(n, to) {
+  const pr = n.bed;
+  if (!pr || pr.x == null || !town.props.includes(pr)) return false;
+  const old = yardOfN(n);
+  town.pblock[pr.y * W + pr.x] = 0;
+  town.propAt.delete(pr.y * W + pr.x);
+  pr.x = to.x;
+  pr.y = to.y;
+  pr.home = { x: to.x, y: to.y };
+  pr.fx = to.x;
+  pr.fy = to.y;
+  pr.follow = null;
+  town.propAt.set(to.y * W + to.x, pr);
+  town.pblock[to.y * W + to.x] = 1;
+  town.lfPV = (town.lfPV || 0) + 1;
+  yardHousing();
+  const now = yardOfN(n);
+  if (old && now && old !== now && !yardPeople(old).length) {
+    for (const g of Object.keys(old.store || {})) {
+      now.store[g] = (now.store[g] || 0) + old.store[g];
+    }
+    old.store = {};
+  }
+  if (typeof refreshReach === "function") refreshReach();
+  return true;
+}
+LF2.dec.push(function arrMovePlan(n) {
+  const m = n.moveBed;
+  if (!m || n.player || n.dead) return null;
+  const to = byId(m.to), y = (town.yards || []).find((q) => q.id === m.yard);
+  if (!to || to.dead || !y || !yardHasBed(n)) {
+    n.moveBed = null;
+    return null;
+  }
+  if (yardOfN(n) === y) {
+    n.moveBed = null;
+    return null;
+  }
+  const from = { x: n.bed.x, y: n.bed.y };
+  return [
+    goS({ x: from.x, y: from.y, face: null }, "Packing up my bed"),
+    waitS(3, "work", "Taking my bed apart", { nopie: true }),
+    goS({ x: m.x, y: m.y, face: null }, `Moving my bed to ${to.first}'s`),
+    waitS(4, "work", "Setting my bed down", { nopie: true, onEnd(nn) {
+      const mm = nn.moveBed;
+      nn.moveBed = null;
+      if (!mm) return;
+      let spot = { x: mm.x, y: mm.y };
+      const yy = (town.yards || []).find((q) => q.id === mm.yard);
+      if (!yy) return;
+      if (lfPropAt(spot.x, spot.y) || yardAtXY(spot.x, spot.y) !== yy) spot = arrBedSpot(yy, to.bed);
+      if (!spot) {
+        arrWedMove(nn, to);
+        return;
+      }
+      if (arrMoveBed(nn, spot)) {
+        chron(`${nn.first} carried their bed into ${yardName(yy)} and moved in with ${to.first}.`, "family");
+        LIFE.emit("moved_in", nn, { qty: 1 });
+      }
+    } })
+  ];
+});
+LF2.hourly.push(() => {
+  if (!yardOn()) return;
+  for (const q of (town.apart || []).slice()) {
+    const a = byId(q.a), b = byId(q.b);
+    if (!a || !b || a.dead || b.dead || a.fam.spouse !== b.id) {
+      town.apart = town.apart.filter((x) => x !== q);
+      continue;
+    }
+    if (!a.moveBed && !b.moveBed) {
+      town.apart = town.apart.filter((x) => x !== q);
+      arrWedMove(a, b);
+    }
+  }
+  arrTick();
+});
 function carpWant(needs) {
   if (!town || !kitOn()) return null;
   const B = townBalance(), K = (k) => kitCount(k), placed = (k) => (town.props || []).filter((p) => p.kind === k && !p.fixed).length;
@@ -28798,6 +29048,8 @@ for (const k of ["crush", "courting", "tryst"]) EVK(k, "romance", { tell: 0.7 })
 for (const k of ["dice", "sing", "stumble", "smelly", "newclothes", "knock", "wake"]) EVK(k, "daily", { tell: 0.2 });
 EVK("arrival", "place", { tell: 0.9 });
 EVK("moved_in", "home", { tell: 0.5 });
+EVK("came_ashore", "home", { needs: ["qty"], tell: 0.4 });
+EVK("apart", "home", { tell: 0.5, tags: ["misfortune"] });
 EVK("rent_paid", "home", { needs: ["price"], tell: 0.12 });
 EVK("rent_unpaid", "home", { needs: ["price"], tell: 0.6, tags: ["misfortune"] });
 EVK("no_yard", "home", { tell: 0.55, tags: ["misfortune"] });
@@ -28862,6 +29114,7 @@ const LIFE_TROUBLE = {
   could_not_afford: "could not afford something",
   rent_unpaid: "could not pay the rent",
   no_yard: "had no yard",
+  apart: "live apart from their spouse",
   out_of_stock: "found it out of stock",
   tool_broke: "broke a tool",
   lost_bed: "lost their bed",
@@ -33051,6 +33304,8 @@ LXLP("rent_paid", ["I paid the rent this morning.", "Rent is paid. That is one t
 LXLP("rent_unpaid", ["I could not pay the rent this morning.", "I had nothing for the rent today.", "The rent went unpaid. I do not like that."]);
 LXLP("no_yard", ["I have no yard of my own.", "I have nowhere that is mine. No fence, no field.", "Still no yard. I cannot grow a thing."]);
 LXLP("moved_in", ["We have a yard of our own now.", "I moved into a yard. A bed, a fence, a gate.", "I have a place at last."]);
+LXLP("came_ashore", ["I came ashore today. There was a yard waiting.", "We landed this morning and found a yard with beds in it.", "I only just arrived. Somebody had put out a bed for me."]);
+LXLP("apart", ["We are married and still sleep in two yards.", "There is no room for my bed in our yard yet.", "Every night I walk home alone after saying goodnight."]);
 lx("ask_news", "plain", "Any news?");
 lx("ask_news", "plain", "Heard anything lately?");
 lx("ask_news", "plain", "What's the word today?");
@@ -34322,6 +34577,8 @@ LXLI("rent_paid", ["I paid the rent at six.", "The rent is paid. I checked my po
 LXLI("rent_unpaid", ["I could not pay the rent today.", "The rent was due at six. I was not ready at six.", "I had no coin for the rent this morning."]);
 LXLI("no_yard", ["I have no yard.", "I have a patch of ground I stand on. It is not mine.", "No fence has my name on it yet."]);
 LXLI("moved_in", ["I have a yard now.", "I moved in behind a fence. It has a gate.", "There is a bed with a fence round it, and it is mine."]);
+LXLI("came_ashore", ["I came ashore today.", "I arrived this morning. The yard was already there, with a bed in it.", "I landed today. I have decided not to ask how."]);
+LXLI("apart", ["We are married and sleep in two yards.", "There is no room in the yard for my bed. We say goodnight across a fence.", "I live apart from the one I married. Temporarily, I am told."]);
 lxi("ask_news", "Has anything happened? Anything at all. I will take a small one.");
 lxi("ask_news", "Any news?");
 lxi("ask_news", "Have you heard anything? About anyone. About anything.");

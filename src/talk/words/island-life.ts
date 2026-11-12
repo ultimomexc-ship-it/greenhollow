@@ -351,3 +351,5 @@ LXLI('rent_paid', ['I paid the rent at six.', 'The rent is paid. I checked my po
 LXLI('rent_unpaid', ['I could not pay the rent today.', 'The rent was due at six. I was not ready at six.', 'I had no coin for the rent this morning.']);
 LXLI('no_yard', ['I have no yard.', 'I have a patch of ground I stand on. It is not mine.', 'No fence has my name on it yet.']);
 LXLI('moved_in', ['I have a yard now.', 'I moved in behind a fence. It has a gate.', 'There is a bed with a fence round it, and it is mine.']);
+LXLI('came_ashore', ['I came ashore today.', 'I arrived this morning. The yard was already there, with a bed in it.', 'I landed today. I have decided not to ask how.']);
+LXLI('apart', ['We are married and sleep in two yards.', 'There is no room in the yard for my bed. We say goodnight across a fence.', 'I live apart from the one I married. Temporarily, I am told.']);

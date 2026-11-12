@@ -62,6 +62,7 @@
   "life2/hamlet.ts",
   "life2/yards.ts",
   "life2/rent.ts",
+  "life2/arrivals.ts",
   "life2/carpenter.ts",
   "ui/controls-camera.ts",
   "ui/saves.ts",

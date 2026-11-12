@@ -1551,6 +1551,81 @@ test('hamlet rent: adults with a yard pay each morning (more for a roof, a windo
   await page.close();
   return 'rent 2 to 5 a head, paid at six, no debts; contentment from the home; the store is sold from when coin is short';
 });
+test('hamlet arrivals: an empty yard with 1, 2 or 3+ free beds brings a single, a couple or a family; nobody comes while anybody is bedless or a household is hungry; on marriage the one with the smaller yard carries their bed over, and a full yard keeps them apart', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await page.evaluate(() => {
+    newTown('hamlet-arrive', 'hamlet');
+    const free = (x, y) => walkable(x, y) && !lfPropAt(x, y) && grid[y][x] === T.GRASS && roomAt[y][x] < 0 && !(town.nodeMap && town.nodeMap.has(y * W + x)) && !yardAtXY(x, y);
+    window.__area = (w, h) => { let best = null; const cand = []; for (let y = 8; y < town.h0 - 8 - h; y++) for (let x = 8; x < W - 8 - w; x++) { const d = Math.hypot(x + w / 2 - town.cx, y + h / 2 - town.cy); if (d > 12 && d < 60) cand.push([d, x, y]); } cand.sort((p, q) => p[0] - q[0]); for (const [, x, y] of cand) { if (best) break; let bad = 0; for (let j = -1; j <= h && bad < 9; j++) for (let i = -1; i <= w && bad < 9; i++) { const g = grid[y + j][x + i]; if (g !== T.GRASS && g !== T.TREE && g !== T.ROCK) bad = 99; else if (!free(x + i, y + j)) bad++; if (lfPropAt(x + i, y + j) || yardAtXY(x + i, y + j)) bad = 99; } if (bad < 9) best = [x, y]; }
+      if (!best) throw new Error('no ground'); for (let j = -1; j <= h; j++) for (let i = -1; i <= w; i++) { const X = best[0] + i, Y = best[1] + j; if (grid[Y][X] !== T.GRASS) setT(X, Y, T.GRASS); if (town.nodeMap && town.nodeMap.has(Y * W + X)) { const nd = town.nodeMap.get(Y * W + X); town.nodes = town.nodes.filter(q => q !== nd); town.nodeMap.delete(Y * W + X); } } town.gridV++; refreshReach(); return best; };
+    /* a w x h ring with a gate in the bottom row and k beds in the top row inside */
+    window.__yard = (w, h, k) => { const [x0, y0] = __area(w, h); for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (i === 0 || j === 0 || i === w - 1 || j === h - 1) lfAddProp(i === 2 && j === h - 1 ? 'gate' : 'fence', x0 + i, y0 + j); const beds = []; for (let i = 0; i < k; i++) beds.push(lfAddProp('bed', x0 + 1 + (i % (w - 2)), y0 + 1 + Math.floor(i / (w - 2)))); yardScan(true); return { x0, y0, y: yardAtXY(x0 + 1, y0 + 1), beds }; };
+    window.__pop = () => npcs.filter(n => !n.dead).length;
+  });
+  const r = await page.evaluate(() => {
+    const out = {}; const P = game.player;
+    // an empty yard while the family sleeps rough: the yard goes to the family, nobody comes
+    const Y0 = __yard(7, 6, 1); out.blockedBedless = arrBlocked(); town.arr = { next: 0, n: 0 }; arrTick(); out.pop0 = __pop();
+    // the family gets beds of its own: their single-bed yard is not enough, give them a 3-bed yard
+    const F = __yard(8, 6, 3); yardHousing(); const fam = npcs.filter(n => n !== P && !n.shop); out.famIn = fam.map(n => yardOfN(n) === F.y).join();
+    out.single0 = !yardPeople(Y0.y).length; out.blocked = arrBlocked();
+    // a hungry household keeps newcomers away
+    fam[0].hunger = 90; town.arr = { next: 0, n: 0 }; arrTick(); out.hungryPop = __pop(); out.hungryWhy = arrBlocked(); fam[0].hunger = 10;
+    // 1 free bed: a single
+    town.arr = { next: 0, n: 0 }; arrTick(); const s1 = yardPeople(Y0.y); out.single = [__pop(), s1.length, s1[0] && s1[0].age >= 16, s1[0] && s1[0].coin > 0, s1[0] && !s1[0].homeless];
+    // 2 free beds: a couple
+    const Y2 = __yard(7, 6, 2); town.arr = { next: 0, n: 0 }; arrTick(); const c2 = yardPeople(Y2.y); out.couple = [c2.length, c2.length === 2 && c2[0].fam.spouse === c2[1].id];
+    // 4 free beds: a family of a couple and two children
+    const Y4 = __yard(8, 6, 4); town.arr = { next: 0, n: 0 }; arrTick(); const f4 = yardPeople(Y4.y); out.family = [f4.length, f4.filter(n => n.age >= 16).length, f4.filter(n => n.age < 16).length, f4.filter(n => n.age < 16).every(k => k.fam.mother != null && k.fam.father != null)];
+    // nothing more to come to: no empty yard
+    town.arr = { next: 0, n: 0 }; const p5 = __pop(); arrTick(); out.noYard = __pop() === p5 && !arrYard();
+    out.digest = JSON.stringify(LIFE.digest(1).kinds.came_ashore || 0);
+    window.__s1 = s1[0].id; window.__Y0 = Y0; window.__c2 = c2.map(n => n.id); window.__Y4 = Y4;
+    return out;
+  });
+  check(r.blockedBedless === 'bedless' && r.pop0 === 5, 'nobody comes while anybody sleeps rough: ' + JSON.stringify([r.blockedBedless, r.pop0]));
+  check(r.famIn === 'true,true,true' && r.single0 && !r.blocked, 'the family moves into the yard with room for all three: ' + JSON.stringify([r.famIn, r.single0, r.blocked]));
+  check(r.hungryPop === 5 && r.hungryWhy === 'hungry', 'a hungry household keeps newcomers away');
+  check(r.single[0] === 6 && r.single[1] === 1 && r.single.slice(2).every(Boolean), 'one free bed brings a single with coin, into the yard: ' + JSON.stringify(r.single));
+  check(r.couple[0] === 2 && r.couple[1], 'two free beds bring a married couple: ' + JSON.stringify(r.couple));
+  check(r.family[0] === 4 && r.family[1] === 2 && r.family[2] === 2 && r.family[3], 'four free beds bring a couple and two children: ' + JSON.stringify(r.family));
+  check(r.noYard && +r.digest >= 4, 'with no empty yard nobody comes; arrivals are life events: ' + JSON.stringify([r.noYard, r.digest]));
+  // a real day: the first arrival comes by itself once a yard is ready
+  const r1 = await page.evaluate(() => { __yard(7, 6, 1); town.arr = { next: null, n: 0 }; window.__p0 = __pop(); return __p0; });
+  await simulate(page, 20 * 60);
+  const r1b = await page.evaluate(() => __pop() - __p0 || JSON.stringify({ why: arrBlocked(), arr: town.arr, y: !!arrYard(), day: game.time / 1440, hungry: npcs.filter(n => n.hunger > 70).map(n => [n.first, Math.round(n.hunger), !!yardOfN(n), foodCount(pantryOf(n)), n.status]) }));
+  check(r1b === 1, 'within a day of a yard being ready a single comes ashore by themselves: ' + r1b);
+  // marriage: the single (a yard of 1 bed) marries one of the couple's neighbours... simplest: marry the single to a newcomer single in a 1-bed yard
+  const r2 = await page.evaluate(() => {
+    const out = {}; game.time = Math.floor(game.time / 1440) * 1440 + 1440 + 9 * 60;
+    const a = byId(__s1), lone = npcs.filter(n => !n.dead && !n.fam.spouse && n.age >= 16 && n !== a && !n.player && !n.shop && yardOfN(n) && yardPeople(yardOfN(n)).length === 1)[0];
+    // give the other one a bigger yard: two more beds in it are not needed; move them to a 3-bed yard with room
+    const Big = __yard(9, 7, 3); lone.bed.owner = null; const b0 = Big.beds[0]; b0.owner = lone; lone.bed = b0; yardHousing();
+    out.before = [yardBeds(yardOfN(a)).length, yardBeds(yardOfN(lone)).length]; const oldY = yardOfN(a);
+    marry(a, lone); out.plan = !!a.moveBed && !lone.moveBed;
+    window.__m = [a.id, lone.id, Big.y.id, oldY.id]; return out;
+  });
+  check(r2.before[0] === 1 && r2.before[1] === 3 && r2.plan, 'on marriage the one with the smaller yard is the one who moves: ' + JSON.stringify(r2));
+  await simulate(page, 8 * 60);
+  const r3 = await page.evaluate(() => {
+    const [aid, bid, bigId, oldId] = __m, a = byId(aid), b = byId(bid), Big = town.yards.find(y => y.id === bigId), old = town.yards.find(y => y.id === oldId);
+    const out = { moved: yardOfN(a) === Big && yardOfN(b) === Big, oldEmpty: old && !yardPeople(old).length, log: (a.log || []).map(e => e.text).filter(t => /bed/.test(t)).slice(-3), done: !a.moveBed };
+    // a full yard keeps a couple apart, and the request says so
+    const Y1 = __yard(7, 6, 2), Y2 = __yard(6, 5, 1);
+    const p = [arrMake(rng(5), 25, { female: true, surname: 'Test' }), arrMake(rng(6), 26, { female: false, surname: 'Test' })]; p.forEach((n, i) => { n.x = n.tx = town.cx; n.y = n.ty = town.cy; npcs.push(n); const bb = [Y1, Y2][i].beds[0]; bb.owner = n; n.bed = bb; }); yardHousing();
+    // the bigger yard (two beds) is where the bed would go: fill every free tile in it with field
+    for (const k of Y1.y.cells) { const x = k % W, y = (k / W) | 0; if (!lfPropAt(x, y)) { setT(x, y, T.CROP); town.crops.push({ x, y, f: 'full', pl: 1, st: 0, t0: 0 }); } }
+    out.full2 = [yardOfN(p[0]) === Y1.y, yardOfN(p[1]) === Y2.y, !arrBedSpot(Y1.y, null)].every(Boolean);
+    marry(p[0], p[1]); out.apart = (town.apart || []).length; out.need = islandNeeds().filter(q => q.id === 'apart').map(q => q.title).join();
+    out.lineOk = LIFE.digest(1).kinds.apart >= 1;
+    return out;
+  });
+  check(r3.moved && r3.oldEmpty && r3.done && r3.log.some(t => /Moving my bed to/.test(t)), 'they carry the bed over; the old yard is left empty for a newcomer: ' + JSON.stringify(r3));
+  check(r3.full2 && r3.apart === 1 && /^Room for /.test(r3.need) && r3.lineOk, 'with no room in the yard they stay apart and the request says so: ' + JSON.stringify([r3.full2, r3.apart, r3.need]));
+  check(errors.length === 0, 'no page errors: ' + errors.slice(0, 2).join(' | '));
+  await page.close();
+  return 'single, couple, family by free beds; blocked by the bedless and the hungry; the smaller yard moves on marriage; a full yard keeps them apart';
+});
 test('ready farming village: only what farming needs; farmers buy seed from the seed seller with real money, keep seed back, sell what they grow to the greengrocer, and talk about it', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

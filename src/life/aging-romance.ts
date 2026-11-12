@@ -137,6 +137,7 @@ function marry(a, b) {
   [a, b].forEach(p => { p.social = Math.min(100, p.social + 50); p.coin += 10; });
   town.treasury -= Math.min(town.treasury, 20);
   chron(`${nameOf(groom)} and ${bride.first} were married ${town.church ? 'at the chapel' : 'by the camp fire'}. The whole town came.`, 'love'); calAdd('wedding', `${nameOf(groom)} and ${nameOf(bride)} were married`);
+  if (typeof yardOn === 'function' && yardOn()) { arrWedMove(a, b); return; }   // (the Hamlet: one of them carries their bed into the other's yard, life2/arrivals.ts)
   // where will they live?
   const ra = a.homeRoom, rb = b.homeRoom;
   const cands = [[ra, a, b], [rb, b, a]].filter(([r]) => r && !r.dead && bedsFree(r) >= 1);

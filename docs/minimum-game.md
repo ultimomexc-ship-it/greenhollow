@@ -111,3 +111,12 @@ Theft and the watch; bakery; wood; fishing; stone and mining; smith; tavern; bir
 - Contentment mods*: no yard -12, roof +6, window +3, flowers +3. Work is 1.6 times slower* under mood 35 or over hunger 75.
 - The trader's stall takes three times the greengrocer's stock*. When it is full it stops buying: with many households this cap is the first number to watch in the harness.
 - First eight days with one family on 24 field tiles (seed 41): rent 23 coin in total, due 4 to 6 a day and paid on 5 days of 8; nobody hungry, mood 70 to 100. The player's own income from rent alone is far too small to build with: the harness and tuning steps have to fix prices against this.
+
+## Decided while building (arrivals, step 5)
+- Only an **empty** yard (nobody's bed in it yet) brings newcomers; free beds in a lived-in yard do not (no strangers as lodgers). 1 free bed: a single; 2: a couple; 3 or more: a couple and the rest children, at most 3.
+- Nobody comes while somebody (not you) has no bed, or anybody living in a yard is very hungry (over 70). The starting family always gets the first yard.
+- Timing*: half a day after a yard is ready, then one arrival every 1.5 to 2.5 days.
+- Newcomers bring* 8 coin (single) or 10 each (couple, family), 4 grain each and 3 barley seed (the second adult 2 turnip seed too).
+- On marriage the one whose yard has fewer beds moves (no yard: they move; equal: the newer arrival). They walk over and set the bed down beside their partner's; the old yard's store goes with them. If you are the one moving, your bed moves at once.
+- No room (no free grass, path or floor tile in the yard): they live apart, the request pill says "Room for A and B", and it is tried again every hour.
+- Fixed on the way: newcomers kept introducing themselves while starving; now they eat first.

@@ -75,7 +75,7 @@ function visitorTick() {
   if (!town) return;
   visHomes(); if (game.time - (town.ovenSweep || -1e9) > 1440) { town.ovenSweep = game.time; clearOrphanOvens(); }   // (a day at a time: leftovers of huts that came down)
 
-  if (town.scenario !== 'blank' && town.scenario !== 'hamlet') return;
+  if (town.scenario !== 'blank') return;   // (the Hamlet has its own arrivals: life2/arrivals.ts)
   const v = town.vis = town.vis || { next: null, n: 0 };
   const day = game.time / 1440;
   if (v.next == null) { if (visFreeBeds() > 0) v.next = day + VIS_FIRST_DAY; else return; }
@@ -138,6 +138,8 @@ function visIntroTick() {
     if (game.time - nc.t0 > 2 * 1440) { n.newcomer = null; continue; }
     if (game.time < (nc.next || 0)) continue;
     if (!isAwake(n, game.time % 1440)) continue;
+    if (n.hunger > 60) continue;   // (hungry first: introductions wait until they have eaten)
+    { const st = n.plan && n.plan[n.si]; if (st && (st.act === 'eat' || /eat|food|larder|shopping/i.test(st.text || ''))) continue; }
     const others = npcs.filter(o => o !== n && !o.dead && !o.infant && !nc.met.includes(o.id) && o.pose !== 'sleep').sort((a, b) => (b.player ? 1e3 : 0) - (a.player ? 1e3 : 0) || Math.hypot(a.tx - n.tx, a.ty - n.ty) - Math.hypot(b.tx - n.tx, b.ty - n.ty));
     const t = others[0]; if (!t) { nc.next = game.time + 120; continue; }
     nc.next = game.time + 40; nc.met.push(t.id);
