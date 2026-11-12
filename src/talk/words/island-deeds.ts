@@ -32,7 +32,7 @@ lxi('cry_deed', 'That is my wall.', { how: 'wall_home' });
 lxi('cry_deed', 'That is my house. I am standing in it.', { how: 'wall_home' });
 lxi('cry_deed', 'I am using this. I am using this right now.', { how: 'privy' });
 lxi('cry_deed', 'There was a wall there. A moment ago there was a wall.', { how: 'privy' });
-lxi('cry_deed', 'That was my house. It was there this morning.', { how: 'home' });
+lxi('cry_deed', 'That was my house. It was there earlier.', { how: 'home' });
 lxi('cry_deed', 'My house. You have taken my house down.', { how: 'home' });
 lxi('cry_deed', 'I went to sleep indoors. I am nearly certain of that.', { how: 'bed' });
 lxi('cry_deed', 'There is a tree where the ceiling was.', { how: 'bed' });

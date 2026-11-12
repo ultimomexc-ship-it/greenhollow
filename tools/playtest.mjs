@@ -134,6 +134,10 @@ const menuLines = [...new Set(data.menu)].map(m => ({ text: m.split(' :: ').slic
 // number agreement: a plural item name (cabbage seeds, beans) next to is/does/has/was
 if (data.plurals.length) { const pl = data.plurals.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), agree = new RegExp('\\b(?:' + pl + ') (?:is|does|has|was)\\b|\\b(?:there (?:is|was)|what (?:does|is)) (?:the )?(?:' + pl + ')\\b', 'i'); rules.push(['number agreement', agree]); }
 const issues = {}; for (const r of [...lines, ...bots, ...menuLines]) for (const [name, rx] of rules) if (rx.test(r.text)) (issues[name] = issues[name] || []).push(name === 'empty' ? 'acts: ' + (r.t ? r.t.acts.join(',') : r.menu ? 'menu ' + r.act : 'bot ' + (r.act || '')) : (r.menu ? '[menu ' + r.act + '] ' : '') + r.text);
+// a time-of-day word said at the wrong hour (bands: morning 5-11, day 11-17, evening 17-22, night)
+const TOD = [[/^(?:good )?morning\b|\bthis morning\b/i, h => h >= 5 && h < 13], [/^(?:good )?afternoon\b|\bthis afternoon\b/i, h => h >= 11 && h < 19], [/^(?:good )?evening\b|\bthis evening\b|\btonight\b/i, h => h >= 16 || h < 5], [/\bsupper\b/i, h => h >= 14 && h < 23]];
+const hourOf = t => (((t.t || 0) % 1440) / 60);
+for (const t of data.T) for (const l of t.lines) { const text = l.replace(/^[^:]+: /, ''), h = hourOf(t); for (const [rx, okHour] of TOD) if (rx.test(text) && !okHour(h)) (issues['wrong time of day'] = issues['wrong time of day'] || []).push(text + ' (at ' + Math.floor(h) + 'h)'); }
 // the listener named in the third person ("I heard what Agrippina thinks" said to Agrippina)
 const persp = []; for (const t of data.T) for (const l of t.lines) { const who = l.split(':')[0], text = l.replace(/^[^:]+: /, ''), other = who === t.a ? t.b : t.a; if (other && other !== who && new RegExp('(?:thinks of|heard what|fond of|soft spot for|about|like|what) ' + other + '\\b').test(text)) persp.push(`${who} to ${other}: ${text}`); }
 if (persp.length) issues['listener named in the third person'] = persp;

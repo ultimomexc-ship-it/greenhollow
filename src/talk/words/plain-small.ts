@@ -83,7 +83,7 @@ LXP('joke', [
   'I told the field to grow faster. It grew slower, out of spite.',
   "My neighbour says the weather's turning. It's the same weather it's always had. New haircut, that's all.",
   'They say good fences make good neighbours. Mine fell over. We get on great.',
-  'I put my boots on the wrong feet this morning and walked all day like that. Nobody said a word. Lovely, I thought.',
+  'I put my boots on the wrong feet earlier and walked all day like that. Nobody said a word. Lovely, I thought.',
   "Never trust anyone who says they don't like bread. Or a gull, come to think of it."
 ]);
 LXP('laugh', ['Ha! Good one.', "Ha. That's a good one, that.", "You've got me there."]);

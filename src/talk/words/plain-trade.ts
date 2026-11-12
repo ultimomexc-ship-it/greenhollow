@@ -32,7 +32,7 @@ lx('make_do', 'plain', "No hurry. It'll keep.");
 lx('make_do', 'plain', 'Take fewer, then.');
 lx('no_stock', 'plain', "Sorry, I'm out of {item} just now.");
 lx('no_stock', 'plain', "None left, I'm afraid.");
-lx('no_stock', 'plain', 'The {item} sold out this morning.');
+lx('no_stock', 'plain', 'The {item} sold out earlier.');
 lx('shrug_off', 'plain', 'Next time, then.');
 lx('shrug_off', 'plain', 'Never mind.');
 lx('shrug_off', 'plain', "I'll try again tomorrow.");
@@ -94,10 +94,11 @@ LXP('tell_price', [
   '{money} and not a coin less.'
 ]);
 LXP('react_price', ["That's about what I expected.", 'Dearer than last time.', 'Cheaper than I feared.', "Fair enough. I'll think on it."]);
-LXP('shop_greet', ['Hello there.', 'Hi. Got a minute?', 'Afternoon. Anything good today?', 'Hello. Having a quiet day?', 'Hello. Is it a busy one?']);
+LXP('shop_greet', ['Hello there.', 'Hi. Got a minute?', 'Hello. Having a quiet day?', 'Hello. Is it a busy one?']);
 LXP('shop_greet_back', [
   'Hello. What can I do for you?',
   'Good to see you. What are we after?',
   'Hello. Take your time.',
   "Hello there. What'll it be?"
 ]);
+lx('shop_greet', 'plain', 'Afternoon. Anything good today?', { band: 'day' });

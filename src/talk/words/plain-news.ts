@@ -40,7 +40,7 @@ lx('react_unmoved', 'plain', 'Is that so.');
 lx('react_unmoved', 'plain', 'Well.');
 lx('react_unmoved', 'plain', 'I see.');
 /* what happened, as it is told after "I heard that" (event kinds that have no template yet fall back to the old sentence) */
-lx('ev:arrival', 'plain', '{a} turned up on the beach this morning');
+lx('ev:arrival', 'plain', '{a} turned up on the beach');
 lx('ev:arrival', 'plain', '{a} came ashore with no explanation');
 lx('ev:quarrel', 'plain', '{a} and {t} had words');
 lx('ev:brawl', 'plain', '{a} and {t} came to blows');

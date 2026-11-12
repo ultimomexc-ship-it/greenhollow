@@ -24,7 +24,7 @@ lxi('life:slept', 'I slept. Properly. I want that noted.');
 lxi('life:slept_rough', 'I slept on the ground. The ground was patient with me.');
 lxi('life:slept_rough', 'I woke up with sand in my ear again. It is becoming a sort of companion.');
 lxi('life:slept_rough', 'I still have no bed. I have started to think of the horizon as my bedroom.');
-lxi('life:no_privy', 'I could not find a privy this morning. I will not go into it.');
+lxi('life:no_privy', 'I could not find a privy earlier. I will not go into it.');
 lxi('life:bladder_emergency', 'I made it. Barely. We do not need to discuss the margin.');
 lxi('life:went_hungry', 'I have not eaten properly. I notice it more than I expected to.');
 lxi('life:starving', 'I am very hungry. I am saying so in case it matters.');
@@ -60,7 +60,7 @@ lxi('ask_how', 'Are you well? You look tired. You always look tired. It is part 
 lxi('ask_how', 'Are you behaving? Do not answer.', { rel: 'child', kid: 'yes' });
 lxi('ask_how', 'How is life, then? Tell me before everyone else does.', { rel: 'sibling' });
 kidi('answer_how', 'Fine. I found a very good stick.', { state: 'fine' });
-kidi('answer_how', 'I am hungry. Is it nearly supper? It feels nearly.', { state: 'hungry' });
+kidi('answer_how', 'I am hungry. Is it nearly time to eat? It feels nearly.', { state: 'hungry' });
 kidi('answer_how', 'I am tired. I am not tired. I am a bit tired.', { state: 'tired' });
 kidi('answer_how', 'Good. It has been a good day. I did not expect that of it.', { state: 'glad' });
 for (const t of [

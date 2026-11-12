@@ -31695,7 +31695,7 @@ lx("greet", "plain", "Oh, it's you. What do you want?", { rel: "sibling" });
 lx("greet", "plain", "{li}. Look what the wind blew in.", { rel: "sibling" });
 lx("greet", "plain", "Have you eaten, {li}?", { rel: "child" });
 lx("greet", "plain", "{li}! Come here and let me look at you.", { rel: "child", kid: "yes" });
-lx("greet", "plain", "Hello. Is there supper?", { rel: "parent", age: "child" });
+lx("greet", "plain", "Hello. Is there food?", { rel: "parent", age: "child" });
 lx("greet", "plain", "Oh, it's you. Can I go out?", { rel: "parent", age: "child" });
 lx("greet", "plain", "Hello. Have you had a day?", { rel: "parent" });
 lx("greet", "plain", "Hello, little one.", { rel: "child", kid: "yes" });
@@ -31708,13 +31708,13 @@ lx("greet_back", "plain", "Hello, dear. I'm fine, don't fuss.", { rel: "child" }
 lx("greet_back", "plain", "Hello. Yes, I've eaten.", { rel: "parent" });
 lx("greet_back", "plain", "Hello! I was only just out there.", { rel: "parent", age: "child" });
 lx("greet_back", "plain", "Hello. Yes, I've eaten. Don't fuss.", { rel: "parent" });
-lx("farewell", "plain", "I'll see you at supper, love.", { rel: "spouse" });
+lx("farewell", "plain", "I'll see you at the table, love.", { rel: "spouse" });
 lx("farewell", "plain", "Mind yourself. Come home safe.", { rel: "spouse" });
 lx("farewell", "plain", "Try not to be an idiot.", { rel: "sibling" });
 lx("farewell", "plain", "Give my regards to nobody. See you.", { rel: "sibling" });
 lx("farewell", "plain", "Wrap up warm, dear.", { rel: "child" });
-lx("farewell", "plain", "Bye. I'll be home for supper.", { rel: "parent" });
-lx("farewell", "plain", "Don't be late for supper.", { rel: "child" });
+lx("farewell", "plain", "Bye. I'll be home soon.", { rel: "parent" });
+lx("farewell", "plain", "Don't be late home.", { rel: "child" });
 lx("farewell", "plain", "Be good. Or be careful.", { rel: "child" });
 lx("backchannel", "plain", "Mm.");
 lx("backchannel", "plain", "I see.");
@@ -31827,7 +31827,7 @@ lx("life:slept_rough", "plain", "I slept rough again last night.");
 lx("life:slept_rough", "plain", "Another night on the ground.");
 lx("life:slept_rough", "plain", "Still no bed of my own.");
 lx("life:slept_rough", "plain", "I woke up with sand in my ear.");
-lx("life:no_privy", "plain", "I couldn't find a privy this morning. Not my best hour.");
+lx("life:no_privy", "plain", "I couldn't find a privy earlier. Not my best hour.");
 lx("life:no_privy", "plain", "There's nowhere decent to go round here.");
 lx("life:bladder_emergency", "plain", "I very nearly didn't make it to the privy. Don't ask.");
 lx("life:went_hungry", "plain", "I'm getting hungry. I haven't eaten properly.");
@@ -31839,7 +31839,7 @@ lx("life:bought", "plain", "I bought {things} today.");
 lx("life:bought", "plain", "Picked up {things}.");
 lx("life:sold", "plain", "I sold {things} today.");
 lx("life:planted", "plain", "I planted {things} today.");
-lx("life:planted", "plain", "Put in {things} this morning.");
+lx("life:planted", "plain", "Put in {things} earlier.");
 lx("life:new_in_stock", "plain", "The {shop} has {item} in now.");
 lx("life:new_in_stock", "plain", "Did you know the {shop} is selling {item} now?");
 lx("life:new_in_stock", "plain", "The {shop} finally has {item}.");
@@ -31851,7 +31851,7 @@ lx("life:could_not_afford", "plain", "Everything costs more than I have.");
 lx("life:price_up", "plain", "The price of {item} has gone up at the {shop}.");
 lx("life:price_down", "plain", "The price of {item} is down at the {shop} now.");
 lx("life:price_down", "plain", "You can get {item} for less at the {shop} today.");
-lx("life:baked", "plain", "I baked {things} this morning.");
+lx("life:baked", "plain", "I baked {things} earlier.");
 lx("life:baked", "plain", "The oven gave me {things} today.");
 lx("life:cooked", "plain", "I made {things} today.");
 lx("life:forged", "plain", "I turned out {things} today.");
@@ -31868,7 +31868,7 @@ lx("ask_how", "plain", "Are you well? You look tired.", { rel: "parent" });
 lx("ask_how", "plain", "Are you behaving?", { rel: "child", kid: "yes" });
 lx("ask_how", "plain", "How's life, then? Anything I should know before the rest of the family does?", { rel: "sibling" });
 kidl("answer_how", "Fine! I found a good stick.", { state: "fine" });
-kidl("answer_how", "I'm hungry. Is it supper yet?", { state: "hungry" });
+kidl("answer_how", "I'm hungry. Is it time to eat yet?", { state: "hungry" });
 kidl("answer_how", "I'm tired. I'm not tired. I'm tired.", { state: "tired" });
 kidl("answer_how", "Great! I'm having a good day!", { state: "glad" });
 for (const t of [
@@ -31914,7 +31914,7 @@ for (const t of ["Good going.", "That is a fair day.", "Well done.", "Sounds lik
 LXLP("planted", [
   "Got {things} in the ground today.",
   "Put in {things}. Now it's up to the weather.",
-  "Sowed {things} this morning. Fingers crossed.",
+  "Sowed {things} earlier. Fingers crossed.",
   "{things} went in today. Back aches, but they're in."
 ]);
 LXLP("harvested", [
@@ -31930,13 +31930,13 @@ LXLP("bought", [
   "Treated myself to {things}."
 ]);
 LXLP("sold", [
-  "Sold {things} this morning. Decent price.",
+  "Sold {things} earlier. Decent price.",
   "Got rid of {things} at the stall.",
   "Sold {things}. Every coin helps.",
   "{things} went at the stall today."
 ]);
 LXLP("baked", [
-  "Baked {things} this morning. Smells wonderful.",
+  "Baked {things} earlier. Smells wonderful.",
   "{things} out of the oven. Not bad at all.",
   "Got {things} baked before the rush.",
   "{things}, fresh. The whole street knows."
@@ -31973,7 +31973,7 @@ LXLP("ate_with", [
   "Ate with {about} today. Makes a change from eating alone.",
   "{about} and I shared a table at midday."
 ]);
-LXLP("found", ["Found {item} this morning. No idea whose.", "Look what I picked up: {item}.", "I found {item} by the path. Keeping it."]);
+LXLP("found", ["Found {item} earlier. No idea whose.", "Look what I picked up: {item}.", "I found {item} by the path. Keeping it."]);
 LXLP("ill", ["I'm not well. Something's got hold of me.", "Feeling rough. Fever, I think.", "I'm under the weather. Keep your distance."]);
 LXLP("recovered", ["I'm over it. Back on my feet.", "Feeling myself again, thank goodness.", "The fever's gone. I could eat a horse."]);
 LXP("answer_how", ["Not well. Fever.", "Rough, to be honest. I'm ill.", "Poorly. I'll be all right."], { state: "ill" });
@@ -32018,7 +32018,7 @@ lx("react_unmoved", "plain", "Hm.");
 lx("react_unmoved", "plain", "Is that so.");
 lx("react_unmoved", "plain", "Well.");
 lx("react_unmoved", "plain", "I see.");
-lx("ev:arrival", "plain", "{a} turned up on the beach this morning");
+lx("ev:arrival", "plain", "{a} turned up on the beach");
 lx("ev:arrival", "plain", "{a} came ashore with no explanation");
 lx("ev:quarrel", "plain", "{a} and {t} had words");
 lx("ev:brawl", "plain", "{a} and {t} came to blows");
@@ -32363,7 +32363,7 @@ lx("make_do", "plain", "No hurry. It'll keep.");
 lx("make_do", "plain", "Take fewer, then.");
 lx("no_stock", "plain", "Sorry, I'm out of {item} just now.");
 lx("no_stock", "plain", "None left, I'm afraid.");
-lx("no_stock", "plain", "The {item} sold out this morning.");
+lx("no_stock", "plain", "The {item} sold out earlier.");
 lx("shrug_off", "plain", "Next time, then.");
 lx("shrug_off", "plain", "Never mind.");
 lx("shrug_off", "plain", "I'll try again tomorrow.");
@@ -32424,13 +32424,14 @@ LXP("tell_price", [
   "{money} and not a coin less."
 ]);
 LXP("react_price", ["That's about what I expected.", "Dearer than last time.", "Cheaper than I feared.", "Fair enough. I'll think on it."]);
-LXP("shop_greet", ["Hello there.", "Hi. Got a minute?", "Afternoon. Anything good today?", "Hello. Having a quiet day?", "Hello. Is it a busy one?"]);
+LXP("shop_greet", ["Hello there.", "Hi. Got a minute?", "Hello. Having a quiet day?", "Hello. Is it a busy one?"]);
 LXP("shop_greet_back", [
   "Hello. What can I do for you?",
   "Good to see you. What are we after?",
   "Hello. Take your time.",
   "Hello there. What'll it be?"
 ]);
+lx("shop_greet", "plain", "Afternoon. Anything good today?", { band: "day" });
 lx("remark_time", "plain", "Morning goes quickly.", { band: "morning" });
 lx("remark_time", "plain", "Half the day gone already.", { band: "day" });
 lx("remark_time", "plain", "It'll be dark soon.", { band: "evening" });
@@ -32515,7 +32516,7 @@ LXP("joke", [
   "I told the field to grow faster. It grew slower, out of spite.",
   "My neighbour says the weather's turning. It's the same weather it's always had. New haircut, that's all.",
   "They say good fences make good neighbours. Mine fell over. We get on great.",
-  "I put my boots on the wrong feet this morning and walked all day like that. Nobody said a word. Lovely, I thought.",
+  "I put my boots on the wrong feet earlier and walked all day like that. Nobody said a word. Lovely, I thought.",
   "Never trust anyone who says they don't like bread. Or a gull, come to think of it."
 ]);
 LXP("laugh", ["Ha! Good one.", "Ha. That's a good one, that.", "You've got me there."]);
@@ -32566,13 +32567,13 @@ lxi("greet_back", "Hello. I am keeping my hands in my pockets. It is a habit I h
 lxi("greet_back", "Hello. It is good to see you. I mean that exactly.", { rep: "kind" });
 lxi("greet_back", "Ah, {li}. Good. Today is better already.", { rep: "kind" });
 lxi("greet", "There you are. I was about to look for you, which is not the same as worrying.", { rel: "spouse" });
-lxi("greet", "Hello. You are home. That is the best news of the afternoon.", { rel: "spouse" });
+lxi("greet", "Hello. You are home. That is the best news of the day.", { rel: "spouse" });
 lxi("greet", "There you are, {li}.", { rel: "partner" });
 lxi("greet", "It is you. I had hoped for someone else, and then I thought: no.", { rel: "sibling" });
 lxi("greet", "{li}. We have the same eyebrows. I notice every time.", { rel: "sibling" });
 lxi("greet", "Have you eaten? I ask every time. The answer is never the point.", { rel: "child" });
 lxi("greet", "Come here. Let me look at you. You are taller or I am less.", { rel: "child", kid: "yes" });
-lxi("greet", "Hello. Is there supper? I am only asking in general.", { rel: "parent", age: "child" });
+lxi("greet", "Hello. Is there food? I am only asking in general.", { rel: "parent", age: "child" });
 lxi("greet", "Hello. How has the day been, from where you were standing?", { rel: "parent" });
 lxi("greet", "Hello. You are where I left you, or near it.", { rel: "child" });
 lxi("greet", "There you are. I counted. You were still one.", { rel: "child" });
@@ -32581,11 +32582,11 @@ lxi("greet_back", "Hello, love. I am here. It is where I live.", { rel: "spouse"
 lxi("greet_back", "What now? I am joking. Hello.", { rel: "sibling" });
 lxi("greet_back", "Hello. Yes, I have eaten. I would tell you if I had not, which is not true.", { rel: "parent" });
 lxi("greet_back", "Hello. I am here. I am fine. You do not need to look at me like that.", { rel: "parent" });
-lxi("farewell", "I will see you at supper. I will be the one who is hungry.", { rel: "spouse" });
+lxi("farewell", "I will see you at the table. I will be the one who is hungry.", { rel: "spouse" });
 lxi("farewell", "Try not to be an idiot. I say it with love, and with a little concern.", { rel: "sibling" });
 lxi("farewell", "Wrap up warm. It is a mild island, and still.", { rel: "child" });
-lxi("farewell", "Bye. I will be home for supper. Probably before it.", { rel: "parent" });
-lxi("farewell", "Do not be late for supper. I will notice and I will say nothing.", { rel: "child" });
+lxi("farewell", "Bye. I will be home on time. Probably before.", { rel: "parent" });
+lxi("farewell", "Do not be late home. I will notice and I will say nothing.", { rel: "child" });
 lxi("backchannel", "Mm.");
 lxi("backchannel", "I see.");
 lxi("backchannel", "Yes. Well.");
@@ -32632,7 +32633,7 @@ for (const t of [
   "That is the end of what I had.",
   "I should go. I will pretend I have a reason.",
   "I have a few things to be near. I will go and be near them.",
-  "Right. The afternoon will want me soon.",
+  "Right. The day will want me soon.",
   "I will let the conversation end here. It has had a good run.",
   "Off I go. I will not look back, which is a lie."
 ])
@@ -32661,8 +32662,10 @@ for (const t of [
   "And the same to you, exactly."
 ])
   lxi("farewell_back", t);
-LXI("greet", ["Hello, {li}.", "Morning.", "There you are.", "{li}.", "Good day.", "Hello."]);
-LXI("greet_back", ["Hello.", "Hello, {li}.", "Morning.", "Good day.", "Yes. Hello."]);
+LXI("greet", ["Hello, {li}.", "There you are.", "{li}.", "Good day.", "Hello."]);
+LXI("greet", ["Morning."], { band: "morning" });
+LXI("greet_back", ["Hello.", "Hello, {li}.", "Good day.", "Yes. Hello."]);
+LXI("greet_back", ["Morning."], { band: "morning" });
 LXI("farewell", [
   "Goodbye.",
   "I will go on, then.",
@@ -32699,7 +32702,7 @@ lxi("life:slept", "I slept. Properly. I want that noted.");
 lxi("life:slept_rough", "I slept on the ground. The ground was patient with me.");
 lxi("life:slept_rough", "I woke up with sand in my ear again. It is becoming a sort of companion.");
 lxi("life:slept_rough", "I still have no bed. I have started to think of the horizon as my bedroom.");
-lxi("life:no_privy", "I could not find a privy this morning. I will not go into it.");
+lxi("life:no_privy", "I could not find a privy earlier. I will not go into it.");
 lxi("life:bladder_emergency", "I made it. Barely. We do not need to discuss the margin.");
 lxi("life:went_hungry", "I have not eaten properly. I notice it more than I expected to.");
 lxi("life:starving", "I am very hungry. I am saying so in case it matters.");
@@ -32735,7 +32738,7 @@ lxi("ask_how", "Are you well? You look tired. You always look tired. It is part 
 lxi("ask_how", "Are you behaving? Do not answer.", { rel: "child", kid: "yes" });
 lxi("ask_how", "How is life, then? Tell me before everyone else does.", { rel: "sibling" });
 kidi("answer_how", "Fine. I found a very good stick.", { state: "fine" });
-kidi("answer_how", "I am hungry. Is it nearly supper? It feels nearly.", { state: "hungry" });
+kidi("answer_how", "I am hungry. Is it nearly time to eat? It feels nearly.", { state: "hungry" });
 kidi("answer_how", "I am tired. I am not tired. I am a bit tired.", { state: "tired" });
 kidi("answer_how", "Good. It has been a good day. I did not expect that of it.", { state: "glad" });
 for (const t of [
@@ -33013,7 +33016,7 @@ lxi("react_sympathy", "Poor {who}.");
 lxi("react_sympathy", "That is hard on {who}. I hope someone brought them something to eat.");
 lxi("react_doubt", "That does not sound like the island I know.");
 lxi("react_doubt", "Who told you that? Never mind. I would like to hear it twice.");
-lxi("react_delight", "Well. That is good. I will think about it all afternoon.");
+lxi("react_delight", "Well. That is good. I will think about it all day.");
 lxi("react_delight", "I am glad. It is a strange thing to be glad about, and I am.");
 lxi("react_unmoved", "I see.");
 lxi("react_unmoved", "Mm. Noted.");
@@ -33249,7 +33252,7 @@ lxi("cry_deed", "That is my wall.", { how: "wall_home" });
 lxi("cry_deed", "That is my house. I am standing in it.", { how: "wall_home" });
 lxi("cry_deed", "I am using this. I am using this right now.", { how: "privy" });
 lxi("cry_deed", "There was a wall there. A moment ago there was a wall.", { how: "privy" });
-lxi("cry_deed", "That was my house. It was there this morning.", { how: "home" });
+lxi("cry_deed", "That was my house. It was there earlier.", { how: "home" });
 lxi("cry_deed", "My house. You have taken my house down.", { how: "home" });
 lxi("cry_deed", "I went to sleep indoors. I am nearly certain of that.", { how: "bed" });
 lxi("cry_deed", "There is a tree where the ceiling was.", { how: "bed" });
@@ -33304,7 +33307,7 @@ lxi("apologise", "I have been thinking about what I did. I am sorry. It is a sho
 lxi("apologise", "I owe you an apology. I am delivering it as promptly as I could manage.");
 lxi("accept_apology", "Thank you. I accept it. I am relieved to have somewhere to put it.");
 lxi("reject_apology", "No. I am not ready. I may be later.");
-lxi("ask_favour", "I have no food. I have had none since this morning. Could you spare {item}?", { how: "item" });
+lxi("ask_favour", "I have no food. I have had none today. Could you spare {item}?", { how: "item" });
 lxi("ask_favour", "I am hungry in a very exact way. Do you have any {item}?", { how: "item" });
 lxi("ask_favour", "I have no bed. I have a patch of ground that I have grown fond of. A bed would be better.", { how: "bed" });
 lxi("ask_favour", "Would you build me a bed? I would use it for the usual things.", { how: "bed" });
@@ -33384,7 +33387,7 @@ lxi("cant_afford", "I am short. I counted on the way and again just now.");
 lxi("make_do", "It will be here tomorrow. Probably.");
 lxi("make_do", "Come back when you have it. I will not move.");
 lxi("no_stock", "None left. They went quickly.");
-lxi("no_stock", "I have no {item}. I had some this morning. I cannot account for it.");
+lxi("no_stock", "I have no {item}. I had some earlier. I cannot account for it.");
 lxi("shrug_off", "That is all right.");
 lxi("shrug_off", "Tomorrow, then.");
 lxi("offer_goods", "I have {things}.");
@@ -33467,7 +33470,7 @@ lxi("remark_work", "The {job} work went quietly today. I do not entirely trust t
 lxi("remark_work", "The {job} work went well. I am being careful about saying so.", { state: "glad" });
 lxi("remark_work", "The {job} work is the one thing that has not changed since I arrived, and I am glad of it.");
 lxi("remark_state", "I am hungry in the specific way that means soup.", { state: "hungry" });
-lxi("remark_state", "I have not eaten since this morning. My stomach has opinions.", { state: "hungry" });
+lxi("remark_state", "I have not eaten today. My stomach has opinions.", { state: "hungry" });
 lxi("remark_state", "I am tired. Not sleepy. Tired in a way a bed would not fix at once.", { state: "tired" });
 lxi("remark_state", "I could lie down on almost anything. I have been assessing the ground.", { state: "tired" });
 lxi("remark_state", "I feel unreasonably good today. I have decided not to look into it.", { state: "glad" });
@@ -33539,13 +33542,13 @@ LXI("joke", [
   "I tried to count the days since I arrived. I lost count at the part where I tried to count.",
   "There is a gull that stands outside the bakery. I think it is in management.",
   "I planted a turnip and told it the plan. It has not commented.",
-  "I found a very good stone this morning. I put it down again. That is the whole story and I stand by it.",
+  "I found a very good stone earlier. I put it down again. That is the whole story and I stand by it.",
   "Someone asked if I had a map. I said the island was the map. He said it was a poor map. We shook on it.",
   "My bed and I have an understanding. It is mine in the evening and the floor's in the morning.",
   "I tried to whistle a tune I do not know. A bird answered with the same tune. I have not whistled since."
 ]);
 LXI("laugh", [
-  "Ha. I will be thinking about that in the night. Thank you.",
+  "Ha. I will be thinking about that later. Thank you.",
   "Ha. Yes. I will use that on someone who has not heard it.",
   "Ha. That is the right size for a joke. They are usually too large."
 ]);
@@ -33556,7 +33559,7 @@ LXI("wonder_reply", [
 ]);
 LXI("remark_state", ["I should not be out. I am ill. I wanted to see whether the day was still here."], { state: "ill" });
 LXI("snap", [
-  "Not now. I have used up my patience and it is not yet noon.",
+  "Not now. I have used up my patience and it is still early.",
   "Please. Not today. I am holding the day together with one hand.",
   "I do not want to talk. I want that to be enough."
 ]);
@@ -33571,7 +33574,7 @@ LXI("remark_work", [
   "There is plenty to do.",
   "The work goes on.",
   "I am behind, a little.",
-  "It was a full morning.",
+  "It has been a full day.",
   "The work is the same as yesterday."
 ]);
 LXI("remark_state", ["I am hungry.", "I could eat."], { state: "hungry" });
@@ -33586,7 +33589,7 @@ lxi("mutter", "Not too brown. Not too pale. It is a narrow thing and I am calm a
 lxi("mutter", "There is flour in places I did not know I had.", { how: "baker" });
 lxi("mutter", "Hot enough. It is always hot enough, and then it is hotter.", { how: "smith" });
 lxi("mutter", "Where did that go. It was here. It was right here.");
-lxi("mutter", "Nearly done. I have said that since morning and it has not been false once.");
+lxi("mutter", "Nearly done. I have said that all day and it has not been false once.");
 lxi("mutter", "Back to it. The work does not know it is being watched.");
 
 </script>

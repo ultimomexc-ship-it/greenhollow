@@ -23,7 +23,7 @@ lxi('cant_afford', 'I am short. I counted on the way and again just now.');
 lxi('make_do', 'It will be here tomorrow. Probably.');
 lxi('make_do', 'Come back when you have it. I will not move.');
 lxi('no_stock', 'None left. They went quickly.');
-lxi('no_stock', 'I have no {item}. I had some this morning. I cannot account for it.');
+lxi('no_stock', 'I have no {item}. I had some earlier. I cannot account for it.');
 lxi('shrug_off', 'That is all right.');
 lxi('shrug_off', 'Tomorrow, then.');
 lxi('offer_goods', 'I have {things}.');
