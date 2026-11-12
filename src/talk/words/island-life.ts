@@ -43,13 +43,13 @@ lxi('life:cooked', 'I made {things} today.');
 lxi('life:forged', 'I turned out {things} today.');
 lxi('life:woven', 'I finished {things} on the loom.');
 lxi('life:new_in_stock', 'The {shop} has {item} now. I stood and looked at it for a while.');
-lxi('life:new_in_stock', 'The {shop} has {item} on it that nobody ordered. I am not asking.');
+lxi('life:new_in_stock', 'The {shop} has {item} on the shelf that nobody ordered. I am not asking.');
 lxi('life:out_of_stock', 'The {shop} was out of {item}. It was very quiet there.');
 lxi('life:out_of_stock', 'I went for {item} and the {shop} had none. The shelf looked embarrassed.');
 lxi('life:could_not_afford', 'I could not afford {item}. I counted twice.');
 lxi('life:could_not_afford', 'Money is tight. I had to leave the {item} and walk away from it.');
-lxi('life:price_up', '{item} has gone up at the {shop}. I think the {shop} knows.');
-lxi('life:price_down', '{item} is cheaper at the {shop} today. It will not last. It never does.');
+lxi('life:price_up', 'The price of {item} has gone up at the {shop}. I think the {shop} knows.');
+lxi('life:price_down', 'The price of {item} is down at the {shop} today. It will not last. It never does.');
 lxi('vent', 'I am hungry, as it happens. It has been a while.', { state: 'hungry' });
 lxi('vent', 'I am very tired. The tiredness has started to feel like a place.', { state: 'tired' });
 lxi('vent', 'I have been low. It has no cause. That is what is wrong with it.', { state: 'low' });
@@ -201,7 +201,7 @@ LXLI('no_privy', [
   'There was no privy to be had. I will not describe what followed. It was dignified for the most part.'
 ]);
 LXLI('new_in_stock', [
-  'There is {item} at the {shop}. It was not there before. I noticed because I notice things in the morning.',
+  'New at the {shop}: {item}. That was not there before. I noticed because I notice things in the morning.',
   'The {shop} is stocking {item}. I did not ask why. The shelf looked pleased.'
 ]);
 LXLI('out_of_stock', [
@@ -209,11 +209,11 @@ LXLI('out_of_stock', [
   'I went for {item}. The {shop} was out. It was very polite about it.'
 ]);
 LXLI('price_up', [
-  '{item} has gone up at the {shop}. Not by much. By enough to be mentioned.',
-  'I noticed {item} costs more at the {shop}. It is a small thing, and I am treating it as a large one.'
+  'The price of {item} has gone up at the {shop}. Not by much. By enough to be mentioned.',
+  'I noticed the price of {item} is up at the {shop}. It is a small thing, and I am treating it as a large one.'
 ]);
 LXLI('price_down', [
-  '{item} is cheaper at the {shop}. I will believe it when I am holding it.',
+  'The price of {item} is down at the {shop}. I will believe it when I am holding it.',
   'The {shop} has lowered the price of {item}. I did not ask why. I am enjoying it.'
 ]);
 LXLI('could_not_afford', [
@@ -307,11 +307,11 @@ LXI('life:harvested', ['I harvested {things}.', 'I brought in {things}.', '{thin
 LXI('life:bought', ['I bought {things}.', 'I got {things} at the market.']);
 LXI('life:sold', ['I sold {things}.', 'I took {things} to the stall.']);
 LXI('life:baked', ['I baked {things}.', '{things}, out of the oven.']);
-LXI('life:new_in_stock', ['The {shop} has {item} now.', 'There is {item} at the {shop}.']);
+LXI('life:new_in_stock', ['The {shop} has {item} now.', 'New at the {shop}: {item}.']);
 LXI('life:out_of_stock', ['The {shop} is out of {item}.', 'There was no {item} to be had.']);
 LXI('life:could_not_afford', ['I could not afford {item}.', 'I had not the money for {item}.']);
-LXI('life:price_up', ['{item} has gone up.', '{item} costs more at the {shop} now.']);
-LXI('life:price_down', ['{item} has come down.', '{item} is cheaper at the {shop} now.']);
+LXI('life:price_up', ['The price of {item} has gone up.', 'The price of {item} is up at the {shop} now.']);
+LXI('life:price_down', ['The price of {item} has come down.', 'The price of {item} is down at the {shop} now.']);
 LXI('life:worked_with', ['I worked beside {about} today.', '{about} and I did the same rows.']);
 LXI('life:ate_with', ['I ate with {about}.', '{about} and I shared a table.']);
 LXI('life:found', ['I found {item}.', 'I picked up {item} today.']);

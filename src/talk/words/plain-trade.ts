@@ -53,9 +53,9 @@ lx('new_stock_remark', 'plain', 'New in: {item}.');
 lx('farewell_shop', 'plain', 'Good day.');
 lx('farewell_shop', 'plain', 'See you.');
 lx('farewell_shop', 'plain', 'Right. Back to it.');
-lx('ask_price', 'plain', 'What are {item} going for?');
-lx('ask_price', 'plain', 'Seen what {item} cost lately?');
-lx('ask_price', 'plain', 'Do you know what {item} are at the moment?');
+lx('ask_price', 'plain', 'What is the going price of {item}?');
+lx('ask_price', 'plain', 'Seen the price of {item} lately?');
+lx('ask_price', 'plain', 'Do you know the price of {item} at the moment?');
 lx('tell_price', 'plain', 'I paid {money} each last time.');
 lx('tell_price', 'plain', 'About {money}, when I looked.');
 lx('tell_price', 'plain', '{money} each. Not cheap, not dear.');
@@ -67,7 +67,7 @@ lx('react_price', 'plain', "I'll see if it's cheaper elsewhere.");
 lx('keeper_call', 'plain', 'New in this week: {item}.', { call: 'new' });
 lx('keeper_call', 'plain', 'Come and see the {item}. Just in.', { call: 'new' });
 lx('keeper_call', 'plain', "We've {item} now. First of the season.", { call: 'new' });
-lx('keeper_call', 'plain', '{item} are cheap today. {money} each.', { call: 'cheap' });
+lx('keeper_call', 'plain', 'Cheap today: {item}. {money} each.', { call: 'cheap' });
 lx('keeper_call', 'plain', 'Cheap {item} today, {money} each.', { call: 'cheap' });
 lx('keeper_call', 'plain', 'Fresh {item}, {money} each.');
 lx('keeper_call', 'plain', 'Get your {item} here.');
@@ -80,7 +80,7 @@ lx('call_reply', 'plain', "Not now, I'm busy.");
 lx('shrug_off', 'plain', 'Hm. Well.');
 lx('shrug_off', 'plain', 'We all have days.');
 LXP('ask_price', [
-  'What would {item} cost me now?',
+  'What would I pay for {item} now?',
   'Do you know the going rate for {item}?',
   'What are you seeing for {item}?',
   'Is {item} dear at the moment?',

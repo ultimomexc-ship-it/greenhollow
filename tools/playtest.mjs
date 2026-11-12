@@ -109,7 +109,8 @@ const data = await page.evaluate(() => {
   const acts = {}; for (const t of T) for (const a of t.acts) acts[a] = (acts[a] || 0) + 1;
   const all = Object.keys(ACTS), blamed = [], deeds = lf2Ev().filter(e => e.actor === P.id && ['wall_removed', 'home_destroyed', 'building_down', 'bed_moved', 'furniture_removed', 'person_pushed', 'caught_on_privy'].includes(e.kind));
   for (const e of deeds) { const who = {}; for (const o of npcs) { const m = (o.tmem || []).find(q => q.ev === e.id && q.kind !== 'did'); if (m && m.ver && m.ver.who != null) who[m.ver.who === P.id ? 'you' : (byId(m.ver.who) || {}).first] = (who[m.ver.who === P.id ? 'you' : (byId(m.ver.who) || {}).first] || 0) + 1; } blamed.push({ ev: e.kind, anon: !!e.anon, blamed: who, knew: npcs.filter(o => (o.tmem || []).some(q => q.ev === e.id)).length }); }
-  return { T, B, people, acts, unused: all.filter(a => !acts[a] && !ACTS[a].reply === false || (!acts[a])).filter(a => !['cry_deed', 'mutter', 'call_child', 'gift_from_nobody', 'gift_anon_reply'].includes(a)), blamed, rep: repVillage(P), miss: (typeof LX_MISS !== 'undefined' ? LX_MISS : {}), pairs: window.__pairs || [], menu: window.__M || [], pack: town.pack, logLen: TALK.log.length, chron: (town.chron || []).slice(-30).map(c => c.text), player: P.first };
+  const plurals = [...Object.keys(IT_SEEDS).map(k => WORLD.name('seed', k)), ...Object.keys(GOODS).map(k => WORLD.name('item', k))].filter(n => /[^s]s$/.test(n || '')).filter((n, i, a) => a.indexOf(n) === i);   // (names that are plural: a verb next to one has to agree)
+  return { plurals, T, B, people, acts, unused: all.filter(a => !acts[a] && !ACTS[a].reply === false || (!acts[a])).filter(a => !['cry_deed', 'mutter', 'call_child', 'gift_from_nobody', 'gift_anon_reply'].includes(a)), blamed, rep: repVillage(P), miss: (typeof LX_MISS !== 'undefined' ? LX_MISS : {}), pairs: window.__pairs || [], menu: window.__M || [], pack: town.pack, logLen: TALK.log.length, chron: (town.chron || []).slice(-30).map(c => c.text), player: P.first };
 });
 await browser.close();
 
@@ -130,6 +131,8 @@ const rules = [
   ['empty', /^\s*$/]
 ];
 const menuLines = [...new Set(data.menu)].map(m => ({ text: m.split(' :: ').slice(1).join(' :: '), act: m.split(' :: ')[0], menu: true }));
+// number agreement: a plural item name (cabbage seeds, beans) next to is/does/has/was
+if (data.plurals.length) { const pl = data.plurals.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), agree = new RegExp('\\b(?:' + pl + ') (?:is|does|has|was)\\b|\\b(?:there (?:is|was)|what (?:does|is)) (?:the )?(?:' + pl + ')\\b', 'i'); rules.push(['number agreement', agree]); }
 const issues = {}; for (const r of [...lines, ...bots, ...menuLines]) for (const [name, rx] of rules) if (rx.test(r.text)) (issues[name] = issues[name] || []).push(name === 'empty' ? 'acts: ' + (r.t ? r.t.acts.join(',') : r.menu ? 'menu ' + r.act : 'bot ' + (r.act || '')) : (r.menu ? '[menu ' + r.act + '] ' : '') + r.text);
 // the listener named in the third person ("I heard what Agrippina thinks" said to Agrippina)
 const persp = []; for (const t of data.T) for (const l of t.lines) { const who = l.split(':')[0], text = l.replace(/^[^:]+: /, ''), other = who === t.a ? t.b : t.a; if (other && other !== who && new RegExp('(?:thinks of|heard what|fond of|soft spot for|about|like|what) ' + other + '\\b').test(text)) persp.push(`${who} to ${other}: ${text}`); }

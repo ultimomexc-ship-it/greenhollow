@@ -35,11 +35,11 @@ lxi('accept_deal', 'That will do.');
 lxi('no_demand', 'I have enough. Thank you.');
 lxi('no_demand', 'The stall is full of {item}. I could not take another one.');
 lxi('new_stock_remark', 'We have {item} now.');
-lxi('new_stock_remark', 'There is {item} in this week. Nobody ordered it. It arrived.');
+lxi('new_stock_remark', 'New this week: {item}. Nobody ordered that. It arrived.');
 lxi('farewell_shop', 'Goodbye.');
 lxi('farewell_shop', 'See you.');
 lxi('keeper_call', 'New: {item}.', { call: 'new' });
-lxi('keeper_call', 'We have {item} now. It is the first I have seen of it.', { call: 'new' });
+lxi('keeper_call', 'We have {item} now. This is the first I have seen of that.', { call: 'new' });
 lxi('keeper_call', '{item}, {money}. It is a good price. I checked.', { call: 'cheap' });
 lxi('keeper_call', 'Cheap {item} today. {money}.', { call: 'cheap' });
 lxi('keeper_call', '{item}. {money}. That is all I have to say about it.');
@@ -48,8 +48,8 @@ lxi('keeper_call', 'If anyone needs {item}, I have some.');
 lxi('call_reply', 'Maybe later.');
 lxi('call_reply', 'Not now. Thank you.');
 lxi('call_reply', 'I will think about it. I will probably come back.');
-lxi('ask_price', 'Do you know what {item} cost today?');
-lxi('ask_price', 'What are {item} going for? I would like an exact figure.');
+lxi('ask_price', 'Do you know the price of {item} today?');
+lxi('ask_price', 'What is the price of {item}? I would like an exact figure.');
 lxi('tell_price', '{money} each. I wrote it down.');
 lxi('tell_price', 'About {money}. I paid it and did not enjoy it.');
 lxi('react_price', 'Good to know.');
@@ -58,9 +58,9 @@ lxi('react_price', 'Fair. Thank you.');
 lxi('shrug_off', 'Yes. Well. It is something.');
 lxi('shrug_off', 'Everyone has days. Some have more of them.');
 LXI('ask_price', [
-  'What does {item} cost these days? I will need a number, not a mood.',
+  'What is the price of {item} these days? I will need a number, not a mood.',
   'Do you know the price of {item}? I do not, and I dislike not.',
-  'What are {item} fetching? I have a figure in mind and no faith in it.',
+  'What is the going price of {item}? I have a figure in mind and no faith in it.',
   'Is {item} dear just now? Give me a figure and I will give you my opinion of it.',
   'How much for {item}, lately? I am collecting numbers.'
 ]);

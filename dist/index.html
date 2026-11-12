@@ -31848,8 +31848,8 @@ lx("life:out_of_stock", "plain", "Went for {item} and the {shop} was out.");
 lx("life:could_not_afford", "plain", "I couldn't afford {item} today.");
 lx("life:could_not_afford", "plain", "Money is tight. I had to leave the {item}.");
 lx("life:could_not_afford", "plain", "Everything costs more than I have.");
-lx("life:price_up", "plain", "{item} has gone up at the {shop}.");
-lx("life:price_down", "plain", "{item} is cheaper at the {shop} now.");
+lx("life:price_up", "plain", "The price of {item} has gone up at the {shop}.");
+lx("life:price_down", "plain", "The price of {item} is down at the {shop} now.");
 lx("life:price_down", "plain", "You can get {item} for less at the {shop} today.");
 lx("life:baked", "plain", "I baked {things} this morning.");
 lx("life:baked", "plain", "The oven gave me {things} today.");
@@ -31955,8 +31955,8 @@ LXLP("went_hungry", ["Went hungry today. Not a crumb.", "Hardly ate. I could eat
 LXLP("no_privy", ["Couldn't find a privy. I won't say what I did.", "Had to make do behind a tree. Not proud of it."]);
 LXLP("new_in_stock", ["Saw {item} at the {shop}. New in.", "The {shop} has {item} now, if you're after some."]);
 LXLP("out_of_stock", ["The {shop} had no {item}. Wasted trip.", "Went for {item} and the {shop} had none. Typical."]);
-LXLP("price_up", ["{item} is dearer at the {shop} these days.", "Noticed {item} has gone up at the {shop}. Of course it has."]);
-LXLP("price_down", ["{item} is cheaper at the {shop}. Worth a trip.", "Good news: {item} is down at the {shop}."]);
+LXLP("price_up", ["The price of {item} is up at the {shop} these days.", "Noticed the price of {item} has gone up at the {shop}. Of course it has."]);
+LXLP("price_down", ["The price of {item} is down at the {shop}. Worth a trip.", "Good news: the price of {item} is down at the {shop}."]);
 LXLP("could_not_afford", ["Couldn't afford {item} today. Next time.", "Had my eye on {item}, but the purse said no."]);
 LXLP("tired", ["Worn out today. Could sleep in a ditch.", "Absolutely done in."]);
 LXP("ask_why_state", ["Why? What's happened?", "Oh? What's the matter?", "Is something wrong?"]);
@@ -32384,9 +32384,9 @@ lx("new_stock_remark", "plain", "New in: {item}.");
 lx("farewell_shop", "plain", "Good day.");
 lx("farewell_shop", "plain", "See you.");
 lx("farewell_shop", "plain", "Right. Back to it.");
-lx("ask_price", "plain", "What are {item} going for?");
-lx("ask_price", "plain", "Seen what {item} cost lately?");
-lx("ask_price", "plain", "Do you know what {item} are at the moment?");
+lx("ask_price", "plain", "What is the going price of {item}?");
+lx("ask_price", "plain", "Seen the price of {item} lately?");
+lx("ask_price", "plain", "Do you know the price of {item} at the moment?");
 lx("tell_price", "plain", "I paid {money} each last time.");
 lx("tell_price", "plain", "About {money}, when I looked.");
 lx("tell_price", "plain", "{money} each. Not cheap, not dear.");
@@ -32397,7 +32397,7 @@ lx("react_price", "plain", "I'll see if it's cheaper elsewhere.");
 lx("keeper_call", "plain", "New in this week: {item}.", { call: "new" });
 lx("keeper_call", "plain", "Come and see the {item}. Just in.", { call: "new" });
 lx("keeper_call", "plain", "We've {item} now. First of the season.", { call: "new" });
-lx("keeper_call", "plain", "{item} are cheap today. {money} each.", { call: "cheap" });
+lx("keeper_call", "plain", "Cheap today: {item}. {money} each.", { call: "cheap" });
 lx("keeper_call", "plain", "Cheap {item} today, {money} each.", { call: "cheap" });
 lx("keeper_call", "plain", "Fresh {item}, {money} each.");
 lx("keeper_call", "plain", "Get your {item} here.");
@@ -32410,7 +32410,7 @@ lx("call_reply", "plain", "Not now, I'm busy.");
 lx("shrug_off", "plain", "Hm. Well.");
 lx("shrug_off", "plain", "We all have days.");
 LXP("ask_price", [
-  "What would {item} cost me now?",
+  "What would I pay for {item} now?",
   "Do you know the going rate for {item}?",
   "What are you seeing for {item}?",
   "Is {item} dear at the moment?",
@@ -32718,13 +32718,13 @@ lxi("life:cooked", "I made {things} today.");
 lxi("life:forged", "I turned out {things} today.");
 lxi("life:woven", "I finished {things} on the loom.");
 lxi("life:new_in_stock", "The {shop} has {item} now. I stood and looked at it for a while.");
-lxi("life:new_in_stock", "The {shop} has {item} on it that nobody ordered. I am not asking.");
+lxi("life:new_in_stock", "The {shop} has {item} on the shelf that nobody ordered. I am not asking.");
 lxi("life:out_of_stock", "The {shop} was out of {item}. It was very quiet there.");
 lxi("life:out_of_stock", "I went for {item} and the {shop} had none. The shelf looked embarrassed.");
 lxi("life:could_not_afford", "I could not afford {item}. I counted twice.");
 lxi("life:could_not_afford", "Money is tight. I had to leave the {item} and walk away from it.");
-lxi("life:price_up", "{item} has gone up at the {shop}. I think the {shop} knows.");
-lxi("life:price_down", "{item} is cheaper at the {shop} today. It will not last. It never does.");
+lxi("life:price_up", "The price of {item} has gone up at the {shop}. I think the {shop} knows.");
+lxi("life:price_down", "The price of {item} is down at the {shop} today. It will not last. It never does.");
 lxi("vent", "I am hungry, as it happens. It has been a while.", { state: "hungry" });
 lxi("vent", "I am very tired. The tiredness has started to feel like a place.", { state: "tired" });
 lxi("vent", "I have been low. It has no cause. That is what is wrong with it.", { state: "low" });
@@ -32876,7 +32876,7 @@ LXLI("no_privy", [
   "There was no privy to be had. I will not describe what followed. It was dignified for the most part."
 ]);
 LXLI("new_in_stock", [
-  "There is {item} at the {shop}. It was not there before. I noticed because I notice things in the morning.",
+  "New at the {shop}: {item}. That was not there before. I noticed because I notice things in the morning.",
   "The {shop} is stocking {item}. I did not ask why. The shelf looked pleased."
 ]);
 LXLI("out_of_stock", [
@@ -32884,11 +32884,11 @@ LXLI("out_of_stock", [
   "I went for {item}. The {shop} was out. It was very polite about it."
 ]);
 LXLI("price_up", [
-  "{item} has gone up at the {shop}. Not by much. By enough to be mentioned.",
-  "I noticed {item} costs more at the {shop}. It is a small thing, and I am treating it as a large one."
+  "The price of {item} has gone up at the {shop}. Not by much. By enough to be mentioned.",
+  "I noticed the price of {item} is up at the {shop}. It is a small thing, and I am treating it as a large one."
 ]);
 LXLI("price_down", [
-  "{item} is cheaper at the {shop}. I will believe it when I am holding it.",
+  "The price of {item} is down at the {shop}. I will believe it when I am holding it.",
   "The {shop} has lowered the price of {item}. I did not ask why. I am enjoying it."
 ]);
 LXLI("could_not_afford", [
@@ -32981,11 +32981,11 @@ LXI("life:harvested", ["I harvested {things}.", "I brought in {things}.", "{thin
 LXI("life:bought", ["I bought {things}.", "I got {things} at the market."]);
 LXI("life:sold", ["I sold {things}.", "I took {things} to the stall."]);
 LXI("life:baked", ["I baked {things}.", "{things}, out of the oven."]);
-LXI("life:new_in_stock", ["The {shop} has {item} now.", "There is {item} at the {shop}."]);
+LXI("life:new_in_stock", ["The {shop} has {item} now.", "New at the {shop}: {item}."]);
 LXI("life:out_of_stock", ["The {shop} is out of {item}.", "There was no {item} to be had."]);
 LXI("life:could_not_afford", ["I could not afford {item}.", "I had not the money for {item}."]);
-LXI("life:price_up", ["{item} has gone up.", "{item} costs more at the {shop} now."]);
-LXI("life:price_down", ["{item} has come down.", "{item} is cheaper at the {shop} now."]);
+LXI("life:price_up", ["The price of {item} has gone up.", "The price of {item} is up at the {shop} now."]);
+LXI("life:price_down", ["The price of {item} has come down.", "The price of {item} is down at the {shop} now."]);
 LXI("life:worked_with", ["I worked beside {about} today.", "{about} and I did the same rows."]);
 LXI("life:ate_with", ["I ate with {about}.", "{about} and I shared a table."]);
 LXI("life:found", ["I found {item}.", "I picked up {item} today."]);
@@ -33396,11 +33396,11 @@ lxi("accept_deal", "That will do.");
 lxi("no_demand", "I have enough. Thank you.");
 lxi("no_demand", "The stall is full of {item}. I could not take another one.");
 lxi("new_stock_remark", "We have {item} now.");
-lxi("new_stock_remark", "There is {item} in this week. Nobody ordered it. It arrived.");
+lxi("new_stock_remark", "New this week: {item}. Nobody ordered that. It arrived.");
 lxi("farewell_shop", "Goodbye.");
 lxi("farewell_shop", "See you.");
 lxi("keeper_call", "New: {item}.", { call: "new" });
-lxi("keeper_call", "We have {item} now. It is the first I have seen of it.", { call: "new" });
+lxi("keeper_call", "We have {item} now. This is the first I have seen of that.", { call: "new" });
 lxi("keeper_call", "{item}, {money}. It is a good price. I checked.", { call: "cheap" });
 lxi("keeper_call", "Cheap {item} today. {money}.", { call: "cheap" });
 lxi("keeper_call", "{item}. {money}. That is all I have to say about it.");
@@ -33409,8 +33409,8 @@ lxi("keeper_call", "If anyone needs {item}, I have some.");
 lxi("call_reply", "Maybe later.");
 lxi("call_reply", "Not now. Thank you.");
 lxi("call_reply", "I will think about it. I will probably come back.");
-lxi("ask_price", "Do you know what {item} cost today?");
-lxi("ask_price", "What are {item} going for? I would like an exact figure.");
+lxi("ask_price", "Do you know the price of {item} today?");
+lxi("ask_price", "What is the price of {item}? I would like an exact figure.");
 lxi("tell_price", "{money} each. I wrote it down.");
 lxi("tell_price", "About {money}. I paid it and did not enjoy it.");
 lxi("react_price", "Good to know.");
@@ -33419,9 +33419,9 @@ lxi("react_price", "Fair. Thank you.");
 lxi("shrug_off", "Yes. Well. It is something.");
 lxi("shrug_off", "Everyone has days. Some have more of them.");
 LXI("ask_price", [
-  "What does {item} cost these days? I will need a number, not a mood.",
+  "What is the price of {item} these days? I will need a number, not a mood.",
   "Do you know the price of {item}? I do not, and I dislike not.",
-  "What are {item} fetching? I have a figure in mind and no faith in it.",
+  "What is the going price of {item}? I have a figure in mind and no faith in it.",
   "Is {item} dear just now? Give me a figure and I will give you my opinion of it.",
   "How much for {item}, lately? I am collecting numbers."
 ]);
