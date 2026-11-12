@@ -39,7 +39,7 @@ function dailyLife() {
   const day = Math.floor(game.time / 1440);
   // birthdays
   npcs.slice().forEach(n => {
-    const a = ageNow(n);
+    const a = modOn('rule.ageing') ? ageNow(n) : n.age;   // (rule.ageing off: nobody has a birthday)
     if (a !== n.age) {
       n.age = a; updateLook(n);
       if (typeof partyAge === 'function' && partyAge(a) && !n.infant) scheduleParty(n);
@@ -55,7 +55,7 @@ function dailyLife() {
     if (npcs.length <= 2) return;
     // everyone lives to a ripe old age, and goes at a time of their own somewhere between 70 and 88
     if (n.lifespan == null) n.lifespan = 70 + Math.floor((n.rand ? n.rand() : Math.random()) * 19);
-    if (n.age >= n.lifespan && day >= 6) die(n, 'old age');
+    if (n.age >= n.lifespan && day >= 6 && modOn('rule.ageing')) die(n, 'old age');
   });
   romanceTick(); fertilityTick(); housingTick(); growthProjects(); pruneNodes();
   if (!town.sites.length || day % 3 === 0) { refreshReach(); refreshShore(); }
@@ -143,6 +143,7 @@ function marry(a, b) {
   else chron(`${groom.first} and ${bride.first} will need a home of their own.`, 'family');
 }
 function fertilityTick() {
+  if (!modOn('rule.births')) return;
   npcs.forEach(m => {
     const isl = false;   // on the island, families grow quickly (nobody else is coming), even before they have a house
     if (!m.female || m.preg || m.age < 17 || m.age > (isl ? 45 : 41) || !m.fam.spouse) return;

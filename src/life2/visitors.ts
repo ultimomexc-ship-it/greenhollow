@@ -75,7 +75,7 @@ function visitorTick() {
   if (!town) return;
   visHomes(); if (game.time - (town.ovenSweep || -1e9) > 1440) { town.ovenSweep = game.time; clearOrphanOvens(); }   // (a day at a time: leftovers of huts that came down)
 
-  if (town.scenario !== 'blank') return;
+  if (town.scenario !== 'blank' && town.scenario !== 'hamlet') return;
   const v = town.vis = town.vis || { next: null, n: 0 };
   const day = game.time / 1440;
   if (v.next == null) { if (visFreeBeds() > 0) v.next = day + VIS_FIRST_DAY; else return; }

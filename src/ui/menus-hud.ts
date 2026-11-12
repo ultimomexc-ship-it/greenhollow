@@ -97,6 +97,7 @@ function showSuccession() {
   box.querySelectorAll('[data-heir]').forEach((b: any) => b.addEventListener('click', () => { const sp = s.prevSpeed; box.style.display = 'none'; box.innerHTML = ''; chooseHeir(b.dataset.heir === 'stay' ? 'stay' : +b.dataset.heir); const bb: any = document.querySelector('[data-speed="' + (sp && sp !== '0' ? sp : '2') + '"]'); if (bb) bb.click(); }));
 }
 function chooseTipping() {
+  if (town.scenario === 'hamlet' && town.hamletPlayer) { const q = byId(town.hamletPlayer); if (q && canControl(q)) { if (q.first !== 'Tipping') { town.used && town.used.add && town.used.add('Tipping'); q.first = 'Tipping'; } town.tippingId = q.id; return q; } }   // (the hamlet's settler is made on purpose)
   const c = npcs.filter(n => canControl(n) && n.age >= 20 && n.age <= 36);
   const pool = c.filter(n => n.homeRoom && hhOf(n).length >= 2 && !n.female).concat(c.filter(n => !n.female), c, npcs.filter(canControl));
   const t = pool[0]; if (!t) return null;

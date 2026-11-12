@@ -48,7 +48,7 @@ function lifeTick(dt) {
     if (n.hunger < n._h - 4) n.bladder += (n._h - n.hunger) * 0.2; n._h = n.hunger;
     if (n.social > n._s + 4) n.fun = Math.min(100, n.fun + (n.social - n._s) * 0.8); n._s = n.social;
     const dtn = talkPaused(n) ? 0 : dt;   // (needs wait while somebody is talking)
-    n.bladder = Math.min(100, n.bladder + dtn * (asleep ? 0.07 : 0.17));
+    n.bladder = modOn('rule.bladder') ? Math.min(100, n.bladder + dtn * (asleep ? 0.07 : 0.17)) : 0;   // (rule.bladder off: nobody needs a privy)
     n.energy = asleep ? Math.min(100, n.energy + dtn * 0.21) : Math.max(0, n.energy - dtn * 0.06);
     n.fun = Math.max(0, n.fun - dtn * 0.039);
     if (busy && st.act === 'leisure' && !asleep) n.fun = Math.min(100, n.fun + dt * 0.12);
@@ -61,7 +61,7 @@ function lifeTick(dt) {
     // satisfaction with the work they do
     if (busy && st.act === 'work' && !st.social) n.jobSat = Math.max(0, Math.min(100, n.jobSat + (n.mood - 50) * dt / 1000));
     // starving takes a day or so of being completely empty
-    if (n.starving > 1200 && npcs.length > 2) { die(n, 'hunger'); continue; }
+    if (n.starving > 1200 && npcs.length > 2) { if (modOn('rule.starving')) { die(n, 'hunger'); continue; } n.starving = 1200; }   // (rule.starving off: hungry and miserable, never dead)
     if (n.starving > 5 && !n.lfHungerSaid) { n.lfHungerSaid = true; lfShout(n, 'I am so hungry...'); }
     if (n.starving < 1) n.lfHungerSaid = false;
     // the bladder has the last word

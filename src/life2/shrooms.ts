@@ -17,11 +17,12 @@ function shroomSpot(R: () => number, nearTree: boolean) {
 }
 /** scatter the first mushrooms when an island is made (the same ones for the same seed) */
 function shroomScatter() {
-  town.shrooms = []; const R = rng(town.seed + 777);
+  town.shrooms = []; if (!modOn('rule.mushrooms')) return; const R = rng(town.seed + 777);
   for (let i = 0; i < 40; i++) { const p = shroomSpot(R, R() < 0.8); if (p) town.shrooms.push(p); }
 }
 /** once a day a new one may appear, usually near an old one or under the trees */
 function shroomGrow() {
+  if (!modOn('rule.mushrooms')) { town.shrooms = []; return; }
   town.shrooms = (town.shrooms || []).filter(s => grid[s.y][s.x] === T.GRASS && roomAt[s.y][s.x] < 0 && !lfPropAt(s.x, s.y));   // (built over: gone)
   if (town.shrooms.length >= SH_CAP || Math.random() > 0.5) return;
   const R = Math.random, old = town.shrooms.length ? town.shrooms[Math.floor(R() * town.shrooms.length)] : null; let p = null;

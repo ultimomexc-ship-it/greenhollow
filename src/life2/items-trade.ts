@@ -37,11 +37,13 @@ LF2.tickers.push(() => { if ((town.itT || 0) > game.time) return; town.itT = gam
 const IT_WEAR: any = { axe: 0.03, hammer: 0.025, hoe: 0.015, rod: 0.02 };
 /** the tool that was just used (picked for you) wears, and breaks when worn out */
 function itWearTool(n, kind: string) {
+  if (!modOn('rule.wear')) return;
   const it = (n.items || []).filter(i => i.kind === kind).sort((a, b) => b.wear - a.wear)[0]; if (!it || !IT_WEAR[kind]) return; it.wear = Math.max(0, it.wear - IT_WEAR[kind]);
   if (it.wear <= 0) { n.items = n.items.filter(i => i !== it); playerSay(n, `Your ${itName(kind).toLowerCase()} broke. The smith sells new ones.`); }
   else if (it.wear < 0.15 && !it.warned) { it.warned = true; playerSay(n, `Your ${itName(kind).toLowerCase()} is nearly worn through.`); }
 }
 function itWearHeld(n) {
+  if (!modOn('rule.wear')) return;
   const h = itHeld(n); if (!h.item || !IT_WEAR[h.kind]) return; h.item.wear = Math.max(0, h.item.wear - IT_WEAR[h.kind]);
   if (h.item.wear <= 0) { n.items = n.items.filter(i => i !== h.item); const i = n.belt.indexOf(h.ref); if (i > 0) n.belt[i] = null; n.sel = 0; playerSay(n, `Your ${itName(h.kind).toLowerCase()} broke. The smith sells new ones.`); }
   else if (h.item.wear < 0.15 && !h.item.warned) { h.item.warned = true; playerSay(n, `Your ${itName(h.kind).toLowerCase()} is nearly worn through.`); }

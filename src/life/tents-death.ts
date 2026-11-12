@@ -73,7 +73,7 @@ function hourlyLife() {
       abortPlan(n); });
   }
   if (Math.floor(game.time / 1440) % 3 === 1 && (game.time % 1440) < 600 && foodDaysNow() > 4) requestFeast('a good harvest');
-  npcs.slice().forEach(m => { if (m.preg && game.time >= m.preg.due) giveBirth(m); });
+  npcs.slice().forEach(m => { if (m.preg && game.time >= m.preg.due && modOn('rule.births')) giveBirth(m); });
   // wedding and funeral start/finish
   const w = town.wedding; if (w && !w.done && game.time >= w.end) { w.done = true; if (!w.renewal && !w.a.dead && !w.b.dead) marry(w.a, w.b); else if (w.renewal) chron(`${w.a.first} and ${w.b.first} renewed their vows.`, "love"); town.wedding = null; }
   const fn = town.funeral;

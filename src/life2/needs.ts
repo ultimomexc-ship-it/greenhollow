@@ -18,7 +18,7 @@ function townBalance() {
   const plotsNeeded = Math.ceil(demand * 0.75 / perPlot);   // (a quarter of what we eat is fish and berries)
   const privies = typeof lfPrivies === 'function' ? lfPrivies().length : 0, looseSeats = Math.max(0, (town.props || []).filter(p => p.kind === 'toilet').length - (typeof lfPrivies === 'function' ? lfPrivies().filter(q => q.prop).length : 0));
   const stock = people.reduce((s, n) => s + FOODS.reduce((t, g) => t + (n.inv[g] || 0), 0), 0) + rooms.reduce((s, r) => s + (!r.dead && r.pantry ? FOODS.reduce((t, g) => t + (r.pantry[g] || 0), 0) : 0), 0);
-  return { people, pop, homeless, looseSeats, beds, bedsNeeded: pop + (pop < TUT_TARGET ? 1 : 0), privies, priviesNeeded: pop >= 2 ? Math.ceil(pop / PRIVY_FOR) : 0, plots, plotsNeeded, demand, supply, stock, stockDays: demand ? stock / demand : 9, bakery, baker, harvests: (town.tut && town.tut.harvests) || 0, kids: people.filter(n => n.age < 16 && !(n.bed && n.bed.owner === n) && n.homeRoom) };
+  return { people, pop, homeless, looseSeats, beds, bedsNeeded: pop + (pop < TUT_TARGET ? 1 : 0), privies, priviesNeeded: pop >= 2 && modOn('rule.bladder') ? Math.ceil(pop / PRIVY_FOR) : 0, plots, plotsNeeded, demand, supply, stock, stockDays: demand ? stock / demand : 9, bakery, baker, harvests: (town.tut && town.tut.harvests) || 0, kids: people.filter(n => n.age < 16 && !(n.bed && n.bed.owner === n) && n.homeRoom) };
 }
 function islandNeeds(): { id: string; title: string; say: string; how: string; who: string[]; hard: boolean }[] {
   const out: any[] = []; if (!town) return out;

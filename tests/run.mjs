@@ -1292,6 +1292,52 @@ test('world modules: a job, an event or a system can be switched off to test the
   return r.n + ' modules';
 });
 
+test('hamlet: three households (you, a trader, a family), the add-on rules are off, nobody needs a privy, tools never wear, nobody starves, and the trader sells four seeds and buys a turnip', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('hamlet-test', 'hamlet'); const out = {}; const P = game.player;
+    out.scen = town.scenario; out.pack = town.pack; out.pop = npcs.length; out.player = !!P && P.first === 'Tipping' && P.id === town.hamletPlayer; out.coin = P && P.coin;
+    out.trader = npcs.filter(n => n.shop).length; out.family = npcs.filter(n => !n.shop && n !== P).map(n => n.age >= 16 ? 'adult' : 'child').sort().join(',');
+    const fam = npcs.filter(n => !n.shop && n !== P); out.couple = fam.filter(n => n.fam.spouse).length === 2 && fam.some(n => n.fam.kids.length === 1);
+    out.rules = ['bladder', 'wear', 'births', 'ageing', 'starving', 'mushrooms'].map(k => modOn('rule.' + k));
+    out.mods = [modOn('job.Farmer'), modOn('job.Baker'), modOn('job.Miner'), modOn('gath.fishing'), modOn('sys.law'), modOn('sys.romance'), modOn('event.wedding'), modOn('sys.gossip'), modOn('talk.ritual')];
+    out.shrooms = (town.shrooms || []).length; out.homeless = npcs.filter(n => n.homeless).length;
+    const m = farmSeller(); out.sells = Object.keys(m.sells).filter(g => g.startsWith('seed_')).sort().join(','); out.range = farmSeedRange().join(',');
+    P.coin = 50; farmShopDialog(m); const labels = (talkUI.opts || []).map(o => o[1]); out.menu = labels.join('|'); closeTalk && closeTalk();
+    P.inv = P.inv || {}; m.n.coin = 100; m.stock.turnip = 0; P.inv.turnip = 3; const c0 = P.coin; farmShopDialog(m); const k = (talkUI.opts || []).findIndex(o => /Sell your 3 turnips/.test(o[1])); out.sellIdx = k; if (k >= 0) lf2TalkStep('c' + k); out.paid = P.coin - c0; out.turnips = P.inv.turnip || 0; closeTalk && closeTalk();
+    return out;
+  });
+  check(r.scen === 'hamlet' && r.pack === 'island', 'the scenario is the hamlet, in the island voice: ' + r.scen + ' ' + r.pack);
+  check(r.pop === 5 && r.player && r.coin === 60, 'five people, you the settler with 60 coin: ' + JSON.stringify([r.pop, r.player, r.coin]));
+  check(r.trader === 1 && r.family === 'adult,adult,child' && r.couple, 'a trader and a family of three (a couple and their child): ' + JSON.stringify([r.trader, r.family, r.couple]));
+  check(r.rules.every(v => v === false), 'every add-on rule is switched off: ' + JSON.stringify(r.rules));
+  check(r.mods[0] && !r.mods[1] && !r.mods[2] && !r.mods[3] && !r.mods[4] && r.mods[5] && r.mods[6] && r.mods[7] && r.mods[8], 'farming, romance, weddings, gossip and talk on; baker, mining, fishing and law off: ' + JSON.stringify(r.mods));
+  check(r.shrooms === 0, 'no mushrooms are scattered');
+  check(r.sells === 'seed_barley,seed_cabbage,seed_poppy,seed_turnip' && r.range === 'barley,turnip,cabbage,poppy', 'the trader sells barley, turnip, cabbage and poppy seed: ' + r.sells);
+  check(r.sellIdx >= 0 && r.paid > 0 && r.turnips === 0, 'the trader buys a turnip: ' + JSON.stringify([r.sellIdx, r.paid, r.turnips, r.menu]));
+  const r2 = await page.evaluate(() => {
+    const out = { bladder: 0, hunger: 0 };
+    for (const n of npcs) { n.bladder = 0; n.hunger = 0; }
+    return out;
+  });
+  await simulate(page, 1440);
+  const r3 = await page.evaluate(() => {
+    const P = game.player, fam = npcs.filter(n => !n.shop && n !== P && n.age >= 16);
+    // a tool used 200 times is not worn
+    P.items = P.items || []; itGiveTool(P, 'hoe'); const it0 = P.items.find(i => i.kind === 'hoe'); const w0 = it0.wear; for (let i = 0; i < 200; i++) itWearTool(P, 'hoe'); const w1 = it0.wear;
+    return { bladder: Math.max(...npcs.map(n => n.bladder || 0)), w0, w1, alive: npcs.filter(n => !n.dead).length };
+  });
+  check(r3.bladder === 0, 'a day on, nobody needs a privy: ' + r3.bladder);
+  check(r3.w0 === r3.w1, 'a tool used 200 times does not wear: ' + r3.w0 + ' -> ' + r3.w1);
+  // ten days with no food in the world: they go hungry and miserable, nobody dies
+  await page.evaluate(() => { for (const n of npcs) { n.inv = {}; } for (const m of merchants) m.stock = {}; });
+  await simulate(page, 10 * 1440);
+  const r4 = await page.evaluate(() => ({ alive: npcs.filter(n => !n.dead).length, pop: npcs.length, ages: npcs.map(n => n.age).join(','), births: town.births }));
+  check(r4.alive === 5 && r4.births === 0, 'nobody dies of hunger and nobody is born in ten days: ' + JSON.stringify(r4));
+  check(errors.length === 0, 'no page errors: ' + errors.slice(0, 2).join(' | '));
+  await page.close();
+  return 'five people; add-on rules off; trader sells four seeds, buys a turnip; no bladder, no wear, no hunger deaths in ten days';
+});
 test('ready farming village: only what farming needs; farmers buy seed from the seed seller with real money, keep seed back, sell what they grow to the greengrocer, and talk about it', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

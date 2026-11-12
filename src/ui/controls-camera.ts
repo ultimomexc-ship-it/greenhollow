@@ -47,9 +47,9 @@ function newTown(seedText?, scenario?) {
   view.hover = null; view.selected = null; cam.follow = false; el('zfol').setAttribute('aria-pressed', 'false');
   buildStatic(); sizeCanvas(); fitCam(); cam.z = Math.max(cam.fit, 1.15); centerOn(town.cx, town.cy); clampCam();
   buildRoster(); buildTown(true); select(npcs.find(n => n.adult) || npcs[0]); updateUI(true); updateMarket(true);
-  if (typeof sbPresim === 'function') { SB.count = {}; SB.pair = new Map(); if (scenario !== 'blank') sbPresim(); }      // the village's life before the player arrives
+  if (typeof sbPresim === 'function') { SB.count = {}; SB.pair = new Map(); if (scenario !== 'blank' && scenario !== 'hamlet') sbPresim(); }      // the village's life before the player arrives
   { const pn = chooseTipping(); if (pn) { lifeStepOutside(pn); startPlaying(pn); } }
-  el('legend').textContent = (scenario === 'blank' ? 'blank island' : scenario === 'farm' ? 'ready farming village' : 'ready village') + ' · ' + W + '×' + H;
+  el('legend').textContent = (scenario === 'blank' ? 'blank island' : scenario === 'hamlet' ? 'hamlet' : scenario === 'farm' ? 'ready farming village' : 'ready village') + ' · ' + W + '×' + H;
 }
 /* (the Islands button is handled in ui/saves.ts: it used to make a new random village here, and the autosave then overwrote your island with it) */
 el('seedForm').addEventListener('submit', e => { e.preventDefault(); const v = (el('seed') as any).value; if (typeof isleNew === 'function' && typeof isleOK === 'function' && isleOK()) isleNew(v, (town && town.scenario) || 'village'); else newTown(v); });   // (a new seed is a new island in a new save slot: it never overwrites the one you were on)

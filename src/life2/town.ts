@@ -322,7 +322,7 @@ function lf2GrainShip() {
 }
 /* tools wear out with use; a worn tool makes the work slow */
 LF2.tickers.push(() => {
-  for (const n of npcs) { if (n.dead || n.toolQ == null) continue; const st = n.plan && n.plan[n.si]; if (st && st.act === 'work' && n.stepStarted && !LF2_JOBS[n.job]) n.toolQ = Math.max(0, n.toolQ - 0.12); }
+  for (const n of npcs) { if (n.dead || n.toolQ == null || !modOn('rule.wear')) continue; const st = n.plan && n.plan[n.si]; if (st && st.act === 'work' && n.stepStarted && !LF2_JOBS[n.job]) n.toolQ = Math.max(0, n.toolQ - 0.12); }
 });
 /* housekeeping: a trade belongs to a working villager; the one you steer is not given one (or the shop would never open) */
 LF2.tickers.push(() => {

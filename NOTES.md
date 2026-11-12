@@ -242,3 +242,7 @@ Goal: buy wall/door/window blocks and furniture at the Builder's Yard, push them
 - Work clothes (job outfits) and speech bubbles behind the speaker are in. TrueSight: nothing is lit from a window tile's corners, plates or bars.
 - To do, from `docs/talk-round5.md` ("what still reads badly"): opinions without history (more sources of shared history: neighbours, a child's friend, a debt, a favour remembered); romance barely moves in a week (decide the pace, tune `romOK` and the weights); the player's menu is mostly small talk once people run out of things to say (say so instead); blame for unseen deeds is uneven (`repSuspect` wants a floor); the watch should read `tmem` and `n.kn` should go (with law talk: accuse, confess, question); groups of three in a talk; read the plain voice after its short-line pass.
 
+
+
+## Hamlet (the minimum game)
+Step 1 of docs/minimum-game-prompts.md is built: scenario `hamlet`, the `rule.*` switches (bladder, wear, births, ageing, starving, mushrooms), the trader's stall and the family. Deviations from the spec: the stall stands on the camp ground (not at the shore); the player keeps the test kit's tools and gets 6 barley seed. Next: step 2 (build menu, fence and field items, the kit bought from the trader).

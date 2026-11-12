@@ -10,14 +10,14 @@ if (!SELLABLE.includes('flowers')) SELLABLE.push('flowers');
 
 /** the order in which the seed seller comes to stock things: new kinds turn up every two days (and the island talks about it) */
 const FARM_SEED_ORDER = ['barley', 'turnip', 'bean', 'carrot', 'potato', 'cabbage', 'daisy', 'tomato', 'corn', 'marigold', 'pumpkin', 'strawberry', 'poppy', 'lavender', 'rose'];
-const farmSeedRange = (): string[] => { const d = Math.floor(game.time / 1440) - (town.farmDay0 || 0); return FARM_SEED_ORDER.slice(0, Math.min(FARM_SEED_ORDER.length, 4 + Math.floor(d / 2) + (d >= 1 ? 1 : 0))); };
+const farmSeedRange = (): string[] => { if (town && town.scenario === 'hamlet') return HAMLET_SEEDS; const d = Math.floor(game.time / 1440) - (town.farmDay0 || 0); return FARM_SEED_ORDER.slice(0, Math.min(FARM_SEED_ORDER.length, 4 + Math.floor(d / 2) + (d >= 1 ? 1 : 0))); };
 
 const SEED_DEF: any = { buys: {}, sells: {} as any, open: [6.5, 17], tool: 'wipe', noun: 'seed stall' };
 for (const k of FARM_SEED_ORDER) SEED_DEF.sells['seed_' + k] = IT_SEEDS[k] && IT_SEEDS[k].flower ? 14 : 30;
 const GROCER_DEF: any = { buys: { grain: 30, flowers: 24 } as any, sells: { grain: 30, flowers: 24 } as any, open: [7, 18.5], tool: 'wipe', noun: 'greengrocer' };
 for (const g of FARM_YIELDS) { GROCER_DEF.buys[g] = 24; GROCER_DEF.sells[g] = 24; }
-const farmSeller = () => merchants.find((m: any) => m.def === SEED_DEF);
-const farmGrocer = () => merchants.find((m: any) => m.def === GROCER_DEF);
+const farmSeller = () => merchants.find((m: any) => m.def === SEED_DEF) || merchants.find((m: any) => m.def === HAMLET_TRADER_DEF);   // (the Hamlet's one trader sells the seed and buys the crops)
+const farmGrocer = () => merchants.find((m: any) => m.def === GROCER_DEF) || merchants.find((m: any) => m.def === HAMLET_TRADER_DEF);
 
 /** a farmer's seeds in hand, by kind */
 const farmSeedsOf = (n: any): [string, number][] => Object.keys(n.inv || {}).filter(g => g.startsWith('seed_') && n.inv[g] > 0).map(g => [g.slice(5), n.inv[g]] as [string, number]);
