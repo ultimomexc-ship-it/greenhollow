@@ -1398,11 +1398,11 @@ test('stalls and the bakery, from the villagers\' side: keepers call out to pass
   await page.evaluate(() => { newTown('farm-bake-test', 'farm'); TALK.words = true; });
   const r0 = await page.evaluate(() => ({ kinds: [...new Set(rooms.filter(q => !q.dead).map(q => q.kind))].sort().join(','), baker: npcs.filter(n => n.job === 'Baker').length, bakerOn: modOn('job.Baker') }));
   check(r0.kinds === 'bakery,house,privy' && r0.baker === 1 && r0.bakerOn, 'the farming village has a bakery and a baker: ' + JSON.stringify(r0));
-  await simulate(page, 5 * 1440);
+  await simulate(page, 8 * 1440);   // (households have little coin in the farming village and buy bread once a morning when they can: five days sat at the edge of two sales)
   const r = await page.evaluate(() => {
     const calls = TALK.log.filter(l => l.acts.some(a => a.act === 'keeper_call')), keepers = new Set(merchants.map(m => m.n.id).concat(npcs.filter(n => n.job === 'Baker').map(n => n.id)));
     const bread = TALK.log.filter(l => l.acts.some(a => a.act === 'shop_greet') && l.lines && l.lines.some(t => /bread/.test(t)));
-    const dg = LIFE.digest(5).kinds, bk = lf2Room('bakery');
+    const dg = LIFE.digest(8).kinds, bk = lf2Room('bakery');
     return { calls: calls.length, callsOk: calls.every(l => keepers.has(l.a) && l.lines && l.lines[0] && !/[{}]|undefined/.test(l.lines[0])), sample: calls.slice(0, 2).map(l => l.lines.join(' | ')), bread: bread.length, baked: dg.baked || 0, breadBought: LIFE.stream.filter(e => e.kind === 'bought' && e.data.item === 'bread').length, dead: npcs.filter(n => n.dead).length, stock: bk && lf2Stock(bk).bread };
   });
   check(r.calls >= 3 && r.callsOk, 'keepers call out to people passing: ' + r.calls + ' ' + JSON.stringify(r.sample));
