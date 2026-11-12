@@ -16,7 +16,7 @@ const SEED_DEF: any = { buys: {}, sells: {} as any, open: [6.5, 17], tool: 'wipe
 for (const k of FARM_SEED_ORDER) SEED_DEF.sells['seed_' + k] = IT_SEEDS[k] && IT_SEEDS[k].flower ? 14 : 30;
 const GROCER_DEF: any = { buys: { grain: 30, flowers: 24 } as any, sells: { grain: 30, flowers: 24 } as any, open: [7, 18.5], tool: 'wipe', noun: 'greengrocer' };
 for (const g of FARM_YIELDS) { GROCER_DEF.buys[g] = 24; GROCER_DEF.sells[g] = 24; }
-const farmSeller = () => merchants.find((m: any) => m.def === SEED_DEF) || merchants.find((m: any) => m.def === HAMLET_TRADER_DEF);   // (the Hamlet's one trader sells the seed and buys the crops)
+const farmSeller = () => merchants.find((m: any) => m.def === SEED_DEF) || merchants.find((m: any) => m.def === HAMLET_SEEDSTALL_DEF && m.n.shop === m && !m.n.dead) || merchants.find((m: any) => m.def === HAMLET_TRADER_DEF);   // (the Hamlet's one trader sells the seed and buys the crops)
 const farmGrocer = () => merchants.find((m: any) => m.def === GROCER_DEF) || merchants.find((m: any) => m.def === HAMLET_TRADER_DEF);
 
 /** a farmer's seeds in hand, by kind */
@@ -34,7 +34,7 @@ function farmSeedBuy(n: any, need: number): any[] {
   const m = farmSeller(); if (!m || !isOpen(m)) return [];
   const short = need - farmSeedCount(n); if (short <= 0) return [];
   return [goS(m.front, 'Walking to the seed stall'), waitS(2, 'stand', 'Buying seed', { nopie: true, onEnd(nn: any) {
-    const stocked = farmSeedRange().filter(k => (m.stock['seed_' + k] || 0) > 0); if (!stocked.length) { if (!nn.player) { LIFE.emit('out_of_stock', nn, { item: 'seed_barley', place: m.def.noun }); talkService(nn, m.n, { mode: 'buy', item: 'seed_barley', qty: 1, result: 'none', shop: m.def.noun }); } return; }
+    const stocked = ((m.def.range as string[]) || farmSeedRange()).filter(k => (m.stock['seed_' + k] || 0) > 0); if (!stocked.length) { if (!nn.player) { LIFE.emit('out_of_stock', nn, { item: 'seed_barley', place: m.def.noun }); talkService(nn, m.n, { mode: 'buy', item: 'seed_barley', qty: 1, result: 'none', shop: m.def.noun }); } return; }
     // notice what is new on the stall since they last looked
     for (const g of Object.keys(m.newStock || {})) { const seen = (nn.seenStock || (nn.seenStock = {})); if ((seen[g] || 0) < m.newStock[g]) { seen[g] = m.newStock[g]; LIFE.emit('new_in_stock', nn, { item: g, place: m.def.noun }); } }
     let left = short; const got: any = {}, paid: any = {}; let poor = false;
@@ -53,7 +53,7 @@ function farmSow(n: any): string | null { const k = farmSeedPick(n); if (!k) ret
 
 /* ---- the seed stall's day: new stock comes in, new kinds turn up, prices settle ---- */
 function farmRestock() {
-  if (!town || !town.farmEcon) return; const m = farmSeller(); if (!m) return; const range = farmSeedRange(), t = game.time;
+  if (!town || !town.farmEcon) return; if (typeof hamletRestock === 'function') hamletRestock(); const m = farmSeller(); if (!m) return; const range = (m.def.range as string[]) || farmSeedRange(), t = game.time;
   for (const k of range) {
     const g = 'seed_' + k, cap0 = m.sells[g], first = m.stock[g] == null, was = m.stock[g] || 0; if (was >= cap0 * 0.9) continue;
     m.stock[g] = Math.round(cap0 * (0.8 + Math.random() * 0.2)); (m.newStock || (m.newStock = {}));
@@ -120,10 +120,10 @@ function farmShopDialog(m: any) {
     const d = { item: GOODS[g].name, qty: got || q, price: tot, shop: m.def.noun };
     return { say: got ? `${m.n.first}: ${serviceSay('bid_price', m.n, n, d)} ${serviceSay('thank_shop', m.n, n, d)} (You have ${money()}.)` : `${m.n.first}: ${serviceSay('no_demand', m.n, n, d)}`, opts: menu() };
   };
-  const hamlet = m.def === HAMLET_TRADER_DEF;
+  const hamlet = m.def === HAMLET_TRADER_DEF || m.def.kit, kitPrice = (k: string) => Math.max(1, Math.round(HAMLET_PRICES[k] * (m.def.disc || 1)));
   const seedOpts = (): any[] => {
     const o: any[] = [];
-    for (const g of Object.keys(m.sells)) { if (!((m.stock[g] || 0) >= 1)) continue; const p = sellPrice(m, g); if (g.startsWith('seed_')) { if (!farmSeedRange().includes(g.slice(5))) continue; o.push([`Buy a ${GOODS[g].name.replace(/s$/, '')} (${p})`, buy(g, 1)]); if (n.coin >= p * 5 && m.stock[g] >= 5) o.push([`Buy 5 ${GOODS[g].name} (${p * 5})`, buy(g, 5)]); } else o.push([`Buy ${GOODS[g].name} (${p})`, buy(g, 1)]); }
+    for (const g of Object.keys(m.sells)) { if (!((m.stock[g] || 0) >= 1)) continue; const p = sellPrice(m, g); if (g.startsWith('seed_')) { if (!((m.def.range as string[]) || farmSeedRange()).includes(g.slice(5))) continue; o.push([`Buy a ${GOODS[g].name.replace(/s$/, '')} (${p})`, buy(g, 1)]); if (n.coin >= p * 5 && m.stock[g] >= 5) o.push([`Buy 5 ${GOODS[g].name} (${p * 5})`, buy(g, 5)]); } else o.push([`Buy ${GOODS[g].name} (${p})`, buy(g, 1)]); }
     return o;
   };
   const sellOpts = (): any[] => {
@@ -133,20 +133,22 @@ function farmShopDialog(m: any) {
   };
   /* the Hamlet's trader also sells the building kit (docs/minimum-game.md): the kit is bought, one or five at a time */
   const buyKit = (k: string, q: number) => () => {
-    const p = HAMLET_PRICES[k]; let got = 0; while (got < q && n.coin >= p) { pay(n, m.n, p); got++; }
+    const p = kitPrice(k); let got = 0; while (got < q && n.coin >= p) { pay(n, m.n, p); got++; }
     if (got) town.kit[k] = (town.kit[k] || 0) + got;
     const d = { item: LF_NOUN[k] + ((got || q) > 1 ? 's' : ''), qty: got || q, price: got ? got * p : p, shop: m.def.noun };
     return { say: got ? `${m.n.first}: ${serviceSay('quote_price', m.n, n, d)} ${serviceSay('thank_shop', m.n, n, d)} (You have ${money()} left.)` : `${m.n.first}: ${serviceSay('quote_price', m.n, n, d)} (You have ${money()}.)`, opts: kitMenu() };
   };
   const kitMenu = (): any[] => {
     const o: any[] = [];
-    for (const k of HAMLET_BUILD) { const p = HAMLET_PRICES[k]; o.push([`Buy a ${LF_NOUN[k]} (${p})`, buyKit(k, 1)]); if (n.coin >= p * 5) o.push([`Buy 5 ${LF_NOUN[k]}s (${p * 5})`, buyKit(k, 5)]); }
+    for (const k of (m.def.kit ? HAMLET_BUILD : hamletBuildKinds())) { const p = kitPrice(k); o.push([`Buy a ${LF_NOUN[k]} (${p})`, buyKit(k, 1)]); if (n.coin >= p * 5) o.push([`Buy 5 ${LF_NOUN[k]}s (${p * 5})`, buyKit(k, 5)]); }
     o.push(['Back', () => ({ say: `${m.n.first}: ${serviceSay('shop_greet_back', m.n, n, { item: '', qty: 1, shop: m.def.noun })} (You have ${money()}.)`, opts: menu() })]); return o;
   };
   const menu = (): any[] => {
     if (hamlet) {
       const back = () => ({ say: `${m.n.first}: ${serviceSay('shop_greet_back', m.n, n, { item: '', qty: 1, shop: m.def.noun })} (You have ${money()}.)`, opts: menu() });
-      return [['Buy seed', () => ({ say: `${m.n.first}: What seed? (You have ${money()}.)`, opts: seedOpts().concat([['Back', back]]) })], ['Buy building items', () => ({ say: `${m.n.first}: What are you building? (You have ${money()}.)`, opts: kitMenu() })]].concat(sellOpts(), [['Leave', () => null]]);
+      const top: any[] = []; if (!m.def.kit) top.push(['Buy seed', () => ({ say: `${m.n.first}: What seed? (You have ${money()}.)`, opts: seedOpts().concat([['Back', back]]) })]);
+      if (m.def === HAMLET_TRADER_DEF || m.def.kit) top.push(['Buy building items', () => ({ say: `${m.n.first}: What are you building? (You have ${money()}.)`, opts: kitMenu() })]);
+      return top.concat(sellOpts(), [['Leave', () => null]]);
     }
     return seedOpts().concat(sellOpts(), [['Leave', () => null]]);
   };

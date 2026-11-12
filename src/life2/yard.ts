@@ -8,6 +8,8 @@ const YARD_ITEMS: { kind: string; stand: string; art: string; noun: string; name
   { kind: 'bdoor', stand: 'yd_door', art: 'blk_door', noun: 'door block', name: 'Door' },
   { kind: 'fence', stand: '', art: 'fence_3', noun: 'fence', name: 'Fence' },
   { kind: 'gate', stand: '', art: 'gate_h', noun: 'gate', name: 'Gate' },
+  { kind: 'stallseed', stand: '', art: 'stall_seed_0', noun: 'seed stall', name: 'Seed stall' },
+  { kind: 'stallcarp', stand: '', art: 'stall_0', noun: 'carpenter stall', name: 'Carpenter stall' },
   { kind: 'bed', stand: 'yd_bed', art: 'bed', noun: 'bed', name: 'Bed' },
   { kind: 'chair', stand: 'yd_chair', art: 'seat_down', noun: 'chair', name: 'Chair' },
   { kind: 'table', stand: 'yd_table', art: 'table_loose', noun: 'table', name: 'Table' },

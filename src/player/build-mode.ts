@@ -6,7 +6,7 @@ const BUILD_DEFAULT = ['bwall', 'bwindow', 'bdoor', 'bed', 'chair', 'table', 'fi
 const BUILD_CAP = 400;   // loose things on the island before the palette says it is crowded
 function itBuildState(n) { if (!n.build) n.build = { on: false, sel: 0, bar: (town && town.scenario === 'hamlet' ? HAMLET_BUILD : BUILD_DEFAULT).slice(), prev: null }; return n.build; }
 /** what the build menu offers: everything, or in the Hamlet only the seven things the minimum game builds with */
-const itBuildList = () => town && town.scenario === 'hamlet' ? HAMLET_BUILD.map(k => YARD_ITEMS.find(q => q.kind === k)).filter(Boolean) as typeof YARD_ITEMS : YARD_ITEMS;
+const itBuildList = () => town && town.scenario === 'hamlet' ? hamletBuildKinds().map(k => YARD_ITEMS.find(q => q.kind === k)).filter(Boolean) as typeof YARD_ITEMS : YARD_ITEMS;
 const itBuildOn = n => !!(n && n.build && n.build.on);
 function itBuildToggle(n, on?: boolean) {
   const b = itBuildState(n); const want = on == null ? !b.on : on; if (want === b.on) return; const p = n.player;
@@ -47,6 +47,7 @@ function bldPlaceField(n, quiet?: boolean): boolean {
   if (!quiet) playerSay(n, 'A field tile.'); return true;
 }
 function bldPlaceFront(n, kind: string) {
+  if (kind === 'stallseed' || kind === 'stallcarp') return bldPlaceStall(n, kind) ? {} : null;
   if (kind === 'field' && town.scenario === 'hamlet') return bldPlaceField(n) ? {} : null;
   if (!kitHas(kind)) { kitOut(n, kind); return null; }
   if (kind === 'stair' || kind === 'stairdown') return stairPlace(n, kind === 'stairdown');

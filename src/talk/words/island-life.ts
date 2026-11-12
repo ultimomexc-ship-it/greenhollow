@@ -353,3 +353,4 @@ LXLI('no_yard', ['I have no yard.', 'I have a patch of ground I stand on. It is 
 LXLI('moved_in', ['I have a yard now.', 'I moved in behind a fence. It has a gate.', 'There is a bed with a fence round it, and it is mine.']);
 LXLI('came_ashore', ['I came ashore today.', 'I arrived this morning. The yard was already there, with a bed in it.', 'I landed today. I have decided not to ask how.']);
 LXLI('apart', ['We are married and sleep in two yards.', 'There is no room in the yard for my bed. We say goodnight across a fence.', 'I live apart from the one I married. Temporarily, I am told.']);
+LXLI('stall_opened', ['I keep a stall now.', 'I opened a stall today. Nobody has asked yet what I am selling.', 'I have a counter and a sign. I am a shopkeeper, apparently.']);

@@ -10381,7 +10381,7 @@ const hours = () => game.time % 1440 / 60;
 const cap = (m, g) => Math.max(m.buys[g] || 0, m.sells[g] || 0);
 function sellPrice(m, g) {
   const f = Math.min(1, (m.stock[g] || 0) / cap(m, g));
-  return Math.max(1, Math.round(GOODS[g].base * (1.7 - 0.7 * f)));
+  return Math.max(1, Math.round(GOODS[g].base * (1.7 - 0.7 * f) * (m.def.disc || 1)));
 }
 function buyPrice(m, g) {
   const k = m.buys[g];
@@ -13556,6 +13556,13 @@ function targetAt0(n, x, y) {
         playerSay(n2, "Sown");
       }
     } };
+  }
+  if (g === T.STALL && itBuildOn(n)) {
+    if (n.build.sel === 1 && (town.stalls || []).some((q) => q.built && q.tiles.some((t) => t.x === x && t.y === y))) return { key: "wallS" + x + "," + y, min: 4, text: "Taking the stall down", tool: "hammer", run(nn) {
+      bldDeleteStall(x, y);
+      playerSay(nn, "Gone.");
+    } };
+    return { msg: "A stall. The hammer takes down the ones you built." };
   }
   if (g === T.STALL) {
     const m = stallTrade(n, x, y);
@@ -18805,6 +18812,8 @@ const YARD_ITEMS = [
   { kind: "bdoor", stand: "yd_door", art: "blk_door", noun: "door block", name: "Door" },
   { kind: "fence", stand: "", art: "fence_3", noun: "fence", name: "Fence" },
   { kind: "gate", stand: "", art: "gate_h", noun: "gate", name: "Gate" },
+  { kind: "stallseed", stand: "", art: "stall_seed_0", noun: "seed stall", name: "Seed stall" },
+  { kind: "stallcarp", stand: "", art: "stall_0", noun: "carpenter stall", name: "Carpenter stall" },
   { kind: "bed", stand: "yd_bed", art: "bed", noun: "bed", name: "Bed" },
   { kind: "chair", stand: "yd_chair", art: "seat_down", noun: "chair", name: "Chair" },
   { kind: "table", stand: "yd_table", art: "table_loose", noun: "table", name: "Table" },
@@ -21408,7 +21417,7 @@ function itBuildState(n) {
   if (!n.build) n.build = { on: false, sel: 0, bar: (town && town.scenario === "hamlet" ? HAMLET_BUILD : BUILD_DEFAULT).slice(), prev: null };
   return n.build;
 }
-const itBuildList = () => town && town.scenario === "hamlet" ? HAMLET_BUILD.map((k) => YARD_ITEMS.find((q) => q.kind === k)).filter(Boolean) : YARD_ITEMS;
+const itBuildList = () => town && town.scenario === "hamlet" ? hamletBuildKinds().map((k) => YARD_ITEMS.find((q) => q.kind === k)).filter(Boolean) : YARD_ITEMS;
 const itBuildOn = (n) => !!(n && n.build && n.build.on);
 function itBuildToggle(n, on) {
   const b = itBuildState(n);
@@ -21543,6 +21552,7 @@ function bldPlaceField(n, quiet) {
   return true;
 }
 function bldPlaceFront(n, kind) {
+  if (kind === "stallseed" || kind === "stallcarp") return bldPlaceStall(n, kind) ? {} : null;
   if (kind === "field" && town.scenario === "hamlet") return bldPlaceField(n) ? {} : null;
   if (!kitHas(kind)) {
     kitOut(n, kind);
@@ -25879,7 +25889,7 @@ for (const g of FARM_YIELDS) {
   GROCER_DEF.buys[g] = 24;
   GROCER_DEF.sells[g] = 24;
 }
-const farmSeller = () => merchants.find((m) => m.def === SEED_DEF) || merchants.find((m) => m.def === HAMLET_TRADER_DEF);
+const farmSeller = () => merchants.find((m) => m.def === SEED_DEF) || merchants.find((m) => m.def === HAMLET_SEEDSTALL_DEF && m.n.shop === m && !m.n.dead) || merchants.find((m) => m.def === HAMLET_TRADER_DEF);
 const farmGrocer = () => merchants.find((m) => m.def === GROCER_DEF) || merchants.find((m) => m.def === HAMLET_TRADER_DEF);
 const farmSeedsOf = (n) => Object.keys(n.inv || {}).filter((g) => g.startsWith("seed_") && n.inv[g] > 0).map((g) => [g.slice(5), n.inv[g]]);
 const farmSeedCount = (n) => farmSeedsOf(n).reduce((s, [, q]) => s + q, 0);
@@ -25897,7 +25907,7 @@ function farmSeedBuy(n, need) {
   const short = need - farmSeedCount(n);
   if (short <= 0) return [];
   return [goS(m.front, "Walking to the seed stall"), waitS(2, "stand", "Buying seed", { nopie: true, onEnd(nn) {
-    const stocked = farmSeedRange().filter((k) => (m.stock["seed_" + k] || 0) > 0);
+    const stocked = (m.def.range || farmSeedRange()).filter((k) => (m.stock["seed_" + k] || 0) > 0);
     if (!stocked.length) {
       if (!nn.player) {
         LIFE.emit("out_of_stock", nn, { item: "seed_barley", place: m.def.noun });
@@ -25948,9 +25958,10 @@ function farmSow(n) {
 }
 function farmRestock() {
   if (!town || !town.farmEcon) return;
+  if (typeof hamletRestock === "function") hamletRestock();
   const m = farmSeller();
   if (!m) return;
-  const range = farmSeedRange(), t = game.time;
+  const range = m.def.range || farmSeedRange(), t = game.time;
   for (const k of range) {
     const g = "seed_" + k, cap0 = m.sells[g], first = m.stock[g] == null, was = m.stock[g] || 0;
     if (was >= cap0 * 0.9) continue;
@@ -26119,14 +26130,14 @@ function farmShopDialog(m) {
     const d = { item: GOODS[g].name, qty: got || q, price: tot, shop: m.def.noun };
     return { say: got ? `${m.n.first}: ${serviceSay("bid_price", m.n, n, d)} ${serviceSay("thank_shop", m.n, n, d)} (You have ${money()}.)` : `${m.n.first}: ${serviceSay("no_demand", m.n, n, d)}`, opts: menu() };
   };
-  const hamlet = m.def === HAMLET_TRADER_DEF;
+  const hamlet = m.def === HAMLET_TRADER_DEF || m.def.kit, kitPrice = (k) => Math.max(1, Math.round(HAMLET_PRICES[k] * (m.def.disc || 1)));
   const seedOpts = () => {
     const o = [];
     for (const g of Object.keys(m.sells)) {
       if (!((m.stock[g] || 0) >= 1)) continue;
       const p = sellPrice(m, g);
       if (g.startsWith("seed_")) {
-        if (!farmSeedRange().includes(g.slice(5))) continue;
+        if (!(m.def.range || farmSeedRange()).includes(g.slice(5))) continue;
         o.push([`Buy a ${GOODS[g].name.replace(/s$/, "")} (${p})`, buy(g, 1)]);
         if (n.coin >= p * 5 && m.stock[g] >= 5) o.push([`Buy 5 ${GOODS[g].name} (${p * 5})`, buy(g, 5)]);
       } else o.push([`Buy ${GOODS[g].name} (${p})`, buy(g, 1)]);
@@ -26144,7 +26155,7 @@ function farmShopDialog(m) {
     return o;
   };
   const buyKit = (k, q) => () => {
-    const p = HAMLET_PRICES[k];
+    const p = kitPrice(k);
     let got = 0;
     while (got < q && n.coin >= p) {
       pay(n, m.n, p);
@@ -26156,8 +26167,8 @@ function farmShopDialog(m) {
   };
   const kitMenu = () => {
     const o = [];
-    for (const k of HAMLET_BUILD) {
-      const p = HAMLET_PRICES[k];
+    for (const k of m.def.kit ? HAMLET_BUILD : hamletBuildKinds()) {
+      const p = kitPrice(k);
       o.push([`Buy a ${LF_NOUN[k]} (${p})`, buyKit(k, 1)]);
       if (n.coin >= p * 5) o.push([`Buy 5 ${LF_NOUN[k]}s (${p * 5})`, buyKit(k, 5)]);
     }
@@ -26167,7 +26178,10 @@ function farmShopDialog(m) {
   const menu = () => {
     if (hamlet) {
       const back = () => ({ say: `${m.n.first}: ${serviceSay("shop_greet_back", m.n, n, { item: "", qty: 1, shop: m.def.noun })} (You have ${money()}.)`, opts: menu() });
-      return [["Buy seed", () => ({ say: `${m.n.first}: What seed? (You have ${money()}.)`, opts: seedOpts().concat([["Back", back]]) })], ["Buy building items", () => ({ say: `${m.n.first}: What are you building? (You have ${money()}.)`, opts: kitMenu() })]].concat(sellOpts(), [["Leave", () => null]]);
+      const top = [];
+      if (!m.def.kit) top.push(["Buy seed", () => ({ say: `${m.n.first}: What seed? (You have ${money()}.)`, opts: seedOpts().concat([["Back", back]]) })]);
+      if (m.def === HAMLET_TRADER_DEF || m.def.kit) top.push(["Buy building items", () => ({ say: `${m.n.first}: What are you building? (You have ${money()}.)`, opts: kitMenu() })]);
+      return top.concat(sellOpts(), [["Leave", () => null]]);
     }
     return seedOpts().concat(sellOpts(), [["Leave", () => null]]);
   };
@@ -26342,6 +26356,132 @@ function hamletStart() {
   yardScan(true);
   yardHousing();
   chron("You came ashore with a little money and a bed. A trader keeps a stall by the camp, and a family landed just before you with nowhere to sleep. Build them a yard and they will pay to live in it.", "note");
+}
+const HAMLET_STALLS = ["stallseed", "stallcarp"];
+HAMLET_PRICES.stallseed = 20;
+HAMLET_PRICES.stallcarp = 30;
+const HAMLET_UNLOCK = { stallseed: "seedstall", stallcarp: "carpenter" };
+const HAMLET_SEEDSTALL_DEF = { buys: {}, sells: Object.assign({}, SEED_DEF.sells), open: [6.5, 17], tool: "wipe", noun: "seed stall", disc: 0.8, range: FARM_SEED_ORDER };
+const HAMLET_CARP_DEF = { buys: {}, sells: {}, open: [7, 17], tool: "wipe", noun: "carpenter", disc: 0.75, kit: true, matDisc: null };
+const hamletBuildKinds = () => HAMLET_BUILD.concat(HAMLET_STALLS.filter((k) => hamletUnlocked(HAMLET_UNLOCK[k])));
+const hamletUnlocked = (key) => !!(town && town.unlock && town.unlock[key]);
+function hamletUnlock(key) {
+  if (!town.unlock) town.unlock = {};
+  if (town.unlock[key]) return;
+  town.unlock[key] = true;
+  const k = Object.keys(HAMLET_UNLOCK).find((q) => HAMLET_UNLOCK[q] === key), pl = game.player;
+  if (k) {
+    chron(`The ${LF_NOUN[k]} can be built now. The trader sells it (${HAMLET_PRICES[k]} coin).`, "note");
+    if (pl && pl.player) playerSay(pl, `The ${LF_NOUN[k]} is on the build menu (I) and at the trader's, for ${HAMLET_PRICES[k]} coin.`);
+  }
+}
+function hamletRestock() {
+  if (!yardOn()) return;
+  for (const m of merchants) {
+    if (![HAMLET_TRADER_DEF, HAMLET_SEEDSTALL_DEF].includes(m.def)) {
+      if (m.def === HAMLET_CARP_DEF && m.n.coin < 25) m.n.coin += 25;
+      continue;
+    }
+    for (const g of Object.keys(m.sells)) {
+      if (g.startsWith("seed_") && !(m.def.range || HAMLET_SEEDS).includes(g.slice(5))) continue;
+      const cap0 = m.sells[g], was = m.stock[g] || 0;
+      if (was >= cap0 * 0.9) continue;
+      m.stock[g] = Math.round(cap0 * (0.8 + Math.random() * 0.2));
+      m.n.coin -= Math.min(Math.max(0, m.n.coin), Math.round((m.stock[g] - was) * GOODS[g].base * 0.4));
+    }
+    if (m.n.coin < 25) m.n.coin += 25;
+  }
+}
+LF2.hourly.push((h) => {
+  if (h === 6) hamletRestock();
+});
+function hamletKeeper() {
+  const pl = yardPlayer(), ad = npcs.filter((n) => !n.dead && n !== pl && !n.shop && n.age >= 18 && n.age < 65 && n.role === "Worker");
+  const score = (n) => {
+    const y = yardOfN(n);
+    return (y ? yardPeople(y).filter((o) => o.age >= 16).length : 0) * 2 - (n.moveBed ? 5 : 0) + (n.homeless ? -1 : 0);
+  };
+  return ad.sort((a, b) => score(b) - score(a) || a.id - b.id)[0] || null;
+}
+function bldPlaceStall(n, kind) {
+  if (!kitHas(kind)) {
+    kitOut(n, kind);
+    return null;
+  }
+  const f = lf2Front(n), sx = f.x, sy = f.y, need = [[sx, sy], [sx + 1, sy], [sx, sy + 1], [sx, sy + 2], [sx + 1, sy + 1], [sx + 1, sy + 2]];
+  for (const [x, y] of need) {
+    const g = grid[y] && grid[y][x];
+    if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3 || g !== T.GRASS && g !== T.PATH || roomAt[y][x] >= 0 || lfPropAt(x, y) || tileOwner.get(y * W + x) || town.nodeMap && town.nodeMap.has(y * W + x) || x === n.tx && y === n.ty || typeof yardAtXY === "function" && yardAtXY(x, y)) {
+      playerSay(n, "A stall needs a clear patch of ground, three tiles deep and two wide, outside any yard.");
+      return null;
+    }
+  }
+  const keeper = hamletKeeper();
+  if (!keeper) {
+    playerSay(n, "Nobody is free to keep a stall.");
+    return null;
+  }
+  const mk = { id: town.markets.length + 1, x: sx, y: sy + 1, name: kind === "stallseed" ? "The Seed Stall" : "The Carpenter", stalls: [], plaza: [] };
+  town.markets.push(mk);
+  setT(sx, sy, T.STALL);
+  setT(sx + 1, sy, T.STALL);
+  markDirty(sx - 1, sy - 1, 4, 5);
+  const st = { x: sx, y: sy + 1, face: { dx: 0, dy: -1 }, front: { x: sx, y: sy + 2 }, tiles: [{ x: sx, y: sy }, { x: sx + 1, y: sy }], owner: null, market: mk, built: kind };
+  town.stalls.push(st);
+  mk.stalls.push(st);
+  kitTake(kind);
+  setRole(keeper, "Trader", mk);
+  const m = keeper.shop;
+  if (!m) {
+    setT(sx, sy, T.GRASS);
+    setT(sx + 1, sy, T.GRASS);
+    town.stalls = town.stalls.filter((q) => q !== st);
+    town.markets = town.markets.filter((q) => q !== mk);
+    kitGive(kind);
+    playerSay(n, "The stall could not be set up.");
+    return null;
+  }
+  const D = kind === "stallseed" ? HAMLET_SEEDSTALL_DEF : HAMLET_CARP_DEF;
+  m.def = D;
+  m.buys = D.buys;
+  m.sells = D.sells;
+  m.stock = {};
+  m.newStock = {};
+  m.n.coin = 40;
+  if (kind === "stallseed") hamletRestock();
+  town.gridV = (town.gridV || 0) + 1;
+  town.lfPV = (town.lfPV || 0) + 1;
+  refreshReach();
+  sndPlace();
+  yardHousing();
+  chron(`${nameOf(keeper)} opened ${kind === "stallseed" ? "a seed stall" : "the carpenter's stall"}.`, "build");
+  LIFE.emit("stall_opened", keeper, { place: D.noun });
+  playerSay(n, `${keeper.first} will keep the ${D.noun}.`);
+  return st;
+}
+function bldDeleteStall(x, y) {
+  const st = (town.stalls || []).find((q) => q.built && (q.tiles || []).some((t) => t.x === x && t.y === y));
+  if (!st) return false;
+  const k = st.built, o = st.owner;
+  if (o) {
+    dropMerchant(o);
+    o.cur = null;
+    o.curUntil = 0;
+    setRole(o, "Worker");
+    o.job = "Farmer";
+    if (typeof abortPlan === "function") abortPlan(o);
+  }
+  for (const t of st.tiles) {
+    setT(t.x, t.y, T.GRASS);
+    markDirty(t.x, t.y, 1, 1);
+  }
+  town.stalls = town.stalls.filter((q) => q !== st);
+  if (st.market) town.markets = town.markets.filter((q) => q !== st.market);
+  kitGive(k);
+  town.gridV = (town.gridV || 0) + 1;
+  town.lfPV = (town.lfPV || 0) + 1;
+  refreshReach();
+  return true;
 }
 const YARD_MIN = 12, YARD_MAX = 400, YARD_GRACE = 1440;
 const yardOn = () => !!(town && town.scenario === "hamlet");
@@ -29049,6 +29189,7 @@ for (const k of ["crush", "courting", "tryst"]) EVK(k, "romance", { tell: 0.7 })
 for (const k of ["dice", "sing", "stumble", "smelly", "newclothes", "knock", "wake"]) EVK(k, "daily", { tell: 0.2 });
 EVK("arrival", "place", { tell: 0.9 });
 EVK("moved_in", "home", { tell: 0.5 });
+EVK("stall_opened", "place", { tell: 0.5 });
 EVK("came_ashore", "home", { needs: ["qty"], tell: 0.4 });
 EVK("apart", "home", { tell: 0.5, tags: ["misfortune"] });
 EVK("rent_paid", "home", { needs: ["price"], tell: 0.12 });
@@ -33307,6 +33448,7 @@ LXLP("no_yard", ["I have no yard of my own.", "I have nowhere that is mine. No f
 LXLP("moved_in", ["We have a yard of our own now.", "I moved into a yard. A bed, a fence, a gate.", "I have a place at last."]);
 LXLP("came_ashore", ["I came ashore today. There was a yard waiting.", "We landed this morning and found a yard with beds in it.", "I only just arrived. Somebody had put out a bed for me."]);
 LXLP("apart", ["We are married and still sleep in two yards.", "There is no room for my bed in our yard yet.", "Every night I walk home alone after saying goodnight."]);
+LXLP("stall_opened", ["I have a stall now. I opened it this morning.", "I opened my stall today. Business is slow but honest.", "I am keeping a stall these days."]);
 lx("ask_news", "plain", "Any news?");
 lx("ask_news", "plain", "Heard anything lately?");
 lx("ask_news", "plain", "What's the word today?");
@@ -34580,6 +34722,7 @@ LXLI("no_yard", ["I have no yard.", "I have a patch of ground I stand on. It is 
 LXLI("moved_in", ["I have a yard now.", "I moved in behind a fence. It has a gate.", "There is a bed with a fence round it, and it is mine."]);
 LXLI("came_ashore", ["I came ashore today.", "I arrived this morning. The yard was already there, with a bed in it.", "I landed today. I have decided not to ask how."]);
 LXLI("apart", ["We are married and sleep in two yards.", "There is no room in the yard for my bed. We say goodnight across a fence.", "I live apart from the one I married. Temporarily, I am told."]);
+LXLI("stall_opened", ["I keep a stall now.", "I opened a stall today. Nobody has asked yet what I am selling.", "I have a counter and a sign. I am a shopkeeper, apparently."]);
 lxi("ask_news", "Has anything happened? Anything at all. I will take a small one.");
 lxi("ask_news", "Any news?");
 lxi("ask_news", "Have you heard anything? About anyone. About anything.");

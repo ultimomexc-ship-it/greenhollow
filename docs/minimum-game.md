@@ -129,3 +129,10 @@ Theft and the watch; bakery; wood; fishing; stone and mining; smith; tavern; bir
 - Step 1 takes 3.3 days because the family's yard (fence 30, beds 30) costs exactly the 60 coin the player starts with, and the bot spends 12 on its own fields first. A cheaper first yard, or more starting coin, brings it under two days.
 - greedy (14 days): a couple's yard with room, window and poppies costs 98 coin; three days stuck, four households by day 14. lazy (14 days): 304 coin from farming alone, the family still sleeping rough: farming alone pays far better than housing people, which is the wrong way round.
 - A real fault found: at eight people the old village's growth marked out a free 10 x 5 field across a yard. Switched off in the Hamlet.
+
+## Decided while building (stalls, step 7)
+- Prices*: seed stall 20 coin and carpenter 30 coin at the trader; the seed stall's seeds are 20% below the trader's (rounded, so 1-coin barley seed stays 1), the carpenter's kit 25% below (wall 3, window 5, door 5, bed 8, gate 2, field 2, fence 1).
+- Both are built outside any yard on a clear 2 x 3 patch; one of each is not enforced (build as many as you like and can staff).
+- The keeper is the free adult from the household with the most adults; they leave farming while they keep the stall, and go back when the stall comes down.
+- The carpenter does not take wood or stone yet: `matDisc` is the hook.
+- The trader keeps selling everything; the stalls are cheaper, not exclusive. Crops are still sold only to the trader.

@@ -14,7 +14,7 @@ const GROW = 2600, TAX = 0.07;
 let merchants = [];
 const hours = () => (game.time % 1440) / 60;
 const cap = (m, g) => Math.max(m.buys[g] || 0, m.sells[g] || 0);
-function sellPrice(m, g) { const f = Math.min(1, (m.stock[g] || 0) / cap(m, g)); return Math.max(1, Math.round(GOODS[g].base * (1.7 - 0.7 * f))); }
+function sellPrice(m, g) { const f = Math.min(1, (m.stock[g] || 0) / cap(m, g)); return Math.max(1, Math.round(GOODS[g].base * (1.7 - 0.7 * f) * (m.def.disc || 1))); }   // (def.disc: a stall that undercuts, the Hamlet's seed stall)
 function buyPrice(m, g) { const k = m.buys[g]; if (!k) return 0; const f = (m.stock[g] || 0) / k; if (f >= 1) return 0; return Math.max(1, Math.round(GOODS[g].base * (1.0 - 0.55 * f))); }
 function marketPrice(g) { const ps = merchants.filter(m => m.sells[g] && (m.stock[g] || 0) > 0).map(m => sellPrice(m, g)); if (!ps.length) return null; ps.sort((a, b) => a - b); return ps[ps.length >> 1]; }
 function cropStage(c) { if (!c.st) return 0; const p = (game.time - c.t0) / (typeof itGrow === 'function' ? itGrow(c) : GROW); return p >= 1 ? 4 : p > .66 ? 3 : p > .3 ? 2 : 1; }

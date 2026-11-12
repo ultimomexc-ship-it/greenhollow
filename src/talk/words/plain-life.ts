@@ -219,3 +219,4 @@ LXLP('no_yard', ['I have no yard of my own.', 'I have nowhere that is mine. No f
 LXLP('moved_in', ['We have a yard of our own now.', 'I moved into a yard. A bed, a fence, a gate.', 'I have a place at last.']);
 LXLP('came_ashore', ['I came ashore today. There was a yard waiting.', 'We landed this morning and found a yard with beds in it.', 'I only just arrived. Somebody had put out a bed for me.']);
 LXLP('apart', ['We are married and still sleep in two yards.', 'There is no room for my bed in our yard yet.', 'Every night I walk home alone after saying goodnight.']);
+LXLP('stall_opened', ['I have a stall now. I opened it this morning.', 'I opened my stall today. Business is slow but honest.', 'I am keeping a stall these days.']);

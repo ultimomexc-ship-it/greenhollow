@@ -1541,7 +1541,7 @@ test('hamlet rent: adults with a yard pay each morning (more for a roof, a windo
   check(r2.slow === 16 && r2.fast === 10, 'a miserable villager works slowly: ' + r2.slow);
   check(/\d+ coin · rent/.test(r2.hud), 'the screen shows your coin and the rent: ' + r2.hud);
   check(/Rent\s+5 a day \(a yard 2, a roof 1, a window 1, flowers 1\)/.test(r2.card) && /under a roof with a window/.test(r2.card) && !r2.cardKid, 'the card says what they pay and why: ' + r2.card);
-  await simulate(page, 8 * 60);
+  await simulate(page, 16 * 60);
   const r3 = await page.evaluate(() => {
     const P = game.player, TR = npcs.find(n => n.shop), fam = npcs.filter(n => n !== P && n !== TR);
     return { coin: fam.reduce((s, n) => s + n.coin, 0), store: __Y.store.grain, alive: npcs.filter(n => !n.dead).length, steps: fam.map(n => (n.log || []).map(e => e.text).slice(-7).join('/')).join(' | ') };
@@ -1636,6 +1636,61 @@ test('balance harness: tools/balance.mjs plays the Hamlet for three days with th
   check(!j.flags.some(f => /nobody laid/.test(f)), 'no field tiles appear that nobody laid');
   check(/## Verdict/.test(md) && /## Day by day/.test(md) && /## Households/.test(md) && /player coin/.test(md), 'the report has its sections');
   return 'steady bot, 3 days: ' + outp.trim().split('\n').slice(-1)[0];
+});
+test('hamlet stalls: the seed stall and the carpenter are build items once unlocked, a villager keeps each, both undercut the trader, sales pay the keeper, the hammer takes a stall down', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('hamlet-stalls', 'hamlet'); const P = game.player, out = {}, TR = npcs.find(n => n.shop);
+    const free = (x, y) => walkable(x, y) && !lfPropAt(x, y) && grid[y][x] === T.GRASS && roomAt[y][x] < 0 && !(town.nodeMap && town.nodeMap.has(y * W + x)) && !yardAtXY(x, y);
+    window.__spot = () => { for (let t = 0; t < 80000; t++) { const x = 10 + Math.floor(Math.random() * (W - 24)), y = 10 + Math.floor(Math.random() * (town.h0 - 24)); let ok = true; for (let j = -1; j <= 3 && ok; j++) for (let i = -1; i <= 3 && ok; i++) if (!free(x + i, y + j)) ok = false; if (ok && Math.hypot(x - town.cx, y - town.cy) < 40) return [x, y]; } for (let y = 10; y < town.h0 - 14; y++) for (let x = 10; x < W - 14; x++) { let ok = true; for (let j = -1; j <= 3 && ok; j++) for (let i = -1; i <= 3 && ok; i++) { const g = grid[y + j][x + i]; if ((g !== T.GRASS && g !== T.TREE && g !== T.ROCK) || yardAtXY(x + i, y + j) || (lfPropAt(x + i, y + j) && !['crate', 'barrel', 'rock'].includes(lfPropAt(x + i, y + j).kind))) ok = false; } if (ok && Math.hypot(x - town.cx, y - town.cy) < 60) { for (let j = -1; j <= 3; j++) for (let i = -1; i <= 3; i++) { const X = x + i, Y = y + j, pr = lfPropAt(X, Y); if (pr) { town.pblock[Y * W + X] = 0; town.propAt.delete(Y * W + X); town.props = town.props.filter(q => q !== pr); } if (town.nodeMap && town.nodeMap.has(Y * W + X)) { const nd = town.nodeMap.get(Y * W + X); town.nodes = town.nodes.filter(q => q !== nd); town.nodeMap.delete(Y * W + X); } setT(X, Y, T.GRASS); } return [x, y]; } } throw new Error('no ground'); };
+    window.__put = (x, y) => { P.tx = P.x = x - 1; P.ty = P.y = y; P.path = []; P.moving = false; P.face = { dx: 1, dy: 0 }; P.player.keys = {}; P.player.act = null; };
+    // locked at first
+    out.locked = hamletBuildKinds().join(); itBuildToggle(P, true); out.menu0 = (itBuildBagHTML(P).match(/data-bkind=/g) || []).length; town.kit = { stallseed: 1, stallcarp: 1 }; const [x0, y0] = __spot(); __put(x0, y0);
+    // not unlocked: the shop does not list them
+    P.coin = 200; farmShopDialog(TR.shop); let labels = (talkUI.opts || []).map(o => o[1]); const st = lf2TalkStep('c' + labels.findIndex(l => /^Buy building items/.test(l))); out.listedEarly = st.opts.some(o => /stall/.test(o[1])); closeTalk && closeTalk();
+    // unlock the seed stall
+    hamletUnlock('seedstall'); out.unlocked = hamletBuildKinds().join(); out.menu1 = (itBuildBagHTML(P).match(/data-bkind=/g) || []).length;
+    farmShopDialog(TR.shop); labels = (talkUI.opts || []).map(o => o[1]); const st2 = lf2TalkStep('c' + labels.findIndex(l => /^Buy building items/.test(l))); out.listed = st2.opts.map(o => o[1]).filter(l => /stall/.test(l)).join('|'); closeTalk && closeTalk();
+    // place it
+    __put(x0, y0); const bi = town.stalls.length, mi = merchants.length; const res = bldPlaceFront(P, 'stallseed'); out.placed = !!res; out.msg = P.player.msg; out.dbg = [[x0, y0], lf2Front(P), [[0, 0], [1, 0], [0, 1], [0, 2], [1, 1], [1, 2]].map(([i, j]) => { const x = x0 + i, y = y0 + j; return [grid[y][x], roomAt[y][x], !!lfPropAt(x, y), !!tileOwner.get(y * W + x), !!yardAtXY(x, y), x === P.tx && y === P.ty]; })]; const stl = town.stalls[town.stalls.length - 1]; const K = stl && stl.owner;
+    out.stall = [town.stalls.length - bi, merchants.length - mi, !!K, K && K.shop && K.shop.def.noun, grid[y0][x0] === T.STALL && grid[y0][x0 + 1] === T.STALL, town.kit.stallseed];
+    window.__K = K && K.id; window.__st = stl;
+    // prices: below the trader on the same item, and the range is wider
+    const sm = K.shop; sm.stock.seed_cabbage = 30; TR.shop.stock.seed_cabbage = 30; out.prices = [sellPrice(sm, 'seed_cabbage'), sellPrice(TR.shop, 'seed_cabbage')]; out.range = Object.keys(sm.sells).length; out.flowers = 'seed_rose' in sm.sells && (sm.stock.seed_rose || 0) > 0;
+    // a sale pays the keeper
+    sm.n.coin = 50; const c0 = sm.n.coin, p0 = P.coin; sm.serving = true; P.tx = P.x = sm.front.x; P.ty = P.y = sm.front.y; farmShopDialog(sm); labels = (talkUI.opts || []).map(o => o[1]); out.seedMenu = labels.slice(0, 3).join('|'); const i = labels.findIndex(l => /^Buy a cabbage seed/.test(l)); lf2TalkStep('c' + i); out.sale = [sm.n.coin - c0, p0 - P.coin, sm.stock.seed_cabbage]; closeTalk && closeTalk();
+    // farmers buy from the cheaper stall
+    out.seller = farmSeller() === sm;
+    // the carpenter: locked until unlocked, then cheaper than the trader
+    const [x1, y1] = __spot(); __put(x1, y1); out.carpLocked = hamletBuildKinds().includes('stallcarp'); hamletUnlock('carpenter'); const r2 = bldPlaceFront(P, 'stallcarp'); out.carp = !!r2;
+    const cs = town.stalls[town.stalls.length - 1], CK = cs.owner, cm = CK && CK.shop; out.carpKeeper = !!CK && CK !== K && CK !== P;
+    P.coin = 100; cm.serving = true; P.tx = P.x = cm.front.x; P.ty = P.y = cm.front.y; farmShopDialog(cm); labels = (talkUI.opts || []).map(o => o[1]); out.carpMenu = labels.join('|');
+    const w = labels.findIndex(l => /^Buy building items/.test(l)); const ks = lf2TalkStep('c' + w); out.carpItems = ks.opts.map(o => o[1]).filter(l => /^Buy a /.test(l)).join('|'); const cc = CK.coin, pc = P.coin; const wi = ks.opts.findIndex(o => /^Buy a wall block/.test(o[1])); lf2TalkStep('c' + wi); out.carpSale = [P.coin - pc, CK.coin - cc, town.kit.bwall]; closeTalk && closeTalk();
+    // the keepers pay rent like anybody; the trader does not
+    out.rent = [rentOf(K).amt > 0 || !yardOfN(K), rentTrader(TR)];
+    // the hammer takes a stall down
+    itBuildSelect(P, 1); __put(x0 - 0, y0); P.tx = P.x = x0 - 1; P.tx = P.x = x0 - 1; P.ty = P.y = y0; const hit = targetAt0(P, x0, y0); out.hit = !!hit && /^wallS/.test(hit.key); if (hit) hit.run(P);
+    out.down = [grid[y0][x0] !== T.STALL, town.stalls.includes(__st), K.shop == null, K.role, town.kit.stallseed];
+    // not on a path of ground that is too tight
+    town.kit.stallseed = 1; const [x2, y2] = __spot(); setT(x2 + 1, y2 + 1, T.ROCK); __put(x2, y2); out.tight = bldPlaceFront(P, 'stallseed') === null && town.kit.stallseed === 1;
+    return out;
+  });
+  check(r.locked === 'bwall,bwindow,bdoor,bed,fence,gate,field' && r.menu0 === 7, 'the stalls are not on the menu at first: ' + r.locked);
+  check(!r.listedEarly && /^bwall.*stallseed$/.test(r.unlocked) && r.menu1 === 8 && /Buy a seed stall \(20\)/.test(r.listed) && !/carpenter/.test(r.listed), 'unlocked, the seed stall is on the build menu and at the trader for 20: ' + JSON.stringify([r.listedEarly, r.unlocked, r.menu1, r.listed]));
+  check(r.placed && r.stall[0] === 1 && r.stall[1] === 1 && r.stall[2] && r.stall[3] === 'seed stall' && r.stall[4] && r.stall[5] === 0, 'placing it opens a stall with a keeper and uses the item: ' + JSON.stringify([r.stall, r.dbg]));
+  check(r.prices[0] < r.prices[1] && r.range > 12 && r.flowers, 'it undercuts the trader and sells every seed and flower: ' + JSON.stringify([r.prices, r.range, r.flowers]));
+  check(r.sale[0] > 0 && r.sale[0] === r.sale[1] && r.sale[2] === 29, 'a sale pays the keeper: ' + JSON.stringify([r.sale, r.seedMenu]));
+  check(r.seller, 'farmers buy their seed at the cheaper stall');
+  check(!r.carpLocked && r.carp && r.carpKeeper && /Buy building items/.test(r.carpMenu) && !/Buy seed/.test(r.carpMenu), 'the carpenter comes with the second unlock and sells building items only: ' + JSON.stringify([r.carpLocked, r.carp, r.carpKeeper, r.carpMenu]));
+  check(/wall block \(3\)/.test(r.carpItems) && r.carpSale[0] === -3 && r.carpSale[1] === 3 && r.carpSale[2] === 1, 'the carpenter\'s wall is cheaper than the trader\'s 4 and pays the keeper: ' + JSON.stringify([r.carpItems, r.carpSale]));
+  check(r.rent[0] && r.rent[1], 'keepers pay rent like anybody; the trader does not');
+  check(r.hit && r.down[0] && !r.down[1] && r.down[2] && r.down[3] === 'Worker' && r.down[4] === 1, 'the hammer takes a stall down, the keeper goes back to work, the item comes back: ' + JSON.stringify([r.hit, r.down]));
+  check(r.tight, 'a stall needs clear ground');
+  await simulate(page, 2 * 1440);
+  const r3 = await page.evaluate(() => ({ keepers: merchants.length, errs: 0, pop: npcs.filter(n => !n.dead).length, serving: merchants.map(m => m.def.noun + ':' + (m.sales || 0)).join() }));
+  check(errors.length === 0, 'no page errors: ' + errors.slice(0, 2).join(' | '));
+  await page.close();
+  return 'two stalls, unlocked and built, kept by villagers, cheaper than the trader: ' + r3.serving;
 });
 test('ready farming village: only what farming needs; farmers buy seed from the seed seller with real money, keep seed back, sell what they grow to the greengrocer, and talk about it', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
