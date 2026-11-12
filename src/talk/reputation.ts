@@ -115,28 +115,3 @@ ACTS.tell_rep = {
 };
 ACTS.rep_own = { kind: 'person', stage: 'topic', reply: true, when: () => true, w: () => 1, apply: () => {}, replies: [] };
 ACTS.rep_deny = { kind: 'person', stage: 'topic', reply: true, when: () => true, w: () => 1, apply: () => {}, replies: [] };
-lx('tell_rep', 'plain', 'People are saying you {about}. {qty} of them, at least.');
-lx('tell_rep', 'plain', "You should know what's said about you. That you {about}.");
-lx('rep_own', 'plain', "I know. I haven't helped that.");
-lx('rep_deny', 'plain', "That isn't true. Somebody has got it wrong.");
-lx('rep_deny', 'plain', 'People will say anything.');
-lxi('tell_rep', 'It is said you {about}. {qty} people have said it to me. I counted.');
-lxi('tell_rep', 'I think you should know that people say you {about}.');
-lxi('rep_own', 'I know. I have not been helping.');
-lxi('rep_deny', 'That is not true. It is the kind of thing that gets said.');
-lxi('rep_deny', 'I did not. But I understand why it looks that way.');
-/* greeting colours: how somebody greets a person they have a view of */
-lx('greet_back', 'plain', "Oh. It's you.", { rep: 'vandal' });
-lx('greet_back', 'plain', 'Mind where you walk. Walls are precious.', { rep: 'vandal' });
-lx('greet_back', 'plain', 'Hello. Please leave the walls alone.', { rep: 'vandal' });
-lx('greet_back', 'plain', 'Hello. Keep your hands to yourself, will you.', { rep: 'meddler' });
-lx('greet_back', 'plain', "Hello. Don't move anything.", { rep: 'meddler' });
-lx('greet_back', 'plain', "Hello. I've got my eye on my pockets.", { rep: 'thief' });
-lx('greet_back', 'plain', 'Hello. Good to see you. Really.', { rep: 'kind' });
-lx('greet_back', 'plain', 'Always a pleasure, {li}.', { rep: 'kind' });
-lxi('greet_back', 'Ah. You. The one with the walls.', { rep: 'vandal' });
-lxi('greet_back', 'Hello. I have been looking at our walls more closely lately.', { rep: 'vandal' });
-lxi('greet_back', 'Hello. I have moved my valuables. They are in the same place as before, but I am looking at them.', { rep: 'meddler' });
-lxi('greet_back', 'Hello. I am keeping my hands in my pockets. It is a habit I have formed.', { rep: 'thief' });
-lxi('greet_back', 'Hello. It is good to see you. I mean that exactly.', { rep: 'kind' });
-lxi('greet_back', 'Ah, {li}. Good. Today is better already.', { rep: 'kind' });

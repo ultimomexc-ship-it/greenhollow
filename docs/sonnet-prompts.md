@@ -37,7 +37,7 @@ ways (run `node tools/playtest.mjs village --days=3 --seed=41` before and after:
 from timings). Full `npm test` passes with no test edited.
 ```
 
-## 13. Split words from acts
+## 13. Split words from acts (DONE: see docs/talk-review.md; kept for the record)
 
 ```
 Read CLAUDE.md, section "Talk", and docs/talk-review.md task 13. Do prompt 12 first if it has not been done.
@@ -131,7 +131,7 @@ a person and themselves, and the harness prints them as "Livia & Livia".
 
 1. Give talkFinish (src/talk/shape.ts) an optional `solo` flag. With it: the bubble is shown as now, nobody is held
    in place, no `talked` memory is written, and the log entry carries `kind: 'bark'` and only `a`.
-2. Use it from the bark code in src/talk/barks.ts and src/talk/depth.ts (moreBarks) for mutter and call_child, and
+2. Use it from the bark code in src/talk/barks.ts and src/talk/words and src/talk/barks.ts (moreBarks) for mutter and call_child, and
    for keeper calls that nobody answers.
 3. In tools/playtest.mjs print barks under their own heading "Barks" (speaker, place, line), leave them out of the
    conversation count and the purpose and length numbers, and keep linting their text.
@@ -188,14 +188,14 @@ Check: four scenarios, no such slip. `node tests/run.mjs bindings`, `node tests/
 ```
 Read CLAUDE.md, section "Talk" (agenda and thread: talkNote, talkStale; reputation).
 
-`warn` is now given once per listener and subject (see ACTS.warn.when in src/talk/depth.ts: the listener keeps a
+`warn` is now given once per listener and subject (see ACTS.warn.when in src/talk/depth-family.ts: the listener keeps a
 `rumour` memory). `tell_rep` (telling a friend what is said about them) still repeats.
 
 1. Make tell_rep record what was told in the listener's memory (kind 'told_rep', the tag, from) and refuse, in its
    `when`, to tell the same tag to the same person within ten game days.
 2. Add six reply lines per pack for each of rep_own and rep_deny, and six more `tell_rep` lines per pack. Follow
    the voice rules at the foot of the Talk section; in the island pack at least four of each six must be one
-   sentence (see src/talk/pack-short.ts for the tone).
+   sentence (see the LXI lines in src/talk/words/island-*.ts for the tone).
 3. Add a line to the harness report: the most repeated (speaker, listener, line) triple, and fail the "variety"
    check when any triple occurs more than twice in a scenario.
 
@@ -337,17 +337,17 @@ Check: the new test; `node tests/run.mjs "player talk"`; then the full suite.
 ## 17. Short plain lines for the plain voice
 
 ```
-Read CLAUDE.md, section "Talk" (the voice rule) and src/talk/pack-short.ts.
+Read CLAUDE.md, section "Talk" (the voice rule) and the short LXI lines in src/talk/words/island-*.ts.
 
 The voice rule lets a speaker add an aside on one line in four; the other three need a short one-sentence line.
-pack-short.ts supplies those for the island voice. The plain pack (the ready village) has not had the same pass.
+The island voice has them as one-sentence LXI lines in src/talk/words/island-*.ts. The plain pack (the ready village) has not had the same pass.
 
 1. Run `node tools/lexpool.mjs` with the forty most-used acts (the "most used" line of any playtest report lists
    them) after changing the tool to take `--pack=plain`. For every act where the plain pack has fewer than three
    short lines in a tag group that has marked ones, write short lines to make it three.
 2. Plain voice: a Roman villager, everyday, contractions allowed, exclamation marks allowed but rare, no modern
    idiom. One sentence, under ten words. Tags must match the group they fill (state, how, op, rel).
-3. Put them in a new file (src/talk/pack-short-plain.ts, or src/talk/words/plain-short.ts if prompt 13 is done),
+3. Put them in a new file (src/talk/words/plain-short.ts),
    listed in src/order.json after the plain lines.
 
 Check: lexpool shows at least three short lines per group; `node tools/playtest.mjs romance --days=6` (it runs the
