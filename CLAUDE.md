@@ -23,6 +23,7 @@ crime and a town watch, drawn on a canvas. The owner is hands-off with GitHub: d
 - Folders: `world/` generation and island, `life/` and `life2/` village life (life2 = the Roman layer: events,
   gossip, trades, law, daily life, grudges), `ai/` villager plans and decisions, `social/` village
   social life, `talk/` the new conversation engine (in progress), `ceremonies/`, `player/` controlling a villager, `render/` drawing, `ui/` panels, input and the main loop.
+- **Formatting and the comment guard**: `src/talk/`, `src/life2/smalllife.ts` and `src/life2/meddle.ts` are formatted one statement per line (prettier, `--print-width 150 --single-quote --trailing-comma none --arrow-parens avoid`; run it with `npx prettier@3.3.3 --write` after editing them). A `// comment` in the middle of a very long line silently comments out the code after it, so `scripts/build.mjs` fails the build when a line in those files is over 240 characters and has code before a `//` comment: put the comment on the line above, or split the line.
 - Types are loose for now (`strict: false`, many `: any` from the JS conversion). Tighten gradually: prefer
   adding real interfaces (Person, Town, Game) over more `any`.
 

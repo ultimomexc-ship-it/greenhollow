@@ -21,6 +21,18 @@ const missing = order.filter(f => !onDisk.includes(f)), unlisted = onDisk.filter
 if (missing.length) throw new Error('src/order.json lists files that do not exist: ' + missing.join(', '));
 if (unlisted.length) throw new Error('these .ts files are not in src/order.json, so they would not be built: ' + unlisted.join(', '));
 
+// A `// comment` in the middle of a very long line silently comments out the code after it (it has happened six times).
+// The talk engine and its neighbours are formatted one statement per line, so there a line over 240 characters that has code
+// before a `//` comment is the shape of that accident. Fail the build and say where.
+const GUARDED = f => f.startsWith('talk/') || f === 'life2/smalllife.ts' || f === 'life2/meddle.ts';
+const suspect = [];
+for (const f of order.filter(GUARDED)) {
+  fs.readFileSync(path.join(src, f), 'utf8').split('\n').forEach((l, i) => {
+    if (l.length > 240 && /[;{}]\s+\/\/\s/.test(l)) suspect.push(`  src/${f}:${i + 1}: ${l.slice(0, 100)}...`);
+  });
+}
+if (suspect.length) throw new Error('a // comment inside a long line may be hiding code after it (put the comment on the line above, or split the line):\n' + suspect.join('\n'));
+
 const joined = order.map(f => `// ---- src/${f} ----\n` + fs.readFileSync(path.join(src, f), 'utf8')).join('\n');
 let js;
 try {
