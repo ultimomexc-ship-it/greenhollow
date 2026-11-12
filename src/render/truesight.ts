@@ -73,6 +73,19 @@ function tsBuild() {
       }
     }
   }
+  // The four corners of a window tile are no place for light to start from. Light comes from the hole's own edges (the plate ends and the bars) and from nowhere else:
+  // a ray grazing a corner lit a sliver of the wall beside the window, or the whole face of a wall that carries on past it. The corners stay polygon vertices (one ray goes
+  // to each, so the outline still closes along the wall) but nothing is sent past them.
+  // The one exception is an inner corner (three solid tiles round it: the wall carries on round it) seen from inside, from its open quarter: there the face past the corner is
+  // really in view and the corner has to be turned. Those corners are stored with the direction of their open quarter.
+  const noCast = new Map<string, number[] | null>();
+  for (const wl of walls) {
+    if (!wl.win) continue;
+    for (const [cx, cy] of [[wl.x, wl.y], [wl.x + 1, wl.y], [wl.x, wl.y + 1], [wl.x + 1, wl.y + 1]]) {
+      const q = [[-1, -1, hard(cx - 1, cy - 1)], [1, -1, hard(cx, cy - 1)], [-1, 1, hard(cx - 1, cy)], [1, 1, hard(cx, cy)]], open = q.filter(a => !a[2]);
+      noCast.set(cx + '|' + cy, open.length === 1 ? [open[0][0] as number, open[0][1] as number] : null);
+    }
+  }
   // merge the straight edges along each line into single segments
   const seg: number[] = [], merge = (m: Map<number, number[][]>, horiz: boolean) => { for (const [k, list] of m) { list.sort((a, b) => a[0] - b[0]); let cur = list[0].slice();
     for (let n = 1; n < list.length; n++) { const e = list[n]; if (e[0] <= cur[1] + 1e-6) cur[1] = Math.max(cur[1], e[1]); else { horiz ? seg.push(cur[0], k, cur[1], k) : seg.push(k, cur[0], k, cur[1]); cur = e.slice(); } }
@@ -90,7 +103,7 @@ function tsBuild() {
   for (let s = 0; s < seg.length; s += 4) { const hz = seg[s + 1] === seg[s + 3];
     const pk = hz ? 'h' + seg[s + 1].toFixed(5) : 'v' + seg[s].toFixed(5), pl = plates.get(pk);
     if (pl) { pf[s >> 2] = pl[0]; pty[s >> 2] = pl[1]; } else if (sides.has(hz ? 'h' + seg[s + 1].toFixed(4) + '|' + seg[s] : 'v' + seg[s].toFixed(4) + '|' + seg[s + 1])) pf[s >> 2] = 3; }   // 3: the closed side of a hole tile, a blocker only (never a face to light)
-  return { seg, walls, cells, cw, ch, pf, pty };
+  return { seg, walls, cells, cw, ch, pf, pty, noCast };
 }
 /** the nearest segment a ray meets: { t, s } (s = -1 when it reaches tMax first). Inclusive at segment ends, so two walls touching corner to corner do not leak. */
 function tsRay(G, ox, oy, dx, dy, tMax) {
@@ -109,9 +122,14 @@ function tsRay(G, ox, oy, dx, dy, tMax) {
   return { t: best, s: bs };
 }
 /** the visibility polygon from the eye, inside the rectangle (tile coords): points in order of angle */
+/** is (x, y) a corner of a window tile that nothing may be cast past from this eye? (see tsBuild: all four corners, except an inner corner seen from its open quarter) */
+function tsSeam(G, x, y, ex, ey) {
+  const k = Math.round(x) + '|' + Math.round(y); if (!G.noCast.has(k) || Math.abs(x - Math.round(x)) > 0.01 || Math.abs(y - Math.round(y)) > 0.01) return false;
+  const o = G.noCast.get(k); return !(o && (ex - Math.round(x)) * o[0] > 0 && (ey - Math.round(y)) * o[1] > 0);
+}
 function tsPolygon(ex, ey, R, G = tsGeo()) {
   const ends: number[][] = [[R.x0, R.y0], [R.x1, R.y0], [R.x1, R.y1], [R.x0, R.y1]], seg = G.seg;
-  for (let s = 0; s < seg.length; s += 4) for (let k = 0; k < 4; k += 2) { const x = seg[s + k], y = seg[s + k + 1]; if (x >= R.x0 - 1 && x <= R.x1 + 1 && y >= R.y0 - 1 && y <= R.y1 + 1) ends.push([x, y]); }
+  for (let s = 0; s < seg.length; s += 4) for (let k = 0; k < 4; k += 2) { const x = seg[s + k], y = seg[s + k + 1]; if (x >= R.x0 - 1 && x <= R.x1 + 1 && y >= R.y0 - 1 && y <= R.y1 + 1 ) ends.push(Math.abs(x - Math.round(x)) < 0.01 && Math.abs(y - Math.round(y)) < 0.01 && tsSeam(G, x, y, ex, ey) ? [x, y, 1] : [x, y]); }
   /* a wall that runs across the edge of the view: its endpoints are outside, but where it meets the edge is a corner of what you can see (without it the shadow cuts a chord across the visible ground, most of all when zoomed in) */
   for (let s = 0; s < seg.length; s += 4) {
     const x1 = seg[s], y1 = seg[s + 1], dx = seg[s + 2] - x1, dy = seg[s + 3] - y1; let t0 = 0, t1 = 1;
@@ -120,9 +138,10 @@ function tsPolygon(ex, ey, R, G = tsGeo()) {
   }
   const out: number[][] = [], E = 2e-4;
   const exitT = (dx, dy) => { let t = Infinity; if (dx > 1e-12) t = Math.min(t, (R.x1 - ex) / dx); if (dx < -1e-12) t = Math.min(t, (R.x0 - ex) / dx); if (dy > 1e-12) t = Math.min(t, (R.y1 - ey) / dy); if (dy < -1e-12) t = Math.min(t, (R.y0 - ey) / dy); return Math.max(0, t); };
-  for (const [vx, vy] of ends) {
+  for (const [vx, vy, seam] of ends) {
     const base = Math.atan2(vy - ey, vx - ex);
-    for (const a of [base - E, base + E]) { const dx = Math.cos(a), dy = Math.sin(a), h = tsRay(G, ex, ey, dx, dy, exitT(dx, dy)); out.push([a, ex + dx * h.t, ey + dy * h.t, h.s]); }
+    // a seam corner of a window tile gets one ray to the corner itself and none past it: nothing starts from there
+    for (const a of seam ? [base] : [base - E, base + E]) { const dx = Math.cos(a), dy = Math.sin(a), h = tsRay(G, ex, ey, dx, dy, exitT(dx, dy)); out.push([a, ex + dx * h.t, ey + dy * h.t, h.s]); }
   }
   out.sort((p, q) => p[0] - q[0]);
   const pts: any = out.map(p => [p[1], p[2]]); pts.segs = out.map(p => p[3]);   // segs: the wall segment each point lies on (-1: the edge of the view)
@@ -148,9 +167,9 @@ function tsFaces(ex, ey, pts, G = tsGeo(), depth = 1) {
     // the hair of overlap runs along the face only where the strip carries on; at the true end of a wall it would leave a light hairline past the corner
     const endAt = p => Math.abs(p[0] - seg[s]) + Math.abs(p[1] - seg[s + 1]) < 0.02 || Math.abs(p[0] - seg[s + 2]) + Math.abs(p[1] - seg[s + 3]) < 0.02, ta = endAt(a) ? 0 : 1, tb = endAt(b) ? 0 : 1;
     let a0 = a[0] - tx * ta - nx * o, a1 = a[1] - ty * ta - ny * o, b0 = b[0] + tx * tb - nx * o, b1 = b[1] + ty * tb - ny * o;
-    // an inner corner: where the face ends at the segment's own end and the wall carries on round it (solid ahead and solid beside), the corner tile behind that end is shown whole
+    // an inner corner: where the face ends at the segment's own end and the wall carries on round it (solid ahead and solid beside), the corner tile behind that end is shown whole (never on a window's plates or bars, which are the edges of a hole and no wall corner, and never at a corner of a window tile seen from outside: nothing is lit from there, only through the glass)
     { const ux = (b[0] - a[0]) / tl, uy = (b[1] - a[1]) / tl, hard = (px, py) => tsTile(Math.floor(px), Math.floor(py)) >= 1, ends = [[seg[s], seg[s + 1]], [seg[s + 2], seg[s + 3]]], at = (p, q) => Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) < 0.02;
-      const corner = (p, dx, dy) => { if (!ends.some(q => at(p, q)) || !hard(p[0] + dx * 0.5 + nx * 0.5, p[1] + dy * 0.5 + ny * 0.5) || !hard(p[0] + dx * 0.5 - nx * 0.5, p[1] + dy * 0.5 - ny * 0.5)) return;
+      const corner = (p, dx, dy) => { if (G.pf[s >> 2] !== 0 || tsSeam(G, p[0], p[1], ex, ey) || !ends.some(q => at(p, q)) || !hard(p[0] + dx * 0.5 + nx * 0.5, p[1] + dy * 0.5 + ny * 0.5) || !hard(p[0] + dx * 0.5 - nx * 0.5, p[1] + dy * 0.5 - ny * 0.5)) return;
         const cx = Math.floor(p[0] + dx * 0.5 + nx * 0.5), cy = Math.floor(p[1] + dy * 0.5 + ny * 0.5); quads.push([cx, cy, cx + 1, cy, cx + 1, cy + 1, cx, cy + 1]); };
       corner(a, -ux, -uy); corner(b, ux, uy); }
     quads.push([a0, a1, b0, b1, b0 + nx * (dep + o), b1 + ny * (dep + o), a0 + nx * (dep + o), a1 + ny * (dep + o)]);
