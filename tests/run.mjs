@@ -1626,6 +1626,17 @@ test('hamlet arrivals: an empty yard with 1, 2 or 3+ free beds brings a single, 
   await page.close();
   return 'single, couple, family by free beds; blocked by the bedless and the hungry; the smaller yard moves on marriage; a full yard keeps them apart';
 });
+test('balance harness: tools/balance.mjs plays the Hamlet for three days with the steady bot and writes its report; no free fields appear', async b => {
+  const { execFileSync } = await import('node:child_process'); const fsx = await import('node:fs'); const dir = '/tmp/claude-0/balance-test';
+  const outp = execFileSync('node', ['tools/balance.mjs', '--days=3', '--seed=41', '--policy=steady', '--out=' + dir], { encoding: 'utf8', timeout: 240000 });
+  const j = JSON.parse(fsx.readFileSync(dir + '/balance-steady-41.json', 'utf8')), md = fsx.readFileSync(dir + '/balance-steady-41.md', 'utf8');
+  check(j.daysOut.length === 3 && j.errors.length === 0, 'three days played without page errors: ' + JSON.stringify(j.errors.slice(0, 2)));
+  check(j.steps['2 first harvest sold'] != null, 'the bot sells a harvest: ' + JSON.stringify(j.steps));
+  check(j.log.some(l => /built a yard with 3 beds/.test(l)) && j.daysOut[2].hh === 3, 'the bot builds the family a yard by day 3: ' + JSON.stringify([j.log, j.daysOut[2].hh]));
+  check(!j.flags.some(f => /nobody laid/.test(f)), 'no field tiles appear that nobody laid');
+  check(/## Verdict/.test(md) && /## Day by day/.test(md) && /## Households/.test(md) && /player coin/.test(md), 'the report has its sections');
+  return 'steady bot, 3 days: ' + outp.trim().split('\n').slice(-1)[0];
+});
 test('ready farming village: only what farming needs; farmers buy seed from the seed seller with real money, keep seed back, sell what they grow to the greengrocer, and talk about it', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {

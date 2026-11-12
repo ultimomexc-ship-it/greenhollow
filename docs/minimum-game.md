@@ -120,3 +120,12 @@ Theft and the watch; bakery; wood; fishing; stone and mining; smith; tavern; bir
 - On marriage the one whose yard has fewer beds moves (no yard: they move; equal: the newer arrival). They walk over and set the bed down beside their partner's; the old yard's store goes with them. If you are the one moving, your bed moves at once.
 - No room (no free grass, path or floor tile in the yard): they live apart, the request pill says "Room for A and B", and it is tried again every hour.
 - Fixed on the way: newcomers kept introducing themselves while starving; now they eat first.
+
+## What the harness says before any tuning (step 6; seed 41, starting prices)
+`node tools/balance.mjs --days=30` (steady): step 2 (first harvest sold) day 0.3, step 1 (the family housed and paying) day 3.3, step 3 (five households) day 8.9, step 4 (everyone under a roof) day 16.3, step 5 not reached: 6 households and 12 people at day 30.
+- **Rent is not being paid.** Due climbs to 33 coin a day, paid stays near 5. In 30 days: rent 109 coin, the player's own crops 487, spent at the trader 530. The player ends a farmer, not a landlord.
+- **Why:** the households have food (stores of 11 to 53 portions, nobody hungry for long) but no coin. The trader's stall sits at 70 to 90 grain of 90, where it pays 1 or nothing; the player's own twelve fields fill it as much as anybody. Meanwhile the trader's purse grows from 68 to 310: every coin spent on building and seed stays with him.
+- **So the first numbers to tune** (step 10): what the trader pays when his stall is filling (the carter takes only what is above 70% of the cap, once a day, at half price), the cap itself, and how much of what the player spends comes back to the island. Then rent against prices.
+- Step 1 takes 3.3 days because the family's yard (fence 30, beds 30) costs exactly the 60 coin the player starts with, and the bot spends 12 on its own fields first. A cheaper first yard, or more starting coin, brings it under two days.
+- greedy (14 days): a couple's yard with room, window and poppies costs 98 coin; three days stuck, four households by day 14. lazy (14 days): 304 coin from farming alone, the family still sleeping rough: farming alone pays far better than housing people, which is the wrong way round.
+- A real fault found: at eight people the old village's growth marked out a free 10 x 5 field across a yard. Switched off in the Hamlet.

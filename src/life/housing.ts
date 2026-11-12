@@ -63,6 +63,7 @@ function staffSpecialists() {
 }
 const marketDist2 = (n, mk) => Math.hypot((n.homeRoom ? n.homeRoom.x : n.x) - mk.x, (n.homeRoom ? n.homeRoom.y : n.y) - mk.y);
 function growthProjects() {
+  if (typeof yardOn === 'function' && yardOn()) return;   // (the Hamlet: nobody builds but you; the old village once marked out a free field across a yard here)
   recycleGraves();
   const pop = npcs.length;
   if (pop >= 10 && town.fields < Math.floor(pop / 6) && !town.sites.some(s => s.kind === 'field')) {
