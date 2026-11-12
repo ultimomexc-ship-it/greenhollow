@@ -172,6 +172,6 @@ LXI('agree', ['Indeed.', 'Quite so.', 'I concur.'], { reg: 'formal' });
 LXI('agree', ['I could not agree more.', 'Yes. That is exactly what I think.'], { reg: 'warm' });
 LXI('answer_how', ['I am well, I thank you.', 'Well enough, I thank you for asking.'], { reg: 'formal' });
 LXI('answer_how', ['I am well. Better for seeing you, {li}.', 'Well. Thank you for asking.'], { reg: 'warm' });
-LXI('greet', ['Morning.', 'Hello.'], { reg: 'terse' });
+LXI('greet', ['Hello.', 'Right.'], { reg: 'terse' });
 LXI('farewell', ['Bye.', 'Right. Off I go.'], { reg: 'terse' });
 LXI('acknowledge', ['Good.', 'Fine.'], { reg: 'terse' });

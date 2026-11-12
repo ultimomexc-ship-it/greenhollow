@@ -24,7 +24,20 @@ for (const id of [
   ACTS[id] = { kind: 'trade', stage: 'topic', reply: true, when: () => true, apply: () => {}, replies: [] };
 
 /** the lines of a shop encounter as a list of [by 'c' (customer) | 'k' (keeper), act] */
-function serviceScript(mode: string, result: string, newItem: boolean): [string, string][] {
+function serviceScript(mode: string, result: string, newItem: boolean, regular?: boolean): [string, string][] {
+  // a regular (bought from this keeper in the last two days) and the sale goes through: ask, price, thanks, and nothing else
+  if (regular && mode === 'sell' && result === 'ok')
+    return [
+      ['c', 'offer_goods'],
+      ['k', 'bid_price'],
+      ['c', 'accept_deal']
+    ];
+  if (regular && mode === 'buy' && result === 'ok')
+    return [
+      ['c', 'ask_item'],
+      ['k', 'quote_price'],
+      ['c', 'thank_shop']
+    ];
   const open: [string, string][] = [
     ['c', 'shop_greet'],
     ['k', 'shop_greet_back']
@@ -75,8 +88,13 @@ function talkService(cust: any, keeper: any, d: any) {
       ? (GOODS[d.item] || {}).name
       : String(d.item);
   const c: any = { a: cust, b: keeper, done: {}, turns: [], stage: 'topic', t0: game.time };
-  const x = { item: name, qty: d.qty || 1, price: d.price, shop: d.shop || '' };
-  for (const [who, act] of serviceScript(d.mode, d.result, !!d.newItem)) c.turns.push({ by: who === 'c' ? cust.id : keeper.id, act, x });
+  // a regular: bought from this keeper before (not just now) within four days (the day log keeps only the last sixty things, so the stall keeps its own note)
+  const last = cust.shopped && cust.shopped[keeper.id];
+  const regular = last != null && game.time - last > 30 && game.time - last < 4 * 1440;
+  if (d.result === 'ok') (cust.shopped || (cust.shopped = {}))[keeper.id] = game.time;
+  const x: any = { item: name, qty: d.qty || 1, price: d.price, shop: d.shop || '' };
+  if (regular && d.result === 'ok' && d.mode === 'buy') x.how = 'regular';
+  for (const [who, act] of serviceScript(d.mode, d.result, !!d.newItem, regular)) c.turns.push({ by: who === 'c' ? cust.id : keeper.id, act, x });
   talkFinish(c, cust, keeper, talkListened(cust, keeper));
 }
 /** one line, for a menu or a box: the keeper's or the customer's, in the current voice */

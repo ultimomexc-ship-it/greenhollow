@@ -90,3 +90,13 @@ LXI('shop_greet_back', [
   'Hello. I am here, which is the main thing a stall needs.',
   'Hello. What is it today? I will not guess.'
 ]);
+lxi('ask_item', 'The usual.', { how: 'regular' });
+lxi('ask_item', 'Same as before. I have found it reliable.', { how: 'regular' });
+lxi('ask_item', 'The usual. I will not describe it.', { how: 'regular' });
+lxi('ask_item', 'Another {things}, please.', { how: 'regular' });
+lxi('ask_item', 'Same again, if the stall remembers.', { how: 'regular' });
+lxi('quote_price', '{money}. As ever.', { how: 'regular' });
+lxi('quote_price', '{money}. It has not changed. I checked.', { how: 'regular' });
+lxi('quote_price', '{money}, same as last time.', { how: 'regular' });
+lxi('quote_price', '{money}. You know the figure.', { how: 'regular' });
+lxi('quote_price', '{money}. Nothing has happened to the price.', { how: 'regular' });

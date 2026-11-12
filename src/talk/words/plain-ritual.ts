@@ -166,6 +166,6 @@ LXP('agree', ['Indeed.', 'Quite so.', 'I concur.'], { reg: 'formal' });
 LXP('agree', ["I couldn't agree more.", "Yes, exactly. That's just what I think."], { reg: 'warm' });
 LXP('answer_how', ['I am well, I thank you.', 'Well enough, I thank you for asking.'], { reg: 'formal' });
 LXP('answer_how', ["I'm well, thank you for asking. And you?", 'Better for seeing you, {li}.'], { reg: 'warm' });
-LXP('greet', ['Morning.', 'Hello.'], { reg: 'terse' });
+LXP('greet', ['Hello.', 'Right.'], { reg: 'terse' });
 LXP('farewell', ['Bye.', 'Right. Off I go.'], { reg: 'terse' });
 LXP('acknowledge', ['Good.', 'Fine.'], { reg: 'terse' });

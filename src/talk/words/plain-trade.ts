@@ -102,3 +102,13 @@ LXP('shop_greet_back', [
   "Hello there. What'll it be?"
 ]);
 lx('shop_greet', 'plain', 'Afternoon. Anything good today?', { band: 'day' });
+lx('ask_item', 'plain', 'The usual.', { how: 'regular' });
+lx('ask_item', 'plain', 'Same as always, please.', { how: 'regular' });
+lx('ask_item', 'plain', 'The usual, if you have it.', { how: 'regular' });
+lx('ask_item', 'plain', 'Another {things}, please.', { how: 'regular' });
+lx('ask_item', 'plain', 'Same again.', { how: 'regular' });
+lx('quote_price', 'plain', '{money}. As ever.', { how: 'regular' });
+lx('quote_price', 'plain', '{money}, same as last time.', { how: 'regular' });
+lx('quote_price', 'plain', "That'll be {money}.", { how: 'regular' });
+lx('quote_price', 'plain', '{money}. You know the drill.', { how: 'regular' });
+lx('quote_price', 'plain', '{money}, as usual.', { how: 'regular' });

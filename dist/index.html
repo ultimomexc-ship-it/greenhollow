@@ -30998,7 +30998,19 @@ for (const id of [
 ])
   ACTS[id] = { kind: "trade", stage: "topic", reply: true, when: () => true, apply: () => {
   }, replies: [] };
-function serviceScript(mode, result, newItem) {
+function serviceScript(mode, result, newItem, regular) {
+  if (regular && mode === "sell" && result === "ok")
+    return [
+      ["c", "offer_goods"],
+      ["k", "bid_price"],
+      ["c", "accept_deal"]
+    ];
+  if (regular && mode === "buy" && result === "ok")
+    return [
+      ["c", "ask_item"],
+      ["k", "quote_price"],
+      ["c", "thank_shop"]
+    ];
   const open = [
     ["c", "shop_greet"],
     ["k", "shop_greet_back"]
@@ -31044,8 +31056,12 @@ function talkService(cust, keeper, d) {
   if (!TALK.on.trade || !cust || !keeper || cust === keeper) return;
   const name = WORLD.has("item", d.item) ? WORLD.name("item", d.item) : REG.has("seed", String(d.item).replace(/^seed_/, "")) && String(d.item).startsWith("seed_") ? (GOODS[d.item] || {}).name : String(d.item);
   const c = { a: cust, b: keeper, done: {}, turns: [], stage: "topic", t0: game.time };
+  const last2 = cust.shopped && cust.shopped[keeper.id];
+  const regular = last2 != null && game.time - last2 > 30 && game.time - last2 < 4 * 1440;
+  if (d.result === "ok") (cust.shopped || (cust.shopped = {}))[keeper.id] = game.time;
   const x = { item: name, qty: d.qty || 1, price: d.price, shop: d.shop || "" };
-  for (const [who, act] of serviceScript(d.mode, d.result, !!d.newItem)) c.turns.push({ by: who === "c" ? cust.id : keeper.id, act, x });
+  if (regular && d.result === "ok" && d.mode === "buy") x.how = "regular";
+  for (const [who, act] of serviceScript(d.mode, d.result, !!d.newItem, regular)) c.turns.push({ by: who === "c" ? cust.id : keeper.id, act, x });
   talkFinish(c, cust, keeper, talkListened(cust, keeper));
 }
 function serviceSay(act, speaker, other, d) {
@@ -31909,7 +31925,7 @@ LXP("agree", ["Indeed.", "Quite so.", "I concur."], { reg: "formal" });
 LXP("agree", ["I couldn't agree more.", "Yes, exactly. That's just what I think."], { reg: "warm" });
 LXP("answer_how", ["I am well, I thank you.", "Well enough, I thank you for asking."], { reg: "formal" });
 LXP("answer_how", ["I'm well, thank you for asking. And you?", "Better for seeing you, {li}."], { reg: "warm" });
-LXP("greet", ["Morning.", "Hello."], { reg: "terse" });
+LXP("greet", ["Hello.", "Right."], { reg: "terse" });
 LXP("farewell", ["Bye.", "Right. Off I go."], { reg: "terse" });
 LXP("acknowledge", ["Good.", "Fine."], { reg: "terse" });
 lx("ask_how", "plain", "How are you?");
@@ -32587,6 +32603,16 @@ LXP("shop_greet_back", [
   "Hello there. What'll it be?"
 ]);
 lx("shop_greet", "plain", "Afternoon. Anything good today?", { band: "day" });
+lx("ask_item", "plain", "The usual.", { how: "regular" });
+lx("ask_item", "plain", "Same as always, please.", { how: "regular" });
+lx("ask_item", "plain", "The usual, if you have it.", { how: "regular" });
+lx("ask_item", "plain", "Another {things}, please.", { how: "regular" });
+lx("ask_item", "plain", "Same again.", { how: "regular" });
+lx("quote_price", "plain", "{money}. As ever.", { how: "regular" });
+lx("quote_price", "plain", "{money}, same as last time.", { how: "regular" });
+lx("quote_price", "plain", "That'll be {money}.", { how: "regular" });
+lx("quote_price", "plain", "{money}. You know the drill.", { how: "regular" });
+lx("quote_price", "plain", "{money}, as usual.", { how: "regular" });
 lx("remark_time", "plain", "Morning goes quickly.", { band: "morning" });
 lx("remark_time", "plain", "Half the day gone already.", { band: "day" });
 lx("remark_time", "plain", "It'll be dark soon.", { band: "evening" });
@@ -32856,7 +32882,7 @@ LXI("agree", ["Indeed.", "Quite so.", "I concur."], { reg: "formal" });
 LXI("agree", ["I could not agree more.", "Yes. That is exactly what I think."], { reg: "warm" });
 LXI("answer_how", ["I am well, I thank you.", "Well enough, I thank you for asking."], { reg: "formal" });
 LXI("answer_how", ["I am well. Better for seeing you, {li}.", "Well. Thank you for asking."], { reg: "warm" });
-LXI("greet", ["Morning.", "Hello."], { reg: "terse" });
+LXI("greet", ["Hello.", "Right."], { reg: "terse" });
 LXI("farewell", ["Bye.", "Right. Off I go."], { reg: "terse" });
 LXI("acknowledge", ["Good.", "Fine."], { reg: "terse" });
 lxi("ask_how", "How are you? I would like to know the real number.");
@@ -33660,6 +33686,16 @@ LXI("shop_greet_back", [
   "Hello. I am here, which is the main thing a stall needs.",
   "Hello. What is it today? I will not guess."
 ]);
+lxi("ask_item", "The usual.", { how: "regular" });
+lxi("ask_item", "Same as before. I have found it reliable.", { how: "regular" });
+lxi("ask_item", "The usual. I will not describe it.", { how: "regular" });
+lxi("ask_item", "Another {things}, please.", { how: "regular" });
+lxi("ask_item", "Same again, if the stall remembers.", { how: "regular" });
+lxi("quote_price", "{money}. As ever.", { how: "regular" });
+lxi("quote_price", "{money}. It has not changed. I checked.", { how: "regular" });
+lxi("quote_price", "{money}, same as last time.", { how: "regular" });
+lxi("quote_price", "{money}. You know the figure.", { how: "regular" });
+lxi("quote_price", "{money}. Nothing has happened to the price.", { how: "regular" });
 lxi("remark_time", "It is {clock}. I checked.");
 lxi("remark_time", "The morning has a lot left in it.", { band: "morning" });
 lxi("remark_time", "The afternoon is the same length as yesterday's, and feels longer.", { band: "day" });
