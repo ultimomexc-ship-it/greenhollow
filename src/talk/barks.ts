@@ -61,6 +61,7 @@ function keeperCalls() {
       x = { item: name, price: call.price, call: call.call, shop: call.shop };
     const c: any = { a: n, b: passer, done: {}, turns: [{ by: n.id, act: 'keeper_call', x }], stage: 'topic', t0: game.time };
     if (Math.random() < 0.4) c.turns.push({ by: passer.id, act: 'call_reply', x });
+    c.solo = c.turns.length === 1; // (a call nobody answers is a bark; one that gets an answer is a little exchange)
     faceTo(n, passer);
     talkFinish(c, n, passer, talkListened(n, passer));
   }
@@ -102,6 +103,7 @@ function moreBarks() {
           done: {},
           turns: [{ by: n.id, act: 'mutter', x: { how: String(n.job).toLowerCase() } }],
           stage: 'topic',
+          solo: true,
           t0: game.time
         };
         talkFinish(c, n, n, true);
@@ -114,7 +116,15 @@ function moreBarks() {
         .find((q: any) => q && !q.dead && q.age < 10 && lvlOf(q.ty) === lvlOf(n.ty) && lfDist(n, q) >= 5 && lfDist(n, q) <= 16 && q.pose !== 'sleep');
       if (k) {
         n.callT = game.time + 90;
-        const c: any = { a: n, b: k, done: {}, turns: [{ by: n.id, act: 'call_child', x: { aboutName: k.first } }], stage: 'topic', t0: game.time };
+        const c: any = {
+          a: n,
+          b: k,
+          done: {},
+          turns: [{ by: n.id, act: 'call_child', x: { aboutName: k.first } }],
+          stage: 'topic',
+          solo: true,
+          t0: game.time
+        };
         c.turns[0].x.about = k.first;
         faceTo(n, k);
         talkFinish(c, n, k, true);

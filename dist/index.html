@@ -30941,14 +30941,24 @@ function talkFinish(c, a, b, listened) {
       return text ? { who: s, text } : null;
     }).filter(Boolean);
   }
-  TALK.log.push({
-    t: game.time,
-    a: a.id,
-    b: b.id,
-    d: lfDist(a, b),
-    acts: c.turns.slice(),
-    lines: lines ? lines.map((l) => l.who.first + ": " + l.text) : null
-  });
+  const solo = !!c.solo || a === b;
+  TALK.log.push(
+    solo ? {
+      t: game.time,
+      kind: "bark",
+      a: a.id,
+      to: b !== a ? b.id : null,
+      acts: c.turns.slice(),
+      lines: lines ? lines.map((l) => l.who.first + ": " + l.text) : null
+    } : {
+      t: game.time,
+      a: a.id,
+      b: b.id,
+      d: lfDist(a, b),
+      acts: c.turns.slice(),
+      lines: lines ? lines.map((l) => l.who.first + ": " + l.text) : null
+    }
+  );
   if (TALK.log.length > 300) TALK.log.shift();
   const pl = game.player;
   if (lines && lines.length && pl && a !== pl && b !== pl && (lfDist(pl, a) <= TALK.earshot || lfDist(pl, b) <= TALK.earshot)) {
@@ -30961,8 +30971,8 @@ function talkFinish(c, a, b, listened) {
   }
   if (!lines && pl && typeof sndMurmur === "function") sndMurmur(a);
   if (lines && lines.length) {
-    game.events.push({ time: game.time, a, b, place: placeOf(a), topic: "talk", quiet: false, talk: true, lines });
-  } else {
+    game.events.push({ time: game.time, a, b, place: placeOf(a), topic: "talk", quiet: false, talk: true, lines, self: solo });
+  } else if (!solo) {
     const hold = game.time + c.turns.length * (c.short ? 0.2 : 0.7);
     a.talkUntil = Math.max(a.talkUntil || 0, hold);
     b.talkUntil = Math.max(b.talkUntil || 0, hold);
@@ -31432,6 +31442,7 @@ function keeperCalls() {
     const name = WORLD.has("item", call.item) ? WORLD.name("item", call.item) : String(call.item), x = { item: name, price: call.price, call: call.call, shop: call.shop };
     const c = { a: n, b: passer, done: {}, turns: [{ by: n.id, act: "keeper_call", x }], stage: "topic", t0: game.time };
     if (Math.random() < 0.4) c.turns.push({ by: passer.id, act: "call_reply", x });
+    c.solo = c.turns.length === 1;
     faceTo(n, passer);
     talkFinish(c, n, passer, talkListened(n, passer));
   }
@@ -31458,6 +31469,7 @@ function moreBarks() {
           done: {},
           turns: [{ by: n.id, act: "mutter", x: { how: String(n.job).toLowerCase() } }],
           stage: "topic",
+          solo: true,
           t0: game.time
         };
         talkFinish(c, n, n, true);
@@ -31467,7 +31479,15 @@ function moreBarks() {
       const k = (n.fam.kids || []).map(byId).find((q) => q && !q.dead && q.age < 10 && lvlOf(q.ty) === lvlOf(n.ty) && lfDist(n, q) >= 5 && lfDist(n, q) <= 16 && q.pose !== "sleep");
       if (k) {
         n.callT = game.time + 90;
-        const c = { a: n, b: k, done: {}, turns: [{ by: n.id, act: "call_child", x: { aboutName: k.first } }], stage: "topic", t0: game.time };
+        const c = {
+          a: n,
+          b: k,
+          done: {},
+          turns: [{ by: n.id, act: "call_child", x: { aboutName: k.first } }],
+          stage: "topic",
+          solo: true,
+          t0: game.time
+        };
         c.turns[0].x.about = k.first;
         faceTo(n, k);
         talkFinish(c, n, k, true);

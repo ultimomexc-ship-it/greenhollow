@@ -330,14 +330,28 @@ function talkFinish(c: any, a: any, b: any, listened?: boolean) {
       })
       .filter(Boolean);
   }
-  TALK.log.push({
-    t: game.time,
-    a: a.id,
-    b: b.id,
-    d: lfDist(a, b),
-    acts: c.turns.slice(),
-    lines: lines ? lines.map((l: any) => l.who.first + ': ' + l.text) : null
-  });
+  // a bark (somebody muttering at work, a call across the street nobody answers) is no conversation: it is logged as a bark of one person, nobody is held in place
+  // and no `talked` memory is written (those come from talkRun, which barks never go through)
+  const solo = !!c.solo || a === b;
+  TALK.log.push(
+    solo
+      ? {
+          t: game.time,
+          kind: 'bark',
+          a: a.id,
+          to: b !== a ? b.id : null,
+          acts: c.turns.slice(),
+          lines: lines ? lines.map((l: any) => l.who.first + ': ' + l.text) : null
+        }
+      : {
+          t: game.time,
+          a: a.id,
+          b: b.id,
+          d: lfDist(a, b),
+          acts: c.turns.slice(),
+          lines: lines ? lines.map((l: any) => l.who.first + ': ' + l.text) : null
+        }
+  );
   if (TALK.log.length > 300) TALK.log.shift();
 
   // you hear it: what is told in your hearing goes in your journal
@@ -352,8 +366,8 @@ function talkFinish(c: any, a: any, b: any, listened?: boolean) {
   }
   if (!lines && pl && typeof sndMurmur === 'function') sndMurmur(a);
   if (lines && lines.length) {
-    game.events.push({ time: game.time, a, b, place: placeOf(a), topic: 'talk', quiet: false, talk: true, lines });
-  } else {
+    game.events.push({ time: game.time, a, b, place: placeOf(a), topic: 'talk', quiet: false, talk: true, lines, self: solo });
+  } else if (!solo) {
     const hold = game.time + c.turns.length * (c.short ? 0.2 : 0.7);
     a.talkUntil = Math.max(a.talkUntil || 0, hold);
     b.talkUntil = Math.max(b.talkUntil || 0, hold);
