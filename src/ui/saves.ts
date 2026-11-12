@@ -4,7 +4,7 @@
    Saves live in IndexedDB, one record per island (a small `meta` row for the list, a `data` row for the world). A save made by older code loads as far as it can: missing fields fall back to defaults;
    one that cannot be loaded can be deleted from the list. `window.GH_NOSAVE` (set by the tests) turns it all off. */
 const SAVE_VERSION = 1;
-const SAVE_SKIP = new Set(['plan', 'act', 'events', 'follow', 'slide', 'talkUI', 'run', 'onEnd', 'spot']);   // keys whose values are closures or transient
+const SAVE_SKIP = new Set(['plan', 'act', 'events', 'follow', 'slide', 'talkUI', 'run', 'onEnd', 'spot', '_repC']);   // keys whose values are closures or transient
 
 /* ---------- the graph encoder: shared references, Maps, Sets, typed arrays ---------- */
 function ghB64(bytes: Uint8Array) { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000) as any); return btoa(s); }

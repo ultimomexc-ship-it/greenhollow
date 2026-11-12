@@ -51,7 +51,7 @@ function peopleReason(a: any, b: any): string {
     gender = b.female ? 'She' : 'He';
   if (best) {
     if (/^ev:/.test(best.why)) {
-      const ev = lf2Ev().find((q: any) => q.id === +best.why.slice(3));
+      const ev = lf2EvById(+best.why.slice(3));
       if (ev) return TE.text(ev, { who: ev.actor }, a).replace(/^./, (c: string) => c.toUpperCase()) + '.';
     } else if (/^heard/.test(best.why)) return 'I ' + best.why + '.';
     else return gender + ' ' + best.why + '.';

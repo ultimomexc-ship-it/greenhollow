@@ -32,7 +32,19 @@ const LF2_TRAITMUL = {
 };
 const lf2Ev = () => town.ev || (town.ev = []);
 const lf2By = id => id == null ? null : byId(id);
-const lf2EvById = id => { const e = lf2Ev(); for (let i = e.length - 1; i >= 0; i--) if (e[i].id === id) return e[i]; return null; };
+// events by id: a Map kept beside the list, rebuilt when the list is replaced, grows or is trimmed at the front (it is only ever appended to and trimmed from the front)
+const LF2_EVIDX: any = { list: null, len: -1, first: null, map: new Map() };
+const lf2EvById = id => {
+  const e = lf2Ev(), x = LF2_EVIDX;
+  if (e !== x.list || e.length !== x.len || (e.length && e[0].id !== x.first)) {
+    x.map = new Map();
+    for (const q of e) x.map.set(q.id, q);
+    x.list = e;
+    x.len = e.length;
+    x.first = e.length ? e[0].id : null;
+  }
+  return x.map.get(id) || null;
+};
 const lf2Has = (n, t) => !!n && n.traits && n.traits.includes(t);
 const lf2Cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 const lf2Low = s => s && /^(Somebody|Someone|The|A|An|Nobody|Food|Word)\b/.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s;

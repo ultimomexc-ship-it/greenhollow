@@ -92,7 +92,7 @@ const TE = {
         (m.secret && !sp.player && !(talkHas(sp, 'gossipy') && Math.random() < 0.12))
       )
         continue;
-      const ev = lf2Ev().find((q: any) => q.id === m.ev);
+      const ev = lf2EvById(m.ev);
       if (!ev) continue; // (a secret is not gossip, unless the gossipy let it slip)
       if (
         ev.actor === li.id ||

@@ -150,7 +150,7 @@ const wrongs = (sp: any, li: any) =>
       !m.sorry &&
       game.time - m.t < 1440 * 10 &&
       (() => {
-        const ev = lf2Ev().find((q: any) => q.id === m.ev);
+        const ev = lf2EvById(m.ev);
         return !!ev && ev.target === li.id && (ev.tags || []).some((t: string) => ['harm', 'nuisance', 'embarrass', 'deceit', 'theft'].includes(t));
       })()
   );
@@ -178,13 +178,15 @@ ACTS.accept_apology = {
     lfAff(li, sp, 2, 'forgave me');
     for (const m of li.tmem || [])
       if (m.ev != null && !m.forgiven) {
-        const ev = lf2Ev().find((q: any) => q.id === m.ev);
+        const ev = lf2EvById(m.ev);
         if (ev && ev.actor === li.id && ev.target === sp.id) m.forgiven = true;
+        repDirty();
       }
     for (const m of sp.tmem || [])
       if (m.ev != null && !m.forgiven) {
-        const ev = lf2Ev().find((q: any) => q.id === m.ev);
+        const ev = lf2EvById(m.ev);
         if (ev && ev.actor === li.id && ev.target === sp.id) m.forgiven = true;
+        repDirty();
       }
   },
   replies: []
@@ -205,7 +207,7 @@ ACTS.reject_apology = {
 const jealousFor = (sp: any, li: any) => {
   for (const m of sp.tmem || []) {
     if (m.ev == null || m.raisedJ || !['saw', 'told', 'overheard', 'felt'].includes(m.kind) || game.time - m.t > 1440 * 6) continue;
-    const ev = lf2Ev().find((q: any) => q.id === m.ev);
+    const ev = lf2EvById(m.ev);
     if (!ev || !['courting', 'tryst', 'crush'].includes(ev.kind)) continue;
     const other = ev.actor === li.id ? ev.target : ev.target === li.id ? ev.actor : null;
     if (other != null && other !== sp.id) return { m, ev, Y: lf2By(other) };

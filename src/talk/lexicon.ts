@@ -43,8 +43,7 @@ function lxContext(sp: any, li: any, c: any) {
     menu: c.menu,
     reg: lxRegister(sp),
     // the speaker has had the same trouble this week (so a line that claims "I know that one" is true): from their own day log
-    shared:
-      c.life && c.lifeTrouble && (sp.day || []).some((e: any) => e.kind === c.life.kind && game.time - e.t < 7 * 1440) ? 'yes' : undefined
+    shared: c.life && c.lifeTrouble && (sp.day || []).some((e: any) => e.kind === c.life.kind && game.time - e.t < 7 * 1440) ? 'yes' : undefined
   };
 }
 /** the values a line can use, from the speaker, the listener and what the turn carries. A slot with no value is undefined: a line that needs it is not said. */
@@ -62,7 +61,7 @@ function lxSlots(sp: any, li: any, c: any, ctx: any): any {
     money: c.price != null ? lxMoney(c.price) : undefined,
     price: c.price != null ? String(c.price) : undefined,
     about: c.about || undefined,
-    reason: typeof peopleYou === 'function' ? peopleYou(c.reason || '', li) : c.reason || '',   // (the listener is "you" in every line, menu labels and previews included)
+    reason: typeof peopleYou === 'function' ? peopleYou(c.reason || '', li) : c.reason || '', // (the listener is "you" in every line, menu labels and previews included)
     them: !c.about ? undefined : aboutP ? (aboutP.female ? 'her' : 'him') : 'them',
     shop: c.shop || 'stall',
     item,

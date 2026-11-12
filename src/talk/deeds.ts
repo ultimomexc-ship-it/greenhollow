@@ -47,7 +47,7 @@ function deedPick(sp: any, li: any): any {
     bs = 0;
   for (const m of sp.tmem || []) {
     if (m.ev == null || m.raised || m.forgiven || m.conf < 0.5 || !['saw', 'felt', 'told', 'overheard'].includes(m.kind)) continue;
-    const ev = lf2Ev().find((q: any) => q.id === m.ev);
+    const ev = lf2EvById(m.ev);
     if (!ev) continue;
     const who = m.ver && m.ver.who !== undefined ? m.ver.who : ev.actor;
     if (who !== li.id) continue; // (the one they believe did it, rightly or not)
@@ -162,6 +162,7 @@ deedReply(
     c.deedLie = true;
     c.deed.m.ver = Object.assign({}, c.deed.m.ver, { who: X.id, suspect: true });
     c.deed.m.conf = 0.55;
+    repDirty();
     c.deed.m.raised = false;
     lfAff(li, X, -6, 'was said to have done it');
   },
@@ -205,6 +206,7 @@ deedAnswer(
     const m = c.deed.m;
     if (c.deedAnswer === 'deed_deny' && !c.blamed) {
       m.cleared = true;
+      repDirty();
       lfAff(sp, li, 2, 'said it was not them');
     } else lfAff(sp, li, 1, 'put me straight');
   }

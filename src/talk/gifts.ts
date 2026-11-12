@@ -74,12 +74,7 @@ ACTS.offer_gift = {
       (a > 30 ? 0.5 : 0) +
       (sp.know && sp.know[li.id] > 20 ? 0.1 : 0) +
       ((sp.tmem || []).some(
-        (m: any) =>
-          m.kind === 'did' &&
-          m.ev != null &&
-          !m.forgiven &&
-          (lf2Ev().find((q: any) => q.id === m.ev) || {}).target === li.id &&
-          (a < 0 || Math.random() < 0.3)
+        (m: any) => m.kind === 'did' && m.ev != null && !m.forgiven && (lf2EvById(m.ev) || {}).target === li.id && (a < 0 || Math.random() < 0.3)
       )
         ? 1.2
         : 0)
@@ -101,7 +96,7 @@ ACTS.offer_gift = {
           ['saw', 'felt', 'told', 'overheard'].includes(m.kind) &&
           game.time - m.t < 1440 * 8 &&
           (() => {
-            const ev = lf2Ev().find((q: any) => q.id === m.ev);
+            const ev = lf2EvById(m.ev);
             return !!ev && ev.actor === sp.id && (ev.tags || []).some((t: string) => DEED_TAGS.includes(t));
           })()
       ),
@@ -131,10 +126,12 @@ ACTS.offer_gift = {
     (li.owes || (li.owes = {}))[sp.id] = game.time;
     c.newsHow = returning ? 'return' : 'plain';
     for (const m of bad) m.forgiven = true;
+    repDirty();
     for (const m of sp.tmem || [])
       if (m.kind === 'did' && m.ev != null) {
-        const ev = lf2Ev().find((q: any) => q.id === m.ev);
+        const ev = lf2EvById(m.ev);
         if (ev && ev.target === li.id) m.forgiven = true;
+        repDirty();
       } // (what I did to them is made up for)
     if (typeof reqDone === 'function')
       for (const q of li.reqs || [])

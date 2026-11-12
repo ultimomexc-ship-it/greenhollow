@@ -17319,10 +17319,17 @@ const LF2_TRAITMUL = {
 };
 const lf2Ev = () => town.ev || (town.ev = []);
 const lf2By = (id) => id == null ? null : byId(id);
+const LF2_EVIDX = { list: null, len: -1, first: null, map: /* @__PURE__ */ new Map() };
 const lf2EvById = (id) => {
-  const e = lf2Ev();
-  for (let i = e.length - 1; i >= 0; i--) if (e[i].id === id) return e[i];
-  return null;
+  const e = lf2Ev(), x = LF2_EVIDX;
+  if (e !== x.list || e.length !== x.len || e.length && e[0].id !== x.first) {
+    x.map = /* @__PURE__ */ new Map();
+    for (const q of e) x.map.set(q.id, q);
+    x.list = e;
+    x.len = e.length;
+    x.first = e.length ? e[0].id : null;
+  }
+  return x.map.get(id) || null;
 };
 const lf2Has = (n, t) => !!n && n.traits && n.traits.includes(t);
 const lf2Cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
@@ -18496,7 +18503,7 @@ function meddleReactions(r, by, ps) {
 function meddleTell(a, b) {
   const m = (a.tmem || []).filter((q) => q.ev != null && q.kind !== "did").sort((x, y) => y.t - x.t)[0];
   if (!m || TM.ofEv(b, m.ev)) return;
-  const ev = lf2Ev().find((q) => q.id === m.ev);
+  const ev = lf2EvById(m.ev);
   if (!ev) return;
   const c = { a, b, done: {}, turns: [], left: {}, news: { m, ev, score: 1 } };
   talkTurn(c, a, b, "share_news");
@@ -26509,7 +26516,7 @@ function idleRelease(now) {
   }
 }
 const SAVE_VERSION = 1;
-const SAVE_SKIP = /* @__PURE__ */ new Set(["plan", "act", "events", "follow", "slide", "talkUI", "run", "onEnd", "spot"]);
+const SAVE_SKIP = /* @__PURE__ */ new Set(["plan", "act", "events", "follow", "slide", "talkUI", "run", "onEnd", "spot", "_repC"]);
 function ghB64(bytes) {
   let s = "";
   for (let i = 0; i < bytes.length; i += 32768) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 32768));
@@ -27130,13 +27137,13 @@ function vcHTML(n) {
     return f ? `<li>${f} ${esc(r.o.first)}${l ? ' <span class="dim">\xB7 ' + esc(String(l).replace(r.o.first, "").replace(/\s+/g, " ").trim().replace(/ (to|of|with)$/, "")) + "</span>" : ""}</li>` : "";
   }).join("");
   const wants = typeof reqWant === "function" ? reqWant(n) : null, myRep = game.player && !n.player && typeof repWord === "function" ? repWord(n, game.player) : "", hides = (n.tmem || []).some((m) => m.kind === "did" && !m.confided && m.ev != null && game.time - m.t < 1440 * 6 && (() => {
-    const ev = lf2Ev().find((q) => q.id === m.ev);
+    const ev = lf2EvById(m.ev);
     return !!ev && ev.anon && (ev.tags || []).some((t) => ["harm", "theft", "embarrass", "scandal"].includes(t));
   })());
   const hints2 = [wants ? wants.kind === "bed" ? "is looking for a bed" : "would like something to eat" : "", myRep && myRep !== "kind" ? "thinks you " + REP_WORDS[myRep] : myRep === "kind" ? "thinks well of you" : "", hides ? "seems to be keeping something to themselves" : "", { terse: "keeps it short", warm: "warm-spoken", formal: "speaks formally", chatty: "talks a lot" }[typeof lxRegister === "function" ? lxRegister(n) : "dry"] || ""].filter(Boolean);
   const lately = (n.log || []).slice(-6, -1).reverse().map((e) => `<li><span class="dim">${fmtTime(e.t)}</span> ${esc(String(e.text).replace(/\.$/, ""))}</li>`).join("");
   const heard = (n.tmem || []).filter((m) => m.ev != null && m.kind !== "did").slice(-3).reverse().map((m) => {
-    const ev = lf2Ev().find((q) => q.id === m.ev);
+    const ev = lf2EvById(m.ev);
     if (!ev) return "";
     const src = m.kind === "saw" ? "saw it" : m.kind === "felt" ? "it happened to them" : m.kind === "overheard" ? "overheard it" : "heard it from " + (m.from != null && byId(m.from) ? byId(m.from).first : "someone");
     return `<li>${esc(TE.text(ev, m.ver))} <span class="dim">\xB7 ${src}${m.conf < 0.5 ? ", not sure" : ""}</span></li>`;
@@ -27226,7 +27233,7 @@ function jrText(m) {
     return o ? o.first + " has been: " + (LIFE_TROUBLE[m.lk] || m.lk.replace(/_/g, " ")) : "";
   }
   if (m.ev != null && m.kind !== "life") {
-    const ev = lf2Ev().find((q) => q.id === m.ev);
+    const ev = lf2EvById(m.ev);
     if (!ev) return "";
     return TE.text(ev, m.ver).replace(/^./, (c) => c.toUpperCase()) + (m.kind === "saw" ? " (you saw it)" : m.kind === "felt" ? " (it happened to you)" : m.kind === "overheard" ? " (overheard)" : m.kind === "told" ? " (" + who(m.from) + " told you" + jrPath(m) + (m.conf < 0.5 ? ", not sure" : "") + ")" : "");
   }
@@ -27270,7 +27277,7 @@ function jrHTML() {
     return a ? { m, t: a.first + (m.req.kind === "bed" ? " needs a bed" : " needs " + (GOODS[m.req.item] ? GOODS[m.req.item].name : m.req.item)) + " \u2014 you said you would try" } : null;
   }).filter(Boolean);
   const sec = (p.tmem || []).filter((m) => m.secret && m.keeper != null).slice(-6).reverse().map((m) => {
-    const k = byId(m.keeper), ev = lf2Ev().find((q) => q.id === m.ev);
+    const k = byId(m.keeper), ev = lf2EvById(m.ev);
     return k && ev ? { m, t: k.first + " told you in confidence: " + TE.text(ev, m.ver) } : null;
   }).filter(Boolean);
   groups = Object.assign({ "Open threads": open, "Secrets you keep": sec }, groups);
@@ -28204,6 +28211,7 @@ const TM = {
   add(n, m) {
     const mem = n.tmem || (n.tmem = []), rec = Object.assign({ t: game.time, conf: 1, imp: 0.3 }, m);
     mem.push(rec);
+    n._repC = null;
     if (mem.length > TM.max) {
       let k = 0, best = 1e9;
       for (let i = 0; i < mem.length; i++) {
@@ -28334,7 +28342,7 @@ const TE = {
     for (const m of mem) {
       if (m.ev == null || m.conf < 0.25 || m.kind === "did" && Math.random() < 0.8 || m.secret && !sp.player && !(talkHas(sp, "gossipy") && Math.random() < 0.12))
         continue;
-      const ev = lf2Ev().find((q) => q.id === m.ev);
+      const ev = lf2EvById(m.ev);
       if (!ev) continue;
       if (ev.actor === li.id || ev.target === li.id || ev.actor === sp.id || ev.target === sp.id || TM.ofEv(li, m.ev) || c && c.sharedEv && c.sharedEv.includes(m.ev) || (m.told || []).includes(li.id))
         continue;
@@ -28870,7 +28878,7 @@ function peopleReason(a, b) {
   const f = a.fam || {}, g = b.fam || {}, rel = f.spouse === b.id ? "spouse" : f.partner === b.id ? "partner" : (f.kids || []).includes(b.id) ? "child" : f.mother === b.id || f.father === b.id ? "parent" : f.mother != null && f.mother === g.mother || f.father != null && f.father === g.father ? "sibling" : a.rel && a.rel[b.id], gender = b.female ? "She" : "He";
   if (best) {
     if (/^ev:/.test(best.why)) {
-      const ev = lf2Ev().find((q) => q.id === +best.why.slice(3));
+      const ev = lf2EvById(+best.why.slice(3));
       if (ev) return TE.text(ev, { who: ev.actor }, a).replace(/^./, (c) => c.toUpperCase()) + ".";
     } else if (/^heard/.test(best.why)) return "I " + best.why + ".";
     else return gender + " " + best.why + ".";
@@ -29057,7 +29065,7 @@ function deedPick(sp, li) {
   let best = null, bs = 0;
   for (const m of sp.tmem || []) {
     if (m.ev == null || m.raised || m.forgiven || m.conf < 0.5 || !["saw", "felt", "told", "overheard"].includes(m.kind)) continue;
-    const ev = lf2Ev().find((q) => q.id === m.ev);
+    const ev = lf2EvById(m.ev);
     if (!ev) continue;
     const who = m.ver && m.ver.who !== void 0 ? m.ver.who : ev.actor;
     if (who !== li.id) continue;
@@ -29165,6 +29173,7 @@ deedReply(
     c.deedLie = true;
     c.deed.m.ver = Object.assign({}, c.deed.m.ver, { who: X.id, suspect: true });
     c.deed.m.conf = 0.55;
+    repDirty();
     c.deed.m.raised = false;
     lfAff(li, X, -6, "was said to have done it");
   },
@@ -29207,6 +29216,7 @@ deedAnswer(
     const m = c.deed.m;
     if (c.deedAnswer === "deed_deny" && !c.blamed) {
       m.cleared = true;
+      repDirty();
       lfAff(sp, li, 2, "said it was not them");
     } else lfAff(sp, li, 1, "put me straight");
   }
@@ -29268,7 +29278,7 @@ ACTS.offer_gift = {
     if (sp.player) return 0.5;
     const k = giftChoose(sp, li), hungry = k && GOODS[k].sat && (li.hunger || 0) > 60, a = sp.aff[li.id] || 0;
     return 0.15 + ((sp.owes || {})[li.id] ? 1.4 : 0) + (k && giftKnown(sp, li).like.includes(k) ? 0.8 : 0) + (hungry && a > -10 ? 1.5 : 0) + (a > 30 ? 0.5 : 0) + (sp.know && sp.know[li.id] > 20 ? 0.1 : 0) + ((sp.tmem || []).some(
-      (m) => m.kind === "did" && m.ev != null && !m.forgiven && (lf2Ev().find((q) => q.id === m.ev) || {}).target === li.id && (a < 0 || Math.random() < 0.3)
+      (m) => m.kind === "did" && m.ev != null && !m.forgiven && (lf2EvById(m.ev) || {}).target === li.id && (a < 0 || Math.random() < 0.3)
     ) ? 1.2 : 0);
   },
   apply: (c, sp, li) => {
@@ -29282,7 +29292,7 @@ ACTS.offer_gift = {
     c.lifeItem = giftName(k);
     const bad = (li.tmem || []).filter(
       (m) => m.ev != null && !m.forgiven && ["saw", "felt", "told", "overheard"].includes(m.kind) && game.time - m.t < 1440 * 8 && (() => {
-        const ev = lf2Ev().find((q) => q.id === m.ev);
+        const ev = lf2EvById(m.ev);
         return !!ev && ev.actor === sp.id && (ev.tags || []).some((t) => DEED_TAGS.includes(t));
       })()
     ), grievance = bad.length > 0;
@@ -29306,10 +29316,12 @@ ACTS.offer_gift = {
     (li.owes || (li.owes = {}))[sp.id] = game.time;
     c.newsHow = returning ? "return" : "plain";
     for (const m of bad) m.forgiven = true;
+    repDirty();
     for (const m of sp.tmem || [])
       if (m.kind === "did" && m.ev != null) {
-        const ev = lf2Ev().find((q) => q.id === m.ev);
+        const ev = lf2EvById(m.ev);
         if (ev && ev.target === li.id) m.forgiven = true;
+        repDirty();
       }
     if (typeof reqDone === "function") {
       for (const q of li.reqs || [])
@@ -29516,7 +29528,7 @@ LF2.dec.push(function(n) {
 });
 const wrongs = (sp, li) => (sp.tmem || []).filter(
   (m) => m.kind === "did" && m.ev != null && !m.forgiven && !m.sorry && game.time - m.t < 1440 * 10 && (() => {
-    const ev = lf2Ev().find((q) => q.id === m.ev);
+    const ev = lf2EvById(m.ev);
     return !!ev && ev.target === li.id && (ev.tags || []).some((t) => ["harm", "nuisance", "embarrass", "deceit", "theft"].includes(t));
   })()
 );
@@ -29544,13 +29556,15 @@ ACTS.accept_apology = {
     lfAff(li, sp, 2, "forgave me");
     for (const m of li.tmem || [])
       if (m.ev != null && !m.forgiven) {
-        const ev = lf2Ev().find((q) => q.id === m.ev);
+        const ev = lf2EvById(m.ev);
         if (ev && ev.actor === li.id && ev.target === sp.id) m.forgiven = true;
+        repDirty();
       }
     for (const m of sp.tmem || [])
       if (m.ev != null && !m.forgiven) {
-        const ev = lf2Ev().find((q) => q.id === m.ev);
+        const ev = lf2EvById(m.ev);
         if (ev && ev.actor === li.id && ev.target === sp.id) m.forgiven = true;
+        repDirty();
       }
   },
   replies: []
@@ -29569,7 +29583,7 @@ ACTS.reject_apology = {
 const jealousFor = (sp, li) => {
   for (const m of sp.tmem || []) {
     if (m.ev == null || m.raisedJ || !["saw", "told", "overheard", "felt"].includes(m.kind) || game.time - m.t > 1440 * 6) continue;
-    const ev = lf2Ev().find((q) => q.id === m.ev);
+    const ev = lf2EvById(m.ev);
     if (!ev || !["courting", "tryst", "crush"].includes(ev.kind)) continue;
     const other = ev.actor === li.id ? ev.target : ev.target === li.id ? ev.actor : null;
     if (other != null && other !== sp.id) return { m, ev, Y: lf2By(other) };
@@ -29835,7 +29849,7 @@ function secretPick(sp, li) {
   for (const m of sp.tmem || []) {
     if (m.ev == null || !["did", "felt"].includes(m.kind) || m.confided || m.secret) continue;
     if (game.time - m.t > 1440 * 10) continue;
-    const ev = lf2Ev().find((q) => q.id === m.ev);
+    const ev = lf2EvById(m.ev);
     if (!ev || !(ev.tags || []).some((t) => SECRET_TAGS.includes(t))) continue;
     const theirs = TM.ofEv(li, ev.id), wrong = !!theirs && m.kind === "did" && theirs.ver && theirs.ver.who !== sp.id && !theirs.cleared;
     if (!wrong && ((ev.know || []).length > 4 || theirs)) continue;
@@ -29866,10 +29880,12 @@ ACTS.confide = {
     if (old) {
       old.ver = ver;
       old.conf = 1;
+      repDirty();
       old.kind = "told";
       old.from = sp.id;
       old.raised = false;
       old.cleared = false;
+      repDirty();
       mem = old;
       const wrongOne = old.ver;
     } else mem = TM.addEv(li, k.ev, "told", 1, sp, 1, ver);
@@ -30151,12 +30167,17 @@ const REP_KIND = {
   brawl: "bully"
 };
 const REP_BAD = ["vandal", "meddler", "thief", "gossip", "bully"];
+function repDirty() {
+  for (const n of npcs) n._repC = null;
+}
 function repTags(obs, subj) {
-  const out = {};
+  const cache = obs._repC && obs._repC.t > game.time - 60 ? obs._repC : obs._repC = { t: game.time, m: {} };
+  if (cache.m[subj.id]) return cache.m[subj.id];
+  const out = cache.m[subj.id] = {};
   if (!obs.tmem) return out;
   for (const m of obs.tmem) {
     if (m.ev == null || m.kind === "did" || m.forgiven || m.cleared) continue;
-    const ev = lf2Ev().find((q) => q.id === m.ev);
+    const ev = lf2EvById(m.ev);
     if (!ev) continue;
     const tag = REP_KIND[ev.kind];
     if (!tag) continue;
@@ -30964,7 +30985,7 @@ function talkFinish(c, a, b, listened) {
   if (lines && lines.length && pl && a !== pl && b !== pl && (lfDist(pl, a) <= TALK.earshot || lfDist(pl, b) <= TALK.earshot)) {
     for (const t of c.turns) {
       if (t.act !== "share_news" || !t.x || t.x.evId == null) continue;
-      const ev = lf2Ev().find((q) => q.id === t.x.evId);
+      const ev = lf2EvById(t.x.evId);
       if (!ev || TM.ofEv(pl, ev.id) || ev.actor === pl.id) continue;
       TM.addEv(pl, ev, "overheard", 0.6, t.by === a.id ? a : b, 1, t.x.ver ? { who: t.x.ver.who, sev: t.x.ver.sev } : void 0);
     }

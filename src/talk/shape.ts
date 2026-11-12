@@ -361,7 +361,7 @@ function talkFinish(c: any, a: any, b: any, listened?: boolean) {
   if (lines && lines.length && pl && a !== pl && b !== pl && (lfDist(pl, a) <= TALK.earshot || lfDist(pl, b) <= TALK.earshot)) {
     for (const t of c.turns) {
       if (t.act !== 'share_news' || !t.x || t.x.evId == null) continue;
-      const ev = lf2Ev().find((q: any) => q.id === t.x.evId);
+      const ev = lf2EvById(t.x.evId);
       if (!ev || TM.ofEv(pl, ev.id) || ev.actor === pl.id) continue;
       TM.addEv(pl, ev, 'overheard', 0.6, t.by === a.id ? a : b, 1, t.x.ver ? { who: t.x.ver.who, sev: t.x.ver.sev } : undefined);
     }
