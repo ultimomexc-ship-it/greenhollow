@@ -3,6 +3,45 @@
 The owner's first playthrough of the Hamlet (v116, steps 1-8). Nothing here is decided: each point has what was found, why it happens in the code
 today, and the questions to talk through. The ideas written down before playing are at the end.
 
+## Decided in discussion (after the first playthrough)
+
+**Order of work: farming first, then the opening, then building.** If the first five minutes are not fun we lose most players.
+
+1. **Farming first.** Make working the land feel good before anything else is built on it. Try several control schemes in the game and pick by
+   playing (see "Farming: options to try" below). The talk engine is not touched for now.
+2. **The opening teaches farming, then hands you a person.**
+   - You start with **your own bed inside a fence** (your yard). The trader has his stall.
+   - **The trader walks you through farming**: lay a small field (3 x 3), work it and sow it. He talks you through it in his own words, with the
+     field's layout drawn on the ground the first time.
+   - When the 3 x 3 is planted, **the trader offers you a bed**. Put it down and **the first newcomer arrives**.
+   - **The newcomer takes over the tutorial**: talking to them is mostly the tutorial. They tell you what would make them comfortable: a bed,
+     a fence round it (their yard), their own field. Layouts on the ground the first time you build a field, a yard and a house.
+   - From there you build a lot of things quickly.
+3. **Villagers teach.** The game is about the people, so the people explain it, not boxes. A layout on the ground helps for the first field,
+   the first yard and the first house.
+4. **The player's chat**: an option is offered only when the player has something worth saying; for now remove the small-talk options from
+   the player's menu and change nothing else. Villagers among themselves stay as they are.
+5. **Talk is left alone** (the chatter and repetition are not game-breaking): no changes to how often villagers talk for now.
+
+### Claude's notes on the opening
+- **Planting must not mean waiting.** The newcomer comes when the field is *sown*, so the first harvest happens in the background while you build
+  for them. The first crop should still be quick (a turnip-speed crop, a few real minutes at normal speed) so the first sale comes soon.
+- **Who pays at the start**: the trader's first bed is a gift (he is setting you up); after that you pay, with the money from the first harvest.
+- **One voice at a time**: the trader teaches until the newcomer lands, then the newcomer; the request pill can stay as the "what next" reminder.
+- **The trader's stall** should be usable whenever you need it during the tutorial (problem 1).
+- The other problems (2, 4 to 7, 10) fold into this: one thing to buy at a time (the teacher tells you), gates you can walk through, private gates,
+  whose bed is whose, a stall nobody blocks. They are designed with the opening, not separately.
+
+### Farming: options to try (prototype several, play them, pick)
+- **A. As it is**: bump a plot to plough, bump again to sow, bump a ripe one to harvest; the tool is picked for you.
+- **B. A farming mode (F)**, like build mode: its own hotbar (hoe, seeds, harvest basket), an outline on the tile you will work, hold the key to
+  work a whole row as you walk; inventory sorted into farming and building.
+- **C. Walk to work**: choose a seed and walk over the field: every tile you step on is ploughed, sown or harvested in one pass, with a small
+  delay per tile; nothing to aim.
+- **D. Point and click**: click or tap tiles (or drag across them) and your villager walks there and does the work, queued.
+- Things that make any of them feel good: a sound and a little burst for each action, the crop visibly growing, the harvest flying into the bag
+  with a count, the first crop growing fast.
+
 ## What the playthrough found
 
 ### 1. The trading stall is never open; everybody chats instead
