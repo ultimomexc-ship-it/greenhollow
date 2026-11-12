@@ -236,7 +236,8 @@ function lxVoice(sp: any, li: any, act: string, pack: string, text: string): str
   if (reg === 'chatty') {
     if (statement && !ritual && Math.random() < 0.4) {
       const L = LX_RUNON[pack] || LX_RUNON.plain;
-      return text.replace(/\s*$/, ' ') + L[Math.floor(Math.random() * L.length)];
+      const more = text.replace(/\s*$/, ' ') + L[Math.floor(Math.random() * L.length)];
+      return more.split(/\s+/).length > 22 ? text : more; // (no run-on past twenty-two words)
     }
     return text;
   }

@@ -17,7 +17,8 @@ function lxLink(text: string, link: string): string {
   const pre = L[Math.floor(Math.random() * L.length)],
     w0 = text.split(/[ ,.!?]/)[0];
   const keep = /[.:] $/.test(pre) || w0 === 'I' || /^I'/.test(text) || npcs.some((n: any) => n.first === w0);
-  return pre + (keep ? text : text.charAt(0).toLowerCase() + text.slice(1));
+  const joined = pre + (keep ? text : text.charAt(0).toLowerCase() + text.slice(1));
+  return joined.split(/\s+/).length > 22 ? text : joined; // (a line that would run past twenty-two words is said without its linking phrase)
 }
 /** called by talkTurn after a topic act: is this about the same thing as the last topic, or a fresh start? */
 function talkLinkOf(c: any): string {

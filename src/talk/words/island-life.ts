@@ -200,7 +200,7 @@ LXLI('no_privy', [
   'There was no privy to be had. I will not describe what followed. It was dignified for the most part.'
 ]);
 LXLI('new_in_stock', [
-  'New at the {shop}: {item}. That was not there before. I noticed because I notice things in the morning.',
+  'New at the {shop}: {item}. That was not there before. I notice things.',
   'The {shop} is stocking {item}. I did not ask why. The shelf looked pleased.'
 ]);
 LXLI('out_of_stock', [
@@ -209,7 +209,7 @@ LXLI('out_of_stock', [
 ]);
 LXLI('price_up', [
   'The price of {item} has gone up at the {shop}. Not by much. By enough to be mentioned.',
-  'I noticed the price of {item} is up at the {shop}. It is a small thing, and I am treating it as a large one.'
+  'I noticed the price of {item} is up at the {shop}. It is small, and I am treating it as large.'
 ]);
 LXLI('price_down', [
   'The price of {item} is down at the {shop}. I will believe it when I am holding it.',

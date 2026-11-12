@@ -28026,6 +28026,25 @@ const LIFE_TROUBLE = {
   ill: "fell ill",
   crop_failed: "lost a crop"
 };
+const EV_MATTER = {
+  wall_removed: "the wall",
+  home_destroyed: "the house",
+  building_down: "the building",
+  furniture_removed: "the furniture",
+  person_pushed: "the shoving",
+  bed_moved: "the bed",
+  caught_on_privy: "the privy",
+  caught_bathing: "the bath",
+  caught_praying: "the prayer",
+  theft: "the theft",
+  shove: "the shoving",
+  betrayal: "the secret",
+  quarrel: "the quarrel",
+  crush: "the affair",
+  jealous: "the affair",
+  brawl: "the fight"
+};
+for (const k of Object.keys(EV_MATTER)) if (REG.has("event", k)) REG.get("event", k).matter = EV_MATTER[k];
 const LIFE = {
   strict: !!(typeof window !== "undefined" && window.GH_LIFE_STRICT),
   stream: [],
@@ -28314,7 +28333,8 @@ const TE = {
         return first[ev.id % first.length].text.replace(/\{t\}'s/g, you ? "your" : t ? t.first + "'s" : "someone's").replace(/\{t\}/g, you ? "you" : t ? t.first : "someone").replace(/\{place\}/g, ev.place || "a building");
       }
     }
-    const tpl = LEX.filter((e) => e.act === "ev:" + ev.kind && e.pack === "plain");
+    const cause = ev.cause != null ? lf2EvById(ev.cause) : null, matter = cause && REG.get("event", cause.kind) ? REG.get("event", cause.kind).matter : null;
+    const tpl = LEX.filter((e) => e.act === "ev:" + ev.kind && e.pack === "plain" && (matter || !e.text.includes("{matter}")));
     if (tpl.length) {
       const e = tpl[ev.id % tpl.length];
       const name = (p, fallback, at, text, poss) => {
@@ -28325,9 +28345,11 @@ const TE = {
       const out = e.text.replace(
         /\{(a|t)\}('s)?/g,
         (m, k, ps, at, text) => name(k === "a" ? a : t, "someone", at, text, !!ps)
-      ).replace(/\{place\}/g, ev.place || "a building");
+      ).replace(/\{matter\}/g, matter || "it").replace(/\{place\}/g, ev.place || "a building");
       return out.replace(/\byou was\b/g, "you were").replace(/\bI were\b/g, "I was");
     }
+    TE.fallbacks = (TE.fallbacks || 0) + 1;
+    (TE.fallbackKinds || (TE.fallbackKinds = {}))[ev.kind] = 1;
     let tx = String(ev.text || ev.kind);
     const real = ev.actor != null ? lf2By(ev.actor) : null;
     if (real && a !== real) tx = tx.replace(new RegExp("\\b" + real.first + "\\b", "g"), a ? a.first : "someone");
@@ -28836,7 +28858,8 @@ function lxVoice(sp, li, act, pack, text) {
   if (reg === "chatty") {
     if (statement && !ritual && Math.random() < 0.4) {
       const L = LX_RUNON[pack] || LX_RUNON.plain;
-      return text.replace(/\s*$/, " ") + L[Math.floor(Math.random() * L.length)];
+      const more = text.replace(/\s*$/, " ") + L[Math.floor(Math.random() * L.length)];
+      return more.split(/\s+/).length > 22 ? text : more;
     }
     return text;
   }
@@ -30284,7 +30307,8 @@ function lxLink(text, link) {
   if (/^(And|Oh|Anyway|Well|So|Now|But|You|Between us|Mind you|Listen|Here)\b/.test(text)) return text;
   const pre = L[Math.floor(Math.random() * L.length)], w0 = text.split(/[ ,.!?]/)[0];
   const keep = /[.:] $/.test(pre) || w0 === "I" || /^I'/.test(text) || npcs.some((n) => n.first === w0);
-  return pre + (keep ? text : text.charAt(0).toLowerCase() + text.slice(1));
+  const joined = pre + (keep ? text : text.charAt(0).toLowerCase() + text.slice(1));
+  return joined.split(/\s+/).length > 22 ? text : joined;
 }
 function talkLinkOf(c) {
   const subj = talkSubject(c), prev = c.lastSubj;
@@ -32247,6 +32271,18 @@ lx("ev1:help", "plain", "I helped {t} out");
 lx("ev1:lent_hand", "plain", "I lent {t} a hand with the work");
 lx("ev1:sick_visit", "plain", "I looked in on {t} because of the fever");
 LXP("react_unmoved", ["Huh.", "Is it.", "That so.", "Doesn't surprise me.", "Well, there you go."]);
+lx("ev:dole", "plain", "{t} went hungry until the council gave out grain");
+lx("ev:repair", "plain", "{a} mended something for the village");
+lx("ev:distract", "plain", "{a} kept {t} from their work");
+lx("ev:courting", "plain", "{a} began courting {t}");
+lx("ev:tryst", "plain", "{a} met {t} in secret");
+lx("ev:dice", "plain", "{a} won money off {t} at dice");
+lx("ev:sing", "plain", "{a} sang, very drunk");
+lx("ev:stumble", "plain", "{a} fell flat on their face, drunk");
+lx("ev:smelly", "plain", "{a} smelled like a midden");
+lx("ev:newclothes", "plain", "{a} turned up in a fine new tunic");
+lx("ev:knock", "plain", "{a} came knocking in the middle of the night");
+lx("ev:wake", "plain", "{a} woke {t} up for no reason");
 lx("ask_opinion", "plain", "What do you make of {about}?");
 lx("ask_opinion", "plain", "What's {about} like, really?");
 lx("ask_opinion", "plain", "Do you get on with {about}?");
@@ -32485,6 +32521,20 @@ lx("ev1:caught_praying", "plain", "I took the wall down and found {t} at prayer"
 lx("ev1:theft", "plain", "I stole from {t}");
 lx("ev1:shove", "plain", "I pushed {t} around");
 lx("ev1:betrayal", "plain", "I told {t}'s secret");
+lx("ev:breakin", "plain", "{a} broke into {t}'s house");
+lx("ev:pickpocket", "plain", "{a} picked {t}'s pocket");
+lx("ev:robbed", "plain", "{a} robbed {t}");
+lx("ev:cheat", "plain", "{t} caught {a} cheating at dice");
+lx("ev:bribe", "plain", "{a} bribed the watchman {t}");
+lx("ev:escape", "plain", "{a} was caught picking the lock of the cells");
+lx("ev:fined", "plain", "The watch fined {a}");
+lx("ev:sabotage", "plain", "{a} wrecked {t}'s work");
+lx("ev:snoop", "plain", "{a} was seen rummaging through {t}'s things");
+lx("ev:blockdoor", "plain", "{a} blocked {t}'s door");
+lx("ev:shutin", "plain", "{a} shut {t} in");
+lx("ev:report", "plain", "{a} reported {t} to the watch");
+lx("ev:confront", "plain", "{a} confronted {t} in front of everyone");
+lx("ev:confront", "plain", "{a} confronted {t} in front of everyone over {matter}");
 lx("offer_gift", "plain", "I brought you {item}.");
 lx("offer_gift", "plain", "Here. {item}, for you.");
 lx("offer_gift", "plain", "I thought you could use {item}.");
@@ -33279,7 +33329,7 @@ LXLI("no_privy", [
   "There was no privy to be had. I will not describe what followed. It was dignified for the most part."
 ]);
 LXLI("new_in_stock", [
-  "New at the {shop}: {item}. That was not there before. I noticed because I notice things in the morning.",
+  "New at the {shop}: {item}. That was not there before. I notice things.",
   "The {shop} is stocking {item}. I did not ask why. The shelf looked pleased."
 ]);
 LXLI("out_of_stock", [
@@ -33288,7 +33338,7 @@ LXLI("out_of_stock", [
 ]);
 LXLI("price_up", [
   "The price of {item} has gone up at the {shop}. Not by much. By enough to be mentioned.",
-  "I noticed the price of {item} is up at the {shop}. It is a small thing, and I am treating it as a large one."
+  "I noticed the price of {item} is up at the {shop}. It is small, and I am treating it as large."
 ]);
 LXLI("price_down", [
   "The price of {item} is down at the {shop}. I will believe it when I am holding it.",
@@ -33430,7 +33480,7 @@ lxi("no_news", "No. I looked, though.");
 lxi("no_news", "Nothing I would call news. The tide is where it was.");
 lxi("share_news", "I saw it myself, so I can tell you. {news}.", { how: "saw" });
 lxi("share_news", "I was there. {news}. I stood very still.", { how: "saw", rel: "friend" });
-lxi("share_news", "I heard that {news}. I have no reason to doubt it, and no reason to believe it.", { how: "told" });
+lxi("share_news", "I heard that {news}. I cannot vouch for it.", { how: "told" });
 lxi("share_news", "I overheard something. {news}. I was not meant to, but I was there.", { how: "overheard" });
 lxi("share_news", "It may not be true. {news}.", { conf: "low" });
 lxi("share_news", "Between us. {news}.", { rel: "friend" });
@@ -33485,6 +33535,18 @@ LXI("react_delight", ["Good.", "I am glad.", "That is good to hear.", "Well. Goo
 lxi("ev1:lent_hand", "I did an hour of {t}'s work");
 lxi("ev1:sick_visit", "I sat with {t} because of the fever");
 LXI("react_unmoved", ["Huh.", "Is it. Noted.", "That does not surprise me.", "Well. There it is.", "I will file that."]);
+lxi("ev:dole", "{t} went hungry, and the council gave out grain");
+lxi("ev:repair", "{a} mended something without being asked");
+lxi("ev:distract", "{a} kept {t} from their work");
+lxi("ev:courting", "{a} began courting {t}, as far as anyone could tell");
+lxi("ev:tryst", "{a} and {t} were seen going the same way, twice");
+lxi("ev:dice", "{a} won money off {t} at dice");
+lxi("ev:sing", "{a} sang, at length, and not well");
+lxi("ev:stumble", "{a} fell over, drunk, and stayed there");
+lxi("ev:smelly", "{a} smelled like a midden");
+lxi("ev:newclothes", "{a} has a new tunic, and mentioned it");
+lxi("ev:knock", "{a} knocked on a door at night");
+lxi("ev:wake", "{a} woke {t} up for no reason");
 lxi("ask_opinion", "What is {about} like? I would like to know before I have to find out.");
 lxi("ask_opinion", "What do you make of {about}?");
 lxi("ask_opinion", "Do you get on with {about}? Be honest. I am only curious.");
@@ -33724,17 +33786,31 @@ lxi("cry_deed", "I am being moved. I would like it noted.", { how: "pushed" });
 lxi("cry_deed", "Please stop pushing me. I was going somewhere.", { how: "pushed" });
 lxi("cry_deed", "I am bathing. I was. The wall was there when I started.", { how: "bath" });
 lxi("cry_deed", "I was praying. I do not think it was heard.", { how: "pray" });
-lxi("confide", "I am going to tell you something. {news}. I would like it to stay with you.");
-lxi("confide", "Nobody knows this. {news}. You are the first person I have said it to.");
+lxi("confide", "I am going to tell you something. {news}. Keep it with you.");
+lxi("confide", "Nobody knows this. {news}. You are the first I have told.");
 lxi("secret_keep", "I will keep it. I am good at keeping things. It is most of what I do.");
 lxi("secret_keep", "It stays here. I will not even think about it where people can see.");
-lxi("secret_alarmed", "That is serious. I will keep it. I would like to say that I wish you had not told me, and I have.");
+lxi("secret_alarmed", "That is serious. I will keep it. I wish you had not told me, and I have said so.");
 lxi("secret_alarmed", "I see. I will say nothing. I will think about it quite a lot.");
 lxi("ev1:wall_removed", "I took a wall out of {t}'s house");
 lxi("ev1:home_destroyed", "I took {t}'s house down");
 lxi("ev1:bed_moved", "I carried {t} out of the house, bed and all");
 lxi("ev1:person_pushed", "I pushed {t} about");
 lxi("ev1:theft", "I took what was {t}'s");
+lxi("ev:breakin", "{a} tried to get into {t}'s house at night");
+lxi("ev:pickpocket", "{a} lifted something from {t}'s pocket");
+lxi("ev:robbed", "{a} took {t}'s money without asking");
+lxi("ev:cheat", "{t} caught {a} cheating at dice");
+lxi("ev:bribe", "{a} offered the watchman {t} money to look away");
+lxi("ev:escape", "{a} was caught picking the lock of the cells");
+lxi("ev:fined", "The watch fined {a}, and wrote it down");
+lxi("ev:sabotage", "{a} wrecked something of {t}'s");
+lxi("ev:snoop", "{a} was seen going through {t}'s things");
+lxi("ev:blockdoor", "{a} put something against {t}'s door");
+lxi("ev:shutin", "{a} shut {t} in");
+lxi("ev:report", "{a} went to the watch about {t}");
+lxi("ev:confront", "{a} confronted {t} in front of everyone");
+lxi("ev:confront", "{a} confronted {t} in front of everyone over {matter}");
 lxi("offer_gift", "I have {item}. I thought of you, which surprised me.");
 lxi("offer_gift", "This is {item}. It is not much. It is what I had.");
 lxi("gift_thanks", "Thank you. I will find a place for it.");
@@ -34019,7 +34095,7 @@ LXI("joke", [
   "There is a gull that stands outside the bakery. I think it is in management.",
   "I planted a turnip and told it the plan. It has not commented.",
   "I found a very good stone earlier. I put it down again. That is the whole story and I stand by it.",
-  "Someone asked if I had a map. I said the island was the map. He said it was a poor map. We shook on it.",
+  "Someone asked if I had a map. I said the island was the map. He said it was a poor one.",
   "My bed and I have an understanding. It is mine in the evening and the floor's in the morning.",
   "I tried to whistle a tune I do not know. A bird answered with the same tune. I have not whistled since."
 ]);

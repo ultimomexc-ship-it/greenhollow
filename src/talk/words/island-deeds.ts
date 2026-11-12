@@ -43,11 +43,11 @@ lxi('cry_deed', 'I am being moved. I would like it noted.', { how: 'pushed' });
 lxi('cry_deed', 'Please stop pushing me. I was going somewhere.', { how: 'pushed' });
 lxi('cry_deed', 'I am bathing. I was. The wall was there when I started.', { how: 'bath' });
 lxi('cry_deed', 'I was praying. I do not think it was heard.', { how: 'pray' });
-lxi('confide', 'I am going to tell you something. {news}. I would like it to stay with you.');
-lxi('confide', 'Nobody knows this. {news}. You are the first person I have said it to.');
+lxi('confide', 'I am going to tell you something. {news}. Keep it with you.');
+lxi('confide', 'Nobody knows this. {news}. You are the first I have told.');
 lxi('secret_keep', 'I will keep it. I am good at keeping things. It is most of what I do.');
 lxi('secret_keep', 'It stays here. I will not even think about it where people can see.');
-lxi('secret_alarmed', 'That is serious. I will keep it. I would like to say that I wish you had not told me, and I have.');
+lxi('secret_alarmed', 'That is serious. I will keep it. I wish you had not told me, and I have said so.');
 lxi('secret_alarmed', 'I see. I will say nothing. I will think about it quite a lot.');
 // first person: said by the one who did it (TE.text with the speaker)
 lxi('ev1:wall_removed', "I took a wall out of {t}'s house");
@@ -55,3 +55,19 @@ lxi('ev1:home_destroyed', "I took {t}'s house down");
 lxi('ev1:bed_moved', 'I carried {t} out of the house, bed and all');
 lxi('ev1:person_pushed', 'I pushed {t} about');
 lxi('ev1:theft', "I took what was {t}'s");
+
+// event wording for the crime and the watch (TE.text, island voice)
+lxi('ev:breakin', "{a} tried to get into {t}'s house at night");
+lxi('ev:pickpocket', "{a} lifted something from {t}'s pocket");
+lxi('ev:robbed', "{a} took {t}'s money without asking");
+lxi('ev:cheat', '{t} caught {a} cheating at dice');
+lxi('ev:bribe', '{a} offered the watchman {t} money to look away');
+lxi('ev:escape', '{a} was caught picking the lock of the cells');
+lxi('ev:fined', 'The watch fined {a}, and wrote it down');
+lxi('ev:sabotage', "{a} wrecked something of {t}'s");
+lxi('ev:snoop', "{a} was seen going through {t}'s things");
+lxi('ev:blockdoor', "{a} put something against {t}'s door");
+lxi('ev:shutin', '{a} shut {t} in');
+lxi('ev:report', '{a} went to the watch about {t}');
+lxi('ev:confront', '{a} confronted {t} in front of everyone');
+lxi('ev:confront', '{a} confronted {t} in front of everyone over {matter}');
