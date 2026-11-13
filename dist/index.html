@@ -10107,7 +10107,7 @@ function dailyLife() {
   staffMarkets();
   staffSpecialists();
   regrowTrees();
-  if (day % 3 === 1 && Math.random() < (npcs.length < 20 ? 0.9 : npcs.length < 40 ? 0.5 : npcs.length < 80 ? 0.3 : 0.1) && (npcs.length < 16 || !town.sites.some((x) => x.kind === "house")) && houseRooms().length >= 2 && npcs.filter((n) => !homeOK(n)).length < 2) settlerArrives();
+  if (town.scenario !== "hamlet" && day % 3 === 1 && Math.random() < (npcs.length < 20 ? 0.9 : npcs.length < 40 ? 0.5 : npcs.length < 80 ? 0.3 : 0.1) && (npcs.length < 16 || !town.sites.some((x) => x.kind === "house")) && houseRooms().length >= 2 && npcs.filter((n) => !homeOK(n)).length < 2) settlerArrives();
   if (day < 90) town.treasury += npcs.length * 1.5;
   town.hist.pop.push(npcs.length);
   if (town.hist.pop.length > 400) town.hist.pop.shift();
@@ -12426,6 +12426,7 @@ function loadTown(seed, size, scenario) {
   makeTownIndex2();
   if (scenario === "blank") blankStart();
   else if (scenario === "hamlet") hamletStart();
+  else if (scenario === "town") hamletStart(true);
   else if (scenario === "farm") farmStart();
   else {
     prebuildVillage();
@@ -12433,7 +12434,8 @@ function loadTown(seed, size, scenario) {
     housingTick();
     growthProjects();
   }
-  town.scenario = scenario === "blank" ? "blank" : scenario === "hamlet" ? "hamlet" : scenario === "farm" ? "farm" : "village";
+  town.variant = scenario === "town" ? "town" : null;
+  town.scenario = scenario === "blank" ? "blank" : scenario === "hamlet" || scenario === "town" ? "hamlet" : scenario === "farm" ? "farm" : "village";
   town.pack = scenario === "village" || !scenario ? "plain" : "island";
   shroomScatter();
   if (typeof MODS !== "undefined") MODS.sync();
@@ -26519,7 +26521,7 @@ const HAMLET_PRICES = { fence: 1, gate: 3, field: 2, bwall: 4, bwindow: 6, bdoor
 const HAMLET_BUILD = ["bwall", "bwindow", "bdoor", "bed", "fence", "gate", "field"];
 const HAMLET_RECIPE = ["job.Farmer", "sys.economy", "sys.couples", "sys.romance", "sys.gossip", "sys.smalllife", "event.wedding"];
 const HAMLET_OFF = ["bladder", "wear", "births", "ageing", "starving", "mushrooms"];
-function hamletStart() {
+function hamletStart(big) {
   town.scenario = "hamlet";
   town.farmEcon = true;
   town.farmDay0 = Math.floor(game.time / 1440);
@@ -26676,6 +26678,10 @@ function hamletStart() {
   refreshReach();
   yardScan(true);
   yardHousing();
+  if (big) {
+    townBuild(R, P, [a, b, c], taken, cx, cy);
+    return;
+  }
   if (HAMLET_TUTORIAL()) {
     tut2Start(P, TR, st);
     return;
@@ -26821,6 +26827,172 @@ function hamletCarter() {
 LF2.hourly.push((h) => {
   if (h % 6 === 0) hamletCarter();
 });
+const LOT_W = 11, LOT_H = 9;
+const TOWN_HOMES = [4, 3, 2, 2, 2, 1, 1];
+function townLotFree(x0, y0, taken) {
+  for (let j = -1; j <= LOT_H; j++) for (let i = -1; i <= LOT_W; i++) {
+    const x = x0 + i, y = y0 + j;
+    if (x < 4 || y < 4 || x >= W - 4 || y >= (town.h0 || H) - 4) return false;
+    const g = grid[y][x];
+    if (taken.has(y * W + x) || roomAt[y][x] >= 0 || lfPropAt(x, y) || tileOwner.get(y * W + x)) return false;
+    if (![T.GRASS, T.PATH, T.SAND, T.TREE, T.ROCK, T.CROP].includes(g)) return false;
+    if (town.markets && town.markets.some((m) => (m.plaza || []).some((p) => p.x === x && p.y === y))) return false;
+    if (town.stalls && town.stalls.some((s) => Math.abs(s.x - x) <= 1 && Math.abs(s.y - y) <= 2)) return false;
+  }
+  return true;
+}
+function townLotFind(cx, cy, taken) {
+  for (let r = 6; r < 60; r += 2) for (let k = 0; k < 64; k++) {
+    const an = k / 64 * 6.283, x0 = Math.round(cx + Math.cos(an) * r * 1.3 - LOT_W / 2), y0 = Math.round(cy + Math.sin(an) * r - LOT_H / 2);
+    if (townLotFree(x0, y0, taken)) return { x: x0, y: y0 };
+  }
+  return null;
+}
+function townHousehold(R, size) {
+  const sn = pick(R, SURNAMES), out = [];
+  if (size === 1) {
+    out.push(newPerson(R, "Child", ri(R, 20, 40), town.used, { female: R() < 0.5, surname: sn }));
+  } else {
+    const a = newPerson(R, "Child", ri(R, 25, 40), town.used, { female: false, surname: sn }), b = newPerson(R, "Child", ri(R, 23, 38), town.used, { female: true, surname: sn });
+    setSpouse(a, b);
+    out.push(a, b);
+    for (let i = 2; i < size; i++) {
+      const c = newPerson(R, "Child", ri(R, 3, 13), town.used, { mother: b, father: a, surname: sn });
+      linkKin(b, a, c);
+      fam2(a, c, "parent", "child");
+      fam2(b, c, "parent", "child");
+      out.push(c);
+    }
+  }
+  for (const n of out) {
+    n.adult = n.age >= 16;
+    n.infant = false;
+    n.age = ageNow(n);
+    updateLook(n);
+    n.rand = rng(town.seed + n.id * 977);
+    n.jit = 0;
+    n.bornHere = false;
+    n.homeRoom = null;
+    n.bed = { owner: null };
+    n.seat = null;
+    n.homeless = true;
+    routine(R, n);
+    town.byId.set(n.id, n);
+    initNpcSim(n);
+    if (n.adult) setRole(n, "Worker");
+    n.inv = n.inv || {};
+    if (n.adult) {
+      n.back = pick(R, VIS_ORD) + ", " + pick(R, VIS_ARR);
+      n.coin = ri(R, 14, 26);
+      n.inv.grain = 6;
+      n.inv["seed_" + pick(R, ["barley", "turnip", "cabbage"])] = 4;
+    } else n.coin = 0;
+    npcs.push(n);
+  }
+  return out;
+}
+function townLot(R, at, people, taken) {
+  const X = at.x, Y = at.y;
+  for (let j = 0; j < LOT_H; j++) for (let i = 0; i < LOT_W; i++) {
+    const x = X + i, y = Y + j;
+    taken.add(y * W + x);
+    if (grid[y][x] !== T.GRASS) setT(x, y, T.GRASS);
+    if (town.nodeMap && town.nodeMap.has(y * W + x)) {
+      const nd = town.nodeMap.get(y * W + x);
+      town.nodes = town.nodes.filter((q) => q !== nd);
+      town.nodeMap.delete(y * W + x);
+    }
+    town.crops = town.crops.filter((c) => !(c.x === x && c.y === y));
+    markDirty(x, y, 1, 1);
+  }
+  const gx = X + Math.floor(LOT_W / 2), gy = Y + LOT_H - 1;
+  for (let j = 0; j < LOT_H; j++) for (let i = 0; i < LOT_W; i++) if (i === 0 || j === 0 || i === LOT_W - 1 || j === LOT_H - 1) {
+    const x = X + i, y = Y + j, f = lfAddProp(x === gx && y === gy ? "gate" : "fence", x, y);
+    f.rot = 0;
+  }
+  const spots = [];
+  for (let j = 1; j <= 4; j++) for (let i = 1; i <= 5; i++) if (i === 1 || j === 1 || i === 5 || j === 4) {
+    const x = X + i, y = Y + j, k = i === 3 && j === 4 ? "bdoor" : i === 4 && j === 1 ? "bwindow" : "bwall";
+    lfAddProp(k, x, y);
+    spots.push([x, y]);
+  }
+  bldEvaluate(spots);
+  const inside = [[2, 2], [4, 2], [2, 3], [4, 3], [3, 2], [3, 3]];
+  people.forEach((n, i) => {
+    const [ix, iy] = inside[i % inside.length], pr = lfAddProp("bed", X + ix, Y + iy);
+    pr.v = Math.floor(R() * 5);
+    pr.rot = 0;
+    pr.owner = n;
+    n.bed = pr;
+    n.homeless = false;
+  });
+  const adults = people.filter((n) => n.adult).length, nf = Math.min(18, Math.max(6, adults * 6)), seeds = ["barley", "barley", "turnip", "cabbage"];
+  for (let k = 0; k < nf; k++) {
+    const x = X + 7 + k % 3, y = Y + 1 + Math.floor(k / 3);
+    setT(x, y, T.CROP);
+    const c = { x, y, pl: 1, st: 0, t0: 0, byField: people[0].id };
+    if (R() < 0.55) {
+      c.st = 1;
+      c.seed = pick(R, seeds);
+      c.t0 = game.time - R() * itGrow(c) * 0.9;
+    }
+    town.crops.push(c);
+    markDirty(x, y, 1, 1);
+  }
+  people.forEach((n, i) => {
+    abortPlan(n);
+    n.tx = n.x = X + 2 + i % 4;
+    n.ty = n.y = Y + 5 + Math.floor(i / 4);
+    n.path = [];
+    n.moving = false;
+    n.pose = "stand";
+    n.face = { dx: 0, dy: 1 };
+  });
+}
+function townBuild(R, P, fam, taken, cx, cy) {
+  for (const pr of town.props.slice()) if (pr.kind === "bed" && (pr.owner === P || fam.includes(pr.owner))) {
+    town.props.splice(town.props.indexOf(pr), 1);
+    town.propAt.delete(pr.y * W + pr.x);
+    town.pblock[pr.y * W + pr.x] = 0;
+  }
+  for (const n of [P].concat(fam)) {
+    n.bed = { owner: null };
+    n.homeless = true;
+  }
+  const homes = [[P], fam].concat(TOWN_HOMES.map((s) => townHousehold(R, s)));
+  for (const h of homes) {
+    const at = townLotFind(cx, cy, taken);
+    if (!at) break;
+    townLot(R, at, h, taken);
+  }
+  for (const x of npcs) for (const y of npcs) if (x !== y) {
+    x.know[y.id] = Math.max(x.know[y.id] || 0, 12);
+    x.aff[y.id] = Math.max(x.aff[y.id] || 0, 10);
+  }
+  const seen = town.itemSeen = town.itemSeen || {};
+  for (const k of ["axe", "hammer", "hoe", "rod", "lockpick", "bed", "fence", "gate", "field", "wall", "bwall", "door", "window", "grain", "turnip", "cabbage", "poppy", "flowers"].concat(Object.keys(IT_STACKS))) seen[k] = true;
+  P.coin = 80;
+  game.time = Math.floor(game.time / 1440) * 1440 + 7 * 60;
+  game.ft = game.time;
+  if (typeof visHomes === "function") visHomes();
+  for (const n of npcs) {
+    const b = n.bed;
+    if (b && b.x != null) {
+      const r = rooms.find((q) => !q.dead && q.cells && q.cells.has(b.x + b.y * W));
+      if (r) {
+        n.homeRoom = r;
+        r.name = (n.surname || "The") + " house";
+      }
+    }
+  }
+  town.gridV = (town.gridV || 0) + 1;
+  town.lfPV = (town.lfPV || 0) + 1;
+  rebuildOcc();
+  refreshReach();
+  yardScan(true);
+  yardHousing();
+  chron("The town has been here a little while: " + npcs.length + " people in " + (town.yards || []).filter((y) => yardPeople(y).length).length + " yards, a trader at his stall. More yards and houses will bring more people.", "note");
+}
 const HAMLET_TUTORIAL = () => !(typeof window !== "undefined" && window.GH_NOTUT);
 const tut2Active = () => !!(typeof town !== "undefined" && town && town.tut2 && !town.tut2.done);
 const TUT2_MAP = {
@@ -31940,7 +32112,7 @@ async function isleSave() {
   if (!isleOK() || !ISLE.id || !town || ISLE.busy) return false;
   ISLE.busy = true;
   try {
-    const json = isleCapture(), d = await isleOpenDB(), pl = game.player, meta = { id: ISLE.id, name: ISLE.label || town.name, named: !!ISLE.label, seed: town.seed, scenario: town.scenario || "village", day: Math.floor(game.time / 1440) + 1, pop: npcs.filter((n) => !n.dead).length, savedAt: Date.now(), version: SAVE_VERSION, created: ISLE.created || Date.now(), you: pl ? pl.first : "" };
+    const json = isleCapture(), d = await isleOpenDB(), pl = game.player, meta = { id: ISLE.id, name: ISLE.label || town.name, named: !!ISLE.label, seed: town.seed, variant: town.variant || null, scenario: town.scenario || "village", day: Math.floor(game.time / 1440) + 1, pop: npcs.filter((n) => !n.dead).length, savedAt: Date.now(), version: SAVE_VERSION, created: ISLE.created || Date.now(), you: pl ? pl.first : "" };
     const tx = d.transaction(["meta", "data"], "readwrite");
     tx.objectStore("data").put({ id: ISLE.id, json });
     tx.objectStore("meta").put(meta);
@@ -32021,7 +32193,7 @@ async function isleLoad(id) {
     select(pn || npcs[0]);
     updateUI(true);
     updateMarket(true);
-    el("legend").textContent = (town.scenario === "blank" ? "blank island" : town.scenario === "hamlet" ? "hamlet" : town.scenario === "farm" ? "ready farming village" : "ready village") + " \xB7 " + W + "\xD7" + H;
+    el("legend").textContent = (town.scenario === "blank" ? "blank island" : town.variant === "town" ? "build town" : town.scenario === "hamlet" ? "tutorial" : town.scenario === "farm" ? "ready farming village" : "ready village") + " \xB7 " + W + "\xD7" + H;
     if (typeof MODS !== "undefined") MODS.sync();
     if (pn && canControl(pn)) startPlaying(pn);
     isleLabel();
@@ -32071,9 +32243,9 @@ async function isleShow(first) {
   const rows2 = list.map((m) => {
     const nm = ISLE.renaming === m.id ? `<input class="islren" data-irentxt="${m.id}" value="${esc(m.name)}" maxlength="40" spellcheck="false"> <button type="button" class="btn primary" data-irenok="${m.id}">Save name</button>` : `<b>${esc(m.name)}</b> <button type="button" class="islpen" data-iren="${m.id}" title="Rename">rename</button>`;
     const btns = ISLE.confirmDel === m.id ? `<button type="button" class="btn danger" data-idelyes="${m.id}">Yes, delete</button><button type="button" class="btn" data-idelno="1">Keep</button>` : `<button type="button" class="btn primary" data-icont="${m.id}">${m.id === ISLE.id ? "Resume" : "Continue"}</button><button type="button" class="btn" data-iexp="${m.id}" title="Download this island as a file (to send it for a look)">Export</button><button type="button" class="btn" data-idel="${m.id}">Delete</button>`;
-    return `<div class="islrow"><div>${nm} <span class="dim">${m.scenario === "blank" ? "blank island" : m.scenario === "hamlet" ? "hamlet" : m.scenario === "farm" ? "ready farming village" : "ready village"}</span><br><span class="dim">day ${m.day} \xB7 ${m.pop} ${m.pop === 1 ? "person" : "people"}${m.you ? " \xB7 you: " + esc(m.you) : ""} \xB7 ${isleAgo(m.savedAt)}</span></div><div class="islbtns">${btns}</div></div>`;
+    return `<div class="islrow"><div>${nm} <span class="dim">${m.scenario === "blank" ? "blank island" : m.variant === "town" ? "build town" : m.scenario === "hamlet" ? "tutorial" : m.scenario === "farm" ? "ready farming village" : "ready village"}</span><br><span class="dim">day ${m.day} \xB7 ${m.pop} ${m.pop === 1 ? "person" : "people"}${m.you ? " \xB7 you: " + esc(m.you) : ""} \xB7 ${isleAgo(m.savedAt)}</span></div><div class="islbtns">${btns}</div></div>`;
   }).join("");
-  box.innerHTML = `<div class="bgwrap isl"><div class="bghead"><b>Islands</b>${ISLE.id || !first ? '<button type="button" class="bgx" data-iclose="1" title="Close">\xD7</button>' : ""}</div>` + (err ? `<p class="sub">${esc(err)}</p>` : "") + (rows2 ? `<div class="bglab">Your islands \xB7 each one is saved automatically</div>${rows2}` : '<p class="sub">No islands yet. Start one below.</p>') + `<div class="bglab">New island</div><div class="islnew"><label><input type="radio" name="isc" value="blank" checked> <b>Blank island</b> <span class="dim">you alone, an empty island: build it up</span></label><label><input type="radio" name="isc" value="village"> <b>Ready village</b> <span class="dim">a built village with people (for trying things)</span></label><label><input type="radio" name="isc" value="hamlet"> <b>Hamlet</b> <span class="dim">building and farming only: you, a trader and a family with nowhere to sleep (the minimum game)</span></label><label><input type="radio" name="isc" value="farm"> <b>Ready farming village</b> <span class="dim">only what farming needs: fields, a seed seller, a greengrocer (for testing the farm economy)</span></label><div class="islseed"><label>Name <input id="islname" type="text" autocomplete="off" spellcheck="false" maxlength="40" placeholder="your island's name"></label></div><div class="islseed"><label>Seed <input id="islseed" type="text" autocomplete="off" spellcheck="false" placeholder="random"></label><button type="button" class="btn primary" data-inew="1">Start</button></div></div></div>`;
+  box.innerHTML = `<div class="bgwrap isl"><div class="bghead"><b>Islands</b>${ISLE.id || !first ? '<button type="button" class="bgx" data-iclose="1" title="Close">\xD7</button>' : ""}</div>` + (err ? `<p class="sub">${esc(err)}</p>` : "") + (rows2 ? `<div class="bglab">Your islands \xB7 each one is saved automatically</div>${rows2}` : '<p class="sub">No islands yet. Start one below.</p>') + `<div class="bglab">New island</div><div class="islnew"><label><input type="radio" name="isc" value="blank" checked> <b>Blank island</b> <span class="dim">you alone, an empty island: build it up</span></label><label><input type="radio" name="isc" value="village"> <b>Ready village</b> <span class="dim">a built village with people (for trying things)</span></label><label><input type="radio" name="isc" value="hamlet"> <b>Tutorial</b> <span class="dim">the first morning: learn to farm, fence and build, then grow your own hamlet from a trader and a family with nowhere to sleep</span></label><label><input type="radio" name="isc" value="town"> <b>Build town</b> <span class="dim">a town under the fence rules, already going: twenty people in fenced yards with houses and fields, a trader at his stall; build it bigger</span></label><label><input type="radio" name="isc" value="farm"> <b>Ready farming village</b> <span class="dim">only what farming needs: fields, a seed seller, a greengrocer (for testing the farm economy)</span></label><div class="islseed"><label>Name <input id="islname" type="text" autocomplete="off" spellcheck="false" maxlength="40" placeholder="your island's name"></label></div><div class="islseed"><label>Seed <input id="islseed" type="text" autocomplete="off" spellcheck="false" placeholder="random"></label><button type="button" class="btn primary" data-inew="1">Start</button></div></div></div>`;
 }
 function isleHide() {
   const b = document.getElementById("islands");

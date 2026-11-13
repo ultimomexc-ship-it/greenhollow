@@ -64,7 +64,7 @@ function dailyLife() {
   staffMarkets(); staffSpecialists();
   regrowTrees();
   // travellers who decide to settle
-  if (day % 3 === 1 && Math.random() < (npcs.length < 20 ? 0.9 : npcs.length < 40 ? 0.5 : npcs.length < 80 ? 0.3 : 0.1) && (npcs.length < 16 || !town.sites.some(x => x.kind === 'house')) && houseRooms().length >= 2 && npcs.filter(n => !homeOK(n)).length < 2) settlerArrives();
+  if (town.scenario !== 'hamlet' && day % 3 === 1 && Math.random() < (npcs.length < 20 ? 0.9 : npcs.length < 40 ? 0.5 : npcs.length < 80 ? 0.3 : 0.1) && (npcs.length < 16 || !town.sites.some(x => x.kind === 'house')) && houseRooms().length >= 2 && npcs.filter(n => !homeOK(n)).length < 2) settlerArrives();
   // settlers' grant for a young town
   if (day < 90) town.treasury += npcs.length * 1.5;
   town.hist.pop.push(npcs.length); if (town.hist.pop.length > 400) town.hist.pop.shift();

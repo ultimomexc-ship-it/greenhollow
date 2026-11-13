@@ -14,7 +14,7 @@ const HAMLET_BUILD = ['bwall', 'bwindow', 'bdoor', 'bed', 'fence', 'gate', 'fiel
 const HAMLET_RECIPE = ['job.Farmer', 'sys.economy', 'sys.couples', 'sys.romance', 'sys.gossip', 'sys.smalllife', 'event.wedding'];
 const HAMLET_OFF = ['bladder', 'wear', 'births', 'ageing', 'starving', 'mushrooms'];
 
-function hamletStart() {
+function hamletStart(big?: boolean) {   // (big: the build town, life2/buildtown.ts: twenty people in fenced yards with houses, no tutorial)
   town.scenario = 'hamlet'; town.farmEcon = true; town.farmDay0 = Math.floor(game.time / 1440); town.eco.exported = town.eco.exported || 0;
   const R = rng(town.seed + 6262), adults = npcs.filter(n => canControl(n) && n.age >= 20 && n.age <= 45);
   const P = adults.find(n => !n.female && n.age <= 36) || adults[0], TR = adults.find(n => n !== P && n.age >= 28) || adults.find(n => n !== P);
@@ -59,6 +59,7 @@ function hamletStart() {
   put(TR, st.front.x, st.front.y);
   put(a, cx, cy + 1); put(b, cx + 1, cy + 1); put(c, cx, cy + 2);
   town.lfPV = (town.lfPV || 0) + 1; rebuildOcc(); refreshReach(); yardScan(true); yardHousing();
+  if (big) { townBuild(R, P, [a, b, c], taken, cx, cy); return; }
   if (HAMLET_TUTORIAL()) { tut2Start(P, TR, st); return; }   // (a new island starts with the first morning: life2/tutorial2.ts)
   chron('You came ashore with a little money and a bed. A trader keeps a stall by the camp, and a family landed just before you with nowhere to sleep. Build them a yard and they will pay to live in it.', 'note');
 }

@@ -59,6 +59,7 @@
   "life2/items-trade.ts",
   "life2/farm.ts",
   "life2/hamlet.ts",
+  "life2/buildtown.ts",
   "life2/tutorial2.ts",
   "life2/tutorial2-play.ts",
   "life2/tutorial2-polish.ts",

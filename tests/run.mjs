@@ -2908,6 +2908,21 @@ test('tutorial: the fence ring is built row by row from where the shadow stands,
   return 'row by row from the shadow, nothing off the marks, a closed yard stands';
 });
 
+test('build town: twenty people in fenced yards, each household in a sealed house with a bed each and fields; no settlers come from the road; it runs three days fed and housed', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r0 = await page.evaluate(() => { newTown('build-town-test', 'town');
+    return { pop: npcs.length, scen: town.scenario, variant: town.variant, lived: town.yards.filter(y => yardPeople(y).length).length, huts: rooms.filter(r => !r.dead && r.hut).length,
+      bedless: npcs.filter(n => !n.bed || n.bed.x == null).length, roofless: npcs.filter(n => !n.homeRoom && n !== (town.markets.find(m => m.def) || {}).n && !n.shop).length, sown: town.crops.filter(c => c.st).length, tut: !!town.tut2 }; });
+  check(r0.pop === 20 && r0.scen === 'hamlet' && r0.variant === 'town' && !r0.tut, 'twenty people under the yard rules, no tutorial: ' + JSON.stringify(r0));
+  check(r0.lived >= 10 && r0.huts >= 9 && r0.bedless === 0 && r0.roofless === 0 && r0.sown > 10, 'every household in a yard and a house, a bed each, fields growing: ' + JSON.stringify(r0));
+  await simulate(page, 3 * 1440);
+  const r1 = await page.evaluate(() => ({ pop: npcs.filter(n => !n.dead).length, road: town.chron.filter(c => /arrived from the road/.test(c.text)).length, bedless: npcs.filter(n => !n.bed || n.bed.x == null).length, hungry: npcs.filter(n => n.hunger > 80).length, harvested: LIFE.digest(3).kinds.harvested || 0, rent: (town.rent || {}).total || 0 }));
+  check(r1.road === 0 && r1.bedless === 0 && r1.pop >= 20, 'nobody turns up from the road to sleep rough: ' + JSON.stringify(r1));
+  check(r1.hungry <= 2 && r1.harvested > 20 && r1.rent > 0, 'three days later they are fed, harvesting and paying rent: ' + JSON.stringify(r1));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return `20 people, ${r0.huts} houses, ${r0.sown} plots growing; after 3 days ${r1.harvested} harvests, ${r1.rent} coin of rent`;
+});
+
 test('farming a row: holding a direction works each plot and steps onto it, and stops on the last plot instead of running onto the grass', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {
