@@ -16,6 +16,7 @@ function tut2BotDecide(): any {
   if (typeof ITEMCARD !== 'undefined' && ITEMCARD.open) return Object.assign(st, { press: 'Enter', card: true });   // (read the item card and close it)
   if (s.do !== 'wait' || !s.bot) return st;
   let h: any = s.bot(T2); if (!h) return st; if (h.x != null) h = { stand: h };
+  if (h.pressOnly) return Object.assign(st, { press: h.key });   // (just tap the key)
   if (h.shop) { const sh = h.shop; if (!SHOP.open) return st; if (sh.close) return Object.assign(st, { click: '[data-spx]' }); if (SHOP.tab !== sh.tab) return Object.assign(st, { click: `[data-spt="${sh.tab}"]` }); return Object.assign(st, { click: `.sptile:nth-child(${sh.i + 1}) .spbtns button:${sh.all ? 'last-child' : 'first-child'}` }); }
   const DIR = (dx: number, dy: number) => dx > 0 ? 'ArrowRight' : dx < 0 ? 'ArrowLeft' : dy > 0 ? 'ArrowDown' : 'ArrowUp';
   const cur = P.moving && P.path && P.path.length ? P.path[P.path.length - 1] : { x: P.tx, y: P.ty };
@@ -46,6 +47,6 @@ function tut2BotTick(dt: number) {
   if (b.press) { p.keys = {};
     if (b.press === 'Enter') { if (ITEMCARD.open) itemCardNext(); }
     else if (b.press === 'b') itBuildToggle(P);
-    else if (/^[0-9]$/.test(b.press)) { if (itBuildOn(P)) itBuildSelect(P, b.press === '0' ? 9 : +b.press - 1); } }
+    else if (/^[0-9]$/.test(b.press)) { const i = b.press === '0' ? 9 : +b.press - 1; if (itBuildOn(P)) itBuildSelect(P, i); else itSelect(P, i); } }
   const d = b.key ? BOT_KEYS[b.key] : null; p.keys = d ? { [d]: true } : {}; if (d) p.lastKey = performance.now();
 }

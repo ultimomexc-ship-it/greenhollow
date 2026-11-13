@@ -10,8 +10,8 @@ function buildLook(c: any, now: number) {
   if (!on) return;
   const w = cam.cw, h = cam.ch;
   c.save();
-  c.globalCompositeOperation = 'saturation'; c.globalAlpha = 0.7; c.fillStyle = '#808080'; c.fillRect(0, 0, w, h);   // (the colour drains out)
-  c.globalCompositeOperation = 'multiply'; c.globalAlpha = 0.55; c.fillStyle = '#9fbde8'; c.fillRect(0, 0, w, h);   // (and turns blueprint blue)
+  c.globalCompositeOperation = 'saturation'; c.globalAlpha = 0.3; c.fillStyle = '#808080'; c.fillRect(0, 0, w, h);   // (the colour drains out)
+  c.globalCompositeOperation = 'multiply'; c.globalAlpha = 0.28; c.fillStyle = '#9fbde8'; c.fillRect(0, 0, w, h);   // (and turns blueprint blue)
   c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
   const ts = TS * cam.z, o = toScreen(0, 0);
   if (ts >= 10) {   // a faint tile grid

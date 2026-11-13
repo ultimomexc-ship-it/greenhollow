@@ -128,6 +128,7 @@ const _t2Bump2 = tut2Bump; tut2Bump = function (o) { const T2 = town.tut2; if (T
 const _t2Hud2 = tut2Hud; tut2Hud = function () {
   _t2Hud2(); if (typeof document === 'undefined' || !town) return; tut2PopTick(); tut2Keys();
   const s = document.getElementById('tutstrip'); if (s) s.classList.toggle('big', tut2Active() && /^Press B/.test(s.textContent || ''));
+  document.body.classList.toggle('tut2-seedglow', !!(tut2Active() && town.tut2.seedLesson));
   const P = game.player; if (tut2Active() && P && P.build) { const sig = tut2GlowSlot() + '|' + (town.tut2.ui.strip || ''); if (sig !== (tut2Hud as any).sig) { (tut2Hud as any).sig = sig; itSync(true); } }
 };
 
@@ -164,10 +165,21 @@ function itemCard(key: string, qty?: number): boolean {
   seen[key] = true; ITEMCARD.q.push({ key, qty: qty || 1, title: info[0], text: info[1] }); if (!ITEMCARD.open) itemCardNext(); return true;
 }
 function itemCardNext() {
-  const d = tut2Dom('itemcard', 'itemcard'); if (!d) return; const c = ITEMCARD.q.shift();
-  if (!c) { ITEMCARD.open = false; d.hidden = true; return; }
+  const d = tut2Dom('itemcard', 'itemcard'), v = tut2Dom('cardveil', 'cardveil'); if (!d) return; const c = ITEMCARD.q.shift();
+  if (!c) { ITEMCARD.open = false; d.hidden = true; if (v) v.hidden = true; itemCardThaw(); return; }
+  if (!ITEMCARD.open) ITEMCARD.since = performance.now(); if (v) v.hidden = false;
   ITEMCARD.open = true; d.hidden = false; if (typeof sndPick === 'function') try { sndPick(); } catch (e) {}
   d.innerHTML = `<div class="icpic">${t2Icon(c.key).replace(/width="\d+"/, 'width="72"').replace(/height="\d+"/, 'height="72"')}</div><div class="icbody"><div class="icnew">New${c.qty > 1 ? ' · ' + c.qty : ''}</div><b>${esc(c.title)}</b><p>${esc(c.text)}</p><button type="button" class="btn primary tutglow" data-icok="1">Got it</button></div>`;
   const b = d.querySelector('[data-icok]'); if (b) b.addEventListener('click', itemCardNext);
 }
 if (typeof window !== 'undefined') window.addEventListener('keydown', (e: any) => { if (!ITEMCARD.open) return; if (['Enter', ' ', 'Escape'].includes(e.key) || e.code === 'Space') itemCardNext(); e.preventDefault(); e.stopImmediatePropagation(); }, true);
+
+/** a card is a full freeze: when it closes, every bubble and the tutorial's own timers carry on from where they stopped */
+function itemCardThaw() {
+  const gap = performance.now() - (ITEMCARD.since || performance.now()); ITEMCARD.since = 0; if (gap <= 0) return;
+  for (const b of bubbles) { b.from += gap; b.until += gap; }
+  if (typeof TUT2 !== 'undefined') TUT2.bubbleEnd += gap;
+}
+/* the tutorial is never saved: a new island is saved once the first morning is over */
+// @ts-expect-error -- deliberate patch
+const _t2Save = isleSave; isleSave = function () { if (tut2Active()) return Promise.resolve(); return _t2Save.apply(this, arguments as any); };
