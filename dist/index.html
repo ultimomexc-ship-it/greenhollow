@@ -310,6 +310,44 @@ body.tut2-seedglow #hotbar .hbslots .hbslot:first-child { animation: tutbounce .
 /* the weather prototype's buttons (render/weather.ts) */
 .wxseg { margin-left: 6px; } .wxseg .wxlab { padding: 7px 8px 7px 10px; font: 600 11px var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: var(--muted, #9aa); align-self: center; } .wxseg button[aria-pressed="true"] { background: var(--accent, #e0a93f); color: #1a1408; }
 
+/* the dress-up panel (ui/dressup.ts) */
+#dressup { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; }
+#dressup[hidden] { display: none; }
+#dressup .dsveil { position: absolute; inset: 0; background: rgba(8,10,14,.62); backdrop-filter: blur(2px); }
+#dressup .dsbox { position: relative; display: flex; gap: 18px; width: min(940px, 96vw); height: min(620px, 92vh); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.5); padding: 18px; color: var(--fg); animation: dspop .18s ease-out; }
+@keyframes dspop { from { transform: scale(.96); opacity: 0; } to { transform: none; opacity: 1; } }
+#dressup .dsleft { flex: 0 0 300px; display: flex; flex-direction: column; align-items: center; gap: 10px; border-radius: 10px; padding: 10px 0;
+  background: radial-gradient(ellipse at 50% 85%, rgba(122,170,90,.35), transparent 60%), linear-gradient(#26313d, #1b222b); }
+#dressup canvas#dsprev { width: 300px; height: 360px; image-rendering: auto; }
+#dressup .dsturn { display: flex; gap: 6px; }
+#dressup .dsturn button { background: var(--panel2); color: var(--fg); border: 1px solid var(--line); border-radius: 18px; min-width: 40px; padding: 6px 12px; font: 600 15px var(--font-body); cursor: pointer; }
+#dressup .dsturn button.on { background: var(--amber); color: #1a1405; border-color: var(--amber); }
+#dressup .dsnameshow { font: 700 20px var(--font-display, var(--font-body)); letter-spacing: .02em; color: #f3e7c9; text-shadow: 0 2px 0 rgba(0,0,0,.4); }
+#dressup .dsright { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+#dressup h2 { margin: 2px 0 10px; font: 700 18px var(--font-body); }
+#dressup .dsname { display: flex; gap: 12px; margin-bottom: 12px; }
+#dressup .dsname label { flex: 1; display: flex; flex-direction: column; gap: 4px; font: 600 11px var(--font-body); text-transform: uppercase; letter-spacing: .06em; color: #9aa6b2; }
+#dressup .dsname input { background: #141a21; color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: 500 15px var(--font-body); text-transform: none; letter-spacing: 0; }
+#dressup .dsname input:focus { outline: 2px solid var(--amber); outline-offset: 0; }
+#dressup .dstabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+#dressup .dstabs button { background: none; color: #9aa6b2; border: 0; border-bottom: 3px solid transparent; padding: 8px 14px; font: 600 14px var(--font-body); cursor: pointer; }
+#dressup .dstabs button.on { color: var(--fg); border-bottom-color: var(--amber); }
+#dressup .dsbody { flex: 1; overflow-y: auto; padding: 10px 2px; }
+#dressup .dsrow { margin-bottom: 14px; }
+#dressup .dsrow h3 { margin: 0 0 6px; font: 600 11px var(--font-body); text-transform: uppercase; letter-spacing: .06em; color: #9aa6b2; }
+#dressup .dsgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
+#dressup .dspick { display: flex; flex-direction: column; align-items: center; gap: 2px; background: #1b222b; border: 2px solid transparent; border-radius: 10px; padding: 6px 4px 5px; color: var(--fg); font: 500 11px var(--font-body); cursor: pointer; }
+#dressup .dspick:hover { border-color: #3b4652; }
+#dressup .dspick.on { border-color: var(--amber); background: #2a2516; }
+#dressup .dspick canvas { width: 64px; height: 64px; }
+#dressup .dssw { display: flex; flex-wrap: wrap; gap: 8px; }
+#dressup .dsdot { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255,255,255,.18); cursor: pointer; padding: 0; }
+#dressup .dsdot.on { outline: 3px solid var(--amber); outline-offset: 2px; }
+#dressup .dsfoot { display: flex; gap: 8px; align-items: center; padding-top: 10px; border-top: 1px solid var(--line); }
+#dressup .dsfoot span { flex: 1; }
+.dsbtn { margin-left: 6px; }
+@media (max-width: 700px) { #dressup .dsbox { flex-direction: column; height: 94vh; overflow-y: auto; } #dressup .dsleft { flex: 0 0 auto; } #dressup canvas#dsprev { width: 200px; height: 240px; } }
+
 </style>
 </head>
 <body>
@@ -8255,7 +8293,11 @@ const ART = (function() {
   }
   chibiSet(true);
   const plantsDraw = (g, t, seed, st, only) => seed && seed !== "barley" && CROP_ART[seed] ? cropArt24(g, t, seed, st, only) : plants24(g, t, st, only);
-  return { Q, S, FR, DF, DO, TP, BLK, terr, water, overlay, frameOf, BYID, ITEMS, h32, mul, drawDoll, drawDollLOD, drawSleeper: drawSleeper2, roomDress, kitOf, chibi: CHIBI, chibiSet, plantsDraw };
+  const PARTS = { HSTYLES, BEARDS, HATS, PATS, EYES: Object.keys(EYESHAPE), BROWS, NOSES, MOUTHS, IRIS: Object.keys(IRIS) };
+  const dollForget = () => {
+    if (typeof DOLL_CACHE !== "undefined") DOLL_CACHE.clear();
+  };
+  return { Q, S, FR, DF, DO, TP, BLK, terr, water, overlay, frameOf, BYID, ITEMS, h32, mul, drawDoll, drawDollLOD, drawSleeper: drawSleeper2, roomDress, kitOf, chibi: CHIBI, chibiSet, plantsDraw, PARTS, lookOf, dollForget };
 })();
 let W = 128, H = 84;
 const TS = 24;
@@ -24398,8 +24440,9 @@ function gaSpec(n, now) {
   sp.mourning = !!(n.mourning && !n.moving);
   sp.wave = !!(n.waveUntil > game.time && n.pose !== "sleep");
   sp.status = n.status;
+  sp.look = n.faceLook || void 0;
   {
-    const jd = !dress ? jobDress(n) : null;
+    const jd = !dress && !n.ownLook ? jobDress(n) : null;
     if (jd) {
       if (jd.hat) {
         sp.hat = jd.hat;
@@ -29765,6 +29808,245 @@ function drawWeather(c, now) {
   }
   c.restore();
 }
+const DRESS = { open: false, draft: null, tab: "body", dir: 0, walk: false, raf: 0 };
+const DRESS_TABS = [["body", "Body"], ["hair", "Hair"], ["face", "Face"], ["clothes", "Clothes"], ["hat", "Hat"]];
+const DRESS_HATCOLS = ["#c8a65a", "#8a5a34", "#4a6fa5", "#a8493f", "#3f8a6a", "#6a6a6a", "#e8e0d0", "#2a2a2a", "#8a5aa5", "#c0953a"];
+const DRESS_DIRS = [{ dx: 0, dy: 1 }, { dx: 1, dy: 0 }, { dx: 0, dy: -1 }, { dx: -1, dy: 0 }];
+const dressCap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+function dressDraft(n) {
+  const L = n.look || assignLook(n), sp = gaSpec(n, performance.now());
+  return {
+    first: n.first || "",
+    surname: n.surname || "",
+    female: !!n.female,
+    skin: n.skin,
+    hair: n.hair0 || n.hair,
+    hs: L.hs,
+    beard: L.beard || null,
+    shirt: n.shirt,
+    pat: L.pat || "plain",
+    acc: L.acc || n.shirt,
+    pants: L.pants,
+    robe: !!n.robe,
+    hat: n.ownLook ? L.hatOn ? n.hat : "none" : sp.hatOn ? sp.hat : "none",
+    hatCol: (n.ownLook ? n.hatCol : sp.hatCol) || DRESS_HATCOLS[0],
+    face: Object.assign({}, ART.lookOf(sp))
+  };
+}
+function dressSpec(n, d, dir, walk) {
+  const sp = Object.assign({}, gaSpec(n, performance.now()));
+  Object.assign(sp, {
+    female: d.female,
+    skin: d.skin,
+    hair: d.hair,
+    hs: d.hs,
+    beard: d.female ? null : d.beard,
+    shirt: d.shirt,
+    pat: d.pat,
+    acc: d.acc,
+    pants: d.pants,
+    robe: d.robe,
+    apron: false,
+    hat: d.hat === "none" ? "none" : d.hat,
+    hatCol: d.hatCol,
+    hatOn: d.hat !== "none",
+    look: d.face,
+    face: dir,
+    pose: walk ? "walk" : "stand",
+    moving: walk,
+    tool: null,
+    hold: null,
+    wave: false,
+    mourning: false,
+    dress: null
+  });
+  return sp;
+}
+function dressDraw(cv, sp, k, crop, T2 = 0) {
+  const g = cv.getContext("2d");
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, cv.width, cv.height);
+  g.imageSmoothingEnabled = true;
+  const ox = cv.width / 2 - 12 * k, oy = crop === "face" ? 2 + 1.5 * k : crop === "head" ? 1 + 7 * k : cv.height - 25.5 * k;
+  g.translate(ox, oy);
+  g.scale(k, k);
+  try {
+    ART.drawDoll(g, sp, 0, 0, 1, T2);
+  } catch (e) {
+  }
+}
+function dressOpen() {
+  const n = game.player;
+  if (!n) return;
+  DRESS.n = n;
+  DRESS.draft = dressDraft(n);
+  DRESS.open = true;
+  DRESS.dir = 0;
+  DRESS.walk = false;
+  let el2 = document.getElementById("dressup");
+  if (!el2) {
+    el2 = document.createElement("div");
+    el2.id = "dressup";
+    document.body.appendChild(el2);
+  }
+  el2.innerHTML = `<div class="dsveil"></div><div class="dsbox" role="dialog" aria-label="Your character">
+    <div class="dsleft"><canvas id="dsprev" width="300" height="360"></canvas>
+      <div class="dsturn"><button type="button" data-dturn="-1" title="Turn left">&#x27F2;</button><button type="button" data-dwalk="1" class="dswalk">Walk</button><button type="button" data-dturn="1" title="Turn right">&#x27F3;</button></div>
+      <div class="dsnameshow" id="dsnameshow"></div></div>
+    <div class="dsright"><h2>Your character</h2>
+      <div class="dsname"><label>First name<input id="dsfirst" maxlength="16" autocomplete="off" spellcheck="false"></label><label>Family name<input id="dssur" maxlength="18" autocomplete="off" spellcheck="false"></label></div>
+      <div class="dstabs">${DRESS_TABS.map(([k, t]) => `<button type="button" data-dtab="${k}">${t}</button>`).join("")}</div>
+      <div class="dsbody" id="dsbody"></div>
+      <div class="dsfoot"><button type="button" class="btn" data-dact="random">Surprise me</button><span></span><button type="button" class="btn" data-dact="cancel">Cancel</button><button type="button" class="btn primary" data-dact="save">Save</button></div>
+    </div></div>`;
+  el2.hidden = false;
+  const f = document.getElementById("dsfirst"), s = document.getElementById("dssur");
+  f.value = DRESS.draft.first;
+  s.value = DRESS.draft.surname;
+  f.oninput = () => {
+    DRESS.draft.first = f.value.trim();
+    dressNameShow();
+  };
+  s.oninput = () => {
+    DRESS.draft.surname = s.value.trim();
+    dressNameShow();
+  };
+  el2.onkeydown = (e) => {
+    e.stopPropagation();
+    if (e.key === "Escape") dressClose(false);
+  };
+  el2.onkeyup = (e) => e.stopPropagation();
+  el2.onclick = (e) => {
+    const t = e.target.closest("button");
+    if (!t) {
+      if (e.target.classList.contains("dsveil")) dressClose(false);
+      return;
+    }
+    if (t.dataset.dtab) {
+      DRESS.tab = t.dataset.dtab;
+      dressRender();
+    } else if (t.dataset.dturn) DRESS.dir = (DRESS.dir + Number(t.dataset.dturn) + 4) % 4;
+    else if (t.dataset.dwalk) {
+      DRESS.walk = !DRESS.walk;
+      t.classList.toggle("on", DRESS.walk);
+    } else if (t.dataset.dset) {
+      const [k, v] = t.dataset.dset.split("=");
+      dressSetVal(k, v);
+      dressRender();
+    } else if (t.dataset.dact === "random") {
+      dressRandom();
+      dressRender();
+    } else if (t.dataset.dact === "cancel") dressClose(false);
+    else if (t.dataset.dact === "save") dressClose(true);
+  };
+  dressRender();
+  dressNameShow();
+  const loop = (now) => {
+    if (!DRESS.open) return;
+    const cv = document.getElementById("dsprev");
+    if (cv) dressDraw(cv, dressSpec(DRESS.n, DRESS.draft, DRESS_DIRS[DRESS.dir], DRESS.walk), 9, void 0, now / 1e3);
+    DRESS.raf = requestAnimationFrame(loop);
+  };
+  DRESS.raf = requestAnimationFrame(loop);
+}
+function dressNameShow() {
+  const e = document.getElementById("dsnameshow");
+  if (e) e.textContent = [DRESS.draft.first, DRESS.draft.surname].filter(Boolean).join(" ") || "Nameless";
+}
+function dressSetVal(k, v) {
+  const d = DRESS.draft, val = v === "true" ? true : v === "false" ? false : v === "null" ? null : v;
+  if (k.startsWith("face.")) d.face[k.slice(5)] = k === "face.blush" ? Number(v) : val;
+  else d[k] = val;
+  if (k === "female" && val && d.beard) d.beard = null;
+}
+function dressRandom() {
+  const P = ART.PARTS, pk = (a) => a[Math.floor(Math.random() * a.length)], d = DRESS.draft;
+  Object.assign(d, {
+    skin: pk(SKINS),
+    hair: pk(HAIRS),
+    hs: pk(d.female ? HS_F : HS_M),
+    beard: !d.female && Math.random() < 0.5 ? pk(P.BEARDS) : null,
+    shirt: pk(SHIRTS),
+    pat: pk(PATTERNS),
+    acc: pk(SHIRTS),
+    pants: pk(PANTS),
+    hat: Math.random() < 0.4 ? pk(P.HATS) : "none",
+    hatCol: pk(DRESS_HATCOLS)
+  });
+  Object.assign(d.face, { eyes: pk(P.EYES), iris: pk(P.IRIS), brow: pk(P.BROWS), nose: pk(P.NOSES), mouth: pk(P.MOUTHS), freckles: Math.random() < 0.25 });
+}
+function dressRender() {
+  const b = document.getElementById("dsbody"), d = DRESS.draft, P = ART.PARTS;
+  if (!b) return;
+  document.querySelectorAll("[data-dtab]").forEach((x) => x.classList.toggle("on", x.dataset.dtab === DRESS.tab));
+  const pics = [];
+  const pic = (key, val, label, change, crop) => {
+    const on = String(key.startsWith("face.") ? d.face[key.slice(5)] : d[key]) === String(val);
+    pics.push({ id: "dsp" + pics.length, change, crop });
+    return `<button type="button" class="dspick${on ? " on" : ""}" data-dset="${key}=${val}" title="${esc(label)}"><canvas id="dsp${pics.length - 1}" width="64" height="64"></canvas><span>${esc(label)}</span></button>`;
+  };
+  const sw = (key, cols) => `<div class="dssw">${cols.map((c) => `<button type="button" class="dsdot${String(d[key]) === c ? " on" : ""}" data-dset="${key}=${c}" style="background:${c}" title="${c}"></button>`).join("")}</div>`;
+  const row = (t, inner) => `<div class="dsrow"><h3>${t}</h3>${inner}</div>`;
+  const grid2 = (items) => `<div class="dsgrid">${items.join("")}</div>`;
+  let h = "";
+  if (DRESS.tab === "body") h = row("Who", grid2([pic("female", "true", "Woman", { female: true, beard: null, hs: HS_F.includes(d.hs) ? d.hs : "long" }), pic("female", "false", "Man", { female: false, hs: HS_M.includes(d.hs) ? d.hs : "short" })])) + row("Skin", sw("skin", SKINS));
+  else if (DRESS.tab === "hair") h = row("Style", grid2(P.HSTYLES.map((s) => pic("hs", s, dressCap(s), { hs: s, hat: "none" }, "face")))) + row("Colour", sw("hair", HAIRS.concat(["#b8b8b8", "#e8e4dc"]))) + (d.female ? "" : row("Beard", grid2([pic("beard", "null", "None", { beard: null, hat: "none" }, "face")].concat(P.BEARDS.map((s) => pic("beard", s, dressCap(s), { beard: s, hat: "none" }, "face"))))));
+  else if (DRESS.tab === "face") {
+    const fp = (part, list, t) => row(t, grid2(list.map((v) => pic("face." + part, v, dressCap(v), { face: Object.assign({}, d.face, { [part]: v }), hat: "none" }, "face"))));
+    h = fp("eyes", P.EYES, "Eyes") + fp("iris", P.IRIS, "Eye colour") + fp("brow", P.BROWS, "Brows") + fp("nose", P.NOSES, "Nose") + fp("mouth", P.MOUTHS, "Mouth") + row("Extras", grid2([
+      pic("face.freckles", d.face.freckles ? "false" : "true", d.face.freckles ? "No freckles" : "Freckles", { face: Object.assign({}, d.face, { freckles: !d.face.freckles }) }, "face"),
+      pic("face.glasses", d.face.glasses ? "false" : "true", d.face.glasses ? "No spectacles" : "Spectacles", { face: Object.assign({}, d.face, { glasses: !d.face.glasses }) }, "face"),
+      pic("face.blush", d.face.blush > 0.55 ? "0.3" : "0.8", d.face.blush > 0.55 ? "Less blush" : "Rosy cheeks", { face: Object.assign({}, d.face, { blush: d.face.blush > 0.55 ? 0.3 : 0.8 }) }, "face")
+    ]));
+  } else if (DRESS.tab === "clothes") h = row("Shirt", sw("shirt", SHIRTS)) + row("Pattern", grid2(["plain"].concat(P.PATS).map((s) => pic("pat", s, dressCap(s), { pat: s })))) + (d.pat !== "plain" ? row("Pattern colour", sw("acc", SHIRTS)) : "") + row("Trousers", sw("pants", PANTS)) + row("Length", grid2([pic("robe", "false", "Tunic", { robe: false }), pic("robe", "true", "Robe", { robe: true })]));
+  else if (DRESS.tab === "hat") h = row("Hat", grid2([pic("hat", "none", "None", { hat: "none" }, "head")].concat(P.HATS.map((s) => pic("hat", s, dressCap(s), { hat: s }, "head"))))) + (d.hat !== "none" ? row("Hat colour", sw("hatCol", DRESS_HATCOLS)) : "");
+  b.innerHTML = h;
+  for (const p of pics) {
+    const cv = document.getElementById(p.id);
+    if (cv) dressDraw(cv, dressSpec(DRESS.n, Object.assign({}, d, p.change), { dx: 0, dy: 1 }, false), p.crop === "face" ? 4.4 : p.crop === "head" ? 3 : 2.3, p.crop);
+  }
+}
+function dressClose(save) {
+  DRESS.open = false;
+  cancelAnimationFrame(DRESS.raf);
+  const el2 = document.getElementById("dressup");
+  if (el2) el2.hidden = true;
+  if (!save) return;
+  const n = DRESS.n, d = DRESS.draft;
+  if (!n) return;
+  if (d.first) n.first = d.first;
+  if (d.surname) n.surname = d.surname;
+  n.female = d.female;
+  n.skin = d.skin;
+  n.hair0 = d.hair;
+  n.hair = d.hair;
+  n.shirt = d.shirt;
+  n.robe = d.robe;
+  n.hat = d.hat === "none" ? n.hat || "cap" : d.hat;
+  n.hatCol = d.hatCol;
+  const L = n.look || assignLook(n);
+  Object.assign(L, { hs: d.hs, beard: d.female ? null : d.beard, pat: d.pat, acc: d.acc, pants: d.pants, hatOn: d.hat !== "none" });
+  n.faceLook = Object.assign({}, d.face);
+  n.ownLook = true;
+  n._sp = null;
+  ART.dollForget();
+  if (typeof updateHud === "function") updateHud(true);
+  if (typeof playerSay === "function") playerSay(n, "That is me now. " + n.first + " " + n.surname + ".");
+}
+(function dressButton() {
+  if (typeof document === "undefined") return;
+  const box = document.querySelector("header .controls");
+  if (!box) return;
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "btn dsbtn";
+  b.textContent = "Character";
+  b.title = "Name and dress your character";
+  b.addEventListener("click", () => {
+    if (game.player) dressOpen();
+  });
+  box.appendChild(b);
+})();
 const HENS = { seed: 4242, last: 0, n: 12 };
 const henRand = () => {
   HENS.seed = HENS.seed * 1103515245 + 12345 & 2147483647;

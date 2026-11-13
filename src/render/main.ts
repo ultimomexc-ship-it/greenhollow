@@ -33,7 +33,8 @@ function gaSpec(n, now) {
   sp.moving = !!n.moving; sp.pose = n.moving ? 'walk' : (n.pose === 'sit' || n.pose === 'kneel' || n.pose === 'work') ? n.pose : 'stand';
   sp.tool = n.pose === 'work' ? n.tool : null; sp.seedCol = sp.tool === 'sow' ? sowCol(n) : null; sp.hold = n.hold || null; sp.dress = dress; sp.mourning = !!(n.mourning && !n.moving); sp.wave = !!(n.waveUntil > game.time && n.pose !== 'sleep'); sp.status = n.status;
   // at the baths: out of their clothes (a loincloth, or a linen shift for women), no hat, nothing in hand
-  { const jd = !dress ? jobDress(n) : null; if (jd) { if (jd.hat) { sp.hat = jd.hat; sp.hatCol = jd.col; sp.hatOn = true; } if (jd.apron) sp.apron = true; } }   // (the work clothes; the baths and the watch's uniform, below, still win)
+  sp.look = n.faceLook || undefined;   // (a face chosen in the dress-up panel; otherwise lookOf works one out from the person)
+  { const jd = !dress && !n.ownLook ? jobDress(n) : null; if (jd) { if (jd.hat) { sp.hat = jd.hat; sp.hatCol = jd.col; sp.hatOn = true; } if (jd.apron) sp.apron = true; } }   // (the work clothes; the baths and the watch's uniform, below, still win)
   const bath = n.age >= 6 && !dress ? bathState(n) : null; n._bath = bath;
   if (bath) { sp.shirt = n.female ? BATH_LINEN : n.skin; sp.pat = 'plain'; sp.acc = null; sp.pants = BATH_LINEN; sp.hat = 'none'; sp.hatOn = false; sp.robe = false; sp.apron = false; sp.tool = null; sp.hold = null; if (typeof bath === 'object') sp.pose = 'stand'; return sp; }
   // the watch wear one uniform: bronze helmet, red tunic, leather belt, dark breeches; on duty they carry a spear

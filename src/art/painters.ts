@@ -2346,7 +2346,10 @@ function drawDollLOD(g, sp, x, y, T, Z) {
 chibiSet(true);
 /** some of a plot's nine plants, drawn live in tile space (24 x 24, the plants standing in the furrows): `only(row, col)` picks which; for a harvest in progress */
 const plantsDraw = (g, t, seed, st, only) => seed && seed !== 'barley' && CROP_ART[seed] ? cropArt24(g, t, seed, st, only) : plants24(g, t, st, only);
-return { Q, S, FR, DF, DO, TP, BLK, terr, water, overlay, frameOf, BYID, ITEMS, h32, mul, drawDoll, drawDollLOD, drawSleeper, roomDress, kitOf, chibi: CHIBI, chibiSet, plantsDraw };
+/** for the dress-up panel (ui/dressup.ts): what a person can be drawn with, their face as drawn now, and a way to forget the cached sprites after a change */
+const PARTS = { HSTYLES, BEARDS, HATS, PATS, EYES: Object.keys(EYESHAPE), BROWS, NOSES, MOUTHS, IRIS: Object.keys(IRIS) };
+const dollForget = () => { if (typeof DOLL_CACHE !== 'undefined') DOLL_CACHE.clear(); };
+return { Q, S, FR, DF, DO, TP, BLK, terr, water, overlay, frameOf, BYID, ITEMS, h32, mul, drawDoll, drawDollLOD, drawSleeper, roomDress, kitOf, chibi: CHIBI, chibiSet, plantsDraw, PARTS, lookOf, dollForget };
 
 })();
 

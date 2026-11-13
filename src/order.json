@@ -67,6 +67,7 @@
   "render/steps.ts",
   "render/trees.ts",
   "render/weather.ts",
+  "ui/dressup.ts",
   "render/chickens.ts",
   "render/build-look.ts",
   "life2/yards.ts",
