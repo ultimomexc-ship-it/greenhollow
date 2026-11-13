@@ -1426,7 +1426,7 @@ test('hamlet yards: a fence ring with a gate is a yard, beds inside make the hou
     const mine = __area(4, 2); for (let i = 0; i < 3; i++) { setT(mine[0] + i, mine[1], T.CROP); town.crops.push({ x: mine[0] + i, y: mine[1], f: 'me', pl: 1, st: 0, t0: 0 }); }
     const cIn = town.crops.find(c => c.f === 'fam'), cOut = town.crops.find(c => c.f === 'me'); window.__mine = mine;
     out.rights = [yardMine(dad, cIn), yardMine(TR, cIn), yardMine(P, cIn), yardMine(dad, cOut), yardMine(P, cOut)].join();
-    const t = targetAt0(P, cIn.x, cIn.y); out.refuse = t && t.msg; const t2 = targetAt0(P, cOut.x, cOut.y); out.own = !!(t2 && t2.key);
+    const t = targetAt0(P, cIn.x, cIn.y); out.refuse = t === null ? 'walk over' : (t && (t.msg || t.key)); const t2 = targetAt0(P, cOut.x, cOut.y); out.own = !!(t2 && t2.key);
     return out;
   });
   check(r.start[0] === 1 && r.start[1] && /yard$/.test(r.start[2]) && r.start[3] && r.start[4], 'at the start the trader has the only yard, the family has no beds and yours is in the open: ' + JSON.stringify(r.start));
@@ -1436,7 +1436,7 @@ test('hamlet yards: a fence ring with a gate is a yard, beds inside make the hou
   check(r.moved === 'true,true,true' && r.house === 3 && r.notHomeless && /^the \w+ yard$/.test(r.name), 'the family moves into its beds, together: ' + JSON.stringify([r.moved, r.house, r.name]));
   check(r.hh === 3 && r.pantry, 'the household is the yard, its pantry the yard store');
   check(r.rights === 'true,false,false,false,true', 'fields belong to the yard they are in; those outside every yard are yours: ' + r.rights);
-  check(/belongs to the \w+ yard/.test(r.refuse || '') && r.own, 'the hoe refuses a field in somebody else\'s yard: ' + r.refuse);
+  check(r.refuse === 'walk over' && r.own, 'a field in somebody else\'s yard is walked over and left alone, your own is worked: ' + r.refuse);
   await simulate(page, 2 * 1440);
   const r2 = await page.evaluate(() => {
     const out = {}; const fam = town.crops.filter(c => c.f === 'fam'), me = town.crops.filter(c => c.f === 'me');

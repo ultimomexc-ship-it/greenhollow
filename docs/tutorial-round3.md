@@ -1,6 +1,6 @@
 # The first morning, round 3: the owner's second playthrough (v118)
 
-Everything the owner hit, grouped, with the fix proposed for each. Nothing here is built yet.
+Everything the owner hit, grouped, with the fix for each. Built on branch first-morning-3 (all but 11, field building, which waits for a design). Build mode: blueprint + frame + banner + the tile in front outlined; villagers greyed like statues is not done.
 
 ## A. Telling the player what to do
 1. **Controls at the start.** A card at "Walk out of the door": "WASD or the arrow keys to move. Walk into things to use them. Walk into a person to talk." It stays until you have moved and walked into something.
