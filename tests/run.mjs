@@ -305,7 +305,7 @@ test('push: things go over a field (the plot goes back to bare dirt), and standi
     __place(P, c.x, c.y, { dx: 1, dy: 0 }); res.p2 = lf2PushLine(P, c.x + 1, c.y, 1, 0); res.after2 = row.map(q => [q.pl, q.st]); res.crateAt2 = crate.x - c.x;
     // the bed: you stand in the doorway, the bed is just inside, something solid behind it
     const hs = rooms.find(q => !q.dead && q.kind === 'house' && q.beds.length && q.side === 'b'), bed = hs.beds[0], din = { x: hs.doorX, y: hs.doorY - 1 };
-    setT(bed.x, bed.y, T.FLOOR); bed.x = din.x; bed.y = din.y; setT(din.x, din.y, T.BED); const behind = grid[din.y - 1][din.x], behindProp = lfPropAt(din.x, din.y - 1); setT(din.x, din.y - 1, T.TABLE);
+    setT(bed.x, bed.y, T.FLOOR); bed.x = din.x; bed.y = din.y; setT(din.x, din.y, T.BED); const behind = grid[din.y - 1][din.x], behindProp = lfPropAt(din.x, din.y - 1); setT(din.x, din.y - 1, T.WALL);   // (a wall: furniture behind would be pushed along with it)
     __place(P, hs.doorX, hs.doorY, { dx: 0, dy: -1 }); res.bed = lf2PushLine(P, din.x, din.y, 0, -1); const prop = lfPropAt(hs.doorX, hs.doorY);
     res.bedInDoor = !!prop && prop.kind === 'bed' && bed.out === true && grid[din.y][din.x] === T.FLOOR; setT(din.x, din.y - 1, behind);
     return res;
@@ -313,7 +313,7 @@ test('push: things go over a field (the plot goes back to bare dirt), and standi
   check(r.p1 === true && r.crateAt === 1 && r.after1[1][0] === 0 && r.after1[1][1] === 0 && r.after1[0][1] === 1 && r.after1[2][1] === 1, 'a box pushed onto a plot should flatten it back to bare dirt (and only that plot): ' + JSON.stringify(r));
   check(r.p2 === true && r.crateAt2 === 2 && r.after2[2][0] === 0 && r.after2[2][1] === 0 && r.after2[0][1] === 1, 'and on over the next one: ' + JSON.stringify(r));
   check(r.bed === true && r.bedInDoor, 'standing in the doorway, a bed that cannot move should swap: you go in and it takes the doorway: ' + JSON.stringify(r));
-  return 'a box crossed two plots and left bare dirt; in the doorway you swapped with a bed that had a table behind it';
+  return 'a box crossed two plots and left bare dirt; in the doorway you swapped with a bed that had a wall behind it';
 }));
 
 test('push: the villager you steer is not troubled by hunger, bladder or sleep (for now)', await itemScene(async page => {
