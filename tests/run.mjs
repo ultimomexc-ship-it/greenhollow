@@ -1187,8 +1187,9 @@ test('life events (the contract): kinds are registered, data is required, events
     out.unreg = throws(() => LIFE.emit('no_such_kind', n, {}));
     out.missing = throws(() => LIFE.emit('bought', n, { item: 'barley' }));
     const n0 = LIFE.stream.length, d0 = (LIFE.digest(1).kinds.bought || 0); const rec = LIFE.emit('bought', n, { item: 'barley', qty: 3, price: 2 });
-    out.rec = !!rec && LIFE.stream.length === n0 + 1 && LIFE.digest(1).kinds.bought === d0 + 1 && LIFE.today(n).some(e => e.kind === 'bought') && (n.tmem || []).some(m => m.kind === 'life' && m.lk === 'bought');
-    const s0 = LIFE.stream.length; const ev = lfEmit('theft', { actor: n, tags: ['theft'], sev: 1, text: 'x' }); out.legacy = LIFE.stream.length === s0 + 1 && LIFE.stream[LIFE.stream.length - 1].legacy === true && LIFE.today(n).some(e => e.kind === 'theft');
+    out.rec = !!rec && LIFE.stream[LIFE.stream.length - 1] === rec && LIFE.digest(1).kinds.bought === d0 + 1 && LIFE.today(n).some(e => e.kind === 'bought') && (n.tmem || []).some(m => m.kind === 'life' && m.lk === 'bought');
+    const s0 = LIFE.stream.length; const ev = lfEmit('theft', { actor: n, tags: ['theft'], sev: 1, text: 'x' }); out.legacy = LIFE.stream[LIFE.stream.length - 1].legacy === true && LIFE.stream[LIFE.stream.length - 1] !== rec && LIFE.today(n).some(e => e.kind === 'theft');
+    // (the stream is capped at 600, so a new event is checked as the newest one, not by the length)
     // everything a line may name is defined: an 'ev:' line is a registered kind, any other line is a defined act, and every requirement resolves to a known kind of thing
     const badLines = LEX.filter(e => e.act.startsWith('ev:') ? !REG.has('event', e.act.slice(3)) : e.act.startsWith('ev1:') ? !REG.has('event', e.act.slice(4)) : e.act.startsWith('life:') ? !REG.has('event', e.act.slice(5)) : !ACTS[e.act]).map(e => e.act); out.badLines = [...new Set(badLines)];
     const kinds = REG.all('event'); out.kinds = kinds.length; out.badKinds = kinds.filter(k => !k.family || k.tell == null).map(k => k.id);
