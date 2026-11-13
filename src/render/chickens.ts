@@ -50,7 +50,7 @@ function henStep(now: number) {
 const henCount = (y: any) => (town.chickens || []).filter((c: any) => c.yard === y.id).length;
 /* drawn with the people, in depth order */
 YSORT.push(function (c: any, now: number) {
-  if (!town || !town.chickens || cam.z < 0.55) return []; henStep(now);
+  if (!town) return []; henStep(now); if (!town.chickens || cam.z < 0.55) return [];
   const v = gaView(), out: any[] = [];
   for (const h of town.chickens) {
     if (h.x < v.x0 - 1 || h.x > v.x1 + 1 || h.y < v.y0 - 1 || h.y > v.y1 + 1) continue; if (typeof canSee === 'function' && !canSee(Math.round(h.x), Math.round(h.y))) continue;

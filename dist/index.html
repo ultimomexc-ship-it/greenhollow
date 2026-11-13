@@ -29723,8 +29723,9 @@ function henStep(now) {
 }
 const henCount = (y) => (town.chickens || []).filter((c) => c.yard === y.id).length;
 YSORT.push(function(c, now) {
-  if (!town || !town.chickens || cam.z < 0.55) return [];
+  if (!town) return [];
   henStep(now);
+  if (!town.chickens || cam.z < 0.55) return [];
   const v = gaView(), out = [];
   for (const h of town.chickens) {
     if (h.x < v.x0 - 1 || h.x > v.x1 + 1 || h.y < v.y0 - 1 || h.y > v.y1 + 1) continue;
