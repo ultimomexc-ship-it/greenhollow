@@ -22,12 +22,13 @@ function itBuildSelect(n, i: number) {
   b.fieldHold = false;
   if (i <= 2) { b.brush = null; b.sel = i === 0 ? 0 : b.sel === i ? 0 : i; if (p) { p.act = null; p.lock = false; p.skip = null; p.grace = null; } itSync(true); return; }
   const kind = b.bar[i - 3];
-  if (kind === 'field' && town.scenario === 'hamlet') { b.brush = null; b.sel = 0; if (bldPlaceField(n)) { b.fieldHold = true; b.lastT = n.tx + ',' + n.ty; } itSync(true); return; }   // (a field tile is a thing you buy: one in front of you; hold the key and walk to lay a row)
+  if (kind === 'field' && town.scenario === 'hamlet') { fieldBrushToggle(n); return; }   // (the field brush: walk into grass in your yard to work a field tile into it, like ploughing)
   if (kind === 'field') { b.brush = b.brush === 'field' ? null : 'field'; b.sel = 0; b.lastT = null; if (p) playerSay(n, b.brush ? 'Field brush: walk over grass to mark a field. Press it again to stop.' : 'Field brush put away.'); itSync(true); return; }   // (a brush, not a thing: it lays plots under your feet as you walk)
   b.brush = null; if (kind) bldPlaceFront(n, kind);
 }
 /** the field brush: the grass under your feet becomes a plot (raw ground; in the world the hoe works it, then seeds go in) */
 function bldBrushStep(n) {
+  if (town.scenario === 'hamlet' && n.build && n.build.brush === 'field') return;   // (in the Hamlet the field brush works tile by tile, fieldPaintable)
   const b = n.build; if (b && b.on && b.fieldHold) { const key = n.tx + ',' + n.ty; if (b.lastT !== key) { b.lastT = key; if (!bldPlaceField(n, true)) { if (!kitHas('field')) { b.fieldHold = false; kitOut(n, 'field'); } } } return; }
   if (!b || !b.on || b.brush !== 'field') return;
   const key = n.tx + ',' + n.ty; if (b.lastT === key) return; b.lastT = key;
@@ -38,7 +39,37 @@ const itBuildName = (k: string) => { const it = YARD_ITEMS.find(q => q.kind === 
 /** put one building item on the free ground nearest the tile in front of you */
 /** a block (or a bed, a privy seat) that has just been put down is looked at like a pushed one: it may close a room */
 function bldQueue(p: any) { (town.bldQ = town.bldQ || []).push([p.x, p.y]); }
-/** the Hamlet's field tile: one ploughed plot on the grass in front of you, paid from the kit */
+/* ---- the field brush (Hamlet): floors are painted, walls are placed ----
+   Pick it up with the Field key; walking into bare grass of your yard works a field tile into it (a short action, like ploughing) and steps you onto it;
+   holding on lays a row and stops at the yard's edge, or at a corner when a square beside or behind you still wants one (the farming run rule). */
+const FIELD_PAINT_MIN = 3;
+function fieldBrushOn(n): boolean { return !!(n && n.build && n.build.on && n.build.brush === 'field' && town.scenario === 'hamlet'); }
+function fieldBrushToggle(n, on?: boolean) {
+  const b = itBuildState(n), p = n.player; b.sel = 0; b.fieldHold = false; b.brush = (on === undefined ? b.brush !== 'field' : on) ? 'field' : null;
+  if (p) { p.act = null; p.lock = false; p.skip = null; p.grace = null; p.edgeHold = null; }
+  if (p) playerSay(n, b.brush ? 'Field brush in hand. Walk into grass inside your yard to lay a field.' : 'Field brush put away.');
+  itSync(true);
+}
+/** can the brush lay a field tile here: bare grass inside a yard (or a marked square in the tutorial), nobody and nothing on it */
+function fieldPaintable(n, x: number, y: number): boolean {
+  if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3 || (x === n.tx && y === n.ty)) return false;
+  const g = grid[y][x]; if ((g !== T.GRASS && !(g === T.DECK && isUpperY(y))) || roomAt[y][x] >= 0 || lfPropAt(x, y)) return false;
+  if ((town.siteAt && town.siteAt[y * W + x]) || (town.nodeMap && town.nodeMap.has(y * W + x))) return false;
+  if (typeof tut2Active === 'function' && tut2Active() && town.tut2.only) return tut2Tiles(town.tut2.only).some((t: any) => t.x === x && t.y === y);
+  return !!(typeof FIELD_ANYWHERE !== 'undefined' && FIELD_ANYWHERE) || !!(typeof yardAtXY === 'function' && yardAtXY(x, y));
+}
+/** the brush's action on the tile ahead (null when it is not a tile for a field) */
+function fieldPaintTarget(n, x: number, y: number): any {
+  if (!fieldPaintable(n, x, y)) return null;
+  if (!kitHas('field')) return { msg: 'No field tiles left. Paullus sells them.' };
+  return { key: 'paint' + x + ',' + y, min: FIELD_PAINT_MIN, text: 'Laying a field', tool: 'hoe', run(nn) { fieldPaintAt(nn, x, y); } };
+}
+function fieldPaintAt(n, x: number, y: number): boolean {
+  if (!kitHas('field') || grid[y][x] === T.CROP) return false;
+  setT(x, y, T.CROP); town.crops.push({ x, y, f: 'field' + n.id, pl: 1, st: 0, t0: 0, byField: n.id }); kitTake('field'); markDirty(x, y, 1, 1); town.gridV = (town.gridV || 0) + 1; if (typeof refreshReach === 'function') refreshReach(); sndPlace();
+  return true;
+}
+/** the Hamlet's field tile: one ploughed plot on the grass in front of you, paid from the kit (tests and tools; the player uses the brush) */
 function bldPlaceField(n, quiet?: boolean): boolean {
   if (!kitHas('field')) { if (!quiet) kitOut(n, 'field'); return false; }
   const f = lf2Front(n), x = f.x, y = f.y; if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) return false;

@@ -22,7 +22,7 @@ function buildLook(c: any, now: number) {
   }
   // the tile in front of you: green where a thing can go, red where it cannot
   const f = lf2Front(P); if (f && grid[f.y]) {
-    const free = walkable(f.x, f.y) && !lfPropAt(f.x, f.y) && !tileOwner.get(f.y * W + f.x) && roomAt[f.y][f.x] < 0 || (roomAt[f.y][f.x] >= 0 && grid[f.y][f.x] === T.FLOOR && !lfPropAt(f.x, f.y));
+    const free = typeof fieldBrushOn === 'function' && fieldBrushOn(P) ? fieldPaintable(P, f.x, f.y) : walkable(f.x, f.y) && !lfPropAt(f.x, f.y) && !tileOwner.get(f.y * W + f.x) && roomAt[f.y][f.x] < 0 || (roomAt[f.y][f.x] >= 0 && grid[f.y][f.x] === T.FLOOR && !lfPropAt(f.x, f.y));
     const s = toScreen(f.x * TS, f.y * TS), pu = 0.75 + 0.25 * Math.sin(now / 220);
     c.globalAlpha = pu; c.lineWidth = 2.5; c.setLineDash([6, 4]); c.strokeStyle = free ? '#7ee07e' : '#ff7a6a'; c.fillStyle = free ? 'rgba(126,224,126,.18)' : 'rgba(255,122,106,.16)';
     c.fillRect(s.x + 2, s.y + 2, ts - 4, ts - 4); c.strokeRect(s.x + 2, s.y + 2, ts - 4, ts - 4); c.setLineDash([]);

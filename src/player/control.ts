@@ -211,7 +211,11 @@ function tickPlayer0(n, dt) {
       if (job && job !== p.runJob) { n.pose = 'stand'; continue; }
       if (!job && [[dy, -dx], [-dy, dx], [-dx, -dy]].some(([ax, ay]) => farmNeed(n, n.tx + ax, n.ty + ay) === p.runJob)) { n.pose = 'stand'; continue; }
     }
-    let tg = itGate(n, lifeAct(n, p, fx, fy, dx, dy) || targetAt(n, fx, fy), walkable(fx, fy));
+    // the field brush (build mode, Hamlet): grass in your yard is worked into a field like ploughing; the brush pushes nothing
+    const brush = IT_AUTO && fieldBrushOn(n), paint = brush ? fieldPaintTarget(n, fx, fy) : null;
+    if (brush && p.edgeHold && p.runJob === 'f' && grid[n.ty][n.tx] === T.CROP && !paint && grid[fy] && grid[fy][fx] === T.CROP && [[dy, -dx], [-dy, dx], [-dx, -dy]].some(([ax, ay]) => fieldPaintable(n, n.tx + ax, n.ty + ay))) { n.pose = 'stand'; continue; }   // (a corner: a square beside or behind you still wants a field)
+    if (brush && !paint && (lfPropAt(fx, fy) || !walkable(fx, fy))) { n.pose = 'stand'; n.tool = null; p.lock = true; continue; }
+    let tg = paint || itGate(n, lifeAct(n, p, fx, fy, dx, dy) || targetAt(n, fx, fy), walkable(fx, fy));
     // auto farming: walking into a plot that needs work works it (plough, sow with the seed in hand or the one you have most of, harvest), no stopping first; a field is not crossed freely (FARM_NEED_REST brings the old rule back)
     if (IT_AUTO && FARM_NEED_REST && !itBuildOn(n) && tg && tg.key && /^crop/.test(tg.key) && !p.fresh) tg = null;
     let occ = tileOwner.get(tkey(fx, fy)), pushed = false;
@@ -233,7 +237,7 @@ function tickPlayer0(n, dt) {
       p.act.t += step; applyPlayerAct(n, p.act);
       if (p.act.t >= p.act.min) {
         const a = p.act; playerFinish(n, a); n.tool = null; n.hold = null;
-        if (IT_AUTO && /^crop/.test(a.key) && !itBuildOn(n) && !p.sleeping && walkable(fx, fy) && !tileOwner.get(tkey(fx, fy))) { p.act = null; p.grace = null; p.edgeHold = d; p.runJob = (a.key.match(/^crop[\d,]+([psh])/) || [])[1] || null; n.path = [{ x: fx, y: fy }]; n.moving = true; n.t = 0; n.pose = 'walk'; continue; }   // (you step onto the plot you have just worked, so holding a direction works a whole row)
+        if (IT_AUTO && ((/^crop/.test(a.key) && !itBuildOn(n)) || /^paint/.test(a.key)) && !p.sleeping && walkable(fx, fy) && !tileOwner.get(tkey(fx, fy))) { p.act = null; p.grace = null; p.edgeHold = d; p.runJob = /^paint/.test(a.key) ? 'f' : (a.key.match(/^crop[\d,]+([psh])/) || [])[1] || null; n.path = [{ x: fx, y: fy }]; n.moving = true; n.t = 0; n.pose = 'walk'; continue; }   // (you step onto the plot you have just worked, so holding a direction works a whole row)
         if (!p.sleeping) { const nt = targetAt(n, fx, fy); if (!(nt && nt.key === a.key && a.repeat)) { /* bar stays full for a beat: let go to stay, keep holding to move on */ p.grace = { t: 0, max: 0.3 * (typeof state !== 'undefined' ? state.rate * state.speed : 2), x: fx, y: fy, talk: /^talk/.test(a.key) }; p.act = Object.assign({}, a, { t: a.min, done: true }); } }
       }
       continue;

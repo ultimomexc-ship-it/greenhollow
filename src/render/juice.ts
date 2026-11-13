@@ -53,6 +53,7 @@ function jsVoice(n: any, text: string) {
 // @ts-expect-error -- deliberate patch
 const _jFinish = playerFinish; playerFinish = function (n, a) {
   const r = _jFinish(n, a); if (!n || !n.player || !a || !a.key) return r;
+  const fp = /^paint(\d+),(\d+)/.exec(a.key); if (fp) { const p = jTile(+fp[1], +fp[2]); jsPlough(jCombo('f')); jBurst(p.x, p.y + 4, 10, 'dot', ['#6b4a2b', '#8a6239', '#4e3420'], 1.0, 0.7); jShake(1.2); }   // (the field brush: a thud and a puff of earth, climbing the scale along a row)
   const m = /^crop(\d+),(\d+)([psh])/.exec(a.key); if (m) {
     const x = +m[1], y = +m[2], p = jTile(x, y), job = m[3], k = jCombo(job);
     if (job === 'p') { jsPlough(k); jBurst(p.x, p.y + 4, 12, 'dot', ['#6b4a2b', '#8a6239', '#4e3420'], 1.1, 0.8); jShake(1.6); }

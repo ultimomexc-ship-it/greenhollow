@@ -79,6 +79,7 @@ const _t2Select = itBuildSelect; itBuildSelect = function (n, i) {
   const k = (town.tut2.slots || [])[i], b = itBuildState(n); if (!k) return;
   if (k === 'push') { b.sel = 0; const p = n.player; if (p) { p.act = null; p.lock = false; } itSync(true); return; }   // (the hand: walk into a thing to push it)
   if (k === 'destroy') { b.sel = b.sel === 1 ? 0 : 1; const p = n.player; if (p) { p.act = null; p.lock = false; } itSync(true); return; }
+  if (k === 'field') { fieldBrushToggle(n); return; }   // (the field brush: walk into a marked square)
   b.sel = 0; if (k === 'fence' && town.tut2.fenceFree) { if (bldPlaceFront(n, 'fence')) itSync(true); return; }   // (fences go down the normal way: facing a fence, the next goes on the end of the line)
   tut2Place(n, k);
 };
@@ -89,7 +90,7 @@ const _t2Bar = itBuildBarHTML; itBuildBarHTML = function (n, face) {
     ? `<button type="button" class="hbslot${b.sel === 0 ? ' on' : ''}" data-bslot="${i}" title="Push"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${IT_SVG.push}</svg><span class="hbcap">Push</span></button>`
     : k === 'destroy'
     ? `<button type="button" class="hbslot${b.sel === 1 ? ' on' : ''}" data-bslot="${i}" title="Destroy"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${IT_SVG.hammer}</svg><span class="hbcap">Destroy</span></button>`
-    : `<button type="button" class="hbslot item" data-bslot="${i}" title="${esc(itBuildName(k))}"><em>${i + 1}</em>${itBuildIcon(k)}<u>${kitLabel(k)}</u><span class="hbcap">${esc(itBuildName(k))}</span></button>`).join('');
+    : `<button type="button" class="hbslot item${k === 'field' && b.brush === 'field' ? ' on' : ''}" data-bslot="${i}" title="${esc(itBuildName(k))}"><em>${i + 1}</em>${itBuildIcon(k)}<u>${kitLabel(k)}</u><span class="hbcap">${esc(itBuildName(k))}</span></button>`).join('');
   return `<div class="hbbadge" title="Build mode (B)"><b>BUILD</b><span>B to leave</span></div><div class="hbslots">${slots}</div><div class="hbface">${face || ''}</div>`;
 };
 /** put one thing down in front of you, only on a marked tile */
@@ -376,8 +377,8 @@ TUT2_SCENES.push(
     twait(shopIsOpen, { bot: botStall }),
     twait(() => (town.kit.field || 0) >= 6, { bot: () => ({ shop: { tab: 'buy', i: 0, all: true } }) }),
     twait(() => !shopIsOpen(), { bot: () => ({ shop: { close: true } }) }),
-    tarrow('jfield', 'field'), tlock({ build: true }, ['field'], 'jfield'), tstrip('Press B. Face a marked square and press 1 to lay a field tile. Six of them.'),
-    twait(() => tut2AllDone('jfield', 'field'), { bot: (T2: any) => { if (!buildOn()) { const inn = tut2YardInner(T2)[0]; const P = game.player; return yardAtXY(P.tx, P.ty) ? { key: 'b' } : { stand: { x: inn.x, y: inn.y + 1 } }; } const todo = tut2Tiles('jfield').filter(t => !TUT2_DONE.field(t.x, t.y)); if (!todo.length) return null; const t = nearestTo(todo); return { stand: tut2Beside(t), faceTo: t, key: '1' }; } }),
+    tarrow('jfield', 'field'), tlock({ build: true }, ['field'], 'jfield'), tstrip('Press B, then 1 for the field brush. Walk into a marked square to lay a field. Keep walking to lay a row.'),
+    twait(() => tut2AllDone('jfield', 'field'), { bot: (T2: any) => { if (!buildOn()) { const inn = tut2YardInner(T2)[0]; const P = game.player; return yardAtXY(P.tx, P.ty) ? { key: 'b' } : { stand: { x: inn.x, y: inn.y + 1 } }; } const todo = tut2Tiles('jfield').filter(t => !TUT2_DONE.field(t.x, t.y)); if (!todo.length) return null; const t = nearestTo(todo); if (!fieldBrushOn(game.player)) return { key: '1', pressOnly: true }; return { stand: tut2Beside(t), into: t }; } }),
     tstrip('Press B to let the world go on.'),
     twait(() => !buildOn(), { bot: () => ({ key: 'b' }) }),
     tlock({}), tstrip(), tarrow(), tmark(),

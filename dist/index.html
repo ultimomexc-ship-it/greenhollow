@@ -14266,7 +14266,18 @@ function tickPlayer0(n, dt) {
         continue;
       }
     }
-    let tg = itGate(n, lifeAct(n, p, fx, fy, dx, dy) || targetAt(n, fx, fy), walkable(fx, fy));
+    const brush = IT_AUTO && fieldBrushOn(n), paint = brush ? fieldPaintTarget(n, fx, fy) : null;
+    if (brush && p.edgeHold && p.runJob === "f" && grid[n.ty][n.tx] === T.CROP && !paint && grid[fy] && grid[fy][fx] === T.CROP && [[dy, -dx], [-dy, dx], [-dx, -dy]].some(([ax, ay]) => fieldPaintable(n, n.tx + ax, n.ty + ay))) {
+      n.pose = "stand";
+      continue;
+    }
+    if (brush && !paint && (lfPropAt(fx, fy) || !walkable(fx, fy))) {
+      n.pose = "stand";
+      n.tool = null;
+      p.lock = true;
+      continue;
+    }
+    let tg = paint || itGate(n, lifeAct(n, p, fx, fy, dx, dy) || targetAt(n, fx, fy), walkable(fx, fy));
     if (IT_AUTO && FARM_NEED_REST && !itBuildOn(n) && tg && tg.key && /^crop/.test(tg.key) && !p.fresh) tg = null;
     let occ = tileOwner.get(tkey(fx, fy)), pushed = false;
     if (itHand(n, "push") && occ && occ !== n && !occ.infant) {
@@ -14308,11 +14319,11 @@ function tickPlayer0(n, dt) {
         playerFinish(n, a);
         n.tool = null;
         n.hold = null;
-        if (IT_AUTO && /^crop/.test(a.key) && !itBuildOn(n) && !p.sleeping && walkable(fx, fy) && !tileOwner.get(tkey(fx, fy))) {
+        if (IT_AUTO && (/^crop/.test(a.key) && !itBuildOn(n) || /^paint/.test(a.key)) && !p.sleeping && walkable(fx, fy) && !tileOwner.get(tkey(fx, fy))) {
           p.act = null;
           p.grace = null;
           p.edgeHold = d;
-          p.runJob = (a.key.match(/^crop[\d,]+([psh])/) || [])[1] || null;
+          p.runJob = /^paint/.test(a.key) ? "f" : (a.key.match(/^crop[\d,]+([psh])/) || [])[1] || null;
           n.path = [{ x: fx, y: fy }];
           n.moving = true;
           n.t = 0;
@@ -21872,13 +21883,7 @@ function itBuildSelect(n, i) {
   }
   const kind = b.bar[i - 3];
   if (kind === "field" && town.scenario === "hamlet") {
-    b.brush = null;
-    b.sel = 0;
-    if (bldPlaceField(n)) {
-      b.fieldHold = true;
-      b.lastT = n.tx + "," + n.ty;
-    }
-    itSync(true);
+    fieldBrushToggle(n);
     return;
   }
   if (kind === "field") {
@@ -21893,6 +21898,7 @@ function itBuildSelect(n, i) {
   if (kind) bldPlaceFront(n, kind);
 }
 function bldBrushStep(n) {
+  if (town.scenario === "hamlet" && n.build && n.build.brush === "field") return;
   const b = n.build;
   if (b && b.on && b.fieldHold) {
     const key2 = n.tx + "," + n.ty;
@@ -21925,6 +21931,51 @@ const itBuildName = (k) => {
 };
 function bldQueue(p) {
   (town.bldQ = town.bldQ || []).push([p.x, p.y]);
+}
+const FIELD_PAINT_MIN = 3;
+function fieldBrushOn(n) {
+  return !!(n && n.build && n.build.on && n.build.brush === "field" && town.scenario === "hamlet");
+}
+function fieldBrushToggle(n, on) {
+  const b = itBuildState(n), p = n.player;
+  b.sel = 0;
+  b.fieldHold = false;
+  b.brush = (on === void 0 ? b.brush !== "field" : on) ? "field" : null;
+  if (p) {
+    p.act = null;
+    p.lock = false;
+    p.skip = null;
+    p.grace = null;
+    p.edgeHold = null;
+  }
+  if (p) playerSay(n, b.brush ? "Field brush in hand. Walk into grass inside your yard to lay a field." : "Field brush put away.");
+  itSync(true);
+}
+function fieldPaintable(n, x, y) {
+  if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3 || x === n.tx && y === n.ty) return false;
+  const g = grid[y][x];
+  if (g !== T.GRASS && !(g === T.DECK && isUpperY(y)) || roomAt[y][x] >= 0 || lfPropAt(x, y)) return false;
+  if (town.siteAt && town.siteAt[y * W + x] || town.nodeMap && town.nodeMap.has(y * W + x)) return false;
+  if (typeof tut2Active === "function" && tut2Active() && town.tut2.only) return tut2Tiles(town.tut2.only).some((t) => t.x === x && t.y === y);
+  return !!(typeof FIELD_ANYWHERE !== "undefined" && FIELD_ANYWHERE) || !!(typeof yardAtXY === "function" && yardAtXY(x, y));
+}
+function fieldPaintTarget(n, x, y) {
+  if (!fieldPaintable(n, x, y)) return null;
+  if (!kitHas("field")) return { msg: "No field tiles left. Paullus sells them." };
+  return { key: "paint" + x + "," + y, min: FIELD_PAINT_MIN, text: "Laying a field", tool: "hoe", run(nn) {
+    fieldPaintAt(nn, x, y);
+  } };
+}
+function fieldPaintAt(n, x, y) {
+  if (!kitHas("field") || grid[y][x] === T.CROP) return false;
+  setT(x, y, T.CROP);
+  town.crops.push({ x, y, f: "field" + n.id, pl: 1, st: 0, t0: 0, byField: n.id });
+  kitTake("field");
+  markDirty(x, y, 1, 1);
+  town.gridV = (town.gridV || 0) + 1;
+  if (typeof refreshReach === "function") refreshReach();
+  sndPlace();
+  return true;
 }
 function bldPlaceField(n, quiet) {
   if (!kitHas("field")) {
@@ -27576,6 +27627,10 @@ itBuildSelect = function(n, i) {
     itSync(true);
     return;
   }
+  if (k === "field") {
+    fieldBrushToggle(n);
+    return;
+  }
   b.sel = 0;
   if (k === "fence" && town.tut2.fenceFree) {
     if (bldPlaceFront(n, "fence")) itSync(true);
@@ -27587,7 +27642,7 @@ const _t2Bar = itBuildBarHTML;
 itBuildBarHTML = function(n, face) {
   if (!tut2Active()) return _t2Bar(n, face);
   const b = itBuildState(n);
-  const slots = (town.tut2.slots || []).map((k, i) => k === "push" ? `<button type="button" class="hbslot${b.sel === 0 ? " on" : ""}" data-bslot="${i}" title="Push"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${IT_SVG.push}</svg><span class="hbcap">Push</span></button>` : k === "destroy" ? `<button type="button" class="hbslot${b.sel === 1 ? " on" : ""}" data-bslot="${i}" title="Destroy"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${IT_SVG.hammer}</svg><span class="hbcap">Destroy</span></button>` : `<button type="button" class="hbslot item" data-bslot="${i}" title="${esc(itBuildName(k))}"><em>${i + 1}</em>${itBuildIcon(k)}<u>${kitLabel(k)}</u><span class="hbcap">${esc(itBuildName(k))}</span></button>`).join("");
+  const slots = (town.tut2.slots || []).map((k, i) => k === "push" ? `<button type="button" class="hbslot${b.sel === 0 ? " on" : ""}" data-bslot="${i}" title="Push"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${IT_SVG.push}</svg><span class="hbcap">Push</span></button>` : k === "destroy" ? `<button type="button" class="hbslot${b.sel === 1 ? " on" : ""}" data-bslot="${i}" title="Destroy"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${IT_SVG.hammer}</svg><span class="hbcap">Destroy</span></button>` : `<button type="button" class="hbslot item${k === "field" && b.brush === "field" ? " on" : ""}" data-bslot="${i}" title="${esc(itBuildName(k))}"><em>${i + 1}</em>${itBuildIcon(k)}<u>${kitLabel(k)}</u><span class="hbcap">${esc(itBuildName(k))}</span></button>`).join("");
   return `<div class="hbbadge" title="Build mode (B)"><b>BUILD</b><span>B to leave</span></div><div class="hbslots">${slots}</div><div class="hbface">${face || ""}</div>`;
 };
 function tut2Place(n, kind) {
@@ -28218,7 +28273,7 @@ TUT2_SCENES.push(
     twait(() => !shopIsOpen(), { bot: () => ({ shop: { close: true } }) }),
     tarrow("jfield", "field"),
     tlock({ build: true }, ["field"], "jfield"),
-    tstrip("Press B. Face a marked square and press 1 to lay a field tile. Six of them."),
+    tstrip("Press B, then 1 for the field brush. Walk into a marked square to lay a field. Keep walking to lay a row."),
     twait(() => tut2AllDone("jfield", "field"), { bot: (T2) => {
       if (!buildOn()) {
         const inn = tut2YardInner(T2)[0];
@@ -28228,7 +28283,8 @@ TUT2_SCENES.push(
       const todo = tut2Tiles("jfield").filter((t2) => !TUT2_DONE.field(t2.x, t2.y));
       if (!todo.length) return null;
       const t = nearestTo(todo);
-      return { stand: tut2Beside(t), faceTo: t, key: "1" };
+      if (!fieldBrushOn(game.player)) return { key: "1", pressOnly: true };
+      return { stand: tut2Beside(t), into: t };
     } }),
     tstrip("Press B to let the world go on."),
     twait(() => !buildOn(), { bot: () => ({ key: "b" }) }),
@@ -29006,6 +29062,13 @@ const _jFinish = playerFinish;
 playerFinish = function(n, a) {
   const r = _jFinish(n, a);
   if (!n || !n.player || !a || !a.key) return r;
+  const fp = /^paint(\d+),(\d+)/.exec(a.key);
+  if (fp) {
+    const p = jTile(+fp[1], +fp[2]);
+    jsPlough(jCombo("f"));
+    jBurst(p.x, p.y + 4, 10, "dot", ["#6b4a2b", "#8a6239", "#4e3420"], 1, 0.7);
+    jShake(1.2);
+  }
   const m = /^crop(\d+),(\d+)([psh])/.exec(a.key);
   if (m) {
     const x = +m[1], y = +m[2], p = jTile(x, y), job = m[3], k = jCombo(job);
@@ -29423,7 +29486,7 @@ function buildLook(c, now) {
   }
   const f = lf2Front(P);
   if (f && grid[f.y]) {
-    const free = walkable(f.x, f.y) && !lfPropAt(f.x, f.y) && !tileOwner.get(f.y * W + f.x) && roomAt[f.y][f.x] < 0 || roomAt[f.y][f.x] >= 0 && grid[f.y][f.x] === T.FLOOR && !lfPropAt(f.x, f.y);
+    const free = typeof fieldBrushOn === "function" && fieldBrushOn(P) ? fieldPaintable(P, f.x, f.y) : walkable(f.x, f.y) && !lfPropAt(f.x, f.y) && !tileOwner.get(f.y * W + f.x) && roomAt[f.y][f.x] < 0 || roomAt[f.y][f.x] >= 0 && grid[f.y][f.x] === T.FLOOR && !lfPropAt(f.x, f.y);
     const s = toScreen(f.x * TS, f.y * TS), pu = 0.75 + 0.25 * Math.sin(now / 220);
     c.globalAlpha = pu;
     c.lineWidth = 2.5;

@@ -1336,7 +1336,7 @@ test('hamlet: three households (you, a trader, a family), the add-on rules are o
   await page.close();
   return 'five people; add-on rules off; trader sells four seeds, buys a turnip; no bladder, no wear, no hunger deaths in ten days';
 });
-test('hamlet build menu: seven items, the kit is bought from the trader, fences and gates join up and do not make rooms, a field tile is laid, row-laid by holding the key and refunded by the hammer', async b => {
+test('hamlet build menu: seven items, the kit is bought from the trader, fences and gates join up and do not make rooms, the field brush lays field tiles and the hammer refunds them', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r = await page.evaluate(() => {
     newTown('hamlet-build', 'hamlet'); const P = game.player, out = {}; const m = farmSeller();
@@ -1368,18 +1368,18 @@ test('hamlet build menu: seven items, the kit is bought from the trader, fences 
     out.art = [lfPropArt(corner), lfPropArt(side), lfPropArt(gate), lfPropArt(lfPropAt(x0 + 1, y0 + 3))].join(','); out.artsExist = [corner, side, gate].every(p => !!ART.BYID[lfPropArt(p)]);
     // the hammer gives a fence back
     town.kit = {}; itBuildSelect(P, 1); place(x0, y0 + 1, { dx: 1, dy: 0 }); const hit = lifeAct(P, P.player, x0 + 1, y0 + 1, 1, 0); out.fenceHit = !!hit; if (hit) hit.run(P); out.fenceBack = town.kit.fence || 0;
-    // a field tile: one in front of you, paid from the kit; hold the key and walk for a row
+    // the field brush: pick it up with the key, walk into grass to lay a field (paid from the kit); the key again puts it away
     itBuildSelect(P, 0); town.kit = { field: 4 }; const [fx, fy] = find((x, y) => [0, 1, 2, 3, 4].every(i => free(x + i, y)) && free(x, y + 1)); place(fx, fy, { dx: 1, dy: 0 });
-    itBuildSelect(P, 9); out.openRefused = grid[fy][fx + 1] !== T.CROP && town.kit.field === 4; FIELD_ANYWHERE = true;   // (open ground refuses a field: fields go inside yards; the rest of the test lays them on open ground)
-    itBuildSelect(P, 9); out.f1 = grid[fy][fx + 1] === T.CROP; const c1 = town.crops.find(c => c.x === fx + 1 && c.y === fy); out.ploughed = !!c1 && c1.pl === 1 && !c1.st; out.kitF1 = town.kit.field; out.hold = P.build.fieldHold;
-    P.tx = P.x = fx + 1; bldBrushStep(P); P.tx = P.x = fx + 2; bldBrushStep(P); out.row = [fx + 1, fx + 2, fx + 3].every(x => grid[fy][x] === T.CROP); out.kitF2 = town.kit.field;
-    window.dispatchEvent(new KeyboardEvent('keyup', { key: '0' })); out.released = P.build.fieldHold === false; P.tx = P.x = fx + 3; bldBrushStep(P); out.noMore = grid[fy][fx + 4] !== T.CROP;
+    itBuildSelect(P, 9); out.brushOn = fieldBrushOn(P); out.openRefused = !fieldPaintTarget(P, fx + 1, fy) && town.kit.field === 4; FIELD_ANYWHERE = true;   // (open ground refuses a field: fields go inside yards; the rest of the test lays them on open ground)
+    { const t = fieldPaintTarget(P, fx + 1, fy); out.hold = !!t && /^paint/.test(t.key) && t.min > 0; if (t) t.run(P); } out.f1 = grid[fy][fx + 1] === T.CROP; const c1 = town.crops.find(c => c.x === fx + 1 && c.y === fy); out.ploughed = !!c1 && c1.pl === 1 && !c1.st; out.kitF1 = town.kit.field;
+    P.tx = P.x = fx + 1; fieldPaintTarget(P, fx + 2, fy).run(P); P.tx = P.x = fx + 2; fieldPaintTarget(P, fx + 3, fy).run(P); out.row = [fx + 1, fx + 2, fx + 3].every(x => grid[fy][x] === T.CROP); out.kitF2 = town.kit.field;
+    itBuildSelect(P, 9); out.released = !fieldBrushOn(P); P.tx = P.x = fx + 3; out.noMore = grid[fy][fx + 4] !== T.CROP; itBuildSelect(P, 9);
     // out of tiles: the hold stops
-    town.kit.field = 0; itBuildSelect(P, 9); out.fieldOut = grid[fy][fx + 4] !== T.CROP;
+    town.kit.field = 0; { const t = fieldPaintTarget(P, fx + 4, fy); out.fieldOut = !!t && !!t.msg && !t.key; } itBuildSelect(P, 9);
     // the hammer digs a tile back and gives it back
     itBuildSelect(P, 1); place(fx, fy, { dx: 1, dy: 0 }); const dig = targetAt0(P, fx + 1, fy); out.dig = !!dig && /^wallC/.test(dig.key); if (dig) dig.run(P); out.digged = grid[fy][fx + 1] !== T.CROP && !town.crops.some(c => c.x === fx + 1 && c.y === fy); out.refund = town.kit.field;
     // not on a path or on a prop
-    town.kit.field = 5; setT(fx + 1, fy, T.PATH); place(fx, fy, { dx: 1, dy: 0 }); itBuildSelect(P, 9); out.notPath = grid[fy][fx + 1] === T.PATH; P.build.fieldHold = false;
+    town.kit.field = 5; setT(fx + 1, fy, T.PATH); place(fx, fy, { dx: 1, dy: 0 }); out.notPath = !fieldPaintTarget(P, fx + 1, fy) && grid[fy][fx + 1] === T.PATH;
     // a tent-less, privy-less palette: 'toilet' is not offered
     out.noToilet = !itBuildList().some(i => i.kind === 'toilet');
     return out;
@@ -1394,9 +1394,9 @@ test('hamlet build menu: seven items, the kit is bought from the trader, fences 
   check(r.artsExist && /^fence_10,fence_3,gate_h,fence_12$/.test(r.art), 'fences and gates join up: ' + r.art);
   check(r.fenceHit && r.fenceBack === 1, 'the hammer takes a fence down and gives it back: ' + JSON.stringify([r.fenceHit, r.fenceBack]));
   check(r.openRefused, 'a field on open ground is refused (fields go inside a fenced yard)');
-  check(r.f1 && r.ploughed && r.kitF1 === 3 && r.hold === true, 'a field tile goes down ploughed, in front of you: ' + JSON.stringify([r.f1, r.ploughed, r.kitF1, r.hold]));
-  check(r.row && r.kitF2 === 1, 'holding the key and walking lays a row: ' + JSON.stringify([r.row, r.kitF2]));
-  check(r.released && r.noMore, 'letting go stops the row: ' + JSON.stringify([r.released, r.noMore]));
+  check(r.brushOn && r.f1 && r.ploughed && r.kitF1 === 3 && r.hold === true, 'the key picks up the field brush; walking into grass is a short job that lays a ploughed tile: ' + JSON.stringify([r.brushOn, r.f1, r.ploughed, r.kitF1, r.hold]));
+  check(r.row && r.kitF2 === 1, 'one after another they make a row: ' + JSON.stringify([r.row, r.kitF2]));
+  check(r.released && r.noMore, 'the key again puts the brush away: ' + JSON.stringify([r.released, r.noMore]));
   check(r.fieldOut, 'with no tiles left nothing is laid');
   check(r.dig && r.digged && r.refund === 1, 'the hammer digs a tile back and refunds it: ' + JSON.stringify([r.dig, r.digged, r.refund]));
   check(r.notPath, 'a field needs bare grass'); check(r.noToilet, 'no privy seat in the Hamlet palette');
@@ -2966,6 +2966,42 @@ test('farming runs: walk on over done plots, stop for a plot of the same job bes
   check(r.noSeedSown === 'pp' && r.noSeedAt >= 2, 'with no seed in hand you walk over ploughed ground and nothing is sown: ' + JSON.stringify(r));
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
   return 'walk on, stop for a side plot, stop for another job, no seed walks over';
+});
+
+test('field brush: in build mode the field brush lays fields like ploughing: walk into grass in your yard, a row while you hold on, stop at the fence and at corners, nothing outside the yard, no fences pushed', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('brush-test', 'hamlet'); const P = game.player, p = P.player;
+    // a clear 6 x 5 patch of grass: a ring of fences round a 4 x 3 inside, a gate on the left
+    let at = null; for (let y = town.cy - 25; y < town.cy + 25 && !at; y++) for (let x = town.cx - 30; x < town.cx + 30 && !at; x++) { let ok = true; for (let j = -1; j <= 5 && ok; j++) for (let i = -1; i <= 7 && ok; i++) if (grid[y + j][x + i] !== T.GRASS || lfPropAt(x + i, y + j) || tileOwner.get((y + j) * W + x + i) || yardAtXY(x + i, y + j)) ok = false; if (ok) at = { x, y }; }
+    const x0 = at.x + 1, y0 = at.y + 1;   // (the inside: x0..x0+3, y0..y0+2)
+    for (let j = -1; j <= 3; j++) for (let i = -1; i <= 4; i++) if (i === -1 || i === 4 || j === -1 || j === 3) lfAddProp(i === -1 && j === 1 ? 'gate' : 'fence', x0 + i, y0 + j);
+    yardScan(); town.kit.field = 30;
+    P.tx = P.x = x0; P.ty = P.y = y0; P.path = []; P.moving = false; P.face = { dx: 1, dy: 0 };
+    itBuildToggle(P, true); fieldBrushToggle(P, true);
+    const hold = (d) => { p.keys = {}; for (let i = 0; i < 4; i++) updateSim(0.5); p.idle = 1; p.keys = { [d]: true }; for (let i = 0; i < 300; i++) updateSim(0.5); p.keys = {}; for (let i = 0; i < 4; i++) updateSim(0.5); return [P.tx - x0, P.ty - y0]; };
+    const fields = () => { let s = ''; for (let j = 0; j < 3; j++) { for (let i = 0; i < 4; i++) s += grid[y0 + j][x0 + i] === T.CROP ? 'f' : '.'; s += '|'; } return s; };
+    const out = { inYard: !!yardAtXY(x0, y0) };
+    out.row = hold('right'); out.f1 = fields();                       // (the first row: three tiles, stopped on the last one with the fence ahead)
+    out.fence = lfPropAt(x0 + 4, y0) && lfPropAt(x0 + 4, y0).kind;    // (the brush pushes nothing)
+    out.down = hold('down'); out.left = hold('left'); out.f2 = fields();
+    out.kit = town.kit.field;
+    // a corner: over a row of fields the run stops when a square beside you still wants one
+    for (let i = 0; i < 4; i++) { setT(x0 + i, y0 + 2, T.GRASS); } town.crops = town.crops.filter(c => c.y !== y0 + 2 || c.x < x0 || c.x > x0 + 3); setT(x0 + 1, y0 + 2, T.CROP); town.crops.push({ x: x0 + 1, y: y0 + 2, f: 'x', pl: 1, st: 0, t0: 0 });
+    P.tx = P.x = x0; P.ty = P.y = y0 + 1; P.face = { dx: 1, dy: 0 }; out.corner = hold('right');
+    // outside the yard the brush lays nothing: you walk
+    P.tx = P.x = x0 - 1; P.ty = P.y = y0 + 1; P.face = { dx: -1, dy: 0 }; const before = town.crops.length; out.outside = hold('left'); out.outsideLaid = town.crops.length - before;
+    return out;
+  });
+  check(r.inYard, 'the fenced ring is a yard: ' + JSON.stringify(r));
+  check(r.row.join() === '3,0' && r.f1.startsWith('.fff|'), 'holding on lays a row of three and stops on the last tile at the fence: ' + JSON.stringify(r));
+  check(r.fence === 'fence', 'the fence was not pushed: ' + JSON.stringify(r));
+  check(r.down.join() === '3,2' && r.left.join() === '0,2' && r.f2 === '.fff|...f|ffff|', 'holding down lays down the side to the fence, then a row back the other way: ' + JSON.stringify(r));
+  check(r.kit === 30 - 8, 'each tile takes one from the kit: ' + JSON.stringify(r));
+  check(r.corner.join() === '2,1', 'with a field ahead the run stops where a square beside you still wants one: ' + JSON.stringify(r));
+  check(r.outsideLaid === 0 && r.outside[0] < -1, 'outside the yard nothing is laid and you walk on: ' + JSON.stringify(r));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return 'rows, fence stop, corner stop, nothing outside the yard';
 });
 
 test('tutorial: an item card holds every speech bubble (nothing expires behind it)', async b => {
