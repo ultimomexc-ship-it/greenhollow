@@ -25,11 +25,11 @@ export async function playTutorial(page, { patient = false, until = 99, shots = 
       const st = { scene: T2.scene, step: T2.step, do: s.do, strip: T2.ui.strip, bubble: performance.now() < TUT2.bubbleEnd };
       if (s.do === 'wait' && s.bot) {
         const tg = s.bot(T2); if (!tg) return st;
-        if (P.tx === tg.x && P.ty === tg.y) return Object.assign(st, { key: null, at: true });
+        const cur = P.moving && P.path && P.path.length ? P.path[P.path.length - 1] : { x: P.tx, y: P.ty };   // (steer from the tile you are walking into)
+        if (cur.x === tg.x && cur.y === tg.y) return Object.assign(st, { key: null, at: true });
         if (P.player.lock) return Object.assign(st, { key: null, lock: true });   // (a bump stopped you: let go and press again, as a player would)
-        if (P.moving) return Object.assign(st, { key: 'same' });
-        const p = findPath(P.tx, P.ty, tg.x, tg.y); if (!p || !p.length) return Object.assign(st, { key: null, nopath: true });
-        const dx = p[0].x - P.tx, dy = p[0].y - P.ty;
+        const p = findPath(cur.x, cur.y, tg.x, tg.y); if (!p || !p.length) return Object.assign(st, { key: null, nopath: true });
+        const dx = p[0].x - cur.x, dy = p[0].y - cur.y;
         return Object.assign(st, { key: dx > 0 ? 'ArrowRight' : dx < 0 ? 'ArrowLeft' : dy > 0 ? 'ArrowDown' : 'ArrowUp' });
       }
       return Object.assign(st, { key: null });
