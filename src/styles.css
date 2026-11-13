@@ -296,3 +296,6 @@ body.tut2-seedglow #hotbar .hbslots .hbslot:first-child { animation: tutbounce .
 .tkb .tkopts button span { font: 600 .85em var(--font-mono, monospace); color: #9a6a1c; }
 .tkb .tkopts button:hover, .tkb .tkopts button.kf { background: #f0dfb4; outline: none !important; }
 .tkb .tklv { display: block; margin: 3px 0 0 auto; border: 0; background: transparent; color: #7a6a58; font: 500 11px system-ui, sans-serif; cursor: pointer; padding: 2px 6px; } .tkb .tklv i { font-style: normal; opacity: .7; }
+
+/* the weather prototype's buttons (render/weather.ts) */
+.wxseg { margin-left: 6px; } .wxseg .wxlab { padding: 7px 8px 7px 10px; font: 600 11px var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: var(--muted, #9aa); align-self: center; } .wxseg button[aria-pressed="true"] { background: var(--accent, #e0a93f); color: #1a1408; }
