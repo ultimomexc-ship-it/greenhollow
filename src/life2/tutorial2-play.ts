@@ -77,6 +77,7 @@ const _t2Fits = itFits; itFits = function (n, need) { if (need === 'hammer' && t
 const _t2Select = itBuildSelect; itBuildSelect = function (n, i) {
   if (!tut2Active()) return _t2Select(n, i);
   const k = (town.tut2.slots || [])[i], b = itBuildState(n); if (!k) return;
+  if (k === 'push') { b.sel = 0; const p = n.player; if (p) { p.act = null; p.lock = false; } itSync(true); return; }   // (the hand: walk into a thing to push it)
   if (k === 'destroy') { b.sel = b.sel === 1 ? 0 : 1; const p = n.player; if (p) { p.act = null; p.lock = false; } itSync(true); return; }
   b.sel = 0; if (k === 'fence' && town.tut2.fenceFree) { if (bldPlaceFront(n, 'fence')) itSync(true); return; }   // (fences go down the normal way: facing a fence, the next goes on the end of the line)
   tut2Place(n, k);
@@ -84,7 +85,9 @@ const _t2Select = itBuildSelect; itBuildSelect = function (n, i) {
 // @ts-expect-error -- deliberate patch
 const _t2Bar = itBuildBarHTML; itBuildBarHTML = function (n, face) {
   if (!tut2Active()) return _t2Bar(n, face); const b = itBuildState(n);
-  const slots = (town.tut2.slots || []).map((k: string, i: number) => k === 'destroy'
+  const slots = (town.tut2.slots || []).map((k: string, i: number) => k === 'push'
+    ? `<button type="button" class="hbslot${b.sel === 0 ? ' on' : ''}" data-bslot="${i}" title="Push"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${IT_SVG.push}</svg><span class="hbcap">Push</span></button>`
+    : k === 'destroy'
     ? `<button type="button" class="hbslot${b.sel === 1 ? ' on' : ''}" data-bslot="${i}" title="Destroy"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${IT_SVG.hammer}</svg><span class="hbcap">Destroy</span></button>`
     : `<button type="button" class="hbslot item" data-bslot="${i}" title="${esc(itBuildName(k))}"><em>${i + 1}</em>${itBuildIcon(k)}<u>${kitLabel(k)}</u><span class="hbcap">${esc(itBuildName(k))}</span></button>`).join('');
   return `<div class="hbbadge" title="Build mode (B)"><b>BUILD</b><span>B to leave</span></div><div class="hbslots">${slots}</div><div class="hbface">${face || ''}</div>`;
@@ -196,7 +199,7 @@ const tarrow = (to?: any, done?: string): any => ({ do: 'arrow', to: to || null,
 const tmark = (tiles?: any, done?: string, extra?: any): any => Object.assign({ do: 'mark', tiles: tiles || null, done }, extra || {});
 const twait = (until: (T2: any) => boolean, extra?: any): any => Object.assign({ do: 'wait', until }, extra || {});
 const tpause = (s: number): any => ({ do: 'wait', until: () => TUT2.t >= s });
-const tlock = (locks: any, slots?: string[], only?: string, onlyMsg?: string): any => tset(T2 => { T2.locks = Object.assign({}, locks, T2.pushTaught ? { push: true } : {}); T2.slots = slots || []; T2.only = only || null; T2.onlyMsg = onlyMsg || null; });
+const tlock = (locks: any, slots?: string[], only?: string, onlyMsg?: string): any => tset(T2 => { T2.locks = Object.assign({}, locks, T2.pushTaught ? { push: true } : {}); T2.baseSlots = slots || []; T2.slots = slots || []; T2.only = only || null; T2.onlyMsg = onlyMsg || null; });
 const tstock = (buy: any[], sell: any[], line: string): any => tset(T2 => { T2.stock = { buy, sell, line }; });
 const shopIsOpen = () => SHOP.open;
 const buildOn = () => itBuildOn(game.player);
@@ -451,7 +454,12 @@ function tut2PushWatch() {
     T2.pushTaught = true; T2.locks = Object.assign({}, T2.locks, { push: true });
     tut2Say(R, shut ? 'You can shove them, you know. Press B and walk into one.' : "That one's wandered. Walk into it in build mode and it goes where you push it.", P);
   } else if (shut && !T2.shutSaid && T2.pushTaught) { T2.shutSaid = true; tut2Say(R, 'Shove one. They move.', P); }
-  T2.ui.lesson = strays.length ? 'Push the stray fence onto a mark: in build mode, walk into it.' : shut ? 'Shut in. In build mode, walk into a fence to push it out of the way.' : null;
+  if (T2.pushTaught && T2.slots && !T2.slots.includes('push') && (T2.slots.length || itBuildOn(P))) T2.slots = T2.slots.concat(['push']);   // (a Push slot on the bar once pushing is known)
+  const pk = (T2.slots || []).indexOf('push') + 1, B = P && P.build;
+  if ((strays.length || shut) && B && B.on && B.sel !== 0 && !T2.lessonSel) { T2.lessonSel = true; B.sel = 0; itSync(true); }   // (the lesson puts the hand in push for you, once)
+  if (!strays.length && !shut) T2.lessonSel = false;
+  const how = !(B && B.on) ? 'Press B, then walk into it.' : B.sel !== 0 ? `Press ${pk} for Push, then walk into it.` : 'Walk into it to push it.';
+  T2.ui.lesson = strays.length ? 'Push the stray fence onto a mark. ' + how : shut ? 'Shut in. Push a fence out of the way. ' + how : null;
 }
 // @ts-expect-error -- deliberate patch
 const _t2Hud = tut2Hud; tut2Hud = function () { if (town && town.tut2) { tut2PushWatch(); const ui = town.tut2.ui; if (ui && ui.lesson && !(ui.flash && performance.now() < ui.flash.until)) ui.flash = { text: ui.lesson, until: performance.now() + 200 }; } return _t2Hud(); };

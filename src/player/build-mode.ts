@@ -3,7 +3,8 @@
    and slots 3-9 are building items you choose in the bag (I): pressing one puts a single one of it on the free ground in front of you (free for now). The Builder's Yard in the square is gone. */
 const BUILD_ICON: any = { bed: 'bed_head_up_1', chair: 'seat_down' };
 const BUILD_DEFAULT = ['bwall', 'bwindow', 'bdoor', 'bed', 'chair', 'table', 'field'];
-const BUILD_CAP = 400;   // loose things on the island before the palette says it is crowded
+const BUILD_CAP = 400;
+let FIELD_ANYWHERE = false;   // (true lets fields go on open ground in the Hamlet again; tests and the balance bot that lay fields by hand set it)   // loose things on the island before the palette says it is crowded
 function itBuildState(n) { if (!n.build) n.build = { on: false, sel: 0, bar: (town && town.scenario === 'hamlet' ? HAMLET_BUILD : BUILD_DEFAULT).slice(), prev: null }; return n.build; }
 /** what the build menu offers: everything, or in the Hamlet only the seven things the minimum game builds with */
 const itBuildList = () => town && town.scenario === 'hamlet' ? hamletBuildKinds().map(k => YARD_ITEMS.find(q => q.kind === k)).filter(Boolean) as typeof YARD_ITEMS : YARD_ITEMS;
@@ -43,6 +44,7 @@ function bldPlaceField(n, quiet?: boolean): boolean {
   const f = lf2Front(n), x = f.x, y = f.y; if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) return false;
   const g = grid[y][x];
   if ((g !== T.GRASS && !(g === T.DECK && isUpperY(y))) || roomAt[y][x] >= 0 || lfPropAt(x, y) || (town.siteAt && town.siteAt[y * W + x]) || (town.nodeMap && town.nodeMap.has(y * W + x)) || (x === n.tx && y === n.ty)) { if (!quiet) playerSay(n, 'A field needs bare grass.'); return false; }
+  if (town.scenario === 'hamlet' && typeof yardAtXY === 'function' && !(typeof FIELD_ANYWHERE !== 'undefined' && FIELD_ANYWHERE) && !yardAtXY(x, y)) { if (!quiet) { playerSay(n, 'Fields go inside a fenced yard. Not on open ground.'); if (typeof tut2Flash === 'function') tut2Flash('Fields go inside a fenced yard.'); } return false; }   // (a field is always somebody's: inside a yard, never on public land)
   setT(x, y, T.CROP); town.crops.push({ x, y, f: 'field' + n.id, pl: 1, st: 0, t0: 0, byField: n.id }); kitTake('field'); markDirty(x, y, 1, 1); town.gridV = (town.gridV || 0) + 1; if (typeof refreshReach === 'function') refreshReach(); sndPlace();
   if (!quiet) playerSay(n, 'A field tile.'); return true;
 }

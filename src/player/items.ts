@@ -165,7 +165,8 @@ function itSync(force?: boolean) {
   if (IT_AUTO) {
     const need = f && f.need, using = need === 'rod' || need === 'axe' || need === 'hammer' || need === 'hoe' ? need : null;
     const tools = ['axe', 'hammer', 'hoe', 'rod'].map(k => { const it = (n.items || []).filter(i => i.kind === k).sort((a, b) => b.wear - a.wear)[0]; return `<div class="hbtool${using === k ? ' on' : ''}${it ? '' : ' none'}" title="${esc(itName(k))}${it ? '' : ' (none: the smith sells one)'}">${itIcon(k, 24)}<i class="hbwear"><b style="width:${it ? Math.round(it.wear * 100) : 0}%"></b></i></div>`; }).join('');
-    hb.innerHTML = `<div class="hbtools" title="Tools (picked for you)">${tools}</div><div class="hbslots">${n.belt.map((_, i) => itSlotHTML(n, i)).join('')}</div><div class="hbface">${face || '<span class="dim">Walk into things to use them · 1-0 hotbar · I bag · B build</span>'}</div>`;
+    const showAll = typeof itBagOpen === 'function' && itBagOpen();   // (empty slots and tools you do not own are hidden, except while the bag is open to drag into)
+    hb.innerHTML = `<div class="hbtools" title="Tools (picked for you)">${tools.split('</div>').filter(t => t && !/ none"/.test(t)).map(t => t + '</div>').join('')}</div><div class="hbslots">${n.belt.map((r, i) => r || showAll ? itSlotHTML(n, i) : '').join('')}</div><div class="hbface">${face || '<span class="dim">Walk into things to use them · 1-0 hotbar · I bag · B build</span>'}</div>`;
     if (itBagOpen()) itBagDraw(); return;
   }
   const mode = itMode(n), onHand = (n.sel || 0) === 0;

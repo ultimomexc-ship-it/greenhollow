@@ -13963,7 +13963,7 @@ function tickPlayer0(n, dt) {
       if (!tg) occ = null;
     }
     if (occ && occ !== n && !occ.infant && !pushed) {
-      if (occ.shop && occ.shop.def === HAMLET_TRADER_DEF && typeof shopOpen === "function") tg = { key: "tstall" + occ.id, min: 0.4, text: "At the trading stall", tool: null, run() {
+      if (occ.shop && occ.shop.def === HAMLET_TRADER_DEF && typeof shopOpen === "function" && Math.abs(occ.tx - occ.shop.front.x) + Math.abs(occ.ty - occ.shop.front.y) <= 2 && (!(typeof tut2Active === "function" && tut2Active()) || town.tut2.stock && ((town.tut2.stock.buy || []).length || (town.tut2.stock.sell || []).length))) tg = { key: "tstall" + occ.id, min: 0.4, text: "At the trading stall", tool: null, run() {
         shopOpen(occ.shop);
       } };
       else if (occ.tutHold) tg = { msg: occ.first + ": " + tut2Bump(occ) };
@@ -13997,7 +13997,7 @@ function tickPlayer0(n, dt) {
         playerFinish(n, a);
         n.tool = null;
         n.hold = null;
-        if (IT_AUTO && /^crop/.test(a.key) && !itBuildOn(n) && !p.sleeping && walkable(fx, fy) && !tileOwner.get(tkey(fx, fy))) {
+        if (IT_AUTO && /^crop/.test(a.key) && !itBuildOn(n) && !p.sleeping && walkable(fx, fy) && !tileOwner.get(tkey(fx, fy)) && grid[fy + dy] && grid[fy + dy][fx + dx] === T.CROP) {
           p.act = null;
           p.grace = null;
           n.path = [{ x: fx, y: fy }];
@@ -18273,9 +18273,16 @@ function pushLine(n, x, y, dx, dy) {
 const pushSettled = (who) => who.pose === "sit" || who.pose === "kneel";
 const pushWhy = (who) => (who.first || "Somebody") + " is settled in.";
 const pushPersonOK = (nx, ny) => nx >= 2 && ny >= 2 && nx < W - 2 && ny < H - 2 && lf2PersonOK(nx, ny) && !tileOwner.get(ny * W + nx) && !lfPropAt(nx, ny);
+const PUSH_YARD_FIXED = true;
+function lfYardFixed(p) {
+  if (!PUSH_YARD_FIXED || !p || p.kind !== "fence" && p.kind !== "gate" || !town.yards) return false;
+  const k = p.y * W + p.x;
+  return town.yards.some((y) => y.open == null && y.fences && y.fences.includes(k));
+}
 function lf2PushLine(n, x, y, dx, dy) {
   const line = pushLine(n, x, y, dx, dy);
   if (!line) return null;
+  if (line.some((p) => lfYardFixed(p.p || p.pr || p))) return "A closed fence stands like a wall. Knock one out with the hammer to move it.";
   const furn = line[0].kind === "furniture";
   if (line.some((p) => p.kind === "furniture" !== furn)) return pushSwap(n, line[0]);
   const last2 = line[line.length - 1], nx = last2.x + dx, ny = last2.y + dy;
@@ -21361,7 +21368,8 @@ function itSync(force) {
       const it = (n.items || []).filter((i) => i.kind === k).sort((a, b) => b.wear - a.wear)[0];
       return `<div class="hbtool${using === k ? " on" : ""}${it ? "" : " none"}" title="${esc(itName(k))}${it ? "" : " (none: the smith sells one)"}">${itIcon(k, 24)}<i class="hbwear"><b style="width:${it ? Math.round(it.wear * 100) : 0}%"></b></i></div>`;
     }).join("");
-    hb.innerHTML = `<div class="hbtools" title="Tools (picked for you)">${tools}</div><div class="hbslots">${n.belt.map((_, i) => itSlotHTML(n, i)).join("")}</div><div class="hbface">${face || '<span class="dim">Walk into things to use them \xB7 1-0 hotbar \xB7 I bag \xB7 B build</span>'}</div>`;
+    const showAll = typeof itBagOpen === "function" && itBagOpen();
+    hb.innerHTML = `<div class="hbtools" title="Tools (picked for you)">${tools.split("</div>").filter((t) => t && !/ none"/.test(t)).map((t) => t + "</div>").join("")}</div><div class="hbslots">${n.belt.map((r, i) => r || showAll ? itSlotHTML(n, i) : "").join("")}</div><div class="hbface">${face || '<span class="dim">Walk into things to use them \xB7 1-0 hotbar \xB7 I bag \xB7 B build</span>'}</div>`;
     if (itBagOpen()) itBagDraw();
     return;
   }
@@ -21479,6 +21487,7 @@ function itBagDraw() {
 const BUILD_ICON = { bed: "bed_head_up_1", chair: "seat_down" };
 const BUILD_DEFAULT = ["bwall", "bwindow", "bdoor", "bed", "chair", "table", "field"];
 const BUILD_CAP = 400;
+let FIELD_ANYWHERE = false;
 function itBuildState(n) {
   if (!n.build) n.build = { on: false, sel: 0, bar: (town && town.scenario === "hamlet" ? HAMLET_BUILD : BUILD_DEFAULT).slice(), prev: null };
   return n.build;
@@ -21605,6 +21614,13 @@ function bldPlaceField(n, quiet) {
   const g = grid[y][x];
   if (g !== T.GRASS && !(g === T.DECK && isUpperY(y)) || roomAt[y][x] >= 0 || lfPropAt(x, y) || town.siteAt && town.siteAt[y * W + x] || town.nodeMap && town.nodeMap.has(y * W + x) || x === n.tx && y === n.ty) {
     if (!quiet) playerSay(n, "A field needs bare grass.");
+    return false;
+  }
+  if (town.scenario === "hamlet" && typeof yardAtXY === "function" && !(typeof FIELD_ANYWHERE !== "undefined" && FIELD_ANYWHERE) && !yardAtXY(x, y)) {
+    if (!quiet) {
+      playerSay(n, "Fields go inside a fenced yard. Not on open ground.");
+      if (typeof tut2Flash === "function") tut2Flash("Fields go inside a fenced yard.");
+    }
     return false;
   }
   setT(x, y, T.CROP);
@@ -27193,6 +27209,16 @@ itBuildSelect = function(n, i) {
   if (!tut2Active()) return _t2Select(n, i);
   const k = (town.tut2.slots || [])[i], b = itBuildState(n);
   if (!k) return;
+  if (k === "push") {
+    b.sel = 0;
+    const p = n.player;
+    if (p) {
+      p.act = null;
+      p.lock = false;
+    }
+    itSync(true);
+    return;
+  }
   if (k === "destroy") {
     b.sel = b.sel === 1 ? 0 : 1;
     const p = n.player;
@@ -27214,7 +27240,7 @@ const _t2Bar = itBuildBarHTML;
 itBuildBarHTML = function(n, face) {
   if (!tut2Active()) return _t2Bar(n, face);
   const b = itBuildState(n);
-  const slots = (town.tut2.slots || []).map((k, i) => k === "destroy" ? `<button type="button" class="hbslot${b.sel === 1 ? " on" : ""}" data-bslot="${i}" title="Destroy"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${IT_SVG.hammer}</svg><span class="hbcap">Destroy</span></button>` : `<button type="button" class="hbslot item" data-bslot="${i}" title="${esc(itBuildName(k))}"><em>${i + 1}</em>${itBuildIcon(k)}<u>${kitLabel(k)}</u><span class="hbcap">${esc(itBuildName(k))}</span></button>`).join("");
+  const slots = (town.tut2.slots || []).map((k, i) => k === "push" ? `<button type="button" class="hbslot${b.sel === 0 ? " on" : ""}" data-bslot="${i}" title="Push"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${IT_SVG.push}</svg><span class="hbcap">Push</span></button>` : k === "destroy" ? `<button type="button" class="hbslot${b.sel === 1 ? " on" : ""}" data-bslot="${i}" title="Destroy"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${IT_SVG.hammer}</svg><span class="hbcap">Destroy</span></button>` : `<button type="button" class="hbslot item" data-bslot="${i}" title="${esc(itBuildName(k))}"><em>${i + 1}</em>${itBuildIcon(k)}<u>${kitLabel(k)}</u><span class="hbcap">${esc(itBuildName(k))}</span></button>`).join("");
   return `<div class="hbbadge" title="Build mode (B)"><b>BUILD</b><span>B to leave</span></div><div class="hbslots">${slots}</div><div class="hbface">${face || ""}</div>`;
 };
 function tut2Place(n, kind) {
@@ -27441,6 +27467,7 @@ const twait = (until, extra) => Object.assign({ do: "wait", until }, extra || {}
 const tpause = (s) => ({ do: "wait", until: () => TUT2.t >= s });
 const tlock = (locks, slots, only, onlyMsg) => tset((T2) => {
   T2.locks = Object.assign({}, locks, T2.pushTaught ? { push: true } : {});
+  T2.baseSlots = slots || [];
   T2.slots = slots || [];
   T2.only = only || null;
   T2.onlyMsg = onlyMsg || null;
@@ -28011,7 +28038,16 @@ function tut2PushWatch() {
     T2.shutSaid = true;
     tut2Say(R, "Shove one. They move.", P);
   }
-  T2.ui.lesson = strays.length ? "Push the stray fence onto a mark: in build mode, walk into it." : shut ? "Shut in. In build mode, walk into a fence to push it out of the way." : null;
+  if (T2.pushTaught && T2.slots && !T2.slots.includes("push") && (T2.slots.length || itBuildOn(P))) T2.slots = T2.slots.concat(["push"]);
+  const pk = (T2.slots || []).indexOf("push") + 1, B = P && P.build;
+  if ((strays.length || shut) && B && B.on && B.sel !== 0 && !T2.lessonSel) {
+    T2.lessonSel = true;
+    B.sel = 0;
+    itSync(true);
+  }
+  if (!strays.length && !shut) T2.lessonSel = false;
+  const how = !(B && B.on) ? "Press B, then walk into it." : B.sel !== 0 ? `Press ${pk} for Push, then walk into it.` : "Walk into it to push it.";
+  T2.ui.lesson = strays.length ? "Push the stray fence onto a mark. " + how : shut ? "Shut in. Push a fence out of the way. " + how : null;
 }
 const _t2Hud = tut2Hud;
 tut2Hud = function() {
@@ -28228,11 +28264,13 @@ shopDraw = function() {
 function tut2GlowSlot() {
   const T2 = town.tut2, P = game.player, sl = T2.slots || [];
   if (!sl.length) return -1;
+  if (T2.ui && T2.ui.lesson && sl.includes("push")) return P.build && P.build.sel === 0 ? -1 : sl.indexOf("push");
   if (sl[0] === "destroy") {
     const g = T2.at.gate, p = lfPropAt(g.x, g.y);
     if (p && p.kind === "fence") return P.build && P.build.sel === 1 ? -1 : 0;
     return 1;
   }
+  if (sl[0] === "push") return -1;
   return 0;
 }
 const _t2Bar2 = itBuildBarHTML;
@@ -28240,7 +28278,7 @@ itBuildBarHTML = function(n, face) {
   let h = _t2Bar2(n, face);
   if (!tut2Active()) return h;
   const g = tut2GlowSlot();
-  if (g >= 0) h = h.replace(`class="hbslot${g === 0 && (town.tut2.slots || [])[0] === "destroy" ? "" : " item"}" data-bslot="${g}"`, `class="hbslot${g === 0 && (town.tut2.slots || [])[0] === "destroy" ? "" : " item"} tutglow" data-bslot="${g}"`);
+  if (g >= 0) h = h.replace(new RegExp('class="(hbslot[^"]*)" data-bslot="' + g + '"'), 'class="$1 tutglow" data-bslot="' + g + '"');
   if (/^Press B to let/.test(town.tut2.ui.strip || "")) h = h.replace('class="hbbadge"', 'class="hbbadge tutglow"');
   return h;
 };

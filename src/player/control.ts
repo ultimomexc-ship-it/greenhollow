@@ -202,7 +202,7 @@ function tickPlayer0(n, dt) {
     // Push mode: people are pushed like furniture (they move one tile, or you swap places); it is harmless, not a crime
     if (itHand(n, 'push') && occ && occ !== n && !occ.infant) { pushed = true; if (!tg) occ = null; }   // (a person is a piece in the line: lifeAct has pushed them, or said why not)
     if (occ && occ !== n && !occ.infant && !pushed) {
-      if (occ.shop && occ.shop.def === HAMLET_TRADER_DEF && typeof shopOpen === 'function') tg = { key: 'tstall' + occ.id, min: 0.4, text: 'At the trading stall', tool: null, run() { shopOpen(occ.shop); } };   // (the Hamlet's trader always serves: the shop panel, life2/tutorial2-play.ts)
+      if (occ.shop && occ.shop.def === HAMLET_TRADER_DEF && typeof shopOpen === 'function' && Math.abs(occ.tx - occ.shop.front.x) + Math.abs(occ.ty - occ.shop.front.y) <= 2 && (!(typeof tut2Active === 'function' && tut2Active()) || (town.tut2.stock && ((town.tut2.stock.buy || []).length || (town.tut2.stock.sell || []).length)))) tg = { key: 'tstall' + occ.id, min: 0.4, text: 'At the trading stall', tool: null, run() { shopOpen(occ.shop); } };   // (the Hamlet's trader always serves: the shop panel, life2/tutorial2-play.ts)
       else if (occ.tutHold) tg = { msg: occ.first + ': ' + tut2Bump(occ) };   // (the tutorial holds them: no talk menu)
       else if (occ.pose === 'sleep') tg = { msg: occ.first + ' is asleep.' };
       else if (!itTalking(n)) tg = { msg: occ.first + ': ' + itWant(n, 'talk') };
@@ -217,7 +217,7 @@ function tickPlayer0(n, dt) {
       p.act.t += step; applyPlayerAct(n, p.act);
       if (p.act.t >= p.act.min) {
         const a = p.act; playerFinish(n, a); n.tool = null; n.hold = null;
-        if (IT_AUTO && /^crop/.test(a.key) && !itBuildOn(n) && !p.sleeping && walkable(fx, fy) && !tileOwner.get(tkey(fx, fy))) { p.act = null; p.grace = null; n.path = [{ x: fx, y: fy }]; n.moving = true; n.t = 0; n.pose = 'walk'; continue; }   // (you step onto the plot you have just worked, so holding a direction works a whole row)
+        if (IT_AUTO && /^crop/.test(a.key) && !itBuildOn(n) && !p.sleeping && walkable(fx, fy) && !tileOwner.get(tkey(fx, fy)) && grid[fy + dy] && grid[fy + dy][fx + dx] === T.CROP) { p.act = null; p.grace = null; n.path = [{ x: fx, y: fy }]; n.moving = true; n.t = 0; n.pose = 'walk'; continue; }   // (you step onto the plot you have just worked, so holding a direction works a whole row)
         if (!p.sleeping) { const nt = targetAt(n, fx, fy); if (!(nt && nt.key === a.key && a.repeat)) { /* bar stays full for a beat: let go to stay, keep holding to move on */ p.grace = { t: 0, max: 0.3 * (typeof state !== 'undefined' ? state.rate * state.speed : 2), x: fx, y: fy, talk: /^talk/.test(a.key) }; p.act = Object.assign({}, a, { t: a.min, done: true }); } }
       }
       continue;

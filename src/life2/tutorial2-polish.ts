@@ -107,13 +107,15 @@ const _t2SDraw = shopDraw; shopDraw = function () {
 /** which build slot the step wants pressed next */
 function tut2GlowSlot(): number {
   const T2 = town.tut2, P = game.player, sl = T2.slots || []; if (!sl.length) return -1;
+  if (T2.ui && T2.ui.lesson && sl.includes('push')) return P.build && P.build.sel === 0 ? -1 : sl.indexOf('push');
   if (sl[0] === 'destroy') { const g = T2.at.gate, p = lfPropAt(g.x, g.y); if (p && p.kind === 'fence') return P.build && P.build.sel === 1 ? -1 : 0; return 1; }
+  if (sl[0] === 'push') return -1;
   return 0;
 }
 // @ts-expect-error -- deliberate patch
 const _t2Bar2 = itBuildBarHTML; itBuildBarHTML = function (n, face) {
   let h = _t2Bar2(n, face); if (!tut2Active()) return h;
-  const g = tut2GlowSlot(); if (g >= 0) h = h.replace(`class="hbslot${g === 0 && (town.tut2.slots || [])[0] === 'destroy' ? '' : ' item'}" data-bslot="${g}"`, `class="hbslot${g === 0 && (town.tut2.slots || [])[0] === 'destroy' ? '' : ' item'} tutglow" data-bslot="${g}"`);
+  const g = tut2GlowSlot(); if (g >= 0) h = h.replace(new RegExp('class="(hbslot[^"]*)" data-bslot="' + g + '"'), 'class="$1 tutglow" data-bslot="' + g + '"');
   if (/^Press B to let/.test(town.tut2.ui.strip || '')) h = h.replace('class="hbbadge"', 'class="hbbadge tutglow"');
   return h;
 };

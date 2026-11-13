@@ -1370,6 +1370,7 @@ test('hamlet build menu: seven items, the kit is bought from the trader, fences 
     town.kit = {}; itBuildSelect(P, 1); place(x0, y0 + 1, { dx: 1, dy: 0 }); const hit = lifeAct(P, P.player, x0 + 1, y0 + 1, 1, 0); out.fenceHit = !!hit; if (hit) hit.run(P); out.fenceBack = town.kit.fence || 0;
     // a field tile: one in front of you, paid from the kit; hold the key and walk for a row
     itBuildSelect(P, 0); town.kit = { field: 4 }; const [fx, fy] = find((x, y) => [0, 1, 2, 3, 4].every(i => free(x + i, y)) && free(x, y + 1)); place(fx, fy, { dx: 1, dy: 0 });
+    itBuildSelect(P, 9); out.openRefused = grid[fy][fx + 1] !== T.CROP && town.kit.field === 4; FIELD_ANYWHERE = true;   // (open ground refuses a field: fields go inside yards; the rest of the test lays them on open ground)
     itBuildSelect(P, 9); out.f1 = grid[fy][fx + 1] === T.CROP; const c1 = town.crops.find(c => c.x === fx + 1 && c.y === fy); out.ploughed = !!c1 && c1.pl === 1 && !c1.st; out.kitF1 = town.kit.field; out.hold = P.build.fieldHold;
     P.tx = P.x = fx + 1; bldBrushStep(P); P.tx = P.x = fx + 2; bldBrushStep(P); out.row = [fx + 1, fx + 2, fx + 3].every(x => grid[fy][x] === T.CROP); out.kitF2 = town.kit.field;
     window.dispatchEvent(new KeyboardEvent('keyup', { key: '0' })); out.released = P.build.fieldHold === false; P.tx = P.x = fx + 3; bldBrushStep(P); out.noMore = grid[fy][fx + 4] !== T.CROP;
@@ -1392,6 +1393,7 @@ test('hamlet build menu: seven items, the kit is bought from the trader, fences 
   check(r.rooms === 0 && r.stillProps, 'a closed ring of fences and a gate is not a room: ' + JSON.stringify([r.rooms, r.stillProps]));
   check(r.artsExist && /^fence_10,fence_3,gate_h,fence_12$/.test(r.art), 'fences and gates join up: ' + r.art);
   check(r.fenceHit && r.fenceBack === 1, 'the hammer takes a fence down and gives it back: ' + JSON.stringify([r.fenceHit, r.fenceBack]));
+  check(r.openRefused, 'a field on open ground is refused (fields go inside a fenced yard)');
   check(r.f1 && r.ploughed && r.kitF1 === 3 && r.hold === true, 'a field tile goes down ploughed, in front of you: ' + JSON.stringify([r.f1, r.ploughed, r.kitF1, r.hold]));
   check(r.row && r.kitF2 === 1, 'holding the key and walking lays a row: ' + JSON.stringify([r.row, r.kitF2]));
   check(r.released && r.noMore, 'letting go stops the row: ' + JSON.stringify([r.released, r.noMore]));
@@ -2886,16 +2888,21 @@ test('tutorial: pushing is taught the first time a fence lands out of place, or 
     out.line = top.slice(0, 3).every(t => TUT2_DONE.fence(t.x, t.y));
     // a stray: a fence off every mark
     const st = { x: T2.at.jbed.x + 1, y: T2.at.jbed.y + 1 }; const pr = lfAddProp('fence', st.x, st.y); tut2Hud();
-    out.taught = !!T2.pushTaught; out.unlocked = !tut2Lock('push'); out.lesson = T2.ui.lesson; out.said = T2.said[T2.said.length - 1].text;
+    out.taught = !!T2.pushTaught; out.unlocked = !tut2Lock('push'); out.lesson = T2.ui.lesson; out.said = T2.said.slice(-3).map(l => l.text).join(' | '); out.pushSlot = (T2.slots || []).includes('push'); out.inPush = P.build.sel === 0;
     bldDeleteProp(pr); tut2Hud(); out.cleared = T2.ui.lesson;
     // shut in: every mark fenced, you inside
     for (const t of T2.at.yard) if (!lfPropAt(t.x, t.y)) lfAddProp('fence', t.x, t.y);
     const inn = tut2YardInner(T2)[3]; P.tx = P.x = inn.x; P.ty = P.y = inn.y; tut2Hud(); out.shut = T2.ui.lesson; out.shutSaid = T2.said[T2.said.length - 1].text;
+    // a closed yard (a gate in the ring) stands like a wall: its fences do not push
+    const g = T2.at.gate, gp = lfPropAt(g.x, g.y); if (gp) bldDeleteProp(gp); lfAddProp('gate', g.x, g.y); yardScan(true); const t = T2.at.yard.find(q => q.y === Math.min(...T2.at.yard.map(z => z.y)) && q.x > g.x + 1);
+    out.fixed = lf2PushLine(P, t.x, t.y, 0, 1);
     return out;
   });
   check(r.locked && r.line, 'pushing starts locked, and pressing 1 facing a fence lays the next along the line: ' + JSON.stringify(r));
   check(r.taught && r.unlocked && /stray fence/.test(r.lesson || '') && /wandered/.test(r.said) && !r.cleared, 'a stray fence teaches pushing and the lesson goes when it is gone: ' + JSON.stringify(r));
   check(/Shut in/.test(r.shut || '') && /Shove one/.test(r.shutSaid), 'shut inside the ring, you are told to push your way out: ' + JSON.stringify(r));
+  check(r.pushSlot && r.inPush, 'the build bar gets a Push slot and the lesson puts the hand in push: ' + JSON.stringify(r));
+  check(/closed fence stands like a wall/.test(r.fixed || ''), 'a closed yard does not push: ' + r.fixed);
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
   return 'line laying, the stray-fence lesson and the shut-in reminder';
 });

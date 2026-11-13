@@ -88,8 +88,12 @@ const pushPersonOK = (nx, ny) => nx >= 2 && ny >= 2 && nx < W - 2 && ny < H - 2 
 /** push the line one tile; returns true, or the reason it cannot be done (null: nothing to push).
     A line is made of loose things (crates, barrels, stools, rocks) and people, in any order, or of furniture alone; people are pushed along just like boxes.
     When the line cannot move (a wall, a corner, somebody asleep) you swap places with the piece you are holding, and so on down the line: push on and you pass through it. */
+/** fences and gates of a closed yard stand like house walls: they do not push until the ring is broken (knock one out with the hammer) */
+const PUSH_YARD_FIXED = true;
+function lfYardFixed(p: any): boolean { if (!PUSH_YARD_FIXED || !p || (p.kind !== 'fence' && p.kind !== 'gate') || !town.yards) return false; const k = p.y * W + p.x; return town.yards.some((y: any) => y.open == null && y.fences && y.fences.includes(k)); }
 function lf2PushLine(n, x, y, dx, dy): true | string | null {
   const line = pushLine(n, x, y, dx, dy); if (!line) return null;
+  if (line.some((p: any) => lfYardFixed(p.p || p.pr || p))) return 'A closed fence stands like a wall. Knock one out with the hammer to move it.';
   const furn = line[0].kind === 'furniture'; if (line.some(p => (p.kind === 'furniture') !== furn)) return pushSwap(n, line[0]);
   const last = line[line.length - 1], nx = last.x + dx, ny = last.y + dy;
   const stairTo = stairPushTarget(last.x, last.y, dx, dy);   // (anything on a landing, pushed into its stair, goes up or down: people, loose things, rocks and furniture alike)
