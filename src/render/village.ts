@@ -233,10 +233,10 @@ function drawDoors(c, dt) {
     gaDraw(c, (r.free ? gaInside(d.x, d.y + 1) : d.y === r.y) ? (op ? 'door_back_open' : 'door_back_closed') : (op ? 'door_mat_open' : 'door_mat_closed'), d.x * TS, d.y * TS, 0, 0);
   }
 }
-/* where the crops were pulled: a hole in the furrow where each of the nine plants stood (the same three by three the plants and the seeds use),
-   seen from above and a little to the south, so you look into it: the far wall inside lit from above, the bottom in shadow, the near lip catching
-   the light, and a few crumbs of the earth that came out beside it */
-const CROP_COL = [4.4, 12, 19.6], CROP_ROW = [7, 14.6, 22.2];
+/* pulling a crop: the plants come out one at a time, front row first, and each leaves the hole it grew in (seen from above and a little to the
+   south, so you look into it: the far wall lit, the bottom in shadow, the near lip catching the light, a few crumbs beside it). The holes are only
+   part of the harvest: when the last plant is up the plot is plain ploughed earth again. */
+const CROP_COL = [4.4, 12, 19.6], CROP_ROW = [7, 14.6, 22.2], PULL_ORDER = [6, 7, 8, 3, 4, 5, 0, 1, 2];   // (row * 3 + column)
 function cropPit(c, x, y, k, h) {
   const rx = (2.5 + h * 0.4) * k, ry = (1.45 + h * 0.2) * k, sd = h < 0.5 ? -1 : 1;
   c.fillStyle = '#9a7048'; for (let q = 0; q < 3; q++) { c.beginPath(); c.arc(x + sd * (rx + (0.6 + q * 0.7) * k), y + (q - 1) * 0.7 * k, (0.55 - q * 0.1) * k, 0, 6.3); c.fill(); }   // (crumbs thrown out)
@@ -246,10 +246,11 @@ function cropPit(c, x, y, k, h) {
   c.restore();
   c.strokeStyle = '#b08458'; c.lineWidth = 0.9 * k; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0.3, Math.PI - 0.3); c.stroke();   // (the near lip, in the light)
 }
-/** the holes of a pulled plot; `cols` = how many columns (from the west) are pulled so far (3 = all of them) */
-function cropHoles(c, X, Y, tx, ty, cols = 3) {
-  const k = TS / 24;
-  for (let j = 0; j < cols; j++) for (let i = 0; i < 3; i++) { const h = hash(tx * 3 + j, ty * 3 + i, 57); cropPit(c, X + (CROP_COL[j] + (h - 0.5) * 0.8) * k, Y + (CROP_ROW[i] - 0.4) * k, k, h); }
+/** a plot part way through its harvest: `n` of its nine plants pulled (in PULL_ORDER), their holes showing, the rest still standing */
+function cropPulling(c, t, st, sd, n, now) {
+  const k = TS / 24, X = t.x * TS, Y = t.y * TS, gone = new Set(PULL_ORDER.slice(0, n));
+  for (const q of gone) { const i = Math.floor(q / 3), j = q % 3, h = hash(t.x * 3 + j, t.y * 3 + i, 57); cropPit(c, X + (CROP_COL[j] + (h - 0.5) * 0.8) * k, Y + (CROP_ROW[i] - 0.4) * k, k, h); }
+  c.save(); c.translate(X, Y); c.scale(k, k); ART.plantsDraw(c, (now / 2400) % 1, sd || 'barley', Math.min(4, st), (i, j) => !gone.has(i * 3 + j)); c.restore();
 }
 function drawCrops(c, now) {
   if (!town.crops) return; const v = gaView(), plants: any[] = [];
@@ -258,18 +259,15 @@ function drawCrops(c, now) {
     const st = t.pl ? cropStage(t) : -1;   // -1 untilled (rough and weedy), 0 ploughed (dark furrows), 1-4 growing
     gaDraw(c, st < 0 ? 'crop_raw' : 'crop_0', t.x * TS, t.y * TS, now, 0);
     if (st > 0) plants.push(t);
-    else if (t.holes && !t.st && t.pl) cropHoles(c, t.x * TS, t.y * TS, t.x, t.y);   // (pulled up: the holes the crop came out of, until the plot is sown again)
   }
   plants.sort((a, b) => a.y - b.y);
-  const pulling = new Map();   // plots being harvested right now: how many columns are pulled (the plants go column by column, leaving their holes)
-  if (plants.length && typeof workTargets === 'function') for (const w of workTargets()) if (w.kind === 'harvest') pulling.set(w.y * W + w.x, Math.min(3, Math.floor(w.f * 3 + 0.001)));
+  const pulling = new Map();   // plots being harvested right now: how many of the nine plants are out (one at a time, each leaving its hole)
+  if (plants.length && typeof workTargets === 'function') for (const w of workTargets()) if (w.kind === 'harvest') pulling.set(w.y * W + w.x, Math.min(9, Math.floor(w.f * 9 + 0.001)));
   for (const t of plants) {
     const st = cropStage(t), sd = t.seed && t.seed !== 'barley' && IT_SEEDS[t.seed] ? t.seed : null;   // every other crop and flower has its own plant
     const id = sd ? 'crop_' + sd + '_' + (itWilted(t) ? 5 : Math.min(4, st)) : 'crop_' + Math.min(4, st), cols = pulling.get(t.y * W + t.x) || 0;
     if (!cols) { gaDraw(c, id, t.x * TS, t.y * TS, now, t.x + t.y); continue; }
-    cropHoles(c, t.x * TS, t.y * TS, t.x, t.y, cols);
-    const cut = t.x * TS + (CROP_COL[cols - 1] + 3.8) * TS / 24;   // (the plants still standing: everything east of the last pulled column)
-    c.save(); c.beginPath(); c.rect(cut, t.y * TS - TS, t.x * TS + TS - cut + 2, TS * 2); c.clip(); gaDraw(c, id, t.x * TS, t.y * TS, now, t.x + t.y); c.restore();
+    cropPulling(c, t, st, sd, cols, now);
   }
 }
 function drawNodes(c, now) {

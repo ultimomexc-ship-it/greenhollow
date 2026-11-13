@@ -2422,9 +2422,10 @@ const ART = (function() {
   function crops24(g, t, st) {
     g.drawImage(terr("soil", 0), 0, 0, 24, 24);
   }
-  function plants24(g, t, st) {
+  function plants24(g, t, st, only) {
     const dkk = "rgba(40,24,30,.55)";
     for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
+      if (only && !only(i, j)) continue;
       const sx = 4.4 + j * 7.6, sy = 3.9 + i * 7.6, h = [0, 2.5, 5, 8, 10][st], sw = tw(t, 1, j * 0.7 + i * 0.5) * 0.45 * (st / 4), sd = h32(i, j, 9, st), base = sy + 3;
       dab(g, sx + 0.3, base + 0.4, 1.7, 0.7, 0, "rgba(36,20,30,.4)");
       if (st === 1) {
@@ -2697,10 +2698,11 @@ const ART = (function() {
       }
     }
   };
-  function cropArt24(g, t, seed, st) {
+  function cropArt24(g, t, seed, st, only) {
     const D2 = CROP_ART[seed];
     if (!D2) return;
     for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
+      if (only && !only(i, j)) continue;
       const x = 4.4 + j * 7.6 + (h32(i, j, 3, 7) - 0.5) * 1.2, b = 7 + i * 7.6, sw = tw(t, 1, j * 0.7 + i * 0.5) * 0.45 * Math.min(1, st / 2);
       dab(g, x + 0.3, b + 0.4, 1.8, 0.7, 0, "rgba(36,20,30,.4)");
       if (st === 5) {
@@ -8248,7 +8250,8 @@ const ART = (function() {
     g.drawImage(e.cv, x - DO - DOLL_PAD, y - DO - DOLL_PAD, e.size, e.size);
   }
   chibiSet(true);
-  return { Q, S, FR, DF, DO, TP, BLK, terr, water, overlay, frameOf, BYID, ITEMS, h32, mul, drawDoll, drawDollLOD, drawSleeper: drawSleeper2, roomDress, kitOf, chibi: CHIBI, chibiSet };
+  const plantsDraw = (g, t, seed, st, only) => seed && seed !== "barley" && CROP_ART[seed] ? cropArt24(g, t, seed, st, only) : plants24(g, t, st, only);
+  return { Q, S, FR, DF, DO, TP, BLK, terr, water, overlay, frameOf, BYID, ITEMS, h32, mul, drawDoll, drawDollLOD, drawSleeper: drawSleeper2, roomDress, kitOf, chibi: CHIBI, chibiSet, plantsDraw };
 })();
 let W = 128, H = 84;
 const TS = 24;
@@ -16521,7 +16524,7 @@ function drawDoors(c, dt) {
     gaDraw(c, (r.free ? gaInside(d.x, d.y + 1) : d.y === r.y) ? op ? "door_back_open" : "door_back_closed" : op ? "door_mat_open" : "door_mat_closed", d.x * TS, d.y * TS, 0, 0);
   }
 }
-const CROP_COL = [4.4, 12, 19.6], CROP_ROW = [7, 14.6, 22.2];
+const CROP_COL = [4.4, 12, 19.6], CROP_ROW = [7, 14.6, 22.2], PULL_ORDER = [6, 7, 8, 3, 4, 5, 0, 1, 2];
 function cropPit(c, x, y, k, h) {
   const rx = (2.5 + h * 0.4) * k, ry = (1.45 + h * 0.2) * k, sd = h < 0.5 ? -1 : 1;
   c.fillStyle = "#9a7048";
@@ -16551,12 +16554,17 @@ function cropPit(c, x, y, k, h) {
   c.ellipse(x, y, rx, ry, 0, 0.3, Math.PI - 0.3);
   c.stroke();
 }
-function cropHoles(c, X, Y, tx, ty, cols = 3) {
-  const k = TS / 24;
-  for (let j = 0; j < cols; j++) for (let i = 0; i < 3; i++) {
-    const h = hash(tx * 3 + j, ty * 3 + i, 57);
+function cropPulling(c, t, st, sd, n, now) {
+  const k = TS / 24, X = t.x * TS, Y = t.y * TS, gone = new Set(PULL_ORDER.slice(0, n));
+  for (const q of gone) {
+    const i = Math.floor(q / 3), j = q % 3, h = hash(t.x * 3 + j, t.y * 3 + i, 57);
     cropPit(c, X + (CROP_COL[j] + (h - 0.5) * 0.8) * k, Y + (CROP_ROW[i] - 0.4) * k, k, h);
   }
+  c.save();
+  c.translate(X, Y);
+  c.scale(k, k);
+  ART.plantsDraw(c, now / 2400 % 1, sd || "barley", Math.min(4, st), (i, j) => !gone.has(i * 3 + j));
+  c.restore();
 }
 function drawCrops(c, now) {
   if (!town.crops) return;
@@ -16566,12 +16574,11 @@ function drawCrops(c, now) {
     const st = t.pl ? cropStage(t) : -1;
     gaDraw(c, st < 0 ? "crop_raw" : "crop_0", t.x * TS, t.y * TS, now, 0);
     if (st > 0) plants.push(t);
-    else if (t.holes && !t.st && t.pl) cropHoles(c, t.x * TS, t.y * TS, t.x, t.y);
   }
   plants.sort((a, b) => a.y - b.y);
   const pulling = /* @__PURE__ */ new Map();
   if (plants.length && typeof workTargets === "function") {
-    for (const w of workTargets()) if (w.kind === "harvest") pulling.set(w.y * W + w.x, Math.min(3, Math.floor(w.f * 3 + 1e-3)));
+    for (const w of workTargets()) if (w.kind === "harvest") pulling.set(w.y * W + w.x, Math.min(9, Math.floor(w.f * 9 + 1e-3)));
   }
   for (const t of plants) {
     const st = cropStage(t), sd = t.seed && t.seed !== "barley" && IT_SEEDS[t.seed] ? t.seed : null;
@@ -16580,14 +16587,7 @@ function drawCrops(c, now) {
       gaDraw(c, id, t.x * TS, t.y * TS, now, t.x + t.y);
       continue;
     }
-    cropHoles(c, t.x * TS, t.y * TS, t.x, t.y, cols);
-    const cut = t.x * TS + (CROP_COL[cols - 1] + 3.8) * TS / 24;
-    c.save();
-    c.beginPath();
-    c.rect(cut, t.y * TS - TS, t.x * TS + TS - cut + 2, TS * 2);
-    c.clip();
-    gaDraw(c, id, t.x * TS, t.y * TS, now, t.x + t.y);
-    c.restore();
+    cropPulling(c, t, st, sd, cols, now);
   }
 }
 function drawNodes(c, now) {
@@ -25999,7 +25999,6 @@ function itHarvest(n, c) {
   const S = IT_SEEDS[c.seed] || IT_SEEDS.barley, Y = S.flower ? "flowers" : S.yield, Q = S.flower ? 4 : S.q;
   n.inv[Y] = (n.inv[Y] || 0) + Q;
   c.st = 0;
-  c.holes = 1;
   LIFE.emit("harvested", n, { item: Y, qty: Q, crop: c.seed || "barley" });
   if (!n.player && town.farmEcon && farmSeedCount(n) < 12) n.inv["seed_" + (c.seed || "barley")] = (n.inv["seed_" + (c.seed || "barley")] || 0) + 1;
   if (n.player) sndPick();
@@ -27736,7 +27735,6 @@ itHarvest = function(n, c) {
     n.inv.turnip = (n.inv.turnip || 0) + 1;
     c.st = 0;
     c.seed = null;
-    c.holes = 1;
     LIFE.emit("harvested", n, { item: "turnip", qty: 1, crop: "turnip" });
     if (n.player) sndPick();
     return { q: 1, what: "turnips", back: 0 };

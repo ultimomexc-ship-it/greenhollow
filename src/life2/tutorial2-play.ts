@@ -200,7 +200,7 @@ const _t2Farm = farmShopDialog; farmShopDialog = function (m) { if (town && town
 /* tutorial patches on the game: one turnip per patch plot and no seed back; Junia's first rent is handed over at your door */
 // @ts-expect-error -- deliberate patch
 const _t2Harvest = itHarvest; itHarvest = function (n, c) {
-  if (c && c.f === 'tut') { n.inv.turnip = (n.inv.turnip || 0) + 1; c.st = 0; c.seed = null; c.holes = 1; LIFE.emit('harvested', n, { item: 'turnip', qty: 1, crop: 'turnip' }); if (n.player) sndPick(); return { q: 1, what: 'turnips', back: 0 }; }
+  if (c && c.f === 'tut') { n.inv.turnip = (n.inv.turnip || 0) + 1; c.st = 0; c.seed = null; LIFE.emit('harvested', n, { item: 'turnip', qty: 1, crop: 'turnip' }); if (n.player) sndPick(); return { q: 1, what: 'turnips', back: 0 }; }
   return _t2Harvest(n, c);
 };
 

@@ -704,7 +704,7 @@ function slot24(g, mat, built) { const wood_ = mat !== 'stone';
     dab(g, 12, 12, 3.2, 3, 0, INK); dab(g, 12, 12, 2.8, 2.6, 0, col); dab(g, 11.2, 11.1, 0.9, 0.7, 0, 'rgba(255,255,255,.7)'); } }
 function crops24(g, t, st) { /* the plants sit on the soil tile: three by three, five stages (1 = sprout ... 4 = ripe) */
   g.drawImage(terr('soil', 0), 0, 0, 24, 24); }
-function plants24(g, t, st) { const dkk = 'rgba(40,24,30,.55)'; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { const sx = 4.4 + j * 7.6, sy = 3.9 + i * 7.6, h = [0, 2.5, 5, 8, 10][st], sw = tw(t, 1, j * 0.7 + i * 0.5) * 0.45 * (st / 4), sd = h32(i, j, 9, st), base = sy + 3;
+function plants24(g, t, st, only?) { const dkk = 'rgba(40,24,30,.55)'; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { if (only && !only(i, j)) continue; const sx = 4.4 + j * 7.6, sy = 3.9 + i * 7.6, h = [0, 2.5, 5, 8, 10][st], sw = tw(t, 1, j * 0.7 + i * 0.5) * 0.45 * (st / 4), sd = h32(i, j, 9, st), base = sy + 3;
     dab(g, sx + 0.3, base + 0.4, 1.7, 0.7, 0, 'rgba(36,20,30,.4)');
     if (st === 1) { dab(g, sx, base - 0.1, 1.5, 0.7, 0, '#5a3a2c'); for (const s of [-1, 1]) { g.fillStyle = INK; g.beginPath(); g.ellipse(sx + s * 0.9, base - 0.9, 1.2, 0.62, s * -0.5, 0, TAU); g.fill(); g.fillStyle = '#8acb4e'; g.beginPath(); g.ellipse(sx + s * 0.9, base - 0.9, 1.0, 0.46, s * -0.5, 0, TAU); g.fill(); dab(g, sx + s * 0.7, base - 1.1, 0.4, 0.15, s * -0.5, '#c6ec86'); } continue; }
     const tipx = sx + sw, tipy = base - h, ripe = st === 4, leaf = ripe ? ['#a8863a', '#d8b850'] : ['#3f7f34', '#86c24e'];
@@ -760,9 +760,9 @@ const CROP_ART: any = {
     for (const [dx, dy] of [[-1.8, -2], [1.8, -2.4], [0, -4], [-1.2, -4.6], [1.4, -4.4]]) { if (st === 2 && dy < -3) continue; cblob(g, x + dx + sw * 0.2, b + dy * (st === 2 ? 0.8 : 1), 1.7, 1.3, L, H); }
     if (st === 3) for (const [dx, dy] of [[-1.5, -4.8], [1.6, -5], [0.1, -6.4]]) cblob(g, x + dx, b + dy, 0.7, 0.9, '#b8284a', '#e8607a'); if (st === 4) for (const [dx, dy] of [[-1.7, -4.6], [1.7, -5], [0, -6.4], [-0.4, -3]]) { cblob(g, x + dx, b + dy, 1.35, 1.25, '#d82a52', '#ff7a9a'); dab(g, x + dx, b + dy, 0.55, 0.45, 0, '#a01a3a'); } },
 };
-function cropArt24(g, t, seed, st) {
+function cropArt24(g, t, seed, st, only?) {
   const D = CROP_ART[seed]; if (!D) return;
-  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { const x = 4.4 + j * 7.6 + (h32(i, j, 3, 7) - 0.5) * 1.2, b = 7 + i * 7.6, sw = tw(t, 1, j * 0.7 + i * 0.5) * 0.45 * Math.min(1, st / 2);
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { if (only && !only(i, j)) continue; const x = 4.4 + j * 7.6 + (h32(i, j, 3, 7) - 0.5) * 1.2, b = 7 + i * 7.6, sw = tw(t, 1, j * 0.7 + i * 0.5) * 0.45 * Math.min(1, st / 2);
     dab(g, x + 0.3, b + 0.4, 1.8, 0.7, 0, 'rgba(36,20,30,.4)');
     if (st === 5) { const dry = '#a08a58'; cstem(g, x, b, x + 1.6, b - 3.2, dry, 0.4); cleaf(g, x, b, -2.2, -0.6, 0.55, '#8a7448'); cleaf(g, x + 1.6, b - 3.2, 1.6, 1.8, 0.7, '#9a8250', '#b8a470'); continue; }
     D(g, x, b, st, sw); }
@@ -2344,7 +2344,9 @@ function drawDollLOD(g, sp, x, y, T, Z) {
   g.drawImage(e.cv, x - DO - DOLL_PAD, y - DO - DOLL_PAD, e.size, e.size);
 }
 chibiSet(true);
-return { Q, S, FR, DF, DO, TP, BLK, terr, water, overlay, frameOf, BYID, ITEMS, h32, mul, drawDoll, drawDollLOD, drawSleeper, roomDress, kitOf, chibi: CHIBI, chibiSet };
+/** some of a plot's nine plants, drawn live in tile space (24 x 24, the plants standing in the furrows): `only(row, col)` picks which; for a harvest in progress */
+const plantsDraw = (g, t, seed, st, only) => seed && seed !== 'barley' && CROP_ART[seed] ? cropArt24(g, t, seed, st, only) : plants24(g, t, st, only);
+return { Q, S, FR, DF, DO, TP, BLK, terr, water, overlay, frameOf, BYID, ITEMS, h32, mul, drawDoll, drawDollLOD, drawSleeper, roomDress, kitOf, chibi: CHIBI, chibiSet, plantsDraw };
 
 })();
 
