@@ -39,17 +39,12 @@ function crackPath(x, y) {
   const br = [[pts[2], [pts[2][0] + 4 * s, pts[2][1] - 1.5 * s], [pts[2][0] + 6.5 * s, pts[2][1] + 0.5 * s]], [pts[3], [pts[3][0] - 3.5 * s, pts[3][1] + 1 * s], [pts[3][0] - 6 * s, pts[3][1] - 0.5 * s]]];
   return { main: pts, br };
 }
-/** the notch on the worker's side, chips and a leaf or two: drawn over the tree being felled */
+/** chips flying and a leaf or two falling from the tree being felled (no notch: the axe and the sway say enough) */
 function chopMarks(c, w, now) {
-  const swing = Math.max(0, Math.sin(now / 95)), px = w.x * TS, py = w.y * TS, f = w.f, side = w.n.tx < w.x ? -1 : w.n.tx > w.x ? 1 : -1;
-      // the notch on the worker's side
-      const d = 0.6 + f * 3.2, hy = 1 + f * 2.2, ex = side < 0 ? px + 10 : px + 14;
-      c.fillStyle = '#e2c08a'; c.strokeStyle = '#2a180c'; c.lineWidth = 0.7; c.beginPath(); c.moveTo(ex + side * 0.6, py + 17 - hy); c.lineTo(ex - side * d, py + 17); c.lineTo(ex + side * 0.6, py + 17 + hy * 0.6); c.closePath(); c.fill(); c.stroke();
-      c.fillStyle = 'rgba(40,24,12,.6)'; c.fillRect(ex - side * d - (side < 0 ? 0 : 0.6), py + 16.6, 0.8, 0.9);
-      // chips and a falling leaf or two
-      for (let i = 0; i < 3; i++) { const t = ((now / 700) + i / 3 + w.x * 0.13) % 1; c.globalAlpha = 1 - t; fillR(c, px + 12 + Math.sin(i * 2.1 + t * 4) * 6 + t * 3, py + 6 + t * 16, 1.6, 1.2, i % 2 ? '#4e8441' : '#6aa04a'); }
-      if (swing > 0.85) { for (let i = 0; i < 2; i++) { c.globalAlpha = 0.9; fillR(c, ex + side * (2 + i * 2), py + 15 - i * 2, 1.2, 1.2, '#e8cf9a'); } }
-      c.globalAlpha = 1;
+  const swing = Math.max(0, Math.sin(now / 95)), px = w.x * TS, py = w.y * TS, side = w.n.tx < w.x ? -1 : w.n.tx > w.x ? 1 : -1;
+  for (let i = 0; i < 3; i++) { const t = ((now / 700) + i / 3 + w.x * 0.13) % 1; c.globalAlpha = 1 - t; fillR(c, px + 12 + Math.sin(i * 2.1 + t * 4) * 6 + t * 3, py + 6 + t * 16, 1.6, 1.2, i % 2 ? '#4e8441' : '#6aa04a'); }
+  if (swing > 0.85) { const ex = side < 0 ? px + 9 : px + 15; for (let i = 0; i < 2; i++) { c.globalAlpha = 0.9; fillR(c, ex + side * (2 + i * 2), py + 15 - i * 2, 1.2, 1.2, '#c9a878'); } }
+  c.globalAlpha = 1;
 }
 function drawWorkFx(c, now) {
   c.imageSmoothingEnabled = true;

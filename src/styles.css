@@ -157,6 +157,8 @@ body.fs .stage { position: fixed; inset: 0; z-index: 100; border: 0; border-radi
 body.fs .hud .hint { display: none; }
 body.fs #c { height: 100vh !important; height: 100dvh !important; }
 #zfol { display: none !important; }
+.zoombar #zsnd { background: rgba(21,25,27,.88); font-size: 15px; padding: 8px 10px; }
+.zoombar #zsnd.on { background: rgba(60,110,60,.9); }
 .zoombar #zfs { background: rgba(21,25,27,.88); font-size: 15px; padding: 8px 10px; }
 
 .notice { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 25; display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; border-radius: 8px; background: rgba(20,24,26,.92); border: 1px solid var(--line); font-size: 13px; max-width: calc(100% - 24px); box-shadow: 0 4px 14px rgba(0,0,0,.35); }

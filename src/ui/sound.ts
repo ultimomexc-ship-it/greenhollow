@@ -78,7 +78,22 @@ function sndAmbient(now: number, hour: number) {
   if (mine && town.props && sndThrottle('crackle', 380)) { let best = 99; for (const pr of town.props) if (pr.kind === 'torch') { const d = Math.hypot(pr.x - p.x, pr.y - p.y); if (d < best) best = d; } if (best < 12) { const v = (1 - best / 12) * 0.05; sndNoise(0.03 + Math.random() * 0.05, 'highpass', 2500 + Math.random() * 2000, v); if (Math.random() < 0.3) sndNoise(0.02, 'highpass', 4000, v * 0.7, undefined, 0.06); } }
 }
 /* ---- starting, and the mute key ---- */
-function sndStart() { if (sndInit() && SND.ctx.state === 'suspended') SND.ctx.resume(); }
-function sndMute(on?: boolean) { SND.on = on === undefined ? !SND.on : on; try { localStorage.setItem('gh.mute', SND.on ? '0' : '1'); } catch (e) {} if (SND.master) SND.master.gain.setTargetAtTime(SND.on ? 0.55 : 0, SND.ctx.currentTime, 0.05); if (typeof playerSay === 'function' && game.player && sndReady() !== undefined) playerSay(game.player, SND.on ? 'Sound on.' : 'Sound off.'); }
-for (const ev of ['keydown', 'pointerdown', 'touchstart']) window.addEventListener(ev, () => sndStart(), { passive: true } as any);
+/* Starting needs a gesture inside the page. Every kind of gesture is listened for, in the capture phase (so no other handler can swallow it), and resume() is
+   tried on each until the context runs. On iPhones the ringer switch silences Web Audio: asking for a "playback" audio session (Safari 16.4+), and playing a
+   silent <audio> once, makes it play like a video does. The speaker button shows the state: muted, waiting for a tap, or on. */
+let sndUnlocked = false;
+function sndStart() {
+  if (!sndInit()) return; const c = SND.ctx;
+  try { const as = (navigator as any).audioSession; if (as && as.type !== 'playback') as.type = 'playback'; } catch (e) {}
+  if (c.state !== 'running') { try { c.resume().then(sndBtn, sndBtn); } catch (e) {} }
+  if (!sndUnlocked) { sndUnlocked = true;
+    try { const b = c.createBuffer(1, 1, 22050), s = c.createBufferSource(); s.buffer = b; s.connect(c.destination); s.start(0); } catch (e) {}
+    try { const a = new Audio('data:audio/wav;base64,UklGRnQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVAAAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA=='); a.setAttribute('playsinline', ''); a.volume = 0; const pr = a.play(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {} }
+  sndBtn();
+}
+function sndBtn() { const b = typeof document !== 'undefined' && document.getElementById('zsnd'); if (!b) return; const live = !!SND.ctx && SND.ctx.state === 'running';
+  b.innerHTML = !SND.on ? '&#x1F507;' : live ? '&#x1F50A;' : '&#x1F508;'; b.classList.toggle('on', SND.on && live); b.title = !SND.on ? 'Sound is off (M)' : live ? 'Sound on (M to mute)' : 'Tap to start the sound'; }
+function sndMute(on?: boolean) { SND.on = on === undefined ? !SND.on : on; try { localStorage.setItem('gh.mute', SND.on ? '0' : '1'); } catch (e) {} if (SND.master) SND.master.gain.setTargetAtTime(SND.on ? 0.55 : 0, SND.ctx.currentTime, 0.05); if (SND.on) sndStart(); sndBtn(); if (typeof playerSay === 'function' && game.player) playerSay(game.player, SND.on ? 'Sound on.' : 'Sound off.'); }
+for (const ev of ['keydown', 'pointerdown', 'pointerup', 'mousedown', 'touchend', 'click']) window.addEventListener(ev, () => { if (!SND.ctx || SND.ctx.state !== 'running') sndStart(); }, { capture: true, passive: true } as any);
+if (typeof document !== 'undefined') { const b = document.getElementById('zsnd'); if (b) b.addEventListener('click', () => { if (!SND.on) sndMute(true); else if (SND.ctx && SND.ctx.state === 'running') sndMute(false); else sndStart(); }); setTimeout(sndBtn, 0); }
 window.addEventListener('keydown', (e: any) => { if ((e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || '')) sndMute(); });
