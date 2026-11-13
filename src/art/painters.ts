@@ -103,20 +103,36 @@ const C = {
   path: ['#a27b50', '#b08959', '#be9966', '#cdab7a'].map(hx),
   soil: ['#61402e', '#704b34', '#80583c', '#946847'].map(hx),
 };
+/* ================= seasons: the look only (ART.setSeason; nothing in the game changes) ================= */
+let SEASON = 'summer';
+const SEASON_DEF = {
+  spring: { grass: ['#4f8c3c', '#62a246', '#74b24c', '#8cc45a', '#a8d66c'], blade: ['#3e7038', '#4f8a3e', '#7cb44c', '#b8de76'], blades: 250, flowers: 2, fcol: ['#fbf6ec', '#f6b8cf', '#f3d55a', '#c9b2f2'],
+    lip: [52, 92, 50], eblade: '#4f8a3e', tdk: ['#2f6034', '#3a6e38', '#477a3a'], tlt: ['#86b84e', '#9cc85e', '#b4d86c'], over: '#7cb44a', tree: '#4c8a3c' },
+  summer: { grass: ['#4b773b', '#5c8a40', '#6c9944', '#82ab4e', '#9bbe5a'], blade: ['#3c6539', '#4f7d3c', '#6f9a46', '#a7c862'], blades: 250, flowers: 1, fcol: ['#f7f3e6', '#f3d55a', '#ef9fb4'],
+    lip: [52, 86, 50], eblade: '#4b7a3c', tdk: ['#2f5a34', '#3a6638', '#456f3a'], tlt: ['#7fae4c', '#93c25a', '#a7c862'], over: '#79a845', tree: '#3f7a3a' },
+  autumn: { grass: ['#6a6a34', '#7e773a', '#948640', '#ad984c', '#c2a65a'], blade: ['#5a5430', '#6c6434', '#b08c40', '#d4b060'], blades: 210, flowers: 0, leaves: 1,
+    lip: [80, 70, 40], eblade: '#7a6a34', tdk: ['#5a4a2a', '#6a5830', '#7a6634'], tlt: ['#b4903e', '#c8a24c', '#d8b45a'], over: '#a5964c', tree: '#b0622c' },
+  winter: { grass: ['#c4ced8', '#d2dbe4', '#dfe6ed', '#eaeff4', '#f6f8fb'], blade: ['#7c8a84', '#8e9a92', '#b8c2c0', '#e4eaee'], blades: 55, flowers: 0, snow: 1,
+    lip: [150, 162, 186], eblade: '#8a9690', tdk: ['#6a7672', '#7a8680', '#88928c'], tlt: ['#c8d0d0', '#dce2e4', '#eef2f4'], over: '#e4ebf1', tree: '#5a6e66' },
+};
+const SZ = () => SEASON_DEF[SEASON] || SEASON_DEF.summer;
 function blade(g, x, y, r1, r2, dk, lt) { const len = 4 + r1 * 5, a = -Math.PI / 2 + (r2 - 0.5) * 0.9, tx = x + Math.cos(a) * len, ty = y + Math.sin(a) * len, bend = (r2 - 0.5) * 3;
   g.fillStyle = dk; g.beginPath(); g.moveTo(x - 1.1, y); g.quadraticCurveTo(x + bend - 0.6, (y + ty) / 2, tx, ty); g.quadraticCurveTo(x + bend + 0.6, (y + ty) / 2, x + 1.1, y); g.fill();
   g.fillStyle = lt; g.beginPath(); g.moveTo(x - 1.2, y - 0.8); g.quadraticCurveTo(x + bend - 1.1, (y + ty) / 2 - 0.6, tx - 0.5, ty + 0.6); g.lineTo(x - 0.1, y - 0.8); g.fill(); }
 function dab(g, x, y, rx, ry, a, col) { g.fillStyle = col; g.beginPath(); g.ellipse(x, y, rx, ry, a, 0, TAU); g.fill(); }
-function flower(g, x, y, r) { const col = r < 0.4 ? '#f7f3e6' : r < 0.75 ? '#f3d55a' : '#ef9fb4';
+function flower(g, x, y, r) { const fc = SZ().fcol || SEASON_DEF.summer.fcol, col = fc[Math.min(fc.length - 1, Math.floor(r * fc.length))];
   for (let k = 0; k < 5; k++) { const a = k / 5 * TAU; dab(g, x + Math.cos(a) * 1.6, y + Math.sin(a) * 1.3, 1.25, 1.05, a, col); } dab(g, x, y, 0.9, 0.9, 0, '#e0952c'); }
 
 function paintGrass(v) {
   const c = pixels(S, S, (x, y) => { const n = vary(x, y, 11, v, 2, 4), m = vary(x, y, 12, v, 6, 3); let t = n * 0.9 + (m - 0.5) * 0.4; const q = Math.floor(t * 6) / 6; t = t * 0.5 + q * 0.5; return grain(ramp(C.grass, t), x, y); });
   const g = c.getContext('2d');
   scatter(26, 13, v, (X, Y, r1, r2) => dab(g, X, Y, 6 + r1 * 6, 2.5 + r2 * 2, -0.25, r1 < 0.5 ? 'rgba(130,170,80,.22)' : 'rgba(54,94,62,.20)'));   // broad gouache strokes
-  scatter(250, 21, v, (X, Y, r1, r2) => { const dark = vn(X / S, Y / S, 4, 11) < 0.47; blade(g, X, Y, r1, r2, dark ? '#3c6539' : '#4f7d3c', dark ? '#6f9a46' : '#a7c862'); });
-  if (v === 2 || v === 3) scatterIn(v === 2 ? 7 : 4, 31, v, (X, Y, r) => flower(g, X, Y, r), 16);
-  if (v === 1) scatterIn(5, 33, v, (X, Y, r1, r2) => { for (let k = 0; k < 3; k++) dab(g, X + (k - 1) * 2.2, Y + (k % 2) * 1.5, 1.8, 1.4, 0, k % 2 ? '#7fae4c' : '#93c25a'); }, 16);
+  const Z = SZ(), B4 = Z.blade;
+  if (Z.snow) scatter(18, 19, v, (X, Y, r1, r2) => dab(g, X, Y, 5 + r1 * 6, 1.6 + r2 * 1.4, -0.15, r1 < 0.5 ? 'rgba(150,170,205,.22)' : 'rgba(255,255,255,.5)'));   // drifts
+  scatter(Z.blades, 21, v, (X, Y, r1, r2) => { const dark = vn(X / S, Y / S, 4, 11) < 0.47; blade(g, X, Y, Z.snow ? r1 * 0.45 : r1, r2, dark ? B4[0] : B4[1], dark ? B4[2] : B4[3]); });
+  if (Z.flowers && (v === 2 || v === 3 || (Z.flowers > 1 && v === 0))) scatterIn(Math.round((v === 2 ? 7 : 4) * Z.flowers), 31, v, (X, Y, r) => flower(g, X, Y, r), 16);
+  if (Z.leaves) scatter(v === 1 ? 22 : 12, 37, v, (X, Y, r1, r2) => { const col = ['#d8862e', '#c4522a', '#e8b23c', '#a8642e'][Math.floor(r1 * 4)]; dab(g, X + 0.4, Y + 0.5, 1.7, 0.9, r2 * 3, 'rgba(60,40,30,.35)'); dab(g, X, Y, 1.6, 0.85, r2 * 3, col); });
+  if (v === 1 && !Z.snow && !Z.leaves) scatterIn(5, 33, v, (X, Y, r1, r2) => { for (let k = 0; k < 3; k++) dab(g, X + (k - 1) * 2.2, Y + (k % 2) * 1.5, 1.8, 1.4, 0, k % 2 ? '#7fae4c' : '#93c25a'); }, 16);
   return c; }
 function paintSand(v) {
   const c = pixels(S, S, (x, y) => { const u = x / S, w = y / S, n = vary(x, y, 41, v, 2, 4); let col = ramp(C.sand, n * 0.9 + 0.08);
@@ -224,7 +240,7 @@ function overlay(layer, m, fi) { const L = LAYERS[layer], key = layer + m, f = f
     for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) { const i = y * S + x, v = f[i], a = clamp((v - 0.5) / 0.012 + 0.5, 0, 1);
       let col = [src[i * 4], src[i * 4 + 1], src[i * 4 + 2]];
       if (layer === 'grass') {
-        if (v < 0.528) col = mixc(col, [52, 86, 50], 0.6 * (1 - (v - 0.5) / 0.028));          // the turf's dark lip
+        if (v < 0.528) col = mixc(col, SZ().lip, 0.6 * (1 - (v - 0.5) / 0.028));          // the turf's dark lip
         const sh = a < 1 && at(x - 3, y - 3) > 0.5 ? 0.32 : 0;                             // it sits a little higher than the sand
         const fa = a + (1 - a) * sh; if (fa <= 0) { put(i, [0, 0, 0], 0); continue; }
         put(i, mixc([58, 60, 118], col, a / fa), fa);
@@ -237,7 +253,7 @@ function overlay(layer, m, fi) { const L = LAYERS[layer], key = layer + m, f = f
     for (let y = 3; y < S - 3; y += 3) for (let x = 3; x < S - 3; x += 3) { const jx = x + (h32(x, y, 7, L.seed) - 0.5) * 2, jy = y + (h32(x, y, 8, L.seed) - 0.5) * 2, v = at(Math.round(jx), Math.round(jy));
       if (v > 0.47 && v < 0.53) { const gx = at(Math.round(jx) + 1, Math.round(jy)) - at(Math.round(jx) - 1, Math.round(jy)), gy = at(Math.round(jx), Math.round(jy) + 1) - at(Math.round(jx), Math.round(jy) - 1); const l = Math.hypot(gx, gy) || 1;
         const dir = layer === 'grass' ? -1 : 1, nx = gx / l * dir, ny = gy / l * dir, len = 2.5 + h32(x, y, 9, L.seed) * 3;
-        g.fillStyle = '#4b7a3c'; g.beginPath(); g.moveTo(jx - ny * 1.1, jy + nx * 1.1); g.lineTo(jx + nx * len, jy + ny * len - 1); g.lineTo(jx + ny * 1.1, jy - nx * 1.1); g.fill();
+        g.fillStyle = layer === 'grass' ? SZ().eblade : '#4b7a3c'; g.beginPath(); g.moveTo(jx - ny * 1.1, jy + nx * 1.1); g.lineTo(jx + nx * len, jy + ny * len - 1); g.lineTo(jx + ny * 1.1, jy - nx * 1.1); g.fill();
         g.fillStyle = '#93bd58'; g.beginPath(); g.moveTo(jx - ny * 0.9 - 0.5, jy + nx * 0.9 - 0.6); g.lineTo(jx + nx * len - 0.6, jy + ny * len - 1.5); g.lineTo(jx - 0.4, jy - 0.6); g.fill(); } }
     OV[key] = c; return c; }
   const P = phase(layer);
@@ -301,7 +317,7 @@ function foliage(g, blobs, P, o: any = {}) {
 function bbox(pts) { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const p of pts) { if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1]; } return { x0, y0, x1, y1, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, rx: (x1 - x0) / 2, ry: (y1 - y0) / 2 }; }
 
 /* grass blades round a foot, to sit an object into the ground: little fans of tapered blades */
-function tufts(g, x0, x1, y, seed, n = 8, h = 2.2) { const R = mul(seed), dk = ['#2f5a34', '#3a6638', '#456f3a'], lt = ['#7fae4c', '#93c25a', '#a7c862'];
+function tufts(g, x0, x1, y, seed, n = 8, h = 2.2) { const R = mul(seed), dk = SZ().tdk, lt = SZ().tlt;
   for (let i = 0; i < n; i++) { const x = x0 + (i + R() * 0.8) / n * (x1 - x0), k = 3 + ((R() * 3) | 0), sc = 0.65 + R() * 0.7;
     for (let j = 0; j < k; j++) { const a = (j - (k - 1) / 2) * 0.34 + (R() - 0.5) * 0.25, len = h * sc * (0.75 + R() * 0.5) * (1 - Math.abs(j - (k - 1) / 2) * 0.12), tx = x + Math.sin(a) * len + (R() - 0.5) * 0.3, ty = y - Math.cos(a) * len, bx = x + (j - (k - 1) / 2) * 0.28, w = 0.3;
       g.fillStyle = dk[(R() * 3) | 0]; g.beginPath(); g.moveTo(bx - w, y + 0.2); g.quadraticCurveTo(bx - w * 0.5 + Math.sin(a) * len * 0.35, y - len * 0.55, tx, ty); g.quadraticCurveTo(bx + w * 0.5 + Math.sin(a) * len * 0.35, y - len * 0.5, bx + w, y + 0.2); g.fill();
@@ -480,6 +496,30 @@ function glow24(g, x, y, r, col, a) { g.save(); g.globalCompositeOperation = 'li
 const TPAL = { round: pal('#5f9438', '#d2e886', '#9cc860'), dark: pal('#3a6633', '#8fbf62', '#6a9a4a'), flower: pal('#62973a', '#d6ea8a', '#a2cc64'),
   pine: pal('#3f7a46', '#b4dc9c', '#77ad6f'), oldpine: pal('#2c5a4a', '#8cc2b2', '#5a8c78') };
 const WOOD = pal('#7a5232', '#e0aa70', '#9c6e44');
+/* the trees' and bushes' leaves by season (summer is TPAL as it was); winter's broad-leaved trees are bare (bareCrown) and the pines carry snow */
+const TPAL_SEASON = {
+  summer: Object.assign({}, TPAL),
+  spring: { round: pal('#6aa83e', '#e4f6a0', '#a8d66a'), dark: pal('#4a823c', '#b0d884', '#7cb456'), flower: pal('#e08aac', '#fff0f6', '#f6bcd2'),
+    pine: pal('#468a4c', '#c0e6a6', '#80b876'), oldpine: pal('#326450', '#98ccbc', '#62967e') },
+  autumn: { round: pal('#c8742a', '#ffe08a', '#eea040'), dark: pal('#a4382a', '#f8a070', '#d05a38'), flower: pal('#d0a02a', '#fff4a6', '#ecc84c'),
+    pine: pal('#3c6e44', '#a8cc94', '#6e9e66'), oldpine: pal('#2c5446', '#84b4a4', '#52806c') },
+  winter: { round: pal('#6e7a5c', '#d4dcc8', '#9aa68a'), dark: pal('#566650', '#c0ccb8', '#84927c'), flower: pal('#6e7a5c', '#d4dcc8', '#9aa68a'),
+    pine: pal('#2f5e46', '#a6c8b4', '#5c8a72'), oldpine: pal('#244c40', '#88b0a4', '#4a7464') },
+};
+/* a bare crown for winter: branches forking up from the trunk, snow along their tops */
+function bareCrown(g, v, sw) { const R = mul(70 + v * 13), br = [];
+  const grow = (x, y, a, l, w, d) => { const x2 = x + Math.cos(a) * l + sw * 0.25 * d, y2 = y + Math.sin(a) * l; br.push([x, y, x2, y2, w, d]);
+    if (d < 3) for (const s2 of [-1, 1]) grow(x2, y2, a + s2 * (0.38 + R() * 0.22) + (R() - 0.5) * 0.2, l * (0.62 + R() * 0.12), w * 0.6, d + 1); };
+  grow(12, 14.4, -Math.PI / 2 - 0.62, 4.6, 1.25, 0); grow(12, 14.2, -Math.PI / 2 + 0.6, 4.6, 1.25, 0); grow(12, 13.6, -Math.PI / 2 + (v % 2 ? 0.1 : -0.1), 5.6, 1.35, 0);
+  g.lineCap = 'round';
+  for (const [x, y, x2, y2, w] of br) { g.strokeStyle = INK; g.lineWidth = w + 0.55; g.beginPath(); g.moveTo(x, y); g.lineTo(x2, y2); g.stroke(); }
+  for (const [x, y, x2, y2, w] of br) { g.strokeStyle = '#6e4e36'; g.lineWidth = w; g.beginPath(); g.moveTo(x, y); g.lineTo(x2, y2); g.stroke(); g.strokeStyle = 'rgba(224,180,128,.45)'; g.lineWidth = w * 0.35; g.beginPath(); g.moveTo(x - w * 0.25, y); g.lineTo(x2 - w * 0.25, y2); g.stroke(); }
+  for (const [x, y, x2, y2, w, d] of br) if (d < 3) { g.strokeStyle = '#f4f8fc'; g.lineWidth = Math.max(0.35, w * 0.55); g.beginPath(); g.moveTo(x, y - w * 0.45); g.lineTo(x2, y2 - w * 0.45); g.stroke(); }
+  for (const [, , x2, y2, , d] of br) if (d === 3 && R() < 0.4) dab(g, x2, y2 - 0.3, 0.7, 0.45, 0, '#f4f8fc'); }
+/* a cap of snow lying on a pine tier (drawn inside the tier's clip) */
+function pineSnow(g, y, w, h, sx, seed) { const R = mul(seed), pts = [[12 - w - 2, y - h - 3], [12 + w + 2, y - h - 3]];
+  for (let i = 0; i <= 8; i++) { const u = 1 - i / 4; pts.push([12 + sx * 0.5 + u * (w + 1), y - h + 2.0 + Math.abs(u) * (h - 1.4) + (R() - 0.5) * 0.9 + (i % 2 ? 0.6 : 0)]); }
+  g.fillStyle = '#eef4fb'; g.beginPath(); trace(g, pts, false); g.fill(); g.fillStyle = 'rgba(140,160,205,.35)'; g.beginPath(); g.moveTo(12 + sx, y - h); g.lineTo(12 + w + 2, y + 1); g.lineTo(12 + 0.6, y + 1); g.fill(); }
 function trunk24(g, cx, base, top, wid, sx = 0) { const hw = wid / 2, pts = [[cx - hw - 1.5, base + 0.5], [cx - hw - 0.5, base - 0.8], [cx - hw - 0.05, base - 3.2], [cx - wid * 0.42 + sx * 0.3, top], [cx + wid * 0.42 + sx * 0.3, top], [cx + hw + 0.05, base - 3.2], [cx + hw + 0.55, base - 0.8], [cx + hw + 1.6, base + 0.5]];
   c24(g, [pts], WOOD, { smooth: false, seed: 5, hs: 0.3, lx: -0.7, ly: -0.5 });
   g.save(); g.beginPath(); trace(g, pts, false); g.clip(); const R = mul(7 + Math.round(cx));
@@ -500,16 +540,19 @@ function tree24(g, t, kind, v) {
       // sprays of needles fanning down and out along each tier, lit on the sunny side
       for (let r = 0; r < 4; r++) for (let s2 = -1; s2 <= 1; s2 += 2) { const yy = y - h * 0.62 + r * (h * 0.5) / 3 + 0.3, ww = (w * 0.3 + (yy - (y - h)) / h * w * 0.7) ; for (let q = 0; q < 4; q++) { const x = 12 + s2 * (ww * (0.2 + q * 0.2) + R() * 0.6), y2 = yy + q * 0.35 + R() * 0.4, a = s2 * (0.8 + R() * 0.4), l = 1.4 + R() * 1.1; const lit = s2 < 0 ? 0.55 : 0.2;
           g.strokeStyle = rgba(mixc(K, hx('#10281e'), 0.3), 0.55); g.lineWidth = 0.22; g.lineCap = 'round'; g.beginPath(); g.moveTo(x, y2); g.lineTo(x + Math.sin(a) * l, y2 + Math.cos(a) * l * 0.8); g.stroke(); g.strokeStyle = rgba(mixc(B, H, lit + 0.2), 0.7); g.lineWidth = 0.16; g.beginPath(); g.moveTo(x - 0.2, y2 - 0.2); g.lineTo(x - 0.2 + Math.sin(a) * l * 0.8, y2 - 0.2 + Math.cos(a) * l * 0.65); g.stroke(); } }
+      if (SEASON === 'winter') pineSnow(g, y, w, h, sx, 600 + k * 7 + v);
       g.restore(); g.fillStyle = rgba(K, 0.5); g.beginPath(); g.ellipse(12 + sx * 0.5, y + 2.4, w * 0.8, 0.9, 0, 0, TAU); g.fill(); }
     return; }
   trunk24(g, 12, 22.6, 13.5, 2.8);
+  if (SEASON === 'winter') { bareCrown(g, v + kind.length, sw2); return; }
   const sets = [[[12, 11.4, 7.4, 5.4, 0.4], [6.6, 11, 5, 4.2, 0.5], [17.6, 11.2, 5, 4.2, 0.5], [8.2, 6.2, 5.4, 4.5, 0.8], [15.8, 6.6, 5.4, 4.5, 0.8], [12, 4.6, 5.8, 4.4, 1]],
     [[12, 11.8, 7.8, 5.2, 0.4], [5.8, 10.6, 4.6, 4, 0.5], [18.4, 11, 4.8, 4.2, 0.5], [9, 7, 6, 4.8, 0.8], [16, 6.2, 5.4, 4.4, 0.8], [11, 4.2, 5, 3.8, 1]],
     [[12, 11, 7.6, 5.6, 0.4], [7, 12, 4.8, 3.8, 0.5], [17.4, 12.2, 4.8, 3.8, 0.5], [7.6, 6.6, 5, 4.4, 0.8], [16.6, 6.2, 5.2, 4.6, 0.8], [12.4, 4.4, 5.4, 4.2, 1]]][v % 3];
   const L = sets.map(([x, y, rx, ry, d], i) => blob(x + sw2 * d, y + (R() - 0.5) * 0.5, rx, ry, v * 5 + i + 1, 30, 0.12, 5));
   foliage(g, L, TPAL[kind], { seed: 3 + v, r: [1.3, 2.5], per: 0.36 });
   g.fillStyle = 'rgba(60,64,150,.34)'; g.beginPath(); g.ellipse(12.6, 15.4, 4, 1.1, 0, 0, TAU); g.fill();
-  if (kind === 'flower') { const F = mul(55 + v); for (let i = 0; i < 9; i++) { const a = F() * TAU, d = F() * 0.85; const x = 12 + Math.cos(a) * 8 * d + sw2 * 0.6, y = 8.4 + Math.sin(a) * 5.2 * d; dab(g, x, y, 0.95, 0.85, 0, '#fff8ea'); dab(g, x, y, 0.4, 0.4, 0, '#f2c94c'); } } }
+  if (kind === 'flower' && SEASON !== 'autumn') { const F = mul(55 + v), sp = SEASON === 'spring'; for (let i = 0; i < (sp ? 16 : 9); i++) { const a = F() * TAU, d = F() * 0.85; const x = 12 + Math.cos(a) * 8 * d + sw2 * 0.6, y = 8.4 + Math.sin(a) * 5.2 * d; dab(g, x, y, 0.95, 0.85, 0, sp ? '#fffafc' : '#fff8ea'); dab(g, x, y, 0.4, 0.4, 0, sp ? '#e86a96' : '#f2c94c'); } }
+  if (SEASON === 'autumn' && v % 2 === 0) { const F = mul(77 + v); for (let i = 0; i < 4; i++) dab(g, 4 + F() * 16, 21.4 + F() * 1.6, 1.3, 0.6, F() * 3, ['#d8862e', '#c4522a', '#e8b23c'][i % 3]); } }
 
 /* ================= rocks, bushes, nodes, crags ================= */
 function boulder24(g, v) { shadowE(g, 13, 20.6, 10.8, 2.5);
@@ -520,6 +563,7 @@ function boulder24(g, v) { shadowE(g, 13, 20.6, 10.8, 2.5);
 function bush24(g, t, v, berries, state = 2) { const sw = tw(t, 1, v) * 0.28; shadowE(g, 13, 20.4, 10.4, 2.4);
   const set = [[[13, 13, 7, 5.6], [7.4, 14, 5, 4.2], [18.6, 14.2, 5, 4.2], [10, 9, 5.2, 4.4], [16, 9.4, 5.2, 4.4]], [[13, 13.4, 7.6, 5.2], [6.8, 13.6, 4.4, 4], [19, 14, 4.6, 4.2], [11, 9, 5.6, 4.6], [16.6, 9.6, 4.6, 4]]][v % 2];
   foliage(g, set.map(([x, y, rx, ry], i) => blob(x + sw * (1 - y / 20), y, rx, ry, 70 + v * 5 + i, 26, 0.12, 5)), TPAL.round, { seed: 30 + v, r: [1.0, 1.8] });
+  if (SEASON === 'winter') for (const [x, y, rx, ry] of set) if (y < 13.5) { dab(g, x + sw * (1 - y / 20), y - ry * 0.62, rx * 0.72, ry * 0.32, 0, '#eef4fb'); dab(g, x + sw * (1 - y / 20) - rx * 0.2, y - ry * 0.72, rx * 0.35, ry * 0.14, 0, '#ffffff'); }
   if (berries) { const n = [0, 3, 7][state]; const R = mul(33 + v); for (let i = 0; i < n; i++) { const x = 6 + R() * 14, y = 8 + R() * 8; dab(g, x, y, 1.15, 1.15, 0, INK); dab(g, x, y, 0.95, 0.95, 0, '#cf2f4a'); dab(g, x - 0.3, y - 0.3, 0.3, 0.3, 0, '#ffd0d6'); } } }
 function herb24(g, t, v, state = 2) { shadowE(g, 12.6, 19.8, 8.2, 2);
   const R = mul(21 + v), n = [0, 4, 9][state], N = 7;
@@ -2086,7 +2130,10 @@ function inkLift(c, seed) { const W = c.width, H = c.height, g = c.getContext('2
     if (shade > 0.01) { const f = 1 - 0.2 * shade * t; cr *= f; cg *= f; cb *= f; }
     out[i * 4] = cr; out[i * 4 + 1] = cg; out[i * 4 + 2] = cb; }
   im.data.set(out); g.putImageData(im, 0, 0); }
-function rawFrame(it, f) { const k = it.id + '|raw' + f; if (objCache[k]) return objCache[k]; const c = mk(it.w, it.rh || it.h), g = c.getContext('2d'); it.paint(g, f / it.frames, f); if (it.tex !== 0) texturize(c, it.tex ?? 0.8); if (it.kind === 'object' && it.lift !== 0) inkLift(c, h32(it.id.length, it.id.charCodeAt(0), it.id.charCodeAt(it.id.length - 1), 3) * 97 | 0); return objCache[k] = c; }
+/* the season over the small plants on the ground: frost in winter, a turn to gold in autumn (the crops in the fields keep their own colours) */
+function seasonWash(it, g, c) { if (SEASON === 'summer' || SEASON === 'spring' || !/^(decal_(flowers|clover|fern)|herb_|stump_)/.test(it.id)) return;
+  g.save(); g.globalCompositeOperation = 'source-atop'; g.fillStyle = SEASON === 'winter' ? 'rgba(236,242,250,.55)' : 'rgba(200,130,40,.35)'; g.fillRect(0, 0, c.width, c.height); g.restore(); }
+function rawFrame(it, f) { const k = it.id + '|raw' + f; if (objCache[k]) return objCache[k]; const c = mk(it.w, it.rh || it.h), g = c.getContext('2d'); it.paint(g, f / it.frames, f); seasonWash(it, g, c); if (it.tex !== 0) texturize(c, it.tex ?? 0.8); if (it.kind === 'object' && it.lift !== 0) inkLift(c, h32(it.id.length, it.id.charCodeAt(0), it.id.charCodeAt(it.id.length - 1), 3) * 97 | 0); return objCache[k] = c; }
 /* Pieces that are a thing standing on its own tile are centred on it (by the body, not the shadow), and every object keeps clear air round it: no canopy, shadow or glow touches the edge of its frame. */
 const NOCENTRE = /^(site_|raft$|ship$|boat$|wreck$|whale$|lighthouse|tree_|tent_|stall_|well$|statue_|lamp_|campfire|feastfire|cave_|obelisk|lantern_|owlpost_|heartgem|deer_|fox_|owl_|forest_sprite|decal_|crop_|shroom|cake|glow)/;
 function fitOf(it) { if (it._fit !== undefined) return it._fit; it._fit = null; it._dx = 0; if (it.kind !== 'object' || NOFIT.test(it.id)) return null;
@@ -2349,7 +2396,11 @@ const plantsDraw = (g, t, seed, st, only) => seed && seed !== 'barley' && CROP_A
 /** for the dress-up panel (ui/dressup.ts): what a person can be drawn with, their face as drawn now, and a way to forget the cached sprites after a change */
 const PARTS = { HSTYLES, BEARDS, HATS, PATS, EYES: Object.keys(EYESHAPE), BROWS, NOSES, MOUTHS, IRIS: Object.keys(IRIS) };
 const dollForget = () => { if (typeof DOLL_CACHE !== 'undefined') DOLL_CACHE.clear(); };
-return { Q, S, FR, DF, DO, TP, BLK, terr, water, overlay, frameOf, BYID, ITEMS, h32, mul, drawDoll, drawDollLOD, drawSleeper, roomDress, kitOf, chibi: CHIBI, chibiSet, plantsDraw, PARTS, lookOf, dollForget };
+/** switch the season's look: repaint grass, trees, bushes and the small plants from the season's palettes (every cached painting is dropped) */
+function setSeason(k) { if (!SEASON_DEF[k]) return false; SEASON = k; C.grass = SEASON_DEF[k].grass.map(hx); Object.assign(TPAL, TPAL_SEASON[k]);
+  for (const o of [TERR, TPX, OV, OVC, objCache]) for (const key of Object.keys(o)) delete o[key]; return true; }
+const seasonCol = () => ({ grass: SZ().over, tree: SZ().tree });
+return { Q, S, FR, DF, DO, TP, BLK, terr, setSeason, seasonCol, season: () => SEASON, water, overlay, frameOf, BYID, ITEMS, h32, mul, drawDoll, drawDollLOD, drawSleeper, roomDress, kitOf, chibi: CHIBI, chibiSet, plantsDraw, PARTS, lookOf, dollForget };
 
 })();
 

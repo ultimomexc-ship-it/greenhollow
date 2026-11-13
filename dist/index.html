@@ -702,6 +702,62 @@ const ART = (function() {
     path: ["#a27b50", "#b08959", "#be9966", "#cdab7a"].map(hx),
     soil: ["#61402e", "#704b34", "#80583c", "#946847"].map(hx)
   };
+  let SEASON = "summer";
+  const SEASON_DEF = {
+    spring: {
+      grass: ["#4f8c3c", "#62a246", "#74b24c", "#8cc45a", "#a8d66c"],
+      blade: ["#3e7038", "#4f8a3e", "#7cb44c", "#b8de76"],
+      blades: 250,
+      flowers: 2,
+      fcol: ["#fbf6ec", "#f6b8cf", "#f3d55a", "#c9b2f2"],
+      lip: [52, 92, 50],
+      eblade: "#4f8a3e",
+      tdk: ["#2f6034", "#3a6e38", "#477a3a"],
+      tlt: ["#86b84e", "#9cc85e", "#b4d86c"],
+      over: "#7cb44a",
+      tree: "#4c8a3c"
+    },
+    summer: {
+      grass: ["#4b773b", "#5c8a40", "#6c9944", "#82ab4e", "#9bbe5a"],
+      blade: ["#3c6539", "#4f7d3c", "#6f9a46", "#a7c862"],
+      blades: 250,
+      flowers: 1,
+      fcol: ["#f7f3e6", "#f3d55a", "#ef9fb4"],
+      lip: [52, 86, 50],
+      eblade: "#4b7a3c",
+      tdk: ["#2f5a34", "#3a6638", "#456f3a"],
+      tlt: ["#7fae4c", "#93c25a", "#a7c862"],
+      over: "#79a845",
+      tree: "#3f7a3a"
+    },
+    autumn: {
+      grass: ["#6a6a34", "#7e773a", "#948640", "#ad984c", "#c2a65a"],
+      blade: ["#5a5430", "#6c6434", "#b08c40", "#d4b060"],
+      blades: 210,
+      flowers: 0,
+      leaves: 1,
+      lip: [80, 70, 40],
+      eblade: "#7a6a34",
+      tdk: ["#5a4a2a", "#6a5830", "#7a6634"],
+      tlt: ["#b4903e", "#c8a24c", "#d8b45a"],
+      over: "#a5964c",
+      tree: "#b0622c"
+    },
+    winter: {
+      grass: ["#c4ced8", "#d2dbe4", "#dfe6ed", "#eaeff4", "#f6f8fb"],
+      blade: ["#7c8a84", "#8e9a92", "#b8c2c0", "#e4eaee"],
+      blades: 55,
+      flowers: 0,
+      snow: 1,
+      lip: [150, 162, 186],
+      eblade: "#8a9690",
+      tdk: ["#6a7672", "#7a8680", "#88928c"],
+      tlt: ["#c8d0d0", "#dce2e4", "#eef2f4"],
+      over: "#e4ebf1",
+      tree: "#5a6e66"
+    }
+  };
+  const SZ = () => SEASON_DEF[SEASON] || SEASON_DEF.summer;
   function blade(g, x, y, r1, r2, dk, lt) {
     const len = 4 + r1 * 5, a = -Math.PI / 2 + (r2 - 0.5) * 0.9, tx = x + Math.cos(a) * len, ty = y + Math.sin(a) * len, bend = (r2 - 0.5) * 3;
     g.fillStyle = dk;
@@ -724,7 +780,7 @@ const ART = (function() {
     g.fill();
   }
   function flower(g, x, y, r) {
-    const col = r < 0.4 ? "#f7f3e6" : r < 0.75 ? "#f3d55a" : "#ef9fb4";
+    const fc = SZ().fcol || SEASON_DEF.summer.fcol, col = fc[Math.min(fc.length - 1, Math.floor(r * fc.length))];
     for (let k = 0; k < 5; k++) {
       const a = k / 5 * TAU;
       dab(g, x + Math.cos(a) * 1.6, y + Math.sin(a) * 1.3, 1.25, 1.05, a, col);
@@ -741,12 +797,19 @@ const ART = (function() {
     });
     const g = c.getContext("2d");
     scatter(26, 13, v, (X, Y, r1, r2) => dab(g, X, Y, 6 + r1 * 6, 2.5 + r2 * 2, -0.25, r1 < 0.5 ? "rgba(130,170,80,.22)" : "rgba(54,94,62,.20)"));
-    scatter(250, 21, v, (X, Y, r1, r2) => {
+    const Z = SZ(), B4 = Z.blade;
+    if (Z.snow) scatter(18, 19, v, (X, Y, r1, r2) => dab(g, X, Y, 5 + r1 * 6, 1.6 + r2 * 1.4, -0.15, r1 < 0.5 ? "rgba(150,170,205,.22)" : "rgba(255,255,255,.5)"));
+    scatter(Z.blades, 21, v, (X, Y, r1, r2) => {
       const dark = vn(X / S, Y / S, 4, 11) < 0.47;
-      blade(g, X, Y, r1, r2, dark ? "#3c6539" : "#4f7d3c", dark ? "#6f9a46" : "#a7c862");
+      blade(g, X, Y, Z.snow ? r1 * 0.45 : r1, r2, dark ? B4[0] : B4[1], dark ? B4[2] : B4[3]);
     });
-    if (v === 2 || v === 3) scatterIn(v === 2 ? 7 : 4, 31, v, (X, Y, r) => flower(g, X, Y, r), 16);
-    if (v === 1) scatterIn(5, 33, v, (X, Y, r1, r2) => {
+    if (Z.flowers && (v === 2 || v === 3 || Z.flowers > 1 && v === 0)) scatterIn(Math.round((v === 2 ? 7 : 4) * Z.flowers), 31, v, (X, Y, r) => flower(g, X, Y, r), 16);
+    if (Z.leaves) scatter(v === 1 ? 22 : 12, 37, v, (X, Y, r1, r2) => {
+      const col = ["#d8862e", "#c4522a", "#e8b23c", "#a8642e"][Math.floor(r1 * 4)];
+      dab(g, X + 0.4, Y + 0.5, 1.7, 0.9, r2 * 3, "rgba(60,40,30,.35)");
+      dab(g, X, Y, 1.6, 0.85, r2 * 3, col);
+    });
+    if (v === 1 && !Z.snow && !Z.leaves) scatterIn(5, 33, v, (X, Y, r1, r2) => {
       for (let k = 0; k < 3; k++) dab(g, X + (k - 1) * 2.2, Y + k % 2 * 1.5, 1.8, 1.4, 0, k % 2 ? "#7fae4c" : "#93c25a");
     }, 16);
     return c;
@@ -1020,7 +1083,7 @@ const ART = (function() {
         const i = y * S + x, v = f[i], a = clamp((v - 0.5) / 0.012 + 0.5, 0, 1);
         let col = [src[i * 4], src[i * 4 + 1], src[i * 4 + 2]];
         if (layer === "grass") {
-          if (v < 0.528) col = mixc(col, [52, 86, 50], 0.6 * (1 - (v - 0.5) / 0.028));
+          if (v < 0.528) col = mixc(col, SZ().lip, 0.6 * (1 - (v - 0.5) / 0.028));
           const sh = a < 1 && at(x - 3, y - 3) > 0.5 ? 0.32 : 0;
           const fa = a + (1 - a) * sh;
           if (fa <= 0) {
@@ -1041,7 +1104,7 @@ const ART = (function() {
           const gx = at(Math.round(jx) + 1, Math.round(jy)) - at(Math.round(jx) - 1, Math.round(jy)), gy = at(Math.round(jx), Math.round(jy) + 1) - at(Math.round(jx), Math.round(jy) - 1);
           const l = Math.hypot(gx, gy) || 1;
           const dir = layer === "grass" ? -1 : 1, nx = gx / l * dir, ny = gy / l * dir, len = 2.5 + h32(x, y, 9, L2.seed) * 3;
-          g.fillStyle = "#4b7a3c";
+          g.fillStyle = layer === "grass" ? SZ().eblade : "#4b7a3c";
           g.beginPath();
           g.moveTo(jx - ny * 1.1, jy + nx * 1.1);
           g.lineTo(jx + nx * len, jy + ny * len - 1);
@@ -1166,7 +1229,7 @@ const ART = (function() {
     return { x0, y0, x1, y1, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, rx: (x1 - x0) / 2, ry: (y1 - y0) / 2 };
   }
   function tufts(g, x0, x1, y, seed, n = 8, h = 2.2) {
-    const R = mul(seed), dk = ["#2f5a34", "#3a6638", "#456f3a"], lt = ["#7fae4c", "#93c25a", "#a7c862"];
+    const R = mul(seed), dk = SZ().tdk, lt = SZ().tlt;
     for (let i = 0; i < n; i++) {
       const x = x0 + (i + R() * 0.8) / n * (x1 - x0), k = 3 + (R() * 3 | 0), sc = 0.65 + R() * 0.7;
       for (let j = 0; j < k; j++) {
@@ -1650,6 +1713,90 @@ const ART = (function() {
     oldpine: pal("#2c5a4a", "#8cc2b2", "#5a8c78")
   };
   const WOOD = pal("#7a5232", "#e0aa70", "#9c6e44");
+  const TPAL_SEASON = {
+    summer: Object.assign({}, TPAL),
+    spring: {
+      round: pal("#6aa83e", "#e4f6a0", "#a8d66a"),
+      dark: pal("#4a823c", "#b0d884", "#7cb456"),
+      flower: pal("#e08aac", "#fff0f6", "#f6bcd2"),
+      pine: pal("#468a4c", "#c0e6a6", "#80b876"),
+      oldpine: pal("#326450", "#98ccbc", "#62967e")
+    },
+    autumn: {
+      round: pal("#c8742a", "#ffe08a", "#eea040"),
+      dark: pal("#a4382a", "#f8a070", "#d05a38"),
+      flower: pal("#d0a02a", "#fff4a6", "#ecc84c"),
+      pine: pal("#3c6e44", "#a8cc94", "#6e9e66"),
+      oldpine: pal("#2c5446", "#84b4a4", "#52806c")
+    },
+    winter: {
+      round: pal("#6e7a5c", "#d4dcc8", "#9aa68a"),
+      dark: pal("#566650", "#c0ccb8", "#84927c"),
+      flower: pal("#6e7a5c", "#d4dcc8", "#9aa68a"),
+      pine: pal("#2f5e46", "#a6c8b4", "#5c8a72"),
+      oldpine: pal("#244c40", "#88b0a4", "#4a7464")
+    }
+  };
+  function bareCrown(g, v, sw) {
+    const R = mul(70 + v * 13), br = [];
+    const grow = (x, y, a, l, w, d) => {
+      const x2 = x + Math.cos(a) * l + sw * 0.25 * d, y2 = y + Math.sin(a) * l;
+      br.push([x, y, x2, y2, w, d]);
+      if (d < 3) for (const s2 of [-1, 1]) grow(x2, y2, a + s2 * (0.38 + R() * 0.22) + (R() - 0.5) * 0.2, l * (0.62 + R() * 0.12), w * 0.6, d + 1);
+    };
+    grow(12, 14.4, -Math.PI / 2 - 0.62, 4.6, 1.25, 0);
+    grow(12, 14.2, -Math.PI / 2 + 0.6, 4.6, 1.25, 0);
+    grow(12, 13.6, -Math.PI / 2 + (v % 2 ? 0.1 : -0.1), 5.6, 1.35, 0);
+    g.lineCap = "round";
+    for (const [x, y, x2, y2, w] of br) {
+      g.strokeStyle = INK;
+      g.lineWidth = w + 0.55;
+      g.beginPath();
+      g.moveTo(x, y);
+      g.lineTo(x2, y2);
+      g.stroke();
+    }
+    for (const [x, y, x2, y2, w] of br) {
+      g.strokeStyle = "#6e4e36";
+      g.lineWidth = w;
+      g.beginPath();
+      g.moveTo(x, y);
+      g.lineTo(x2, y2);
+      g.stroke();
+      g.strokeStyle = "rgba(224,180,128,.45)";
+      g.lineWidth = w * 0.35;
+      g.beginPath();
+      g.moveTo(x - w * 0.25, y);
+      g.lineTo(x2 - w * 0.25, y2);
+      g.stroke();
+    }
+    for (const [x, y, x2, y2, w, d] of br) if (d < 3) {
+      g.strokeStyle = "#f4f8fc";
+      g.lineWidth = Math.max(0.35, w * 0.55);
+      g.beginPath();
+      g.moveTo(x, y - w * 0.45);
+      g.lineTo(x2, y2 - w * 0.45);
+      g.stroke();
+    }
+    for (const [, , x2, y2, , d] of br) if (d === 3 && R() < 0.4) dab(g, x2, y2 - 0.3, 0.7, 0.45, 0, "#f4f8fc");
+  }
+  function pineSnow(g, y, w, h, sx, seed) {
+    const R = mul(seed), pts = [[12 - w - 2, y - h - 3], [12 + w + 2, y - h - 3]];
+    for (let i = 0; i <= 8; i++) {
+      const u = 1 - i / 4;
+      pts.push([12 + sx * 0.5 + u * (w + 1), y - h + 2 + Math.abs(u) * (h - 1.4) + (R() - 0.5) * 0.9 + (i % 2 ? 0.6 : 0)]);
+    }
+    g.fillStyle = "#eef4fb";
+    g.beginPath();
+    trace(g, pts, false);
+    g.fill();
+    g.fillStyle = "rgba(140,160,205,.35)";
+    g.beginPath();
+    g.moveTo(12 + sx, y - h);
+    g.lineTo(12 + w + 2, y + 1);
+    g.lineTo(12 + 0.6, y + 1);
+    g.fill();
+  }
   function trunk24(g, cx, base, top, wid, sx = 0) {
     const hw = wid / 2, pts = [[cx - hw - 1.5, base + 0.5], [cx - hw - 0.5, base - 0.8], [cx - hw - 0.05, base - 3.2], [cx - wid * 0.42 + sx * 0.3, top], [cx + wid * 0.42 + sx * 0.3, top], [cx + hw + 0.05, base - 3.2], [cx + hw + 0.55, base - 0.8], [cx + hw + 1.6, base + 0.5]];
     c24(g, [pts], WOOD, { smooth: false, seed: 5, hs: 0.3, lx: -0.7, ly: -0.5 });
@@ -1730,6 +1877,7 @@ const ART = (function() {
             g.stroke();
           }
         }
+        if (SEASON === "winter") pineSnow(g, y, w, h, sx, 600 + k * 7 + v);
         g.restore();
         g.fillStyle = rgba(K, 0.5);
         g.beginPath();
@@ -1739,6 +1887,10 @@ const ART = (function() {
       return;
     }
     trunk24(g, 12, 22.6, 13.5, 2.8);
+    if (SEASON === "winter") {
+      bareCrown(g, v + kind.length, sw2);
+      return;
+    }
     const sets = [
       [[12, 11.4, 7.4, 5.4, 0.4], [6.6, 11, 5, 4.2, 0.5], [17.6, 11.2, 5, 4.2, 0.5], [8.2, 6.2, 5.4, 4.5, 0.8], [15.8, 6.6, 5.4, 4.5, 0.8], [12, 4.6, 5.8, 4.4, 1]],
       [[12, 11.8, 7.8, 5.2, 0.4], [5.8, 10.6, 4.6, 4, 0.5], [18.4, 11, 4.8, 4.2, 0.5], [9, 7, 6, 4.8, 0.8], [16, 6.2, 5.4, 4.4, 0.8], [11, 4.2, 5, 3.8, 1]],
@@ -1750,14 +1902,18 @@ const ART = (function() {
     g.beginPath();
     g.ellipse(12.6, 15.4, 4, 1.1, 0, 0, TAU);
     g.fill();
-    if (kind === "flower") {
-      const F = mul(55 + v);
-      for (let i = 0; i < 9; i++) {
+    if (kind === "flower" && SEASON !== "autumn") {
+      const F = mul(55 + v), sp = SEASON === "spring";
+      for (let i = 0; i < (sp ? 16 : 9); i++) {
         const a = F() * TAU, d = F() * 0.85;
         const x = 12 + Math.cos(a) * 8 * d + sw2 * 0.6, y = 8.4 + Math.sin(a) * 5.2 * d;
-        dab(g, x, y, 0.95, 0.85, 0, "#fff8ea");
-        dab(g, x, y, 0.4, 0.4, 0, "#f2c94c");
+        dab(g, x, y, 0.95, 0.85, 0, sp ? "#fffafc" : "#fff8ea");
+        dab(g, x, y, 0.4, 0.4, 0, sp ? "#e86a96" : "#f2c94c");
       }
+    }
+    if (SEASON === "autumn" && v % 2 === 0) {
+      const F = mul(77 + v);
+      for (let i = 0; i < 4; i++) dab(g, 4 + F() * 16, 21.4 + F() * 1.6, 1.3, 0.6, F() * 3, ["#d8862e", "#c4522a", "#e8b23c"][i % 3]);
     }
   }
   function boulder24(g, v) {
@@ -1772,6 +1928,12 @@ const ART = (function() {
     shadowE(g, 13, 20.4, 10.4, 2.4);
     const set = [[[13, 13, 7, 5.6], [7.4, 14, 5, 4.2], [18.6, 14.2, 5, 4.2], [10, 9, 5.2, 4.4], [16, 9.4, 5.2, 4.4]], [[13, 13.4, 7.6, 5.2], [6.8, 13.6, 4.4, 4], [19, 14, 4.6, 4.2], [11, 9, 5.6, 4.6], [16.6, 9.6, 4.6, 4]]][v % 2];
     foliage(g, set.map(([x, y, rx, ry], i) => blob(x + sw * (1 - y / 20), y, rx, ry, 70 + v * 5 + i, 26, 0.12, 5)), TPAL.round, { seed: 30 + v, r: [1, 1.8] });
+    if (SEASON === "winter") {
+      for (const [x, y, rx, ry] of set) if (y < 13.5) {
+        dab(g, x + sw * (1 - y / 20), y - ry * 0.62, rx * 0.72, ry * 0.32, 0, "#eef4fb");
+        dab(g, x + sw * (1 - y / 20) - rx * 0.2, y - ry * 0.72, rx * 0.35, ry * 0.14, 0, "#ffffff");
+      }
+    }
     if (berries) {
       const n = [0, 3, 7][state2];
       const R = mul(33 + v);
@@ -7684,11 +7846,20 @@ const ART = (function() {
     im.data.set(out);
     g.putImageData(im, 0, 0);
   }
+  function seasonWash(it, g, c) {
+    if (SEASON === "summer" || SEASON === "spring" || !/^(decal_(flowers|clover|fern)|herb_|stump_)/.test(it.id)) return;
+    g.save();
+    g.globalCompositeOperation = "source-atop";
+    g.fillStyle = SEASON === "winter" ? "rgba(236,242,250,.55)" : "rgba(200,130,40,.35)";
+    g.fillRect(0, 0, c.width, c.height);
+    g.restore();
+  }
   function rawFrame(it, f) {
     const k = it.id + "|raw" + f;
     if (objCache[k]) return objCache[k];
     const c = mk(it.w, it.rh || it.h), g = c.getContext("2d");
     it.paint(g, f / it.frames, f);
+    seasonWash(it, g, c);
     if (it.tex !== 0) texturize(c, it.tex ?? 0.8);
     if (it.kind === "object" && it.lift !== 0) inkLift(c, h32(it.id.length, it.id.charCodeAt(0), it.id.charCodeAt(it.id.length - 1), 3) * 97 | 0);
     return objCache[k] = c;
@@ -8297,7 +8468,16 @@ const ART = (function() {
   const dollForget = () => {
     if (typeof DOLL_CACHE !== "undefined") DOLL_CACHE.clear();
   };
-  return { Q, S, FR, DF, DO, TP, BLK, terr, water, overlay, frameOf, BYID, ITEMS, h32, mul, drawDoll, drawDollLOD, drawSleeper: drawSleeper2, roomDress, kitOf, chibi: CHIBI, chibiSet, plantsDraw, PARTS, lookOf, dollForget };
+  function setSeason(k) {
+    if (!SEASON_DEF[k]) return false;
+    SEASON = k;
+    C.grass = SEASON_DEF[k].grass.map(hx);
+    Object.assign(TPAL, TPAL_SEASON[k]);
+    for (const o of [TERR, TPX, OV, OVC, objCache]) for (const key of Object.keys(o)) delete o[key];
+    return true;
+  }
+  const seasonCol = () => ({ grass: SZ().over, tree: SZ().tree });
+  return { Q, S, FR, DF, DO, TP, BLK, terr, setSeason, seasonCol, season: () => SEASON, water, overlay, frameOf, BYID, ITEMS, h32, mul, drawDoll, drawDollLOD, drawSleeper: drawSleeper2, roomDress, kitOf, chibi: CHIBI, chibiSet, plantsDraw, PARTS, lookOf, dollForget };
 })();
 let W = 128, H = 84;
 const TS = 24;
@@ -29980,6 +30160,35 @@ function drawWeather(c, now) {
   }
   c.restore();
 }
+const SEASON_KINDS = ["spring", "summer", "autumn", "winter"];
+const SEASON_LABEL = { spring: "Spring", summer: "Summer", autumn: "Autumn", winter: "Winter" };
+function seasonSet(k) {
+  if (!ART.setSeason(k)) return;
+  if (typeof town !== "undefined" && town && typeof grid !== "undefined" && grid && grid.length) buildStatic();
+  if (typeof document !== "undefined") document.querySelectorAll("[data-season]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.season === k ? "true" : "false"));
+}
+const _seasonTile = gaTileColour;
+gaTileColour = function(x, y) {
+  const c = _seasonTile(x, y);
+  if (c === "#79a845") return ART.seasonCol().grass;
+  if (c === "#3f7a3a") return ART.seasonCol().tree;
+  return c;
+};
+(function seasonButtons() {
+  if (typeof document === "undefined") return;
+  const box = document.querySelector("header .controls");
+  if (!box) return;
+  const seg = document.createElement("div");
+  seg.className = "seg wxseg";
+  seg.setAttribute("role", "group");
+  seg.setAttribute("aria-label", "Season (look only)");
+  seg.innerHTML = '<span class="wxlab">Season</span>' + SEASON_KINDS.map((k) => `<button type="button" data-season="${k}" aria-pressed="${k === "summer"}">${SEASON_LABEL[k]}</button>`).join("");
+  box.appendChild(seg);
+  seg.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-season]");
+    if (b) seasonSet(b.dataset.season);
+  });
+})();
 const DRESS = { open: false, draft: null, tab: "body", dir: 0, walk: false, raf: 0 };
 const DRESS_TABS = [["body", "Body"], ["hair", "Hair"], ["face", "Face"], ["clothes", "Clothes"], ["hat", "Hat"]];
 const DRESS_HATCOLS = ["#c8a65a", "#8a5a34", "#4a6fa5", "#a8493f", "#3f8a6a", "#6a6a6a", "#e8e0d0", "#2a2a2a", "#8a5aa5", "#c0953a"];

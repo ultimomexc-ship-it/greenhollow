@@ -68,6 +68,7 @@
   "render/steps.ts",
   "render/trees.ts",
   "render/weather.ts",
+  "render/seasons.ts",
   "ui/dressup.ts",
   "render/chickens.ts",
   "render/build-look.ts",
