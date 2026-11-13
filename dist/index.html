@@ -16527,10 +16527,10 @@ function drawDoors(c, dt) {
 }
 const CROP_COL = [4.4, 12, 19.6], CROP_ROW = [7, 14.6, 22.2], PULL_ORDER = [6, 7, 8, 3, 4, 5, 0, 1, 2];
 function cropPit(c, x, y, k, h) {
-  const rx = (2.6 + h * 0.4) * k, ry = (1.6 + h * 0.2) * k;
-  c.fillStyle = "rgba(20,10,4,.45)";
+  const rx = (3 + h * 0.4) * k, ry = (1.85 + h * 0.2) * k;
+  c.fillStyle = "rgba(20,10,4,.6)";
   c.beginPath();
-  c.ellipse(x, y + 0.2 * k, rx + 0.5 * k, ry + 0.45 * k, 0, 0, 6.3);
+  c.ellipse(x, y + 0.2 * k, rx + 0.6 * k, ry + 0.55 * k, 0, 0, 6.3);
   c.fill();
   c.save();
   c.beginPath();

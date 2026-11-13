@@ -238,8 +238,8 @@ function drawDoors(c, dt) {
    part of the harvest: when the last plant is up the plot is plain ploughed earth again. */
 const CROP_COL = [4.4, 12, 19.6], CROP_ROW = [7, 14.6, 22.2], PULL_ORDER = [6, 7, 8, 3, 4, 5, 0, 1, 2];   // (row * 3 + column)
 function cropPit(c, x, y, k, h) {
-  const rx = (2.6 + h * 0.4) * k, ry = (1.6 + h * 0.2) * k;
-  c.fillStyle = 'rgba(20,10,4,.45)'; c.beginPath(); c.ellipse(x, y + 0.2 * k, rx + 0.5 * k, ry + 0.45 * k, 0, 0, 6.3); c.fill();   // (the soft shade round its edge)
+  const rx = (3.0 + h * 0.4) * k, ry = (1.85 + h * 0.2) * k;
+  c.fillStyle = 'rgba(20,10,4,.6)'; c.beginPath(); c.ellipse(x, y + 0.2 * k, rx + 0.6 * k, ry + 0.55 * k, 0, 0, 6.3); c.fill();   // (the soft shade round its edge)
   c.save(); c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, 6.3); c.fillStyle = '#0d0703'; c.fill(); c.clip();
   const g = c.createLinearGradient(0, y - ry, 0, y + ry * 0.2); g.addColorStop(0, '#5e3d22'); g.addColorStop(0.6, '#2a1809'); g.addColorStop(1, '#0d0703');   // (the far wall inside, lit from above, going dark toward the bottom)
   c.fillStyle = g; c.beginPath(); c.ellipse(x, y - ry * 0.6, rx * 1.1, ry, 0, 0, 6.3); c.fill();
