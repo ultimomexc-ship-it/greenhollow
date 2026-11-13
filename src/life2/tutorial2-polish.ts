@@ -85,7 +85,12 @@ function tut2EdgeArrow(c: any, now: number) {
   c.beginPath(); c.moveTo(16, 0); c.lineTo(-8, -12); c.lineTo(-3, 0); c.lineTo(-8, 12); c.closePath(); c.fill(); c.stroke(); c.restore();
 }
 // @ts-expect-error -- deliberate patch
-const _t2Bub = drawBubbles; drawBubbles = function (c, now) { _t2Bub(c, now); try { tut2EdgeArrow(c, now); } catch (e) {} };
+const _t2Bub = drawBubbles; drawBubbles = function (c, now) {
+  // while an item card is open, every bubble is held: its clock is pushed on by each frame the card is up, so nothing expires behind it
+  const last = (drawBubbles as any).last || now; (drawBubbles as any).last = now;
+  if (typeof ITEMCARD !== 'undefined' && ITEMCARD.open) { const dt = now - last; if (dt > 0 && dt < 1000) { for (const b of bubbles) { b.from += dt; b.until += dt; } if (typeof TUT2 !== 'undefined') TUT2.bubbleEnd += dt; } }
+  _t2Bub(c, now); try { tut2EdgeArrow(c, now); } catch (e) {}
+};
 
 /* ---------------- the shop panel and the build bar point at the button to press ---------------- */
 /** the tutorial's purchase or sale is done (then the panel may close) */
@@ -177,8 +182,6 @@ if (typeof window !== 'undefined') window.addEventListener('keydown', (e: any) =
 /** a card is a full freeze: when it closes, every bubble and the tutorial's own timers carry on from where they stopped */
 function itemCardThaw() {
   const gap = performance.now() - (ITEMCARD.since || performance.now()); ITEMCARD.since = 0; if (gap <= 0) return;
-  for (const b of bubbles) { b.from += gap; b.until += gap; }
-  if (typeof TUT2 !== 'undefined') TUT2.bubbleEnd += gap;
 }
 /* the tutorial is never saved: a new island is saved once the first morning is over */
 // @ts-expect-error -- deliberate patch

@@ -2968,6 +2968,24 @@ test('farming runs: walk on over done plots, stop for a plot of the same job bes
   return 'walk on, stop for a side plot, stop for another job, no seed walks over';
 });
 
+test('tutorial: an item card holds every speech bubble (nothing expires behind it), and grass is drawn as tufts that lean away from your feet', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    window.GH_NOTUT = false; newTown('tutorial', 'hamlet'); tut2Tick(0.05); const P = game.player;
+    tut2Say(tut2Who('paullus'), 'A line to keep.', P); const bub = bubbles.find(q => q.text === 'A line to keep.');
+    itemCard('axe'); for (let i = 0; i < 300; i++) { window.__advance(50); render(performance.now(), 0.05, 9); }   // (15 seconds with the card open)
+    const held = bubbles.includes(bub); itemCardNext(); for (let i = 0; i < 200; i++) { window.__advance(50); render(performance.now(), 0.05, 9); }
+    const gone = !bubbles.includes(bub);
+    cam.z = 2; centerOn(P.tx, P.ty); const items = YSORT[YSORT.length - 1](canvas.getContext('2d'), performance.now());
+    return { held, gone, rows: items.length };
+  });
+  check(r.held, 'a bubble is still up after 15 s behind an item card: ' + JSON.stringify(r));
+  check(r.gone, 'and it goes in its own time after the card closes: ' + JSON.stringify(r));
+  check(r.rows > 5, 'the grass draws in rows in depth order: ' + JSON.stringify(r));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return 'bubbles held behind a card; grass rows ' + r.rows;
+});
+
 const browser = await launch();
 let failed = 0;
 const chosen = tests.filter(t => t.name.includes(filter));
