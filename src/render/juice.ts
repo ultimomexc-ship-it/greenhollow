@@ -100,12 +100,11 @@ const _jSay = tut2Say; tut2Say = function (n, text, to) { const r = _jSay(n, tex
 // the end of the first morning: confetti and a fanfare
 // @ts-expect-error -- deliberate patch
 const _jEnd = tut2End; tut2End = function (T2) { _jEnd(T2); const P = game.player; jsFanfare(); setTimeout(jsFanfare, 450); if (P) { jBurst(P.x * TS + TS / 2, P.y * TS - 10, 70, 'confetti', ['#f4c542', '#e8604c', '#5fae3a', '#4a8ee8', '#c86fd8', '#ffffff'], 2.2, 1.6); } jBuzz(40); };
-// footsteps: a gate creaks, a field puffs a little dust
+// footsteps: a gate creaks (the prints and puffs are in render/steps.ts)
 // @ts-expect-error -- deliberate patch
 const _jStep = sndStep; sndStep = function (n) {
   _jStep(n); if (!n || !n.player) return; const pr = lfPropAt(n.tx, n.ty);
   if (pr && pr.kind === 'gate') jsCreak();
-  if (grid[n.ty] && grid[n.ty][n.tx] === T.CROP && Math.random() < 0.6) jBurst(n.tx * TS + TS / 2, n.ty * TS + TS - 4, 3, 'dot', ['#8a6239', '#6b4a2b'], 0.4, 0.3);
 };
 // buttons click
 if (typeof document !== 'undefined') document.addEventListener('click', (e: any) => { if (e.target && e.target.closest && e.target.closest('button')) jsClick(); }, true);

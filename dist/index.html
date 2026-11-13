@@ -24343,6 +24343,7 @@ function render(now, dtSec, hourOfDay) {
   drawCrops(c, now);
   drawDoors(c, dtSec);
   if (typeof drawTide === "function") drawTide(c, now);
+  if (typeof drawSteps === "function") drawSteps(c, now);
   drawNodes(c, now);
   if (typeof drawShrooms === "function") drawShrooms(c, now);
   if (typeof drawSigns === "function") drawSigns(c, now);
@@ -28870,7 +28871,6 @@ sndStep = function(n) {
   if (!n || !n.player) return;
   const pr = lfPropAt(n.tx, n.ty);
   if (pr && pr.kind === "gate") jsCreak();
-  if (grid[n.ty] && grid[n.ty][n.tx] === T.CROP && Math.random() < 0.6) jBurst(n.tx * TS + TS / 2, n.ty * TS + TS - 4, 3, "dot", ["#8a6239", "#6b4a2b"], 0.4, 0.3);
 };
 if (typeof document !== "undefined") document.addEventListener("click", (e) => {
   if (e.target && e.target.closest && e.target.closest("button")) jsClick();
@@ -28944,6 +28944,80 @@ function drawJuice(c, now) {
       canvas.style.transform = "";
     }
   }
+}
+const STEPS = { on: true, prints: [], last: /* @__PURE__ */ new Map(), max: 260, seed: 12345, stride: 0.42 };
+const stRand = () => {
+  STEPS.seed = STEPS.seed * 1103515245 + 12345 & 2147483647;
+  return STEPS.seed / 2147483647;
+};
+function stSurface(x, y) {
+  const t = grid[y] && grid[y][x], room = roomAt[y] && roomAt[y][x] >= 0;
+  if (room || t === T.FLOOR || t === T.DECK) return { col: "#5a4630", a: 0.12, life: 2500, dust: ["#d8c8a8"], n: 1 };
+  if (t === T.SAND) return { col: "#8a6a3c", a: 0.42, life: 9e3, dust: ["#e8d29a", "#d9be7e"], n: 3 };
+  if (t === T.CROP || t === T.PLOT || t === T.DIRTF) return { col: "#3e2a16", a: 0.4, life: 7e3, dust: ["#8a6239", "#6b4a2b"], n: 2 };
+  if (t === T.PATH) return { col: "#5d5040", a: 0.24, life: 4500, dust: ["#c9bba0", "#b0a084"], n: 2 };
+  if (t === T.GRASS) return { col: "#1f4a14", a: 0.26, life: 4e3, dust: ["#6db03f", "#86c452", "#4e8f2c"], n: 1, leaf: true };
+  return null;
+}
+function stBurst(...a) {
+  const R = Math.random;
+  Math.random = stRand;
+  try {
+    jBurst(...a);
+  } finally {
+    Math.random = R;
+  }
+}
+function stTrack(now) {
+  const x0 = cam.x / TS - 2, y0 = cam.y / TS - 2, x1 = x0 + cam.cw / cam.z / TS + 4, y1 = y0 + cam.ch / cam.z / TS + 4;
+  const walkers = npcs.filter((n) => !n.dead && !n.inShip && !n.infant && n.x >= x0 && n.x <= x1 && n.y >= y0 && n.y <= y1);
+  for (const n of walkers) {
+    const L = STEPS.last.get(n.id);
+    if (!L || Math.abs(n.x - L.x) > 3 || Math.abs(n.y - L.y) > 3) {
+      STEPS.last.set(n.id, { x: n.x, y: n.y, side: 1 });
+      continue;
+    }
+    const dx = n.x - L.x, dy = n.y - L.y, d = Math.hypot(dx, dy);
+    if (d < STEPS.stride) continue;
+    const tx = Math.round(n.x), ty = Math.round(n.y), s = stSurface(tx, ty);
+    L.side = -L.side;
+    if (s) {
+      const ux = dx / d, uy = dy / d, fx = (n.x + 0.5) * TS - uy * L.side * 2.4, fy = (n.y + 0.86) * TS + ux * L.side * 1.6;
+      STEPS.prints.push({ x: fx, y: fy, a: Math.atan2(uy, ux), t0: now, life: s.life, col: s.col, al: s.a * (n.child ? 0.8 : 1), sm: n.child ? 0.75 : 1 });
+      if (STEPS.prints.length > STEPS.max) STEPS.prints.splice(0, STEPS.prints.length - STEPS.max);
+      const near = n.player || stRand() < 0.5;
+      if (near && typeof jBurst === "function") stBurst(fx, fy, s.n, s.leaf ? "leaf" : "dot", s.dust, s.leaf ? 0.35 : 0.3, s.leaf ? 0.5 : 0.25);
+    }
+    L.x = n.x;
+    L.y = n.y;
+  }
+}
+function drawSteps(c, now) {
+  if (!STEPS.on || !town || cam.z < 0.7) return;
+  if (!(typeof itBuildOn === "function" && game.player && itBuildOn(game.player))) stTrack(now);
+  const ps = STEPS.prints;
+  if (!ps.length) return;
+  c.save();
+  for (let i = ps.length - 1; i >= 0; i--) {
+    const q = ps[i], k = (now - q.t0) / q.life;
+    if (k >= 1) {
+      ps.splice(i, 1);
+      continue;
+    }
+    c.globalAlpha = q.al * (1 - k * k);
+    c.fillStyle = q.col;
+    c.save();
+    c.translate(q.x, q.y);
+    c.rotate(q.a);
+    c.beginPath();
+    c.ellipse(0.6, 0, 1.9 * q.sm, 1.15 * q.sm, 0, 0, 6.3);
+    c.fill();
+    c.beginPath();
+    c.ellipse(-1.9 * q.sm, 0, 0.95 * q.sm, 0.9 * q.sm, 0, 0, 6.3);
+    c.fill();
+    c.restore();
+  }
+  c.restore();
 }
 function buildLook(c, now) {
   const P = game.player, on = !!(P && P.player && itBuildOn(P));

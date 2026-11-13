@@ -185,6 +185,7 @@ function render(now, dtSec, hourOfDay) {
   drawCrops(c, now);
   drawDoors(c, dtSec);
   if (typeof drawTide === 'function') drawTide(c, now);
+  if (typeof drawSteps === 'function') drawSteps(c, now);   // (footprints: over the ground and the tide line, under everybody)
 
   drawNodes(c, now); if (typeof drawShrooms === 'function') drawShrooms(c, now); if (typeof drawSigns === 'function') drawSigns(c, now); if (typeof drawYards === 'function') drawYards(c, now); if (typeof drawStallSigns === 'function') drawStallSigns(c, now); if (typeof drawGuides === 'function') drawGuides(c, now); if (typeof drawTut2 === 'function') drawTut2(c, now); if (typeof drawRipeGlow === 'function') drawRipeGlow(c, now); if (typeof drawJuice === 'function') drawJuice(c, now); drawSites(c, now); drawEventsFx(c, now); drawWorkFx(c, now); stepWild(now); drawWild(c, now); if (typeof stepSea === 'function') { stepSea(now); drawSea(c, now); }
   drawLabels(c);

@@ -261,3 +261,4 @@ Step 9 is built (words for the Hamlet; tools/playtest.mjs hamlet). Playtest verd
 - Known gaps: a reload mid-tutorial does not resume a scene cleanly yet (prompt 9); Junia "lying awake" uses the sleep pose; the old Hamlet tests still drive the conversational shop menu (`GH_OLDSHOP`), the panel is covered by the tutorial test only.
 
 - Living grass (swaying tufts that part as you walk) was tried and removed (owner: "it doesn't work"). Idea for later: the same wind sway and lean-away-from-walkers on trees instead.
+- Footprints and footstep particles (src/render/steps.ts) replace the grass: prints that fade (sand longest, then earth, path, grass, floors faint) and a puff of the surface per step, for everybody on screen; own random numbers, so the seeded stream is untouched.
