@@ -19,30 +19,7 @@ export async function playTutorial(page, { patient = false, until = 99, shots = 
     /** one frame of the real frame loop, without drawing: the tutorial on real time, then the sim */
     window.__tutFrame = ms => { window.__advance(ms); const dt = ms / 1000; tut2Tick(dt); if (state.speed > 0 && !town.decision) updateSim(dt * state.rate * state.speed); drainEvents(performance.now()); };
     /** what the bot does now: skip a bubble, walk toward the step's target, or nothing */
-    window.__tutBot = () => {
-      const T2 = town.tut2, P = game.player; if (!T2 || T2.done) return { done: true };
-      const sc = TUT2_SCENES[T2.scene] || [], s = sc[T2.step] || {};
-      const st = { scene: T2.scene, step: T2.step, do: s.do, strip: T2.ui.strip, bubble: performance.now() < TUT2.bubbleEnd, key: null };
-      if (s.do !== 'wait' || !s.bot) return st;
-      let h = s.bot(T2); if (!h) return st; if (h.x != null) h = { stand: h };
-      if (h.shop) { const sh = h.shop; if (!SHOP.open) return st; if (sh.close) return Object.assign(st, { click: '[data-spx]' }); if (SHOP.tab !== sh.tab) return Object.assign(st, { click: `[data-spt="${sh.tab}"]` }); return Object.assign(st, { click: `.sptile:nth-child(${sh.i + 1}) .spbtns button:${sh.all ? 'last-child' : 'first-child'}` }); }
-      const DIR = (dx, dy) => dx > 0 ? 'ArrowRight' : dx < 0 ? 'ArrowLeft' : dy > 0 ? 'ArrowDown' : 'ArrowUp';
-      const cur = P.moving && P.path && P.path.length ? P.path[P.path.length - 1] : { x: P.tx, y: P.ty };
-      if (P.player.lock || P.player.edgeHold) return Object.assign(st, { lock: true });   // (stopped at a bump or at a field's edge: let go and press again)   // (a bump stopped you: let go and press again, as a player would)
-      if (h.stand && (cur.x !== h.stand.x || cur.y !== h.stand.y)) {
-        const p = findPath(cur.x, cur.y, h.stand.x, h.stand.y); if (!p || !p.length) return Object.assign(st, { nopath: true });
-        const occ = tileOwner.get(p[0].y * W + p[0].x);
-        if (occ && occ !== P) { const side = [[0, 1], [0, -1], [1, 0], [-1, 0]].map(([dx, dy]) => ({ x: cur.x + dx, y: cur.y + dy })).find(q => (q.x !== p[0].x || q.y !== p[0].y) && walkable(q.x, q.y) && !lfPropAt(q.x, q.y) && !tileOwner.get(q.y * W + q.x)); if (side) return Object.assign(st, { key: DIR(side.x - cur.x, side.y - cur.y), hold: true, detour: true }); }   // (somebody in the way: step round them)
-        return Object.assign(st, { key: DIR(p[0].x - cur.x, p[0].y - cur.y), hold: true });
-      }
-      if (P.moving) return Object.assign(st, { key: null });   // (arriving: let go so you stop on the tile)
-      if (h.faceTo) { P.face = { dx: Math.sign(h.faceTo.x - P.tx), dy: Math.sign(h.faceTo.y - P.ty) }; }   // (the bot turns to face it: a player would tap the key)
-      if (h.face) P.face = { up: { dx: 0, dy: -1 }, down: { dx: 0, dy: 1 }, left: { dx: -1, dy: 0 }, right: { dx: 1, dy: 0 } }[h.face];
-      if (h.into && !P.player.act && !P.player.fresh && (P.player.idle || 0) < 0.3) return Object.assign(st, { rest: true });   // (work starts from rest: stop, then press toward it)
-      if (h.into) return Object.assign(st, { key: DIR(h.into.x - P.tx, h.into.y - P.ty), hold: true, press: h.key || null });
-      if (h.key) return Object.assign(st, { press: h.key });
-      return st;
-    };
+    window.__tutBot = tut2BotDecide;   // (the bot's decisions live in the game: src/life2/tutorial2-bot.ts, so the Watch button plays the same bot)
   });
   const rep = { steps: [], stuck: null, secs: 0 };
   let held = null, t = 0, lastSig = '', sigT = 0, lastScene = -1;

@@ -175,7 +175,7 @@ function shopDraw() {
   const x = d.querySelector('[data-spx]'); if (x) x.addEventListener('click', shopClose);
 }
 if (typeof window !== 'undefined') window.addEventListener('keydown', (e: any) => {
-  if (!SHOP.open) return;
+  if (!SHOP.open || (typeof ITEMCARD !== 'undefined' && ITEMCARD.open)) return;   // (an item card on top takes the keys first)
   if (e.key === 'Escape') { shopClose(); e.preventDefault(); e.stopImmediatePropagation(); return; }
   if (e.key === 'Tab') { SHOP.tab = SHOP.tab === 'buy' ? 'sell' : 'buy'; shopDraw(); e.preventDefault(); e.stopImmediatePropagation(); return; }
   if (e.key === 'Enter') { const st = shopStock(SHOP.m), l = SHOP.tab === 'buy' ? st.buy : st.sell; if (l[0]) { const q = e.shiftKey ? 999 : 1; if (SHOP.tab === 'buy') shopBuy(l[0], q); else shopSell(l[0], q); } e.preventDefault(); e.stopImmediatePropagation(); return; }
@@ -296,7 +296,7 @@ TUT2_SCENES.push(
     tsay('junia', 'I was ironing a shirt, and then there was sand.'), tsay('junia', "I've decided not to think about it."),
     tsay('junia', 'Is there anywhere to sleep, on this island?'), tsay('junia', "I'm not fussy. A bed would do."),
     { do: 'face', who: 'paullus', to: 'you' }, tsay('paullus', 'Found this on the beach.'),
-    tset(() => { town.kit.bed = (town.kit.bed || 0) + 1; tut2Popup(itBuildIcon('bed', 40), 'A bed', 'In your build kit. Paullus found it on the beach.'); }),
+    tset(() => { town.kit.bed = (town.kit.bed || 0) + 1; itemCard('bed'); }),
     tsay('paullus', 'You know what to do with it. Or you will.'),
     { do: 'walk', who: 'junia', to: (T2: any) => ({ x: T2.at.jbed.x + 1, y: T2.at.jbed.y }), async: true },   // (she waits inside the ring, off the fence marks)
     tset(T2 => { T2.ui.marks = [{ tiles: 'jbed', done: 'bed', ghost: true }, { tiles: 'yard', faint: true }]; }),
@@ -395,6 +395,7 @@ TUT2_SCENES.push(
 /** the end of the tutorial: the clock starts at noon, every lock and hidden thing goes, the people are their own again */
 function tut2End(T2: any) {
   game.time = game.ft = Math.floor(game.time / 1440) * 1440 + 12 * 60;
+  if (typeof TUTBOT !== 'undefined' && TUTBOT.on) { TUTBOT.on = false; if (game.player && game.player.player) game.player.player.keys = {}; }   // (the bot hands the island back to you)
   T2.done = true; T2.locks = {}; T2.slots = []; T2.stock = null; T2.ui = { strip: null, arrow: null, marks: [] }; T2.show = {};
   for (const n of npcs) { if (n.tutHold) { n.tutHold = false; n.plan = null; n.si = 0; n.stepStarted = false; if (n.pose === 'sleep') n.pose = 'stand'; } }
   T2.rentDay = Math.floor(game.time / 1440) + 1; { const R = rentState(); R.day = Math.floor(game.time / 1440); }   // (no rent the day the clock starts: Junia brings the first one tomorrow)

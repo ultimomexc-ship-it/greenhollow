@@ -20,18 +20,27 @@ function tut2Layout(st: any): any {
   const M = TUT2_MAP, sx = st.x, sy = st.y;
   const inMap = (x: number, y: number) => x > 3 && y > 3 && x < W - 4 && y < (town.h0 || H) - 4;
   const clear = (x: number, y: number) => (grid[y][x] === T.GRASS || grid[y][x] === T.PATH) && walkable(x, y) && !lfPropAt(x, y) && !(town.nodeMap && town.nodeMap.has(y * W + x)) && roomAt[y][x] < 0;
-  const clearable = (x: number, y: number) => (grid[y][x] === T.TREE || grid[y][x] === T.ROCK) && !lfPropAt(x, y) && roomAt[y][x] < 0;   // (a few trees and rocks are cleared away)
+  const HARD = new Set([T.WATER, T.WALL, T.DOOR, T.STALL, T.FLOOR, T.MOUNTAIN, T.SKY, T.STAIR, T.STAIRD, T.STAIRM, T.STAIRU, T.EARTH, T.GRAVE, T.WELL]);
+  const clearable = (x: number, y: number) => !HARD.has(grid[y][x]) && roomAt[y][x] < 0 && !(lfPropAt(x, y) && lfPropAt(x, y).fixed) && !(town.hgt && town.hgt[y * W + x] >= 0);   // (anything but water, buildings and stairs is cleared away: trees, rocks, bushes, sand, loose things)
   let best: any = null, bs = 1e9;
-  for (let oy = sy - 26; oy <= sy + 26; oy++) for (let ox = sx - 34; ox <= sx + 26; ox++) {
-    const yc = { x: ox + M.yard.x + 3, y: oy + M.yard.y + 2 }, hc = { x: ox + 2, y: oy + 3 };
-    const dY = Math.hypot(yc.x - sx, yc.y - sy), dH = Math.hypot(hc.x - sx, hc.y - sy); if (dY > 11 || dH > 20) continue;
-    let s = dY + dH * 0.5; if (s >= bs) continue;
-    let ok = true; for (let y = oy + M.box.y0; y <= oy + M.box.y1 && ok; y++) for (let x = ox + M.box.x0; x <= ox + M.box.x1 && ok; x++) {
-      if (!inMap(x, y) || Math.abs(x - sx) + Math.abs(y - sy) <= 2 || (x >= sx - 1 && x <= sx + 2 && y >= sy - 1 && y <= sy + 3)) { ok = false; break; }
-      if (clear(x, y)) continue; if (clearable(x, y)) { s += 0.6; if (s >= bs) ok = false; continue; } ok = false; }
-    if (ok) { best = { x: ox, y: oy }; bs = s; }
+  for (const [lim, far] of [[11, 20], [16, 28], [24, 40]]) {   // (close to the stall first; further out if the ground near it will not do)
+    for (let oy = sy - 40; oy <= sy + 40; oy++) for (let ox = sx - 46; ox <= sx + 40; ox++) {
+      const yc = { x: ox + M.yard.x + 3, y: oy + M.yard.y + 2 }, hc = { x: ox + 2, y: oy + 3 };
+      const dY = Math.hypot(yc.x - sx, yc.y - sy), dH = Math.hypot(hc.x - sx, hc.y - sy); if (dY > lim || dH > far) continue;
+      let s = dY + dH * 0.5; if (s >= bs) continue;
+      let ok = true; for (let y = oy + M.box.y0; y <= oy + M.box.y1 && ok; y++) for (let x = ox + M.box.x0; x <= ox + M.box.x1 && ok; x++) {
+        if (!inMap(x, y) || Math.abs(x - sx) + Math.abs(y - sy) <= 2 || (x >= sx - 1 && x <= sx + 2 && y >= sy - 1 && y <= sy + 3)) { ok = false; break; }
+        if (clear(x, y)) continue; if (clearable(x, y)) { s += 0.6; if (s >= bs) ok = false; continue; } ok = false; }
+      if (ok) { best = { x: ox, y: oy }; bs = s; }
+    }
+    if (best) break;
   }
-  if (best) for (let y = best.y + M.box.y0; y <= best.y + M.box.y1; y++) for (let x = best.x + M.box.x0; x <= best.x + M.box.x1; x++) if (clearable(x, y)) { setT(x, y, T.GRASS); markDirty(x, y, 1, 1); }
+  if (best) for (let y = best.y + M.box.y0; y <= best.y + M.box.y1; y++) for (let x = best.x + M.box.x0; x <= best.x + M.box.x1; x++) if (!clear(x, y) && clearable(x, y)) {
+    const pr = lfPropAt(x, y); if (pr) { town.props.splice(town.props.indexOf(pr), 1); town.propAt.delete(y * W + x); town.pblock[y * W + x] = 0; }
+    if (town.nodeMap && town.nodeMap.has(y * W + x)) { const nd = town.nodeMap.get(y * W + x); town.nodes = (town.nodes || []).filter((q: any) => q !== nd); town.nodeMap.delete(y * W + x); }
+    if (town.block) town.block[y * W + x] = 0; setT(x, y, T.GRASS); markDirty(x, y, 1, 1);
+  }
+  if (best) { town.gridV = (town.gridV || 0) + 1; town.lfPV = (town.lfPV || 0) + 1; town.treeCache = null; }
   if (!best) return null;
   const o = best, P = (p: number[]) => ({ x: o.x + p[0], y: o.y + p[1] });
   const at: any = { o, door: P(M.door), out: P(M.out), bed: P(M.bed), start: P(M.start), window: P(M.window), watch: P(M.watch), gate: P(M.gate), jbed: P(M.jbed), jfield: M.jfield.map(P),
@@ -113,7 +122,7 @@ function tut2Say(n: any, text: string, to?: any): number {
 }
 function tut2Think(text: string): number { const P = game.player; if (P && P.player) playerSay(P, text); if (town.tut2) town.tut2.said.push({ who: 'you (thought)', text, scene: town.tut2.scene }); return performance.now() + 1000 + 60 * text.length; }
 /** Space or a click ends the bubble that is showing */
-function tut2SkipBubble() { if (!tut2Active() || performance.now() >= TUT2.bubbleEnd) return false; TUT2.skip = true; return true; }
+function tut2SkipBubble() { if ((typeof ITEMCARD !== 'undefined' && ITEMCARD.open) || !tut2Active() || performance.now() >= TUT2.bubbleEnd) return false; TUT2.skip = true; return true; }
 if (typeof window !== 'undefined') {
   window.addEventListener('keydown', (e: any) => { if ((e.key === ' ' || e.code === 'Space') && !e.repeat && tut2SkipBubble()) { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
   window.addEventListener('pointerdown', () => { tut2SkipBubble(); }, true);
@@ -121,8 +130,9 @@ if (typeof window !== 'undefined') {
 const tut2Scene = (): any[] => TUT2_SCENES[town.tut2.scene] || [];
 /** one frame of the tutorial (real seconds) */
 function tut2Tick(dt: number) {
-  if (typeof tut2Hud === 'function') tut2Hud(); if (typeof tut2After === 'function' && town) tut2After();
+  if (typeof tut2Hud === 'function') tut2Hud(); if (typeof tut2BotTick === 'function') tut2BotTick(dt); if (typeof tut2After === 'function' && town) tut2After();
   if (!tut2Active()) return; const T2 = town.tut2;
+  if (typeof ITEMCARD !== 'undefined' && ITEMCARD.open) return;   // (the story waits while you read an item card)
   for (let guard = 0; guard < 40; guard++) {
     const sc = tut2Scene(); if (!sc.length) { T2.done = true; return; }
     if (T2.step >= sc.length) { T2.scene++; T2.step = 0; TUT2.st = null; if (!TUT2_SCENES[T2.scene]) { T2.done = true; return; } continue; }

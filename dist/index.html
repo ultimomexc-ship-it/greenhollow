@@ -261,6 +261,15 @@ body.tut2-noslots #hotbar:not(.build) .hbslots, body.tut2-noslots #hotbar:not(.b
 .buildbanner { position: absolute; top: 12px; right: 70px; z-index: 29; padding: 6px 14px; border-radius: 8px; background: rgba(40,90,170,.92); color: #e6f0ff; font: 14px/1.3 "IBM Plex Sans", system-ui, sans-serif; letter-spacing: .02em; pointer-events: none; }
 body.buildmode .stage canvas { outline: 4px solid #4a8ee8; outline-offset: -4px; }
 
+.itemcard { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 45; display: flex; gap: 18px; align-items: flex-start; width: min(460px, 90%); padding: 18px 20px; border-radius: 16px; background: #1f2219; color: #f2ecd6; border: 2px solid #c9a13b; box-shadow: 0 12px 34px rgba(0,0,0,.55); font: 15px/1.45 "IBM Plex Sans", system-ui, sans-serif; animation: tutpopin2 .3s ease-out; }
+.itemcard .icpic { flex: 0 0 84px; height: 84px; display: grid; place-items: center; background: #2c3024; border-radius: 12px; }
+.itemcard .icpic svg, .itemcard .icpic canvas, .itemcard .icpic img { width: 72px; height: 72px; } .itemcard .icpic .spdot { width: 60px; height: 60px; font-size: 28px; }
+.itemcard .icnew { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #c9a13b; } .itemcard b { display: block; font-size: 20px; color: #ffe08a; margin: 2px 0 6px; } .itemcard p { margin: 0 0 12px; color: #ddd5bb; }
+@keyframes tutpopin2 { from { transform: translate(-50%, -46%) scale(.94); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+
+.botbtn { position: absolute; left: 12px; top: 12px; z-index: 32; padding: 7px 14px; border-radius: 10px; border: 1px solid #6a7a52; background: rgba(28,32,24,.9); color: #e8f0d0; font: 600 14px "IBM Plex Sans", system-ui, sans-serif; cursor: pointer; }
+.botbtn.on { background: #8a3b2a; border-color: #d0806a; }
+
 </style>
 </head>
 <body>
@@ -26623,38 +26632,59 @@ function tut2Layout(st) {
   const M = TUT2_MAP, sx = st.x, sy = st.y;
   const inMap = (x, y) => x > 3 && y > 3 && x < W - 4 && y < (town.h0 || H) - 4;
   const clear = (x, y) => (grid[y][x] === T.GRASS || grid[y][x] === T.PATH) && walkable(x, y) && !lfPropAt(x, y) && !(town.nodeMap && town.nodeMap.has(y * W + x)) && roomAt[y][x] < 0;
-  const clearable = (x, y) => (grid[y][x] === T.TREE || grid[y][x] === T.ROCK) && !lfPropAt(x, y) && roomAt[y][x] < 0;
+  const HARD = /* @__PURE__ */ new Set([T.WATER, T.WALL, T.DOOR, T.STALL, T.FLOOR, T.MOUNTAIN, T.SKY, T.STAIR, T.STAIRD, T.STAIRM, T.STAIRU, T.EARTH, T.GRAVE, T.WELL]);
+  const clearable = (x, y) => !HARD.has(grid[y][x]) && roomAt[y][x] < 0 && !(lfPropAt(x, y) && lfPropAt(x, y).fixed) && !(town.hgt && town.hgt[y * W + x] >= 0);
   let best = null, bs = 1e9;
-  for (let oy = sy - 26; oy <= sy + 26; oy++) for (let ox = sx - 34; ox <= sx + 26; ox++) {
-    const yc = { x: ox + M.yard.x + 3, y: oy + M.yard.y + 2 }, hc = { x: ox + 2, y: oy + 3 };
-    const dY = Math.hypot(yc.x - sx, yc.y - sy), dH = Math.hypot(hc.x - sx, hc.y - sy);
-    if (dY > 11 || dH > 20) continue;
-    let s = dY + dH * 0.5;
-    if (s >= bs) continue;
-    let ok = true;
-    for (let y = oy + M.box.y0; y <= oy + M.box.y1 && ok; y++) for (let x = ox + M.box.x0; x <= ox + M.box.x1 && ok; x++) {
-      if (!inMap(x, y) || Math.abs(x - sx) + Math.abs(y - sy) <= 2 || x >= sx - 1 && x <= sx + 2 && y >= sy - 1 && y <= sy + 3) {
+  for (const [lim, far] of [[11, 20], [16, 28], [24, 40]]) {
+    for (let oy = sy - 40; oy <= sy + 40; oy++) for (let ox = sx - 46; ox <= sx + 40; ox++) {
+      const yc = { x: ox + M.yard.x + 3, y: oy + M.yard.y + 2 }, hc = { x: ox + 2, y: oy + 3 };
+      const dY = Math.hypot(yc.x - sx, yc.y - sy), dH = Math.hypot(hc.x - sx, hc.y - sy);
+      if (dY > lim || dH > far) continue;
+      let s = dY + dH * 0.5;
+      if (s >= bs) continue;
+      let ok = true;
+      for (let y = oy + M.box.y0; y <= oy + M.box.y1 && ok; y++) for (let x = ox + M.box.x0; x <= ox + M.box.x1 && ok; x++) {
+        if (!inMap(x, y) || Math.abs(x - sx) + Math.abs(y - sy) <= 2 || x >= sx - 1 && x <= sx + 2 && y >= sy - 1 && y <= sy + 3) {
+          ok = false;
+          break;
+        }
+        if (clear(x, y)) continue;
+        if (clearable(x, y)) {
+          s += 0.6;
+          if (s >= bs) ok = false;
+          continue;
+        }
         ok = false;
-        break;
       }
-      if (clear(x, y)) continue;
-      if (clearable(x, y)) {
-        s += 0.6;
-        if (s >= bs) ok = false;
-        continue;
+      if (ok) {
+        best = { x: ox, y: oy };
+        bs = s;
       }
-      ok = false;
     }
-    if (ok) {
-      best = { x: ox, y: oy };
-      bs = s;
-    }
+    if (best) break;
   }
   if (best) {
-    for (let y = best.y + M.box.y0; y <= best.y + M.box.y1; y++) for (let x = best.x + M.box.x0; x <= best.x + M.box.x1; x++) if (clearable(x, y)) {
+    for (let y = best.y + M.box.y0; y <= best.y + M.box.y1; y++) for (let x = best.x + M.box.x0; x <= best.x + M.box.x1; x++) if (!clear(x, y) && clearable(x, y)) {
+      const pr = lfPropAt(x, y);
+      if (pr) {
+        town.props.splice(town.props.indexOf(pr), 1);
+        town.propAt.delete(y * W + x);
+        town.pblock[y * W + x] = 0;
+      }
+      if (town.nodeMap && town.nodeMap.has(y * W + x)) {
+        const nd = town.nodeMap.get(y * W + x);
+        town.nodes = (town.nodes || []).filter((q) => q !== nd);
+        town.nodeMap.delete(y * W + x);
+      }
+      if (town.block) town.block[y * W + x] = 0;
       setT(x, y, T.GRASS);
       markDirty(x, y, 1, 1);
     }
+  }
+  if (best) {
+    town.gridV = (town.gridV || 0) + 1;
+    town.lfPV = (town.lfPV || 0) + 1;
+    town.treeCache = null;
   }
   if (!best) return null;
   const o = best, P = (p) => ({ x: o.x + p[0], y: o.y + p[1] });
@@ -26834,7 +26864,7 @@ function tut2Think(text) {
   return performance.now() + 1e3 + 60 * text.length;
 }
 function tut2SkipBubble() {
-  if (!tut2Active() || performance.now() >= TUT2.bubbleEnd) return false;
+  if (typeof ITEMCARD !== "undefined" && ITEMCARD.open || !tut2Active() || performance.now() >= TUT2.bubbleEnd) return false;
   TUT2.skip = true;
   return true;
 }
@@ -26852,9 +26882,11 @@ if (typeof window !== "undefined") {
 const tut2Scene = () => TUT2_SCENES[town.tut2.scene] || [];
 function tut2Tick(dt) {
   if (typeof tut2Hud === "function") tut2Hud();
+  if (typeof tut2BotTick === "function") tut2BotTick(dt);
   if (typeof tut2After === "function" && town) tut2After();
   if (!tut2Active()) return;
   const T2 = town.tut2;
+  if (typeof ITEMCARD !== "undefined" && ITEMCARD.open) return;
   for (let guard = 0; guard < 40; guard++) {
     const sc = tut2Scene();
     if (!sc.length) {
@@ -27415,7 +27447,7 @@ function shopDraw() {
   if (x) x.addEventListener("click", shopClose);
 }
 if (typeof window !== "undefined") window.addEventListener("keydown", (e) => {
-  if (!SHOP.open) return;
+  if (!SHOP.open || typeof ITEMCARD !== "undefined" && ITEMCARD.open) return;
   if (e.key === "Escape") {
     shopClose();
     e.preventDefault();
@@ -27695,7 +27727,7 @@ TUT2_SCENES.push(
     tsay("paullus", "Found this on the beach."),
     tset(() => {
       town.kit.bed = (town.kit.bed || 0) + 1;
-      tut2Popup(itBuildIcon("bed", 40), "A bed", "In your build kit. Paullus found it on the beach.");
+      itemCard("bed");
     }),
     tsay("paullus", "You know what to do with it. Or you will."),
     { do: "walk", who: "junia", to: (T2) => ({ x: T2.at.jbed.x + 1, y: T2.at.jbed.y }), async: true },
@@ -27935,6 +27967,10 @@ TUT2_SCENES.push(
 );
 function tut2End(T2) {
   game.time = game.ft = Math.floor(game.time / 1440) * 1440 + 12 * 60;
+  if (typeof TUTBOT !== "undefined" && TUTBOT.on) {
+    TUTBOT.on = false;
+    if (game.player && game.player.player) game.player.player.keys = {};
+  }
   T2.done = true;
   T2.locks = {};
   T2.slots = [];
@@ -28107,13 +28143,13 @@ const t2Icon = (k) => typeof YARD_ITEMS !== "undefined" && YARD_ITEMS.some((q) =
 const _t2Tool = itGiveTool;
 itGiveTool = function(n, kind) {
   const r = _t2Tool(n, kind);
-  if (n && n.player && town && town.scenario === "hamlet") tut2Popup(t2Icon(kind), "New tool: " + kind, kind === "hoe" ? "Walk into a plot and it is worked." : kind === "hammer" ? "In build mode it takes things down." : "");
+  if (n && n.player) itemCard(kind);
   return r;
 };
 const _t2Stack = itGiveStack;
 itGiveStack = function(n, key, q) {
   const r = _t2Stack(n, key, q);
-  if (n && n.player && q > 1 && town && town.scenario === "hamlet") tut2Popup(t2Icon(key), `+${q} ${GOODS[key] ? GOODS[key].name : key}`, "On your hotbar. Walk into a ploughed plot to sow one.");
+  if (n && n.player && q > 0) itemCard(key, q);
   return r;
 };
 const _t2Buy = shopBuy;
@@ -28121,7 +28157,9 @@ shopBuy = function(e, q) {
   const before = e.qty, coin = game.player.coin;
   _t2Buy(e, q);
   const got = before != null ? before - (e.qty || 0) : Math.round((coin - game.player.coin) / Math.max(1, e.price));
-  if (got > 0 && !["hammer", "axe", "hoe", "rod"].includes(e.item)) tut2Popup(t2Icon(e.item), `+${got} ${shopName(e.item).toLowerCase()}${got > 1 && !/s$/.test(e.item) ? "s" : ""}`, LF_NOUN[e.item] ? "In your build kit (B)." : "");
+  if (got > 0 && !["hammer", "axe", "hoe", "rod"].includes(e.item) && !e.item.startsWith("seed_")) {
+    if (!itemCard(e.item, got)) tut2Popup(t2Icon(e.item), `+${got} ${shopName(e.item).toLowerCase()}`, LF_NOUN[e.item] ? "In your build kit (B)." : "");
+  }
   if (got > 0) addPop(game.player.x * TS + TS / 2, game.player.y * TS - 8, `-${got * e.price} coin`, "#e8b04a");
 };
 const _t2Sell = shopSell;
@@ -28136,13 +28174,10 @@ shopSell = function(e, q) {
 };
 const _t2Harv2 = itHarvest;
 itHarvest = function(n, c) {
-  const h = _t2Harv2(n, c);
+  const sd = c && c.seed || "barley", h = _t2Harv2(n, c);
   if (n && n.player && h && c) {
     addPop(c.x * TS + TS / 2, c.y * TS, `+${h.q} ${h.what}`, "#b9e29a");
-    if (!town.firstHarvest) {
-      town.firstHarvest = true;
-      tut2Popup(t2Icon(c.seed || "turnip"), "Your first harvest", "Turnips. Paullus buys them.");
-    }
+    itemCard(IT_SEEDS[sd] ? IT_SEEDS[sd].yield : "turnip");
   }
   return h;
 };
@@ -28311,6 +28346,185 @@ tut2Hud = function() {
     }
   }
 };
+const ITEM_INFO = {
+  hoe: ["Hoe", "Walk into a plot and the hoe does the rest: raw ground is ploughed, ploughed ground is sown with the seed you hold, a ripe crop is pulled. Hold the direction to work along a row; you stop at the edge of the field."],
+  hammer: ["Hammer", "For build mode (B). Walk into a fence, a wall, a door or anything you placed and it comes down. What you take down goes back into your build kit, so nothing is wasted."],
+  axe: ["Axe", "Walk into a tree to fell it. The wood goes in your bag."],
+  rod: ["Fishing rod", "Walk into the water's edge to fish."],
+  bed: ["Bed", "Put it down in build mode (B). Whoever sleeps in it lives where it stands: a bed inside a fenced yard makes that yard their home."],
+  fence: ["Fence", "Laid in build mode. Facing a fence, press its key again and the next goes on the end of the line. A closed ring of fence with a gate is a yard: a home, and land of its own. A closed ring stands like a wall."],
+  gate: ["Gate", "Put a gate in a ring of fence and the ring becomes a yard. Anybody can walk through a gate; nobody walks through a fence."],
+  field: ["Field tile", "Ploughed ground, ready to sow. Fields go inside a fenced yard, never on open ground. Whoever lives in the yard farms it."],
+  bwall: ["Wall block", "Walls with a door, closed all round, make a room. A bed under a roof pays more rent."],
+  bwindow: ["Window", "A wall block with glass. A window in a room adds to the rent."],
+  bdoor: ["Door", "Every room needs one, and a way out to open ground."],
+  turnip: ["Turnips", "Your first harvest. Paullus buys turnips at the stall: selling crops is how the island earns its coin."],
+  grain: ["Barley", "Grain. The staple: people eat it, and Paullus buys what is left over."]
+};
+function itemInfo(key) {
+  if (ITEM_INFO[key]) return ITEM_INFO[key];
+  if (key.startsWith("seed_") && typeof IT_SEEDS !== "undefined") {
+    const sd = key.slice(5), S = IT_SEEDS[sd];
+    if (!S) return null;
+    const nm = GOODS[key] && GOODS[key].name || sd + " seed";
+    return [nm[0].toUpperCase() + nm.slice(1), `One seed sows one ploughed plot. ${S.flower ? "A flower: it blooms for weeks and pays a little rent where it grows near a bed." : "It grows into " + (GOODS[S.yield] && GOODS[S.yield].name || S.yield) + ", to eat or to sell."} Seeds sit on your hotbar (1-0); the one you hold is the one you sow.`];
+  }
+  if (GOODS[key]) {
+    const nm = GOODS[key].name;
+    return [nm[0].toUpperCase() + nm.slice(1), "In your bag (I). Paullus buys it at the stall."];
+  }
+  return null;
+}
+const ITEMCARD = { open: false, q: [] };
+function itemCard(key, qty) {
+  if (!town || town.scenario !== "hamlet" || typeof document === "undefined" || window.GH_NOCARDS) return false;
+  const seen = town.itemSeen = town.itemSeen || {};
+  if (seen[key]) return false;
+  const info = itemInfo(key);
+  if (!info) return false;
+  seen[key] = true;
+  ITEMCARD.q.push({ key, qty: qty || 1, title: info[0], text: info[1] });
+  if (!ITEMCARD.open) itemCardNext();
+  return true;
+}
+function itemCardNext() {
+  const d = tut2Dom("itemcard", "itemcard");
+  if (!d) return;
+  const c = ITEMCARD.q.shift();
+  if (!c) {
+    ITEMCARD.open = false;
+    d.hidden = true;
+    return;
+  }
+  ITEMCARD.open = true;
+  d.hidden = false;
+  if (typeof sndPick === "function") try {
+    sndPick();
+  } catch (e) {
+  }
+  d.innerHTML = `<div class="icpic">${t2Icon(c.key).replace(/width="\d+"/, 'width="72"').replace(/height="\d+"/, 'height="72"')}</div><div class="icbody"><div class="icnew">New${c.qty > 1 ? " \xB7 " + c.qty : ""}</div><b>${esc(c.title)}</b><p>${esc(c.text)}</p><button type="button" class="btn primary tutglow" data-icok="1">Got it</button></div>`;
+  const b = d.querySelector("[data-icok]");
+  if (b) b.addEventListener("click", itemCardNext);
+}
+if (typeof window !== "undefined") window.addEventListener("keydown", (e) => {
+  if (!ITEMCARD.open) return;
+  if (["Enter", " ", "Escape"].includes(e.key) || e.code === "Space") itemCardNext();
+  e.preventDefault();
+  e.stopImmediatePropagation();
+}, true);
+function tut2BotPath(a, b) {
+  const P = game.player, R = 40, seen = /* @__PURE__ */ new Map(), q = [a.y * W + a.x];
+  seen.set(q[0], -1);
+  const free = (x, y) => walkable(x, y) && (!lfPropAt(x, y) || lfBedAt(x, y) || x === b.x && y === b.y) && !(tileOwner.get(y * W + x) && tileOwner.get(y * W + x) !== P) && Math.abs(x - a.x) <= R && Math.abs(y - a.y) <= R;
+  for (let h = 0; h < q.length; h++) {
+    const k = q[h], x = k % W, y = k / W | 0;
+    if (x === b.x && y === b.y) {
+      const out = [];
+      let c = k;
+      while (c !== q[0]) {
+        out.unshift({ x: c % W, y: c / W | 0 });
+        c = seen.get(c);
+      }
+      return out;
+    }
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy, nk = ny * W + nx;
+      if (seen.has(nk) || !free(nx, ny)) continue;
+      seen.set(nk, k);
+      q.push(nk);
+    }
+  }
+  return findPath(a.x, a.y, b.x, b.y);
+}
+function tut2BotDecide() {
+  const T2 = town.tut2, P = game.player;
+  if (!T2 || T2.done) return { done: true };
+  const sc = TUT2_SCENES[T2.scene] || [], s = sc[T2.step] || {};
+  const st = { scene: T2.scene, step: T2.step, do: s.do, strip: T2.ui.strip, bubble: performance.now() < TUT2.bubbleEnd, key: null };
+  if (typeof ITEMCARD !== "undefined" && ITEMCARD.open) return Object.assign(st, { press: "Enter", card: true });
+  if (s.do !== "wait" || !s.bot) return st;
+  let h = s.bot(T2);
+  if (!h) return st;
+  if (h.x != null) h = { stand: h };
+  if (h.shop) {
+    const sh = h.shop;
+    if (!SHOP.open) return st;
+    if (sh.close) return Object.assign(st, { click: "[data-spx]" });
+    if (SHOP.tab !== sh.tab) return Object.assign(st, { click: `[data-spt="${sh.tab}"]` });
+    return Object.assign(st, { click: `.sptile:nth-child(${sh.i + 1}) .spbtns button:${sh.all ? "last-child" : "first-child"}` });
+  }
+  const DIR = (dx, dy) => dx > 0 ? "ArrowRight" : dx < 0 ? "ArrowLeft" : dy > 0 ? "ArrowDown" : "ArrowUp";
+  const cur = P.moving && P.path && P.path.length ? P.path[P.path.length - 1] : { x: P.tx, y: P.ty };
+  if (P.player.lock || P.player.edgeHold) return Object.assign(st, { lock: true });
+  if (h.stand && (cur.x !== h.stand.x || cur.y !== h.stand.y)) {
+    const p = tut2BotPath(cur, h.stand);
+    if (!p || !p.length) return Object.assign(st, { nopath: true });
+    return Object.assign(st, { key: DIR(p[0].x - cur.x, p[0].y - cur.y), hold: true });
+  }
+  if (P.moving) return Object.assign(st, { key: null });
+  if (h.faceTo) {
+    P.face = { dx: Math.sign(h.faceTo.x - P.tx), dy: Math.sign(h.faceTo.y - P.ty) };
+  }
+  if (h.face) P.face = { up: { dx: 0, dy: -1 }, down: { dx: 0, dy: 1 }, left: { dx: -1, dy: 0 }, right: { dx: 1, dy: 0 } }[h.face];
+  if (h.into && !P.player.act && !P.player.fresh && (P.player.idle || 0) < 0.3) return Object.assign(st, { rest: true });
+  if (h.into) return Object.assign(st, { key: DIR(h.into.x - P.tx, h.into.y - P.ty), hold: true, press: h.key || null });
+  if (h.key) return Object.assign(st, { press: h.key });
+  return st;
+}
+const TUTBOT = { on: false, t: 0 };
+const BOT_KEYS = { ArrowRight: "right", ArrowLeft: "left", ArrowDown: "down", ArrowUp: "up" };
+function tut2BotTick(dt) {
+  const btn = tut2Dom("botbtn", "botbtn");
+  if (btn) {
+    const show = tut2Active();
+    if (btn.hidden === show) {
+      btn.hidden = !show;
+    }
+    const lab = TUTBOT.on ? "Stop the bot" : "Watch the bot play";
+    if (btn.textContent !== lab) btn.textContent = lab;
+    btn.classList.toggle("on", TUTBOT.on);
+    if (!btn.dataset.wired) {
+      btn.dataset.wired = "1";
+      btn.addEventListener("click", () => {
+        TUTBOT.on = !TUTBOT.on;
+        const p2 = game.player && game.player.player;
+        if (p2) p2.keys = {};
+      });
+    }
+  }
+  if (!TUTBOT.on) return;
+  if (!tut2Active()) {
+    TUTBOT.on = false;
+    return;
+  }
+  TUTBOT.t += dt;
+  if (TUTBOT.t < 0.1) return;
+  TUTBOT.t = 0;
+  const P = game.player, p = P && P.player;
+  if (!p) return;
+  const b = tut2BotDecide();
+  if (b.done) {
+    TUTBOT.on = false;
+    p.keys = {};
+    return;
+  }
+  if (b.click) {
+    const el2 = document.querySelector(b.click);
+    if (el2) el2.click();
+  }
+  if (b.press) {
+    p.keys = {};
+    if (b.press === "Enter") {
+      if (ITEMCARD.open) itemCardNext();
+    } else if (b.press === "b") itBuildToggle(P);
+    else if (/^[0-9]$/.test(b.press)) {
+      if (itBuildOn(P)) itBuildSelect(P, b.press === "0" ? 9 : +b.press - 1);
+    }
+  }
+  const d = b.key ? BOT_KEYS[b.key] : null;
+  p.keys = d ? { [d]: true } : {};
+  if (d) p.lastKey = performance.now();
+}
 function buildLook(c, now) {
   const P = game.player, on = !!(P && P.player && itBuildOn(P));
   if (typeof document !== "undefined") {
@@ -30767,7 +30981,7 @@ function frame(now) {
   }
   try {
     if (typeof tut2Tick === "function") tut2Tick(dt);
-    if (state.speed > 0 && !(town && town.decision) && !(typeof SHOP !== "undefined" && SHOP.open)) {
+    if (state.speed > 0 && !(town && town.decision) && !(typeof SHOP !== "undefined" && SHOP.open) && !(typeof ITEMCARD !== "undefined" && ITEMCARD.open)) {
       let m = dt * state.rate * state.speed;
       const t0 = performance.now();
       while (m > 0 && performance.now() - t0 < 14) {

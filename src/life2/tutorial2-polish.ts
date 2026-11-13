@@ -16,13 +16,13 @@ function tut2PopTick() {
 const t2Icon = (k: string) => (typeof YARD_ITEMS !== 'undefined' && YARD_ITEMS.some((q: any) => q.kind === k)) ? itBuildIcon(k, 40) : ['hammer', 'axe', 'hoe', 'rod'].includes(k) ? itIcon(k, 40) : `<span class="spdot">${esc((GOODS[k] && GOODS[k].name || k).replace(/^seed_/, '')[0].toUpperCase())}</span>`;
 // a new tool, seed handed over, things bought: a card each
 // @ts-expect-error -- deliberate patch
-const _t2Tool = itGiveTool; itGiveTool = function (n, kind) { const r = _t2Tool(n, kind); if (n && n.player && town && town.scenario === 'hamlet') tut2Popup(t2Icon(kind), 'New tool: ' + kind, kind === 'hoe' ? 'Walk into a plot and it is worked.' : kind === 'hammer' ? 'In build mode it takes things down.' : ''); return r; };
+const _t2Tool = itGiveTool; itGiveTool = function (n, kind) { const r = _t2Tool(n, kind); if (n && n.player) itemCard(kind); return r; };
 // @ts-expect-error -- deliberate patch
-const _t2Stack = itGiveStack; itGiveStack = function (n, key, q) { const r = _t2Stack(n, key, q); if (n && n.player && q > 1 && town && town.scenario === 'hamlet') tut2Popup(t2Icon(key), `+${q} ${GOODS[key] ? GOODS[key].name : key}`, 'On your hotbar. Walk into a ploughed plot to sow one.'); return r; };
+const _t2Stack = itGiveStack; itGiveStack = function (n, key, q) { const r = _t2Stack(n, key, q); if (n && n.player && q > 0) itemCard(key, q); return r; };
 // @ts-expect-error -- deliberate patch
 const _t2Buy = shopBuy; shopBuy = function (e, q) {
   const before = e.qty, coin = game.player.coin; _t2Buy(e, q); const got = before != null ? before - (e.qty || 0) : Math.round((coin - game.player.coin) / Math.max(1, e.price));
-  if (got > 0 && !['hammer', 'axe', 'hoe', 'rod'].includes(e.item)) tut2Popup(t2Icon(e.item), `+${got} ${shopName(e.item).toLowerCase()}${got > 1 && !/s$/.test(e.item) ? 's' : ''}`, LF_NOUN[e.item] ? 'In your build kit (B).' : '');
+  if (got > 0 && !['hammer', 'axe', 'hoe', 'rod'].includes(e.item) && !e.item.startsWith('seed_')) { if (!itemCard(e.item, got)) tut2Popup(t2Icon(e.item), `+${got} ${shopName(e.item).toLowerCase()}`, LF_NOUN[e.item] ? 'In your build kit (B).' : ''); }
   if (got > 0) addPop(game.player.x * TS + TS / 2, game.player.y * TS - 8, `-${got * e.price} coin`, '#e8b04a');
 };
 // @ts-expect-error -- deliberate patch
@@ -33,8 +33,8 @@ const _t2Sell = shopSell; shopSell = function (e, q) {
 // every harvest of yours rises from the plot; the first one ever has a card of its own
 // @ts-expect-error -- deliberate patch
 const _t2Harv2 = itHarvest; itHarvest = function (n, c) {
-  const h = _t2Harv2(n, c);
-  if (n && n.player && h && c) { addPop(c.x * TS + TS / 2, c.y * TS, `+${h.q} ${h.what}`, '#b9e29a'); if (!town.firstHarvest) { town.firstHarvest = true; tut2Popup(t2Icon(c.seed || 'turnip'), 'Your first harvest', 'Turnips. Paullus buys them.'); } }
+  const sd = (c && c.seed) || 'barley', h = _t2Harv2(n, c);
+  if (n && n.player && h && c) { addPop(c.x * TS + TS / 2, c.y * TS, `+${h.q} ${h.what}`, '#b9e29a'); itemCard(IT_SEEDS[sd] ? IT_SEEDS[sd].yield : 'turnip'); }
   return h;
 };
 // rent coming in: a number over your head and a card
@@ -130,3 +130,44 @@ const _t2Hud2 = tut2Hud; tut2Hud = function () {
   const s = document.getElementById('tutstrip'); if (s) s.classList.toggle('big', tut2Active() && /^Press B/.test(s.textContent || ''));
   const P = game.player; if (tut2Active() && P && P.build) { const sig = tut2GlowSlot() + '|' + (town.tut2.ui.strip || ''); if (sig !== (tut2Hud as any).sig) { (tut2Hud as any).sig = sig; itSync(true); } }
 };
+
+/* ---------------- item cards: the first time you get a thing, a card with its picture and what it is for ----------------
+   Once per kind of thing on an island (`town.itemSeen`), in the Hamlet; read it and close it (the button, Enter, Space or Esc). The game waits while it is open.
+   Later gains of the same thing are a short toast or a number over your head. */
+const ITEM_INFO: Record<string, [string, string]> = {
+  hoe: ['Hoe', 'Walk into a plot and the hoe does the rest: raw ground is ploughed, ploughed ground is sown with the seed you hold, a ripe crop is pulled. Hold the direction to work along a row; you stop at the edge of the field.'],
+  hammer: ['Hammer', 'For build mode (B). Walk into a fence, a wall, a door or anything you placed and it comes down. What you take down goes back into your build kit, so nothing is wasted.'],
+  axe: ['Axe', 'Walk into a tree to fell it. The wood goes in your bag.'],
+  rod: ['Fishing rod', 'Walk into the water\'s edge to fish.'],
+  bed: ['Bed', 'Put it down in build mode (B). Whoever sleeps in it lives where it stands: a bed inside a fenced yard makes that yard their home.'],
+  fence: ['Fence', 'Laid in build mode. Facing a fence, press its key again and the next goes on the end of the line. A closed ring of fence with a gate is a yard: a home, and land of its own. A closed ring stands like a wall.'],
+  gate: ['Gate', 'Put a gate in a ring of fence and the ring becomes a yard. Anybody can walk through a gate; nobody walks through a fence.'],
+  field: ['Field tile', 'Ploughed ground, ready to sow. Fields go inside a fenced yard, never on open ground. Whoever lives in the yard farms it.'],
+  bwall: ['Wall block', 'Walls with a door, closed all round, make a room. A bed under a roof pays more rent.'],
+  bwindow: ['Window', 'A wall block with glass. A window in a room adds to the rent.'],
+  bdoor: ['Door', 'Every room needs one, and a way out to open ground.'],
+  turnip: ['Turnips', 'Your first harvest. Paullus buys turnips at the stall: selling crops is how the island earns its coin.'],
+  grain: ['Barley', 'Grain. The staple: people eat it, and Paullus buys what is left over.']
+};
+function itemInfo(key: string): [string, string] | null {
+  if (ITEM_INFO[key]) return ITEM_INFO[key];
+  if (key.startsWith('seed_') && typeof IT_SEEDS !== 'undefined') { const sd = key.slice(5), S = IT_SEEDS[sd]; if (!S) return null; const nm = (GOODS[key] && GOODS[key].name) || sd + ' seed';
+    return [nm[0].toUpperCase() + nm.slice(1), `One seed sows one ploughed plot. ${S.flower ? 'A flower: it blooms for weeks and pays a little rent where it grows near a bed.' : 'It grows into ' + ((GOODS[S.yield] && GOODS[S.yield].name) || S.yield) + ', to eat or to sell.'} Seeds sit on your hotbar (1-0); the one you hold is the one you sow.`]; }
+  if (GOODS[key]) { const nm = GOODS[key].name; return [nm[0].toUpperCase() + nm.slice(1), 'In your bag (I). Paullus buys it at the stall.']; }
+  return null;
+}
+const ITEMCARD: any = { open: false, q: [] };
+/** show the card for a thing the first time it is had; true when a card is (or will be) shown */
+function itemCard(key: string, qty?: number): boolean {
+  if (!town || town.scenario !== 'hamlet' || typeof document === 'undefined' || (window as any).GH_NOCARDS) return false;
+  const seen = town.itemSeen = town.itemSeen || {}; if (seen[key]) return false; const info = itemInfo(key); if (!info) return false;
+  seen[key] = true; ITEMCARD.q.push({ key, qty: qty || 1, title: info[0], text: info[1] }); if (!ITEMCARD.open) itemCardNext(); return true;
+}
+function itemCardNext() {
+  const d = tut2Dom('itemcard', 'itemcard'); if (!d) return; const c = ITEMCARD.q.shift();
+  if (!c) { ITEMCARD.open = false; d.hidden = true; return; }
+  ITEMCARD.open = true; d.hidden = false; if (typeof sndPick === 'function') try { sndPick(); } catch (e) {}
+  d.innerHTML = `<div class="icpic">${t2Icon(c.key).replace(/width="\d+"/, 'width="72"').replace(/height="\d+"/, 'height="72"')}</div><div class="icbody"><div class="icnew">New${c.qty > 1 ? ' · ' + c.qty : ''}</div><b>${esc(c.title)}</b><p>${esc(c.text)}</p><button type="button" class="btn primary tutglow" data-icok="1">Got it</button></div>`;
+  const b = d.querySelector('[data-icok]'); if (b) b.addEventListener('click', itemCardNext);
+}
+if (typeof window !== 'undefined') window.addEventListener('keydown', (e: any) => { if (!ITEMCARD.open) return; if (['Enter', ' ', 'Escape'].includes(e.key) || e.code === 'Space') itemCardNext(); e.preventDefault(); e.stopImmediatePropagation(); }, true);

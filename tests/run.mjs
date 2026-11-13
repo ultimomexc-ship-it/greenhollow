@@ -2925,6 +2925,21 @@ test('farming a row: holding a direction works each plot and steps onto it, and 
   return 'three plots ploughed in one hold, stopped on the last, a fresh press walks on';
 });
 
+test('tutorial: the Watch button lets the bot play the whole first morning inside the game, at normal speed, reading every line', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    window.GH_NOTUT = false; window.GH_OLDSHOP = false; newTown('tutorial', 'hamlet');
+    tut2Tick(0.05); const btn = document.getElementById('botbtn'); const shown = !!btn && !btn.hidden; btn.click();
+    let t = 0; const ms = 50;
+    while (t < 900 && town.tut2 && !town.tut2.done) { window.__advance(ms); tut2Tick(ms / 1000); if (state.speed > 0 && !town.decision && !SHOP.open && !ITEMCARD.open) updateSim(ms / 1000 * state.rate * state.speed); drainEvents(performance.now()); t += ms / 1000; }
+    return { shown, done: !!(town.tut2 && town.tut2.done), secs: Math.round(t), scene: town.tut2 && town.tut2.scene, step: town.tut2 && town.tut2.step, cards: Object.keys(town.itemSeen || {}).join(), off: !TUTBOT.on };
+  });
+  check(r.shown && r.done && r.off, 'the bot plays it to the end from the button: ' + JSON.stringify(r));
+  check(/hoe/.test(r.cards) && /fence/.test(r.cards) && /bed/.test(r.cards), 'item cards were shown (and closed) on the way: ' + r.cards);
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return `finished in ${r.secs} s of game-page real time; cards: ${r.cards}`;
+});
+
 const browser = await launch();
 let failed = 0;
 const chosen = tests.filter(t => t.name.includes(filter));

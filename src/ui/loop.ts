@@ -23,7 +23,7 @@ function frame(now) {
     else if (!sl && state.sleepFast != null) { const b: any = document.querySelector('[data-speed="' + state.sleepFast + '"]'); state.sleepFast = null; if (b) b.click(); } }
   try {
   if (typeof tut2Tick === 'function') tut2Tick(dt);   // (the tutorial runs on real time)
-  if (state.speed > 0 && !(town && town.decision) && !(typeof SHOP !== 'undefined' && SHOP.open)) {   // (a decision about your own life stops the clock until you make it)
+  if (state.speed > 0 && !(town && town.decision) && !(typeof SHOP !== 'undefined' && SHOP.open) && !(typeof ITEMCARD !== 'undefined' && ITEMCARD.open)) {   // (a decision about your own life stops the clock until you make it)
     let m = dt * state.rate * state.speed; const t0 = performance.now();
     while (m > 0 && performance.now() - t0 < 14) { const s = Math.min(m, 2); updateSim(s); m -= s; }
   }
