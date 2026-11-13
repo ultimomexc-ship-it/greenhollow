@@ -60,6 +60,7 @@
   "life2/items-trade.ts",
   "life2/farm.ts",
   "life2/hamlet.ts",
+  "life2/tutorial2.ts",
   "life2/yards.ts",
   "life2/rent.ts",
   "life2/arrivals.ts",

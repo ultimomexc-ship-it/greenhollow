@@ -32,7 +32,8 @@ function itGiveStack(n, key: string, q: number) { itEnsure(n); n.bag[key] = (n.b
 /** a dozen of every seed (crops and flowers) for testing; once per villager, so saves made before the new plants get them too */
 function itSeedGift(n) { if (town && town.scenario === 'hamlet') return; if (n.seedGift || typeof IT_SEEDS === 'undefined') return; n.seedGift = 1; for (const sd of Object.keys(IT_SEEDS)) if (sd !== 'barley' || !(n.bag['seed_barley'] > 0)) itGiveStack(n, 'seed_' + sd, 12); }
 /** the testing kit: every tool, lockpicks, each kind of seed, some coins */
-function itKit(n) { if (town && town.scenario === 'hamlet') { for (const k of ['axe', 'hammer', 'hoe', 'rod']) if (!n.items.some(i => i.kind === k)) itGiveTool(n, k); itGiveStack(n, 'seed_barley', 6); return; }   // (the hamlet: tools and a few seeds, and the 60 coin it started with)
+function itKit(n) { if (town && town.tut2) return;   // (the first morning gives you things as it goes)
+  if (town && town.scenario === 'hamlet') { for (const k of ['axe', 'hammer', 'hoe', 'rod']) if (!n.items.some(i => i.kind === k)) itGiveTool(n, k); itGiveStack(n, 'seed_barley', 6); return; }   // (the hamlet: tools and a few seeds, and the 60 coin it started with)
   if (typeof itGarden === 'function') itGarden(n); for (const k of ['axe', 'hammer', 'hoe', 'rod']) if (!n.items.some(i => i.kind === k)) itGiveTool(n, k); itGiveStack(n, 'lockpick', 5); itGiveStack(n, 'seed_barley', 20); itSeedGift(n); n.coin = (n.coin || 0) + 100; }
 const itById = (n, id) => (n.items || []).find(i => i.id === id) || null;
 /** what is in your hand: { ref, kind ('hand', a tool kind or a stack key), item, count } */

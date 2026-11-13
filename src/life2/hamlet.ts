@@ -59,6 +59,7 @@ function hamletStart() {
   put(TR, st.front.x, st.front.y);
   put(a, cx, cy + 1); put(b, cx + 1, cy + 1); put(c, cx, cy + 2);
   town.lfPV = (town.lfPV || 0) + 1; rebuildOcc(); refreshReach(); yardScan(true); yardHousing();
+  if (HAMLET_TUTORIAL()) { tut2Start(P, TR, st); return; }   // (a new island starts with the first morning: life2/tutorial2.ts)
   chron('You came ashore with a little money and a bed. A trader keeps a stall by the camp, and a family landed just before you with nowhere to sleep. Build them a yard and they will pay to live in it.', 'note');
 }
 

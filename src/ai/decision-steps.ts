@@ -159,6 +159,7 @@ function tickInfant(n) {
 }
 function tickNpc(n, dt) {
   if (n.player) { tickPlayer(n, dt); return; }
+  if (n.tutHold) { tut2Npc(n, dt); return; }   // (the tutorial moves this one: life2/tutorial2.ts)
   if (n.talkUntil > game.time) { if (n.moving) n.pose = 'stand'; return; }
   if (n.infant) { tickInfant(n); return; }
   if (n.moving) {
@@ -214,6 +215,7 @@ function updateFrozen(dt) {
 }
 function updateSim(dt) {
   if (buildFrozen()) { updateFrozen(dt); return; }
+  if (typeof tut2Active === 'function' && tut2Active()) { tut2Sim(dt); return; }   // (the first morning: the clock stands still)
   if (town && town.meddleQ && town.meddleQ.length) meddleFlush();   // (what you did while time stood still is settled now)
   game.ft = clk() + dt;
   game.time += dt;
