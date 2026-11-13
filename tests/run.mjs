@@ -2875,39 +2875,37 @@ test('tutorial: the first morning plays from the old house to the clock starting
   return `played in ${rep.secs.toFixed(0)} s of real time (bubbles skipped), ${rep.said.length} lines`;
 });
 
-test('tutorial: pushing is taught the first time a fence lands out of place, or when you shut yourself in; fences go down along the line; Junia asks for her bed before it is given', async b => {
+test('tutorial: the fence ring is built row by row from where the shadow stands, only on the marked squares; Junia asks for her bed before it is given', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const rep = await playTutorial(page, { maxSec: 300, until: 7 });
   check(!rep.stuck, 'reaches scene 7: ' + JSON.stringify(rep.stuck));
   const wish = rep.said.findIndex(l => /anywhere to sleep/.test(l.text)), gift = rep.said.findIndex(l => /Found this on the beach/.test(l.text));
   check(wish >= 0 && gift > wish, 'Junia asks for somewhere to sleep before Paullus hands over the bed');
   const r = await page.evaluate(() => {
-    const T2 = town.tut2, P = game.player, out = {}; town.kit.fence = 30; T2.locks = { build: true }; T2.slots = ['fence']; T2.fenceFree = true; T2.fenceWatch = true;
+    const T2 = town.tut2, P = game.player, out = {}; town.kit.fence = 30; T2.locks = { build: true }; T2.slots = ['fence']; T2.only = 'yard'; T2.fenceFree = true; T2.ui.ghost = 'fenceRow';
+    for (const t of T2.at.yard) { const q = lfPropAt(t.x, t.y); if (q) bldDeleteProp(q); }
     out.locked = tut2Lock('push');
-    // a line: stand outside the ring's top row facing the first mark, press 1 three times
-    const top = T2.at.yard.filter(t => t.y === Math.min(...T2.at.yard.map(q => q.y))).sort((a, c) => a.x - c.x);
-    P.tx = P.x = top[0].x; P.ty = P.y = top[0].y - 1; P.face = { dx: 0, dy: 1 }; itBuildToggle(P, true);
-    itBuildSelect(P, 0); P.tx = P.x = top[0].x - 1; P.ty = P.y = top[0].y; P.face = { dx: 1, dy: 0 }; itBuildSelect(P, 0); itBuildSelect(P, 0);
-    out.line = top.slice(0, 3).every(t => TUT2_DONE.fence(t.x, t.y));
-    // a stray: a fence off every mark
-    const st = { x: T2.at.jbed.x + 1, y: T2.at.jbed.y + 1 }; const pr = lfAddProp('fence', st.x, st.y); tut2Hud();
-    out.taught = !!T2.pushTaught; out.unlocked = !tut2Lock('push'); out.lesson = T2.ui.lesson; out.said = T2.said.slice(-3).map(l => l.text).join(' | '); out.pushSlot = (T2.slots || []).includes('push'); out.inPush = P.build.sel === 0;
-    bldDeleteProp(pr); tut2Hud(); out.cleared = T2.ui.lesson;
-    // shut in: every mark fenced, you inside
+    const rows = tut2FenceRows(T2), r0 = tut2FenceRow(T2); const same = (a, c) => !!a && !!c && a.at.x === c.at.x && a.at.y === c.at.y; out.firstRow = same(r0, rows[0]) && r0.face.dx === 1;
+    // the whole top row from the shadow's spot, pressing 1 again and again
+    P.tx = P.x = r0.at.x; P.ty = P.y = r0.at.y; P.face = Object.assign({}, r0.face); itBuildToggle(P, true);
+    for (let i = 0; i < r0.tiles.length; i++) itBuildSelect(P, 0);
+    out.row = r0.tiles.every(t => TUT2_DONE.fence(t.x, t.y));
+    // once more: nothing goes past the marks (no stray fence anywhere)
+    const before = town.props.length; itBuildSelect(P, 0); out.noStray = town.props.length === before && /side is done|row ends/.test((T2.ui.flash || {}).text || '');
+    out.next = same(tut2FenceRow(T2), rows[1]);
+    // facing away from the ring: nothing is put down beside you either
+    P.face = { dx: -1, dy: 0 }; const b2 = town.props.length; itBuildSelect(P, 0); out.notBeside = town.props.length === b2;
+    // a closed yard (every mark fenced, a gate in the ring) stands like a wall: its fences do not push
     for (const t of T2.at.yard) if (!lfPropAt(t.x, t.y)) lfAddProp('fence', t.x, t.y);
-    const inn = tut2YardInner(T2)[3]; P.tx = P.x = inn.x; P.ty = P.y = inn.y; tut2Hud(); out.shut = T2.ui.lesson; out.shutSaid = T2.said[T2.said.length - 1].text;
-    // a closed yard (a gate in the ring) stands like a wall: its fences do not push
     const g = T2.at.gate, gp = lfPropAt(g.x, g.y); if (gp) bldDeleteProp(gp); lfAddProp('gate', g.x, g.y); yardScan(true); const t = T2.at.yard.find(q => q.y === Math.min(...T2.at.yard.map(z => z.y)) && q.x > g.x + 1);
-    out.fixed = lf2PushLine(P, t.x, t.y, 0, 1);
+    T2.locks.push = true; P.tx = P.x = t.x; P.ty = P.y = t.y + 1; P.face = { dx: 0, dy: -1 }; out.fixed = lf2PushLine(P, t.x, t.y, 0, -1);   // (from inside, against the top row) out.dbg = { yards: (town.yards || []).map(y => [y.id, y.cells.length, y.open, y.gates.length]), fixedFn: typeof lfYardFixed === 'function' ? lfYardFixed(lfPropAt(t.x, t.y)) : 'nofn', at: [t.x, t.y], kind: (lfPropAt(t.x, t.y) || {}).kind, ring: T2.at.yard.filter(q => !lfPropAt(q.x, q.y)).length };
     return out;
   });
-  check(r.locked && r.line, 'pushing starts locked, and pressing 1 facing a fence lays the next along the line: ' + JSON.stringify(r));
-  check(r.taught && r.unlocked && /stray fence/.test(r.lesson || '') && /wandered/.test(r.said) && !r.cleared, 'a stray fence teaches pushing and the lesson goes when it is gone: ' + JSON.stringify(r));
-  check(/Shut in/.test(r.shut || '') && /Shove one/.test(r.shutSaid), 'shut inside the ring, you are told to push your way out: ' + JSON.stringify(r));
-  check(r.pushSlot && r.inPush, 'the build bar gets a Push slot and the lesson puts the hand in push: ' + JSON.stringify(r));
+  check(r.locked && r.firstRow && r.row, 'pushing stays locked, and from the shadow spot pressing 1 again and again lays the whole top row: ' + JSON.stringify(r));
+  check(r.noStray && r.next && r.notBeside, 'a press past the marks puts nothing down, the shadow moves to the next row, and nothing goes beside you: ' + JSON.stringify(r));
   check(/closed fence stands like a wall/.test(r.fixed || ''), 'a closed yard does not push: ' + r.fixed);
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
-  return 'line laying, the stray-fence lesson and the shut-in reminder';
+  return 'row by row from the shadow, nothing off the marks, a closed yard stands';
 });
 
 test('farming a row: holding a direction works each plot and steps onto it, and stops on the last plot instead of running onto the grass', async b => {

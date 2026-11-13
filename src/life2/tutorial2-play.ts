@@ -44,6 +44,7 @@ function tut2ArrowAt(): any {
 /** the marks and the arrow, drawn on the map (called from render after the guides) */
 function drawTut2(c: any, now: number) {
   if (!tut2Active()) return; const ui = town.tut2.ui, pulse = 0.55 + 0.25 * Math.sin(now / 380);
+  tut2DrawGhost(c, now);
   for (const m of ui.marks || []) for (const t of tut2Tiles(m.tiles)) {
     const ok = m.done ? TUT2_DONE[m.done](t.x, t.y) : false, px = t.x * TS, py = t.y * TS; c.save();
     c.globalAlpha = (m.faint ? 0.3 : 1) * (ok ? 0.5 : pulse); c.lineWidth = 2; c.setLineDash([5, 4]);
@@ -82,7 +83,10 @@ const _t2Select = itBuildSelect; itBuildSelect = function (n, i) {
   const k = (town.tut2.slots || [])[i], b = itBuildState(n); if (!k) return; if (k !== 'push' && k !== 'destroy') b.lastKind = k;
   if (k === 'push') { b.sel = 0; const p = n.player; if (p) { p.act = null; p.lock = false; } itSync(true); return; }   // (the hand: walk into a thing to push it)
   if (k === 'destroy') { b.sel = b.sel === 1 ? 0 : 1; const p = n.player; if (p) { p.act = null; p.lock = false; } itSync(true); return; }
-  b.sel = 0; if (k === 'fence' && town.tut2.fenceFree) { if (bldPlaceFront(n, 'fence')) itSync(true); return; }   // (fences go down the normal way: facing a fence, the next goes on the end of the line)
+  b.sel = 0; if (k === 'fence' && town.tut2.fenceFree) {   // (fences go down the normal way: facing a fence, the next goes on the end of the row; but only on the marked squares)
+    const at = bldPlaceSpot(n, 'fence'); if (!at) { tut2Flash('The row ends here. Stand where the shadow stands.'); return; }
+    if (!tut2Tiles(town.tut2.only).some(t => t.x === at.x && t.y === at.y)) { tut2Flash('That side is done. Stand where the shadow stands.'); return; }
+    if (bldPlaceFront(n, 'fence')) itSync(true); return; }
   tut2Place(n, k);
 };
 // @ts-expect-error -- deliberate patch
@@ -222,14 +226,30 @@ function tut2Beside(t: any): any { const P = game.player; const c = [[0, 1], [-1
 /** the bot: work every tile of a set that is not done yet (stand beside it, walk into it) */
 const botWork = (name: string, done: string) => (T2: any) => { const k = TUT2.bw; if (k && k.done === done && !TUT2_DONE[done](k.into.x, k.into.y)) return k; const todo = tut2Tiles(name).filter(t => !TUT2_DONE[done](t.x, t.y)); if (!todo.length) return null; const t = nearestTo(todo); TUT2.bw = { stand: tut2Beside(t), into: t, done }; return TUT2.bw; };   // (keeps one target until it is done)
 const botStall = (T2: any) => ({ stand: T2.at.front, into: T2.at.keep });
-/** the bot: put something on every square of Junia's ring, standing outside it (so it never walks into what it has put down) */
-const botRing = (done: string, key: string) => (T2: any) => {
-  if (!buildOn()) return { key: 'b' };
-  const ring = tut2Tiles('yard'), o = T2.at.o, M = TUT2_MAP.yard, x0 = o.x + M.x, y0 = o.y + M.y, x1 = x0 + M.w - 1, y1 = y0 + M.h - 1;
-  const t = ring.find(q => !TUT2_DONE[done](q.x, q.y)); if (!t) return null;
-  const st = t.x === x0 ? { x: t.x - 1, y: t.y } : t.x === x1 ? { x: t.x + 1, y: t.y } : t.y === y0 ? { x: t.x, y: t.y - 1 } : { x: t.x, y: t.y + 1 };
-  return { stand: st, faceTo: t, key };
-};
+/** Junia's ring as four rows, each built from one spot outside it by pressing again and again (the first fence in front, every next one on the end
+   of the row): the top from its west end looking east, the east side from above its corner looking south, the bottom from its east end looking
+   west, the west side from below its corner looking north. The shadow stands at the first row that is not finished. */
+function tut2FenceRows(T2: any): any[] {
+  const o = T2.at.o, M = TUT2_MAP.yard, x0 = o.x + M.x, y0 = o.y + M.y, x1 = x0 + M.w - 1, y1 = y0 + M.h - 1, run = (n: number, f: (i: number) => any) => Array.from({ length: n }, (_, i) => f(i));
+  return [
+    { at: { x: x0 - 1, y: y0 }, face: { dx: 1, dy: 0 }, tiles: run(x1 - x0 + 1, i => ({ x: x0 + i, y: y0 })) },
+    { at: { x: x1, y: y0 - 1 }, face: { dx: 0, dy: 1 }, tiles: run(y1 - y0, i => ({ x: x1, y: y0 + 1 + i })) },
+    { at: { x: x1 + 1, y: y1 }, face: { dx: -1, dy: 0 }, tiles: run(x1 - x0, i => ({ x: x1 - 1 - i, y: y1 })) },
+    { at: { x: x0, y: y1 + 1 }, face: { dx: 0, dy: -1 }, tiles: run(y1 - y0 - 1, i => ({ x: x0, y: y1 - 1 - i })) }];
+}
+const tut2FenceRow = (T2: any) => tut2FenceRows(T2).find(r => r.tiles.some((t: any) => !TUT2_DONE.fence(t.x, t.y))) || null;
+/** the bot builds the ring the way the shadow shows: from each row's spot, pressing 1 until the row is done */
+const botRows = (T2: any) => { if (!buildOn()) return { key: 'b' }; const r = tut2FenceRow(T2); if (!r) return null; return { stand: r.at, faceTo: { x: r.at.x + r.face.dx, y: r.at.y + r.face.dy }, key: '1' }; };
+/** where to stand: a greyed-out shadow of you on that tile, facing the right way (T2.ui.ghost: { at, face }, or 'fenceRow' for the next row of the ring); it is hidden while you stand there facing that way */
+function tut2DrawGhost(c: any, now: number) {
+  const T2 = town.tut2, g0 = T2 && T2.ui && T2.ui.ghost, P = game.player; if (!g0 || !P) return;
+  const g = g0 === 'fenceRow' ? tut2FenceRow(T2) : g0; if (!g || !g.at) return;
+  if (P.tx === g.at.x && P.ty === g.at.y && P.face && P.face.dx === g.face.dx && P.face.dy === g.face.dy) return;
+  const sp = Object.assign({}, gaSpec(P, now), { face: g.face, pose: 'stand', moving: false, tool: null, hold: null, wave: false });
+  c.save(); c.globalAlpha = 0.42 + 0.12 * Math.sin(now / 380); try { c.filter = 'grayscale(1) brightness(1.25)'; } catch (e) { /* (no canvas filters: just faded) */ }
+  try { ART.drawDoll(c, sp, g.at.x * TS, g.at.y * TS, 1, 0); } catch (e) { /* (never let the shadow stop the frame) */ }
+  c.restore();
+}
 /** the inside tiles of Junia's ring, and the ten round its edge in order */
 function tut2YardInner(T2: any): any[] { const o = T2.at.o, M = TUT2_MAP.yard, r: any[] = []; for (let j = 1; j < M.h - 1; j++) for (let i = 1; i < M.w - 1; i++) r.push({ x: o.x + M.x + i, y: o.y + M.y + j }); return r; }
 function tut2Lap(T2: any): any[] { const o = T2.at.o, M = TUT2_MAP.yard, x0 = o.x + M.x + 1, y0 = o.y + M.y + 1, x1 = x0 + M.w - 3, y1 = y0 + M.h - 3, r: any[] = [];
@@ -315,13 +335,13 @@ TUT2_SCENES.push(
     tsay('paullus', 'You know what to do with it. Or you will.'),
     { do: 'walk', who: 'junia', to: (T2: any) => ({ x: T2.at.jbed.x + 1, y: T2.at.jbed.y }), async: true },   // (she waits inside the ring, off the fence marks)
     tset(T2 => { T2.ui.marks = [{ tiles: 'jbed', done: 'bed', ghost: true }, { tiles: 'yard', faint: true }]; }),
-    tarrow('jbed', 'bed'), tlock({ build: true }, ['bed'], 'jbed', 'On the marked place.'), tstrip('Press B to build.'),
+    tarrow('jbed', 'bed'), tlock({ build: true }, ['bed'], 'jbed', 'On the marked place.'), tstrip('Press B to build.'), tset(T2 => { T2.ui.ghost = { at: below('jbed')(T2), face: { dx: 0, dy: -1 } }; }),
     twait(buildOn, { nudge: { after: 25, say: ['junia', "I think you press B. Don't ask me how I know."] }, bot: (T2: any) => ({ stand: below('jbed')(T2), key: buildOn() ? null : 'b' }) }),
     { do: 'face', who: 'paullus', to: 'you' },
     tsay('paullus', 'There. The world holds its breath while you build.'), tsay('paullus', 'Nobody sees it. They only find the thing afterwards.'), tsay('paullus', "I did this for a long time. Now it's you. That stays between us."),
     tstrip('The bar at the bottom is what you can build. The bed is on 1.'), tpause(2.5),
-    tstrip('Face the marked place and press 1 to put the bed down.'),
-    twait(T2 => TUT2_DONE.bed(T2.at.jbed.x, T2.at.jbed.y), { bot: (T2: any) => ({ stand: below('jbed')(T2), face: 'up', key: '1' }) }),
+    tstrip('Stand where the shadow stands, facing the marked place, and press 1 to put the bed down.'),
+    twait(T2 => TUT2_DONE.bed(T2.at.jbed.x, T2.at.jbed.y), { bot: (T2: any) => ({ stand: below('jbed')(T2), face: 'up', key: '1' }) }), tset(T2 => { T2.ui.ghost = null; }),
     tarrow(), tstrip('Press B to let the world go on.'),
     twait(() => !buildOn(), { bot: () => ({ key: 'b' }) }),
     tlock({}), tstrip(), tmark()
@@ -341,10 +361,10 @@ TUT2_SCENES.push(
     twait(shopIsOpen, { bot: botStall }), tstrip('Buy all 18.'),
     twait(() => (town.kit.fence || 0) >= 18, { bot: () => ({ shop: { tab: 'buy', i: 0, all: true } }) }),
     twait(() => !shopIsOpen(), { bot: () => ({ shop: { close: true } }) }),
-    tarrow('yard', 'fence'), tlock({ build: true }, ['fence'], 'yard'), tset(T2 => { T2.fenceFree = true; T2.fenceWatch = true; }),
-    tstrip('Press B. Fence every marked square: facing a fence, 1 puts the next one on the end of the line.'),
-    twait(T2 => tut2AllDone('yard', 'fence') && !tut2Strays().length, { bot: botRing('fence', '1') }),
-    tset(T2 => { T2.fenceFree = false; }),
+    tarrow('yard', 'fence'), tlock({ build: true }, ['fence'], 'yard'), tset(T2 => { T2.fenceFree = true; T2.ui.ghost = 'fenceRow'; }),
+    tstrip('Press B. Stand where the shadow stands, face the same way, and press 1 again and again: each fence goes on the end of the row.'),
+    twait(T2 => tut2AllDone('yard', 'fence'), { bot: botRows }),
+    tset(T2 => { T2.fenceFree = false; T2.ui.ghost = null; }),
     tarrow(), tstrip('Press B to let the world go on.'),
     twait(() => !buildOn(), { bot: () => ({ key: 'b' }) }),
     tlock({}), tstrip(), tmark(),

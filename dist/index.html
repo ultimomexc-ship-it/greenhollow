@@ -22036,6 +22036,7 @@ function bldPlaceSpot(n, kind) {
   if (kind === "stallseed" || kind === "stallcarp" || kind === "stair" || kind === "stairdown") return null;
   const f = lf2Front(n);
   const ok = (x, y) => x >= 3 && y >= 3 && x < W - 3 && y < H - 3 && walkable(x, y) && !lfPropAt(x, y) && !tileOwner.get(y * W + x) && !(x === n.tx && y === n.ty) && !town.siteAt[y * W + x] && ![T.DOOR, T.PLOT, T.TENT, T.PEW].includes(grid[y][x]);
+  if (ok(f.x, f.y)) return { x: f.x, y: f.y };
   {
     const dx = Math.sign(f.x - n.tx), dy = Math.sign(f.y - n.ty);
     if ((dx || dy) && lfPropAt(f.x, f.y)) {
@@ -22047,14 +22048,6 @@ function bldPlaceSpot(n, kind) {
       if (ok(x, y)) return { x, y };
     }
   }
-  const cand = [];
-  for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
-    const x = f.x + dx, y = f.y + dy;
-    if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) continue;
-    cand.push([Math.abs(dx) + Math.abs(dy) * 1.01, x, y]);
-  }
-  cand.sort((a, b) => a[0] - b[0]);
-  for (const [, x, y] of cand) if (ok(x, y)) return { x, y };
   return null;
 }
 function bldPlaceFront(n, kind) {
@@ -27380,6 +27373,7 @@ function tut2ArrowAt() {
 function drawTut2(c, now) {
   if (!tut2Active()) return;
   const ui = town.tut2.ui, pulse = 0.55 + 0.25 * Math.sin(now / 380);
+  tut2DrawGhost(c, now);
   for (const m of ui.marks || []) for (const t of tut2Tiles(m.tiles)) {
     const ok = m.done ? TUT2_DONE[m.done](t.x, t.y) : false, px = t.x * TS, py = t.y * TS;
     c.save();
@@ -27475,6 +27469,15 @@ itBuildSelect = function(n, i) {
   }
   b.sel = 0;
   if (k === "fence" && town.tut2.fenceFree) {
+    const at = bldPlaceSpot(n, "fence");
+    if (!at) {
+      tut2Flash("The row ends here. Stand where the shadow stands.");
+      return;
+    }
+    if (!tut2Tiles(town.tut2.only).some((t) => t.x === at.x && t.y === at.y)) {
+      tut2Flash("That side is done. Stand where the shadow stands.");
+      return;
+    }
     if (bldPlaceFront(n, "fence")) itSync(true);
     return;
   }
@@ -27781,14 +27784,41 @@ const botWork = (name, done) => (T2) => {
   return TUT2.bw;
 };
 const botStall = (T2) => ({ stand: T2.at.front, into: T2.at.keep });
-const botRing = (done, key) => (T2) => {
+function tut2FenceRows(T2) {
+  const o = T2.at.o, M = TUT2_MAP.yard, x0 = o.x + M.x, y0 = o.y + M.y, x1 = x0 + M.w - 1, y1 = y0 + M.h - 1, run = (n, f) => Array.from({ length: n }, (_, i) => f(i));
+  return [
+    { at: { x: x0 - 1, y: y0 }, face: { dx: 1, dy: 0 }, tiles: run(x1 - x0 + 1, (i) => ({ x: x0 + i, y: y0 })) },
+    { at: { x: x1, y: y0 - 1 }, face: { dx: 0, dy: 1 }, tiles: run(y1 - y0, (i) => ({ x: x1, y: y0 + 1 + i })) },
+    { at: { x: x1 + 1, y: y1 }, face: { dx: -1, dy: 0 }, tiles: run(x1 - x0, (i) => ({ x: x1 - 1 - i, y: y1 })) },
+    { at: { x: x0, y: y1 + 1 }, face: { dx: 0, dy: -1 }, tiles: run(y1 - y0 - 1, (i) => ({ x: x0, y: y1 - 1 - i })) }
+  ];
+}
+const tut2FenceRow = (T2) => tut2FenceRows(T2).find((r) => r.tiles.some((t) => !TUT2_DONE.fence(t.x, t.y))) || null;
+const botRows = (T2) => {
   if (!buildOn()) return { key: "b" };
-  const ring = tut2Tiles("yard"), o = T2.at.o, M = TUT2_MAP.yard, x0 = o.x + M.x, y0 = o.y + M.y, x1 = x0 + M.w - 1, y1 = y0 + M.h - 1;
-  const t = ring.find((q) => !TUT2_DONE[done](q.x, q.y));
-  if (!t) return null;
-  const st = t.x === x0 ? { x: t.x - 1, y: t.y } : t.x === x1 ? { x: t.x + 1, y: t.y } : t.y === y0 ? { x: t.x, y: t.y - 1 } : { x: t.x, y: t.y + 1 };
-  return { stand: st, faceTo: t, key };
+  const r = tut2FenceRow(T2);
+  if (!r) return null;
+  return { stand: r.at, faceTo: { x: r.at.x + r.face.dx, y: r.at.y + r.face.dy }, key: "1" };
 };
+function tut2DrawGhost(c, now) {
+  const T2 = town.tut2, g0 = T2 && T2.ui && T2.ui.ghost, P = game.player;
+  if (!g0 || !P) return;
+  const g = g0 === "fenceRow" ? tut2FenceRow(T2) : g0;
+  if (!g || !g.at) return;
+  if (P.tx === g.at.x && P.ty === g.at.y && P.face && P.face.dx === g.face.dx && P.face.dy === g.face.dy) return;
+  const sp = Object.assign({}, gaSpec(P, now), { face: g.face, pose: "stand", moving: false, tool: null, hold: null, wave: false });
+  c.save();
+  c.globalAlpha = 0.42 + 0.12 * Math.sin(now / 380);
+  try {
+    c.filter = "grayscale(1) brightness(1.25)";
+  } catch (e) {
+  }
+  try {
+    ART.drawDoll(c, sp, g.at.x * TS, g.at.y * TS, 1, 0);
+  } catch (e) {
+  }
+  c.restore();
+}
 function tut2YardInner(T2) {
   const o = T2.at.o, M = TUT2_MAP.yard, r = [];
   for (let j = 1; j < M.h - 1; j++) for (let i = 1; i < M.w - 1; i++) r.push({ x: o.x + M.x + i, y: o.y + M.y + j });
@@ -27994,6 +28024,9 @@ TUT2_SCENES.push(
     tarrow("jbed", "bed"),
     tlock({ build: true }, ["bed"], "jbed", "On the marked place."),
     tstrip("Press B to build."),
+    tset((T2) => {
+      T2.ui.ghost = { at: below("jbed")(T2), face: { dx: 0, dy: -1 } };
+    }),
     twait(buildOn, { nudge: { after: 25, say: ["junia", "I think you press B. Don't ask me how I know."] }, bot: (T2) => ({ stand: below("jbed")(T2), key: buildOn() ? null : "b" }) }),
     { do: "face", who: "paullus", to: "you" },
     tsay("paullus", "There. The world holds its breath while you build."),
@@ -28001,8 +28034,11 @@ TUT2_SCENES.push(
     tsay("paullus", "I did this for a long time. Now it's you. That stays between us."),
     tstrip("The bar at the bottom is what you can build. The bed is on 1."),
     tpause(2.5),
-    tstrip("Face the marked place and press 1 to put the bed down."),
+    tstrip("Stand where the shadow stands, facing the marked place, and press 1 to put the bed down."),
     twait((T2) => TUT2_DONE.bed(T2.at.jbed.x, T2.at.jbed.y), { bot: (T2) => ({ stand: below("jbed")(T2), face: "up", key: "1" }) }),
+    tset((T2) => {
+      T2.ui.ghost = null;
+    }),
     tarrow(),
     tstrip("Press B to let the world go on."),
     twait(() => !buildOn(), { bot: () => ({ key: "b" }) }),
@@ -28047,12 +28083,13 @@ TUT2_SCENES.push(
     tlock({ build: true }, ["fence"], "yard"),
     tset((T2) => {
       T2.fenceFree = true;
-      T2.fenceWatch = true;
+      T2.ui.ghost = "fenceRow";
     }),
-    tstrip("Press B. Fence every marked square: facing a fence, 1 puts the next one on the end of the line."),
-    twait((T2) => tut2AllDone("yard", "fence") && !tut2Strays().length, { bot: botRing("fence", "1") }),
+    tstrip("Press B. Stand where the shadow stands, face the same way, and press 1 again and again: each fence goes on the end of the row."),
+    twait((T2) => tut2AllDone("yard", "fence"), { bot: botRows }),
     tset((T2) => {
       T2.fenceFree = false;
+      T2.ui.ghost = null;
     }),
     tarrow(),
     tstrip("Press B to let the world go on."),
@@ -29650,7 +29687,10 @@ function buildLook(c, now) {
     const kind = b.sel ? null : b.lastKind || (T2 ? (T2.slots || []).find((k) => k !== "push" && k !== "destroy") : (b.bar || []).find(Boolean));
     let at = null;
     if (kind) {
-      if (T2 && T2.only && !(kind === "fence" && T2.fenceFree)) {
+      if (T2 && T2.fenceFree && kind === "fence") {
+        const s = bldPlaceSpot(P, kind);
+        at = s && tut2Tiles(T2.only).some((t) => t.x === s.x && t.y === s.y) ? s : null;
+      } else if (T2 && T2.only) {
         const f = lf2Front(P);
         if (tut2Tiles(T2.only).some((t) => t.x === f.x && t.y === f.y) && (kind === "field" ? bldFieldSpot(P) : !lfPropAt(f.x, f.y) && walkable(f.x, f.y))) at = f;
       } else at = bldPlaceSpot(P, kind);

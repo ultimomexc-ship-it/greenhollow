@@ -24,7 +24,7 @@ function buildLook(c: any, now: number) {
   { const b = P.build || {}, T2 = typeof tut2Active === 'function' && tut2Active() ? town.tut2 : null;
     const kind = b.sel ? null : b.lastKind || (T2 ? (T2.slots || []).find((k: string) => k !== 'push' && k !== 'destroy') : (b.bar || []).find(Boolean));
     let at: any = null;
-    if (kind) { if (T2 && T2.only && !(kind === 'fence' && T2.fenceFree)) { const f = lf2Front(P); if (tut2Tiles(T2.only).some((t: any) => t.x === f.x && t.y === f.y) && (kind === 'field' ? bldFieldSpot(P) : !lfPropAt(f.x, f.y) && walkable(f.x, f.y))) at = f; } else at = bldPlaceSpot(P, kind); }
+    if (kind) { if (T2 && T2.fenceFree && kind === 'fence') { const s = bldPlaceSpot(P, kind); at = s && tut2Tiles(T2.only).some((t: any) => t.x === s.x && t.y === s.y) ? s : null; } else if (T2 && T2.only) { const f = lf2Front(P); if (tut2Tiles(T2.only).some((t: any) => t.x === f.x && t.y === f.y) && (kind === 'field' ? bldFieldSpot(P) : !lfPropAt(f.x, f.y) && walkable(f.x, f.y))) at = f; } else at = bldPlaceSpot(P, kind); }
     if (at && grid[at.y]) { const s = toScreen(at.x * TS, at.y * TS), pu = 0.75 + 0.25 * Math.sin(now / 220);
       c.globalAlpha = pu; c.lineWidth = 2.5; c.setLineDash([6, 4]); c.strokeStyle = '#7ee07e'; c.fillStyle = 'rgba(126,224,126,.2)';
       c.fillRect(s.x + 2, s.y + 2, ts - 4, ts - 4); c.strokeRect(s.x + 2, s.y + 2, ts - 4, ts - 4); c.setLineDash([]); } }

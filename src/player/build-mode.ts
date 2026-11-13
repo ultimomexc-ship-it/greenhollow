@@ -55,18 +55,17 @@ function bldFieldSpot(n): any {
   if (town.scenario === 'hamlet' && typeof yardAtXY === 'function' && !(typeof FIELD_ANYWHERE !== 'undefined' && FIELD_ANYWHERE) && !yardAtXY(x, y)) return null;
   return { x, y };
 }
-/** where one building item would go if you pressed its key now: the tile in front of you, or along the line past loose things in front, or the nearest free tile (the build view outlines it) */
+/** where one building item would go if you pressed its key now: the tile in front of you, or the end of the row of loose things in front; nowhere else (the build view outlines it) */
 function bldPlaceSpot(n, kind: string): any {
   if (kind === 'field' && town.scenario === 'hamlet') return bldFieldSpot(n);
   if (kind === 'stallseed' || kind === 'stallcarp' || kind === 'stair' || kind === 'stairdown') return null;
   const f = lf2Front(n);
   const ok = (x, y) => x >= 3 && y >= 3 && x < W - 3 && y < H - 3 && walkable(x, y) && !lfPropAt(x, y) && !tileOwner.get(y * W + x) && !(x === n.tx && y === n.ty) && !town.siteAt[y * W + x] && ![T.DOOR, T.PLOT, T.TENT, T.PEW].includes(grid[y][x]);
-  { const dx = Math.sign(f.x - n.tx), dy = Math.sign(f.y - n.ty);   // (a loose thing in front: the new one goes on the next free tile along the line, so a row can be pushed along together)
+  if (ok(f.x, f.y)) return { x: f.x, y: f.y };
+  // a loose thing in front: the new one goes on the end of the row along the line, so a row is built by pressing again and again; a row that runs
+  // into a tree, a wall or the edge is blocked (nothing goes anywhere else: never beside you)
+  { const dx = Math.sign(f.x - n.tx), dy = Math.sign(f.y - n.ty);
     if ((dx || dy) && lfPropAt(f.x, f.y)) { let x = f.x, y = f.y; for (let i = 0; i < 400 && lfPropAt(x, y); i++) { x += dx; y += dy; } if (ok(x, y)) return { x, y }; } }
-  const cand: [number, number, number][] = [];
-  for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const x = f.x + dx, y = f.y + dy; if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) continue; cand.push([Math.abs(dx) + Math.abs(dy) * 1.01, x, y]); }
-  cand.sort((a, b) => a[0] - b[0]);
-  for (const [, x, y] of cand) if (ok(x, y)) return { x, y };
   return null;
 }
 function bldPlaceFront(n, kind: string) {
