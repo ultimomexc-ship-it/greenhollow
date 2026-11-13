@@ -1873,9 +1873,9 @@ function toolDraw(g, tool, hx, hy, ang) { const c = Math.cos(ang), s = Math.sin(
   switch (tool) {
     case 'axe': {   // a woodsman's axe: a long haft, an iron head with a flat poll behind and one bearded bit that flares to a curved, bright edge
       haft(-1.4, 13.0, 0.95);
-      metal([[10.0, 1.5], [12.7, 1.5], [12.7, -0.9], [12.1, -2.3], [13.6, -4.1], [14.3, -5.0], [13.2, -5.55], [11.4, -5.8], [9.7, -5.5], [8.5, -4.8], [9.6, -3.5], [10.4, -2.3], [10.0, -0.9]], STEEL);
-      g.save(); g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 0.32; g.beginPath(); { const A = at(14.0, -4.95), M = at(11.4, -5.62), B = at(8.8, -4.8); g.moveTo(A[0], A[1]); g.quadraticCurveTo(M[0], M[1], B[0], B[1]); } g.stroke();   // the honed edge
-      g.strokeStyle = 'rgba(40,44,56,.45)'; g.lineWidth = 0.18; g.beginPath(); { const A = at(10.4, -0.9), B = at(12.3, -0.9); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); } g.stroke(); g.restore(); break; }
+      metal([[10.0, -1.5], [12.7, -1.5], [12.7, 0.9], [12.1, 2.3], [13.6, 4.1], [14.3, 5.0], [13.2, 5.55], [11.4, 5.8], [9.7, 5.5], [8.5, 4.8], [9.6, 3.5], [10.4, 2.3], [10.0, 0.9]], STEEL);
+      g.save(); g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 0.32; g.beginPath(); { const A = at(14.0, 4.95), M = at(11.4, 5.62), B = at(8.8, 4.8); g.moveTo(A[0], A[1]); g.quadraticCurveTo(M[0], M[1], B[0], B[1]); } g.stroke();   // the honed edge
+      g.strokeStyle = 'rgba(40,44,56,.45)'; g.lineWidth = 0.18; g.beginPath(); { const A = at(10.4, 0.9), B = at(12.3, 0.9); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); } g.stroke(); g.restore(); break; }
     case 'hammer': haft(-1.4, 10.6, 0.95); metal([[8.9, -2.9], [12.9, -3.1], [13.1, 3.0], [8.9, 3.0]], TIRON, { ow: 0.24 }); metal([[8.2, -1.0], [9.0, -1.0], [9.0, 1.0], [8.2, 1.0]], TIRON, { ow: 0.18 }); break;
     case 'hoe': haft(-1.4, 12.8, 0.9); metal([[11.6, -0.8], [13.6, -0.9], [14.9, 0.2], [14.6, 4.6], [12.9, 4.4], [12.9, 1.2], [11.6, 0.8]], TIRON); break;
     case 'rod': { const A = at(-2.5, 0), B = at(16.5, -0.5), L = at(5, -0.1); g.lineCap = 'round'; g.strokeStyle = INK; g.lineWidth = 0.95; g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke(); g.strokeStyle = '#8a6a3c'; g.lineWidth = 0.55; g.stroke(); g.strokeStyle = '#d2a868'; g.lineWidth = 0.15; g.beginPath(); g.moveTo(A[0] - 0.1, A[1] - 0.14); g.lineTo(B[0] - 0.1, B[1] - 0.1); g.stroke();
