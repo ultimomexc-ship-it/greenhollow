@@ -31,7 +31,7 @@ function gaSpec(n, now) {
   sp.id = n.id; sp.role = n.role; sp.age = n.age; sp.female = !!n.female; sp.skin = n.skin; sp.hair = n.hair; sp.hs = L.hs; sp.beard = L.beard; sp.shirt = n.shirt; sp.pat = L.pat; sp.acc = L.acc; sp.pants = L.pants;
   sp.hat = n.hat; sp.hatCol = n.hatCol; sp.hatOn = !!L.hatOn; sp.robe = !!n.robe; sp.apron = !!n.apron; sp.face = n.face || { dx: 0, dy: 1 };
   sp.moving = !!n.moving; sp.pose = n.moving ? 'walk' : (n.pose === 'sit' || n.pose === 'kneel' || n.pose === 'work') ? n.pose : 'stand';
-  sp.tool = n.pose === 'work' ? n.tool : null; sp.hold = n.hold || null; sp.dress = dress; sp.mourning = !!(n.mourning && !n.moving); sp.wave = !!(n.waveUntil > game.time && n.pose !== 'sleep'); sp.status = n.status;
+  sp.tool = n.pose === 'work' ? n.tool : null; sp.seedCol = sp.tool === 'sow' ? sowCol(n) : null; sp.hold = n.hold || null; sp.dress = dress; sp.mourning = !!(n.mourning && !n.moving); sp.wave = !!(n.waveUntil > game.time && n.pose !== 'sleep'); sp.status = n.status;
   // at the baths: out of their clothes (a loincloth, or a linen shift for women), no hat, nothing in hand
   { const jd = !dress ? jobDress(n) : null; if (jd) { if (jd.hat) { sp.hat = jd.hat; sp.hatCol = jd.col; sp.hatOn = true; } if (jd.apron) sp.apron = true; } }   // (the work clothes; the baths and the watch's uniform, below, still win)
   const bath = n.age >= 6 && !dress ? bathState(n) : null; n._bath = bath;

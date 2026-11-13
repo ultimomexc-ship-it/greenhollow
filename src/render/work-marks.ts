@@ -22,7 +22,7 @@ function workTargets() {
     else if ((tool === 'hammer' || /^rock/.test(key)) && g === T.ROCK) out.push({ x: fx, y: fy, f, n, kind: 'rock' });
     else if (tool === 'pick' || /^node/.test(key)) { const nd = nodeAt(fx, fy); if (nd) out.push({ x: nd.x, y: nd.y, f, n, kind: nd.kind === 'berry' ? 'berry' : 'herb' }); }
     else if (tool === 'fish') { if (g === T.WATER) out.push({ x: fx, y: fy, f, n, kind: 'fish' }); }
-    else if (tool === 'hoe') { const c = cropAtR(fx, fy); if (c) out.push({ x: c.x, y: c.y, f, n, kind: /Plough/.test(text) ? 'plough' : /Sow/.test(text) ? 'sow' : 'harvest' }); }
+    else if (tool === 'hoe' || tool === 'sow') { const c = cropAtR(fx, fy); if (c) out.push({ x: c.x, y: c.y, f, n, kind: tool === 'sow' || /Sow/.test(text) ? 'sow' : /Plough/.test(text) ? 'plough' : 'harvest' }); }
   }
   return out;
 }
@@ -84,7 +84,11 @@ function drawWorkFx(c, now) {
       for (let r = 0; r < 3; r++) { const k = Math.max(0, Math.min(1, f * 3 - r)); if (k <= 0) break; fillR(c, px + 1, py + 2 + r * 7.5, (TS - 2) * k, 6.5, '#5e4128'); fillR(c, px + 1, py + 2 + r * 7.5, (TS - 2) * k, 1.4, '#7a5636'); }
     } else if (w.kind === 'sow') {
       // seeds go in one at a time
-      const k = Math.floor(f * 9); for (let q = 0; q < k; q++) { const i = Math.floor(q / 3), j = q % 3; fillR(c, px + CROP_COL[j] - 1, py + CROP_ROW[i] - 1.5, 2, 2, '#e8d9a0'); }   // (in the furrows, where the plants will stand)
+      const col = sowCol(w.n), q9 = f * 9, k = Math.floor(q9), seed = (x: number, y: number) => { circ(c, x + 0.3, y + 0.4, 1.25, 'rgba(30,16,8,.55)'); circ(c, x, y, 1.05, col); circ(c, x - 0.35, y - 0.35, 0.35, 'rgba(255,255,255,.6)'); };
+      for (let q = 0; q < Math.min(9, k); q++) seed(px + CROP_COL[q % 3], py + CROP_ROW[Math.floor(q / 3)] - 0.6);   // (landed: in the furrows, where the plants will stand)
+      if (k < 9) {   // the next one in the air, from the sower's hand in an arc
+        const t = q9 - k, hx = w.n.x * TS + 12 + (w.n.face ? w.n.face.dx * 5 : 0), hy = w.n.y * TS + 9 + (w.n.face ? w.n.face.dy * 3 : 0), tx = px + CROP_COL[k % 3], ty = py + CROP_ROW[Math.floor(k / 3)] - 0.6;
+        seed(hx + (tx - hx) * t, hy + (ty - hy) * t - Math.sin(t * Math.PI) * 7); }
     } else if (w.kind === 'harvest') {
       // (the plants go column by column and leave their holes: drawn with the crops, drawCrops in render/village.ts)
     } else {
@@ -125,3 +129,8 @@ function drawWorkFx(c, now) {
 
 function think(n, text, dn?) { game.events.push({ time: game.time, a: n, b: n, place: '', topic: 'life', quiet: true, self: true, lines: [{ who: n, text: '(' + text + ')' }] }); }
 function glow(c, x, y, r, col) { const g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, col); g.addColorStop(1, col.replace(/[\d.]+\)$/, '0)')); c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2); }
+/** the colour of the seed somebody is sowing: the packet in your hand, or the farmer's own seed (barley when we cannot tell) */
+function sowCol(n: any): string {
+  const k = n && n.player && typeof itActiveSeed === 'function' ? itActiveSeed(n) : n && n.sowSeed ? 'seed_' + n.sowSeed : 'seed_barley';
+  return (k && IT_STACKS[k] && IT_STACKS[k].col) || '#c9a96a';
+}

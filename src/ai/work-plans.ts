@@ -16,7 +16,7 @@ function farmPlan(n) {
     if (!st) st = { x: c.x, y: c.y };
     steps.push(goS({ x: st.x, y: st.y, face: { dx: Math.sign(c.x - st.x), dy: Math.sign(c.y - st.y) } }, i ? 'Moving along the rows' : 'Heading to the fields'));
     prev = { x: c.x, y: c.y };
-    steps.push(waitS(kind === 'plow' ? 3 : kind === 'harvest' ? 4 : 7, 'work', txt, { tool: 'hoe', onEnd(n) {
+    steps.push(waitS(kind === 'plow' ? 3 : kind === 'harvest' ? 4 : 7, 'work', txt, { tool: kind === 'sow' ? 'sow' : 'hoe', onEnd(n) {
       if (kind === 'harvest') { if (c.st && cropStage(c) === 4) itHarvest(n, c); }
       else if (kind === 'sow') { if (!c.st && c.pl && fieldPlowed(c)) { const sk = town.farmEcon ? farmSow(n) : farmSeed(n); if (!sk) return; c.st = 1; c.t0 = game.time; c.seed = sk; if (!n.player) LIFE.emit('planted', n, { seed: c.seed, qty: 1 }); } }
       else c.pl = 1;

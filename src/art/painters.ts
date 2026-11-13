@@ -1876,11 +1876,15 @@ function toolDraw(g, tool, hx, hy, ang) { const c = Math.cos(ang), s = Math.sin(
 
 /* ---- props, painted straight into game space ---- */
 function rr_(x, y, w, h, r = 0.7) { return spl([[x + r, y], [x + w - r, y], [x + w, y + r], [x + w, y + h - r], [x + w - r, y + h], [x + r, y + h], [x, y + h - r], [x, y + r]], true, 2); }
-function propDraw(g, what, x, y, u = 0, ang = 0) { const sw = Math.sin(TAU * u), P = (px, py, rx, ry) => ellipsePts(px, py, rx, ry, 16);
+function propDraw(g, what, x, y, u = 0, ang = 0, col?) { const sw = Math.sin(TAU * u), P = (px, py, rx, ry) => ellipsePts(px, py, rx, ry, 16);
   const O = (shapes, Pal, o = {}) => D(g, shapes, Pal, Object.assign({ smooth: false, ow: 0.22, os: 0.18, iw: 0.08, lx: -0.25, ly: -0.3, rim: 0.14, hs: 0.45 }, o));
   switch (what) {
     case 'cane': { const A = [x, y], B = [x + 0.7, y + 7.6]; g.lineCap = 'round'; g.strokeStyle = INK; g.lineWidth = 1.0; g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke(); g.strokeStyle = '#8a6440'; g.lineWidth = 0.6; g.stroke(); O([P(A[0] - 0.4, A[1] - 0.3, 0.8, 0.7)], WOODP); break; }
     case 'dough': O([spl([[x - 3.0, y + 0.2], [x - 2.2, y - 0.9], [x, y - 1.2], [x + 2.2, y - 0.9], [x + 3.0, y + 0.2], [x + 2.0, y + 1.0], [x - 2.0, y + 1.0]], true, 4)], pal('#f6efe0', '#ffffff', null, 0.6), { hs: 0.3 }); g.strokeStyle = 'rgba(170,140,90,.5)'; g.lineWidth = 0.1; g.beginPath(); g.moveTo(x - 1.6 + sw * 0.4, y - 0.3); g.quadraticCurveTo(x, y + 0.3, x + 1.6 + sw * 0.4, y - 0.3); g.stroke(); break;
+    case 'packet': {   // a little paper seed packet, in the seed's own colour, a white label and the top folded over
+      const c0 = col || '#c9a96a'; g.fillStyle = INK; g.fillRect(x - 1.75, y - 2.45, 3.5, 4.4); g.fillStyle = c0; g.fillRect(x - 1.4, y - 2.1, 2.8, 3.7);
+      g.fillStyle = 'rgba(255,255,255,.85)'; g.fillRect(x - 1.0, y - 0.6, 2.0, 1.2); g.fillStyle = c0; g.fillRect(x - 0.45, y - 0.35, 0.9, 0.7);
+      g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(x - 1.4, y - 2.1, 2.8, 0.7); break; }
     case 'rag': O([spl([[x - 0.4, y - 1.2], [x + 1.6, y - 1.4], [x + 2.2, y + 1.6], [x + 0.4, y + 2.4], [x - 1.2, y + 1.0]], true, 3)], pal('#e6dcc2', '#ffffff', null, 0.6), { hs: 0.3 }); g.fillStyle = '#e0a93f'; g.fillRect(x - 0.3, y - 1.1, 2.0, 0.5); break;
     case 'shuttle': { const A = [x - 1.9, y], B = [x + 1.9, y + 0.2]; O([tube([A, B], [0.9, 0.9], { seg: 1 })], pal('#d8b04e', '#fbe796', null, 0.6), { ow: 0.18 }); g.strokeStyle = '#c0504a'; g.lineWidth = 0.14; g.beginPath(); g.moveTo(x - 1.2, y - 0.1); g.lineTo(x + 1.0, y + 0.1); g.stroke(); break; }
     case 'plate': dab(g, x, y + 0.2, 3.7, 1.9, 0, INK); dab(g, x, y + 0.1, 3.4, 1.65, 0, '#f0eadb'); dab(g, x - 0.3, y + 0.1, 2.2, 1.0, 0, '#e2dac6'); dab(g, x - 0.9, y - 0.1, 0.95, 0.55, 0, '#c98a4a'); dab(g, x + 0.9, y + 0.3, 0.8, 0.5, 0, '#7aa34a'); dab(g, x - 1.2, y - 0.3, 0.3, 0.16, 0, '#fff'); break;
@@ -1936,6 +1940,11 @@ function workPose(kit, dir, sp, T, id) { const G = geo(kit), K = G.K, q = K.ua /
     if (two) { const sh = 2.8 * q; A(false, [res.tool.x + Math.cos(ang) * sh, res.tool.y + Math.sin(ang) * sh], { kind: 'fist', ang: ang + 0.1, bend: 1 }); } else idle(false); };
   switch (tool) {
     case 'hammer': swingTool(false); break; case 'axe': case 'hoe': swingTool(true); break;
+    case 'sow': {   // the packet held at the belly in one hand, the other dips in and flicks the seed out and down in front (one throw per seed)
+      const tt = (u + (id % 7) * 0.13) % 1, a = tt < 0.35 ? 0 : tt < 0.6 ? (tt - 0.35) / 0.25 : 1 - (tt - 0.6) / 0.4, e = a * a * (3 - 2 * a);
+      const pk = A(false, H(false, 2.4, 0.9, -3.2), { kind: 'fist', ang: side ? 0.2 : 1.2 });
+      A(true, H(true, 2.6 + 2.6 * e, 1.0 + (side ? 0 : 0.9 * e), -3.0 + 1.4 * e), { kind: e > 0.5 ? 'open' : 'fist', ang: side ? -0.2 + 0.6 * e : 1.0 - 0.4 * e });
+      res.propsA = [{ what: 'packet', x: pk.W[0] + (side ? 0.5 : 0), y: pk.W[1] - 0.6, col: sp.seedCol || '#c9a96a' }]; break; }
     case 'fish': { const ang = side ? -0.34 : -0.5; const hand = A(true, H(true, 3.4, 1.6, -1.8), { kind: 'fist', ang }); res.tool = { tool: 'rod', x: hand.W[0] + Math.cos(ang) * 0.9, y: hand.W[1] + Math.sin(ang) * 0.9, ang }; A(false, [res.tool.x + Math.cos(ang) * 2.8, res.tool.y + Math.sin(ang) * 2.8], { kind: 'fist', ang, bend: 1 }); break; }
     case 'pick': { res.lean = 0.42; const r = 0.5 + 0.5 * sw; A(true, H(true, 3.6 + r * 1.6, 1.8, -3.4 - r * 1.2), { kind: 'open' }); A(false, H(false, 3.0 - r * 1.0, 1.8, -3.2 - (1 - r) * 1.0), { kind: 'open' }); break; }
     case 'bless': A(true, H(true, 3.4, 4.6, 0.9 + 0.7 * sw), { kind: 'open', ang: side ? -0.9 : -1.15, bend: side ? 1 : 1 }); A(false, H(false, 3.4, 4.6, 0.9 - 0.7 * sw), { kind: 'open', ang: side ? -0.9 : -1.95, thumb: 1, bend: side ? 1 : -1 }); break;
@@ -2026,7 +2035,7 @@ function drawDoll(g, sp, x, y, k, T = 0) {
     for (const A of armsOf) if (!(dir === 'side' && A.far)) { put(sleeveOf(A), upDy); }
     if (wp && wp.tool) inFrame(() => toolDraw(g, wp.tool.tool, wp.tool.x, wp.tool.y, wp.tool.ang));
     for (const A of armsOf) if (!(dir === 'side' && A.far)) put(handOf(A), upDy);
-    if (wp && wp.propsA) for (const p of wp.propsA) inFrame(() => propDraw(g, p.what, p.x, p.y, p.u || 0, p.ang || 0)); };
+    if (wp && wp.propsA) for (const p of wp.propsA) inFrame(() => propDraw(g, p.what, p.x, p.y, p.u || 0, p.ang || 0, p.col)); };
   withLean(() => {
     if (behindArms) armBlock();
     putH(lay(`hb_${sp.hs}`, hairC, () => hairL(kit, dir, sp.hs, 'back'), 'overlay'), upDy);

@@ -6940,7 +6940,7 @@ const ART = (function() {
   function rr_(x, y, w, h, r = 0.7) {
     return spl([[x + r, y], [x + w - r, y], [x + w, y + r], [x + w, y + h - r], [x + w - r, y + h], [x + r, y + h], [x, y + h - r], [x, y + r]], true, 2);
   }
-  function propDraw(g, what, x, y, u = 0, ang = 0) {
+  function propDraw(g, what, x, y, u = 0, ang = 0, col) {
     const sw = Math.sin(TAU * u), P = (px, py, rx, ry) => ellipsePts(px, py, rx, ry, 16);
     const O = (shapes, Pal, o = {}) => D(g, shapes, Pal, Object.assign({ smooth: false, ow: 0.22, os: 0.18, iw: 0.08, lx: -0.25, ly: -0.3, rim: 0.14, hs: 0.45 }, o));
     switch (what) {
@@ -6968,6 +6968,20 @@ const ART = (function() {
         g.quadraticCurveTo(x, y + 0.3, x + 1.6 + sw * 0.4, y - 0.3);
         g.stroke();
         break;
+      case "packet": {
+        const c0 = col || "#c9a96a";
+        g.fillStyle = INK;
+        g.fillRect(x - 1.75, y - 2.45, 3.5, 4.4);
+        g.fillStyle = c0;
+        g.fillRect(x - 1.4, y - 2.1, 2.8, 3.7);
+        g.fillStyle = "rgba(255,255,255,.85)";
+        g.fillRect(x - 1, y - 0.6, 2, 1.2);
+        g.fillStyle = c0;
+        g.fillRect(x - 0.45, y - 0.35, 0.9, 0.7);
+        g.fillStyle = "rgba(0,0,0,.25)";
+        g.fillRect(x - 1.4, y - 2.1, 2.8, 0.7);
+        break;
+      }
       case "rag":
         O([spl([[x - 0.4, y - 1.2], [x + 1.6, y - 1.4], [x + 2.2, y + 1.6], [x + 0.4, y + 2.4], [x - 1.2, y + 1]], true, 3)], pal("#e6dcc2", "#ffffff", null, 0.6), { hs: 0.3 });
         g.fillStyle = "#e0a93f";
@@ -7218,6 +7232,13 @@ const ART = (function() {
       case "hoe":
         swingTool(true);
         break;
+      case "sow": {
+        const tt = (u + id % 7 * 0.13) % 1, a = tt < 0.35 ? 0 : tt < 0.6 ? (tt - 0.35) / 0.25 : 1 - (tt - 0.6) / 0.4, e = a * a * (3 - 2 * a);
+        const pk = A2(false, H2(false, 2.4, 0.9, -3.2), { kind: "fist", ang: side ? 0.2 : 1.2 });
+        A2(true, H2(true, 2.6 + 2.6 * e, 1 + (side ? 0 : 0.9 * e), -3 + 1.4 * e), { kind: e > 0.5 ? "open" : "fist", ang: side ? -0.2 + 0.6 * e : 1 - 0.4 * e });
+        res.propsA = [{ what: "packet", x: pk.W[0] + (side ? 0.5 : 0), y: pk.W[1] - 0.6, col: sp.seedCol || "#c9a96a" }];
+        break;
+      }
       case "fish": {
         const ang = side ? -0.34 : -0.5;
         const hand = A2(true, H2(true, 3.4, 1.6, -1.8), { kind: "fist", ang });
@@ -7496,7 +7517,7 @@ const ART = (function() {
       }
       if (wp && wp.tool) inFrame(() => toolDraw(g, wp.tool.tool, wp.tool.x, wp.tool.y, wp.tool.ang));
       for (const A2 of armsOf) if (!(dir === "side" && A2.far)) put(handOf(A2), upDy);
-      if (wp && wp.propsA) for (const p of wp.propsA) inFrame(() => propDraw(g, p.what, p.x, p.y, p.u || 0, p.ang || 0));
+      if (wp && wp.propsA) for (const p of wp.propsA) inFrame(() => propDraw(g, p.what, p.x, p.y, p.u || 0, p.ang || 0, p.col));
     };
     withLean(() => {
       if (behindArms) armBlock();
@@ -11415,7 +11436,7 @@ function farmPlan(n) {
     if (!st) st = { x: c.x, y: c.y };
     steps.push(goS({ x: st.x, y: st.y, face: { dx: Math.sign(c.x - st.x), dy: Math.sign(c.y - st.y) } }, i ? "Moving along the rows" : "Heading to the fields"));
     prev = { x: c.x, y: c.y };
-    steps.push(waitS(kind === "plow" ? 3 : kind === "harvest" ? 4 : 7, "work", txt, { tool: "hoe", onEnd(n2) {
+    steps.push(waitS(kind === "plow" ? 3 : kind === "harvest" ? 4 : 7, "work", txt, { tool: kind === "sow" ? "sow" : "hoe", onEnd(n2) {
       if (kind === "harvest") {
         if (c.st && cropStage(c) === 4) itHarvest(n2, c);
       } else if (kind === "sow") {
@@ -13885,7 +13906,7 @@ function targetAt0(n, x, y) {
       c.pl = 1;
       playerSay(n2, "Ploughed. Let go, then walk into it again to sow.");
     } };
-    if (!c.st) return { key: "crop" + x + "," + y + "s", min: 7, text: "Sowing seed", tool: "hoe", walkOn: true, run(n2) {
+    if (!c.st) return { key: "crop" + x + "," + y + "s", min: 7, text: "Sowing seed", tool: "sow", walkOn: true, run(n2) {
       if (!c.st) {
         c.st = 1;
         c.t0 = game.time;
@@ -24373,6 +24394,7 @@ function gaSpec(n, now) {
   sp.moving = !!n.moving;
   sp.pose = n.moving ? "walk" : n.pose === "sit" || n.pose === "kneel" || n.pose === "work" ? n.pose : "stand";
   sp.tool = n.pose === "work" ? n.tool : null;
+  sp.seedCol = sp.tool === "sow" ? sowCol(n) : null;
   sp.hold = n.hold || null;
   sp.dress = dress;
   sp.mourning = !!(n.mourning && !n.moving);
@@ -25214,9 +25236,9 @@ function workTargets() {
       if (nd) out.push({ x: nd.x, y: nd.y, f, n, kind: nd.kind === "berry" ? "berry" : "herb" });
     } else if (tool === "fish") {
       if (g === T.WATER) out.push({ x: fx, y: fy, f, n, kind: "fish" });
-    } else if (tool === "hoe") {
+    } else if (tool === "hoe" || tool === "sow") {
       const c = cropAtR(fx, fy);
-      if (c) out.push({ x: c.x, y: c.y, f, n, kind: /Plough/.test(text) ? "plough" : /Sow/.test(text) ? "sow" : "harvest" });
+      if (c) out.push({ x: c.x, y: c.y, f, n, kind: tool === "sow" || /Sow/.test(text) ? "sow" : /Plough/.test(text) ? "plough" : "harvest" });
     }
   }
   return out;
@@ -25319,10 +25341,15 @@ function drawWorkFx(c, now) {
         fillR(c, px + 1, py + 2 + r * 7.5, (TS - 2) * k, 1.4, "#7a5636");
       }
     } else if (w.kind === "sow") {
-      const k = Math.floor(f * 9);
-      for (let q = 0; q < k; q++) {
-        const i = Math.floor(q / 3), j = q % 3;
-        fillR(c, px + CROP_COL[j] - 1, py + CROP_ROW[i] - 1.5, 2, 2, "#e8d9a0");
+      const col = sowCol(w.n), q9 = f * 9, k = Math.floor(q9), seed = (x, y) => {
+        circ(c, x + 0.3, y + 0.4, 1.25, "rgba(30,16,8,.55)");
+        circ(c, x, y, 1.05, col);
+        circ(c, x - 0.35, y - 0.35, 0.35, "rgba(255,255,255,.6)");
+      };
+      for (let q = 0; q < Math.min(9, k); q++) seed(px + CROP_COL[q % 3], py + CROP_ROW[Math.floor(q / 3)] - 0.6);
+      if (k < 9) {
+        const t = q9 - k, hx = w.n.x * TS + 12 + (w.n.face ? w.n.face.dx * 5 : 0), hy = w.n.y * TS + 9 + (w.n.face ? w.n.face.dy * 3 : 0), tx = px + CROP_COL[k % 3], ty = py + CROP_ROW[Math.floor(k / 3)] - 0.6;
+        seed(hx + (tx - hx) * t, hy + (ty - hy) * t - Math.sin(t * Math.PI) * 7);
       }
     } else if (w.kind === "harvest") {
     } else {
@@ -25413,6 +25440,10 @@ function glow(c, x, y, r, col) {
   g.addColorStop(1, col.replace(/[\d.]+\)$/, "0)"));
   c.fillStyle = g;
   c.fillRect(x - r, y - r, r * 2, r * 2);
+}
+function sowCol(n) {
+  const k = n && n.player && typeof itActiveSeed === "function" ? itActiveSeed(n) : n && n.sowSeed ? "seed_" + n.sowSeed : "seed_barley";
+  return k && IT_STACKS[k] && IT_STACKS[k].col || "#c9a96a";
 }
 const el = (id) => document.getElementById(id);
 const state = { speed: 2, rate: 2, tab: "people" };
