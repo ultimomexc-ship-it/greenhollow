@@ -11,9 +11,9 @@ const tut2Active = (): boolean => !!(typeof town !== 'undefined' && town && town
 const TUT2_MAP = {
   house: { w: 5, h: 3 }, door: [2, 2], window: [3, 0], bed: [1, 1], start: [2, 1], out: [2, 3],
   patch: { x: 7, y: 0, w: 3, h: 3 }, watch: [6, 1],                              // (where Paullus stands to watch the patch: west of its middle row)
-  yard: { x: 13, y: -1, w: 6, h: 5 }, gate: [13, 1], jbed: [14, 0], jfield: [[15, 1], [16, 1], [17, 1], [15, 2], [16, 2], [17, 2]],
+  yard: { x: 14, y: -1, w: 6, h: 5 }, gate: [14, 1], jbed: [15, 0], jfield: [[16, 1], [17, 1], [18, 1], [16, 2], [17, 2], [18, 2]],   // (two clear tiles between your ring and hers, so a gate can be faced)
   own: { x: -1, y: -1, w: 13, h: 7 }, ownGate: [2, 5],                          // (your own yard: a fence ring round the house and the patch, the gate below the door: in the Hamlet only a fenced yard makes ground yours)
-  box: { x0: -2, y0: -2, x1: 19, y1: 6 }                                        // (all of it, with a tile round it, must be clear grass)
+  box: { x0: -2, y0: -2, x1: 20, y1: 6 }                                        // (all of it, with a tile round it, must be clear grass)
 };
 /** find a clear piece of ground near the stall for the whole layout and keep its places in town.tut2.at */
 function tut2Layout(st: any): any {

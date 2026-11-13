@@ -52,7 +52,7 @@ export async function playTutorial(page, { patient = false, until = 99, shots = 
     if (b.done || b.scene >= until) break;
     if (b.scene !== lastScene) { lastScene = b.scene; if (shots) await shots(b.scene, t); }
     if (b.bubble && !patient) { await page.keyboard.press('Space'); }
-    if (b.click) { try { await page.click(b.click, { timeout: 500 }); } catch (e) {} }
+    if (b.click) { try { await page.click(b.click, { timeout: 500, force: true }); } catch (e) {} }
     if (b.press) { if (held) { await page.keyboard.up(held); held = null; } await page.keyboard.press(b.press === 'b' ? 'b' : b.press); }
     const want = b.key === 'same' ? held : (b.key || null);
     if (want !== held) { if (held) await page.keyboard.up(held); if (want) await page.keyboard.down(want); held = want; }

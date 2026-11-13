@@ -62,6 +62,8 @@
   "life2/hamlet.ts",
   "life2/tutorial2.ts",
   "life2/tutorial2-play.ts",
+  "life2/tutorial2-polish.ts",
+  "render/build-look.ts",
   "life2/yards.ts",
   "life2/rent.ts",
   "life2/arrivals.ts",

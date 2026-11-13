@@ -57,7 +57,7 @@ function targetAt0(n, x, y) {
   if ((g === T.STAIR || g === T.STAIRD || g === T.STAIRM || g === T.STAIRU) && !(itBuildOn(n) && n.build.sel === 1)) { const sa = stairAction(n, x, y); if (sa) return sa; }
   if (g === T.EARTH && !itBuildOn(n)) return digAction(n, x, y);
   const c = cropAt(x, y);
-  if (c && !itBuildOn(n) && !yardMine(n, c)) return { msg: `This field belongs to ${yardName(yardAtXY(c.x, c.y))}. They would notice.` };
+  if (c && !itBuildOn(n) && !yardMine(n, c)) return null;   // (somebody else's field: you walk over it and leave it alone)
   if (c && !itBuildOn(n)) {
     const st = c.st ? cropStage(c) : 0, fl = !!c.st && itIsFlower(c);
     if (fl && itWilted(c)) return { key: 'crop' + x + ',' + y + 'h', min: 2, text: 'Clearing the withered flowers', tool: 'hoe', walkOn: true, run(n) { if (c.st) { const sd = c.seed; c.st = 0; c.seed = null; itGiveStack(n, 'seed_' + sd, 1); playerSay(n, 'Cleared. The ground is ready again. +1 seed'); } } };
@@ -202,7 +202,7 @@ function tickPlayer0(n, dt) {
     // Push mode: people are pushed like furniture (they move one tile, or you swap places); it is harmless, not a crime
     if (itHand(n, 'push') && occ && occ !== n && !occ.infant) { pushed = true; if (!tg) occ = null; }   // (a person is a piece in the line: lifeAct has pushed them, or said why not)
     if (occ && occ !== n && !occ.infant && !pushed) {
-      if (occ.shop && occ.shop.def === HAMLET_TRADER_DEF && Math.abs(occ.shop.front.x - n.tx) + Math.abs(occ.shop.front.y - n.ty) <= 1.5 && typeof shopOpen === 'function') tg = { key: 'tstall' + occ.id, min: 0.4, text: 'At the trading stall', tool: null, run() { shopOpen(occ.shop); } };   // (the Hamlet's trader always serves: the shop panel, life2/tutorial2-play.ts)
+      if (occ.shop && occ.shop.def === HAMLET_TRADER_DEF && typeof shopOpen === 'function') tg = { key: 'tstall' + occ.id, min: 0.4, text: 'At the trading stall', tool: null, run() { shopOpen(occ.shop); } };   // (the Hamlet's trader always serves: the shop panel, life2/tutorial2-play.ts)
       else if (occ.tutHold) tg = { msg: occ.first + ': ' + tut2Bump(occ) };   // (the tutorial holds them: no talk menu)
       else if (occ.pose === 'sleep') tg = { msg: occ.first + ' is asleep.' };
       else if (!itTalking(n)) tg = { msg: occ.first + ': ' + itWant(n, 'talk') };
@@ -217,6 +217,7 @@ function tickPlayer0(n, dt) {
       p.act.t += step; applyPlayerAct(n, p.act);
       if (p.act.t >= p.act.min) {
         const a = p.act; playerFinish(n, a); n.tool = null; n.hold = null;
+        if (IT_AUTO && /^crop/.test(a.key) && !itBuildOn(n) && !p.sleeping && walkable(fx, fy) && !tileOwner.get(tkey(fx, fy))) { p.act = null; p.grace = null; n.path = [{ x: fx, y: fy }]; n.moving = true; n.t = 0; n.pose = 'walk'; continue; }   // (you step onto the plot you have just worked, so holding a direction works a whole row)
         if (!p.sleeping) { const nt = targetAt(n, fx, fy); if (!(nt && nt.key === a.key && a.repeat)) { /* bar stays full for a beat: let go to stay, keep holding to move on */ p.grace = { t: 0, max: 0.3 * (typeof state !== 'undefined' ? state.rate * state.speed : 2), x: fx, y: fy, talk: /^talk/.test(a.key) }; p.act = Object.assign({}, a, { t: a.min, done: true }); } }
       }
       continue;

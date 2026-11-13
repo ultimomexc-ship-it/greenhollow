@@ -263,6 +263,7 @@ function render(now, dtSec, hourOfDay) {
 
   // screen-space overlays: stays readable at any zoom
   c.setTransform(cam.dpr, 0, 0, cam.dpr, 0, 0); c.imageSmoothingEnabled = true;
+  if (typeof buildLook === 'function') buildLook(c, now);   // (build mode looks like a blueprint: render/build-look.ts)
   drawFeast(c, now); drawCeremonyFire(c, now); drawOverlay(c, now); drawTalkMarks(c, now); drawActivityBars(c); drawPlayerFx(c, now); drawBubbles(c, now); lfDrawThoughts(c, now);
   if (typeof psyPost === 'function') psyPost(now);   // (a trip bends the whole finished frame)
 }
