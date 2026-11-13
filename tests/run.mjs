@@ -2873,6 +2873,36 @@ test('tutorial: the first morning plays from the old house to the clock starting
   return `played in ${rep.secs.toFixed(0)} s of real time (bubbles skipped), ${rep.said.length} lines`;
 });
 
+test('tutorial: pushing is taught the first time a fence lands out of place, or when you shut yourself in; fences go down along the line; Junia asks for her bed before it is given', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const rep = await playTutorial(page, { maxSec: 300, until: 7 });
+  check(!rep.stuck, 'reaches scene 7: ' + JSON.stringify(rep.stuck));
+  const wish = rep.said.findIndex(l => /anywhere to sleep/.test(l.text)), gift = rep.said.findIndex(l => /Found this on the beach/.test(l.text));
+  check(wish >= 0 && gift > wish, 'Junia asks for somewhere to sleep before Paullus hands over the bed');
+  const r = await page.evaluate(() => {
+    const T2 = town.tut2, P = game.player, out = {}; town.kit.fence = 30; T2.locks = { build: true }; T2.slots = ['fence']; T2.fenceFree = true; T2.fenceWatch = true;
+    out.locked = tut2Lock('push');
+    // a line: stand outside the ring's top row facing the first mark, press 1 three times
+    const top = T2.at.yard.filter(t => t.y === Math.min(...T2.at.yard.map(q => q.y))).sort((a, c) => a.x - c.x);
+    P.tx = P.x = top[0].x; P.ty = P.y = top[0].y - 1; P.face = { dx: 0, dy: 1 }; itBuildToggle(P, true);
+    itBuildSelect(P, 0); P.tx = P.x = top[0].x - 1; P.ty = P.y = top[0].y; P.face = { dx: 1, dy: 0 }; itBuildSelect(P, 0); itBuildSelect(P, 0);
+    out.line = top.slice(0, 3).every(t => TUT2_DONE.fence(t.x, t.y));
+    // a stray: a fence off every mark
+    const st = { x: T2.at.jbed.x + 1, y: T2.at.jbed.y + 1 }; const pr = lfAddProp('fence', st.x, st.y); tut2Hud();
+    out.taught = !!T2.pushTaught; out.unlocked = !tut2Lock('push'); out.lesson = T2.ui.lesson; out.said = T2.said[T2.said.length - 1].text;
+    bldDeleteProp(pr); tut2Hud(); out.cleared = T2.ui.lesson;
+    // shut in: every mark fenced, you inside
+    for (const t of T2.at.yard) if (!lfPropAt(t.x, t.y)) lfAddProp('fence', t.x, t.y);
+    const inn = tut2YardInner(T2)[3]; P.tx = P.x = inn.x; P.ty = P.y = inn.y; tut2Hud(); out.shut = T2.ui.lesson; out.shutSaid = T2.said[T2.said.length - 1].text;
+    return out;
+  });
+  check(r.locked && r.line, 'pushing starts locked, and pressing 1 facing a fence lays the next along the line: ' + JSON.stringify(r));
+  check(r.taught && r.unlocked && /stray fence/.test(r.lesson || '') && /wandered/.test(r.said) && !r.cleared, 'a stray fence teaches pushing and the lesson goes when it is gone: ' + JSON.stringify(r));
+  check(/Shut in/.test(r.shut || '') && /Shove one/.test(r.shutSaid), 'shut inside the ring, you are told to push your way out: ' + JSON.stringify(r));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return 'line laying, the stray-fence lesson and the shut-in reminder';
+});
+
 const browser = await launch();
 let failed = 0;
 const chosen = tests.filter(t => t.name.includes(filter));

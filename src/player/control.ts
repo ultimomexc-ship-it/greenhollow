@@ -14,6 +14,7 @@ function releasePlayer() {
   game.player = null; n.player = null; n.pose = 'stand'; n.tool = null; n.hold = null;
   if (!n.dead) { n.plan = null; n.si = 0; n.stepStarted = false; n.path = []; n.moving = false; n.x = n.tx; n.y = n.ty; }
 }
+const FARM_NEED_REST = false;   // (true: a plot is worked only from rest, so a field can be crossed: the old field rule)
 function playerSay(n, text) { n.player.msg = cvSpeak(text); n.player.msgAt = clk(); }
 const nodeAt = (x, y) => { const k = y * W + x; return town.nodes.find(nd => nd.x === x && nd.y === y && nd.amt >= 1); };
 const cropAt = (x, y) => town.crops.find(c => c.x === x && c.y === y);
@@ -195,8 +196,8 @@ function tickPlayer0(n, dt) {
     }
     if (p.lock) continue;
     let tg = itGate(n, lifeAct(n, p, fx, fy, dx, dy) || targetAt(n, fx, fy), walkable(fx, fy));
-    // auto tools: a plot that needs work is worked only when you start from rest beside it (or keep going inside a field); walking over a field on your way somewhere never ploughs it
-    if (IT_AUTO && !itBuildOn(n) && tg && tg.key && /^crop/.test(tg.key) && !p.fresh) tg = null;   // the thing in your hand must fit the action (player/items.ts)
+    // auto farming: walking into a plot that needs work works it (plough, sow with the seed in hand or the one you have most of, harvest), no stopping first; a field is not crossed freely (FARM_NEED_REST brings the old rule back)
+    if (IT_AUTO && FARM_NEED_REST && !itBuildOn(n) && tg && tg.key && /^crop/.test(tg.key) && !p.fresh) tg = null;
     let occ = tileOwner.get(tkey(fx, fy)), pushed = false;
     // Push mode: people are pushed like furniture (they move one tile, or you swap places); it is harmless, not a crime
     if (itHand(n, 'push') && occ && occ !== n && !occ.infant) { pushed = true; if (!tg) occ = null; }   // (a person is a piece in the line: lifeAct has pushed them, or said why not)

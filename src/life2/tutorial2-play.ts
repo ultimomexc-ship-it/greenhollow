@@ -78,7 +78,8 @@ const _t2Select = itBuildSelect; itBuildSelect = function (n, i) {
   if (!tut2Active()) return _t2Select(n, i);
   const k = (town.tut2.slots || [])[i], b = itBuildState(n); if (!k) return;
   if (k === 'destroy') { b.sel = b.sel === 1 ? 0 : 1; const p = n.player; if (p) { p.act = null; p.lock = false; } itSync(true); return; }
-  b.sel = 0; tut2Place(n, k);
+  b.sel = 0; if (k === 'fence' && town.tut2.fenceFree) { if (bldPlaceFront(n, 'fence')) itSync(true); return; }   // (fences go down the normal way: facing a fence, the next goes on the end of the line)
+  tut2Place(n, k);
 };
 // @ts-expect-error -- deliberate patch
 const _t2Bar = itBuildBarHTML; itBuildBarHTML = function (n, face) {
@@ -195,7 +196,7 @@ const tarrow = (to?: any, done?: string): any => ({ do: 'arrow', to: to || null,
 const tmark = (tiles?: any, done?: string, extra?: any): any => Object.assign({ do: 'mark', tiles: tiles || null, done }, extra || {});
 const twait = (until: (T2: any) => boolean, extra?: any): any => Object.assign({ do: 'wait', until }, extra || {});
 const tpause = (s: number): any => ({ do: 'wait', until: () => TUT2.t >= s });
-const tlock = (locks: any, slots?: string[], only?: string, onlyMsg?: string): any => tset(T2 => { T2.locks = Object.assign({}, locks); T2.slots = slots || []; T2.only = only || null; T2.onlyMsg = onlyMsg || null; });
+const tlock = (locks: any, slots?: string[], only?: string, onlyMsg?: string): any => tset(T2 => { T2.locks = Object.assign({}, locks, T2.pushTaught ? { push: true } : {}); T2.slots = slots || []; T2.only = only || null; T2.onlyMsg = onlyMsg || null; });
 const tstock = (buy: any[], sell: any[], line: string): any => tset(T2 => { T2.stock = { buy, sell, line }; });
 const shopIsOpen = () => SHOP.open;
 const buildOn = () => itBuildOn(game.player);
@@ -284,31 +285,34 @@ TUT2_SCENES.push(
     { do: 'walk', who: 'paullus', to: 'keep' }, { do: 'face', who: 'paullus', to: 'you' },
     tsay('paullus', "That's the whole trade."), tsay('paullus', 'Grow it. Sell it. Build with it.')
   ],
-  // Scene 5: the bed and the secret
+  // Scene 5: Junia comes up from the shore and wishes for a bed; Paullus shows you build mode
   [
     { do: 'face', who: 'paullus', to: 'junia' }, tarrow('junia'),
     tsay('paullus', 'Somebody came ashore in the night.'), tsay('paullus', 'Nobody does it on purpose.'), tarrow(),
+    { do: 'walk', who: 'junia', to: () => tut2Beside(tut2Pos('you')) || tut2Pos('front') }, { do: 'face', who: 'junia', to: 'you' },
+    tsay('junia', 'I was ironing a shirt, and then there was sand.'), tsay('junia', "I've decided not to think about it."),
+    tsay('junia', 'Is there anywhere to sleep, on this island?'), tsay('junia', "I'm not fussy. A bed would do."),
     { do: 'face', who: 'paullus', to: 'you' }, tsay('paullus', 'Found this on the beach.'),
     tset(() => { town.kit.bed = (town.kit.bed || 0) + 1; }),
     tsay('paullus', 'You know what to do with it. Or you will.'),
+    { do: 'walk', who: 'junia', to: (T2: any) => ({ x: T2.at.jbed.x - 1, y: T2.at.jbed.y }), async: true },
     tset(T2 => { T2.ui.marks = [{ tiles: 'jbed', done: 'bed', ghost: true }, { tiles: 'yard', faint: true }]; }),
     tarrow('jbed', 'bed'), tlock({ build: true }, ['bed'], 'jbed', 'On the marked place.'), tstrip('Press B to build.'),
     twait(buildOn, { bot: (T2: any) => ({ stand: below('jbed')(T2), key: buildOn() ? null : 'b' }) }),
     { do: 'face', who: 'paullus', to: 'you' },
     tsay('paullus', 'There. The world holds its breath while you build.'), tsay('paullus', 'Nobody sees it. They only find the thing afterwards.'), tsay('paullus', "I did this for a long time. Now it's you. That stays between us."),
+    tstrip('The bar at the bottom is what you can build. The bed is on 1.'), tpause(2.5),
     tstrip('Face the marked place and press 1 to put the bed down.'),
     twait(T2 => TUT2_DONE.bed(T2.at.jbed.x, T2.at.jbed.y), { bot: (T2: any) => ({ stand: below('jbed')(T2), face: 'up', key: '1' }) }),
     tarrow(), tstrip('Press B to let the world go on.'),
     twait(() => !buildOn(), { bot: () => ({ key: 'b' }) }),
     tlock({}), tstrip(), tmark()
   ],
-  // Scene 6: Junia comes up from the shore
+  // Scene 6: her bed, and a wish for a fence
   [
-    { do: 'walk', who: 'junia', to: below('jbed') }, { do: 'face', who: 'junia', dir: { dx: 0, dy: -1 } },
+    { do: 'walk', who: 'junia', to: (T2: any) => ({ x: T2.at.jbed.x - 1, y: T2.at.jbed.y }) }, { do: 'face', who: 'junia', dir: { dx: 1, dy: 0 } },
     tsay('junia', "There's a bed here and nobody in it."), tsay('junia', "I'm going to assume it's mine."),
     tset(T2 => { const J = tut2Who('junia'), b = lfPropAt(T2.at.jbed.x, T2.at.jbed.y); if (J && b) { if (b.owner && b.owner !== J && b.owner.bed === b) b.owner.bed = { owner: null }; b.owner = J; b.v = 3; J.bed = b; J.homeless = false; J.tx = J.x = b.x; J.ty = J.y = b.y; J.pose = 'sleep'; J.status = 'Lying on the bed, awake'; town.lfPV = (town.lfPV || 0) + 1; } }),
-    twait(T2 => { const J = tut2Who('junia'), P = game.player; return Math.abs(J.tx - P.tx) + Math.abs(J.ty - P.ty) <= 4 || TUT2.t > 20; }),
-    tsay('junia', 'I was ironing a shirt, and then there was sand.'), tsay('junia', "I've decided not to think about it."),
     tsay('junia', "I'd sleep better with something round me. A fence, say."),
     tmark('yard', 'fence'),
     tstock([{ item: 'fence', qty: 18, price: 1 }], [], 'Eighteen fences. Take all of them.'),
@@ -319,8 +323,10 @@ TUT2_SCENES.push(
     twait(shopIsOpen, { bot: botStall }), tstrip('Buy all 18.'),
     twait(() => (town.kit.fence || 0) >= 18, { bot: () => ({ shop: { tab: 'buy', i: 0, all: true } }) }),
     twait(() => !shopIsOpen(), { bot: () => ({ shop: { close: true } }) }),
-    tarrow('yard', 'fence'), tlock({ build: true }, ['fence'], 'yard'), tstrip('Press B. Put a fence on every marked square.'),
-    twait(T2 => tut2AllDone('yard', 'fence'), { bot: botRing('fence', '1') }),
+    tarrow('yard', 'fence'), tlock({ build: true }, ['fence'], 'yard'), tset(T2 => { T2.fenceFree = true; T2.fenceWatch = true; }),
+    tstrip('Press B. Fence every marked square: facing a fence, 1 puts the next one on the end of the line.'),
+    twait(T2 => tut2AllDone('yard', 'fence') && !tut2Strays().length, { bot: botRing('fence', '1') }),
+    tset(T2 => { T2.fenceFree = false; }),
     tarrow(), tstrip('Press B to let the world go on.'),
     twait(() => !buildOn(), { bot: () => ({ key: 'b' }) }),
     tlock({}), tstrip(), tmark(),
@@ -426,3 +432,31 @@ const _t2Prog = progStep; progStep = function (n) {
   return _t2Prog(n);
 };
 LF2.tickers.push(() => { if (town && town.tut2) tut2After(); });   // (the first rent runs with the sim, not only with the frame loop)
+
+/* ---------------- pushing, taught the first time it is needed (a fence out of place, or you shut in) ---------------- */
+/** fences and gates standing where no fence belongs (not on your own ring or Junia's) */
+function tut2Strays(): any[] {
+  const T2 = town.tut2; if (!T2) return []; const ok = new Set(T2.at.own.concat(T2.at.yard).map((t: any) => t.y * W + t.x));
+  return town.props.filter((p: any) => (p.kind === 'fence' || p.kind === 'gate') && !ok.has(p.y * W + p.x));
+}
+/** you are inside Junia's ring and it is closed all round */
+function tut2ShutIn(): boolean {
+  const T2 = town.tut2, P = game.player; if (!T2 || !P) return false;
+  return tut2YardInner(T2).some(t => t.x === P.tx && t.y === P.ty) && tut2AllDone('yard', 'fence');
+}
+function tut2PushWatch() {
+  const T2 = town.tut2; if (!T2 || T2.done || !T2.fenceWatch) return;
+  const strays = tut2Strays(), shut = tut2ShutIn() && !TUT2_DONE.gate(T2.at.gate.x, T2.at.gate.y), R = tut2Who('paullus'), P = game.player;
+  if ((strays.length || shut) && !T2.pushTaught) {
+    T2.pushTaught = true; T2.locks = Object.assign({}, T2.locks, { push: true });
+    tut2Say(R, shut ? 'You can shove them, you know. Press B and walk into one.' : "That one's wandered. Walk into it in build mode and it goes where you push it.", P);
+  } else if (shut && !T2.shutSaid && T2.pushTaught) { T2.shutSaid = true; tut2Say(R, 'Shove one. They move.', P); }
+  T2.ui.lesson = strays.length ? 'Push the stray fence onto a mark: in build mode, walk into it.' : shut ? 'Shut in. In build mode, walk into a fence to push it out of the way.' : null;
+}
+// @ts-expect-error -- deliberate patch
+const _t2Hud = tut2Hud; tut2Hud = function () { if (town && town.tut2) { tut2PushWatch(); const ui = town.tut2.ui; if (ui && ui.lesson && !(ui.flash && performance.now() < ui.flash.until)) ui.flash = { text: ui.lesson, until: performance.now() + 200 }; } return _t2Hud(); };
+// @ts-expect-error -- deliberate patch
+const _t2Draw = drawTut2; drawTut2 = function (c, now) {
+  _t2Draw(c, now); if (!tut2Active() || !town.tut2.fenceWatch) return;
+  for (const p of tut2Strays()) { c.save(); c.globalAlpha = 0.6 + 0.3 * Math.sin(now / 200); c.strokeStyle = '#f0783c'; c.lineWidth = 3; c.strokeRect(p.x * TS + 1, p.y * TS + 1, TS - 2, TS - 2); c.restore(); }
+};
