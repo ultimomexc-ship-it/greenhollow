@@ -2907,6 +2907,24 @@ test('tutorial: pushing is taught the first time a fence lands out of place, or 
   return 'line laying, the stray-fence lesson and the shut-in reminder';
 });
 
+test('farming a row: holding a direction works each plot and steps onto it, and stops on the last plot instead of running onto the grass', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('row-test', 'blank'); if (!town.props) lfInitProps(); startPlaying(npcs[0]); const P = game.player, p = P.player;
+    let at = null; for (let y = town.cy - 20; y < town.cy + 20 && !at; y++) for (let x = town.cx - 25; x < town.cx + 25 && !at; x++) { let ok = true; for (let i = 0; i < 7 && ok; i++) if (grid[y][x + i] !== T.GRASS || lfPropAt(x + i, y) || !walkable(x + i, y) || tileOwner.get(y * W + x + i)) ok = false; if (ok) at = { x, y }; }
+    for (let i = 1; i <= 3; i++) { setT(at.x + i, at.y, T.CROP); town.crops.push({ x: at.x + i, y: at.y, f: 'row', pl: 0, st: 0, t0: 0, byField: P.id }); }
+    refreshReach(); P.tx = P.x = at.x; P.ty = P.y = at.y; P.path = []; P.moving = false; P.face = { dx: 1, dy: 0 }; p.keys = { right: true }; p.idle = 1;
+    for (let i = 0; i < 400; i++) updateSim(0.5);
+    const out = { x: P.tx - at.x, ploughed: [1, 2, 3].filter(i => (town.crops.find(c => c.x === at.x + i && c.y === at.y) || {}).pl).length };
+    p.keys = {}; for (let i = 0; i < 4; i++) updateSim(0.5); p.keys = { right: true }; for (let i = 0; i < 40; i++) updateSim(0.5); out.after = P.tx - at.x;
+    return out;
+  });
+  check(r.ploughed === 3 && r.x === 3, 'the whole row is ploughed and you stand on its last plot: ' + JSON.stringify(r));
+  check(r.after > 3, 'a fresh press walks you off the field: ' + JSON.stringify(r));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return 'three plots ploughed in one hold, stopped on the last, a fresh press walks on';
+});
+
 const browser = await launch();
 let failed = 0;
 const chosen = tests.filter(t => t.name.includes(filter));

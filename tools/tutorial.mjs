@@ -28,7 +28,7 @@ export async function playTutorial(page, { patient = false, until = 99, shots = 
       if (h.shop) { const sh = h.shop; if (!SHOP.open) return st; if (sh.close) return Object.assign(st, { click: '[data-spx]' }); if (SHOP.tab !== sh.tab) return Object.assign(st, { click: `[data-spt="${sh.tab}"]` }); return Object.assign(st, { click: `.sptile:nth-child(${sh.i + 1}) .spbtns button:${sh.all ? 'last-child' : 'first-child'}` }); }
       const DIR = (dx, dy) => dx > 0 ? 'ArrowRight' : dx < 0 ? 'ArrowLeft' : dy > 0 ? 'ArrowDown' : 'ArrowUp';
       const cur = P.moving && P.path && P.path.length ? P.path[P.path.length - 1] : { x: P.tx, y: P.ty };
-      if (P.player.lock) return Object.assign(st, { lock: true });   // (a bump stopped you: let go and press again, as a player would)
+      if (P.player.lock || P.player.edgeHold) return Object.assign(st, { lock: true });   // (stopped at a bump or at a field's edge: let go and press again)   // (a bump stopped you: let go and press again, as a player would)
       if (h.stand && (cur.x !== h.stand.x || cur.y !== h.stand.y)) {
         const p = findPath(cur.x, cur.y, h.stand.x, h.stand.y); if (!p || !p.length) return Object.assign(st, { nopath: true });
         const occ = tileOwner.get(p[0].y * W + p[0].x);

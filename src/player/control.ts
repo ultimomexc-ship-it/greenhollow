@@ -184,6 +184,7 @@ function tickPlayer0(n, dt) {
     if (d !== p.lastD) { p.lastD = d; if (p.lock && !p.needRelease) p.lock = false; }
     if (p.act && p.act.auto) { p.act.t += step; applyPlayerAct(n, p.act); if (p.act.t >= p.act.min) { const a = p.act; p.act = null; a.run(n); n.hold = null; n.pose = 'stand'; } continue; }
     if (!d && lf2Follow(n, p)) continue;
+    if (!d || d !== p.edgeHold) p.edgeHold = null;   // (letting go or turning ends the hold at a field's edge)
     if (!d) { p.idle = (p.idle || 0) + step;  if (p.act) { p.act = null; } p.grace = null; p.lock = false; p.skip = null; n.pose = 'stand'; n.tool = null; n.hold = null; n.status = 'Under your control'; continue; }
     if ((p.idle || 0) >= 0.25) p.fresh = true;   // (a press that starts from rest: this is how you ask to work a plot)
     p.idle = 0;
@@ -217,13 +218,14 @@ function tickPlayer0(n, dt) {
       p.act.t += step; applyPlayerAct(n, p.act);
       if (p.act.t >= p.act.min) {
         const a = p.act; playerFinish(n, a); n.tool = null; n.hold = null;
-        if (IT_AUTO && /^crop/.test(a.key) && !itBuildOn(n) && !p.sleeping && walkable(fx, fy) && !tileOwner.get(tkey(fx, fy)) && grid[fy + dy] && grid[fy + dy][fx + dx] === T.CROP) { p.act = null; p.grace = null; n.path = [{ x: fx, y: fy }]; n.moving = true; n.t = 0; n.pose = 'walk'; continue; }   // (you step onto the plot you have just worked, so holding a direction works a whole row)
+        if (IT_AUTO && /^crop/.test(a.key) && !itBuildOn(n) && !p.sleeping && walkable(fx, fy) && !tileOwner.get(tkey(fx, fy))) { p.act = null; p.grace = null; p.edgeHold = d; n.path = [{ x: fx, y: fy }]; n.moving = true; n.t = 0; n.pose = 'walk'; continue; }   // (you step onto the plot you have just worked, so holding a direction works a whole row)
         if (!p.sleeping) { const nt = targetAt(n, fx, fy); if (!(nt && nt.key === a.key && a.repeat)) { /* bar stays full for a beat: let go to stay, keep holding to move on */ p.grace = { t: 0, max: 0.3 * (typeof state !== 'undefined' ? state.rate * state.speed : 2), x: fx, y: fy, talk: /^talk/.test(a.key) }; p.act = Object.assign({}, a, { t: a.min, done: true }); } }
       }
       continue;
     }
     if (p.act) p.act = null;
     if (tg && tg.msg) { if (clk() - p.msgAt > 40 || p.msg !== tg.msg) playerSay(n, tg.msg); p.lock = true; n.pose = 'stand'; continue; }
+    if (p.edgeHold && grid[n.ty][n.tx] === T.CROP && grid[fy][fx] !== T.CROP) { n.pose = 'stand'; continue; }   // (working a row: you stop on the last plot instead of running off the field; a fresh press walks you off)
     if (walkable(fx, fy) && !(typeof noStep === 'function' && noStep(fx, fy))) { if (grid[fy][fx] !== T.CROP) p.fresh = false; p.skip = null; n.path = [{ x: fx, y: fy }]; n.moving = true; n.t = 0; n.pose = 'walk'; n.tool = null; n.hold = null; n.status = 'Walking'; stepNpc(n, step); }
     else { n.pose = 'stand'; n.tool = null; }
   }

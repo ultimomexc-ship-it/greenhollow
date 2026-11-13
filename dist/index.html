@@ -13915,6 +13915,7 @@ function tickPlayer0(n, dt) {
       continue;
     }
     if (!d && lf2Follow(n, p)) continue;
+    if (!d || d !== p.edgeHold) p.edgeHold = null;
     if (!d) {
       p.idle = (p.idle || 0) + step;
       if (p.act) {
@@ -13997,9 +13998,10 @@ function tickPlayer0(n, dt) {
         playerFinish(n, a);
         n.tool = null;
         n.hold = null;
-        if (IT_AUTO && /^crop/.test(a.key) && !itBuildOn(n) && !p.sleeping && walkable(fx, fy) && !tileOwner.get(tkey(fx, fy)) && grid[fy + dy] && grid[fy + dy][fx + dx] === T.CROP) {
+        if (IT_AUTO && /^crop/.test(a.key) && !itBuildOn(n) && !p.sleeping && walkable(fx, fy) && !tileOwner.get(tkey(fx, fy))) {
           p.act = null;
           p.grace = null;
+          p.edgeHold = d;
           n.path = [{ x: fx, y: fy }];
           n.moving = true;
           n.t = 0;
@@ -14020,6 +14022,10 @@ function tickPlayer0(n, dt) {
     if (tg && tg.msg) {
       if (clk() - p.msgAt > 40 || p.msg !== tg.msg) playerSay(n, tg.msg);
       p.lock = true;
+      n.pose = "stand";
+      continue;
+    }
+    if (p.edgeHold && grid[n.ty][n.tx] === T.CROP && grid[fy][fx] !== T.CROP) {
       n.pose = "stand";
       continue;
     }
