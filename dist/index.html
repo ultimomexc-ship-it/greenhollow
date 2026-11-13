@@ -16030,6 +16030,7 @@ function gaPaintRect(g, x0, y0, w, h, k, wt) {
   for (let y = y0; y <= Math.min(H - 1, y1); y++) for (let x = x0; x < x1; x++) {
     if (roomAt[y][x] >= 0) continue;
     const t = grid[y][x];
+    if (t === T.TREE && wt && TREES.on) continue;
     if (t === T.TREE || t === T.ROCK || t === T.MOUNTAIN || t === T.TENT || t === T.STALL || t === T.GRAVE) gaStand(g, x, y, t);
     else if ((t === T.STAIR || t === T.STAIRM) && lvlOf(y) === 0) {
       const it = ART.BYID[stairSpriteId(t, x, y)];
@@ -24394,7 +24395,7 @@ function render(now, dtSec, hourOfDay) {
       for (const w of workTargets()) if (w.kind === "tree") busy.add(w.y * W + w.x);
       for (const key of near) {
         const x = key % W, y = key / W | 0, t = grid[y][x];
-        if (!TALL.has(t) || busy.has(key)) continue;
+        if (!TALL.has(t) || busy.has(key) || t === T.TREE && treesLive()) continue;
         items.push({ k: y - 0.02, f: () => drawTallTile(c, x, y, t) });
       }
     }
@@ -28952,11 +28953,11 @@ const stRand = () => {
 };
 function stSurface(x, y) {
   const t = grid[y] && grid[y][x], room = roomAt[y] && roomAt[y][x] >= 0;
-  if (room || t === T.FLOOR || t === T.DECK) return { col: "#5a4630", a: 0.12, life: 2500, dust: ["#d8c8a8"], n: 1 };
-  if (t === T.SAND) return { col: "#8a6a3c", a: 0.42, life: 9e3, dust: ["#e8d29a", "#d9be7e"], n: 3 };
-  if (t === T.CROP || t === T.PLOT || t === T.DIRTF) return { col: "#3e2a16", a: 0.4, life: 7e3, dust: ["#8a6239", "#6b4a2b"], n: 2 };
-  if (t === T.PATH) return { col: "#5d5040", a: 0.24, life: 4500, dust: ["#c9bba0", "#b0a084"], n: 2 };
-  if (t === T.GRASS) return { col: "#1f4a14", a: 0.26, life: 4e3, dust: ["#6db03f", "#86c452", "#4e8f2c"], n: 1, leaf: true };
+  if (room || t === T.FLOOR || t === T.DECK) return { col: "#3a2a18", a: 0.22, life: 1800, dust: [], n: 0 };
+  if (t === T.SAND) return { col: "#6e5028", a: 0.6, life: 5500, dust: ["#c9ab78", "#d8bd8b", "#bb9c66"], n: 3 };
+  if (t === T.CROP || t === T.PLOT || t === T.DIRTF) return { col: "#2c1c0c", a: 0.55, life: 4500, dust: ["#8a6239", "#6b4a2b", "#7a5532"], n: 2 };
+  if (t === T.PATH) return { col: "#4a3520", a: 0.42, life: 3e3, dust: ["#a27b50", "#b08959", "#8f6b44"], n: 2 };
+  if (t === T.GRASS) return { col: "#173a0e", a: 0.38, life: 2600, dust: ["#6db03f", "#86c452", "#4e8f2c"], n: 1, leaf: true };
   return null;
 }
 function stBurst(...a) {
@@ -28986,7 +28987,7 @@ function stTrack(now) {
       STEPS.prints.push({ x: fx, y: fy, a: Math.atan2(uy, ux), t0: now, life: s.life, col: s.col, al: s.a * (n.child ? 0.8 : 1), sm: n.child ? 0.75 : 1 });
       if (STEPS.prints.length > STEPS.max) STEPS.prints.splice(0, STEPS.prints.length - STEPS.max);
       const near = n.player || stRand() < 0.5;
-      if (near && typeof jBurst === "function") stBurst(fx, fy, s.n, s.leaf ? "leaf" : "dot", s.dust, s.leaf ? 0.35 : 0.3, s.leaf ? 0.5 : 0.25);
+      if (near && s.n && typeof jBurst === "function") stBurst(fx, fy, s.n, s.leaf ? "leaf" : "dot", s.dust, s.leaf ? 0.35 : 0.3, s.leaf ? 0.5 : 0.25);
     }
     L.x = n.x;
     L.y = n.y;
@@ -29019,6 +29020,73 @@ function drawSteps(c, now) {
   }
   c.restore();
 }
+const TREES = { on: true, spring: /* @__PURE__ */ new Map(), last: 0, seed: 777 };
+const trRand = () => {
+  TREES.seed = TREES.seed * 1103515245 + 12345 & 2147483647;
+  return TREES.seed / 2147483647;
+};
+function treesLive() {
+  return TREES.on && cam.z * cam.dpr * TS >= 18;
+}
+YSORT.push(function(c, now) {
+  if (!town || !treesLive()) return [];
+  const v = gaView(), t = now / 1e3, dt = Math.min(0.05, Math.max(0, (now - (TREES.last || now)) / 1e3));
+  TREES.last = now;
+  const gust = 0.55 + 0.45 * Math.sin(t * 0.31) * Math.sin(t * 0.11 + 1.3);
+  const busy = /* @__PURE__ */ new Set();
+  for (const w of workTargets()) if (w.kind === "tree") busy.add(w.y * W + w.x);
+  const walkers = npcs.filter((n) => !n.dead && !n.inShip && n.x >= v.x0 - 2 && n.x <= v.x1 + 2 && n.y >= v.y0 - 2 && n.y <= v.y1 + 2);
+  const items = [], seen = /* @__PURE__ */ new Set();
+  for (let y = v.y0; y < Math.min(H, v.y1 + 2); y++) {
+    const row = grid[y];
+    for (let x = v.x0; x < v.x1; x++) {
+      if (row[x] !== T.TREE || roomAt[y][x] >= 0) continue;
+      const key = y * W + x;
+      if (busy.has(key)) continue;
+      let push = 0;
+      for (const n of walkers) {
+        const dx = x - n.x, dy = y - n.y;
+        if (Math.abs(dx) > 1.6 || dy < -1.2 || dy > 0.9) continue;
+        const d = Math.hypot(dx, dy * 1.4);
+        if (d < 1.6) push += Math.sign(dx || (n.face || 1) * -0.01) * (1 - d / 1.6) * (n.moving || n.player ? 0.16 : 0.05);
+      }
+      let sp = TREES.spring.get(key);
+      if (push || sp) {
+        if (!sp) {
+          sp = { p: 0, v: 0 };
+          TREES.spring.set(key, sp);
+        }
+        sp.v += ((push - sp.p) * 60 - sp.v * 7) * dt;
+        sp.p += sp.v * dt;
+        seen.add(key);
+        if (Math.abs(push) > 0.06 && Math.abs(sp.v) > 0.5 && trRand() < 0.06 && typeof jBurst === "function") {
+          const R = Math.random;
+          Math.random = trRand;
+          try {
+            jBurst((x + 0.5) * TS, (y + 0.2) * TS, 1, "leaf", ["#4e8f2c", "#3f7a3a", "#6aa646"], 0.35, 0.2);
+          } finally {
+            Math.random = R;
+          }
+        }
+        if (!push && Math.abs(sp.p) < 2e-3 && Math.abs(sp.v) < 0.01) TREES.spring.delete(key);
+      }
+      const wind = Math.sin(t * 1.15 + x * 0.55 + y * 0.35) * 0.028 * gust + Math.sin(t * 2.7 + x * 1.3) * 8e-3 + 0.012 * gust;
+      const sk = wind + (sp ? sp.p : 0);
+      items.push({ k: y - 0.02, f: () => {
+        const id = gaSpriteId(x, y, T.TREE), it = id && ART.BYID[id];
+        if (!it) return;
+        const bx = x * TS + it.gw / 2, by = y * TS + TS;
+        c.save();
+        c.translate(bx, by);
+        c.transform(1, 0, -sk, 1 - Math.abs(sk) * 0.15, 0, 0);
+        c.drawImage(ART.frameOf(it, 0), -it.gw / 2, -it.gh, it.gw, it.gh);
+        c.restore();
+      } });
+    }
+  }
+  for (const k of TREES.spring.keys()) if (!seen.has(k)) TREES.spring.delete(k);
+  return items;
+});
 function buildLook(c, now) {
   const P = game.player, on = !!(P && P.player && itBuildOn(P));
   if (typeof document !== "undefined") {

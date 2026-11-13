@@ -6,11 +6,11 @@ const stRand = () => { STEPS.seed = (STEPS.seed * 1103515245 + 12345) & 0x7fffff
 /** what a surface leaves: print colour and alpha, how long it stays (ms), the particles a step throws (colours, count) */
 function stSurface(x: number, y: number): any {
   const t = grid[y] && grid[y][x], room = roomAt[y] && roomAt[y][x] >= 0;
-  if (room || t === T.FLOOR || t === T.DECK) return { col: '#5a4630', a: 0.12, life: 2500, dust: ['#d8c8a8'], n: 1 };
-  if (t === T.SAND) return { col: '#8a6a3c', a: 0.42, life: 9000, dust: ['#e8d29a', '#d9be7e'], n: 3 };
-  if (t === T.CROP || t === T.PLOT || t === T.DIRTF) return { col: '#3e2a16', a: 0.4, life: 7000, dust: ['#8a6239', '#6b4a2b'], n: 2 };
-  if (t === T.PATH) return { col: '#5d5040', a: 0.24, life: 4500, dust: ['#c9bba0', '#b0a084'], n: 2 };
-  if (t === T.GRASS) return { col: '#1f4a14', a: 0.26, life: 4000, dust: ['#6db03f', '#86c452', '#4e8f2c'], n: 1, leaf: true };
+  if (room || t === T.FLOOR || t === T.DECK) return { col: '#3a2a18', a: 0.22, life: 1800, dust: [], n: 0 };
+  if (t === T.SAND) return { col: '#6e5028', a: 0.6, life: 5500, dust: ['#c9ab78', '#d8bd8b', '#bb9c66'], n: 3 };
+  if (t === T.CROP || t === T.PLOT || t === T.DIRTF) return { col: '#2c1c0c', a: 0.55, life: 4500, dust: ['#8a6239', '#6b4a2b', '#7a5532'], n: 2 };
+  if (t === T.PATH) return { col: '#4a3520', a: 0.42, life: 3000, dust: ['#a27b50', '#b08959', '#8f6b44'], n: 2 };
+  if (t === T.GRASS) return { col: '#173a0e', a: 0.38, life: 2600, dust: ['#6db03f', '#86c452', '#4e8f2c'], n: 1, leaf: true };
   return null;
 }
 /** jBurst on our own random numbers, so footsteps never move the game's seeded stream */
@@ -29,7 +29,7 @@ function stTrack(now: number) {
       STEPS.prints.push({ x: fx, y: fy, a: Math.atan2(uy, ux), t0: now, life: s.life, col: s.col, al: s.a * (n.child ? 0.8 : 1), sm: n.child ? 0.75 : 1 });
       if (STEPS.prints.length > STEPS.max) STEPS.prints.splice(0, STEPS.prints.length - STEPS.max);
       const near = n.player || stRand() < 0.5;
-      if (near && typeof jBurst === 'function') stBurst(fx, fy, s.n, s.leaf ? 'leaf' : 'dot', s.dust, s.leaf ? 0.35 : 0.3, s.leaf ? 0.5 : 0.25);
+      if (near && s.n && typeof jBurst === 'function') stBurst(fx, fy, s.n, s.leaf ? 'leaf' : 'dot', s.dust, s.leaf ? 0.35 : 0.3, s.leaf ? 0.5 : 0.25);
     }
     L.x = n.x; L.y = n.y;
   }

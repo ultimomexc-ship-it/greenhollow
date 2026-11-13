@@ -197,7 +197,7 @@ function render(now, dtSec, hourOfDay) {
     for (const n of npcs) { if (n.inShip || (!n.player && tsActive() && !tsSees(n.x, n.y))) continue; const sl = n.pose === 'sleep' && !n.moving; items.push({ k: n.y - (sl ? 0.45 : 0), f: () => { const sxy = gaSlide(n, now), bw = n._bath && typeof n._bath === 'object' ? n._bath : null, px = (bw ? bw.x : sxy[0]) * TS, py = (bw ? bw.y - 0.3 : sxy[1]) * TS; /* in the pool: feet near the middle of the water tile */ if (sl) drawSleeper(c, n, px, py, now); else { drawPerson(c, n, now, px, py); if (bw) drawWaterline(c, n, px, py, now); } } }); mark(n.x, n.y); }
     for (const prov of YSORT) { const L = prov(c, now) || []; for (const it of L) { items.push(it); if (it.mob) mark(it.x, it.k); } }
     if (cam.z >= 0.6) { const busy = new Set(); for (const w of workTargets()) if (w.kind === 'tree') busy.add(w.y * W + w.x);
-      for (const key of near) { const x = key % W, y = (key / W) | 0, t = grid[y][x]; if (!TALL.has(t) || busy.has(key)) continue; items.push({ k: y - 0.02, f: () => drawTallTile(c, x, y, t) }); } }
+      for (const key of near) { const x = key % W, y = (key / W) | 0, t = grid[y][x]; if (!TALL.has(t) || busy.has(key) || (t === T.TREE && treesLive())) continue; items.push({ k: y - 0.02, f: () => drawTallTile(c, x, y, t) }); } }
     items.sort((a, b) => a.k - b.k); for (const it of items) it.f(); }
   // routes
   const showRoute = n => n.moving && n.path.length;

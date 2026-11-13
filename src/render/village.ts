@@ -142,7 +142,7 @@ function gaPaintRect(g, x0, y0, w, h, k, wt) {
     if (any) g.fill(); g.restore(); }
   for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (roomAt[y][x] >= 0) gaRoomTile(g, x, y);
   for (const r of near) { gaRoomShade(g, r, k); if (r.free) continue; const ri = rooms.indexOf(r); g.save(); ART.roomDress(g, r, ri, doors.filter(d => d.room === ri).map(d => d.x), GA.seed); g.restore(); }
-  for (let y = y0; y <= Math.min(H - 1, y1); y++) for (let x = x0; x < x1; x++) { if (roomAt[y][x] >= 0) continue; const t = grid[y][x]; if (t === T.TREE || t === T.ROCK || t === T.MOUNTAIN || t === T.TENT || t === T.STALL || t === T.GRAVE) gaStand(g, x, y, t); else if ((t === T.STAIR || t === T.STAIRM) && lvlOf(y) === 0) { const it = ART.BYID[stairSpriteId(t, x, y)]; if (it) g.drawImage(ART.frameOf(it, 0), x * TS, y * TS, TS, TS); } }
+  for (let y = y0; y <= Math.min(H - 1, y1); y++) for (let x = x0; x < x1; x++) { if (roomAt[y][x] >= 0) continue; const t = grid[y][x]; if (t === T.TREE && wt && TREES.on) continue; if (t === T.TREE || t === T.ROCK || t === T.MOUNTAIN || t === T.TENT || t === T.STALL || t === T.GRAVE) gaStand(g, x, y, t); else if ((t === T.STAIR || t === T.STAIRM) && lvlOf(y) === 0) { const it = ART.BYID[stairSpriteId(t, x, y)]; if (it) g.drawImage(ART.frameOf(it, 0), x * TS, y * TS, TS, TS); } }
   const wl = town.well; if (wl && wl.x + 2 > x0 && wl.x < x1 && wl.y + 2 > y0 && wl.y < y1) gaWell(g);
   g.restore();
 }

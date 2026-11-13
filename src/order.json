@@ -66,6 +66,7 @@
   "life2/tutorial2-bot.ts",
   "render/juice.ts",
   "render/steps.ts",
+  "render/trees.ts",
   "render/build-look.ts",
   "life2/yards.ts",
   "life2/rent.ts",
