@@ -19,11 +19,6 @@ function gaLevel(vx, vy) {                           // 0 deep sea, 1 shallows, 
   return land ? (sand ? 2 : 3) : (shal ? 1 : 0);
 }
 const gaPathV = (vx, vy) => gaK(vx - 1, vy - 1) === 'path' || gaK(vx, vy - 1) === 'path' || gaK(vx - 1, vy) === 'path' || gaK(vx, vy) === 'path';
-const gaFlat = (i, j) => i >= 0 && j >= 0 && i < W && j < H && town.hgt[j * W + i] >= 0;
-function gaFlatV(vx, vy) {                           // the mud runs out to the water, and rounds off against the dry sand
-  let f = 0; for (let j = vy - 1; j <= vy; j++) for (let i = vx - 1; i <= vx; i++) { if (gaFlat(i, j)) f++; else if (gaK(i, j) !== 'water') return false; }
-  return f > 0;
-}
 const GA_LAYERS = ['shallow', 'sand', 'grass'];
 function gaTerrain(g, x, y, wt) {
   if (lvlOf(y) >= 1) {   // another level: nothing (SKY), a roof deck (stone) you can walk and build on, or the earth below the island
@@ -50,7 +45,6 @@ function gaTerrain(g, x, y, wt) {
   for (let i = Math.max(top, 0); i < 3; i++) { const m = masks[i]; if (!m) continue; D(m === 15 ? (i === 0 ? ART.water('shallow', 0) : ART.terr(GA_LAYERS[i], v)) : ART.overlay(GA_LAYERS[i], m, 0)); }
   let pm = 0; if (gaPathV(x, y)) pm |= 1; if (gaPathV(x + 1, y)) pm |= 2; if (gaPathV(x + 1, y + 1)) pm |= 4; if (gaPathV(x, y + 1)) pm |= 8;
   if (pm) D(pm === 15 ? ART.terr('path', v) : ART.overlay('path', pm, 0));
-  if (town.hgt) { let fm = 0; if (gaFlatV(x, y)) fm |= 1; if (gaFlatV(x + 1, y)) fm |= 2; if (gaFlatV(x + 1, y + 1)) fm |= 4; if (gaFlatV(x, y + 1)) fm |= 8; if (fm === 15) { const q = (ART.h32(x, y, 9, 9) * 8) | 0; g.save(); g.translate(X + TS / 2, Y + TS / 2); g.rotate((q & 3) * Math.PI / 2); if (q & 4) g.scale(-1, 1); g.drawImage(ART.terr('flats', v & 1), -TS / 2, -TS / 2, TS, TS); g.restore(); } else if (fm) D(ART.overlay('flats', fm, 0)); }
   if (grid[y][x] === T.CROP) D(ART.terr('soil', v & 1));
 }
 
@@ -170,7 +164,7 @@ function gaTileColour(x, y) {
   const t = grid[y][x], K = gclass(x, y);
   if (t === T.TREE) return '#3f7a3a'; if (t === T.ROCK) return '#8c8f92'; if (t === T.MOUNTAIN) return '#8f9488'; if (t === T.TENT) return '#cdbf94'; if (t === T.STALL) return '#b5683a'; if (t === T.GRAVE) return '#7d9a6a';
   if (K === 'water') return GA.shal[y * W + x] ? '#58b0bf' : '#3f8aa8';
-  if (K === 'sand') return town.hgt && town.hgt[y * W + x] >= 0 ? '#d4c192' : '#ead9a4';
+  if (K === 'sand') return '#ead9a4';
   if (K === 'path') return '#d2b57c'; if (K === 'soil') return '#8c6a45';
   return '#79a845';
 }
@@ -185,7 +179,7 @@ function buildStatic() {
   dirtyList = []; GA.chunks.clear(); GA.px = 0; GA.seed = ((town.seed | 0) % 997 + 997) % 997 + 7; GA.boost = 3;
   const sh = GA.shal = new Uint8Array(W * H);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { if (grid[y][x] !== T.WATER) continue; let near = false; for (let j = -2; j <= 2 && !near; j++) for (let i = -2; i <= 2; i++) { const xx = x + i, yy = y + j; if (xx >= 0 && yy >= 0 && xx < W && yy < H && grid[yy][xx] !== T.WATER) { near = true; break; } } if (near) sh[y * W + x] = 1; }
-  waterList = []; gaNearFlats(); gaOverview();
+  waterList = []; gaOverview();
   darkCanvas.width = Math.round(W * TS * DK); darkCanvas.height = Math.round(H * TS * DK); dctx.setTransform(DK, 0, 0, DK, 0, 0);
 }
 function flushDirty() {
@@ -239,22 +233,42 @@ function drawDoors(c, dt) {
     gaDraw(c, (r.free ? gaInside(d.x, d.y + 1) : d.y === r.y) ? (op ? 'door_back_open' : 'door_back_closed') : (op ? 'door_mat_open' : 'door_mat_closed'), d.x * TS, d.y * TS, 0, 0);
   }
 }
-function cropHoles(c, X, Y) {
-  for (const [hx, hy] of [[0.2, 0.74], [0.5, 0.78], [0.8, 0.74]]) { const x = X + hx * TS, y = Y + hy * TS;
-    c.fillStyle = 'rgba(160,118,74,.85)'; c.beginPath(); c.ellipse(x, y - 0.6, TS * 0.12, TS * 0.075, 0, 0, 6.3); c.fill();   // (the earth thrown up round the rim)
-    c.fillStyle = '#24160b'; c.beginPath(); c.ellipse(x, y, TS * 0.09, TS * 0.055, 0, 0, 6.3); c.fill();
-    c.fillStyle = 'rgba(0,0,0,.35)'; c.beginPath(); c.ellipse(x, y + 0.5, TS * 0.07, TS * 0.035, 0, 0, 6.3); c.fill();
-    c.fillStyle = '#8a6239'; c.fillRect(x + TS * 0.11, y - TS * 0.05, 1.1, 1.1); c.fillRect(x - TS * 0.14, y + TS * 0.02, 1, 1); }
+/* where a crop was pulled: a pit in each furrow, seen from above and a little to the south, so you look into it: the far wall inside lit
+   from above, the bottom in shadow, the near lip catching the light, and the earth that came out heaped beside it with a few clods */
+function cropHoles(c, X, Y, tx, ty) {
+  const k = TS / 24, h = (i: number, n: number) => hash(tx * 7 + i, ty * 13 + n, 57);
+  for (let i = 0; i < 3; i++) {
+    const x = X + (5.2 + i * 6.8 + (h(i, 1) - 0.5) * 1.6) * k, y = Y + (7 + i * 7.6 + (h(i, 2) - 0.5) * 1.2) * k, rx = (2.5 + h(i, 3) * 0.6) * k, ry = (1.55 + h(i, 4) * 0.3) * k, side = h(i, 5) < 0.5 ? -1 : 1;
+    // the heap of loose earth beside it, with clods
+    const mx = x + side * rx * 1.25, my = y - ry * 0.25;
+    c.fillStyle = 'rgba(30,16,8,.35)'; c.beginPath(); c.ellipse(mx + 0.4 * k, my + 0.7 * k, rx * 0.95, ry * 0.9, 0, 0, 6.3); c.fill();
+    c.fillStyle = '#7a5434'; c.beginPath(); c.ellipse(mx, my, rx * 0.9, ry * 0.85, side * 0.2, 0, 6.3); c.fill();
+    c.fillStyle = '#9a6e46'; c.beginPath(); c.ellipse(mx - side * 0.3 * k, my - 0.45 * k, rx * 0.55, ry * 0.45, 0, 0, 6.3); c.fill();
+    for (let j = 0; j < 4; j++) { const cx = mx + (h(i, 10 + j) - 0.5) * rx * 2.2, cy = my + (h(i, 20 + j) - 0.5) * ry * 1.8, r = (0.45 + h(i, 30 + j) * 0.45) * k;
+      c.fillStyle = '#4a2e1a'; c.beginPath(); c.arc(cx + 0.25 * k, cy + 0.3 * k, r, 0, 6.3); c.fill(); c.fillStyle = '#8f6440'; c.beginPath(); c.arc(cx, cy, r, 0, 6.3); c.fill(); }
+    // the pit: a dark rim, the far wall inside (lit near the top, darker going down), the bottom in shadow, the near lip in the light
+    c.save(); c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, 6.3); c.fillStyle = '#1f130a'; c.fill(); c.clip();
+    const g = c.createLinearGradient(0, y - ry, 0, y + ry * 0.4); g.addColorStop(0, '#6e4a2c'); g.addColorStop(0.55, '#3d2615'); g.addColorStop(1, '#170d06');
+    c.fillStyle = g; c.beginPath(); c.ellipse(x, y - ry * 0.55, rx * 1.05, ry * 0.95, 0, 0, 6.3); c.fill();
+    c.fillStyle = '#100803'; c.beginPath(); c.ellipse(x, y + ry * 0.55, rx * 0.8, ry * 0.55, 0, 0, 6.3); c.fill();
+    c.restore();
+    c.strokeStyle = '#a07650'; c.lineWidth = 0.9 * k; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0.25, Math.PI - 0.25); c.stroke();   // (the near lip)
+    c.strokeStyle = 'rgba(20,10,4,.6)'; c.lineWidth = 0.7 * k; c.beginPath(); c.ellipse(x, y, rx, ry, 0, Math.PI + 0.2, 6.28 - 0.2); c.stroke();   // (the far edge, in shadow)
+  }
 }
 function drawCrops(c, now) {
-  if (!town.crops) return; const v = gaView();
-  for (const t of town.crops) {
-    if (t.x < v.x0 || t.x >= v.x1 || t.y < v.y0 || t.y >= v.y1) continue;
+  if (!town.crops) return; const v = gaView(), plants: any[] = [];
+  for (const t of town.crops) {   // the ground first (plants stand a little taller than their tile, so they go on top of all of it, north to south)
+    if (t.x < v.x0 || t.x >= v.x1 || t.y < v.y0 - 1 || t.y >= v.y1) continue;
     const st = t.pl ? cropStage(t) : -1;   // -1 untilled (rough and weedy), 0 ploughed (dark furrows), 1-4 growing
-    if (st > 0) gaDraw(c, 'crop_0', t.x * TS, t.y * TS, now, 0);   // the ploughed earth under whatever is growing
-    const sd = st > 0 && t.seed && t.seed !== 'barley' && IT_SEEDS[t.seed] ? t.seed : null;   // every other crop and flower has its own plant
-    gaDraw(c, sd ? 'crop_' + sd + '_' + (itWilted(t) ? 5 : Math.min(4, st)) : st < 0 ? 'crop_raw' : 'crop_' + Math.min(4, st), t.x * TS, t.y * TS, now, t.x + t.y);
-    if (t.holes && !t.st && t.pl) cropHoles(c, t.x * TS, t.y * TS);   // (pulled up: the holes the crop came out of, until the plot is sown again)
+    gaDraw(c, st < 0 ? 'crop_raw' : 'crop_0', t.x * TS, t.y * TS, now, 0);
+    if (st > 0) plants.push(t);
+    else if (t.holes && !t.st && t.pl) cropHoles(c, t.x * TS, t.y * TS, t.x, t.y);   // (pulled up: the holes the crop came out of, until the plot is sown again)
+  }
+  plants.sort((a, b) => a.y - b.y);
+  for (const t of plants) {
+    const st = cropStage(t), sd = t.seed && t.seed !== 'barley' && IT_SEEDS[t.seed] ? t.seed : null;   // every other crop and flower has its own plant
+    gaDraw(c, sd ? 'crop_' + sd + '_' + (itWilted(t) ? 5 : Math.min(4, st)) : 'crop_' + Math.min(4, st), t.x * TS, t.y * TS, now, t.x + t.y);
   }
 }
 function drawNodes(c, now) {
@@ -270,10 +284,6 @@ function drawWild(c, now) {
     c.save(); c.translate(a.x * TS + TS / 2, 0); c.scale(a.face < 0 ? -1 : 1, 1);
     c.drawImage(ART.frameOf(it, gaFrame(it, now, a.born)), -it.gw / 2, a.y * TS + TS - it.gh, it.gw, it.gh); c.restore();
   }
-}
-function drawSea(c, now) {
-  for (const a of SEA.list) { const it = ART.BYID[a.kind === 'crab' ? 'crab' : 'seal']; if (!it) continue; c.save(); c.translate(a.x * TS + TS / 2, 0); c.scale((a.face || 1) < 0 ? -1 : 1, 1); c.drawImage(ART.frameOf(it, gaFrame(it, now, a.born)), -it.gw / 2, a.y * TS + TS - it.gh, it.gw, it.gh); c.restore(); }
-  if (SEA.whale) { const k = Math.max(0, Math.min(1, (now - SEA.whale.t0) / 6000)), up = Math.sin(k * Math.PI), it = (ART.BYID as any).whale; if (it && up > 0.02) { c.globalAlpha = Math.min(1, up * 2); c.drawImage(ART.frameOf(it, gaFrame(it, now, 0)), SEA.whale.x * TS - 12, SEA.whale.y * TS + TS - it.gh + (1 - up) * 8, it.gw, it.gh); c.globalAlpha = 1; } }
 }
 function drawSites(c, now) {
   for (const s of town.sites) {

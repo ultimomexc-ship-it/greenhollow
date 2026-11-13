@@ -59,6 +59,7 @@ function isleRestore(text: string) {
   W = o.W; H = o.H; sizeKey = 'L'; grid = o.grid; roomAt = o.roomAt; rooms = o.rooms; doors = o.doors; lamps = o.lamps; town = o.town; npcs = o.npcs; merchants = o.merchants || []; plazaTiles = o.plazaTiles || []; shoreTiles = o.shoreTiles || []; NEXT_ID = o.NEXT_ID || 1;
   for (const k of Object.keys(game)) delete game[k]; Object.assign(game, o.game, { events: [] });
   SB.count = (o.sb && o.sb.count) || {}; SB.pair = (o.sb && o.sb.pair) || new Map(); SB.presim = !!(o.sb && o.sb.presim);
+  settleFlats();   // (islands saved with the old tidal flats get a fixed shore)
   growLevels();   // (islands saved before the levels get them now)
   reach = new Uint8Array(W * H); tileOwner = new Map(); pairCool.clear();
   for (const n of npcs) { n.plan = null; n.si = 0; n.stepStarted = false; n.moving = false; n.path = []; n.x = n.tx; n.y = n.ty; n.t = 0; n.slide = null; n.rand = rng(town.seed + n.id * 977); n.talkUntil = 0; if (n.pose !== 'sleep' && n.pose !== 'sit') n.pose = 'stand'; n.roaming = false; if (n.player) { n.player.keys = {}; n.player.act = null; n.player.lock = false; n.player.grace = null; n.player.skip = null; } }

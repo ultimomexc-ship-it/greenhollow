@@ -9,7 +9,7 @@ function nearGrave(x, y) {
 }
 const remainsAt = (x, y) => (town.remains || []).find(r => r.x === x && r.y === y) || null;
 const wildTile = (x, y) => !!(town.fmask && town.fmask[y * W + x]);   // (the old forest was cleared; nothing is off limits now)
-const tileFree = (x, y) => x > 0 && y > 0 && x < W - 1 && y < H - 1 && (grid[y][x] === T.GRASS || (grid[y][x] === T.SAND && !(town.hgt && town.hgt[y * W + x] >= 0) && !(town.islet && town.islet[y * W + x]))) && !wildTile(x, y) && roomAt[y][x] < 0 && !town.siteAt[y * W + x] && !town.nodeMap.has(y * W + x) && !nearGrave(x, y);
+const tileFree = (x, y) => x > 0 && y > 0 && x < W - 1 && y < H - 1 && (grid[y][x] === T.GRASS || (grid[y][x] === T.SAND && !(town.islet && town.islet[y * W + x]))) && !wildTile(x, y) && roomAt[y][x] < 0 && !town.siteAt[y * W + x] && !town.nodeMap.has(y * W + x) && !nearGrave(x, y);
 function pathDistField() {
   const d = new Int16Array(W * H).fill(-1), q = [];
   for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) if (grid[y][x] === T.PATH && roomAt[y][x] < 0 && reach[y * W + x]) { d[y * W + x] = 0; q.push(y * W + x); }
@@ -26,7 +26,7 @@ function rectMap(test) {
 }
 const freeMap = () => rectMap(tileFree);
 const OPENT = new Set([T.GRASS, T.TREE, T.PATH, T.SAND]);
-const marginOK = (x, y) => x > 0 && y > 0 && x < W - 1 && y < H - 1 && OPENT.has(grid[y][x]) && !wildTile(x, y) && !(town.hgt && town.hgt[y * W + x] >= 0) && roomAt[y][x] < 0 && !town.siteAt[y * W + x] && !nearGrave(x, y);
+const marginOK = (x, y) => x > 0 && y > 0 && x < W - 1 && y < H - 1 && OPENT.has(grid[y][x]) && !wildTile(x, y) && roomAt[y][x] < 0 && !town.siteAt[y * W + x] && !nearGrave(x, y);
 function createSite(kind, w, h, o) {
   o = o || {};
   const dist = pathDistField(), free = freeMap(), marg = rectMap(marginOK), cx = town.cx, cy = town.cy, R = rng((town.seed + town.nextSite * 131 + Math.floor(game.time)) >>> 0);

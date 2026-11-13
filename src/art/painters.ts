@@ -102,7 +102,6 @@ const C = {
   sand: ['#d8bd8b', '#e2c997', '#ead5a6', '#f2e2bb'].map(hx),
   path: ['#a27b50', '#b08959', '#be9966', '#cdab7a'].map(hx),
   soil: ['#61402e', '#704b34', '#80583c', '#946847'].map(hx),
-  flats: ['#ad9878', '#b9a382', '#c4ae8d'].map(hx),
 };
 function blade(g, x, y, r1, r2, dk, lt) { const len = 4 + r1 * 5, a = -Math.PI / 2 + (r2 - 0.5) * 0.9, tx = x + Math.cos(a) * len, ty = y + Math.sin(a) * len, bend = (r2 - 0.5) * 3;
   g.fillStyle = dk; g.beginPath(); g.moveTo(x - 1.1, y); g.quadraticCurveTo(x + bend - 0.6, (y + ty) / 2, tx, ty); g.quadraticCurveTo(x + bend + 0.6, (y + ty) / 2, x + 1.1, y); g.fill();
@@ -158,15 +157,6 @@ function puddle(g, cx, cy, rx, ry, seed) { const sh = blob(cx, cy, rx, ry, seed,
   g.save(); g.beginPath(); trace(g, sh); g.clip(); const gr = g.createLinearGradient(0, cy - ry, 0, cy + ry); gr.addColorStop(0, '#9fb6cc'); gr.addColorStop(1, '#c9d9e6'); g.fillStyle = gr; g.fillRect(cx - rx - 2, cy - ry - 2, rx * 2 + 4, ry * 2 + 4);
   g.fillStyle = 'rgba(86,96,150,.3)'; g.beginPath(); trace(g, shift(sh, 1.4, 1.4)); g.rect(cx - rx - 3, cy - ry - 3, rx * 2 + 6, ry * 2 + 6); g.fill('evenodd');   // shade under the near bank
   g.fillStyle = 'rgba(246,249,252,.7)'; crescent(g, cx - rx * 0.1, cy + ry * 0.3, rx * 0.7, ry * 0.14, 0.7); g.restore(); }
-function paintFlats(v) {
-  const c = pixels(S, S, (x, y) => { const u = x / S, w = y / S, n = vary(x, y, 71, v, 2, 4); let col = ramp(C.flats, n * 0.9 + 0.05);
-    const r = w * 8 + (fbm(u, w, 74, 2, 3) - 0.5) * 2.6, fr = r - Math.floor(r);                           // wet ripple lines the tide left
-    if (fr < 0.1) col = mixc(col, [226, 214, 196], 0.32); else if (fr < 0.26) col = mixc(col, [112, 96, 100], 0.16);
-    return grain(col, x, y, 4); });
-  const g = c.getContext('2d');
-  { const R = mul(760 + v * 13), np = 2 + (R() < 0.5 ? 1 : 0); for (let i = 0; i < np; i++) { const rx = 8 + R() * 9, ry = 4.4 + R() * 4; puddle(g, rx + 8 + R() * (S - 2 * rx - 16), ry + 8 + R() * (S - 2 * ry - 16), rx, ry, 80 + v * 7 + i * 3); } }
-  scatterIn(5, 73, v, (X, Y) => { g.strokeStyle = 'rgba(96,76,70,.75)'; g.lineWidth = 0.8; g.beginPath(); for (let k = 0; k < 14; k++) { const a = k * 0.9, r = 0.4 + k * 0.17; g.lineTo(X + Math.cos(a) * r, Y + Math.sin(a) * r); } g.stroke(); }, 10);   // worm casts
-  return c; }
 function paintWood(v) { /* four vertical planks of 6 game px, three tones, a seam to the right of each, cross seams here and there: the game's floor */
   const c = pixels(S, S, (x, y) => { const pi = Math.floor(x / 24), lx = x % 24, tone = h32(pi, v, 81, 1);
     let col = mixc([160, 114, 74], [190, 140, 92], tone); col = mixc(col, [126, 88, 58], 0.14 * vn(x / S, y / S * 0.3, 14, 82 + pi) + 0.1 * vn(x / S, y / S, 24, 83));
@@ -183,7 +173,7 @@ function paintStone(v) {
 const TERR = {}; const TPX = {};
 /* a floor's seams and grout sit half on each side of the tile edge, so the tile is the same left and right, top and bottom */
 const rollTile = (c, dx, dy) => { const o = mk(S, S), g = o.getContext('2d'); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) g.drawImage(c, dx + a * S, dy + b * S); return o; };
-const terr = (name, v) => { const k = name + '_' + v; if (!TERR[k]) TERR[k] = ({ grass: paintGrass, sand: paintSand, path: paintPath, soil: paintSoil, flats: paintFlats, wood: v => rollTile(paintWood(v), 1, 0), stone: v => rollTile(paintStone(v), -1, -1) })[name](v); return TERR[k]; };
+const terr = (name, v) => { const k = name + '_' + v; if (!TERR[k]) TERR[k] = ({ grass: paintGrass, sand: paintSand, path: paintPath, soil: paintSoil, wood: v => rollTile(paintWood(v), 1, 0), stone: v => rollTile(paintStone(v), -1, -1) })[name](v); return TERR[k]; };
 const terrPx = (name) => TPX[name] || (TPX[name] = terr(name, 0).getContext('2d').getImageData(0, 0, S, S).data);
 
 /* ================= water (animated, 60 frames at 30 fps) ================= */
@@ -215,7 +205,7 @@ const waterPx = (kind, fi) => { const k = 'px' + kind + fi; return WCACHE[k] || 
 
 /* ================= edges: 16 corner masks per layer ================= */
 /* bits: top-left 1, top-right 2, bottom-right 4, bottom-left 8 */
-const LAYERS = { shallow: { over: 'deep', seed: 201, anim: true }, sand: { over: 'shallow', seed: 202, anim: true }, grass: { over: 'sand', seed: 203 }, path: { over: 'grass', seed: 204 }, flats: { over: 'sand', seed: 205 } };
+const LAYERS = { shallow: { over: 'deep', seed: 201, anim: true }, sand: { over: 'shallow', seed: 202, anim: true }, grass: { over: 'sand', seed: 203 }, path: { over: 'grass', seed: 204 } };
 const FIELD = {}, PHASE = {};
 function field(layer, m) { const k = layer + m; if (FIELD[k]) return FIELD[k]; const f = new Float32Array(S * S), s = LAYERS[layer].seed;
   const TL = m & 1, TR = (m >> 1) & 1, BR = (m >> 2) & 1, BL = (m >> 3) & 1;
@@ -230,7 +220,7 @@ function overlay(layer, m, fi) { const L = LAYERS[layer], key = layer + m, f = f
   const c = mk(S, S), g = c.getContext('2d'), im = g.createImageData(S, S), d = im.data, t = fi / FR;
   const put = (i, col, a) => { d[i * 4] = col[0]; d[i * 4 + 1] = col[1]; d[i * 4 + 2] = col[2]; d[i * 4 + 3] = a * 255; };
   const at = (x, y) => f[clamp(y, 0, S - 1) * S + clamp(x, 0, S - 1)];
-  if (layer === 'grass' || layer === 'path' || layer === 'flats') { const src = terrPx(layer);
+  if (layer === 'grass' || layer === 'path') { const src = terrPx(layer);
     for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) { const i = y * S + x, v = f[i], a = clamp((v - 0.5) / 0.012 + 0.5, 0, 1);
       let col = [src[i * 4], src[i * 4 + 1], src[i * 4 + 2]];
       if (layer === 'grass') {
@@ -244,7 +234,7 @@ function overlay(layer, m, fi) { const L = LAYERS[layer], key = layer + m, f = f
         put(i, col, a); } }
     g.putImageData(im, 0, 0);
     // blades along the edge, kept inside the tile
-    if (layer !== 'flats') for (let y = 3; y < S - 3; y += 3) for (let x = 3; x < S - 3; x += 3) { const jx = x + (h32(x, y, 7, L.seed) - 0.5) * 2, jy = y + (h32(x, y, 8, L.seed) - 0.5) * 2, v = at(Math.round(jx), Math.round(jy));
+    for (let y = 3; y < S - 3; y += 3) for (let x = 3; x < S - 3; x += 3) { const jx = x + (h32(x, y, 7, L.seed) - 0.5) * 2, jy = y + (h32(x, y, 8, L.seed) - 0.5) * 2, v = at(Math.round(jx), Math.round(jy));
       if (v > 0.47 && v < 0.53) { const gx = at(Math.round(jx) + 1, Math.round(jy)) - at(Math.round(jx) - 1, Math.round(jy)), gy = at(Math.round(jx), Math.round(jy) + 1) - at(Math.round(jx), Math.round(jy) - 1); const l = Math.hypot(gx, gy) || 1;
         const dir = layer === 'grass' ? -1 : 1, nx = gx / l * dir, ny = gy / l * dir, len = 2.5 + h32(x, y, 9, L.seed) * 3;
         g.fillStyle = '#4b7a3c'; g.beginPath(); g.moveTo(jx - ny * 1.1, jy + nx * 1.1); g.lineTo(jx + nx * len, jy + ny * len - 1); g.lineTo(jx + ny * 1.1, jy - nx * 1.1); g.fill();
@@ -714,7 +704,7 @@ function slot24(g, mat, built) { const wood_ = mat !== 'stone';
     dab(g, 12, 12, 3.2, 3, 0, INK); dab(g, 12, 12, 2.8, 2.6, 0, col); dab(g, 11.2, 11.1, 0.9, 0.7, 0, 'rgba(255,255,255,.7)'); } }
 function crops24(g, t, st) { /* the plants sit on the soil tile: three by three, five stages (1 = sprout ... 4 = ripe) */
   g.drawImage(terr('soil', 0), 0, 0, 24, 24); }
-function plants24(g, t, st) { const dkk = 'rgba(40,24,30,.55)'; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { const sx = 4.4 + j * 7.6, sy = 7.6 + i * 7.6, h = [0, 2.5, 5, 8, 10][st], sw = tw(t, 1, j * 0.7 + i * 0.5) * 0.45 * (st / 4), sd = h32(i, j, 9, st), base = sy + 3;
+function plants24(g, t, st) { const dkk = 'rgba(40,24,30,.55)'; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { const sx = 4.4 + j * 7.6, sy = 3.9 + i * 7.6, h = [0, 2.5, 5, 8, 10][st], sw = tw(t, 1, j * 0.7 + i * 0.5) * 0.45 * (st / 4), sd = h32(i, j, 9, st), base = sy + 3;
     dab(g, sx + 0.3, base + 0.4, 1.7, 0.7, 0, 'rgba(36,20,30,.4)');
     if (st === 1) { dab(g, sx, base - 0.1, 1.5, 0.7, 0, '#5a3a2c'); for (const s of [-1, 1]) { g.fillStyle = INK; g.beginPath(); g.ellipse(sx + s * 0.9, base - 0.9, 1.2, 0.62, s * -0.5, 0, TAU); g.fill(); g.fillStyle = '#8acb4e'; g.beginPath(); g.ellipse(sx + s * 0.9, base - 0.9, 1.0, 0.46, s * -0.5, 0, TAU); g.fill(); dab(g, sx + s * 0.7, base - 1.1, 0.4, 0.15, s * -0.5, '#c6ec86'); } continue; }
     const tipx = sx + sw, tipy = base - h, ripe = st === 4, leaf = ripe ? ['#a8863a', '#d8b850'] : ['#3f7f34', '#86c24e'];
@@ -772,7 +762,7 @@ const CROP_ART: any = {
 };
 function cropArt24(g, t, seed, st) {
   const D = CROP_ART[seed]; if (!D) return;
-  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { const x = 4.4 + j * 7.6 + (h32(i, j, 3, 7) - 0.5) * 1.2, b = 9.2 + i * 6.6, sw = tw(t, 1, j * 0.7 + i * 0.5) * 0.45 * Math.min(1, st / 2);
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { const x = 4.4 + j * 7.6 + (h32(i, j, 3, 7) - 0.5) * 1.2, b = 7 + i * 7.6, sw = tw(t, 1, j * 0.7 + i * 0.5) * 0.45 * Math.min(1, st / 2);
     dab(g, x + 0.3, b + 0.4, 1.8, 0.7, 0, 'rgba(36,20,30,.4)');
     if (st === 5) { const dry = '#a08a58'; cstem(g, x, b, x + 1.6, b - 3.2, dry, 0.4); cleaf(g, x, b, -2.2, -0.6, 0.55, '#8a7448'); cleaf(g, x + 1.6, b - 3.2, 1.6, 1.8, 0.7, '#9a8250', '#b8a470'); continue; }
     D(g, x, b, st, sw); }
@@ -2105,7 +2095,7 @@ function objFrame(it, fi) { const f = it.frames > 1 ? fi % it.frames : 0, k = it
   if (sc) { const c = mk(it.w, it.h), g = c.getContext('2d'), HR = it.rh || it.h; g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(raw, it.w / 2 * (1 - sc) + (it._dx || 0), it.h - HR * sc, it.w * sc, HR * sc); out = c; }
   if (FEATHER.test(it.id)) out = feather(out, Q * 1.6, /^heartgem/.test(it.id)); return objCache[k] = out; }
 function frameOf(it, fi) { if (it.canvasAt) return it.canvasAt(fi % it.frames); if (it.canvas) return it.canvas(); return objFrame(it, fi); }
-const GROUND = [['grass', 4, 'Grass'], ['sand', 4, 'Sand'], ['path', 4, 'Path'], ['soil', 2, 'Tilled soil'], ['flats', 2, 'Tidal flats'], ['wood', 2, 'Plank floor'], ['stone', 2, 'Stone floor']] as [string, number, string][];
+const GROUND = [['grass', 4, 'Grass'], ['sand', 4, 'Sand'], ['path', 4, 'Path'], ['soil', 2, 'Tilled soil'], ['wood', 2, 'Plank floor'], ['stone', 2, 'Stone floor']] as [string, number, string][];
 for (const [n, cnt, label] of GROUND) for (let v = 0; v < cnt; v++) add({ id: n + '_' + v, group: n === 'wood' || n === 'stone' ? 'floor' : 'ground', label: label + (cnt > 1 ? ' ' + (v + 1) : ''), w: S, h: S, kind: 'tile', canvas: () => terr(n, v) });
 add({ id: 'water_deep', group: 'water', label: 'Deep sea', w: S, h: S, frames: FR, kind: 'tile', canvasAt: fi => water('deep', fi) });
 add({ id: 'water_shallow', group: 'water', label: 'Shallows', w: S, h: S, frames: FR, kind: 'tile', canvasAt: fi => water('shallow', fi) });
@@ -2141,8 +2131,10 @@ function magicShroom24(g, t) { shadowE(g, 12, 20.2, 8, 2);
   } }
 A('magic_shroom', 'plants', 'Magic mushrooms', 24, 24, FR, (g, t) => magicShroom24(g, t));
 for (const s of R3(3)) A(`herb_${s}`, 'plants', ['Herb patch, bare', 'Herb patch, some', 'Herb patch, in flower'][s], 24, 24, FR, (g, t) => herb24(g, t, 0, s));
-for (const s of [1, 2, 3, 4]) A(`crop_${s}`, 'plants', ['Seedlings', 'Young wheat', 'Green wheat', 'Ripe wheat'][s - 1], 24, 24, FR, (g, t) => plants24(g, t, s), { under: 'soil' });
-for (const sd of Object.keys(CROP_ART)) for (const s of [1, 2, 3, 4, 5]) { if (s === 5 && !['lavender', 'poppy', 'daisy', 'marigold', 'rose'].includes(sd)) continue; A(`crop_${sd}_${s}`, 'plants', `${sd}, stage ${s}`, 24, 24, FR, (g, t) => cropArt24(g, t, sd, s), { under: 'soil' }); }
+/* (crop plants are 8 px taller than their tile, so a plant in the top furrow can grow up past the tile's top edge; they stand bottom-aligned) */
+const cropTall = (f) => (g, t) => { g.save(); g.translate(0, 8); f(g, t); g.restore(); };
+for (const s of [1, 2, 3, 4]) A(`crop_${s}`, 'plants', ['Seedlings', 'Young wheat', 'Green wheat', 'Ripe wheat'][s - 1], 24, 32, FR, cropTall((g, t) => plants24(g, t, s)), { under: 'soil' });
+for (const sd of Object.keys(CROP_ART)) for (const s of [1, 2, 3, 4, 5]) { if (s === 5 && !['lavender', 'poppy', 'daisy', 'marigold', 'rose'].includes(sd)) continue; A(`crop_${sd}_${s}`, 'plants', `${sd}, stage ${s}`, 24, 32, FR, cropTall((g, t) => cropArt24(g, t, sd, s)), { under: 'soil' }); }
 A('crop_raw', 'plants', 'Field plot, untilled', 24, 24, 1, g => field24(g, true), { kind: 'tile', under: null });
 A('crop_0', 'plants', 'Field plot, ploughed', 24, 24, 1, g => field24(g, false), { kind: 'tile', under: null });
 A('shroom', 'plants', 'Glow mushrooms', 24, 24, FR, (g, t) => shroom24(g, t));

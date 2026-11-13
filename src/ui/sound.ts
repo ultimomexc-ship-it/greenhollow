@@ -68,7 +68,7 @@ function sndAmbientInit() {
 function sndAmbient(now: number, hour: number) {
   if (!sndReady() || !SND.on) return; const p = game.player; if (!p || typeof town === 'undefined' || !town) return; sndAmbientInit(); const A = SND.amb; if (!A) return; const c = SND.ctx, t = c.currentTime;
   const mine = isMineY(p.ty), inRoom = roomAt[p.ty] && roomAt[p.ty][p.tx] >= 0, outdoors = !mine && !inRoom, day = hour >= 6 && hour < 19;
-  let near = 0; if (!mine && town.hgt) for (let dy = -6; dy <= 6; dy += 2) for (let dx = -6; dx <= 6; dx += 2) { const y = p.ty + dy, x = p.tx + dx; if (grid[y] && grid[y][x] === T.WATER) near = Math.max(near, 1 - Math.hypot(dx, dy) / 9); }
+  let near = 0; if (!mine) for (let dy = -6; dy <= 6; dy += 2) for (let dx = -6; dx <= 6; dx += 2) { const y = p.ty + dy, x = p.tx + dx; if (grid[y] && grid[y][x] === T.WATER) near = Math.max(near, 1 - Math.hypot(dx, dy) / 9); }
   const wind = outdoors ? 0.05 + 0.02 * Math.sin(now / 3100) + 0.015 * Math.sin(now / 1300) : inRoom ? 0.012 : 0, shore = outdoors ? Math.max(0, near) * 0.07 * (0.7 + 0.3 * Math.sin(now / 2300)) : 0, drone = mine ? 0.05 : 0;
   A.wind.g.gain.setTargetAtTime(wind, t, 0.8); A.wind.fl.frequency.setTargetAtTime(380 + 160 * Math.sin(now / 4000), t, 0.5); A.shore.g.gain.setTargetAtTime(shore, t, 0.8); A.drone.g.gain.setTargetAtTime(drone, t, 1.2);
   if (outdoors && day && now > SND.nextBird) { SND.nextBird = now + 2500 + Math.random() * 7000; const f = 2200 + Math.random() * 1400, k = 2 + Math.floor(Math.random() * 3); for (let i = 0; i < k; i++) sndTone(f + i * 120, 0.07, 'sine', 0.025, f * 1.35 + i * 100, i * 0.1); }

@@ -1,6 +1,6 @@
 /* ================= The island =================
    An island in the open sea (its old forest was cleared for building); a ring of meadow and woodland runs round it, where the
-   village grows; then the beach, and on one side a great tidal bay where the sea goes out for miles at low tide. */
+   village grows; then the beach, and on one side a wide bay with islets. */
 const angDiff = (a, b) => { let d = (a - b) % 6.2832; if (d > 3.1416) d -= 6.2832; if (d < -3.1416) d += 6.2832; return d; };
 function carveIsland(R, ns, ns2) {
   const bay = R() * 6.2832, campA = bay + (R() < 0.5 ? 1 : -1) * (2.1 + R() * 0.7);
@@ -32,7 +32,7 @@ function carveIsland(R, ns, ns2) {
       grid[y][x] = R() < p ? T.TREE : T.GRASS; continue;
     }
     cmask[k] = 1;
-    if (d < 1) { grid[y][x] = T.SAND; continue; }                   // dry beach above the highest tide
+    if (d < 1) { grid[y][x] = T.SAND; continue; }                   // dry beach
     const fw = flatW(a), r = (d - 1) / Math.max(0.0001, fw);
     if (r >= 1) { grid[y][x] = T.WATER; continue; }
     let h = 95 - 88 * Math.pow(r, 0.85) + (vnoise(x * 0.08, y * 0.08, ns + 44) - 0.5) * 16;
@@ -59,7 +59,7 @@ function carveIsland(R, ns, ns2) {
   // soft sandy banks round the fresh water
   { const wet = new Uint8Array(W * H); for (let k = 0; k < W * H; k++) if (grid[(k / W) | 0][k % W] === T.WATER && !cmask[k]) wet[k] = 1;
     for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) { const k = y * W + x; if (fmask[k] || cmask[k] || (grid[y][x] !== T.GRASS && grid[y][x] !== T.TREE)) continue; let w = false; for (let j = -1; j <= 1 && !w; j++) for (let i = -1; i <= 1; i++) if (wet[(y + j) * W + x + i]) { w = true; break; } if (w) grid[y][x] = T.SAND; } }
-  // tier 1: three islets out on the tidal flats, walkable at low tide
+  // tier 1: three islets out on the flats of the bay
   const isl = [];
   const islet0 = (cxk, cyk, rad, rocky, bare?) => { for (let y = Math.floor(cyk - rad - 2); y <= cyk + rad + 2; y++) for (let x = Math.floor(cxk - rad * 1.4 - 2); x <= cxk + rad * 1.4 + 2; x++) { if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) continue; const k = y * W + x; if (!cmask[k] || (hgt[k] < 0 && grid[y][x] === T.SAND && !islet[k])) continue;
       const e = ((x - cxk) / (rad * 1.35)) ** 2 + ((y - cyk) / rad) ** 2 + (vnoise(x * 0.3, y * 0.3, ns2 + 45 + cxk) - 0.5) * 0.5; if (e > 1) continue;
@@ -68,7 +68,7 @@ function carveIsland(R, ns, ns2) {
   for (const [fa, fr] of [[-0.38, 0.5], [0.02, 0.62], [0.4, 0.5]]) { for (let t = 0; t < 6; t++) { const a = bay + fa + (R() - 0.5) * 0.2, fw = flatW(a); if (fw < 0.12) continue; const p = at(a, 1 + fw * (fr + (R() - 0.5) * 0.15)); if (tier1.some(q => Math.hypot(q.x - p.x, q.y - p.y) < 14)) continue; tier1.push(islet0(p.x, p.y, 2.6 + R() * 1.6, R() < 0.5)); break; } }
   // seabed that never uncovers is plain sea; the rest is tidal sand
   for (let k = 0; k < W * H; k++) { if (hgt[k] < 0) continue; const y = (k / W) | 0, x = k % W; if (hgt[k] < 7) { hgt[k] = -1; grid[y][x] = T.WATER; } else { hgt[k] = Math.min(95, hgt[k]); grid[y][x] = T.SAND; } }
-  // how far out to sea is each tile? (open water from anything you can stand on, even at high tide)
+  // how far out to sea is each tile? (open water from anything you can stand on)
   const seaD = new Uint8Array(W * H).fill(255); { const q = []; for (let k = 0; k < W * H; k++) if (grid[(k / W) | 0][k % W] !== T.WATER) { seaD[k] = 0; q.push(k); } for (let i = 0; i < q.length; i++) { const k = q[i], x = k % W, y = (k / W) | 0, v = seaD[k]; if (v >= 60) continue; for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const nk = ny * W + nx; if (seaD[nk] > v + 1) { seaD[nk] = v + 1; q.push(nk); } } } }
   const seaSpot = (lo, hi, away, sp) => { for (let t = 0; t < 8000; t++) { const x = 9 + Math.floor(R() * (W - 18)), y = 9 + Math.floor(R() * (H - 18)), d = seaD[y * W + x]; if (d < lo || d > hi) continue; if (away.some(q => Math.hypot(q.x - x, q.y - y) < sp)) continue; return { x, y }; } return null; };
   // tier 2: two islands a short swim out (you need flippers); tier 3: two far out to sea (you need a raft)
@@ -85,14 +85,15 @@ function carveIsland(R, ns, ns2) {
   // where the forest begins, nearest the camp
   let ent = null, eb = 1e9; for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) { const k = y * W + x; if (!fmask[k] || town.fin[k] !== 1) continue; const dd = Math.hypot(x - camp.x, y - camp.y); if (dd < eb) { eb = dd; ent = { x, y }; } }
   let fmax = 1; for (let k = 0; k < W * H; k++) if (fmask[k] && town.fin[k] < 255) fmax = Math.max(fmax, town.fin[k]); town.fmax = fmax;
-  // the beach nearest the tidal bay: where you walk out onto the flats
+  // the beach nearest the bay
   let landing = null, lb = 1e9; const bayP = at(bay, 1); for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) { const k = y * W + x; if (!cmask[k] || hgt[k] >= 0 || islet[k] || grid[y][x] !== T.SAND) continue; const dd = Math.hypot(x - bayP.x, y - bayP.y); if (dd < lb) { lb = dd; landing = { x, y }; } }
   town.region = null;   // no named wild region any more (the old forest was cleared)
   return { cx: camp.x, cy: camp.y, ix, iy, rx, ry, bay, campA, at, isl, tier1, tier2, tier3, lhIs, lh, gapSet, landing: landing || { x: camp.x, y: camp.y }, ent: ent || { x: Math.round(ix), y: Math.round(iy) } };
 }
 // the path in from the forest's edge; the bay is just scenery now
 function islandFeatures(R, I, ns2) {
-  town.coast = { name: 'The Tidal Flats' };
+  settleFlats();
+  town.coast = { name: 'The Bay' };
   wayIn(I.cx, I.cy, I.ent.x, I.ent.y);
 }
 
@@ -106,6 +107,13 @@ function wayIn(sx, sy, tx, ty) {
   let k = ty * W + tx, fixed = 0; if (prev[k] < 0) return 0;
   while (k >= 0 && k !== s) { const x = k % W, y = (k / W) | 0; if (grid[y][x] === T.MOUNTAIN) { grid[y][x] = T.ROCK; fixed++; } else if (grid[y][x] === T.WATER) { grid[y][x] = T.SAND; fixed++; } k = prev[k]; }
   return fixed;
+}
+/** there are no tides: the bay is fixed for good. The generator still shapes it with a height map; here the low ground becomes sea and the
+   high ground plain beach you can walk on, and the height map is thrown away (also for islands saved before, on load) */
+function settleFlats() {
+  const h = town.hgt; if (!h) return;
+  for (let k = 0; k < h.length; k++) { if (!(h[k] >= 0)) continue; const y = (k / W) | 0, x = k % W; if (grid[y]) grid[y][x] = h[k] < 54 ? T.WATER : T.SAND; }
+  town.hgt = null; if (town.coast) town.coast.name = 'The Bay';
 }
 function inCoast(x, y) { return !!(town && town.cmask && x >= 0 && y >= 0 && x < W && y < H && town.cmask[y * W + x]); }
 // is this tile in the old forest at the island's heart?

@@ -269,3 +269,8 @@ function pickUpDrops(n) {
   playerSay(n, d.k === 'wood' ? '+1 wood' : '+1 stone');
 }
 
+/* ---------- the larder (the ready village's old stall): no shop, no prices. Step up and take what you need ---------- */
+function openShop(m) { const n = game.player; if (!n || !m) return; const took = [];
+  for (const g of FOODS) { const q = Math.min(Math.max(0, 3 - (n.inv[g] || 0)), Math.floor(m.stock[g] || 0)); if (q > 0) { m.stock[g] -= q; n.inv[g] = (n.inv[g] || 0) + q; took.push(q + ' ' + GNAME(g)); } }
+  playerSay(n, took.length ? 'Took ' + took.join(', ') + ' from the larder. Nobody minds: there is plenty.' : anyOf(['Your pockets are full enough. Leave some for the others.', 'Nothing here you need right now.']));
+  updateHud(true); }

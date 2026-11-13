@@ -5,7 +5,7 @@ lxi('ask_news', 'Any news?');
 lxi('ask_news', 'Have you heard anything? About anyone. About anything.');
 lxi('no_news', 'Nothing. A gull stood on the beach for a long time and left.');
 lxi('no_news', 'No. I looked, though.');
-lxi('no_news', 'Nothing I would call news. The tide is where it was.');
+lxi('no_news', 'Nothing I would call news. The sea is where it was.');
 lxi('share_news', 'I saw it myself, so I can tell you. {news}.', { how: 'saw' });
 lxi('share_news', 'I was there. {news}. I stood very still.', { how: 'saw', rel: 'friend' });
 lxi('share_news', 'I heard that {news}. I cannot vouch for it.', { how: 'told' });

@@ -8,7 +8,7 @@ function resetWorld() {
 }
 /** a loose bed, chair or pew is walked over (and sat on), like the ones in a house (so its owner can get into it) */
 const lfBedAt = (x, y) => { const p = town.propAt && town.propAt.get(y * W + x); return !!p && (p.kind === 'bed' || p.kind === 'chair' || p.kind === 'pew' || p.kind === 'gate'); };   // (a gate is walked through)
-function walkable(x, y) { return x >= 0 && y >= 0 && x < W && y < H && !BLOCKED.has(grid[y][x]) && !(town && town.block && town.block[y * W + x]) && !(town && town.hgt && town.hgt[y * W + x] >= 0) && !(town && town.fmask && town.fmask[y * W + x]) && !(town && town.pblock && town.pblock[y * W + x] && !LF.seeThru && !lfBedAt(x, y)); }
+function walkable(x, y) { return x >= 0 && y >= 0 && x < W && y < H && !BLOCKED.has(grid[y][x]) && !(town && town.block && town.block[y * W + x]) && !(town && town.fmask && town.fmask[y * W + x]) && !(town && town.pblock && town.pblock[y * W + x] && !LF.seeThru && !lfBedAt(x, y)); }
 function tileCost(x, y) { return COST[grid[y][x]] || 1; }
 const vh = (x, y, s) => { let h = (x * 374761393 + y * 668265263 + s * 1442695041) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 function vnoise(x, y, s) {
@@ -46,7 +46,7 @@ function growLevels() {
   for (let b = have; b < LV_N; b++) for (let y = 0; y < H0; y++) { grid.push(Array(W).fill(b >= LV_MINE ? T.EARTH : T.SKY)); roomAt.push(Array(W).fill(-1)); }
   H = grid.length;
   const ext = (a, Ctor, fill = 0) => { if (!a || a.length !== W * oldH) return a; const b = new Ctor(W * H).fill(fill); b.set(a); return b; };
-  for (const [k, fill, C] of [['hgt', -1, Float32Array], ['fmask', 0, Uint8Array], ['cmask', 0, Uint8Array], ['islet', 0, Uint8Array], ['fout', 255, Uint8Array], ['fin', 255, Uint8Array], ['cout', 255, Uint8Array], ['siteAt', 0, Uint16Array], ['block', 0, Uint8Array], ['pblock', 0, Uint8Array]] as any[]) if (town[k]) town[k] = ext(town[k], C, fill);   // (the other levels are neither water, forest nor coast)
+  for (const [k, fill, C] of [['fmask', 0, Uint8Array], ['cmask', 0, Uint8Array], ['islet', 0, Uint8Array], ['fout', 255, Uint8Array], ['fin', 255, Uint8Array], ['cout', 255, Uint8Array], ['siteAt', 0, Uint16Array], ['block', 0, Uint8Array], ['pblock', 0, Uint8Array]] as any[]) if (town[k]) town[k] = ext(town[k], C, fill);   // (the other levels are neither water, forest nor coast)
   town.portals = town.portals || new Map(); town.stairs = town.stairs || [];
   town.ore = new Uint8Array(W * H); const seed = (town.seed | 0) + 17;   // 1 iron, 2 copper, 3 gold: in veins; the second mine is richer
   for (let y = 2 * 0 + LV_MINE * H0; y < H; y++) for (let x = 2; x < W - 2; x++) { const deep = y >= (LV_MINE + 1) * H0, v = vnoise(x * 0.17, y * 0.17, seed), w = vnoise(x * 0.21, y * 0.21, seed + 5), q = vh(x, y, seed + 9);

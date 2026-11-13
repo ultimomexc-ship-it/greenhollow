@@ -60,7 +60,7 @@ canvas.dragging { cursor: grabbing; }
 .hud[hidden], .dpad[hidden] { display: none; }
 .hud b { color: #7fd0ff; } .hud .hint { color: rgba(200,196,180,.6); flex-basis: 100%; text-align: center; font-size: 10.5px; letter-spacing: .02em; margin-top: -2px; }
 .hud .hbar { width: 70px; height: 7px; background: #2f3a3f; border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; } .hud .hbar i { display: block; height: 100%; background: var(--moss); }
-.hud .hbar.warn i { background: var(--amber); } .hud .hbar.tide i { background: #5aa0d8; } .hud .tdir { color: #9cc8ec; font-size: 11px; } .hud .hbar.refill i { background: #ffc860; box-shadow: 0 0 6px #ffc860; } .hud .nup { color: #ffc860; font-size: 11px; } .hud .hbar.bad i { background: #d8604a; }
+.hud .hbar.warn i { background: var(--amber); } .hud .hbar.refill i { background: #ffc860; box-shadow: 0 0 6px #ffc860; } .hud .nup { color: #ffc860; font-size: 11px; } .hud .hbar.bad i { background: #d8604a; }
 .hud button { line-height: 1.2; padding: 3px 9px; font-size: 12px; }
 .dpad { position: absolute; right: 12px; bottom: 74px; display: none; grid-template-columns: repeat(3, 42px); grid-template-rows: repeat(2, 42px); gap: 4px; line-height: 1; }
 .dpad button { background: rgba(21,25,27,.8); border: 1px solid var(--line); color: var(--fg); border-radius: 8px; font-size: 16px; touch-action: none; }

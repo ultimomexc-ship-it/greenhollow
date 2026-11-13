@@ -284,7 +284,7 @@ window.addEventListener('keydown', (e: any) => { if ((e.key === 'v' || e.key ===
 function tsLab() {
   const LW = 46, LH = 32; let ox = -1, oy = -1;
   for (let t = 0; t < 4000 && ox < 0; t++) { const x = 4 + Math.floor(Math.random() * (W - LW - 8)), y = 4 + Math.floor(Math.random() * (GH() - LH - 8)); let ok = true;
-    for (let j = y - 1; j < y + LH + 1 && ok; j++) for (let i = x - 1; i < x + LW + 1; i++) { const g = grid[j][i]; if (roomAt[j][i] >= 0 || g === T.WATER || g === T.MOUNTAIN || (town.hgt && town.hgt[j * W + i] >= 0)) { ok = false; break; } }
+    for (let j = y - 1; j < y + LH + 1 && ok; j++) for (let i = x - 1; i < x + LW + 1; i++) { const g = grid[j][i]; if (roomAt[j][i] >= 0 || g === T.WATER || g === T.MOUNTAIN) { ok = false; break; } }
     if (ok) { ox = x; oy = y; } }
   if (ox < 0) return null;
   for (let j = oy; j < oy + LH; j++) for (let i = ox; i < ox + LW; i++) { setT(i, j, T.GRASS); if (town.siteAt) town.siteAt[j * W + i] = 0; }

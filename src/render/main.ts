@@ -65,38 +65,6 @@ function drawSleeper(c, n, px, py, now) {
 }
 function drawCarry() {}
 
-/* ---- the tide over the flats: painted water with a real shoreline, clearer where it is shallow, deeper further out ---- */
-function gaNearFlats() {
-  const a = GA.nearFlat = new Uint8Array(W * H); if (!town.hgt) return;
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (town.hgt[y * W + x] >= 0) for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const xx = x + i, yy = y + j; if (xx >= 0 && yy >= 0 && xx < W && yy < H) a[yy * W + xx] = 1; }
-}
-function gaTide(c, now, L) {
-  const nf = GA.nearFlat; if (!nf) return;
-  const v = gaView(), fi = gaFi(now), hg = town.hgt;
-  /* which tiles the tide covers (and how) is worked out when the view changes and then every 200 ms: the water level moves far slower than that */
-  const key = v.x0 + ',' + v.y0 + ',' + v.x1 + ',' + v.y1 + ',' + (town.seed || '');
-  let tc = GA.tideCache;
-  if (!tc || tc.key !== key || !(now - tc.t < 200)) {
-    const dep = (i, j) => { if (i < 0 || j < 0 || i >= W || j >= H) return 99; const h = hg[j * W + i]; return h >= 0 ? L - h : (gaK(i, j) === 'water' ? 99 : -99); };
-    const list: number[] = [];   // x, y, mask, alpha, ...
-    for (let y = v.y0; y < v.y1; y++) for (let x = v.x0; x < v.x1; x++) {
-      if (!nf[y * W + x] || roomAt[y][x] >= 0) continue;
-      const d = [dep(x - 1, y - 1), dep(x, y - 1), dep(x + 1, y - 1), dep(x - 1, y), dep(x, y), dep(x + 1, y), dep(x - 1, y + 1), dep(x, y + 1), dep(x + 1, y + 1)], w = d.map(q => q > 0);
-      const m = (w[0] && w[1] && w[3] && w[4] ? 1 : 0) | (w[1] && w[2] && w[4] && w[5] ? 2 : 0) | (w[4] && w[5] && w[7] && w[8] ? 4 : 0) | (w[3] && w[4] && w[6] && w[7] ? 8 : 0);
-      if (!m) continue;
-      const own = hg[y * W + x] >= 0, dd = d[4];
-      if (!own && m !== 15 && gaK(x, y) !== 'water') continue;
-      list.push(x * TS, y * TS, m, own ? Math.min(0.96, 0.5 + dd / 9) : 1);
-    }
-    tc = GA.tideCache = { key, t: now, list };
-  }
-  const list = tc.list;
-  for (let i = 0; i < list.length; i += 4) {
-    c.globalAlpha = list[i + 3];
-    c.drawImage(list[i + 2] === 15 ? ART.water('shallow', fi) : ART.overlay('shallow', list[i + 2], fi), list[i], list[i + 1], TS, TS);
-  }
-  c.globalAlpha = 1;
-}
 
 /* ---------- sizing and camera ---------- */
 let waterList = [];
@@ -184,10 +152,9 @@ function render(now, dtSec, hourOfDay) {
   drawGround(c, now);
   drawCrops(c, now);
   drawDoors(c, dtSec);
-  if (typeof drawTide === 'function') drawTide(c, now);
-  if (typeof drawSteps === 'function') drawSteps(c, now);   // (footprints: over the ground and the tide line, under everybody)
+  if (typeof drawSteps === 'function') drawSteps(c, now);   // (footprints: over the ground, under everybody)
 
-  drawNodes(c, now); if (typeof drawShrooms === 'function') drawShrooms(c, now); if (typeof drawSigns === 'function') drawSigns(c, now); if (typeof drawYards === 'function') drawYards(c, now); if (typeof drawStallSigns === 'function') drawStallSigns(c, now); if (typeof drawGuides === 'function') drawGuides(c, now); if (typeof drawTut2 === 'function') drawTut2(c, now); if (typeof drawRipeGlow === 'function') drawRipeGlow(c, now); if (typeof drawJuice === 'function') drawJuice(c, now); drawSites(c, now); drawEventsFx(c, now); drawWorkFx(c, now); stepWild(now); drawWild(c, now); if (typeof stepSea === 'function') { stepSea(now); drawSea(c, now); }
+  drawNodes(c, now); if (typeof drawShrooms === 'function') drawShrooms(c, now); if (typeof drawSigns === 'function') drawSigns(c, now); if (typeof drawYards === 'function') drawYards(c, now); if (typeof drawStallSigns === 'function') drawStallSigns(c, now); if (typeof drawGuides === 'function') drawGuides(c, now); if (typeof drawTut2 === 'function') drawTut2(c, now); if (typeof drawRipeGlow === 'function') drawRipeGlow(c, now); if (typeof drawJuice === 'function') drawJuice(c, now); drawSites(c, now); drawEventsFx(c, now); drawWorkFx(c, now); stepWild(now); drawWild(c, now);
   drawLabels(c);
 
   // people, the forest sprites, the statue... and any tall tile standing in front of them: all in order of who is

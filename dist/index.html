@@ -70,7 +70,7 @@ canvas.dragging { cursor: grabbing; }
 .hud[hidden], .dpad[hidden] { display: none; }
 .hud b { color: #7fd0ff; } .hud .hint { color: rgba(200,196,180,.6); flex-basis: 100%; text-align: center; font-size: 10.5px; letter-spacing: .02em; margin-top: -2px; }
 .hud .hbar { width: 70px; height: 7px; background: #2f3a3f; border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; } .hud .hbar i { display: block; height: 100%; background: var(--moss); }
-.hud .hbar.warn i { background: var(--amber); } .hud .hbar.tide i { background: #5aa0d8; } .hud .tdir { color: #9cc8ec; font-size: 11px; } .hud .hbar.refill i { background: #ffc860; box-shadow: 0 0 6px #ffc860; } .hud .nup { color: #ffc860; font-size: 11px; } .hud .hbar.bad i { background: #d8604a; }
+.hud .hbar.warn i { background: var(--amber); } .hud .hbar.refill i { background: #ffc860; box-shadow: 0 0 6px #ffc860; } .hud .nup { color: #ffc860; font-size: 11px; } .hud .hbar.bad i { background: #d8604a; }
 .hud button { line-height: 1.2; padding: 3px 9px; font-size: 12px; }
 .dpad { position: absolute; right: 12px; bottom: 74px; display: none; grid-template-columns: repeat(3, 42px); grid-template-rows: repeat(2, 42px); gap: 4px; line-height: 1; }
 .dpad button { background: rgba(21,25,27,.8); border: 1px solid var(--line); color: var(--fg); border-radius: 8px; font-size: 16px; touch-action: none; }
@@ -659,8 +659,7 @@ const ART = (function() {
     grass: ["#4b773b", "#5c8a40", "#6c9944", "#82ab4e", "#9bbe5a"].map(hx),
     sand: ["#d8bd8b", "#e2c997", "#ead5a6", "#f2e2bb"].map(hx),
     path: ["#a27b50", "#b08959", "#be9966", "#cdab7a"].map(hx),
-    soil: ["#61402e", "#704b34", "#80583c", "#946847"].map(hx),
-    flats: ["#ad9878", "#b9a382", "#c4ae8d"].map(hx)
+    soil: ["#61402e", "#704b34", "#80583c", "#946847"].map(hx)
   };
   function blade(g, x, y, r1, r2, dk, lt) {
     const len = 4 + r1 * 5, a = -Math.PI / 2 + (r2 - 0.5) * 0.9, tx = x + Math.cos(a) * len, ty = y + Math.sin(a) * len, bend = (r2 - 0.5) * 3;
@@ -825,35 +824,6 @@ const ART = (function() {
     crescent(g, cx - rx * 0.1, cy + ry * 0.3, rx * 0.7, ry * 0.14, 0.7);
     g.restore();
   }
-  function paintFlats(v) {
-    const c = pixels(S, S, (x, y) => {
-      const u = x / S, w = y / S, n = vary(x, y, 71, v, 2, 4);
-      let col = ramp(C.flats, n * 0.9 + 0.05);
-      const r = w * 8 + (fbm(u, w, 74, 2, 3) - 0.5) * 2.6, fr = r - Math.floor(r);
-      if (fr < 0.1) col = mixc(col, [226, 214, 196], 0.32);
-      else if (fr < 0.26) col = mixc(col, [112, 96, 100], 0.16);
-      return grain(col, x, y, 4);
-    });
-    const g = c.getContext("2d");
-    {
-      const R = mul(760 + v * 13), np = 2 + (R() < 0.5 ? 1 : 0);
-      for (let i = 0; i < np; i++) {
-        const rx = 8 + R() * 9, ry = 4.4 + R() * 4;
-        puddle(g, rx + 8 + R() * (S - 2 * rx - 16), ry + 8 + R() * (S - 2 * ry - 16), rx, ry, 80 + v * 7 + i * 3);
-      }
-    }
-    scatterIn(5, 73, v, (X, Y) => {
-      g.strokeStyle = "rgba(96,76,70,.75)";
-      g.lineWidth = 0.8;
-      g.beginPath();
-      for (let k = 0; k < 14; k++) {
-        const a = k * 0.9, r = 0.4 + k * 0.17;
-        g.lineTo(X + Math.cos(a) * r, Y + Math.sin(a) * r);
-      }
-      g.stroke();
-    }, 10);
-    return c;
-  }
   function paintWood(v) {
     const c = pixels(S, S, (x, y) => {
       const pi = Math.floor(x / 24), lx2 = x % 24, tone = h32(pi, v, 81, 1);
@@ -905,7 +875,7 @@ const ART = (function() {
   };
   const terr = (name, v) => {
     const k = name + "_" + v;
-    if (!TERR[k]) TERR[k] = { grass: paintGrass, sand: paintSand, path: paintPath, soil: paintSoil, flats: paintFlats, wood: (v2) => rollTile(paintWood(v2), 1, 0), stone: (v2) => rollTile(paintStone(v2), -1, -1) }[name](v);
+    if (!TERR[k]) TERR[k] = { grass: paintGrass, sand: paintSand, path: paintPath, soil: paintSoil, wood: (v2) => rollTile(paintWood(v2), 1, 0), stone: (v2) => rollTile(paintStone(v2), -1, -1) }[name](v);
     return TERR[k];
   };
   const terrPx = (name) => TPX[name] || (TPX[name] = terr(name, 0).getContext("2d").getImageData(0, 0, S, S).data);
@@ -969,7 +939,7 @@ const ART = (function() {
     const k = "px" + kind + fi;
     return WCACHE[k] || (WCACHE[k] = water(kind, fi).getContext("2d").getImageData(0, 0, S, S).data);
   };
-  const LAYERS = { shallow: { over: "deep", seed: 201, anim: true }, sand: { over: "shallow", seed: 202, anim: true }, grass: { over: "sand", seed: 203 }, path: { over: "grass", seed: 204 }, flats: { over: "sand", seed: 205 } };
+  const LAYERS = { shallow: { over: "deep", seed: 201, anim: true }, sand: { over: "shallow", seed: 202, anim: true }, grass: { over: "sand", seed: 203 }, path: { over: "grass", seed: 204 } };
   const FIELD = {}, PHASE = {};
   function field(layer, m) {
     const k = layer + m;
@@ -1003,7 +973,7 @@ const ART = (function() {
       d[i * 4 + 3] = a * 255;
     };
     const at = (x, y) => f[clamp(y, 0, S - 1) * S + clamp(x, 0, S - 1)];
-    if (layer === "grass" || layer === "path" || layer === "flats") {
+    if (layer === "grass" || layer === "path") {
       const src = terrPx(layer);
       for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
         const i = y * S + x, v = f[i], a = clamp((v - 0.5) / 0.012 + 0.5, 0, 1);
@@ -1024,7 +994,7 @@ const ART = (function() {
         }
       }
       g.putImageData(im, 0, 0);
-      if (layer !== "flats") for (let y = 3; y < S - 3; y += 3) for (let x = 3; x < S - 3; x += 3) {
+      for (let y = 3; y < S - 3; y += 3) for (let x = 3; x < S - 3; x += 3) {
         const jx = x + (h32(x, y, 7, L2.seed) - 0.5) * 2, jy = y + (h32(x, y, 8, L2.seed) - 0.5) * 2, v = at(Math.round(jx), Math.round(jy));
         if (v > 0.47 && v < 0.53) {
           const gx = at(Math.round(jx) + 1, Math.round(jy)) - at(Math.round(jx) - 1, Math.round(jy)), gy = at(Math.round(jx), Math.round(jy) + 1) - at(Math.round(jx), Math.round(jy) - 1);
@@ -2455,7 +2425,7 @@ const ART = (function() {
   function plants24(g, t, st) {
     const dkk = "rgba(40,24,30,.55)";
     for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
-      const sx = 4.4 + j * 7.6, sy = 7.6 + i * 7.6, h = [0, 2.5, 5, 8, 10][st], sw = tw(t, 1, j * 0.7 + i * 0.5) * 0.45 * (st / 4), sd = h32(i, j, 9, st), base = sy + 3;
+      const sx = 4.4 + j * 7.6, sy = 3.9 + i * 7.6, h = [0, 2.5, 5, 8, 10][st], sw = tw(t, 1, j * 0.7 + i * 0.5) * 0.45 * (st / 4), sd = h32(i, j, 9, st), base = sy + 3;
       dab(g, sx + 0.3, base + 0.4, 1.7, 0.7, 0, "rgba(36,20,30,.4)");
       if (st === 1) {
         dab(g, sx, base - 0.1, 1.5, 0.7, 0, "#5a3a2c");
@@ -2731,7 +2701,7 @@ const ART = (function() {
     const D2 = CROP_ART[seed];
     if (!D2) return;
     for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
-      const x = 4.4 + j * 7.6 + (h32(i, j, 3, 7) - 0.5) * 1.2, b = 9.2 + i * 6.6, sw = tw(t, 1, j * 0.7 + i * 0.5) * 0.45 * Math.min(1, st / 2);
+      const x = 4.4 + j * 7.6 + (h32(i, j, 3, 7) - 0.5) * 1.2, b = 7 + i * 7.6, sw = tw(t, 1, j * 0.7 + i * 0.5) * 0.45 * Math.min(1, st / 2);
       dab(g, x + 0.3, b + 0.4, 1.8, 0.7, 0, "rgba(36,20,30,.4)");
       if (st === 5) {
         const dry = "#a08a58";
@@ -7726,7 +7696,7 @@ const ART = (function() {
     if (it.canvas) return it.canvas();
     return objFrame(it, fi);
   }
-  const GROUND = [["grass", 4, "Grass"], ["sand", 4, "Sand"], ["path", 4, "Path"], ["soil", 2, "Tilled soil"], ["flats", 2, "Tidal flats"], ["wood", 2, "Plank floor"], ["stone", 2, "Stone floor"]];
+  const GROUND = [["grass", 4, "Grass"], ["sand", 4, "Sand"], ["path", 4, "Path"], ["soil", 2, "Tilled soil"], ["wood", 2, "Plank floor"], ["stone", 2, "Stone floor"]];
   for (const [n, cnt, label] of GROUND) for (let v = 0; v < cnt; v++) add({ id: n + "_" + v, group: n === "wood" || n === "stone" ? "floor" : "ground", label: label + (cnt > 1 ? " " + (v + 1) : ""), w: S, h: S, kind: "tile", canvas: () => terr(n, v) });
   add({ id: "water_deep", group: "water", label: "Deep sea", w: S, h: S, frames: FR, kind: "tile", canvasAt: (fi) => water("deep", fi) });
   add({ id: "water_shallow", group: "water", label: "Shallows", w: S, h: S, frames: FR, kind: "tile", canvasAt: (fi) => water("shallow", fi) });
@@ -7777,10 +7747,16 @@ const ART = (function() {
   }
   A("magic_shroom", "plants", "Magic mushrooms", 24, 24, FR, (g, t) => magicShroom24(g, t));
   for (const s of R3(3)) A(`herb_${s}`, "plants", ["Herb patch, bare", "Herb patch, some", "Herb patch, in flower"][s], 24, 24, FR, (g, t) => herb24(g, t, 0, s));
-  for (const s of [1, 2, 3, 4]) A(`crop_${s}`, "plants", ["Seedlings", "Young wheat", "Green wheat", "Ripe wheat"][s - 1], 24, 24, FR, (g, t) => plants24(g, t, s), { under: "soil" });
+  const cropTall = (f) => (g, t) => {
+    g.save();
+    g.translate(0, 8);
+    f(g, t);
+    g.restore();
+  };
+  for (const s of [1, 2, 3, 4]) A(`crop_${s}`, "plants", ["Seedlings", "Young wheat", "Green wheat", "Ripe wheat"][s - 1], 24, 32, FR, cropTall((g, t) => plants24(g, t, s)), { under: "soil" });
   for (const sd of Object.keys(CROP_ART)) for (const s of [1, 2, 3, 4, 5]) {
     if (s === 5 && !["lavender", "poppy", "daisy", "marigold", "rose"].includes(sd)) continue;
-    A(`crop_${sd}_${s}`, "plants", `${sd}, stage ${s}`, 24, 24, FR, (g, t) => cropArt24(g, t, sd, s), { under: "soil" });
+    A(`crop_${sd}_${s}`, "plants", `${sd}, stage ${s}`, 24, 32, FR, cropTall((g, t) => cropArt24(g, t, sd, s)), { under: "soil" });
   }
   A("crop_raw", "plants", "Field plot, untilled", 24, 24, 1, (g) => field24(g, true), { kind: "tile", under: null });
   A("crop_0", "plants", "Field plot, ploughed", 24, 24, 1, (g) => field24(g, false), { kind: "tile", under: null });
@@ -8692,7 +8668,7 @@ const lfBedAt = (x, y) => {
   return !!p && (p.kind === "bed" || p.kind === "chair" || p.kind === "pew" || p.kind === "gate");
 };
 function walkable(x, y) {
-  return x >= 0 && y >= 0 && x < W && y < H && !BLOCKED.has(grid[y][x]) && !(town && town.block && town.block[y * W + x]) && !(town && town.hgt && town.hgt[y * W + x] >= 0) && !(town && town.fmask && town.fmask[y * W + x]) && !(town && town.pblock && town.pblock[y * W + x] && !LF.seeThru && !lfBedAt(x, y));
+  return x >= 0 && y >= 0 && x < W && y < H && !BLOCKED.has(grid[y][x]) && !(town && town.block && town.block[y * W + x]) && !(town && town.fmask && town.fmask[y * W + x]) && !(town && town.pblock && town.pblock[y * W + x] && !LF.seeThru && !lfBedAt(x, y));
 }
 function tileCost(x, y) {
   return COST[grid[y][x]] || 1;
@@ -8769,7 +8745,7 @@ function growLevels() {
     b.set(a);
     return b;
   };
-  for (const [k, fill, C] of [["hgt", -1, Float32Array], ["fmask", 0, Uint8Array], ["cmask", 0, Uint8Array], ["islet", 0, Uint8Array], ["fout", 255, Uint8Array], ["fin", 255, Uint8Array], ["cout", 255, Uint8Array], ["siteAt", 0, Uint16Array], ["block", 0, Uint8Array], ["pblock", 0, Uint8Array]]) if (town[k]) town[k] = ext(town[k], C, fill);
+  for (const [k, fill, C] of [["fmask", 0, Uint8Array], ["cmask", 0, Uint8Array], ["islet", 0, Uint8Array], ["fout", 255, Uint8Array], ["fin", 255, Uint8Array], ["cout", 255, Uint8Array], ["siteAt", 0, Uint16Array], ["block", 0, Uint8Array], ["pblock", 0, Uint8Array]]) if (town[k]) town[k] = ext(town[k], C, fill);
   town.portals = town.portals || /* @__PURE__ */ new Map();
   town.stairs = town.stairs || [];
   town.ore = new Uint8Array(W * H);
@@ -9239,7 +9215,8 @@ function carveIsland(R, ns, ns2) {
   return { cx: camp.x, cy: camp.y, ix, iy, rx, ry, bay, campA, at, isl, tier1, tier2, tier3, lhIs, lh, gapSet, landing: landing || { x: camp.x, y: camp.y }, ent: ent || { x: Math.round(ix), y: Math.round(iy) } };
 }
 function islandFeatures(R, I, ns2) {
-  town.coast = { name: "The Tidal Flats" };
+  settleFlats();
+  town.coast = { name: "The Bay" };
   wayIn(I.cx, I.cy, I.ent.x, I.ent.y);
 }
 function wayIn(sx, sy, tx, ty) {
@@ -9285,6 +9262,17 @@ function wayIn(sx, sy, tx, ty) {
     k = prev[k];
   }
   return fixed;
+}
+function settleFlats() {
+  const h = town.hgt;
+  if (!h) return;
+  for (let k = 0; k < h.length; k++) {
+    if (!(h[k] >= 0)) continue;
+    const y = k / W | 0, x = k % W;
+    if (grid[y]) grid[y][x] = h[k] < 54 ? T.WATER : T.SAND;
+  }
+  town.hgt = null;
+  if (town.coast) town.coast.name = "The Bay";
 }
 function inCoast(x, y) {
   return !!(town && town.cmask && x >= 0 && y >= 0 && x < W && y < H && town.cmask[y * W + x]);
@@ -9537,7 +9525,7 @@ function nearGrave(x, y) {
 }
 const remainsAt = (x, y) => (town.remains || []).find((r) => r.x === x && r.y === y) || null;
 const wildTile = (x, y) => !!(town.fmask && town.fmask[y * W + x]);
-const tileFree = (x, y) => x > 0 && y > 0 && x < W - 1 && y < H - 1 && (grid[y][x] === T.GRASS || grid[y][x] === T.SAND && !(town.hgt && town.hgt[y * W + x] >= 0) && !(town.islet && town.islet[y * W + x])) && !wildTile(x, y) && roomAt[y][x] < 0 && !town.siteAt[y * W + x] && !town.nodeMap.has(y * W + x) && !nearGrave(x, y);
+const tileFree = (x, y) => x > 0 && y > 0 && x < W - 1 && y < H - 1 && (grid[y][x] === T.GRASS || grid[y][x] === T.SAND && !(town.islet && town.islet[y * W + x])) && !wildTile(x, y) && roomAt[y][x] < 0 && !town.siteAt[y * W + x] && !town.nodeMap.has(y * W + x) && !nearGrave(x, y);
 function pathDistField() {
   const d = new Int16Array(W * H).fill(-1), q = [];
   for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) if (grid[y][x] === T.PATH && roomAt[y][x] < 0 && reach[y * W + x]) {
@@ -9564,7 +9552,7 @@ function rectMap(test) {
 }
 const freeMap = () => rectMap(tileFree);
 const OPENT = /* @__PURE__ */ new Set([T.GRASS, T.TREE, T.PATH, T.SAND]);
-const marginOK = (x, y) => x > 0 && y > 0 && x < W - 1 && y < H - 1 && OPENT.has(grid[y][x]) && !wildTile(x, y) && !(town.hgt && town.hgt[y * W + x] >= 0) && roomAt[y][x] < 0 && !town.siteAt[y * W + x] && !nearGrave(x, y);
+const marginOK = (x, y) => x > 0 && y > 0 && x < W - 1 && y < H - 1 && OPENT.has(grid[y][x]) && !wildTile(x, y) && roomAt[y][x] < 0 && !town.siteAt[y * W + x] && !nearGrave(x, y);
 function createSite(kind, w, h, o) {
   o = o || {};
   const dist2 = pathDistField(), free = freeMap(), marg = rectMap(marginOK), cx = town.cx, cy = town.cy, R = rng(town.seed + town.nextSite * 131 + Math.floor(game.time) >>> 0);
@@ -14412,6 +14400,21 @@ function pickUpDrops(n) {
   p.fullAt = null;
   playerSay(n, d.k === "wood" ? "+1 wood" : "+1 stone");
 }
+function openShop(m) {
+  const n = game.player;
+  if (!n || !m) return;
+  const took = [];
+  for (const g of FOODS) {
+    const q = Math.min(Math.max(0, 3 - (n.inv[g] || 0)), Math.floor(m.stock[g] || 0));
+    if (q > 0) {
+      m.stock[g] -= q;
+      n.inv[g] = (n.inv[g] || 0) + q;
+      took.push(q + " " + GNAME(g));
+    }
+  }
+  playerSay(n, took.length ? "Took " + took.join(", ") + " from the larder. Nobody minds: there is plenty." : anyOf(["Your pockets are full enough. Leave some for the others.", "Nothing here you need right now."]));
+  updateHud(true);
+}
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
 const bgCanvas = document.createElement("canvas"), bctx = bgCanvas.getContext("2d");
@@ -15869,7 +15872,7 @@ function tsLab() {
     let ok = true;
     for (let j = y - 1; j < y + LH + 1 && ok; j++) for (let i = x - 1; i < x + LW + 1; i++) {
       const g = grid[j][i];
-      if (roomAt[j][i] >= 0 || g === T.WATER || g === T.MOUNTAIN || town.hgt && town.hgt[j * W + i] >= 0) {
+      if (roomAt[j][i] >= 0 || g === T.WATER || g === T.MOUNTAIN) {
         ok = false;
         break;
       }
@@ -16013,15 +16016,6 @@ function gaLevel(vx, vy) {
   return land ? sand ? 2 : 3 : shal ? 1 : 0;
 }
 const gaPathV = (vx, vy) => gaK(vx - 1, vy - 1) === "path" || gaK(vx, vy - 1) === "path" || gaK(vx - 1, vy) === "path" || gaK(vx, vy) === "path";
-const gaFlat = (i, j) => i >= 0 && j >= 0 && i < W && j < H && town.hgt[j * W + i] >= 0;
-function gaFlatV(vx, vy) {
-  let f = 0;
-  for (let j = vy - 1; j <= vy; j++) for (let i = vx - 1; i <= vx; i++) {
-    if (gaFlat(i, j)) f++;
-    else if (gaK(i, j) !== "water") return false;
-  }
-  return f > 0;
-}
 const GA_LAYERS = ["shallow", "sand", "grass"];
 function gaTerrain(g, x, y, wt) {
   if (lvlOf(y) >= 1) {
@@ -16092,22 +16086,6 @@ function gaTerrain(g, x, y, wt) {
   if (gaPathV(x + 1, y + 1)) pm |= 4;
   if (gaPathV(x, y + 1)) pm |= 8;
   if (pm) D(pm === 15 ? ART.terr("path", v) : ART.overlay("path", pm, 0));
-  if (town.hgt) {
-    let fm = 0;
-    if (gaFlatV(x, y)) fm |= 1;
-    if (gaFlatV(x + 1, y)) fm |= 2;
-    if (gaFlatV(x + 1, y + 1)) fm |= 4;
-    if (gaFlatV(x, y + 1)) fm |= 8;
-    if (fm === 15) {
-      const q = ART.h32(x, y, 9, 9) * 8 | 0;
-      g.save();
-      g.translate(X + TS / 2, Y + TS / 2);
-      g.rotate((q & 3) * Math.PI / 2);
-      if (q & 4) g.scale(-1, 1);
-      g.drawImage(ART.terr("flats", v & 1), -TS / 2, -TS / 2, TS, TS);
-      g.restore();
-    } else if (fm) D(ART.overlay("flats", fm, 0));
-  }
   if (grid[y][x] === T.CROP) D(ART.terr("soil", v & 1));
 }
 function gaCap(r, x, y) {
@@ -16382,7 +16360,7 @@ function gaTileColour(x, y) {
   if (t === T.STALL) return "#b5683a";
   if (t === T.GRAVE) return "#7d9a6a";
   if (K === "water") return GA.shal[y * W + x] ? "#58b0bf" : "#3f8aa8";
-  if (K === "sand") return town.hgt && town.hgt[y * W + x] >= 0 ? "#d4c192" : "#ead9a4";
+  if (K === "sand") return "#ead9a4";
   if (K === "path") return "#d2b57c";
   if (K === "soil") return "#8c6a45";
   return "#79a845";
@@ -16427,7 +16405,6 @@ function buildStatic() {
     if (near) sh[y * W + x] = 1;
   }
   waterList = [];
-  gaNearFlats();
   gaOverview();
   darkCanvas.width = Math.round(W * TS * DK);
   darkCanvas.height = Math.round(H * TS * DK);
@@ -16523,36 +16500,79 @@ function drawDoors(c, dt) {
     gaDraw(c, (r.free ? gaInside(d.x, d.y + 1) : d.y === r.y) ? op ? "door_back_open" : "door_back_closed" : op ? "door_mat_open" : "door_mat_closed", d.x * TS, d.y * TS, 0, 0);
   }
 }
-function cropHoles(c, X, Y) {
-  for (const [hx, hy] of [[0.2, 0.74], [0.5, 0.78], [0.8, 0.74]]) {
-    const x = X + hx * TS, y = Y + hy * TS;
-    c.fillStyle = "rgba(160,118,74,.85)";
+function cropHoles(c, X, Y, tx, ty) {
+  const k = TS / 24, h = (i, n) => hash(tx * 7 + i, ty * 13 + n, 57);
+  for (let i = 0; i < 3; i++) {
+    const x = X + (5.2 + i * 6.8 + (h(i, 1) - 0.5) * 1.6) * k, y = Y + (7 + i * 7.6 + (h(i, 2) - 0.5) * 1.2) * k, rx = (2.5 + h(i, 3) * 0.6) * k, ry = (1.55 + h(i, 4) * 0.3) * k, side = h(i, 5) < 0.5 ? -1 : 1;
+    const mx = x + side * rx * 1.25, my = y - ry * 0.25;
+    c.fillStyle = "rgba(30,16,8,.35)";
     c.beginPath();
-    c.ellipse(x, y - 0.6, TS * 0.12, TS * 0.075, 0, 0, 6.3);
+    c.ellipse(mx + 0.4 * k, my + 0.7 * k, rx * 0.95, ry * 0.9, 0, 0, 6.3);
     c.fill();
-    c.fillStyle = "#24160b";
+    c.fillStyle = "#7a5434";
     c.beginPath();
-    c.ellipse(x, y, TS * 0.09, TS * 0.055, 0, 0, 6.3);
+    c.ellipse(mx, my, rx * 0.9, ry * 0.85, side * 0.2, 0, 6.3);
     c.fill();
-    c.fillStyle = "rgba(0,0,0,.35)";
+    c.fillStyle = "#9a6e46";
     c.beginPath();
-    c.ellipse(x, y + 0.5, TS * 0.07, TS * 0.035, 0, 0, 6.3);
+    c.ellipse(mx - side * 0.3 * k, my - 0.45 * k, rx * 0.55, ry * 0.45, 0, 0, 6.3);
     c.fill();
-    c.fillStyle = "#8a6239";
-    c.fillRect(x + TS * 0.11, y - TS * 0.05, 1.1, 1.1);
-    c.fillRect(x - TS * 0.14, y + TS * 0.02, 1, 1);
+    for (let j = 0; j < 4; j++) {
+      const cx = mx + (h(i, 10 + j) - 0.5) * rx * 2.2, cy = my + (h(i, 20 + j) - 0.5) * ry * 1.8, r = (0.45 + h(i, 30 + j) * 0.45) * k;
+      c.fillStyle = "#4a2e1a";
+      c.beginPath();
+      c.arc(cx + 0.25 * k, cy + 0.3 * k, r, 0, 6.3);
+      c.fill();
+      c.fillStyle = "#8f6440";
+      c.beginPath();
+      c.arc(cx, cy, r, 0, 6.3);
+      c.fill();
+    }
+    c.save();
+    c.beginPath();
+    c.ellipse(x, y, rx, ry, 0, 0, 6.3);
+    c.fillStyle = "#1f130a";
+    c.fill();
+    c.clip();
+    const g = c.createLinearGradient(0, y - ry, 0, y + ry * 0.4);
+    g.addColorStop(0, "#6e4a2c");
+    g.addColorStop(0.55, "#3d2615");
+    g.addColorStop(1, "#170d06");
+    c.fillStyle = g;
+    c.beginPath();
+    c.ellipse(x, y - ry * 0.55, rx * 1.05, ry * 0.95, 0, 0, 6.3);
+    c.fill();
+    c.fillStyle = "#100803";
+    c.beginPath();
+    c.ellipse(x, y + ry * 0.55, rx * 0.8, ry * 0.55, 0, 0, 6.3);
+    c.fill();
+    c.restore();
+    c.strokeStyle = "#a07650";
+    c.lineWidth = 0.9 * k;
+    c.beginPath();
+    c.ellipse(x, y, rx, ry, 0, 0.25, Math.PI - 0.25);
+    c.stroke();
+    c.strokeStyle = "rgba(20,10,4,.6)";
+    c.lineWidth = 0.7 * k;
+    c.beginPath();
+    c.ellipse(x, y, rx, ry, 0, Math.PI + 0.2, 6.28 - 0.2);
+    c.stroke();
   }
 }
 function drawCrops(c, now) {
   if (!town.crops) return;
-  const v = gaView();
+  const v = gaView(), plants = [];
   for (const t of town.crops) {
-    if (t.x < v.x0 || t.x >= v.x1 || t.y < v.y0 || t.y >= v.y1) continue;
+    if (t.x < v.x0 || t.x >= v.x1 || t.y < v.y0 - 1 || t.y >= v.y1) continue;
     const st = t.pl ? cropStage(t) : -1;
-    if (st > 0) gaDraw(c, "crop_0", t.x * TS, t.y * TS, now, 0);
-    const sd = st > 0 && t.seed && t.seed !== "barley" && IT_SEEDS[t.seed] ? t.seed : null;
-    gaDraw(c, sd ? "crop_" + sd + "_" + (itWilted(t) ? 5 : Math.min(4, st)) : st < 0 ? "crop_raw" : "crop_" + Math.min(4, st), t.x * TS, t.y * TS, now, t.x + t.y);
-    if (t.holes && !t.st && t.pl) cropHoles(c, t.x * TS, t.y * TS);
+    gaDraw(c, st < 0 ? "crop_raw" : "crop_0", t.x * TS, t.y * TS, now, 0);
+    if (st > 0) plants.push(t);
+    else if (t.holes && !t.st && t.pl) cropHoles(c, t.x * TS, t.y * TS, t.x, t.y);
+  }
+  plants.sort((a, b) => a.y - b.y);
+  for (const t of plants) {
+    const st = cropStage(t), sd = t.seed && t.seed !== "barley" && IT_SEEDS[t.seed] ? t.seed : null;
+    gaDraw(c, sd ? "crop_" + sd + "_" + (itWilted(t) ? 5 : Math.min(4, st)) : "crop_" + Math.min(4, st), t.x * TS, t.y * TS, now, t.x + t.y);
   }
 }
 function drawNodes(c, now) {
@@ -16574,25 +16594,6 @@ function drawWild(c, now) {
     c.scale(a.face < 0 ? -1 : 1, 1);
     c.drawImage(ART.frameOf(it, gaFrame(it, now, a.born)), -it.gw / 2, a.y * TS + TS - it.gh, it.gw, it.gh);
     c.restore();
-  }
-}
-function drawSea(c, now) {
-  for (const a of SEA.list) {
-    const it = ART.BYID[a.kind === "crab" ? "crab" : "seal"];
-    if (!it) continue;
-    c.save();
-    c.translate(a.x * TS + TS / 2, 0);
-    c.scale((a.face || 1) < 0 ? -1 : 1, 1);
-    c.drawImage(ART.frameOf(it, gaFrame(it, now, a.born)), -it.gw / 2, a.y * TS + TS - it.gh, it.gw, it.gh);
-    c.restore();
-  }
-  if (SEA.whale) {
-    const k = Math.max(0, Math.min(1, (now - SEA.whale.t0) / 6e3)), up = Math.sin(k * Math.PI), it = ART.BYID.whale;
-    if (it && up > 0.02) {
-      c.globalAlpha = Math.min(1, up * 2);
-      c.drawImage(ART.frameOf(it, gaFrame(it, now, 0)), SEA.whale.x * TS - 12, SEA.whale.y * TS + TS - it.gh + (1 - up) * 8, it.gw, it.gh);
-      c.globalAlpha = 1;
-    }
   }
 }
 function drawSites(c, now) {
@@ -24486,45 +24487,6 @@ function drawSleeper(c, n, px, py, now) {
 }
 function drawCarry() {
 }
-function gaNearFlats() {
-  const a = GA.nearFlat = new Uint8Array(W * H);
-  if (!town.hgt) return;
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (town.hgt[y * W + x] >= 0) for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
-    const xx = x + i, yy = y + j;
-    if (xx >= 0 && yy >= 0 && xx < W && yy < H) a[yy * W + xx] = 1;
-  }
-}
-function gaTide(c, now, L) {
-  const nf = GA.nearFlat;
-  if (!nf) return;
-  const v = gaView(), fi = gaFi(now), hg = town.hgt;
-  const key = v.x0 + "," + v.y0 + "," + v.x1 + "," + v.y1 + "," + (town.seed || "");
-  let tc = GA.tideCache;
-  if (!tc || tc.key !== key || !(now - tc.t < 200)) {
-    const dep = (i, j) => {
-      if (i < 0 || j < 0 || i >= W || j >= H) return 99;
-      const h = hg[j * W + i];
-      return h >= 0 ? L - h : gaK(i, j) === "water" ? 99 : -99;
-    };
-    const list2 = [];
-    for (let y = v.y0; y < v.y1; y++) for (let x = v.x0; x < v.x1; x++) {
-      if (!nf[y * W + x] || roomAt[y][x] >= 0) continue;
-      const d = [dep(x - 1, y - 1), dep(x, y - 1), dep(x + 1, y - 1), dep(x - 1, y), dep(x, y), dep(x + 1, y), dep(x - 1, y + 1), dep(x, y + 1), dep(x + 1, y + 1)], w = d.map((q) => q > 0);
-      const m = (w[0] && w[1] && w[3] && w[4] ? 1 : 0) | (w[1] && w[2] && w[4] && w[5] ? 2 : 0) | (w[4] && w[5] && w[7] && w[8] ? 4 : 0) | (w[3] && w[4] && w[6] && w[7] ? 8 : 0);
-      if (!m) continue;
-      const own = hg[y * W + x] >= 0, dd = d[4];
-      if (!own && m !== 15 && gaK(x, y) !== "water") continue;
-      list2.push(x * TS, y * TS, m, own ? Math.min(0.96, 0.5 + dd / 9) : 1);
-    }
-    tc = GA.tideCache = { key, t: now, list: list2 };
-  }
-  const list = tc.list;
-  for (let i = 0; i < list.length; i += 4) {
-    c.globalAlpha = list[i + 3];
-    c.drawImage(list[i + 2] === 15 ? ART.water("shallow", fi) : ART.overlay("shallow", list[i + 2], fi), list[i], list[i + 1], TS, TS);
-  }
-  c.globalAlpha = 1;
-}
 let waterList = [];
 let waterDirty = false;
 function sizeCanvas() {
@@ -24673,7 +24635,6 @@ function render(now, dtSec, hourOfDay) {
   drawGround(c, now);
   drawCrops(c, now);
   drawDoors(c, dtSec);
-  if (typeof drawTide === "function") drawTide(c, now);
   if (typeof drawSteps === "function") drawSteps(c, now);
   drawNodes(c, now);
   if (typeof drawShrooms === "function") drawShrooms(c, now);
@@ -24689,10 +24650,6 @@ function render(now, dtSec, hourOfDay) {
   drawWorkFx(c, now);
   stepWild(now);
   drawWild(c, now);
-  if (typeof stepSea === "function") {
-    stepSea(now);
-    drawSea(c, now);
-  }
   drawLabels(c);
   {
     const items = [], near = /* @__PURE__ */ new Set(), mark = (x, y) => {
@@ -25467,172 +25424,6 @@ function glow(c, x, y, r, col) {
   g.addColorStop(1, col.replace(/[\d.]+\)$/, "0)"));
   c.fillStyle = g;
   c.fillRect(x - r, y - r, r * 2, r * 2);
-}
-const TIDE_P = 360;
-const TIDE_MID = 54;
-const TIDE_AMP = 42;
-function tideRaw(t) {
-  return TIDE_MID - TIDE_AMP * Math.cos(2 * Math.PI * t / TIDE_P);
-}
-function tideLevel() {
-  return town && town.coast ? TIDE_MID : 0;
-}
-function tideDepth(x, y) {
-  const h = town.hgt[y * W + x];
-  return h < 0 ? 99 : tideLevel() - h;
-}
-const onFlats = (x, y) => !!(town.hgt && town.hgt[y * W + x] >= 0);
-const TIDE = { cv: null, bcv: null, t: 0, key: "" };
-function drawTide(c, now) {
-  if (!town.hgt || !town.coast) return;
-  const x0 = Math.max(0, Math.floor(cam.x / TS) - 2), y0 = Math.max(0, Math.floor(cam.y / TS) - 2);
-  const x1 = Math.min(W, Math.ceil((cam.x + cam.cw / cam.z) / TS) + 2), y1 = Math.min(H, Math.ceil((cam.y + cam.ch / cam.z) / TS) + 2);
-  if (y1 <= y0) return;
-  const rw = x1 - x0, rh = y1 - y0, L = tideLevel(), key = x0 + "," + y0 + "," + rw + "," + rh + "," + L.toFixed(1);
-  if (!TIDE.cv) {
-    TIDE.cv = document.createElement("canvas");
-    TIDE.bcv = document.createElement("canvas");
-  }
-  if (false) {
-    TIDE.key = key;
-    TIDE.t = now;
-    const cv = TIDE.cv;
-    if (cv.width !== rw || cv.height !== rh) {
-      cv.width = rw;
-      cv.height = rh;
-    }
-    const cx = cv.getContext("2d"), img = cx.createImageData(rw, rh), d = img.data;
-    for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++) {
-      const k = (y0 + y) * W + x0 + x, h = town.hgt[k], o = (y * rw + x) * 4;
-      let dep = h >= 0 ? L - h : grid[y0 + y][x0 + x] === T.WATER ? 40 : -99;
-      if (dep > 0) {
-        const s = Math.min(1, dep / 30);
-        d[o] = 111 - 36 * s;
-        d[o + 1] = 179 - 32 * s;
-        d[o + 2] = 221 - 12 * s;
-        d[o + 3] = Math.round(255 * Math.min(0.97, 0.55 + dep / 10));
-      } else if (dep > -6 && h >= 0) {
-        d[o] = 120;
-        d[o + 1] = 100;
-        d[o + 2] = 62;
-        d[o + 3] = Math.round(255 * 0.28 * (1 + dep / 6));
-      }
-    }
-    cx.putImageData(img, 0, 0);
-    const b = TIDE.bcv, S = 4;
-    if (b.width !== rw * S || b.height !== rh * S) {
-      b.width = rw * S;
-      b.height = rh * S;
-    }
-    const bx = b.getContext("2d");
-    bx.clearRect(0, 0, b.width, b.height);
-    bx.imageSmoothingEnabled = true;
-    bx.filter = "blur(1.6px)";
-    bx.drawImage(cv, 0, 0, b.width, b.height);
-    bx.filter = "none";
-    TIDE.x0 = x0;
-    TIDE.y0 = y0;
-    TIDE.rw = rw;
-    TIDE.rh = rh;
-  }
-  const sm = c.imageSmoothingEnabled;
-  c.imageSmoothingEnabled = true;
-  gaTide(c, now, L);
-  c.imageSmoothingEnabled = sm;
-  if (cam.z < 0.6) return;
-  const t = now / 1e3;
-  c.lineCap = "round";
-  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
-    const h = town.hgt[y * W + x];
-    if (h < 0) continue;
-    const dep = L - h;
-    if (dep <= 0 || dep > 2.2) continue;
-    const px = x * TS, py = y * TS, hs = hash(x, y, 71), ph = (t * 0.6 + hs) % 1;
-    c.strokeStyle = `rgba(245,250,252,${0.55 * Math.sin(ph * Math.PI)})`;
-    c.lineWidth = 1.4;
-    c.beginPath();
-    c.moveTo(px + 3 + hs * 6, py + 8 + ph * 8);
-    c.quadraticCurveTo(px + 12, py + 5 + ph * 8, px + 20 - hs * 4, py + 9 + ph * 8);
-    c.stroke();
-  }
-}
-const landOut = (x, y) => !!(town.islet && town.islet[y * W + x]);
-const SEA = { list: [], t: 0, whale: null };
-function stepSea(now) {
-  const n = game.player;
-  if (!n || !town.coast || !inCoast(n.tx, n.ty)) {
-    SEA.list.length = 0;
-    SEA.whale = null;
-    return;
-  }
-  const dt = Math.min(0.1, (now - (SEA.last || now)) / 1e3);
-  SEA.last = now;
-  if (now - SEA.t > 900 && SEA.list.length < 8) {
-    SEA.t = now;
-    for (let t = 0; t < 15; t++) {
-      const x = n.tx + Math.round((Math.random() - 0.5) * 26), y = n.ty + Math.round((Math.random() - 0.5) * 18);
-      if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1 || !inCoast(x, y)) continue;
-      if (onFlats(x, y) && tideDepth(x, y) < -1) {
-        SEA.list.push({ kind: "crab", x, y, tx: x, ty: y, born: now });
-        break;
-      }
-      if (landOut(x, y) && (grid[y][x] === T.SAND || grid[y][x] === T.ROCK) && Math.random() < 0.4) {
-        SEA.list.push({ kind: "seal", x, y, tx: x, ty: y, born: now, face: Math.random() < 0.5 ? -1 : 1 });
-        break;
-      }
-    }
-  }
-  for (let i = SEA.list.length - 1; i >= 0; i--) {
-    const a = SEA.list[i], d = Math.hypot(a.x - n.tx, a.y - n.ty);
-    if (d > 30 || now - a.born > 9e4 || a.kind === "crab" && onFlats(Math.round(a.x), Math.round(a.y)) && tideDepth(Math.round(a.x), Math.round(a.y)) > 1) {
-      SEA.list.splice(i, 1);
-      continue;
-    }
-    if (a.kind === "crab") {
-      if (d < 3) {
-        a.tx = a.x + Math.sign(a.x - n.tx || 1) * 4;
-        a.ty = a.y;
-      } else if (Math.random() < 0.01) {
-        a.tx = a.x + (Math.random() - 0.5) * 3;
-        a.ty = a.y + (Math.random() - 0.5) * 1;
-      }
-      const dx = a.tx - a.x, dy = a.ty - a.y, dd = Math.hypot(dx, dy);
-      if (dd > 0.05) {
-        const s = Math.min(1, (d < 3 ? 3 : 0.6) * dt / dd);
-        a.x += dx * s;
-        a.y += dy * s;
-      }
-    }
-  }
-  if (!SEA.whale && Math.random() < 15e-4) {
-    for (let t = 0; t < 20; t++) {
-      const x = n.tx + Math.round((Math.random() - 0.5) * 30), y = n.ty + 6 + Math.round(Math.random() * 12);
-      if (y < H - 1 && x > 0 && x < W - 1 && grid[y][x] === T.WATER) {
-        SEA.whale = { x, y, t0: now };
-        if (!town.coast.whaleSaid) {
-          town.coast.whaleSaid = true;
-          think(n, "A WHALE! Out past the flats... it's enormous!");
-        }
-        break;
-      }
-    }
-  }
-  if (SEA.whale && now - SEA.whale.t0 > 6e3) SEA.whale = null;
-}
-function openShop(m) {
-  const n = game.player;
-  if (!n || !m) return;
-  const took = [];
-  for (const g of FOODS) {
-    const q = Math.min(Math.max(0, 3 - (n.inv[g] || 0)), Math.floor(m.stock[g] || 0));
-    if (q > 0) {
-      m.stock[g] -= q;
-      n.inv[g] = (n.inv[g] || 0) + q;
-      took.push(q + " " + GNAME(g));
-    }
-  }
-  playerSay(n, took.length ? "Took " + took.join(", ") + " from the larder. Nobody minds: there is plenty." : anyOf(["Your pockets are full enough. Leave some for the others.", "Nothing here you need right now."]));
-  updateHud(true);
 }
 const el = (id) => document.getElementById(id);
 const state = { speed: 2, rate: 2, tab: "people" };
@@ -29141,23 +28932,23 @@ function jsSnore(vol, pan, deep) {
   if (!sndReady() || vol <= 0.02) return;
   const c = SND.ctx, t = c.currentTime;
   const out = c.createGain();
-  out.gain.value = vol;
-  let node = out;
+  out.gain.value = Math.min(1.4, vol * 1.8);
+  const node = out;
   if (c.createStereoPanner) {
     const p = c.createStereoPanner();
     p.pan.value = Math.max(-1, Math.min(1, pan));
     out.connect(p);
     p.connect(SND.master);
   } else out.connect(SND.master);
-  const breath = (at, dur, f0, f1, v) => {
+  const breath = (at, dur, f0, f1, v, q) => {
     const s = c.createBufferSource(), fl = c.createBiquadFilter(), g = c.createGain();
     s.buffer = SND.noiseBuf;
     fl.type = "bandpass";
-    fl.Q.value = 3;
+    fl.Q.value = q;
     fl.frequency.setValueAtTime(f0, t + at);
     fl.frequency.linearRampToValueAtTime(f1, t + at + dur);
     g.gain.setValueAtTime(1e-4, t + at);
-    g.gain.exponentialRampToValueAtTime(v, t + at + dur * 0.45);
+    g.gain.exponentialRampToValueAtTime(v, t + at + dur * 0.5);
     g.gain.exponentialRampToValueAtTime(1e-4, t + at + dur);
     s.connect(fl);
     fl.connect(g);
@@ -29165,28 +28956,32 @@ function jsSnore(vol, pan, deep) {
     s.start(t + at, Math.random());
     s.stop(t + at + dur + 0.05);
   };
-  breath(0, 0.9, 260 * deep, 420 * deep, 0.22);
-  const o = c.createOscillator(), og = c.createGain(), lfo = c.createOscillator(), lg = c.createGain();
+  const o = c.createOscillator(), og = c.createGain(), am = c.createGain(), lfo = c.createOscillator(), lg = c.createGain(), lp = c.createBiquadFilter();
   o.type = "sawtooth";
-  o.frequency.value = 62 * deep;
-  lfo.frequency.value = 28;
-  lg.gain.value = 0.05;
+  o.frequency.setValueAtTime(92 * deep, t);
+  o.frequency.linearRampToValueAtTime(108 * deep, t + 1);
+  lfo.type = "square";
+  lfo.frequency.value = 26 + deep * 4;
+  lg.gain.value = 0.5;
+  am.gain.value = 0.5;
   lfo.connect(lg);
-  lg.connect(og.gain);
-  og.gain.setValueAtTime(1e-4, t);
-  og.gain.exponentialRampToValueAtTime(0.06, t + 0.45);
-  og.gain.exponentialRampToValueAtTime(1e-4, t + 0.9);
-  const lp = c.createBiquadFilter();
+  lg.connect(am.gain);
   lp.type = "lowpass";
-  lp.frequency.value = 380;
-  o.connect(og);
-  og.connect(lp);
-  lp.connect(node);
+  lp.frequency.value = 1100;
+  lp.Q.value = 2;
+  og.gain.setValueAtTime(1e-4, t);
+  og.gain.exponentialRampToValueAtTime(0.32, t + 0.55);
+  og.gain.exponentialRampToValueAtTime(1e-4, t + 1.05);
+  o.connect(am);
+  am.connect(lp);
+  lp.connect(og);
+  og.connect(node);
   o.start(t);
   lfo.start(t);
-  o.stop(t + 0.95);
-  lfo.stop(t + 0.95);
-  breath(1.25, 1.1, 900, 600, 0.06);
+  o.stop(t + 1.1);
+  lfo.stop(t + 1.1);
+  breath(0, 1.05, 380 * deep, 620 * deep, 0.55, 1.2);
+  breath(1.4, 1.2, 1100, 700, 0.22, 1.5);
 }
 function jsDing() {
   if (!sndReady()) return;
@@ -29377,16 +29172,21 @@ function drawJuice(c, now) {
   if (P && typeof sndReady === "function" && sndReady()) {
     const tnow = performance.now();
     for (const n of npcs) {
-      if (!n || n.dead || n === P || n.pose !== "sleep" || n.infant) continue;
-      const v = sndAt(n.x, n.y);
-      if (v <= 0.15) {
+      if (!n || n.dead || n.infant) continue;
+      const me = n === P, asleep = n.pose === "sleep" || me && P.player && P.player.sleeping;
+      if (!asleep) {
+        n._snore = 0;
+        continue;
+      }
+      const v = me ? 0.7 : sndAt(n.x, n.y);
+      if (v <= 0.12) {
         n._snore = 0;
         continue;
       }
       if (!n._snore) n._snore = tnow + 400 + n.id * 977 % 2600;
       if (tnow < n._snore) continue;
       n._snore = tnow + 3e3 + n.id * 131 % 900;
-      jsSnore(Math.pow(v, 1.6) * (n.age < 16 ? 0.4 : 0.75), (n.x - P.x) / 9, n.age < 16 ? 1.5 : n.female ? 1.2 : 1);
+      jsSnore(Math.pow(v, 1.3) * (n.age < 16 ? 0.5 : 0.9), me ? 0 : (n.x - P.x) / 9, n.age < 16 ? 1.5 : n.female ? 1.2 : 1);
     }
   }
   for (const n of npcs) {
@@ -31003,7 +30803,6 @@ function tileTip(x, y) {
     const k = y * W + x, name = Object.keys(T).find((q) => T[q] === g) || String(g), ri2 = roomAt[y][x], r = ri2 >= 0 ? rooms[ri2] : null, pr = lfPropAt(x, y), why = [];
     if (BLOCKED.has(g)) why.push("tile type " + name);
     if (town.block && town.block[k]) why.push("town.block");
-    if (town.hgt && town.hgt[k] >= 0) why.push("height map");
     if (town.fmask && town.fmask[k]) why.push("field mask");
     if (town.pblock && town.pblock[k]) why.push("a prop");
     if (tileOwner.get(k)) why.push("somebody stands here");
@@ -31417,6 +31216,7 @@ function isleRestore(text) {
   SB.count = o.sb && o.sb.count || {};
   SB.pair = o.sb && o.sb.pair || /* @__PURE__ */ new Map();
   SB.presim = !!(o.sb && o.sb.presim);
+  settleFlats();
   growLevels();
   reach = new Uint8Array(W * H);
   tileOwner = /* @__PURE__ */ new Map();
@@ -32279,7 +32079,7 @@ function sndAmbient(now, hour) {
   const c = SND.ctx, t = c.currentTime;
   const mine = isMineY(p.ty), inRoom = roomAt[p.ty] && roomAt[p.ty][p.tx] >= 0, outdoors = !mine && !inRoom, day = hour >= 6 && hour < 19;
   let near = 0;
-  if (!mine && town.hgt) for (let dy = -6; dy <= 6; dy += 2) for (let dx = -6; dx <= 6; dx += 2) {
+  if (!mine) for (let dy = -6; dy <= 6; dy += 2) for (let dx = -6; dx <= 6; dx += 2) {
     const y = p.ty + dy, x = p.tx + dx;
     if (grid[y] && grid[y][x] === T.WATER) near = Math.max(near, 1 - Math.hypot(dx, dy) / 9);
   }
@@ -38473,7 +38273,7 @@ lxi("ask_news", "Any news?");
 lxi("ask_news", "Have you heard anything? About anyone. About anything.");
 lxi("no_news", "Nothing. A gull stood on the beach for a long time and left.");
 lxi("no_news", "No. I looked, though.");
-lxi("no_news", "Nothing I would call news. The tide is where it was.");
+lxi("no_news", "Nothing I would call news. The sea is where it was.");
 lxi("share_news", "I saw it myself, so I can tell you. {news}.", { how: "saw" });
 lxi("share_news", "I was there. {news}. I stood very still.", { how: "saw", rel: "friend" });
 lxi("share_news", "I heard that {news}. I cannot vouch for it.", { how: "told" });

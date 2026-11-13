@@ -89,7 +89,7 @@ function tileTip(x, y) {
   const g = grid[y][x];
   if (typeof itBuildOn === 'function' && game.player && itBuildOn(game.player)) {   // in build mode a tile says what it is made of and what blocks it
     const k = y * W + x, name = Object.keys(T).find(q => T[q] === g) || String(g), ri = roomAt[y][x], r = ri >= 0 ? rooms[ri] : null, pr = lfPropAt(x, y), why: string[] = [];
-    if (BLOCKED.has(g)) why.push('tile type ' + name); if (town.block && town.block[k]) why.push('town.block'); if (town.hgt && town.hgt[k] >= 0) why.push('height map'); if (town.fmask && town.fmask[k]) why.push('field mask'); if (town.pblock && town.pblock[k]) why.push('a prop'); if (tileOwner.get(k)) why.push('somebody stands here');
+    if (BLOCKED.has(g)) why.push('tile type ' + name); if (town.block && town.block[k]) why.push('town.block'); if (town.fmask && town.fmask[k]) why.push('field mask'); if (town.pblock && town.pblock[k]) why.push('a prop'); if (tileOwner.get(k)) why.push('somebody stands here');
     const wall = town.bldWall && town.bldWall.get(k);
     const bedP = pr && pr.kind === 'bed' ? pr : null, bedR = g === T.BED && r ? (r.beds || []).find(q => q.x === x && q.y === y) : null, bd = bedP || bedR;
     const bedLine = bd ? `<b>Bed</b>: ${bd.owner && !bd.owner.dead ? 'belongs to ' + esc(bd.owner.first) : 'nobody\'s (free)'}${r ? ' · in ' + esc(r.name || r.kind) : ' · outside'}<br>` : '';

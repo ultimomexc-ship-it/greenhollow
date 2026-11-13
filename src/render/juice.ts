@@ -43,19 +43,25 @@ function jsStrike(tool: string, vol = 1) { if (!sndReady() || vol <= 0) return;
   if (tool === 'hoe') { sndNoise(0.09, 'lowpass', 700, 0.14 * vol, 200); sndTone(120, 0.1, 'sine', 0.13 * vol, 60); sndNoise(0.05, 'bandpass', 1800, 0.04 * vol, undefined, 0.02); }
   else if (tool === 'axe') { sndNoise(0.05, 'bandpass', 1900, 0.13 * vol); sndTone(320, 0.08, 'triangle', 0.1 * vol, 190); sndNoise(0.12, 'lowpass', 900, 0.06 * vol, 300, 0.02); }
   else if (tool === 'hammer') { sndTone(980, 0.09, 'square', 0.05 * vol, 700); sndTone(1460, 0.12, 'sine', 0.05 * vol, undefined, 0.01); sndNoise(0.05, 'highpass', 3200, 0.07 * vol); } }
-/** a snore: a rasping breath in (filtered noise swelling, with a low flutter) and a softer breath out; vol by distance, pan by which side of you the sleeper is */
+/** a snore: a rasping breath in and a soft breath out. Pitched in the range small speakers play (the old one sat at 62 Hz, which a laptop or a
+   phone hardly sounds): a buzzing voice at about 100 Hz with its harmonics kept, fluttering ~30 times a second, over breathy noise round 500 Hz.
+   vol by distance, pan by which side of you the sleeper is */
 function jsSnore(vol: number, pan: number, deep: number) {
   if (!sndReady() || vol <= 0.02) return; const c = SND.ctx, t = c.currentTime;
-  const out = c.createGain(); out.gain.value = vol; let node: any = out;
+  const out = c.createGain(); out.gain.value = Math.min(1.4, vol * 1.8); const node: any = out;
   if (c.createStereoPanner) { const p = c.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); out.connect(p); p.connect(SND.master); } else out.connect(SND.master);
-  const breath = (at: number, dur: number, f0: number, f1: number, v: number) => { const s = c.createBufferSource(), fl = c.createBiquadFilter(), g = c.createGain();
-    s.buffer = SND.noiseBuf; fl.type = 'bandpass'; fl.Q.value = 3; fl.frequency.setValueAtTime(f0, t + at); fl.frequency.linearRampToValueAtTime(f1, t + at + dur);
-    g.gain.setValueAtTime(0.0001, t + at); g.gain.exponentialRampToValueAtTime(v, t + at + dur * 0.45); g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur); s.connect(fl); fl.connect(g); g.connect(node); s.start(t + at, Math.random()); s.stop(t + at + dur + 0.05); };
-  breath(0, 0.9, 260 * deep, 420 * deep, 0.22);   // (in: the rattle)
-  const o = c.createOscillator(), og = c.createGain(), lfo = c.createOscillator(), lg = c.createGain(); o.type = 'sawtooth'; o.frequency.value = 62 * deep; lfo.frequency.value = 28; lg.gain.value = 0.05; lfo.connect(lg); lg.connect(og.gain);
-  og.gain.setValueAtTime(0.0001, t); og.gain.exponentialRampToValueAtTime(0.06, t + 0.45); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.9); const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 380;
-  o.connect(og); og.connect(lp); lp.connect(node); o.start(t); lfo.start(t); o.stop(t + 0.95); lfo.stop(t + 0.95);
-  breath(1.25, 1.1, 900, 600, 0.06);   // (out: a soft whistle of air)
+  const breath = (at: number, dur: number, f0: number, f1: number, v: number, q: number) => { const s = c.createBufferSource(), fl = c.createBiquadFilter(), g = c.createGain();
+    s.buffer = SND.noiseBuf; fl.type = 'bandpass'; fl.Q.value = q; fl.frequency.setValueAtTime(f0, t + at); fl.frequency.linearRampToValueAtTime(f1, t + at + dur);
+    g.gain.setValueAtTime(0.0001, t + at); g.gain.exponentialRampToValueAtTime(v, t + at + dur * 0.5); g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur); s.connect(fl); fl.connect(g); g.connect(node); s.start(t + at, Math.random()); s.stop(t + at + dur + 0.05); };
+  // in: the rattle (a buzzing voice, its loudness chopped by a fast flutter), over a breath of noise
+  const o = c.createOscillator(), og = c.createGain(), am = c.createGain(), lfo = c.createOscillator(), lg = c.createGain(), lp = c.createBiquadFilter();
+  o.type = 'sawtooth'; o.frequency.setValueAtTime(92 * deep, t); o.frequency.linearRampToValueAtTime(108 * deep, t + 1.0);
+  lfo.type = 'square'; lfo.frequency.value = 26 + deep * 4; lg.gain.value = 0.5; am.gain.value = 0.5; lfo.connect(lg); lg.connect(am.gain);
+  lp.type = 'lowpass'; lp.frequency.value = 1100; lp.Q.value = 2;
+  og.gain.setValueAtTime(0.0001, t); og.gain.exponentialRampToValueAtTime(0.32, t + 0.55); og.gain.exponentialRampToValueAtTime(0.0001, t + 1.05);
+  o.connect(am); am.connect(lp); lp.connect(og); og.connect(node); o.start(t); lfo.start(t); o.stop(t + 1.1); lfo.stop(t + 1.1);
+  breath(0, 1.05, 380 * deep, 620 * deep, 0.55, 1.2);
+  breath(1.4, 1.2, 1100, 700, 0.22, 1.5);   // (out: a soft whistle of air)
 }
 function jsDing() { if (!sndReady()) return; sndTone(880, 0.16, 'sine', 0.07); sndTone(1320, 0.28, 'sine', 0.05, undefined, 0.07); }
 function jsCrack() { if (!sndReady()) return; sndNoise(0.12, 'bandpass', 1100, 0.2, 400); sndTone(160, 0.1, 'square', 0.06, 70); sndNoise(0.25, 'lowpass', 300, 0.08, 120, 0.06); }
@@ -139,9 +145,10 @@ function drawJuice(c: any, now: number) {
   const P = game.player, ps = JUICE.parts;
   // sleepers snore, each in their own rhythm, louder the closer and from the side they lie on
   if (P && typeof sndReady === 'function' && sndReady()) { const tnow = performance.now();
-    for (const n of npcs) { if (!n || n.dead || n === P || n.pose !== 'sleep' || n.infant) continue; const v = sndAt(n.x, n.y); if (v <= 0.15) { n._snore = 0; continue; }
+    for (const n of npcs) { if (!n || n.dead || n.infant) continue; const me = n === P, asleep = n.pose === 'sleep' || (me && P.player && P.player.sleeping); if (!asleep) { n._snore = 0; continue; }
+      const v = me ? 0.7 : sndAt(n.x, n.y); if (v <= 0.12) { n._snore = 0; continue; }   // (you snore too, from the middle, while you sleep)
       if (!n._snore) n._snore = tnow + 400 + ((n.id * 977) % 2600); if (tnow < n._snore) continue; n._snore = tnow + 3000 + ((n.id * 131) % 900);
-      jsSnore(Math.pow(v, 1.6) * (n.age < 16 ? 0.4 : 0.75), (n.x - P.x) / 9, n.age < 16 ? 1.5 : n.female ? 1.2 : 1); } }
+      jsSnore(Math.pow(v, 1.3) * (n.age < 16 ? 0.5 : 0.9), me ? 0 : (n.x - P.x) / 9, n.age < 16 ? 1.5 : n.female ? 1.2 : 1); } }
   // the swing comes down (the same phase the work pose draws, painters.ts swingTool): one strike sound for you and anybody working close by
   for (const n of npcs) { if (!n || n.dead || n.pose !== 'work' || !['hoe', 'axe', 'hammer'].includes(n.tool)) { if (n) n._jtt = null; continue; } const v = n === P ? 1 : sndAt(n.tx, n.ty) * 0.6; if (v <= 0.05) continue;
     const tt = ((Math.floor(now / 1000 * 30) % 20) / 20 + ((n.id || 0) % 7) * 0.13) % 1; if (n._jtt != null && tt < n._jtt) jsStrike(n.tool, v); n._jtt = tt; }
