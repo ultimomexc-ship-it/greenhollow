@@ -5124,6 +5124,21 @@ const ART = (function() {
     child: { hh: 5.8, hw: 2.85, nk: 0.6, nkw: 1.3, sh: 2.8, wa: 2.3, hp: 2.6, tl: 4.8, lg: 6, ua: 2.6, fa: 2.3, aw: 0.95, thw: 2, knw: 1.65, ank: 1.4, eye: 1.18, hnd: 0.62 },
     infant: { hh: 5.4, hw: 2.95, nk: 0.3, nkw: 1.3, sh: 2.4, wa: 2.2, hp: 2.5, tl: 3, lg: 2.4, ua: 1.6, fa: 1.4, aw: 1.25, thw: 2.2, knw: 1.9, ank: 1.6, eye: 1.28, hnd: 0.68 }
   };
+  const KD_REAL = JSON.parse(JSON.stringify(KD));
+  const KD_CHIBI = {
+    adult: { hh: 10.2, hw: 5.1, nk: 0.35, nkw: 1.7, sh: 3, wa: 2.75, hp: 2.9, tl: 5, lg: 4.7, ua: 2.5, fa: 2.2, aw: 1.05, thw: 2, knw: 1.75, ank: 1.55, eye: 1, hnd: 0.85 },
+    adultF: { hh: 9.9, hw: 4.95, nk: 0.35, nkw: 1.55, sh: 2.75, wa: 2.4, hp: 3, tl: 4.8, lg: 4.8, ua: 2.4, fa: 2.1, aw: 0.98, thw: 2, knw: 1.7, ank: 1.5, eye: 1, hnd: 0.8 },
+    child: { hh: 8.6, hw: 4.35, nk: 0.25, nkw: 1.4, sh: 2.45, wa: 2.2, hp: 2.35, tl: 3.7, lg: 3.3, ua: 1.95, fa: 1.75, aw: 0.95, thw: 1.75, knw: 1.55, ank: 1.4, eye: 1, hnd: 0.72 },
+    infant: { hh: 7, hw: 3.7, nk: 0.15, nkw: 1.3, sh: 2.2, wa: 2.1, hp: 2.3, tl: 2.6, lg: 1.9, ua: 1.35, fa: 1.25, aw: 1.2, thw: 2, knw: 1.75, ank: 1.5, eye: 1, hnd: 0.66 }
+  };
+  function chibiSet(on) {
+    CHIBI.on = on;
+    const src = on ? KD_CHIBI : KD_REAL;
+    for (const k in src) Object.assign(KD[k], src[k]);
+    for (const k in LC) delete LC[k];
+    for (const k in TINT) delete TINT[k];
+    if (typeof DOLL_CACHE !== "undefined") DOLL_CACHE.clear();
+  }
   const kitOf = (age) => age < 3 ? "infant" : age < 16 ? "child" : "adult";
   const kitFor = (sp) => {
     const k = kitOf(sp.age);
@@ -6219,6 +6234,109 @@ const ART = (function() {
     return { poly: tube(pts, ws, { cap0: false, cap1: false, seg: 2 }), pts, w };
   }
   function hairStyle(kit, dir, style) {
+    const out = hairStyle0(kit, dir, style);
+    if (CHIBI.on) animeHair(out, kit, dir, style);
+    return out;
+  }
+  function animeHair(out, kit, dir, style) {
+    const h = hd(kit, dir), P = h.P, st = style;
+    const squash = (pts2) => pts2.map((q) => {
+      const v2 = (q[1] - h.top) / h.hh;
+      return v2 > 0.95 ? [q[0], h.top + (0.95 + (v2 - 0.95) * 0.38) * h.hh] : q;
+    });
+    for (const l of out.back) if (l.poly) l.poly = squash(l.poly);
+    out.extra = out.extra.map((e) => Array.isArray(e) ? squash(e) : e);
+    for (const sx of out.strands) if (sx.tie) {
+      const q = squash([[sx.tie[0], sx.tie[1]]])[0];
+      sx.tie[1] = q[1];
+    }
+    if (st === "bald" || st === "curly") return;
+    const fem = ["long", "bob", "bun", "braids", "ponytail"].includes(st), spiky = st === "short" || st === "shaggy";
+    const fl = st === "crop" ? 0.36 : st === "shaggy" ? 0.56 : fem ? 0.5 : 0.5;
+    const sideEnd = fem ? st === "bun" ? 0.9 : 1.12 : st === "shaggy" ? 0.88 : st === "crop" ? 0.62 : 0.76;
+    const v = st === "crop" ? 1 : st === "shaggy" ? 1.14 : 1.08;
+    const pts = [], add2 = (x, y) => pts.push(P(x, y));
+    const edge = (x0, y0, x1, y1, b = 0.04, n = 4) => {
+      for (let i = 1; i <= n; i++) {
+        const t = i / n, x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t, k = Math.sin(t * Math.PI) * b;
+        add2(x + k * 0.2, y - k);
+      }
+    };
+    const crown2 = (from, to) => {
+      const top = [[1.12 * v, 0.46], [1.1 * v, 0.2], [0.9 * v, -0.04], [0.5, -0.17 * v], [0, -0.2 * v], [-0.5, -0.17 * v], [-0.9 * v, -0.04], [-1.1 * v, 0.2], [-1.12 * v, 0.46]];
+      const seq = from > 0 ? top : top.slice().reverse();
+      const spikes = spiky ? st === "shaggy" ? [[0.72, -0.3], [0.18, -0.36], [-0.4, -0.34], [-0.95, -0.12]] : [[0.6, -0.28], [0.05, -0.34], [-0.6, -0.27]] : [];
+      for (let i = 0; i < seq.length; i++) {
+        add2(seq[i][0], seq[i][1]);
+        const nx = seq[i + 1];
+        if (!nx) break;
+        for (const sp of spikes) {
+          const lo = Math.min(seq[i][0], nx[0]), hi = Math.max(seq[i][0], nx[0]);
+          if (sp[0] > lo && sp[0] <= hi) add2(sp[0], sp[1] * v);
+        }
+      }
+    };
+    if (dir === "front") {
+      crown2(1, -1);
+      add2(-1.08, sideEnd - 0.22);
+      add2(-0.98, sideEnd);
+      add2(-0.84, sideEnd - 0.3);
+      add2(-0.82, 0.42);
+      const teeth = fem ? [[-0.62, fl + 0.02], [-0.3, fl - 0.04], [0.02, fl - 0.18], [0.3, fl - 0.02], [0.62, fl + 0.04]] : [[-0.66, fl], [-0.36, fl + 0.04], [-0.06, fl - 0.02], [0.26, fl + 0.05], [0.58, fl - 0.01]];
+      let px = -0.82, py = 0.42;
+      for (const [tx, ty] of teeth) {
+        const nx = (px + tx) / 2;
+        edge(px, py, nx, 0.24 + (fem && Math.abs(tx) < 0.1 ? -0.06 : 0), 0.03, 2);
+        edge(nx, 0.24, tx, ty, -0.05, 3);
+        px = tx;
+        py = ty;
+      }
+      edge(px, py, 0.82, 0.42, 0.04, 3);
+      add2(0.84, sideEnd - 0.3);
+      add2(0.98, sideEnd);
+      add2(1.08, sideEnd - 0.22);
+      out.cap = pts;
+      out.locks = [];
+    } else if (dir === "side") {
+      crown2(-1, 1);
+      add2(1, 0.18);
+      edge(1, 0.18, 1.04, fl, -0.03, 3);
+      edge(1.04, fl, 0.86, 0.26, 0.02, 2);
+      edge(0.86, 0.26, 0.7, fl + 0.04, -0.04, 3);
+      edge(0.7, fl + 0.04, 0.5, 0.28, 0.02, 2);
+      edge(0.5, 0.28, 0.34, fl - 0.02, -0.04, 3);
+      edge(0.34, fl - 0.02, 0.22, 0.3, 0.02, 2);
+      add2(0.2, sideEnd - 0.1);
+      add2(0.12, sideEnd);
+      add2(0, sideEnd - 0.25);
+      add2(-0.18, 0.36);
+      const nape = fem && st !== "bun" ? 1 : 0.86;
+      add2(-0.5, 0.56);
+      edge(-0.5, 0.56, -0.62, nape, -0.04, 2);
+      edge(-0.62, nape, -0.78, 0.7, 0.02, 2);
+      edge(-0.78, 0.7, -0.98, nape - 0.02, -0.04, 2);
+      add2(-1.1, 0.7);
+      out.cap = pts;
+      out.locks = [];
+    } else {
+      crown2(1, -1);
+      const nape = fem && st !== "bun" ? 1 : 0.9;
+      add2(-1.06, 0.72);
+      let px = -1.06, py = 0.72;
+      for (const tx of [-0.75, -0.38, 0, 0.38, 0.75]) {
+        const ty = nape + (Math.abs(tx) < 0.1 ? 0.04 : 0), nx = (px + tx) / 2;
+        edge(px, py, nx, nape - 0.2, 0.02, 2);
+        edge(nx, nape - 0.2, tx, ty, -0.04, 2);
+        px = tx;
+        py = ty;
+      }
+      edge(px, py, 1.06, 0.72, 0.02, 2);
+      out.cap = pts;
+      out.locks = [];
+    }
+    out.ring = dir === "side" ? { a: [-0.7, 0.02], b: [0.6, 0], dip: -0.14, th: 0.16 } : { a: [-0.62, 0.04], b: [0.62, 0.04], dip: -0.14, th: 0.16 };
+  }
+  function hairStyle0(kit, dir, style) {
     const h = hd(kit, dir), { K, hw, hh, X } = h, s = hw / 3.35, P = h.P, y = h.y, side = dir === "side", back = dir === "back";
     const out = { back: [], cap: null, locks: [], extra: [], ring: null, strands: [] };
     const lk = (a, b, w, bend = 0) => {
@@ -7164,7 +7282,7 @@ const ART = (function() {
     const f = sp.face || { dx: 0, dy: 1 };
     return f.dy > 0 && !f.dx ? "front" : f.dy < 0 && !f.dx ? "back" : "side";
   }
-  const CHIBI = { on: false, head: 1.75, headW: 1.08, body: 0.6, bodyW: 1, kidHead: 1.32, kidBody: 0.74 };
+  const CHIBI = { on: false };
   function chibiFaceL(kit, dir, o = {}) {
     const [c, g] = frame2();
     if (dir === "back") return c;
@@ -7287,8 +7405,6 @@ const ART = (function() {
     return c;
   }
   function drawDoll(g, sp, x, y, k, T2 = 0) {
-    const kidK = kitFor(sp) === "child" || kitFor(sp) === "infant", CH = CHIBI.on ? kidK ? CHIBI.kidHead : CHIBI.head : 1, CHW = CHIBI.on && !kidK ? CHIBI.headW : 1;
-    const CBX = CHIBI.on ? CHIBI.bodyW : 1, CBY = CHIBI.on ? kidK ? CHIBI.kidBody : CHIBI.body : 1;
     const kit = kitFor(sp), G = geo(kit), K = G.K, dir = dollDir(sp), f = sp.face || { dx: 0, dy: 1 }, flip = dir === "side" && f.dx < 0;
     const pose0 = sp.pose || (sp.moving ? "walk" : "stand"), wf = Math.floor(T2 * 9) % 6;
     const hairC = sp.age >= 60 ? GREYH : sp.hair, dress = sp.dress, robe = !!sp.robe || dress === "bride", shirt = dress === "bride" ? "#f6f1e8" : dress === "groom" ? "#2f2c38" : dress === "mourn" ? "#2a2a30" : sp.shirt;
@@ -7300,19 +7416,13 @@ const ART = (function() {
     const upDy = (pose0 === "sit" ? G.sit : pose0 === "kneel" ? G.kneel : rig.dip) + breath, lean = wp ? wp.lean : 0;
     const X0 = x - DO * k, Y0 = y - DO * k, W2 = DF * k, key = `${kit}_${dir}`;
     const put = (cv, dy = 0, dx = 0) => g.drawImage(cv, X0 + dx * k, Y0 + dy * k, W2, W2);
-    const putH = (cv, dy = 0, dx = 0, clipChin = false) => {
+    const putH = (cv, dy = 0, dx = 0) => {
       const a = (calm ? Math.sin(tt * 0.55) * 0.028 + Math.sin(tt * 1.1 + 1) * 0.01 : 0) + LK.post * 0.012, dyh = Math.max(0, -LK.post) * 0.14, px = X0 + DCX * k, py = Y0 + (G.chin + upDy) * k;
       g.save();
-      if (clipChin && CHIBI.on) {
-        g.beginPath();
-        g.rect(X0 - W2, Y0 - W2, W2 * 3, py - Y0 + W2 + G.K.nk * (dir === "side" ? 3.2 : 0.95) * k);
-        g.clip();
-      }
       g.translate(px, py);
       g.rotate(dir === "side" ? a * 0.7 : a);
       g.scale(LK.hw / LK.bw, 1);
-      if (CHIBI.on) g.scale(CH * CHW / CBX, CH / CBY);
-      g.translate(-px, -py + dyh * k + (CHIBI.on ? G.K.nk * 0.85 * k / CH : 0));
+      g.translate(-px, -py + dyh * k);
       g.drawImage(cv, X0 + dx * k, Y0 + dy * k, W2, W2);
       g.restore();
     };
@@ -7356,7 +7466,7 @@ const ART = (function() {
     {
       const fx = x + 12 * k, fy = y + (DBY - DO) * k;
       g.translate(fx, fy);
-      g.scale(LK.ht * LK.bw * CBX, LK.ht * CBY);
+      g.scale(LK.ht * LK.bw, LK.ht);
       g.translate(-fx, -fy);
     }
     if (!robe) put(lay(`legs_${gp}`, sp.pants, () => legsL(kit, dir, legPose, fr, false)));
@@ -7401,7 +7511,7 @@ const ART = (function() {
       if (sp.mourning && !sp.moving || dress === "mourn") put(lay("mourn", null, () => clothL(kit, dir, "stand", 0, "mourn")), upDy);
       if (dress === "groom" && dir !== "back") put(lay("groom", null, () => dressL(kit, dir, "groom")), upDy);
       if (armsEarly) armBlock();
-      putH(lay("skin", sp.skin, () => skinL(kit, dir, "stand", 0, {})), upDy, 0, true);
+      putH(lay("skin", sp.skin, () => skinL(kit, dir, "stand", 0, {})), upDy);
       {
         const bl = (T2 + 1.3 + (sp.id || 0) * 1.37) % 4.1 < 0.15, LK2 = lookOf(sp);
         if (CHIBI.on) putH(lay((bl ? "cface_blink_" : "cface_") + LK2.iris + LK2.mouth, null, () => chibiFaceL(kit, dir, { blink: bl, look: LK2 })), upDy);
@@ -8107,7 +8217,8 @@ const ART = (function() {
     }
     g.drawImage(e.cv, x - DO - DOLL_PAD, y - DO - DOLL_PAD, e.size, e.size);
   }
-  return { Q, S, FR, DF, DO, TP, BLK, terr, water, overlay, frameOf, BYID, ITEMS, h32, mul, drawDoll, drawDollLOD, drawSleeper: drawSleeper2, roomDress, kitOf, chibi: CHIBI };
+  chibiSet(true);
+  return { Q, S, FR, DF, DO, TP, BLK, terr, water, overlay, frameOf, BYID, ITEMS, h32, mul, drawDoll, drawDollLOD, drawSleeper: drawSleeper2, roomDress, kitOf, chibi: CHIBI, chibiSet };
 })();
 let W = 128, H = 84;
 const TS = 24;

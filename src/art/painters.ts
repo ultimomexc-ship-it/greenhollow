@@ -1345,6 +1345,15 @@ const KD = {
   adultF: { hh: 5.3, hw: 2.5, nk: 1.15, nkw: 1.25, sh: 3.15, wa: 2.45, hp: 3.3, tl: 7.3, lg: 10.0, ua: 3.3, fa: 3.0, aw: 0.92, thw: 2.45, knw: 1.8, ank: 1.5, eye: 1.1, hnd: 0.7 },
   child:  { hh: 5.8, hw: 2.85, nk: 0.6, nkw: 1.3, sh: 2.8, wa: 2.3, hp: 2.6, tl: 4.8, lg: 6.0, ua: 2.6, fa: 2.3, aw: 0.95, thw: 2.0, knw: 1.65, ank: 1.4, eye: 1.18, hnd: 0.62 },
   infant: { hh: 5.4, hw: 2.95, nk: 0.3, nkw: 1.3, sh: 2.4, wa: 2.2, hp: 2.5, tl: 3.0, lg: 2.4, ua: 1.6, fa: 1.4, aw: 1.25, thw: 2.2, knw: 1.9, ank: 1.6, eye: 1.28, hnd: 0.68 } };
+/* chibi geometry: a big round head, almost no neck, a short soft body. chibiSet() swaps it into KD so every layer is painted at these sizes natively */
+const KD_REAL = JSON.parse(JSON.stringify(KD));
+const KD_CHIBI = {
+  adult:  { hh: 10.2, hw: 5.1, nk: 0.35, nkw: 1.7, sh: 3.0, wa: 2.75, hp: 2.9, tl: 5.0, lg: 4.7, ua: 2.5, fa: 2.2, aw: 1.05, thw: 2.0, knw: 1.75, ank: 1.55, eye: 1.0, hnd: 0.85 },
+  adultF: { hh: 9.9, hw: 4.95, nk: 0.35, nkw: 1.55, sh: 2.75, wa: 2.4, hp: 3.0, tl: 4.8, lg: 4.8, ua: 2.4, fa: 2.1, aw: 0.98, thw: 2.0, knw: 1.7, ank: 1.5, eye: 1.0, hnd: 0.8 },
+  child:  { hh: 8.6, hw: 4.35, nk: 0.25, nkw: 1.4, sh: 2.45, wa: 2.2, hp: 2.35, tl: 3.7, lg: 3.3, ua: 1.95, fa: 1.75, aw: 0.95, thw: 1.75, knw: 1.55, ank: 1.4, eye: 1.0, hnd: 0.72 },
+  infant: { hh: 7.0, hw: 3.7, nk: 0.15, nkw: 1.3, sh: 2.2, wa: 2.1, hp: 2.3, tl: 2.6, lg: 1.9, ua: 1.35, fa: 1.25, aw: 1.2, thw: 2.0, knw: 1.75, ank: 1.5, eye: 1.0, hnd: 0.66 } };
+function chibiSet(on: boolean) { CHIBI.on = on; const src = on ? KD_CHIBI : KD_REAL; for (const k in src) Object.assign(KD[k], src[k]);
+  for (const k in LC) delete LC[k]; for (const k in TINT) delete TINT[k]; if (typeof DOLL_CACHE !== 'undefined') DOLL_CACHE.clear(); }
 const kitOf = age => age < 3 ? 'infant' : age < 16 ? 'child' : 'adult';
 const kitFor = sp => { const k = kitOf(sp.age); return k === 'adult' && sp.female ? 'adultF' : k; };
 const isAdultKit = k => k === 'adult' || k === 'adultF';
@@ -1652,7 +1661,56 @@ function faceSleepL(kit, dir) { const [c, g]: any = frame(), h = hd(kit, dir), {
 function lockPts(A, B, w, bend) { const mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2, dx = B[0] - A[0], dy = B[1] - A[1], l = Math.hypot(dx, dy) || 1, C = [mx - dy / l * bend, my + dx / l * bend], pts = [], ws = [];
   for (let i = 0; i <= 6; i++) { const t = i / 6, a = (1 - t) * (1 - t), b = 2 * t * (1 - t), c = t * t; pts.push([a * A[0] + b * C[0] + c * B[0], a * A[1] + b * C[1] + c * B[1]]); ws.push(Math.max(0.03, w * (0.72 + 0.28 * Math.min(1, t * 3)) * Math.pow(1 - t, 0.78))); }
   return { poly: tube(pts, ws, { cap0: false, cap1: false, seg: 2 }), pts, w }; }
-function hairStyle(kit, dir, style) { const h = hd(kit, dir), { K, hw, hh, X } = h, s = hw / 3.35, P = h.P, y = h.y, side = dir === 'side', back = dir === 'back';
+function hairStyle(kit, dir, style) { const out = hairStyle0(kit, dir, style); if (CHIBI.on) animeHair(out, kit, dir, style); return out; }
+/* anime hair for chibi: the hair is one mass whose edge is cut into pointed locks (a fringe of points over the forehead, longer locks framing the face,
+   points at the nape) with a few spikes standing up on short hair. The cap of the style is replaced; buns, braids and long hair behind are kept. */
+function animeHair(out, kit, dir, style) { const h = hd(kit, dir), P = h.P, st = style;
+  /* hair hanging below the chin was measured in head heights: with a chibi head that reaches the floor, so pull it up */
+  const squash = (pts) => pts.map(q => { const v = (q[1] - h.top) / h.hh; return v > 0.95 ? [q[0], h.top + (0.95 + (v - 0.95) * 0.38) * h.hh] : q; });
+  for (const l of out.back) if (l.poly) l.poly = squash(l.poly);
+  out.extra = out.extra.map(e => Array.isArray(e) ? squash(e) : e);
+  for (const sx of out.strands) if (sx.tie) { const q = squash([[sx.tie[0], sx.tie[1]]])[0]; sx.tie[1] = q[1]; }
+  if (st === 'bald' || st === 'curly') return;
+  const fem = ['long', 'bob', 'bun', 'braids', 'ponytail'].includes(st), spiky = st === 'short' || st === 'shaggy';
+  const fl = st === 'crop' ? 0.36 : st === 'shaggy' ? 0.56 : fem ? 0.5 : 0.5;                       // how far the fringe comes down (eyes are at 0.64)
+  const sideEnd = fem ? (st === 'bun' ? 0.9 : 1.12) : st === 'shaggy' ? 0.88 : st === 'crop' ? 0.62 : 0.76;
+  const v = st === 'crop' ? 1.0 : st === 'shaggy' ? 1.14 : 1.08;
+  const pts: any[] = [], add = (x, y) => pts.push(P(x, y));
+  /* a curved edge from (x0,y0) to (x1,y1), bowed by b (head widths) */
+  const edge = (x0, y0, x1, y1, b = 0.04, n = 4) => { for (let i = 1; i <= n; i++) { const t = i / n, x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t, k = Math.sin(t * Math.PI) * b; add(x + k * 0.2, y - k); } };
+  const crown = (from, to) => {   // the top of the head, from one side to the other, with spikes on spiky styles
+    const top = [[1.12 * v, 0.46], [1.1 * v, 0.2], [0.9 * v, -0.04], [0.5, -0.17 * v], [0.0, -0.2 * v], [-0.5, -0.17 * v], [-0.9 * v, -0.04], [-1.1 * v, 0.2], [-1.12 * v, 0.46]];
+    const seq = from > 0 ? top : top.slice().reverse(); const spikes = spiky ? (st === 'shaggy' ? [[0.72, -0.3], [0.18, -0.36], [-0.4, -0.34], [-0.95, -0.12]] : [[0.6, -0.28], [0.05, -0.34], [-0.6, -0.27]]) : [];
+    for (let i = 0; i < seq.length; i++) { add(seq[i][0], seq[i][1]); const nx = seq[i + 1]; if (!nx) break;
+      for (const sp of spikes) { const lo = Math.min(seq[i][0], nx[0]), hi = Math.max(seq[i][0], nx[0]); if (sp[0] > lo && sp[0] <= hi) add(sp[0], sp[1] * v); } } };
+  if (dir === 'front') {
+    crown(1, -1);
+    // left side lock down to its point, then the fringe across, then the right side lock
+    add(-1.08, sideEnd - 0.22); add(-0.98, sideEnd); add(-0.84, sideEnd - 0.3); add(-0.82, 0.42);
+    const teeth = fem ? [[-0.62, fl + 0.02], [-0.3, fl - 0.04], [0.02, fl - 0.18], [0.3, fl - 0.02], [0.62, fl + 0.04]] : [[-0.66, fl], [-0.36, fl + 0.04], [-0.06, fl - 0.02], [0.26, fl + 0.05], [0.58, fl - 0.01]];
+    let px = -0.82, py = 0.42;
+    for (const [tx, ty] of teeth) { const nx = (px + tx) / 2; edge(px, py, nx, 0.24 + (fem && Math.abs(tx) < 0.1 ? -0.06 : 0), 0.03, 2); edge(nx, 0.24, tx, ty, -0.05, 3); px = tx; py = ty; }
+    edge(px, py, 0.82, 0.42, 0.04, 3);
+    add(0.84, sideEnd - 0.3); add(0.98, sideEnd); add(1.08, sideEnd - 0.22);
+    out.cap = pts; out.locks = [];
+  } else if (dir === 'side') {
+    crown(-1, 1);   // from the back round over the top to the front
+    add(1.0, 0.18); edge(1.0, 0.18, 1.04, fl, -0.03, 3); edge(1.04, fl, 0.86, 0.26, 0.02, 2); edge(0.86, 0.26, 0.7, fl + 0.04, -0.04, 3); edge(0.7, fl + 0.04, 0.5, 0.28, 0.02, 2);
+    edge(0.5, 0.28, 0.34, fl - 0.02, -0.04, 3); edge(0.34, fl - 0.02, 0.22, 0.3, 0.02, 2);
+    add(0.2, sideEnd - 0.1); add(0.12, sideEnd); add(0.0, sideEnd - 0.25); add(-0.18, 0.36);   // the lock in front of the ear
+    const nape = fem && st !== 'bun' ? 1.0 : 0.86; add(-0.5, 0.56); edge(-0.5, 0.56, -0.62, nape, -0.04, 2); edge(-0.62, nape, -0.78, 0.7, 0.02, 2); edge(-0.78, 0.7, -0.98, nape - 0.02, -0.04, 2); add(-1.1, 0.7);
+    out.cap = pts; out.locks = [];
+  } else {
+    crown(1, -1);
+    const nape = fem && st !== 'bun' ? 1.0 : 0.9; add(-1.06, 0.72);
+    let px = -1.06, py = 0.72;
+    for (const tx of [-0.75, -0.38, 0.0, 0.38, 0.75]) { const ty = nape + (Math.abs(tx) < 0.1 ? 0.04 : 0), nx = (px + tx) / 2; edge(px, py, nx, nape - 0.2, 0.02, 2); edge(nx, nape - 0.2, tx, ty, -0.04, 2); px = tx; py = ty; }
+    edge(px, py, 1.06, 0.72, 0.02, 2);
+    out.cap = pts; out.locks = [];
+  }
+  out.ring = dir === 'side' ? { a: [-0.7, 0.02], b: [0.6, 0.0], dip: -0.14, th: 0.16 } : { a: [-0.62, 0.04], b: [0.62, 0.04], dip: -0.14, th: 0.16 };
+}
+function hairStyle0(kit, dir, style) { const h = hd(kit, dir), { K, hw, hh, X } = h, s = hw / 3.35, P = h.P, y = h.y, side = dir === 'side', back = dir === 'back';
   const out = { back: [], cap: null, locks: [], extra: [], ring: null, strands: [] };
   const lk = (a, b, w, bend = 0) => { const A = P(a[0], a[1]), B = P(b[0], b[1]); out.locks.push(lockPts(A, B, w * hw * 0.5, bend * hw * 0.5)); };
   const lkb = (a, b, w, bend = 0) => { const A = P(a[0], a[1]), B = P(b[0], b[1]); out.back.push(lockPts(A, B, w * hw * 0.5, bend * hw * 0.5)); };
@@ -1901,7 +1959,7 @@ function workPose(kit, dir, sp, T, id) { const G = geo(kit), K = G.K, q = K.ua /
 /* spec: age, skin, hair, hs, beard, shirt, pat, acc, pants, hat, hatCol, hatOn, robe, role, apron, pose, tool, face {dx,dy}, status, dress, hold, mourning, wave, inv */
 function dollDir(sp) { const f = sp.face || { dx: 0, dy: 1 }; return f.dy > 0 && !f.dx ? 'front' : f.dy < 0 && !f.dx ? 'back' : 'side'; }
 /* Chibi proportions (a trial): a bigger head on a shorter body, so faces read at a glance. Off by default; ART.chibi.on = true to try it. */
-const CHIBI = { on: false, head: 1.75, headW: 1.08, body: 0.6, bodyW: 1.0, kidHead: 1.32, kidBody: 0.74 };
+const CHIBI = { on: false };   // chibiSet(true) at the end of ART: anime proportions, face and hair (chibiSet(false) brings back the old villagers)
 /* the chibi face: big shiny eyes, blush, a dot of a nose and a small mouth (front and side; the back has no face) */
 function chibiFaceL(kit, dir, o: any = {}) { const [c, g]: any = frame(); if (dir === 'back') return c;
   const L = Object.assign({}, LOOK0, o.look || {}), h = hd(kit, dir), { X, hw, hh } = h, side = dir === 'side', ink = '#2a1712', ir = IRIS[L.iris] || IRIS.brown;
@@ -1938,9 +1996,7 @@ function chibiFaceL(kit, dir, o: any = {}) { const [c, g]: any = frame(); if (di
   }
   return c; }
 function drawDoll(g, sp, x, y, k, T = 0) {
-  const kidK = kitFor(sp) === 'child' || kitFor(sp) === 'infant', CH = CHIBI.on ? (kidK ? CHIBI.kidHead : CHIBI.head) : 1, CHW = CHIBI.on && !kidK ? CHIBI.headW : 1;
-  const CBX = CHIBI.on ? CHIBI.bodyW : 1, CBY = CHIBI.on ? (kidK ? CHIBI.kidBody : CHIBI.body) : 1;
-  const kit = kitFor(sp), G = geo(kit), K = G.K, dir = dollDir(sp), f = sp.face || { dx: 0, dy: 1 }, flip = dir === 'side' && f.dx < 0;
+    const kit = kitFor(sp), G = geo(kit), K = G.K, dir = dollDir(sp), f = sp.face || { dx: 0, dy: 1 }, flip = dir === 'side' && f.dx < 0;
   const pose0 = sp.pose || (sp.moving ? 'walk' : 'stand'), wf = Math.floor(T * 9) % 6;
   const hairC = sp.age >= 60 ? GREYH : sp.hair, dress = sp.dress, robe = !!sp.robe || dress === 'bride', shirt = dress === 'bride' ? '#f6f1e8' : dress === 'groom' ? '#2f2c38' : dress === 'mourn' ? '#2a2a30' : sp.shirt;
   const pat = dress ? (dress === 'groom' ? 'collar' : 'plain') : sp.pat, acc = dress === 'groom' ? '#f4efe6' : sp.acc, hatOn = (sp.robe || sp.hatOn || sp.hat === 'toque' || sp.hat === 'helmet' || sp.hat === 'hardhat') && !dress;
@@ -1952,8 +2008,8 @@ function drawDoll(g, sp, x, y, k, T = 0) {
   const X0 = x - DO * k, Y0 = y - DO * k, W = DF * k, key = `${kit}_${dir}`;
   const put = (cv, dy = 0, dx = 0) => g.drawImage(cv, X0 + dx * k, Y0 + dy * k, W, W);
   /* the head is its own thing: it sways a little on the neck, drops if the person slouches, and is as wide as that person's head is */
-  const putH = (cv, dy = 0, dx = 0, clipChin = false) => { const a = (calm ? Math.sin(tt * 0.55) * 0.028 + Math.sin(tt * 1.1 + 1) * 0.01 : 0) + LK.post * 0.012, dyh = Math.max(0, -LK.post) * 0.14, px = X0 + DCX * k, py = Y0 + (G.chin + upDy) * k;
-    g.save(); if (clipChin && CHIBI.on) { g.beginPath(); g.rect(X0 - W, Y0 - W, W * 3, py - Y0 + W + G.K.nk * (dir === 'side' ? 3.2 : 0.95) * k); g.clip(); } g.translate(px, py); g.rotate(dir === 'side' ? a * 0.7 : a); g.scale(LK.hw / LK.bw, 1); if (CHIBI.on) g.scale(CH * CHW / CBX, CH / CBY); g.translate(-px, -py + dyh * k + (CHIBI.on ? G.K.nk * 0.85 * k / CH : 0)); g.drawImage(cv, X0 + dx * k, Y0 + dy * k, W, W); g.restore(); };
+  const putH = (cv, dy = 0, dx = 0) => { const a = (calm ? Math.sin(tt * 0.55) * 0.028 + Math.sin(tt * 1.1 + 1) * 0.01 : 0) + LK.post * 0.012, dyh = Math.max(0, -LK.post) * 0.14, px = X0 + DCX * k, py = Y0 + (G.chin + upDy) * k;
+    g.save(); g.translate(px, py); g.rotate(dir === 'side' ? a * 0.7 : a); g.scale(LK.hw / LK.bw, 1); g.translate(-px, -py + dyh * k); g.drawImage(cv, X0 + dx * k, Y0 + dy * k, W, W); g.restore(); };
   const lay = (name, color, fn, mode?) => { const kk = `${key}_${name}`; const base = L(kk, fn); return color ? tint(base, color, kk, mode) : base; };
   const gp = pose0 === 'walk' ? 'w' + fr : sit ? pose0 : 's';
   const inFrame = fn => { g.save(); g.translate(X0, Y0 + upDy * k); g.scale(k, k); fn(); g.restore(); };
@@ -1961,7 +2017,7 @@ function drawDoll(g, sp, x, y, k, T = 0) {
   g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
   if (flip) { g.translate(x + 12 * k, 0); g.scale(-1, 1); g.translate(-(x + 12 * k), 0); }
   g.fillStyle = 'rgba(40,30,80,.24)'; g.beginPath(); g.ellipse(x + 12 * k, y + (DBY - DO + 0.3) * k, (isAdultKit(kit) ? 5.4 : kit === 'child' ? 3.9 : 3.1) * k, (isAdultKit(kit) ? 1.9 : 1.4) * k, 0, 0, TAU); g.fill();
-  g.save(); { const fx = x + 12 * k, fy = y + (DBY - DO) * k; g.translate(fx, fy); g.scale(LK.ht * LK.bw * CBX, LK.ht * CBY); g.translate(-fx, -fy); }   // this person's height and build
+  g.save(); { const fx = x + 12 * k, fy = y + (DBY - DO) * k; g.translate(fx, fy); g.scale(LK.ht * LK.bw, LK.ht); g.translate(-fx, -fy); }   // this person's height and build
   if (!robe) put(lay(`legs_${gp}`, sp.pants, () => legsL(kit, dir, legPose, fr, false)));
   put(lay(`shoes_${gp}`, null, () => shoesL(kit, dir, legPose, fr, robe)));
   const armsOf = wp ? wp.arms : armRig(kit, dir, pose0 === 'walk' ? 'walk' : sit ? pose0 : 'stand', fr);
@@ -1988,7 +2044,7 @@ function drawDoll(g, sp, x, y, k, T = 0) {
     if ((sp.mourning && !sp.moving) || dress === 'mourn') put(lay('mourn', null, () => clothL(kit, dir, 'stand', 0, 'mourn')), upDy);
     if (dress === 'groom' && dir !== 'back') put(lay('groom', null, () => dressL(kit, dir, 'groom')), upDy);
     if (armsEarly) armBlock();
-    putH(lay('skin', sp.skin, () => skinL(kit, dir, 'stand', 0, {})), upDy, 0, true);
+    putH(lay('skin', sp.skin, () => skinL(kit, dir, 'stand', 0, {})), upDy);
     { const bl = ((T + 1.3 + (sp.id || 0) * 1.37) % 4.1) < 0.15, LK = lookOf(sp); if (CHIBI.on) putH(lay((bl ? 'cface_blink_' : 'cface_') + LK.iris + LK.mouth, null, () => chibiFaceL(kit, dir, { blink: bl, look: LK })), upDy); else putH(lay((bl ? 'face_blink_' : 'face_') + lookSig(LK), null, () => faceL(kit, dir, 'stand', 0, { blink: bl, look: LK })), upDy); }
     if (sp.beard && sp.age >= 18 && dir !== 'back') putH(lay(`bd_${sp.beard}`, hairC, () => beardL(kit, dir, sp.beard), 'overlay'), upDy);
     putH(lay(`hf_${sp.hs}`, hairC, () => hairL(kit, dir, sp.hs, 'front'), 'overlay'), upDy);
@@ -2282,7 +2338,8 @@ function drawDollLOD(g, sp, x, y, T, Z) {
   } else { DOLL_CACHE.delete(key); DOLL_CACHE.set(key, e); }   // most recently used goes to the back
   g.drawImage(e.cv, x - DO - DOLL_PAD, y - DO - DOLL_PAD, e.size, e.size);
 }
-return { Q, S, FR, DF, DO, TP, BLK, terr, water, overlay, frameOf, BYID, ITEMS, h32, mul, drawDoll, drawDollLOD, drawSleeper, roomDress, kitOf, chibi: CHIBI };
+chibiSet(true);
+return { Q, S, FR, DF, DO, TP, BLK, terr, water, overlay, frameOf, BYID, ITEMS, h32, mul, drawDoll, drawDollLOD, drawSleeper, roomDress, kitOf, chibi: CHIBI, chibiSet };
 
 })();
 
