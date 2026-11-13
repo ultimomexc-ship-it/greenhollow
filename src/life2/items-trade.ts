@@ -76,7 +76,7 @@ const itGrow = c => GROW * ((IT_SEEDS[c.seed] || IT_SEEDS.barley).grow);
 /** harvesting a plot: the food it gives, and (for the player) a seed or two back */
 function itHarvest(n, c) {
   town.tut = town.tut || { harvests: 0 }; town.tut.harvests++;
-  const S = IT_SEEDS[c.seed] || IT_SEEDS.barley, Y = S.flower ? 'flowers' : S.yield, Q = S.flower ? 4 : S.q; n.inv[Y] = (n.inv[Y] || 0) + Q; c.st = 0;
+  const S = IT_SEEDS[c.seed] || IT_SEEDS.barley, Y = S.flower ? 'flowers' : S.yield, Q = S.flower ? 4 : S.q; n.inv[Y] = (n.inv[Y] || 0) + Q; c.st = 0; c.holes = 1;
   LIFE.emit('harvested', n, { item: Y, qty: Q, crop: c.seed || 'barley' });
   if (!n.player && town.farmEcon && farmSeedCount(n) < 12) n.inv['seed_' + (c.seed || 'barley')] = (n.inv['seed_' + (c.seed || 'barley')] || 0) + 1;   // (a farmer keeps seed back from every harvest)
   if (n.player) sndPick();

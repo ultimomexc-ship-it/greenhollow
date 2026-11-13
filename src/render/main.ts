@@ -149,7 +149,7 @@ const mid = (x, y) => ({ x: x * TS + TS / 2, y: y * TS + TS / 2 });
 function drawLabels(c) {
   c.font = '600 9.5px "IBM Plex Sans", system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
   if (cam.z < cam.fit * 1.25) return;
-  for (const m of town.markets) { const x = m.x * TS + TS / 2, y = (m.y - (m === town.markets[0] ? -5.3 : 0.2)) * TS; c.fillStyle = 'rgba(0,0,0,.5)'; c.fillText(m.name.toUpperCase(), x + .6, y + .6); c.fillStyle = 'rgba(255,236,170,.95)'; c.fillText(m.name.toUpperCase(), x, y); }
+  if (town.scenario !== 'hamlet') for (const m of town.markets) { const x = m.x * TS + TS / 2, y = (m.y - (m === town.markets[0] ? -5.3 : 0.2)) * TS; c.fillStyle = 'rgba(0,0,0,.5)'; c.fillText(m.name.toUpperCase(), x + .6, y + .6); c.fillStyle = 'rgba(255,236,170,.95)'; c.fillText(m.name.toUpperCase(), x, y); }
   const label = (txt, x, y, col) => { c.save(); c.font = 'italic 600 13px "IBM Plex Sans", system-ui, sans-serif'; c.fillStyle = 'rgba(0,0,0,.45)'; c.fillText(txt, x + .8, y + .8); c.fillStyle = col; c.fillText(txt, x, y); c.restore(); };
   { const rg = town.region; if (rg && rg.found && rg.ent) label(rg.name.toUpperCase(), (rg.ent.x - 4) * TS, (rg.ent.y - 2) * TS, 'rgba(220,235,200,.85)'); }
   for (const r of rooms) {

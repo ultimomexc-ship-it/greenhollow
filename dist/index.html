@@ -13971,6 +13971,7 @@ function playerDir(p) {
   for (const d of ["up", "down", "left", "right"]) if (p.keys[d]) return d;
   return null;
 }
+const BUILD_TURN_S = 0.17;
 function playerDirs(p) {
   p.order = (p.order || []).filter((d) => p.keys[d]);
   for (const d of ["up", "down", "left", "right"]) if (p.keys[d] && !p.order.includes(d)) p.order.push(d);
@@ -14226,12 +14227,20 @@ function tickPlayer0(n, dt) {
     const [dx, dy] = DIRV[d];
     const pf = n.face || { dx: 0, dy: 1 };
     n.face = { dx, dy };
-    if (freshD && itBuildOn(n) && dx === -pf.dx && dy === -pf.dy && !p.act && !n.moving) {
-      const bx = n.tx + pf.dx, by = n.ty + pf.dy, pr = lfPropAt(bx, by);
-      if (!walkable(bx, by) || pr && !lfBedAt(bx, by)) {
-        p.lock = true;
+    if (itBuildOn(n) && !p.act && !n.moving) {
+      if (freshD && (dx !== pf.dx || dy !== pf.dy)) {
+        p.turnHeld = 0;
+        p.turnD = d;
         n.pose = "stand";
         continue;
+      }
+      if (p.turnD === d && p.turnHeld != null) {
+        p.turnHeld += step;
+        if (p.turnHeld < BUILD_TURN_S * (typeof state !== "undefined" ? state.rate * state.speed : 2)) {
+          n.pose = "stand";
+          continue;
+        }
+        p.turnHeld = null;
       }
     }
     const fx = n.tx + dx, fy = n.ty + dy;
@@ -16509,6 +16518,26 @@ function drawDoors(c, dt) {
     gaDraw(c, (r.free ? gaInside(d.x, d.y + 1) : d.y === r.y) ? op ? "door_back_open" : "door_back_closed" : op ? "door_mat_open" : "door_mat_closed", d.x * TS, d.y * TS, 0, 0);
   }
 }
+function cropHoles(c, X, Y) {
+  for (const [hx, hy] of [[0.2, 0.74], [0.5, 0.78], [0.8, 0.74]]) {
+    const x = X + hx * TS, y = Y + hy * TS;
+    c.fillStyle = "rgba(160,118,74,.85)";
+    c.beginPath();
+    c.ellipse(x, y - 0.6, TS * 0.12, TS * 0.075, 0, 0, 6.3);
+    c.fill();
+    c.fillStyle = "#24160b";
+    c.beginPath();
+    c.ellipse(x, y, TS * 0.09, TS * 0.055, 0, 0, 6.3);
+    c.fill();
+    c.fillStyle = "rgba(0,0,0,.35)";
+    c.beginPath();
+    c.ellipse(x, y + 0.5, TS * 0.07, TS * 0.035, 0, 0, 6.3);
+    c.fill();
+    c.fillStyle = "#8a6239";
+    c.fillRect(x + TS * 0.11, y - TS * 0.05, 1.1, 1.1);
+    c.fillRect(x - TS * 0.14, y + TS * 0.02, 1, 1);
+  }
+}
 function drawCrops(c, now) {
   if (!town.crops) return;
   const v = gaView();
@@ -16518,6 +16547,7 @@ function drawCrops(c, now) {
     if (st > 0) gaDraw(c, "crop_0", t.x * TS, t.y * TS, now, 0);
     const sd = st > 0 && t.seed && t.seed !== "barley" && IT_SEEDS[t.seed] ? t.seed : null;
     gaDraw(c, sd ? "crop_" + sd + "_" + (itWilted(t) ? 5 : Math.min(4, st)) : st < 0 ? "crop_raw" : "crop_" + Math.min(4, st), t.x * TS, t.y * TS, now, t.x + t.y);
+    if (t.holes && !t.st && t.pl) cropHoles(c, t.x * TS, t.y * TS);
   }
 }
 function drawNodes(c, now) {
@@ -24599,7 +24629,7 @@ function drawLabels(c) {
   c.textAlign = "center";
   c.textBaseline = "middle";
   if (cam.z < cam.fit * 1.25) return;
-  for (const m of town.markets) {
+  if (town.scenario !== "hamlet") for (const m of town.markets) {
     const x = m.x * TS + TS / 2, y = (m.y - (m === town.markets[0] ? -5.3 : 0.2)) * TS;
     c.fillStyle = "rgba(0,0,0,.5)";
     c.fillText(m.name.toUpperCase(), x + 0.6, y + 0.6);
@@ -26176,6 +26206,7 @@ function itHarvest(n, c) {
   const S = IT_SEEDS[c.seed] || IT_SEEDS.barley, Y = S.flower ? "flowers" : S.yield, Q = S.flower ? 4 : S.q;
   n.inv[Y] = (n.inv[Y] || 0) + Q;
   c.st = 0;
+  c.holes = 1;
   LIFE.emit("harvested", n, { item: Y, qty: Q, crop: c.seed || "barley" });
   if (!n.player && town.farmEcon && farmSeedCount(n) < 12) n.inv["seed_" + (c.seed || "barley")] = (n.inv["seed_" + (c.seed || "barley")] || 0) + 1;
   if (n.player) sndPick();
@@ -27671,7 +27702,8 @@ function tut2Place(n, kind) {
 LF2.pre.unshift({ player(n, p, fx, fy) {
   if (!town || town.scenario !== "hamlet") return null;
   const T2 = town.tut2;
-  if (grid[fy][fx] === T.STALL && !itBuildOn(n)) {
+  if (grid[fy][fx] === T.STALL && !itBuildOn(n)) return {};
+  if (false) {
     const m = (town.stalls || []).map((s) => s.tiles && s.tiles.some((t) => t.x === fx && t.y === fy) && (s.owner && s.owner.shop || merchants.find((q) => q.post && Math.abs(q.post.x - fx) + Math.abs(q.post.y - fy) <= 1))).find(Boolean) || stallTrade(n, fx, fy);
     const tr = merchants.find((q) => q.def === HAMLET_TRADER_DEF), mm = m || tr;
     if (mm && (mm.def === HAMLET_TRADER_DEF || mm.serving || tut2Active())) return { key: "tstall" + mm.n.id, min: 0.4, text: "At the " + mm.def.noun, tool: null, run() {
@@ -27951,20 +27983,19 @@ TUT2_SCENES.push(
       itSync(true);
     }),
     { do: "walk", who: "paullus", to: "watch", async: true },
-    tset((T2) => {
-      T2.seedLesson = true;
+    tset(() => {
+      game.player.noSeed = false;
     }),
-    tstrip("Your seed is on slot 1. Press 1 to put it away: then you walk over ploughed ground without sowing."),
-    twait(() => !!game.player.noSeed, { bot: () => ({ key: "1", pressOnly: true }) }),
-    tstrip("Press 1 again to hold it. The seed in your hand is the one you sow."),
-    twait(() => !game.player.noSeed && game.player.sel >= 0, { bot: () => ({ key: "1", pressOnly: true }) }),
-    tset((T2) => {
-      T2.seedLesson = false;
-    }),
+    // (the seed is in your hand already: no lesson in pressing 1)
     tstrip("Walk into each square to sow it."),
     tarrow("patch", "sown"),
     tmark("patch", "sown"),
     twait(() => tut2AllDone("patch", "sown"), { bot: botWork("patch", "sown") }),
+    tset((T2) => {
+      T2.bedOk = true;
+      T2.at.myBed = [T2.at.bed];
+    }),
+    // (the bed is yours to use the moment the seed is in)
     { do: "face", who: "paullus", dir: { dx: 1, dy: 0 } },
     tstrip(),
     tarrow(),
@@ -29020,6 +29051,34 @@ function jsFanfare() {
   });
   sndTone(1568, 0.5, "sine", 0.05, void 0, 0.34);
 }
+function jsVictory() {
+  if (!sndReady()) return;
+  const n = [523, 659, 784, 659, 784, 1046];
+  const d = [0, 0.1, 0.2, 0.32, 0.42, 0.52];
+  n.forEach((f, i) => {
+    sndTone(f, i === 5 ? 0.6 : 0.14, "square", 0.035, void 0, d[i]);
+    sndTone(f, i === 5 ? 0.7 : 0.16, "triangle", 0.07, void 0, d[i]);
+  });
+  sndTone(1568, 0.5, "sine", 0.04, void 0, 0.56);
+  sndNoise(0.25, "highpass", 6e3, 0.03, void 0, 0.52);
+  jBuzz(30);
+}
+function jsStrike(tool, vol = 1) {
+  if (!sndReady() || vol <= 0) return;
+  if (tool === "hoe") {
+    sndNoise(0.09, "lowpass", 700, 0.14 * vol, 200);
+    sndTone(120, 0.1, "sine", 0.13 * vol, 60);
+    sndNoise(0.05, "bandpass", 1800, 0.04 * vol, void 0, 0.02);
+  } else if (tool === "axe") {
+    sndNoise(0.05, "bandpass", 1900, 0.13 * vol);
+    sndTone(320, 0.08, "triangle", 0.1 * vol, 190);
+    sndNoise(0.12, "lowpass", 900, 0.06 * vol, 300, 0.02);
+  } else if (tool === "hammer") {
+    sndTone(980, 0.09, "square", 0.05 * vol, 700);
+    sndTone(1460, 0.12, "sine", 0.05 * vol, void 0, 0.01);
+    sndNoise(0.05, "highpass", 3200, 0.07 * vol);
+  }
+}
 function jsDing() {
   if (!sndReady()) return;
   sndTone(880, 0.16, "sine", 0.07);
@@ -29168,7 +29227,8 @@ const _jNext = tut2Next;
 tut2Next = function(s) {
   _jNext(s);
   if (s && s.do === "wait" && s.bot && game.player) {
-    jsDing();
+    if (/tut2AllDone/.test(String(s.until))) jsVictory();
+    else jsDing();
     const P = game.player;
     jBurst(P.x * TS + TS / 2, P.y * TS + 4, 10, "spark", ["#ffe08a", "#b9e29a", "#ffffff"], 0.9, 0.9);
   }
@@ -29212,6 +29272,17 @@ function drawJuice(c, now) {
     if (k && k.st && cropStage(k) === 4 && !itIsFlower(k)) jBurst(k.x * TS + jRand(4, TS - 4), k.y * TS + jRand(2, TS - 6), 1, "spark", ["#fff4b0", "#ffe08a"], 0.15, 0.4);
   }
   const P = game.player, ps = JUICE.parts;
+  for (const n of npcs) {
+    if (!n || n.dead || n.pose !== "work" || !["hoe", "axe", "hammer"].includes(n.tool)) {
+      if (n) n._jtt = null;
+      continue;
+    }
+    const v = n === P ? 1 : sndAt(n.tx, n.ty) * 0.6;
+    if (v <= 0.05) continue;
+    const tt = (Math.floor(now / 1e3 * 30) % 20 / 20 + (n.id || 0) % 7 * 0.13) % 1;
+    if (n._jtt != null && tt < n._jtt) jsStrike(n.tool, v);
+    n._jtt = tt;
+  }
   for (let i = ps.length - 1; i >= 0; i--) {
     const q = ps[i], age = now - q.t0;
     if (age < 0) continue;
@@ -29499,21 +29570,35 @@ function buildLook(c, now) {
   }
   c.restore();
 }
+const RIPE_SIL = {};
+function ripeSil(frame2) {
+  const k = frame2.__silId || (frame2.__silId = "f" + Object.keys(RIPE_SIL).length);
+  if (RIPE_SIL[k]) return RIPE_SIL[k];
+  const cv = document.createElement("canvas");
+  cv.width = frame2.width;
+  cv.height = frame2.height;
+  const g = cv.getContext("2d");
+  g.drawImage(frame2, 0, 0);
+  g.globalCompositeOperation = "source-in";
+  g.fillStyle = "#ffe066";
+  g.fillRect(0, 0, cv.width, cv.height);
+  return RIPE_SIL[k] = cv;
+}
 function drawRipeGlow(c, now) {
   if (!town || !town.crops || !town.crops.length) return;
   const x0 = Math.floor(cam.x / TS) - 1, y0 = Math.floor(cam.y / TS) - 1, x1 = x0 + Math.ceil(cam.cw / cam.z / TS) + 2, y1 = y0 + Math.ceil(cam.ch / cam.z / TS) + 2;
-  const pu = 0.55 + 0.25 * Math.sin(now / 420);
-  c.save();
-  c.globalCompositeOperation = "lighter";
+  const pu = 0.7 + 0.3 * Math.sin(now / 380), o = Math.max(0.55, 1.2 / cam.z);
   for (const k of town.crops) {
     if (k.x < x0 || k.x > x1 || k.y < y0 || k.y > y1 || !k.st || cropStage(k) !== 4 || itIsFlower(k)) continue;
-    const cx = k.x * TS + TS / 2, cy = k.y * TS + TS / 2, g = c.createRadialGradient(cx, cy, 2, cx, cy, TS * 0.7);
-    g.addColorStop(0, `rgba(255,214,90,${0.38 * pu})`);
-    g.addColorStop(1, "rgba(255,214,90,0)");
-    c.fillStyle = g;
-    c.fillRect(k.x * TS - TS * 0.2, k.y * TS - TS * 0.2, TS * 1.4, TS * 1.4);
+    const sd = k.seed && k.seed !== "barley" && IT_SEEDS[k.seed] ? k.seed : null, id = sd ? "crop_" + sd + "_4" : "crop_4", it = ART.BYID[id];
+    if (!it) continue;
+    const fr = ART.frameOf(it, gaFrame(it, now, k.x + k.y)), sil = ripeSil(fr), X = k.x * TS, Y = k.y * TS + TS - it.gh;
+    c.save();
+    c.globalAlpha = pu;
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-0.7, -0.7], [0.7, -0.7], [-0.7, 0.7], [0.7, 0.7]]) c.drawImage(sil, X + dx * o, Y + dy * o, it.gw, it.gh);
+    c.restore();
+    c.drawImage(fr, X, Y, it.gw, it.gh);
   }
-  c.restore();
 }
 const YARD_MIN = 12, YARD_MAX = 400, YARD_GRACE = 1440;
 const yardOn = () => !!(town && town.scenario === "hamlet");
@@ -29775,25 +29860,93 @@ function drawYards(c, now) {
         c.fillRect(x * TS, yy * TS, TS, TS);
       }
     }
-    if (cam.z < 0.9 || y.open != null) continue;
-    const g = y.gates[0];
-    if (g == null) continue;
-    const gx = g % W, gy = g / W | 0;
-    if (gx < v.x0 || gx >= v.x1 || gy < v.y0 || gy >= v.y1) continue;
-    if (!build && !(pl && Math.abs(pl.tx - gx) + Math.abs(pl.ty - gy) <= 4)) continue;
-    const t = yardName(y).replace(/^./, (ch) => ch.toUpperCase());
-    c.save();
-    c.font = `600 ${Math.round(TS * 0.36)}px sans-serif`;
-    c.textAlign = "center";
-    c.textBaseline = "bottom";
-    const w = c.measureText(t).width + TS * 0.3;
-    c.fillStyle = "rgba(22,27,30,.82)";
-    c.fillRect(gx * TS + TS / 2 - w / 2, gy * TS - TS * 0.46, w, TS * 0.46);
-    c.fillStyle = "#e8c88a";
-    c.fillText(t, gx * TS + TS / 2, gy * TS - TS * 0.04);
-    c.restore();
   }
 }
+function yardSignSpot(y) {
+  const key = y.fences.length + ":" + y.gates.join(",") + ":" + y.cells.length;
+  if (y._signKey === key) return y._sign;
+  y._signKey = key;
+  y._sign = null;
+  const cells = new Set(y.cells), south = y.fences.filter((k) => cells.has(k - W));
+  if (!south.length) return null;
+  const rows2 = /* @__PURE__ */ new Map();
+  for (const k of south) {
+    const yy = k / W | 0;
+    if (!rows2.has(yy)) rows2.set(yy, []);
+    rows2.get(yy).push(k % W);
+  }
+  let best = null;
+  for (const [yy, xs] of rows2) {
+    xs.sort((a, b) => a - b);
+    let s0 = xs[0], prev = xs[0];
+    for (let i = 1; i <= xs.length; i++) {
+      const x = xs[i];
+      if (x === prev + 1) {
+        prev = x;
+        continue;
+      }
+      const len = prev - s0 + 1;
+      if (!best || len > best.len || len === best.len && yy > best.y) best = { x: (s0 + prev) / 2, y: yy, len };
+      s0 = prev = x;
+    }
+  }
+  return y._sign = best;
+}
+YSORT.push(function(c, now) {
+  if (!yardOn() || !town.yards || !town.yards.length || cam.z < 0.9) return [];
+  const v = gaView(), out = [];
+  for (const y of town.yards) {
+    if (y.open != null) continue;
+    const sp = yardSignSpot(y);
+    if (!sp || sp.x < v.x0 - 2 || sp.x > v.x1 + 2 || sp.y < v.y0 || sp.y > v.y1) continue;
+    out.push({ k: sp.y + 0.06, f: () => {
+      const t = yardName(y).replace(/^./, (ch) => ch.toUpperCase());
+      c.save();
+      c.font = `700 ${Math.round(TS * 0.3)}px Georgia, serif`;
+      c.textAlign = "center";
+      c.textBaseline = "middle";
+      const cx = sp.x * TS + TS / 2, cy = sp.y * TS + TS * 0.42, w = Math.min(Math.max(c.measureText(t).width + TS * 0.4, TS * 1.2), Math.max(TS * 1.2, sp.len * TS - TS * 0.2)), h = TS * 0.5;
+      c.fillStyle = "#5a3a1e";
+      c.fillRect(cx - w / 2 + TS * 0.12, cy + h / 2 - 1, TS * 0.1, TS * 0.32);
+      c.fillRect(cx + w / 2 - TS * 0.22, cy + h / 2 - 1, TS * 0.1, TS * 0.32);
+      c.fillStyle = "rgba(0,0,0,.25)";
+      c.fillRect(cx - w / 2 + 1.5, cy - h / 2 + 2, w, h);
+      const gr = c.createLinearGradient(0, cy - h / 2, 0, cy + h / 2);
+      gr.addColorStop(0, "#c99a62");
+      gr.addColorStop(1, "#a8773f");
+      c.fillStyle = gr;
+      c.fillRect(cx - w / 2, cy - h / 2, w, h);
+      c.strokeStyle = "rgba(90,56,26,.45)";
+      c.lineWidth = 0.6;
+      for (const f of [0.3, 0.68]) {
+        c.beginPath();
+        c.moveTo(cx - w / 2 + 2, cy - h / 2 + h * f);
+        c.lineTo(cx + w / 2 - 2, cy - h / 2 + h * f + 0.4);
+        c.stroke();
+      }
+      c.strokeStyle = "#4a2e14";
+      c.lineWidth = 1;
+      c.strokeRect(cx - w / 2 + 0.5, cy - h / 2 + 0.5, w - 1, h - 1);
+      c.fillStyle = "#3c2410";
+      for (const sx of [-1, 1]) {
+        c.beginPath();
+        c.arc(cx + sx * (w / 2 - 2.6), cy - h / 2 + 2.6, 0.9, 0, 6.3);
+        c.fill();
+      }
+      let fs = Math.round(TS * 0.3);
+      while (fs > 6 && c.measureText(t).width > w - TS * 0.25) {
+        fs--;
+        c.font = `700 ${fs}px Georgia, serif`;
+      }
+      c.fillStyle = "rgba(255,230,190,.35)";
+      c.fillText(t, cx, cy + 0.6);
+      c.fillStyle = "#3a2210";
+      c.fillText(t, cx, cy);
+      c.restore();
+    } });
+  }
+  return out;
+});
 const RENT_HOUR = 6, RENT_FLOWER_R = 4;
 const RENT_BASE = 2, RENT_ROOF = 1, RENT_WINDOW = 1, RENT_FLOWERS = 1;
 const rentTrader = (n) => !!(n && (n.shop && n.shop.def === HAMLET_TRADER_DEF || n.tutRentSkip));

@@ -105,7 +105,8 @@ function tut2Place(n: any, kind: string) {
 LF2.pre.unshift({ player(n: any, p: any, fx: number, fy: number) {
   if (!town || town.scenario !== 'hamlet') return null;
   const T2 = town.tut2;
-  if (grid[fy][fx] === T.STALL && !itBuildOn(n)) {
+  if (grid[fy][fx] === T.STALL && !itBuildOn(n)) return {};   // (the counter is just a counter: you buy from the keeper, by walking into them)
+  if (false) {
     const m = (town.stalls || []).map((s: any) => s.tiles && s.tiles.some((t: any) => t.x === fx && t.y === fy) && (s.owner && s.owner.shop || merchants.find((q: any) => q.post && Math.abs(q.post.x - fx) + Math.abs(q.post.y - fy) <= 1))).find(Boolean) || stallTrade(n, fx, fy);
     const tr = merchants.find((q: any) => q.def === HAMLET_TRADER_DEF), mm = m || tr;
     if (mm && (mm.def === HAMLET_TRADER_DEF || mm.serving || tut2Active())) return { key: 'tstall' + mm.n.id, min: 0.4, text: 'At the ' + mm.def.noun, tool: null, run() { shopOpen(mm); } };
@@ -237,14 +238,10 @@ TUT2_SCENES.push(
     tsay('paullus', 'Nine. Turnips. Quick, and forgiving.'),
     tset(T2 => { const P = game.player; itGiveStack(P, 'seed_turnip', 9); const i = P.belt.indexOf('s:seed_turnip'); if (i >= 0) P.sel = i; T2.show = Object.assign({}, T2.show, { slots: true }); itSync(true); }),
     { do: 'walk', who: 'paullus', to: 'watch', async: true },
-    tset(T2 => { T2.seedLesson = true; }),
-    tstrip('Your seed is on slot 1. Press 1 to put it away: then you walk over ploughed ground without sowing.'),
-    twait(() => !!game.player.noSeed, { bot: () => ({ key: '1', pressOnly: true }) }),
-    tstrip('Press 1 again to hold it. The seed in your hand is the one you sow.'),
-    twait(() => !game.player.noSeed && game.player.sel >= 0, { bot: () => ({ key: '1', pressOnly: true }) }),
-    tset(T2 => { T2.seedLesson = false; }),
+    tset(() => { game.player.noSeed = false; }),   // (the seed is in your hand already: no lesson in pressing 1)
     tstrip('Walk into each square to sow it.'), tarrow('patch', 'sown'), tmark('patch', 'sown'),
     twait(() => tut2AllDone('patch', 'sown'), { bot: botWork('patch', 'sown') }),
+    tset(T2 => { T2.bedOk = true; T2.at.myBed = [T2.at.bed]; }),   // (the bed is yours to use the moment the seed is in)
     { do: 'face', who: 'paullus', dir: { dx: 1, dy: 0 } },
     tstrip(), tarrow(), tmark(),
     { do: 'time', at: 19 * 60, over: 4 },

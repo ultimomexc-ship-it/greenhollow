@@ -31,15 +31,23 @@ function buildLook(c: any, now: number) {
 }
 
 /** ripe crops glow yellow, so you can see what is ready to pull (world space, after the ground and the guides) */
+/* ripe crops: a thin yellow outline traced round each plant's own shape (a yellow silhouette drawn a hair out in eight directions, the plant over it), pulsing gently */
+const RIPE_SIL: any = {};
+function ripeSil(frame: any): any {
+  const k = frame.__silId || (frame.__silId = 'f' + Object.keys(RIPE_SIL).length); if (RIPE_SIL[k]) return RIPE_SIL[k];
+  const cv = document.createElement('canvas'); cv.width = frame.width; cv.height = frame.height; const g = cv.getContext('2d'); g.drawImage(frame, 0, 0); g.globalCompositeOperation = 'source-in'; g.fillStyle = '#ffe066'; g.fillRect(0, 0, cv.width, cv.height);
+  return (RIPE_SIL[k] = cv);
+}
 function drawRipeGlow(c: any, now: number) {
   if (!town || !town.crops || !town.crops.length) return;
   const x0 = Math.floor(cam.x / TS) - 1, y0 = Math.floor(cam.y / TS) - 1, x1 = x0 + Math.ceil(cam.cw / cam.z / TS) + 2, y1 = y0 + Math.ceil(cam.ch / cam.z / TS) + 2;
-  const pu = 0.55 + 0.25 * Math.sin(now / 420);
-  c.save(); c.globalCompositeOperation = 'lighter';
+  const pu = 0.7 + 0.3 * Math.sin(now / 380), o = Math.max(0.55, 1.2 / cam.z);
   for (const k of town.crops) {
     if (k.x < x0 || k.x > x1 || k.y < y0 || k.y > y1 || !k.st || cropStage(k) !== 4 || itIsFlower(k)) continue;
-    const cx = k.x * TS + TS / 2, cy = k.y * TS + TS / 2, g = c.createRadialGradient(cx, cy, 2, cx, cy, TS * 0.7);
-    g.addColorStop(0, `rgba(255,214,90,${0.38 * pu})`); g.addColorStop(1, 'rgba(255,214,90,0)'); c.fillStyle = g; c.fillRect(k.x * TS - TS * 0.2, k.y * TS - TS * 0.2, TS * 1.4, TS * 1.4);
+    const sd = k.seed && k.seed !== 'barley' && IT_SEEDS[k.seed] ? k.seed : null, id = sd ? 'crop_' + sd + '_4' : 'crop_4', it = ART.BYID[id]; if (!it) continue;
+    const fr = ART.frameOf(it, gaFrame(it, now, k.x + k.y)), sil = ripeSil(fr), X = k.x * TS, Y = k.y * TS + TS - it.gh;
+    c.save(); c.globalAlpha = pu;
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-0.7, -0.7], [0.7, -0.7], [-0.7, 0.7], [0.7, 0.7]]) c.drawImage(sil, X + dx * o, Y + dy * o, it.gw, it.gh);
+    c.restore(); c.drawImage(fr, X, Y, it.gw, it.gh);
   }
-  c.restore();
 }

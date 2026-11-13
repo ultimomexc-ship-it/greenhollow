@@ -239,6 +239,13 @@ function drawDoors(c, dt) {
     gaDraw(c, (r.free ? gaInside(d.x, d.y + 1) : d.y === r.y) ? (op ? 'door_back_open' : 'door_back_closed') : (op ? 'door_mat_open' : 'door_mat_closed'), d.x * TS, d.y * TS, 0, 0);
   }
 }
+function cropHoles(c, X, Y) {
+  for (const [hx, hy] of [[0.2, 0.74], [0.5, 0.78], [0.8, 0.74]]) { const x = X + hx * TS, y = Y + hy * TS;
+    c.fillStyle = 'rgba(160,118,74,.85)'; c.beginPath(); c.ellipse(x, y - 0.6, TS * 0.12, TS * 0.075, 0, 0, 6.3); c.fill();   // (the earth thrown up round the rim)
+    c.fillStyle = '#24160b'; c.beginPath(); c.ellipse(x, y, TS * 0.09, TS * 0.055, 0, 0, 6.3); c.fill();
+    c.fillStyle = 'rgba(0,0,0,.35)'; c.beginPath(); c.ellipse(x, y + 0.5, TS * 0.07, TS * 0.035, 0, 0, 6.3); c.fill();
+    c.fillStyle = '#8a6239'; c.fillRect(x + TS * 0.11, y - TS * 0.05, 1.1, 1.1); c.fillRect(x - TS * 0.14, y + TS * 0.02, 1, 1); }
+}
 function drawCrops(c, now) {
   if (!town.crops) return; const v = gaView();
   for (const t of town.crops) {
@@ -247,6 +254,7 @@ function drawCrops(c, now) {
     if (st > 0) gaDraw(c, 'crop_0', t.x * TS, t.y * TS, now, 0);   // the ploughed earth under whatever is growing
     const sd = st > 0 && t.seed && t.seed !== 'barley' && IT_SEEDS[t.seed] ? t.seed : null;   // every other crop and flower has its own plant
     gaDraw(c, sd ? 'crop_' + sd + '_' + (itWilted(t) ? 5 : Math.min(4, st)) : st < 0 ? 'crop_raw' : 'crop_' + Math.min(4, st), t.x * TS, t.y * TS, now, t.x + t.y);
+    if (t.holes && !t.st && t.pl) cropHoles(c, t.x * TS, t.y * TS);   // (pulled up: the holes the crop came out of, until the plot is sown again)
   }
 }
 function drawNodes(c, now) {

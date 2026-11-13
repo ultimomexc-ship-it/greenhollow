@@ -135,10 +135,36 @@ function drawYards(c: any, now: number) {
   for (const y of town.yards) {
     if (build) { c.fillStyle = y.open != null ? 'rgba(232,170,60,.16)' : yardPeople(y).length ? 'rgba(120,210,110,.2)' : 'rgba(150,190,235,.2)';
       for (const k of y.cells) { const x = k % W, yy = (k / W) | 0; if (x < v.x0 || x >= v.x1 || yy < v.y0 || yy >= v.y1 || town.yardAt.get(k) !== y) continue; c.fillRect(x * TS, yy * TS, TS, TS); } }
-    if (cam.z < 0.9 || y.open != null) continue;
-    const g = y.gates[0]; if (g == null) continue; const gx = g % W, gy = (g / W) | 0; if (gx < v.x0 || gx >= v.x1 || gy < v.y0 || gy >= v.y1) continue;
-    if (!build && !(pl && Math.abs(pl.tx - gx) + Math.abs(pl.ty - gy) <= 4)) continue;
-    const t = yardName(y).replace(/^./, (ch: string) => ch.toUpperCase()); c.save(); c.font = `600 ${Math.round(TS * 0.36)}px sans-serif`; c.textAlign = 'center'; c.textBaseline = 'bottom';
-    const w = c.measureText(t).width + TS * 0.3; c.fillStyle = 'rgba(22,27,30,.82)'; c.fillRect(gx * TS + TS / 2 - w / 2, gy * TS - TS * 0.46, w, TS * 0.46); c.fillStyle = '#e8c88a'; c.fillText(t, gx * TS + TS / 2, gy * TS - TS * 0.04); c.restore();
   }
 }
+/** where a yard's wooden sign hangs: the middle of the longest stretch of its south fence without a gate (cached until the ring changes) */
+function yardSignSpot(y: any): any {
+  const key = y.fences.length + ':' + y.gates.join(',') + ':' + y.cells.length; if (y._signKey === key) return y._sign; y._signKey = key; y._sign = null;
+  const cells = new Set<number>(y.cells), south = y.fences.filter((k: number) => cells.has(k - W)); if (!south.length) return null;
+  const rows = new Map<number, number[]>(); for (const k of south) { const yy = (k / W) | 0; if (!rows.has(yy)) rows.set(yy, []); rows.get(yy)!.push(k % W); }
+  let best: any = null;
+  for (const [yy, xs] of rows) { xs.sort((a, b) => a - b); let s0 = xs[0], prev = xs[0];
+    for (let i = 1; i <= xs.length; i++) { const x = xs[i]; if (x === prev + 1) { prev = x; continue; } const len = prev - s0 + 1; if (!best || len > best.len || (len === best.len && yy > best.y)) best = { x: (s0 + prev) / 2, y: yy, len }; s0 = prev = x; } }
+  return (y._sign = best);
+}
+/* the sign itself: a small board on the fence with the yard's name burnt into it, drawn with the fence row so people pass in front of it */
+YSORT.push(function (c: any, now: number) {
+  if (!yardOn() || !town.yards || !town.yards.length || cam.z < 0.9) return [];
+  const v = gaView(), out: any[] = [];
+  for (const y of town.yards) {
+    if (y.open != null) continue; const sp = yardSignSpot(y); if (!sp || sp.x < v.x0 - 2 || sp.x > v.x1 + 2 || sp.y < v.y0 || sp.y > v.y1) continue;
+    out.push({ k: sp.y + 0.06, f: () => {
+      const t = yardName(y).replace(/^./, (ch: string) => ch.toUpperCase()); c.save(); c.font = `700 ${Math.round(TS * 0.3)}px Georgia, serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      const cx = sp.x * TS + TS / 2, cy = sp.y * TS + TS * 0.42, w = Math.min(Math.max(c.measureText(t).width + TS * 0.4, TS * 1.2), Math.max(TS * 1.2, sp.len * TS - TS * 0.2)), h = TS * 0.5;
+      c.fillStyle = '#5a3a1e'; c.fillRect(cx - w / 2 + TS * 0.12, cy + h / 2 - 1, TS * 0.1, TS * 0.32); c.fillRect(cx + w / 2 - TS * 0.22, cy + h / 2 - 1, TS * 0.1, TS * 0.32);   // (two posts)
+      c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(cx - w / 2 + 1.5, cy - h / 2 + 2, w, h);
+      const gr = c.createLinearGradient(0, cy - h / 2, 0, cy + h / 2); gr.addColorStop(0, '#c99a62'); gr.addColorStop(1, '#a8773f'); c.fillStyle = gr; c.fillRect(cx - w / 2, cy - h / 2, w, h);
+      c.strokeStyle = 'rgba(90,56,26,.45)'; c.lineWidth = 0.6; for (const f of [0.3, 0.68]) { c.beginPath(); c.moveTo(cx - w / 2 + 2, cy - h / 2 + h * f); c.lineTo(cx + w / 2 - 2, cy - h / 2 + h * f + 0.4); c.stroke(); }   // (the grain)
+      c.strokeStyle = '#4a2e14'; c.lineWidth = 1; c.strokeRect(cx - w / 2 + 0.5, cy - h / 2 + 0.5, w - 1, h - 1);
+      c.fillStyle = '#3c2410'; for (const sx of [-1, 1]) { c.beginPath(); c.arc(cx + sx * (w / 2 - 2.6), cy - h / 2 + 2.6, 0.9, 0, 6.3); c.fill(); }   // (nails)
+      let fs = Math.round(TS * 0.3); while (fs > 6 && c.measureText(t).width > w - TS * 0.25) { fs--; c.font = `700 ${fs}px Georgia, serif`; }
+      c.fillStyle = 'rgba(255,230,190,.35)'; c.fillText(t, cx, cy + 0.6); c.fillStyle = '#3a2210'; c.fillText(t, cx, cy); c.restore();
+    } });
+  }
+  return out;
+});

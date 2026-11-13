@@ -266,3 +266,4 @@ Step 9 is built (words for the Hamlet; tools/playtest.mjs hamlet). Playtest verd
 - Bushes sway with the trees; a tree being felled sways about its foot instead of the whole sprite shifting.
 - Chibi villagers on by default (anime face and hair); axe redrawn; no chop notch; sound button and iPhone unlock. Sleeper sprite still old-style.
 - Field brush (Hamlet): the Field key picks up a brush; walk into yard grass to lay a field like ploughing, rows, fence and corner stops. Mild timing (same as ploughing). Tutorial teaches it (bot: 11 s for six tiles).
+- Round 6 (owner's list): bed usable once sown; no seed lesson; strike sounds for hoe/axe/hammer; wooden yard sign on the south fence; holes after harvest; ripe outline; victory phrase per task; counter does nothing in the Hamlet; no camp/stall names; build mode turns first. Idea to look at: Pixel_Art_Converter (github AleksTomatoOnion) as an art option.

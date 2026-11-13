@@ -36,6 +36,13 @@ function jsHarvest(k: number) { if (!sndReady()) return; const f = 587 * jSemi(J
 function jsCoins(n: number) { if (!sndReady()) return; const m = Math.min(10, Math.max(1, n)); for (let i = 0; i < m; i++) { sndTone(1480 + i * 40, 0.06, 'square', 0.025, 2200, i * 0.045); sndTone(2960, 0.05, 'sine', 0.025, undefined, i * 0.045 + 0.02); } sndTone(1046, 0.25, 'triangle', 0.06, undefined, m * 0.045); sndTone(1568, 0.3, 'sine', 0.05, undefined, m * 0.045 + 0.05); }
 function jsSpend(n: number) { if (!sndReady()) return; for (let i = 0; i < Math.min(4, n); i++) sndTone(900 - i * 60, 0.05, 'square', 0.02, 700, i * 0.05); }
 function jsFanfare() { if (!sndReady()) return; [523, 659, 784, 1046].forEach((f, i) => { sndTone(f, 0.22, 'triangle', 0.08, undefined, i * 0.08); sndTone(f * 2, 0.16, 'sine', 0.03, undefined, i * 0.08 + 0.02); }); sndTone(1568, 0.5, 'sine', 0.05, undefined, 0.34); }
+/** a whole task done (every square ploughed, sown, pulled, fenced ...): a bright little victory phrase */
+function jsVictory() { if (!sndReady()) return; const n = [523, 659, 784, 659, 784, 1046]; const d = [0, 0.1, 0.2, 0.32, 0.42, 0.52]; n.forEach((f, i) => { sndTone(f, i === 5 ? 0.6 : 0.14, 'square', 0.035, undefined, d[i]); sndTone(f, i === 5 ? 0.7 : 0.16, 'triangle', 0.07, undefined, d[i]); }); sndTone(1568, 0.5, 'sine', 0.04, undefined, 0.56); sndNoise(0.25, 'highpass', 6000, 0.03, undefined, 0.52); jBuzz(30); }
+/** tools striking: the hoe bites earth, the axe bites wood, the hammer rings (one sound each time the swing comes down) */
+function jsStrike(tool: string, vol = 1) { if (!sndReady() || vol <= 0) return;
+  if (tool === 'hoe') { sndNoise(0.09, 'lowpass', 700, 0.14 * vol, 200); sndTone(120, 0.1, 'sine', 0.13 * vol, 60); sndNoise(0.05, 'bandpass', 1800, 0.04 * vol, undefined, 0.02); }
+  else if (tool === 'axe') { sndNoise(0.05, 'bandpass', 1900, 0.13 * vol); sndTone(320, 0.08, 'triangle', 0.1 * vol, 190); sndNoise(0.12, 'lowpass', 900, 0.06 * vol, 300, 0.02); }
+  else if (tool === 'hammer') { sndTone(980, 0.09, 'square', 0.05 * vol, 700); sndTone(1460, 0.12, 'sine', 0.05 * vol, undefined, 0.01); sndNoise(0.05, 'highpass', 3200, 0.07 * vol); } }
 function jsDing() { if (!sndReady()) return; sndTone(880, 0.16, 'sine', 0.07); sndTone(1320, 0.28, 'sine', 0.05, undefined, 0.07); }
 function jsCrack() { if (!sndReady()) return; sndNoise(0.12, 'bandpass', 1100, 0.2, 400); sndTone(160, 0.1, 'square', 0.06, 70); sndNoise(0.25, 'lowpass', 300, 0.08, 120, 0.06); }
 function jsLullaby() { if (!sndReady()) return; [392, 330, 294, 262].forEach((f, i) => sndTone(f, 0.7, 'sine', 0.05, undefined, i * 0.38)); }
@@ -94,7 +101,7 @@ function jShopShine() { const d = document.getElementById('shoppanel'); if (!d) 
 const _jCard = itemCardNext; itemCardNext = function () { const was = ITEMCARD.open; _jCard(); if (ITEMCARD.open) { jsFanfare(); jBuzz(20); const P = game.player; if (P && !was) jBurst(P.x * TS + TS / 2, P.y * TS, 18, 'spark', ['#ffe08a', '#ffffff', '#f4c542'], 1.2, 1); } };
 // a tutorial task done: a ding and a sparkle where you stand
 // @ts-expect-error -- deliberate patch
-const _jNext = tut2Next; tut2Next = function (s) { _jNext(s); if (s && s.do === 'wait' && s.bot && game.player) { jsDing(); const P = game.player; jBurst(P.x * TS + TS / 2, P.y * TS + 4, 10, 'spark', ['#ffe08a', '#b9e29a', '#ffffff'], 0.9, 0.9); } };
+const _jNext = tut2Next; tut2Next = function (s) { _jNext(s); if (s && s.do === 'wait' && s.bot && game.player) { if (/tut2AllDone/.test(String(s.until))) jsVictory(); else jsDing(); const P = game.player; jBurst(P.x * TS + TS / 2, P.y * TS + 4, 10, 'spark', ['#ffe08a', '#b9e29a', '#ffffff'], 0.9, 0.9); } };
 // every line spoken in the tutorial has its speaker's voice
 // @ts-expect-error -- deliberate patch
 const _jSay = tut2Say; tut2Say = function (n, text, to) { const r = _jSay(n, text, to); jsVoice(n, text); return r; };
@@ -117,6 +124,9 @@ function drawJuice(c: any, now: number) {
   // ripe crops twinkle now and then
   if (town && town.crops && Math.random() < 0.25) { const k = town.crops[(Math.random() * town.crops.length) | 0]; if (k && k.st && cropStage(k) === 4 && !itIsFlower(k)) jBurst(k.x * TS + jRand(4, TS - 4), k.y * TS + jRand(2, TS - 6), 1, 'spark', ['#fff4b0', '#ffe08a'], 0.15, 0.4); }
   const P = game.player, ps = JUICE.parts;
+  // the swing comes down (the same phase the work pose draws, painters.ts swingTool): one strike sound for you and anybody working close by
+  for (const n of npcs) { if (!n || n.dead || n.pose !== 'work' || !['hoe', 'axe', 'hammer'].includes(n.tool)) { if (n) n._jtt = null; continue; } const v = n === P ? 1 : sndAt(n.tx, n.ty) * 0.6; if (v <= 0.05) continue;
+    const tt = ((Math.floor(now / 1000 * 30) % 20) / 20 + ((n.id || 0) % 7) * 0.13) % 1; if (n._jtt != null && tt < n._jtt) jsStrike(n.tool, v); n._jtt = tt; }
   for (let i = ps.length - 1; i >= 0; i--) {
     const q = ps[i], age = now - q.t0; if (age < 0) continue; if (age > q.life) { ps.splice(i, 1); continue; }
     const t = age / 1000, k = age / q.life; c.save(); c.globalAlpha = q.kind === 'confetti' ? Math.min(1, (1 - k) * 2) : 1 - k * k;
