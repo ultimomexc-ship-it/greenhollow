@@ -21,7 +21,10 @@ function tut2Layout(st: any): any {
   const inMap = (x: number, y: number) => x > 3 && y > 3 && x < W - 4 && y < (town.h0 || H) - 4;
   const clear = (x: number, y: number) => (grid[y][x] === T.GRASS || grid[y][x] === T.PATH) && walkable(x, y) && !lfPropAt(x, y) && !(town.nodeMap && town.nodeMap.has(y * W + x)) && roomAt[y][x] < 0;
   const HARD = new Set([T.WATER, T.WALL, T.DOOR, T.STALL, T.FLOOR, T.MOUNTAIN, T.SKY, T.STAIR, T.STAIRD, T.STAIRM, T.STAIRU, T.EARTH, T.GRAVE, T.WELL]);
-  const clearable = (x: number, y: number) => !HARD.has(grid[y][x]) && roomAt[y][x] < 0 && !(lfPropAt(x, y) && lfPropAt(x, y).fixed) && !(town.hgt && town.hgt[y * W + x] >= 0);   // (anything but water, buildings and stairs is cleared away: trees, rocks, bushes, sand, loose things)
+  // the camp's lamp posts, fire and market ground are part of the picture: the layout goes round them, with a tile to spare, and never clears or covers them
+  const keep = new Set<number>(); const keepAt = (x: number, y: number, r: number) => { for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) keep.add((y + j) * W + x + i); };
+  try { for (const l of allLamps()) keepAt(l.x, l.y, 1); for (const f of allFires()) keepAt(f.x, f.y, 1); for (const m of town.markets || []) for (const q of m.plaza || []) keepAt(q.x, q.y, 0); for (const s2 of town.stalls || []) { for (const t of s2.tiles || []) keepAt(t.x, t.y, 1); if (s2.front) keepAt(s2.front.x, s2.front.y, 1); } } catch (e) {}
+  const clearable = (x: number, y: number) => !keep.has(y * W + x) && grid[y][x] !== T.LAMP && !HARD.has(grid[y][x]) && roomAt[y][x] < 0 && !(lfPropAt(x, y) && lfPropAt(x, y).fixed) && !(town.hgt && town.hgt[y * W + x] >= 0);   // (anything but water, buildings and stairs is cleared away: trees, rocks, bushes, sand, loose things)
   let best: any = null, bs = 1e9;
   for (const [lim, far] of [[11, 20], [16, 28], [24, 40]]) {   // (close to the stall first; further out if the ground near it will not do)
     for (let oy = sy - 40; oy <= sy + 40; oy++) for (let ox = sx - 46; ox <= sx + 40; ox++) {
@@ -30,7 +33,7 @@ function tut2Layout(st: any): any {
       let s = dY + dH * 0.5; if (s >= bs) continue;
       let ok = true; for (let y = oy + M.box.y0; y <= oy + M.box.y1 && ok; y++) for (let x = ox + M.box.x0; x <= ox + M.box.x1 && ok; x++) {
         if (!inMap(x, y) || Math.abs(x - sx) + Math.abs(y - sy) <= 2 || (x >= sx - 1 && x <= sx + 2 && y >= sy - 1 && y <= sy + 3)) { ok = false; break; }
-        if (clear(x, y)) continue; if (clearable(x, y)) { s += 0.6; if (s >= bs) ok = false; continue; } ok = false; }
+        if (keep.has(y * W + x)) { ok = false; break; } if (clear(x, y)) continue; if (clearable(x, y)) { s += 0.6; if (s >= bs) ok = false; continue; } ok = false; }
       if (ok) { best = { x: ox, y: oy }; bs = s; }
     }
     if (best) break;

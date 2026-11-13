@@ -20,13 +20,14 @@ function buildLook(c: any, now: number) {
     for (let y = ((o.y % ts) + ts) % ts; y < h; y += ts) { c.moveTo(0, Math.round(y) + 0.5); c.lineTo(w, Math.round(y) + 0.5); }
     c.stroke();
   }
-  // the tile in front of you: green where a thing can go, red where it cannot
-  const f = lf2Front(P); if (f && grid[f.y]) {
-    const free = typeof fieldBrushOn === 'function' && fieldBrushOn(P) ? fieldPaintable(P, f.x, f.y) : walkable(f.x, f.y) && !lfPropAt(f.x, f.y) && !tileOwner.get(f.y * W + f.x) && roomAt[f.y][f.x] < 0 || (roomAt[f.y][f.x] >= 0 && grid[f.y][f.x] === T.FLOOR && !lfPropAt(f.x, f.y));
-    const s = toScreen(f.x * TS, f.y * TS), pu = 0.75 + 0.25 * Math.sin(now / 220);
-    c.globalAlpha = pu; c.lineWidth = 2.5; c.setLineDash([6, 4]); c.strokeStyle = free ? '#7ee07e' : '#ff7a6a'; c.fillStyle = free ? 'rgba(126,224,126,.18)' : 'rgba(255,122,106,.16)';
-    c.fillRect(s.x + 2, s.y + 2, ts - 4, ts - 4); c.strokeRect(s.x + 2, s.y + 2, ts - 4, ts - 4); c.setLineDash([]);
-  }
+  // where the next building item would go (the last one you put down, or the first on the bar): outlined green on that very tile, and nothing when it cannot go anywhere
+  { const b = P.build || {}, T2 = typeof tut2Active === 'function' && tut2Active() ? town.tut2 : null;
+    const kind = b.sel ? null : b.lastKind || (T2 ? (T2.slots || []).find((k: string) => k !== 'push' && k !== 'destroy') : (b.bar || []).find(Boolean));
+    let at: any = null;
+    if (kind) { if (T2 && T2.only && !(kind === 'fence' && T2.fenceFree)) { const f = lf2Front(P); if (tut2Tiles(T2.only).some((t: any) => t.x === f.x && t.y === f.y) && (kind === 'field' ? bldFieldSpot(P) : !lfPropAt(f.x, f.y) && walkable(f.x, f.y))) at = f; } else at = bldPlaceSpot(P, kind); }
+    if (at && grid[at.y]) { const s = toScreen(at.x * TS, at.y * TS), pu = 0.75 + 0.25 * Math.sin(now / 220);
+      c.globalAlpha = pu; c.lineWidth = 2.5; c.setLineDash([6, 4]); c.strokeStyle = '#7ee07e'; c.fillStyle = 'rgba(126,224,126,.2)';
+      c.fillRect(s.x + 2, s.y + 2, ts - 4, ts - 4); c.strokeRect(s.x + 2, s.y + 2, ts - 4, ts - 4); c.setLineDash([]); } }
   c.restore();
 }
 

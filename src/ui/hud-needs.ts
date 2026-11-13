@@ -30,5 +30,7 @@ let REQ_OPEN = false; try { REQ_OPEN = localStorage.getItem('gh.req') === '1'; }
     dbox.innerHTML = `<div class="deccard"><b>${esc(d.title)}</b><p>${esc(d.text)}</p><div class="decopts">${d.opts.map((o: any) => `<button type="button" class="btn${o.k === 'yes' ? ' primary' : ''}" data-dec="${o.k}">${esc(o.label)}</button>`).join('')}</div><div class="dim">Time is standing still while you decide.</div></div>`;
   }
   dbox.addEventListener('click', (e: any) => { const b = e.target.closest('[data-dec]'); if (!b) return; answerDecision(b.dataset.dec); dsig = ''; drawDecision(); canvas.focus({ preventScroll: true }); });
+  window.addEventListener('keydown', (e: any) => { if (dbox.hidden || !town || !town.decision) return; const L = [...dbox.querySelectorAll('[data-dec]')] as any[]; const no = L.find(b => b.dataset.dec !== 'yes') || L[L.length - 1];
+    menuNav(e, L, () => { if (no) no.click(); }); }, true);   // (WASD on the card: W and S choose, D or Enter answers, A picks the cautious answer)
   setInterval(() => { try { draw(); drawDecision(); } catch (e) {} }, 400);
 })();

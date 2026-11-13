@@ -257,7 +257,9 @@ body.tut2-noslots #hotbar:not(.build) .hbslots, body.tut2-noslots #hotbar:not(.b
 @keyframes tutpopin { from { transform: translate(-50%, -14px) scale(.9); opacity: 0; } to { transform: translate(-50%, 0) scale(1); opacity: 1; } }
 .tutkeys { position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%); z-index: 31; padding: 10px 18px; border-radius: 12px; background: rgba(20,22,26,.92); color: #f6efd8; font: 15px/1.4 "IBM Plex Sans", system-ui, sans-serif; border: 1px solid #556; pointer-events: none; white-space: nowrap; }
 .tutkeys b { color: #ffe08a; }
-.tutglow { animation: tutbounce .8s ease-in-out infinite; box-shadow: 0 0 0 3px #f4c542, 0 0 14px #f4c542 !important; }
+.tutglow { position: relative; overflow: visible !important; }
+.tutglow::after { content: ''; position: absolute; left: 50%; top: -30px; width: 0; height: 0; margin-left: -11px; border-left: 11px solid transparent; border-right: 11px solid transparent; border-top: 16px solid #4fc3ff; filter: drop-shadow(0 0 2px #0a2a44) drop-shadow(0 2px 3px rgba(0,0,0,.6)); animation: tutpoint .7s ease-in-out infinite; pointer-events: none; z-index: 5; }
+@keyframes tutpoint { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
 @keyframes tutbounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 .tutstrip.big { font-size: 22px; padding: 12px 26px; background: rgba(40,90,170,.95); animation: tutbounce .9s ease-in-out infinite; }
 .buildbanner { position: absolute; top: 52px; left: 12px; z-index: 29; padding: 6px 14px; border-radius: 8px; background: rgba(40,90,170,.92); color: #e6f0ff; font: 14px/1.3 "IBM Plex Sans", system-ui, sans-serif; letter-spacing: .02em; pointer-events: none; }
@@ -288,6 +290,17 @@ body.tut2-seedglow #hotbar .hbslots .hbslot:first-child { animation: tutbounce .
 @keyframes jstrip { from { transform: translateX(-50%) scale(.85); } to { transform: translateX(-50%) scale(1); } }
 .shoppanel .sptile { transition: transform .12s; } .shoppanel .sptile:hover { transform: translateY(-2px); }
 .btn:active { transform: scale(.94); }
+
+/* talking with somebody: your options in a speech bubble over your head; what is said goes up in the ordinary bubbles */
+.talk.tkbub { inset: 0; display: block; padding: 0; }
+.tkb { position: absolute; transform: translate(-50%, -100%); pointer-events: auto; width: max-content; max-width: min(300px, 80vw); background: #fbf6e9; color: #2a2420; border: 2px solid #3a3028; border-radius: 12px; padding: 5px; box-shadow: 0 6px 18px rgba(0,0,0,.45); font: 500 13px/1.3 "IBM Plex Sans", system-ui, sans-serif; }
+.tkb::after { content: ''; position: absolute; left: 50%; bottom: -10px; margin-left: -8px; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 10px solid #3a3028; }
+.tkb.side { transform: translate(0, -50%); } .tkb.side::after { left: -10px; top: 50%; bottom: auto; margin: -8px 0 0; border-top: 8px solid transparent; border-bottom: 8px solid transparent; border-right: 10px solid #3a3028; border-left: 0; }
+.tkb .tkopts { display: flex; flex-direction: column; gap: 2px; }
+.tkb .tkopts button { display: flex; gap: 7px; align-items: baseline; text-align: left; border: 0; background: transparent; color: inherit; font: inherit; padding: 4px 8px; border-radius: 7px; cursor: pointer; }
+.tkb .tkopts button span { font: 600 11px var(--font-mono, monospace); color: #9a6a1c; }
+.tkb .tkopts button:hover, .tkb .tkopts button.kf { background: #f0dfb4; outline: none !important; }
+.tkb .tklv { display: block; margin: 3px 0 0 auto; border: 0; background: transparent; color: #7a6a58; font: 500 11px system-ui, sans-serif; cursor: pointer; padding: 2px 6px; } .tkb .tklv i { font-style: normal; opacity: .7; }
 
 </style>
 </head>
@@ -14275,18 +14288,7 @@ function tickPlayer0(n, dt) {
         continue;
       }
     }
-    const brush = IT_AUTO && fieldBrushOn(n), paint = brush ? fieldPaintTarget(n, fx, fy) : null;
-    if (brush && p.edgeHold && p.runJob === "f" && grid[n.ty][n.tx] === T.CROP && !paint && grid[fy] && grid[fy][fx] === T.CROP && [[dy, -dx], [-dy, dx], [-dx, -dy]].some(([ax, ay]) => fieldPaintable(n, n.tx + ax, n.ty + ay))) {
-      n.pose = "stand";
-      continue;
-    }
-    if (brush && !paint && (lfPropAt(fx, fy) || !walkable(fx, fy))) {
-      n.pose = "stand";
-      n.tool = null;
-      p.lock = true;
-      continue;
-    }
-    let tg = paint || itGate(n, lifeAct(n, p, fx, fy, dx, dy) || targetAt(n, fx, fy), walkable(fx, fy));
+    let tg = itGate(n, lifeAct(n, p, fx, fy, dx, dy) || targetAt(n, fx, fy), walkable(fx, fy));
     if (IT_AUTO && FARM_NEED_REST && !itBuildOn(n) && tg && tg.key && /^crop/.test(tg.key) && !p.fresh) tg = null;
     let occ = tileOwner.get(tkey(fx, fy)), pushed = false;
     if (itHand(n, "push") && occ && occ !== n && !occ.infant) {
@@ -14328,11 +14330,11 @@ function tickPlayer0(n, dt) {
         playerFinish(n, a);
         n.tool = null;
         n.hold = null;
-        if (IT_AUTO && (/^crop/.test(a.key) && !itBuildOn(n) || /^paint/.test(a.key)) && !p.sleeping && walkable(fx, fy) && !tileOwner.get(tkey(fx, fy))) {
+        if (IT_AUTO && /^crop/.test(a.key) && !itBuildOn(n) && !p.sleeping && walkable(fx, fy) && !tileOwner.get(tkey(fx, fy))) {
           p.act = null;
           p.grace = null;
           p.edgeHold = d;
-          p.runJob = /^paint/.test(a.key) ? "f" : (a.key.match(/^crop[\d,]+([psh])/) || [])[1] || null;
+          p.runJob = (a.key.match(/^crop[\d,]+([psh])/) || [])[1] || null;
           n.path = [{ x: fx, y: fy }];
           n.moving = true;
           n.t = 0;
@@ -20973,16 +20975,16 @@ function drawStallSigns(c, now) {
     const t = st.tiles[0];
     if (t.x < v.x0 - 1 || t.x >= v.x1 || t.y < v.y0 || t.y >= v.y1) continue;
     if (typeof canSee === "function" && !canSee(t.x, t.y)) continue;
-    const open = m.serving || typeof isOpen === "function" && isOpen(m), px = t.x * TS, py = t.y * TS;
+    const open = m.serving || typeof isOpen === "function" && isOpen(m) || typeof HAMLET_TRADER_DEF !== "undefined" && m.def === HAMLET_TRADER_DEF, px = t.x * TS, py = t.y * TS;
     c.fillStyle = "#2a2332";
     c.fillRect(px + 14.6 * u, py + 15.2 * u, 9.2 * u, 4.6 * u);
     c.fillStyle = open ? "#4f9a4a" : "#b8453c";
     c.fillRect(px + 15 * u, py + 15.6 * u, 8.4 * u, 3.8 * u);
     c.fillStyle = "#fff6dc";
-    c.font = "bold " + 2.3 * u + "px system-ui, sans-serif";
+    c.font = "bold " + (open ? 2.3 : 1.85) * u + "px system-ui, sans-serif";
     c.textAlign = "center";
     c.textBaseline = "middle";
-    c.fillText(open ? "OPEN" : "SHUT", px + 19.2 * u, py + 17.5 * u);
+    c.fillText(open ? "OPEN" : "CLOSED", px + 19.2 * u, py + 17.5 * u);
     c.fillStyle = "#2a2332";
     c.fillRect(px + 18.9 * u, py + 14.2 * u, 0.5 * u, 1.2 * u);
   }
@@ -21913,7 +21915,14 @@ function itBuildSelect(n, i) {
   }
   const kind = b.bar[i - 3];
   if (kind === "field" && town.scenario === "hamlet") {
-    fieldBrushToggle(n);
+    b.brush = null;
+    b.sel = 0;
+    b.lastKind = "field";
+    if (bldPlaceField(n)) {
+      b.fieldHold = true;
+      b.lastT = n.tx + "," + n.ty;
+    }
+    itSync(true);
     return;
   }
   if (kind === "field") {
@@ -21925,10 +21934,12 @@ function itBuildSelect(n, i) {
     return;
   }
   b.brush = null;
-  if (kind) bldPlaceFront(n, kind);
+  if (kind) {
+    b.lastKind = kind;
+    bldPlaceFront(n, kind);
+  }
 }
 function bldBrushStep(n) {
-  if (town.scenario === "hamlet" && n.build && n.build.brush === "field") return;
   const b = n.build;
   if (b && b.on && b.fieldHold) {
     const key2 = n.tx + "," + n.ty;
@@ -21962,51 +21973,6 @@ const itBuildName = (k) => {
 function bldQueue(p) {
   (town.bldQ = town.bldQ || []).push([p.x, p.y]);
 }
-const FIELD_PAINT_MIN = 3;
-function fieldBrushOn(n) {
-  return !!(n && n.build && n.build.on && n.build.brush === "field" && town.scenario === "hamlet");
-}
-function fieldBrushToggle(n, on) {
-  const b = itBuildState(n), p = n.player;
-  b.sel = 0;
-  b.fieldHold = false;
-  b.brush = (on === void 0 ? b.brush !== "field" : on) ? "field" : null;
-  if (p) {
-    p.act = null;
-    p.lock = false;
-    p.skip = null;
-    p.grace = null;
-    p.edgeHold = null;
-  }
-  if (p) playerSay(n, b.brush ? "Field brush in hand. Walk into grass inside your yard to lay a field." : "Field brush put away.");
-  itSync(true);
-}
-function fieldPaintable(n, x, y) {
-  if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3 || x === n.tx && y === n.ty) return false;
-  const g = grid[y][x];
-  if (g !== T.GRASS && !(g === T.DECK && isUpperY(y)) || roomAt[y][x] >= 0 || lfPropAt(x, y)) return false;
-  if (town.siteAt && town.siteAt[y * W + x] || town.nodeMap && town.nodeMap.has(y * W + x)) return false;
-  if (typeof tut2Active === "function" && tut2Active() && town.tut2.only) return tut2Tiles(town.tut2.only).some((t) => t.x === x && t.y === y);
-  return !!(typeof FIELD_ANYWHERE !== "undefined" && FIELD_ANYWHERE) || !!(typeof yardAtXY === "function" && yardAtXY(x, y));
-}
-function fieldPaintTarget(n, x, y) {
-  if (!fieldPaintable(n, x, y)) return null;
-  if (!kitHas("field")) return { msg: "No field tiles left. Paullus sells them." };
-  return { key: "paint" + x + "," + y, min: FIELD_PAINT_MIN, text: "Laying a field", tool: "hoe", run(nn) {
-    fieldPaintAt(nn, x, y);
-  } };
-}
-function fieldPaintAt(n, x, y) {
-  if (!kitHas("field") || grid[y][x] === T.CROP) return false;
-  setT(x, y, T.CROP);
-  town.crops.push({ x, y, f: "field" + n.id, pl: 1, st: 0, t0: 0, byField: n.id });
-  kitTake("field");
-  markDirty(x, y, 1, 1);
-  town.gridV = (town.gridV || 0) + 1;
-  if (typeof refreshReach === "function") refreshReach();
-  sndPlace();
-  return true;
-}
 function bldPlaceField(n, quiet) {
   if (!kitHas("field")) {
     if (!quiet) kitOut(n, "field");
@@ -22036,6 +22002,40 @@ function bldPlaceField(n, quiet) {
   if (!quiet) playerSay(n, "A field tile.");
   return true;
 }
+function bldFieldSpot(n) {
+  const f = lf2Front(n), x = f.x, y = f.y;
+  if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) return null;
+  const g = grid[y][x];
+  if (g !== T.GRASS && !(g === T.DECK && isUpperY(y)) || roomAt[y][x] >= 0 || lfPropAt(x, y) || town.siteAt && town.siteAt[y * W + x] || town.nodeMap && town.nodeMap.has(y * W + x) || x === n.tx && y === n.ty) return null;
+  if (town.scenario === "hamlet" && typeof yardAtXY === "function" && !(typeof FIELD_ANYWHERE !== "undefined" && FIELD_ANYWHERE) && !yardAtXY(x, y)) return null;
+  return { x, y };
+}
+function bldPlaceSpot(n, kind) {
+  if (kind === "field" && town.scenario === "hamlet") return bldFieldSpot(n);
+  if (kind === "stallseed" || kind === "stallcarp" || kind === "stair" || kind === "stairdown") return null;
+  const f = lf2Front(n);
+  const ok = (x, y) => x >= 3 && y >= 3 && x < W - 3 && y < H - 3 && walkable(x, y) && !lfPropAt(x, y) && !tileOwner.get(y * W + x) && !(x === n.tx && y === n.ty) && !town.siteAt[y * W + x] && ![T.DOOR, T.PLOT, T.TENT, T.PEW].includes(grid[y][x]);
+  {
+    const dx = Math.sign(f.x - n.tx), dy = Math.sign(f.y - n.ty);
+    if ((dx || dy) && lfPropAt(f.x, f.y)) {
+      let x = f.x, y = f.y;
+      for (let i = 0; i < 400 && lfPropAt(x, y); i++) {
+        x += dx;
+        y += dy;
+      }
+      if (ok(x, y)) return { x, y };
+    }
+  }
+  const cand = [];
+  for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
+    const x = f.x + dx, y = f.y + dy;
+    if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) continue;
+    cand.push([Math.abs(dx) + Math.abs(dy) * 1.01, x, y]);
+  }
+  cand.sort((a, b) => a[0] - b[0]);
+  for (const [, x, y] of cand) if (ok(x, y)) return { x, y };
+  return null;
+}
 function bldPlaceFront(n, kind) {
   if (kind === "stallseed" || kind === "stallcarp") return bldPlaceStall(n, kind) ? {} : null;
   if (kind === "field" && town.scenario === "hamlet") return bldPlaceField(n) ? {} : null;
@@ -22048,45 +22048,16 @@ function bldPlaceFront(n, kind) {
     playerSay(n, "The island is full of loose things. Smash some first.");
     return null;
   }
-  const f = lf2Front(n), cand = [];
-  const ok = (x, y) => x >= 3 && y >= 3 && x < W - 3 && y < H - 3 && walkable(x, y) && !lfPropAt(x, y) && !tileOwner.get(y * W + x) && !(x === n.tx && y === n.ty) && !town.siteAt[y * W + x] && ![T.DOOR, T.PLOT, T.TENT, T.PEW].includes(grid[y][x]);
-  {
-    const dx = Math.sign(f.x - n.tx), dy = Math.sign(f.y - n.ty);
-    if ((dx || dy) && lfPropAt(f.x, f.y)) {
-      let x = f.x, y = f.y;
-      for (let i = 0; i < 400 && lfPropAt(x, y); i++) {
-        x += dx;
-        y += dy;
-      }
-      if (ok(x, y)) {
-        const p = lfAddProp(kind, x, y);
-        p.v = Math.floor(Math.random() * 5);
-        p.rot = 0;
-        bldQueue(p);
-        kitTake(kind);
-        sndPlace();
-        playerSay(n, "A " + (LF_NOUN[kind] || kind) + ".");
-        return p;
-      }
-    }
-  }
-  for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
-    const x = f.x + dx, y = f.y + dy;
-    if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) continue;
-    cand.push([Math.abs(dx) + Math.abs(dy) * 1.01, x, y]);
-  }
-  cand.sort((a, b) => a[0] - b[0]);
-  for (const [, x, y] of cand) {
-    if (!walkable(x, y) || lfPropAt(x, y) || tileOwner.get(y * W + x) || x === n.tx && y === n.ty || town.siteAt[y * W + x]) continue;
-    const g = grid[y][x];
-    if (g === T.DOOR || g === T.PLOT || g === T.TENT || g === T.PEW) continue;
-    const p = lfAddProp(kind, x, y);
+  const at = bldPlaceSpot(n, kind);
+  if (at) {
+    const p = lfAddProp(kind, at.x, at.y);
     p.v = Math.floor(Math.random() * 5);
     p.rot = 0;
     bldQueue(p);
     kitTake(kind);
     sndPlace();
     playerSay(n, "A " + (LF_NOUN[kind] || kind) + ".");
+    if (n.build) n.build.lastKind = kind;
     return p;
   }
   playerSay(n, "No room here.");
@@ -25066,7 +25037,7 @@ function drawPlayerFx(c, now) {
     }
   }
   const age = clk() - p.msgAt;
-  if (p.msg && age >= 0 && age < 45) {
+  if (p.msg && age >= 0 && age < 45 && !(typeof tut2Active === "function" && tut2Active())) {
     const f2 = 6.5 * z;
     if (f2 >= 4.5) {
       c.globalAlpha = Math.min(1, (45 - age) / 15);
@@ -25149,6 +25120,7 @@ function bubbleSide(vx, vy, self) {
   return vx > 0 ? "right" : "left";
 }
 function drawBubbles(c, now) {
+  if (typeof talkPlace === "function" && typeof talkUI !== "undefined" && talkUI.o) talkPlace();
   const vw = cam.cw, vh2 = cam.ch;
   c.textBaseline = "middle";
   const kb = Math.min(1.6, cam.z * 0.8), showB = kb >= 0.45;
@@ -25156,7 +25128,7 @@ function drawBubbles(c, now) {
   c.textAlign = "left";
   for (let i = bubbles.length - 1; i >= 0; i--) if (now > bubbles[i].until) bubbles.splice(i, 1);
   for (const b of bubbles) {
-    if (!showB || now < b.from || typeof talkUI !== "undefined" && talkUI.o) continue;
+    if (!showB || now < b.from || typeof talkUI !== "undefined" && talkUI.o && !b.talk2) continue;
     const n = b.n;
     if (n.inShip || !n.player && !canSee(n.x, n.y)) continue;
     const s = toScreen(n.x * TS + TS / 2, n.y * TS - 6 - 8 * (n.scale || 1));
@@ -26754,8 +26726,7 @@ function hamletStart() {
   town.markets.push(mk);
   const sy = town.cy + 3, sx = town.cx + 2;
   setT(sx, sy, T.STALL);
-  setT(sx + 1, sy, T.STALL);
-  const st = { x: sx, y: sy + 1, face: { dx: 0, dy: -1 }, front: { x: sx, y: sy + 2 }, tiles: [{ x: sx, y: sy }, { x: sx + 1, y: sy }], owner: null, market: mk };
+  const st = { x: sx, y: sy + 1, face: { dx: 0, dy: -1 }, front: { x: sx, y: sy + 2 }, tiles: [{ x: sx, y: sy }], owner: null, market: mk };
   town.stalls.push(st);
   mk.stalls.push(st);
   setRole(TR, "Trader", mk);
@@ -26900,7 +26871,7 @@ function bldPlaceStall(n, kind) {
     kitOut(n, kind);
     return null;
   }
-  const f = lf2Front(n), sx = f.x, sy = f.y, need = [[sx, sy], [sx + 1, sy], [sx, sy + 1], [sx, sy + 2], [sx + 1, sy + 1], [sx + 1, sy + 2]];
+  const f = lf2Front(n), sx = f.x, sy = f.y, need = [[sx, sy], [sx, sy + 1], [sx, sy + 2]];
   for (const [x, y] of need) {
     const g = grid[y] && grid[y][x];
     if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3 || g !== T.GRASS && g !== T.PATH || roomAt[y][x] >= 0 || lfPropAt(x, y) || tileOwner.get(y * W + x) || town.nodeMap && town.nodeMap.has(y * W + x) || x === n.tx && y === n.ty || typeof yardAtXY === "function" && yardAtXY(x, y)) {
@@ -26916,9 +26887,8 @@ function bldPlaceStall(n, kind) {
   const mk = { id: town.markets.length + 1, x: sx, y: sy + 1, name: kind === "stallseed" ? "The Seed Stall" : "The Carpenter", stalls: [], plaza: [] };
   town.markets.push(mk);
   setT(sx, sy, T.STALL);
-  setT(sx + 1, sy, T.STALL);
-  markDirty(sx - 1, sy - 1, 4, 5);
-  const st = { x: sx, y: sy + 1, face: { dx: 0, dy: -1 }, front: { x: sx, y: sy + 2 }, tiles: [{ x: sx, y: sy }, { x: sx + 1, y: sy }], owner: null, market: mk, built: kind };
+  markDirty(sx - 1, sy - 1, 3, 5);
+  const st = { x: sx, y: sy + 1, face: { dx: 0, dy: -1 }, front: { x: sx, y: sy + 2 }, tiles: [{ x: sx, y: sy }], owner: null, market: mk, built: kind };
   town.stalls.push(st);
   mk.stalls.push(st);
   kitTake(kind);
@@ -26926,7 +26896,6 @@ function bldPlaceStall(n, kind) {
   const m = keeper.shop;
   if (!m) {
     setT(sx, sy, T.GRASS);
-    setT(sx + 1, sy, T.GRASS);
     town.stalls = town.stalls.filter((q) => q !== st);
     town.markets = town.markets.filter((q) => q !== mk);
     kitGive(kind);
@@ -27018,7 +26987,21 @@ function tut2Layout(st) {
   const inMap = (x, y) => x > 3 && y > 3 && x < W - 4 && y < (town.h0 || H) - 4;
   const clear = (x, y) => (grid[y][x] === T.GRASS || grid[y][x] === T.PATH) && walkable(x, y) && !lfPropAt(x, y) && !(town.nodeMap && town.nodeMap.has(y * W + x)) && roomAt[y][x] < 0;
   const HARD = /* @__PURE__ */ new Set([T.WATER, T.WALL, T.DOOR, T.STALL, T.FLOOR, T.MOUNTAIN, T.SKY, T.STAIR, T.STAIRD, T.STAIRM, T.STAIRU, T.EARTH, T.GRAVE, T.WELL]);
-  const clearable = (x, y) => !HARD.has(grid[y][x]) && roomAt[y][x] < 0 && !(lfPropAt(x, y) && lfPropAt(x, y).fixed) && !(town.hgt && town.hgt[y * W + x] >= 0);
+  const keep = /* @__PURE__ */ new Set();
+  const keepAt = (x, y, r) => {
+    for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) keep.add((y + j) * W + x + i);
+  };
+  try {
+    for (const l of allLamps()) keepAt(l.x, l.y, 1);
+    for (const f of allFires()) keepAt(f.x, f.y, 1);
+    for (const m of town.markets || []) for (const q of m.plaza || []) keepAt(q.x, q.y, 0);
+    for (const s2 of town.stalls || []) {
+      for (const t of s2.tiles || []) keepAt(t.x, t.y, 1);
+      if (s2.front) keepAt(s2.front.x, s2.front.y, 1);
+    }
+  } catch (e) {
+  }
+  const clearable = (x, y) => !keep.has(y * W + x) && grid[y][x] !== T.LAMP && !HARD.has(grid[y][x]) && roomAt[y][x] < 0 && !(lfPropAt(x, y) && lfPropAt(x, y).fixed) && !(town.hgt && town.hgt[y * W + x] >= 0);
   let best = null, bs = 1e9;
   for (const [lim, far] of [[11, 20], [16, 28], [24, 40]]) {
     for (let oy = sy - 40; oy <= sy + 40; oy++) for (let ox = sx - 46; ox <= sx + 40; ox++) {
@@ -27030,6 +27013,10 @@ function tut2Layout(st) {
       let ok = true;
       for (let y = oy + M.box.y0; y <= oy + M.box.y1 && ok; y++) for (let x = ox + M.box.x0; x <= ox + M.box.x1 && ok; x++) {
         if (!inMap(x, y) || Math.abs(x - sx) + Math.abs(y - sy) <= 2 || x >= sx - 1 && x <= sx + 2 && y >= sy - 1 && y <= sy + 3) {
+          ok = false;
+          break;
+        }
+        if (keep.has(y * W + x)) {
           ok = false;
           break;
         }
@@ -27557,6 +27544,10 @@ function tut2ArrowAt() {
     const n = tut2Who(a.to);
     return { x: n.x, y: n.y, person: true };
   }
+  if (a.to === "front") {
+    const r = tut2Who("paullus");
+    if (r) return { x: r.x, y: r.y, person: true };
+  }
   const tiles = tut2Tiles(a.to);
   const todo = a.done ? tiles.filter((t) => !TUT2_DONE[a.done](t.x, t.y)) : tiles;
   const P = game.player;
@@ -27584,7 +27575,7 @@ function drawTut2(c, now) {
   }
   const a = tut2ArrowAt();
   if (!a) return;
-  const bob = Math.sin(now / 260) * 4, big = ui.arrow && ui.arrow.big ? 1.5 : 1, x = a.x * TS + TS / 2, y = a.y * TS - (a.person ? 20 : 4) + bob;
+  const bob = Math.sin(now / 260) * 4, big = ui.arrow && ui.arrow.big ? 1.5 : 1, x = a.x * TS + TS / 2, y = a.y * TS - (a.person ? TS + 6 : 4) + bob;
   c.save();
   c.fillStyle = "#f4c542";
   c.strokeStyle = "rgba(30,20,0,.8)";
@@ -27638,6 +27629,7 @@ itBuildSelect = function(n, i) {
   if (!tut2Active()) return _t2Select(n, i);
   const k = (town.tut2.slots || [])[i], b = itBuildState(n);
   if (!k) return;
+  if (k !== "push" && k !== "destroy") b.lastKind = k;
   if (k === "push") {
     b.sel = 0;
     const p = n.player;
@@ -27658,10 +27650,6 @@ itBuildSelect = function(n, i) {
     itSync(true);
     return;
   }
-  if (k === "field") {
-    fieldBrushToggle(n);
-    return;
-  }
   b.sel = 0;
   if (k === "fence" && town.tut2.fenceFree) {
     if (bldPlaceFront(n, "fence")) itSync(true);
@@ -27673,7 +27661,7 @@ const _t2Bar = itBuildBarHTML;
 itBuildBarHTML = function(n, face) {
   if (!tut2Active()) return _t2Bar(n, face);
   const b = itBuildState(n);
-  const slots = (town.tut2.slots || []).map((k, i) => k === "push" ? `<button type="button" class="hbslot${b.sel === 0 ? " on" : ""}" data-bslot="${i}" title="Push"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${IT_SVG.push}</svg><span class="hbcap">Push</span></button>` : k === "destroy" ? `<button type="button" class="hbslot${b.sel === 1 ? " on" : ""}" data-bslot="${i}" title="Destroy"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${IT_SVG.hammer}</svg><span class="hbcap">Destroy</span></button>` : `<button type="button" class="hbslot item${k === "field" && b.brush === "field" ? " on" : ""}" data-bslot="${i}" title="${esc(itBuildName(k))}"><em>${i + 1}</em>${itBuildIcon(k)}<u>${kitLabel(k)}</u><span class="hbcap">${esc(itBuildName(k))}</span></button>`).join("");
+  const slots = (town.tut2.slots || []).map((k, i) => k === "push" ? `<button type="button" class="hbslot${b.sel === 0 ? " on" : ""}" data-bslot="${i}" title="Push"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${IT_SVG.push}</svg><span class="hbcap">Push</span></button>` : k === "destroy" ? `<button type="button" class="hbslot${b.sel === 1 ? " on" : ""}" data-bslot="${i}" title="Destroy"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${IT_SVG.hammer}</svg><span class="hbcap">Destroy</span></button>` : `<button type="button" class="hbslot item" data-bslot="${i}" title="${esc(itBuildName(k))}"><em>${i + 1}</em>${itBuildIcon(k)}<u>${kitLabel(k)}</u><span class="hbcap">${esc(itBuildName(k))}</span></button>`).join("");
   return `<div class="hbbadge" title="Build mode (B)"><b>BUILD</b><span>B to leave</span></div><div class="hbslots">${slots}</div><div class="hbface">${face || ""}</div>`;
 };
 function tut2Place(n, kind) {
@@ -27841,9 +27829,49 @@ function shopDraw() {
   }));
   const x = d.querySelector("[data-spx]");
   if (x) x.addEventListener("click", shopClose);
+  shopKeyMark();
+}
+function shopKeyList() {
+  const d = document.getElementById("shoppanel");
+  if (!d) return [];
+  return [...d.querySelectorAll("button")].filter((b) => !b.disabled && b.offsetParent !== null && b.style.visibility !== "hidden");
+}
+function shopKeyMark() {
+  const L = shopKeyList();
+  if (!L.length) return;
+  if (SHOP.ki == null || SHOP.ki >= L.length) {
+    const g = L.findIndex((b) => b.classList.contains("tutglow")), f = L.findIndex((b) => b.dataset && b.dataset.sp != null);
+    SHOP.ki = g >= 0 ? g : f >= 0 ? f : 0;
+  }
+  L.forEach((b, i) => b.classList.toggle("kf", i === SHOP.ki));
 }
 if (typeof window !== "undefined") window.addEventListener("keydown", (e) => {
   if (!SHOP.open || typeof ITEMCARD !== "undefined" && ITEMCARD.open) return;
+  {
+    const k = (e.key || "").toLowerCase(), L = shopKeyList();
+    if (["w", "s", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(k) && L.length) {
+      const i = SHOP.ki == null ? -1 : SHOP.ki;
+      const dn = k === "s" || k === "arrowdown" || k === "arrowright";
+      SHOP.ki = i < 0 ? 0 : (i + (dn ? 1 : -1) + L.length) % L.length;
+      shopKeyMark();
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      return;
+    }
+    if ((k === "d" || k === "enter" || k === " ") && !e.repeat) {
+      const b = L[SHOP.ki == null ? 0 : SHOP.ki];
+      if (b) b.click();
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      return;
+    }
+    if (k === "a" && !e.repeat) {
+      shopClose();
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      return;
+    }
+  }
   if (e.key === "Escape") {
     shopClose();
     e.preventDefault();
@@ -28245,21 +28273,23 @@ TUT2_SCENES.push(
     tarrow("gate"),
     tset((T2) => {
       T2.hammerAt = T2.at.gate;
+      T2.autoHammer = true;
     }),
     tlock({ build: true }, ["destroy", "gate"], "gate"),
-    tstrip("Press B, then 1 for the hammer. Walk into the marked fence to knock it out, then press 2 to put the gate in the gap."),
+    tstrip("Press B. The hammer is in your hand: walk into the marked fence to knock it out. Then press 2 to put the gate in the gap."),
     twait((T2) => {
       const p = lfPropAt(T2.at.gate.x, T2.at.gate.y);
       return !p;
     }, { bot: (T2) => {
       if (!buildOn()) return { key: "b" };
       const st = { x: T2.at.gate.x - 1, y: T2.at.gate.y };
-      return game.player.build.sel === 1 ? { stand: st, into: T2.at.gate } : { stand: st, key: "1" };
+      return game.player.build.sel === 1 ? { stand: st, into: T2.at.gate } : { stand: st, key: "1", pressOnly: true };
     } }),
     twait((T2) => TUT2_DONE.gate(T2.at.gate.x, T2.at.gate.y), { bot: (T2) => ({ stand: { x: T2.at.gate.x - 1, y: T2.at.gate.y }, faceTo: T2.at.gate, key: "2" }) }),
     tmark(),
     tset((T2) => {
       T2.hammerAt = null;
+      T2.autoHammer = false;
     }),
     tstrip("Press B to let the world go on."),
     twait(() => !buildOn(), { bot: () => ({ key: "b" }) }),
@@ -28304,7 +28334,7 @@ TUT2_SCENES.push(
     twait(() => !shopIsOpen(), { bot: () => ({ shop: { close: true } }) }),
     tarrow("jfield", "field"),
     tlock({ build: true }, ["field"], "jfield"),
-    tstrip("Press B, then 1 for the field brush. Walk into a marked square to lay a field. Keep walking to lay a row."),
+    tstrip("Press B. Face a marked square and press 1 to lay a field tile. Six of them."),
     twait(() => tut2AllDone("jfield", "field"), { bot: (T2) => {
       if (!buildOn()) {
         const inn = tut2YardInner(T2)[0];
@@ -28314,8 +28344,7 @@ TUT2_SCENES.push(
       const todo = tut2Tiles("jfield").filter((t2) => !TUT2_DONE.field(t2.x, t2.y));
       if (!todo.length) return null;
       const t = nearestTo(todo);
-      if (!fieldBrushOn(game.player)) return { key: "1", pressOnly: true };
-      return { stand: tut2Beside(t), into: t };
+      return { stand: tut2Beside(t), faceTo: t, key: "1" };
     } }),
     tstrip("Press B to let the world go on."),
     twait(() => !buildOn(), { bot: () => ({ key: "b" }) }),
@@ -28719,6 +28748,8 @@ shopDraw = function() {
     const b = d.querySelector(".sptile .spbtns button:last-child:not([disabled])") || d.querySelector(".sptile .spbtns button:not([disabled])");
     if (b) b.classList.add("tutglow");
   } else if (x) x.classList.add("tutglow");
+  SHOP.ki = null;
+  shopKeyMark();
 };
 function tut2GlowSlot() {
   const T2 = town.tut2, P = game.player, sl = T2.slots || [];
@@ -28756,6 +28787,20 @@ tut2Hud = function() {
   const s = document.getElementById("tutstrip");
   if (s) s.classList.toggle("big", tut2Active() && /^Press B/.test(s.textContent || ""));
   document.body.classList.toggle("tut2-seedglow", !!(tut2Active() && town.tut2.seedLesson));
+  {
+    const T2 = town.tut2, P2 = game.player;
+    if (tut2Active() && T2.autoHammer && P2 && itBuildOn(P2) && P2.build.sel !== 1) {
+      const g = T2.at.gate, pr = lfPropAt(g.x, g.y);
+      if (pr && pr.kind === "fence") {
+        P2.build.sel = 1;
+        if (P2.player) {
+          P2.player.act = null;
+          P2.player.lock = false;
+        }
+        itSync(true);
+      }
+    }
+  }
   const P = game.player;
   if (tut2Active() && P && P.build) {
     const sig = tut2GlowSlot() + "|" + (town.tut2.ui.strip || "");
@@ -28831,7 +28876,9 @@ function itemCardNext() {
 }
 if (typeof window !== "undefined") window.addEventListener("keydown", (e) => {
   if (!ITEMCARD.open) return;
-  if (["Enter", " ", "Escape"].includes(e.key) || e.code === "Space") itemCardNext();
+  if (["Enter", " ", "Escape", "d", "D", "a", "A", "e", "E"].includes(e.key) || e.code === "Space") {
+    if (!e.repeat) itemCardNext();
+  }
   e.preventDefault();
   e.stopImmediatePropagation();
 }, true);
@@ -29079,6 +29126,57 @@ function jsStrike(tool, vol = 1) {
     sndNoise(0.05, "highpass", 3200, 0.07 * vol);
   }
 }
+function jsSnore(vol, pan, deep) {
+  if (!sndReady() || vol <= 0.02) return;
+  const c = SND.ctx, t = c.currentTime;
+  const out = c.createGain();
+  out.gain.value = vol;
+  let node = out;
+  if (c.createStereoPanner) {
+    const p = c.createStereoPanner();
+    p.pan.value = Math.max(-1, Math.min(1, pan));
+    out.connect(p);
+    p.connect(SND.master);
+  } else out.connect(SND.master);
+  const breath = (at, dur, f0, f1, v) => {
+    const s = c.createBufferSource(), fl = c.createBiquadFilter(), g = c.createGain();
+    s.buffer = SND.noiseBuf;
+    fl.type = "bandpass";
+    fl.Q.value = 3;
+    fl.frequency.setValueAtTime(f0, t + at);
+    fl.frequency.linearRampToValueAtTime(f1, t + at + dur);
+    g.gain.setValueAtTime(1e-4, t + at);
+    g.gain.exponentialRampToValueAtTime(v, t + at + dur * 0.45);
+    g.gain.exponentialRampToValueAtTime(1e-4, t + at + dur);
+    s.connect(fl);
+    fl.connect(g);
+    g.connect(node);
+    s.start(t + at, Math.random());
+    s.stop(t + at + dur + 0.05);
+  };
+  breath(0, 0.9, 260 * deep, 420 * deep, 0.22);
+  const o = c.createOscillator(), og = c.createGain(), lfo = c.createOscillator(), lg = c.createGain();
+  o.type = "sawtooth";
+  o.frequency.value = 62 * deep;
+  lfo.frequency.value = 28;
+  lg.gain.value = 0.05;
+  lfo.connect(lg);
+  lg.connect(og.gain);
+  og.gain.setValueAtTime(1e-4, t);
+  og.gain.exponentialRampToValueAtTime(0.06, t + 0.45);
+  og.gain.exponentialRampToValueAtTime(1e-4, t + 0.9);
+  const lp = c.createBiquadFilter();
+  lp.type = "lowpass";
+  lp.frequency.value = 380;
+  o.connect(og);
+  og.connect(lp);
+  lp.connect(node);
+  o.start(t);
+  lfo.start(t);
+  o.stop(t + 0.95);
+  lfo.stop(t + 0.95);
+  breath(1.25, 1.1, 900, 600, 0.06);
+}
 function jsDing() {
   if (!sndReady()) return;
   sndTone(880, 0.16, "sine", 0.07);
@@ -29121,13 +29219,6 @@ const _jFinish = playerFinish;
 playerFinish = function(n, a) {
   const r = _jFinish(n, a);
   if (!n || !n.player || !a || !a.key) return r;
-  const fp = /^paint(\d+),(\d+)/.exec(a.key);
-  if (fp) {
-    const p = jTile(+fp[1], +fp[2]);
-    jsPlough(jCombo("f"));
-    jBurst(p.x, p.y + 4, 10, "dot", ["#6b4a2b", "#8a6239", "#4e3420"], 1, 0.7);
-    jShake(1.2);
-  }
   const m = /^crop(\d+),(\d+)([psh])/.exec(a.key);
   if (m) {
     const x = +m[1], y = +m[2], p = jTile(x, y), job = m[3], k = jCombo(job);
@@ -29272,6 +29363,21 @@ function drawJuice(c, now) {
     if (k && k.st && cropStage(k) === 4 && !itIsFlower(k)) jBurst(k.x * TS + jRand(4, TS - 4), k.y * TS + jRand(2, TS - 6), 1, "spark", ["#fff4b0", "#ffe08a"], 0.15, 0.4);
   }
   const P = game.player, ps = JUICE.parts;
+  if (P && typeof sndReady === "function" && sndReady()) {
+    const tnow = performance.now();
+    for (const n of npcs) {
+      if (!n || n.dead || n === P || n.pose !== "sleep" || n.infant) continue;
+      const v = sndAt(n.x, n.y);
+      if (v <= 0.15) {
+        n._snore = 0;
+        continue;
+      }
+      if (!n._snore) n._snore = tnow + 400 + n.id * 977 % 2600;
+      if (tnow < n._snore) continue;
+      n._snore = tnow + 3e3 + n.id * 131 % 900;
+      jsSnore(Math.pow(v, 1.6) * (n.age < 16 ? 0.4 : 0.75), (n.x - P.x) / 9, n.age < 16 ? 1.5 : n.female ? 1.2 : 1);
+    }
+  }
   for (const n of npcs) {
     if (!n || n.dead || n.pose !== "work" || !["hoe", "axe", "hammer"].includes(n.tool)) {
       if (n) n._jtt = null;
@@ -29555,18 +29661,27 @@ function buildLook(c, now) {
     }
     c.stroke();
   }
-  const f = lf2Front(P);
-  if (f && grid[f.y]) {
-    const free = typeof fieldBrushOn === "function" && fieldBrushOn(P) ? fieldPaintable(P, f.x, f.y) : walkable(f.x, f.y) && !lfPropAt(f.x, f.y) && !tileOwner.get(f.y * W + f.x) && roomAt[f.y][f.x] < 0 || roomAt[f.y][f.x] >= 0 && grid[f.y][f.x] === T.FLOOR && !lfPropAt(f.x, f.y);
-    const s = toScreen(f.x * TS, f.y * TS), pu = 0.75 + 0.25 * Math.sin(now / 220);
-    c.globalAlpha = pu;
-    c.lineWidth = 2.5;
-    c.setLineDash([6, 4]);
-    c.strokeStyle = free ? "#7ee07e" : "#ff7a6a";
-    c.fillStyle = free ? "rgba(126,224,126,.18)" : "rgba(255,122,106,.16)";
-    c.fillRect(s.x + 2, s.y + 2, ts - 4, ts - 4);
-    c.strokeRect(s.x + 2, s.y + 2, ts - 4, ts - 4);
-    c.setLineDash([]);
+  {
+    const b = P.build || {}, T2 = typeof tut2Active === "function" && tut2Active() ? town.tut2 : null;
+    const kind = b.sel ? null : b.lastKind || (T2 ? (T2.slots || []).find((k) => k !== "push" && k !== "destroy") : (b.bar || []).find(Boolean));
+    let at = null;
+    if (kind) {
+      if (T2 && T2.only && !(kind === "fence" && T2.fenceFree)) {
+        const f = lf2Front(P);
+        if (tut2Tiles(T2.only).some((t) => t.x === f.x && t.y === f.y) && (kind === "field" ? bldFieldSpot(P) : !lfPropAt(f.x, f.y) && walkable(f.x, f.y))) at = f;
+      } else at = bldPlaceSpot(P, kind);
+    }
+    if (at && grid[at.y]) {
+      const s = toScreen(at.x * TS, at.y * TS), pu = 0.75 + 0.25 * Math.sin(now / 220);
+      c.globalAlpha = pu;
+      c.lineWidth = 2.5;
+      c.setLineDash([6, 4]);
+      c.strokeStyle = "#7ee07e";
+      c.fillStyle = "rgba(126,224,126,.2)";
+      c.fillRect(s.x + 2, s.y + 2, ts - 4, ts - 4);
+      c.strokeRect(s.x + 2, s.y + 2, ts - 4, ts - 4);
+      c.setLineDash([]);
+    }
   }
   c.restore();
 }
@@ -31581,6 +31696,14 @@ try {
     drawDecision();
     canvas.focus({ preventScroll: true });
   });
+  window.addEventListener("keydown", (e) => {
+    if (dbox.hidden || !town || !town.decision) return;
+    const L = [...dbox.querySelectorAll("[data-dec]")];
+    const no = L.find((b) => b.dataset.dec !== "yes") || L[L.length - 1];
+    menuNav(e, L, () => {
+      if (no) no.click();
+    });
+  }, true);
   setInterval(() => {
     try {
       draw();
@@ -32173,7 +32296,7 @@ if (typeof isleBoot === "function") isleBoot();
 else newTown();
 requestAnimationFrame(frame);
 const GNAME = (g) => GOODS[g] && GOODS[g].name || g;
-const talkUI = { o: null, say: "", q: "", prev: "2", opts: [], dy: 0 };
+const talkUI = { o: null, say: "", q: "", prev: "2", opts: [], dy: 0, lastQ: "", lastSay: "" };
 function openTalk(o) {
   const n = game.player;
   if (!n || !o || o.dead) return;
@@ -32206,8 +32329,14 @@ function closeTalk() {
   if (typeof ptEnd === "function") ptEnd();
   talkUI.o = null;
   el("talk").hidden = true;
-  talkS = null;
-  if (typeof refreshMarks === "function") refreshMarks();
+  talkUI.lastQ = talkUI.lastSay = "";
+  {
+    const now = performance.now();
+    for (const b2 of bubbles) if (b2.talk2) {
+      b2.talk2 = false;
+      b2.until = Math.min(b2.until, now + 2500);
+    }
+  }
   o.talkUntil = game.time + 3;
   const n = game.player;
   if (n) {
@@ -32278,18 +32407,37 @@ function menuFirst(root, sel) {
 function renderTalk() {
   const o = talkUI.o, n = game.player, box = el("talk");
   if (!o || !n) return;
-  const a = Math.max(-100, Math.min(100, o.aff[n.id] || 0)), k = o.know[n.id] || 0;
-  const tr = o.traits.map((t) => t.charAt(0).toUpperCase() + t.slice(1)).join(", ");
   box.hidden = false;
-  box.innerHTML = '<div class="tk"><div class="th"><div class="nm"><b>' + esc(nameOf(o)) + "</b><small>" + esc(closenessWord(o, n)) + '</small></div><small class="kh">W S choose \xB7 D pick</small><button type="button" class="lv" data-leave="1" title="Leave (A)">Leave <i>A</i></button></div>' + (talkUI.q ? '<div class="tq">' + esc(talkUI.q) + "</div>" : "") + '<div class="ta">' + esc(cvSpeak(talkUI.say)) + '</div><div class="topts">' + talkUI.opts.map((op, i) => '<button type="button" data-k="' + esc(op[0]) + '""><span>' + (i + 1) + "</span>" + esc(cvSpeak(op[1])) + "</button>").join("") + "</div></div>";
-  {
-    const tk = box.querySelector(".tk");
-    talkUI.dy = tk ? (tk.offsetHeight / 2 + 10) / (TS * cam.z) : 0;
+  box.classList.add("tkbub");
+  talkUI.dy = 0;
+  if (!(talkS && talkS.custom)) {
+    const all = talkUI.opts || [], bye = all.filter((op) => op[0] === "bye");
+    talkUI.opts = all.filter((op) => op[0] !== "bye").slice(0, bye.length ? 3 : 4).concat(bye);
   }
+  const opts = talkUI.opts;
+  box.innerHTML = '<div class="tkb" id="tkb"><div class="tkopts">' + opts.map((op, i) => '<button type="button" data-k="' + esc(op[0]) + '"><span>' + (i + 1) + "</span>" + esc(cvSpeak(op[1])) + "</button>").join("") + "</div></div>";
   box.querySelectorAll("[data-k]").forEach((b) => b.addEventListener("click", () => talkPick(b.dataset.k, b.textContent.replace(/^\d+/, ""))));
-  const lv = box.querySelector("[data-leave]");
-  if (lv) lv.addEventListener("click", () => closeTalk());
+  const said = talkUI.q && talkUI.q !== talkUI.lastQ, ans = talkUI.say && (talkUI.say !== talkUI.lastSay || said);
+  if (said) talkBubble(n, o, talkUI.q, 0);
+  if (ans) talkBubble(o, n, cvSpeak(talkUI.say), said ? 650 : 0);
+  talkUI.lastQ = talkUI.q;
+  talkUI.lastSay = talkUI.say;
+  talkPlace();
   menuFirst(box, "[data-k]");
+}
+function talkBubble(who, to, text, delay) {
+  if (!who || !text) return;
+  const now = performance.now();
+  for (let i = bubbles.length - 1; i >= 0; i--) if (bubbles[i].n === who) bubbles.splice(i, 1);
+  bubbles.push({ n: who, to, text, from: now + delay, until: now + delay + 6e4, talk2: true });
+}
+function talkPlace() {
+  const o = talkUI.o, n = game.player, d = document.getElementById("tkb");
+  if (!o || !n || !d) return;
+  const side = Math.abs(o.y - n.y) > Math.abs(o.x - n.x), s = toScreen(n.x * TS + TS / 2, n.y * TS + (side ? TS * 0.2 : -TS * 0.75));
+  d.classList.toggle("side", side);
+  d.style.left = Math.round(s.x + (side ? TS * cam.z * 0.6 : 0)) + "px";
+  d.style.top = Math.round(s.y) + "px";
 }
 window.addEventListener("keydown", (e) => {
   if (!talkUI.o || typing(e)) return;

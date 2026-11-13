@@ -37,8 +37,8 @@ function hamletStart() {
   MODS.only(HAMLET_RECIPE.concat(Object.keys(MODS.defs).filter(k => k.startsWith('talk.')))); for (const r of HAMLET_OFF) MODS.set('rule.' + r, false); MODS.sync();
   // the trading stall by the camp, kept by the trader
   const mk: any = { id: town.markets.length + 1, x: town.cx + 3, y: town.cy + 4, name: 'The Trading Stall', stalls: [], plaza: town.markets[0].plaza.slice() }; town.markets.push(mk);   // (the stall stands on the camp ground: people gather on the same tiles)
-  const sy = town.cy + 3, sx = town.cx + 2; setT(sx, sy, T.STALL); setT(sx + 1, sy, T.STALL);
-  const st: any = { x: sx, y: sy + 1, face: { dx: 0, dy: -1 }, front: { x: sx, y: sy + 2 }, tiles: [{ x: sx, y: sy }, { x: sx + 1, y: sy }], owner: null, market: mk }; town.stalls.push(st); mk.stalls.push(st);
+  const sy = town.cy + 3, sx = town.cx + 2; setT(sx, sy, T.STALL);   // (one counter: one stall)
+  const st: any = { x: sx, y: sy + 1, face: { dx: 0, dy: -1 }, front: { x: sx, y: sy + 2 }, tiles: [{ x: sx, y: sy }], owner: null, market: mk }; town.stalls.push(st); mk.stalls.push(st);
   setRole(TR, 'Trader', mk); const m = TR.shop;
   if (m) { m.def = HAMLET_TRADER_DEF; m.buys = HAMLET_TRADER_DEF.buys; m.sells = HAMLET_TRADER_DEF.sells; m.stock = {}; m.newStock = {}; m.n.coin = 60; farmRestock(); m.newStock = {}; m.stock.grain = 30; }
   // coin, beds and places
@@ -97,17 +97,17 @@ function hamletKeeper(): any {
   const score = (n: any) => { const y = yardOfN(n); return (y ? yardPeople(y).filter((o: any) => o.age >= 16).length : 0) * 2 - (n.moveBed ? 5 : 0) + (n.homeless ? -1 : 0); };
   return ad.sort((a: any, b: any) => score(b) - score(a) || a.id - b.id)[0] || null;
 }
-/** the four tiles a stall needs in front of you: the counter (two wide), the keeper's place and the customers' place */
+/** the three tiles a stall needs in front of you: the counter, the keeper's place and the customers' place */
 function bldPlaceStall(n: any, kind: string) {
   if (!kitHas(kind)) { kitOut(n, kind); return null; }
-  const f = lf2Front(n), sx = f.x, sy = f.y, need = [[sx, sy], [sx + 1, sy], [sx, sy + 1], [sx, sy + 2], [sx + 1, sy + 1], [sx + 1, sy + 2]];
+  const f = lf2Front(n), sx = f.x, sy = f.y, need = [[sx, sy], [sx, sy + 1], [sx, sy + 2]];
   for (const [x, y] of need) { const g = grid[y] && grid[y][x]; if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3 || (g !== T.GRASS && g !== T.PATH) || roomAt[y][x] >= 0 || lfPropAt(x, y) || tileOwner.get(y * W + x) || (town.nodeMap && town.nodeMap.has(y * W + x)) || (x === n.tx && y === n.ty) || (typeof yardAtXY === 'function' && yardAtXY(x, y))) { playerSay(n, 'A stall needs a clear patch of ground, three tiles deep and two wide, outside any yard.'); return null; } }
   const keeper = hamletKeeper(); if (!keeper) { playerSay(n, 'Nobody is free to keep a stall.'); return null; }
   const mk: any = { id: town.markets.length + 1, x: sx, y: sy + 1, name: kind === 'stallseed' ? 'The Seed Stall' : 'The Carpenter', stalls: [], plaza: [] }; town.markets.push(mk);
-  setT(sx, sy, T.STALL); setT(sx + 1, sy, T.STALL); markDirty(sx - 1, sy - 1, 4, 5);
-  const st: any = { x: sx, y: sy + 1, face: { dx: 0, dy: -1 }, front: { x: sx, y: sy + 2 }, tiles: [{ x: sx, y: sy }, { x: sx + 1, y: sy }], owner: null, market: mk, built: kind }; town.stalls.push(st); mk.stalls.push(st);
+  setT(sx, sy, T.STALL); markDirty(sx - 1, sy - 1, 3, 5);
+  const st: any = { x: sx, y: sy + 1, face: { dx: 0, dy: -1 }, front: { x: sx, y: sy + 2 }, tiles: [{ x: sx, y: sy }], owner: null, market: mk, built: kind }; town.stalls.push(st); mk.stalls.push(st);
   kitTake(kind); setRole(keeper, 'Trader', mk); const m = keeper.shop;
-  if (!m) { setT(sx, sy, T.GRASS); setT(sx + 1, sy, T.GRASS); town.stalls = town.stalls.filter((q: any) => q !== st); town.markets = town.markets.filter((q: any) => q !== mk); kitGive(kind); playerSay(n, 'The stall could not be set up.'); return null; }
+  if (!m) { setT(sx, sy, T.GRASS); town.stalls = town.stalls.filter((q: any) => q !== st); town.markets = town.markets.filter((q: any) => q !== mk); kitGive(kind); playerSay(n, 'The stall could not be set up.'); return null; }
   const D = kind === 'stallseed' ? HAMLET_SEEDSTALL_DEF : HAMLET_CARP_DEF; m.def = D; m.buys = D.buys; m.sells = D.sells; m.stock = {}; m.newStock = {}; m.n.coin = 40; if (kind === 'stallseed') hamletRestock();
   town.gridV = (town.gridV || 0) + 1; town.lfPV = (town.lfPV || 0) + 1; refreshReach(); sndPlace(); yardHousing();
   chron(`${nameOf(keeper)} opened ${kind === 'stallseed' ? 'a seed stall' : 'the carpenter\'s stall'}.`, 'build'); LIFE.emit('stall_opened', keeper, { place: D.noun });

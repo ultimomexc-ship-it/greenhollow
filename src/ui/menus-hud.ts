@@ -1,5 +1,5 @@
 /* ---------- talking with someone: a proper conversation ---------- */
-const talkUI = { o: null, say: '', q: '', prev: '2', opts: [], dy: 0 };
+const talkUI: any = { o: null, say: '', q: '', prev: '2', opts: [], dy: 0, lastQ: '', lastSay: '' };
 function openTalk(o) {
   const n = game.player; if (!n || !o || o.dead) return;
   if (o.age < 3 || o.infant || o.pose === 'sleep') { playerSay(n, o.pose === 'sleep' ? o.first + ' is asleep.' : o.first + ' gurgles.'); return; }
@@ -12,7 +12,8 @@ function openTalk(o) {
   talkUI.say = r.say; talkUI.opts = r.opts; renderTalk();
 }
 function closeTalk() {
-  const o = talkUI.o; if (!o) return; if (typeof ptEnd === 'function') ptEnd(); talkUI.o = null; el('talk').hidden = true; talkS = null; if (typeof refreshMarks === 'function') refreshMarks();
+  const o = talkUI.o; if (!o) return; if (typeof ptEnd === 'function') ptEnd(); talkUI.o = null; el('talk').hidden = true; talkUI.lastQ = talkUI.lastSay = '';
+  { const now = performance.now(); for (const b of bubbles) if (b.talk2) { b.talk2 = false; b.until = Math.min(b.until, now + 2500); } }   // (the last lines linger a moment after you part) talkS = null; if (typeof refreshMarks === 'function') refreshMarks();
   o.talkUntil = game.time + 3; const n = game.player; if (n) { o.social = Math.min(100, o.social + 12); n.social = Math.min(100, n.social + 12); }
   pairCool.set(Math.min(n ? n.id : 0, o.id) * 1000 + Math.max(n ? n.id : 0, o.id), game.time + 60);
   const b: any = document.querySelector('[data-speed="' + talkUI.prev + '"]'); if (b) b.click();
@@ -40,17 +41,30 @@ function menuNav(e, list, back) {
 function menuFirst(root, sel) { const b = root && root.querySelector(sel); if (b) { b.classList.add('kf'); b.focus({ preventScroll: true }); } }
 function renderTalk() {
   const o = talkUI.o, n = game.player, box = el('talk'); if (!o || !n) return;
-  const a = Math.max(-100, Math.min(100, o.aff[n.id] || 0)), k = o.know[n.id] || 0;
-  const tr = o.traits.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(', ');
-  box.hidden = false;
-  box.innerHTML = '<div class="tk"><div class="th"><div class="nm"><b>' + esc(nameOf(o)) + '</b><small>' + esc(closenessWord(o, n)) + '</small></div>' +
-    '<small class="kh">W S choose · D pick</small><button type="button" class="lv" data-leave="1" title="Leave (A)">Leave <i>A</i></button></div>' +
-    (talkUI.q ? '<div class="tq">' + esc(talkUI.q) + '</div>' : '') + '<div class="ta">' + esc(cvSpeak(talkUI.say)) + '</div>' +
-    '<div class="topts">' + talkUI.opts.map((op, i) => '<button type="button" data-k="' + esc(op[0]) + '""><span>' + (i + 1) + '</span>' + esc(cvSpeak(op[1])) + '</button>').join('') + '</div></div>';
-  { const tk: any = box.querySelector('.tk'); talkUI.dy = tk ? (tk.offsetHeight / 2 + 10) / (TS * cam.z) : 0; }
+  box.hidden = false; box.classList.add('tkbub'); talkUI.dy = 0;
+  if (!(talkS && talkS.custom)) { const all = talkUI.opts || [], bye = all.filter((op: any) => op[0] === 'bye'); talkUI.opts = all.filter((op: any) => op[0] !== 'bye').slice(0, bye.length ? 3 : 4).concat(bye); }   // (three things to say, and goodbye)
+  const opts = talkUI.opts;
+  box.innerHTML = '<div class="tkb" id="tkb"><div class="tkopts">' + opts.map((op, i) => '<button type="button" data-k="' + esc(op[0]) + '"><span>' + (i + 1) + '</span>' + esc(cvSpeak(op[1])) + '</button>').join('') + '</div>'
+    + '</div>';
   box.querySelectorAll('[data-k]').forEach((b: any) => b.addEventListener('click', () => talkPick(b.dataset.k, b.textContent.replace(/^\d+/, ''))));
-  const lv: any = box.querySelector('[data-leave]'); if (lv) lv.addEventListener('click', () => closeTalk());
-  menuFirst(box, '[data-k]');
+  // what was said goes up in speech bubbles, like everybody's: your line first, then their answer
+  const said = talkUI.q && talkUI.q !== talkUI.lastQ, ans = talkUI.say && (talkUI.say !== talkUI.lastSay || said);
+  if (said) talkBubble(n, o, talkUI.q, 0);
+  if (ans) talkBubble(o, n, cvSpeak(talkUI.say), said ? 650 : 0);
+  talkUI.lastQ = talkUI.q; talkUI.lastSay = talkUI.say;
+  talkPlace(); menuFirst(box, '[data-k]');
+}
+/** a line said in a conversation with you: a bubble that stays up until the next line (or until you part) */
+function talkBubble(who: any, to: any, text: string, delay: number) {
+  if (!who || !text) return; const now = performance.now();
+  for (let i = bubbles.length - 1; i >= 0; i--) if (bubbles[i].n === who) bubbles.splice(i, 1);
+  bubbles.push({ n: who, to, text, from: now + delay, until: now + delay + 60000, talk2: true });
+}
+/** the options bubble hangs over your head (or beside you when the two of you stand one above the other), with its tail pointing at you */
+function talkPlace() {
+  const o = talkUI.o, n = game.player, d = document.getElementById('tkb'); if (!o || !n || !d) return;
+  const side = Math.abs(o.y - n.y) > Math.abs(o.x - n.x), s = toScreen(n.x * TS + TS / 2, n.y * TS + (side ? TS * 0.2 : -TS * 0.75));
+  d.classList.toggle('side', side); d.style.left = Math.round(s.x + (side ? TS * cam.z * 0.6 : 0)) + 'px'; d.style.top = Math.round(s.y) + 'px';
 }
 window.addEventListener('keydown', e => {
   if (!talkUI.o || typing(e)) return;

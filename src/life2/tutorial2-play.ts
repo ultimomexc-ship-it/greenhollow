@@ -35,6 +35,7 @@ const tut2AllDone = (name: string, done: string) => tut2Tiles(name).every(t => T
 function tut2ArrowAt(): any {
   const ui = town.tut2.ui, a = ui.arrow; if (!a) return null;
   if (typeof a.to === 'string' && tut2Who(a.to)) { const n = tut2Who(a.to); return { x: n.x, y: n.y, person: true }; }
+  if (a.to === 'front') { const r = tut2Who('paullus'); if (r) return { x: r.x, y: r.y, person: true }; }   // (go to the stall: the arrow floats over the trader's head, not on his tile)
   const tiles = tut2Tiles(a.to); const todo = a.done ? tiles.filter(t => !TUT2_DONE[a.done](t.x, t.y)) : tiles; const P = game.player; if (!todo.length || !P) return null;
   return todo.slice().sort((p, q) => Math.abs(p.x - P.tx) + Math.abs(p.y - P.ty) - (Math.abs(q.x - P.tx) + Math.abs(q.y - P.ty)))[0];
 }
@@ -50,7 +51,7 @@ function drawTut2(c: any, now: number) {
     c.restore();
   }
   const a = tut2ArrowAt(); if (!a) return;
-  const bob = Math.sin(now / 260) * 4, big = ui.arrow && ui.arrow.big ? 1.5 : 1, x = a.x * TS + TS / 2, y = a.y * TS - (a.person ? 20 : 4) + bob;
+  const bob = Math.sin(now / 260) * 4, big = ui.arrow && ui.arrow.big ? 1.5 : 1, x = a.x * TS + TS / 2, y = a.y * TS - (a.person ? TS + 6 : 4) + bob;
   c.save(); c.fillStyle = '#f4c542'; c.strokeStyle = 'rgba(30,20,0,.8)'; c.lineWidth = 2; c.beginPath();
   c.moveTo(x, y); c.lineTo(x - 8 * big, y - 11 * big); c.lineTo(x - 3 * big, y - 11 * big); c.lineTo(x - 3 * big, y - 20 * big); c.lineTo(x + 3 * big, y - 20 * big); c.lineTo(x + 3 * big, y - 11 * big); c.lineTo(x + 8 * big, y - 11 * big); c.closePath(); c.fill(); c.stroke(); c.restore();
 }
@@ -76,10 +77,9 @@ const _t2Fits = itFits; itFits = function (n, need) { if (need === 'hammer' && t
 // @ts-expect-error -- deliberate patch
 const _t2Select = itBuildSelect; itBuildSelect = function (n, i) {
   if (!tut2Active()) return _t2Select(n, i);
-  const k = (town.tut2.slots || [])[i], b = itBuildState(n); if (!k) return;
+  const k = (town.tut2.slots || [])[i], b = itBuildState(n); if (!k) return; if (k !== 'push' && k !== 'destroy') b.lastKind = k;
   if (k === 'push') { b.sel = 0; const p = n.player; if (p) { p.act = null; p.lock = false; } itSync(true); return; }   // (the hand: walk into a thing to push it)
   if (k === 'destroy') { b.sel = b.sel === 1 ? 0 : 1; const p = n.player; if (p) { p.act = null; p.lock = false; } itSync(true); return; }
-  if (k === 'field') { fieldBrushToggle(n); return; }   // (the field brush: walk into a marked square)
   b.sel = 0; if (k === 'fence' && town.tut2.fenceFree) { if (bldPlaceFront(n, 'fence')) itSync(true); return; }   // (fences go down the normal way: facing a fence, the next goes on the end of the line)
   tut2Place(n, k);
 };
@@ -90,7 +90,7 @@ const _t2Bar = itBuildBarHTML; itBuildBarHTML = function (n, face) {
     ? `<button type="button" class="hbslot${b.sel === 0 ? ' on' : ''}" data-bslot="${i}" title="Push"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${IT_SVG.push}</svg><span class="hbcap">Push</span></button>`
     : k === 'destroy'
     ? `<button type="button" class="hbslot${b.sel === 1 ? ' on' : ''}" data-bslot="${i}" title="Destroy"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${IT_SVG.hammer}</svg><span class="hbcap">Destroy</span></button>`
-    : `<button type="button" class="hbslot item${k === 'field' && b.brush === 'field' ? ' on' : ''}" data-bslot="${i}" title="${esc(itBuildName(k))}"><em>${i + 1}</em>${itBuildIcon(k)}<u>${kitLabel(k)}</u><span class="hbcap">${esc(itBuildName(k))}</span></button>`).join('');
+    : `<button type="button" class="hbslot item" data-bslot="${i}" title="${esc(itBuildName(k))}"><em>${i + 1}</em>${itBuildIcon(k)}<u>${kitLabel(k)}</u><span class="hbcap">${esc(itBuildName(k))}</span></button>`).join('');
   return `<div class="hbbadge" title="Build mode (B)"><b>BUILD</b><span>B to leave</span></div><div class="hbslots">${slots}</div><div class="hbface">${face || ''}</div>`;
 };
 /** put one thing down in front of you, only on a marked tile */
@@ -175,9 +175,18 @@ function shopDraw() {
   d.querySelectorAll('[data-sp]').forEach((b: any) => b.addEventListener('click', () => { const e = list[+b.dataset.sp]; if (SHOP.tab === 'buy') shopBuy(e, +b.dataset.q); else shopSell(e, +b.dataset.q); }));
   d.querySelectorAll('[data-spt]').forEach((b: any) => b.addEventListener('click', () => { SHOP.tab = b.dataset.spt; SHOP.note = ''; shopDraw(); }));
   const x = d.querySelector('[data-spx]'); if (x) x.addEventListener('click', shopClose);
+  shopKeyMark();
 }
+/** the panel's buttons in key order (tabs, then each tile's buttons, then close), and the marked one */
+function shopKeyList(): any[] { const d = document.getElementById('shoppanel'); if (!d) return []; return [...d.querySelectorAll('button')].filter((b: any) => !b.disabled && b.offsetParent !== null && b.style.visibility !== 'hidden'); }
+function shopKeyMark() { const L = shopKeyList(); if (!L.length) return; if (SHOP.ki == null || SHOP.ki >= L.length) { const g = L.findIndex((b: any) => b.classList.contains('tutglow')), f = L.findIndex((b: any) => b.dataset && b.dataset.sp != null); SHOP.ki = g >= 0 ? g : f >= 0 ? f : 0; } L.forEach((b: any, i: number) => b.classList.toggle('kf', i === SHOP.ki)); }
 if (typeof window !== 'undefined') window.addEventListener('keydown', (e: any) => {
   if (!SHOP.open || (typeof ITEMCARD !== 'undefined' && ITEMCARD.open)) return;   // (an item card on top takes the keys first)
+  // WASD: W and S move between the buttons, D (or Enter, Space) presses the one marked, A (or Esc) closes; Tab swaps Buy and Sell
+  { const k = (e.key || '').toLowerCase(), L = shopKeyList();
+    if (['w', 's', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k) && L.length) { const i = SHOP.ki == null ? -1 : SHOP.ki; const dn = k === 's' || k === 'arrowdown' || k === 'arrowright'; SHOP.ki = i < 0 ? 0 : (i + (dn ? 1 : -1) + L.length) % L.length; shopKeyMark(); e.preventDefault(); e.stopImmediatePropagation(); return; }
+    if ((k === 'd' || k === 'enter' || k === ' ') && !e.repeat) { const b = L[SHOP.ki == null ? 0 : SHOP.ki]; if (b) (b as any).click(); e.preventDefault(); e.stopImmediatePropagation(); return; }
+    if (k === 'a' && !e.repeat) { shopClose(); e.preventDefault(); e.stopImmediatePropagation(); return; } }
   if (e.key === 'Escape') { shopClose(); e.preventDefault(); e.stopImmediatePropagation(); return; }
   if (e.key === 'Tab') { SHOP.tab = SHOP.tab === 'buy' ? 'sell' : 'buy'; shopDraw(); e.preventDefault(); e.stopImmediatePropagation(); return; }
   if (e.key === 'Enter') { const st = shopStock(SHOP.m), l = SHOP.tab === 'buy' ? st.buy : st.sell; if (l[0]) { const q = e.shiftKey ? 999 : 1; if (SHOP.tab === 'buy') shopBuy(l[0], q); else shopSell(l[0], q); } e.preventDefault(); e.stopImmediatePropagation(); return; }
@@ -350,11 +359,11 @@ TUT2_SCENES.push(
     twait(shopIsOpen, { bot: botStall }),
     twait(() => (game.player.items || []).some((i: any) => i.kind === 'hammer') && (town.kit.gate || 0) >= 1, { bot: () => ({ shop: { tab: 'buy', i: (game.player.items || []).some((i: any) => i.kind === 'hammer') ? 1 : 0 } }) }),
     twait(() => !shopIsOpen(), { bot: () => ({ shop: { close: true } }) }),
-    tarrow('gate'), tset(T2 => { T2.hammerAt = T2.at.gate; }), tlock({ build: true }, ['destroy', 'gate'], 'gate'),
-    tstrip('Press B, then 1 for the hammer. Walk into the marked fence to knock it out, then press 2 to put the gate in the gap.'),
-    twait(T2 => { const p = lfPropAt(T2.at.gate.x, T2.at.gate.y); return !p; }, { bot: (T2: any) => { if (!buildOn()) return { key: 'b' }; const st = { x: T2.at.gate.x - 1, y: T2.at.gate.y }; return game.player.build.sel === 1 ? { stand: st, into: T2.at.gate } : { stand: st, key: '1' }; } }),
+    tarrow('gate'), tset(T2 => { T2.hammerAt = T2.at.gate; T2.autoHammer = true; }), tlock({ build: true }, ['destroy', 'gate'], 'gate'),
+    tstrip('Press B. The hammer is in your hand: walk into the marked fence to knock it out. Then press 2 to put the gate in the gap.'),
+    twait(T2 => { const p = lfPropAt(T2.at.gate.x, T2.at.gate.y); return !p; }, { bot: (T2: any) => { if (!buildOn()) return { key: 'b' }; const st = { x: T2.at.gate.x - 1, y: T2.at.gate.y }; return game.player.build.sel === 1 ? { stand: st, into: T2.at.gate } : { stand: st, key: '1', pressOnly: true }; } }),
     twait(T2 => TUT2_DONE.gate(T2.at.gate.x, T2.at.gate.y), { bot: (T2: any) => ({ stand: { x: T2.at.gate.x - 1, y: T2.at.gate.y }, faceTo: T2.at.gate, key: '2' }) }),
-    tmark(), tset(T2 => { T2.hammerAt = null; }), tstrip('Press B to let the world go on.'),
+    tmark(), tset(T2 => { T2.hammerAt = null; T2.autoHammer = false; }), tstrip('Press B to let the world go on.'),
     twait(() => !buildOn(), { bot: () => ({ key: 'b' }) }),
     tlock({}), tstrip(), tarrow(),
     tset(() => { yardScan(true); }),
@@ -374,8 +383,8 @@ TUT2_SCENES.push(
     twait(shopIsOpen, { bot: botStall }),
     twait(() => (town.kit.field || 0) >= 6, { bot: () => ({ shop: { tab: 'buy', i: 0, all: true } }) }),
     twait(() => !shopIsOpen(), { bot: () => ({ shop: { close: true } }) }),
-    tarrow('jfield', 'field'), tlock({ build: true }, ['field'], 'jfield'), tstrip('Press B, then 1 for the field brush. Walk into a marked square to lay a field. Keep walking to lay a row.'),
-    twait(() => tut2AllDone('jfield', 'field'), { bot: (T2: any) => { if (!buildOn()) { const inn = tut2YardInner(T2)[0]; const P = game.player; return yardAtXY(P.tx, P.ty) ? { key: 'b' } : { stand: { x: inn.x, y: inn.y + 1 } }; } const todo = tut2Tiles('jfield').filter(t => !TUT2_DONE.field(t.x, t.y)); if (!todo.length) return null; const t = nearestTo(todo); if (!fieldBrushOn(game.player)) return { key: '1', pressOnly: true }; return { stand: tut2Beside(t), into: t }; } }),
+    tarrow('jfield', 'field'), tlock({ build: true }, ['field'], 'jfield'), tstrip('Press B. Face a marked square and press 1 to lay a field tile. Six of them.'),
+    twait(() => tut2AllDone('jfield', 'field'), { bot: (T2: any) => { if (!buildOn()) { const inn = tut2YardInner(T2)[0]; const P = game.player; return yardAtXY(P.tx, P.ty) ? { key: 'b' } : { stand: { x: inn.x, y: inn.y + 1 } }; } const todo = tut2Tiles('jfield').filter(t => !TUT2_DONE.field(t.x, t.y)); if (!todo.length) return null; const t = nearestTo(todo); return { stand: tut2Beside(t), faceTo: t, key: '1' }; } }),
     tstrip('Press B to let the world go on.'),
     twait(() => !buildOn(), { bot: () => ({ key: 'b' }) }),
     tlock({}), tstrip(), tarrow(), tmark(),

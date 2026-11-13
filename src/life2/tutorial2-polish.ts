@@ -108,6 +108,7 @@ const _t2SDraw = shopDraw; shopDraw = function () {
   const x = d.querySelector('[data-spx]') as any;
   if (!shopTutDone()) { if (x) x.style.visibility = 'hidden'; const b = d.querySelector('.sptile .spbtns button:last-child:not([disabled])') || d.querySelector('.sptile .spbtns button:not([disabled])'); if (b) b.classList.add('tutglow'); }
   else if (x) x.classList.add('tutglow');
+  SHOP.ki = null; shopKeyMark();
 };
 /** which build slot the step wants pressed next */
 function tut2GlowSlot(): number {
@@ -134,6 +135,8 @@ const _t2Hud2 = tut2Hud; tut2Hud = function () {
   _t2Hud2(); if (typeof document === 'undefined' || !town) return; tut2PopTick(); tut2Keys();
   const s = document.getElementById('tutstrip'); if (s) s.classList.toggle('big', tut2Active() && /^Press B/.test(s.textContent || ''));
   document.body.classList.toggle('tut2-seedglow', !!(tut2Active() && town.tut2.seedLesson));
+  { const T2 = town.tut2, P = game.player;   // (the hammer step: the hammer is put in your hand when you come into build mode; you only learn to pick the gate)
+    if (tut2Active() && T2.autoHammer && P && itBuildOn(P) && P.build.sel !== 1) { const g = T2.at.gate, pr = lfPropAt(g.x, g.y); if (pr && pr.kind === 'fence') { P.build.sel = 1; if (P.player) { P.player.act = null; P.player.lock = false; } itSync(true); } } }
   const P = game.player; if (tut2Active() && P && P.build) { const sig = tut2GlowSlot() + '|' + (town.tut2.ui.strip || ''); if (sig !== (tut2Hud as any).sig) { (tut2Hud as any).sig = sig; itSync(true); } }
 };
 
@@ -177,7 +180,7 @@ function itemCardNext() {
   d.innerHTML = `<div class="icpic">${t2Icon(c.key).replace(/width="\d+"/, 'width="72"').replace(/height="\d+"/, 'height="72"')}</div><div class="icbody"><div class="icnew">New${c.qty > 1 ? ' · ' + c.qty : ''}</div><b>${esc(c.title)}</b><p>${esc(c.text)}</p><button type="button" class="btn primary tutglow" data-icok="1">Got it</button></div>`;
   const b = d.querySelector('[data-icok]'); if (b) b.addEventListener('click', itemCardNext);
 }
-if (typeof window !== 'undefined') window.addEventListener('keydown', (e: any) => { if (!ITEMCARD.open) return; if (['Enter', ' ', 'Escape'].includes(e.key) || e.code === 'Space') itemCardNext(); e.preventDefault(); e.stopImmediatePropagation(); }, true);
+if (typeof window !== 'undefined') window.addEventListener('keydown', (e: any) => { if (!ITEMCARD.open) return; if (['Enter', ' ', 'Escape', 'd', 'D', 'a', 'A', 'e', 'E'].includes(e.key) || e.code === 'Space') { if (!e.repeat) itemCardNext(); } e.preventDefault(); e.stopImmediatePropagation(); }, true);
 
 /** a card is a full freeze: when it closes, every bubble and the tutorial's own timers carry on from where they stopped */
 function itemCardThaw() {

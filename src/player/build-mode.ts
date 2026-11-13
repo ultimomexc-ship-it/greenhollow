@@ -22,13 +22,12 @@ function itBuildSelect(n, i: number) {
   b.fieldHold = false;
   if (i <= 2) { b.brush = null; b.sel = i === 0 ? 0 : b.sel === i ? 0 : i; if (p) { p.act = null; p.lock = false; p.skip = null; p.grace = null; } itSync(true); return; }
   const kind = b.bar[i - 3];
-  if (kind === 'field' && town.scenario === 'hamlet') { fieldBrushToggle(n); return; }   // (the field brush: walk into grass in your yard to work a field tile into it, like ploughing)
+  if (kind === 'field' && town.scenario === 'hamlet') { b.brush = null; b.sel = 0; b.lastKind = 'field'; if (bldPlaceField(n)) { b.fieldHold = true; b.lastT = n.tx + ',' + n.ty; } itSync(true); return; }   // (a field tile is a thing you buy: one in front of you; hold the key and walk to lay a row)
   if (kind === 'field') { b.brush = b.brush === 'field' ? null : 'field'; b.sel = 0; b.lastT = null; if (p) playerSay(n, b.brush ? 'Field brush: walk over grass to mark a field. Press it again to stop.' : 'Field brush put away.'); itSync(true); return; }   // (a brush, not a thing: it lays plots under your feet as you walk)
-  b.brush = null; if (kind) bldPlaceFront(n, kind);
+  b.brush = null; if (kind) { b.lastKind = kind; bldPlaceFront(n, kind); }
 }
 /** the field brush: the grass under your feet becomes a plot (raw ground; in the world the hoe works it, then seeds go in) */
 function bldBrushStep(n) {
-  if (town.scenario === 'hamlet' && n.build && n.build.brush === 'field') return;   // (in the Hamlet the field brush works tile by tile, fieldPaintable)
   const b = n.build; if (b && b.on && b.fieldHold) { const key = n.tx + ',' + n.ty; if (b.lastT !== key) { b.lastT = key; if (!bldPlaceField(n, true)) { if (!kitHas('field')) { b.fieldHold = false; kitOut(n, 'field'); } } } return; }
   if (!b || !b.on || b.brush !== 'field') return;
   const key = n.tx + ',' + n.ty; if (b.lastT === key) return; b.lastT = key;
@@ -39,37 +38,7 @@ const itBuildName = (k: string) => { const it = YARD_ITEMS.find(q => q.kind === 
 /** put one building item on the free ground nearest the tile in front of you */
 /** a block (or a bed, a privy seat) that has just been put down is looked at like a pushed one: it may close a room */
 function bldQueue(p: any) { (town.bldQ = town.bldQ || []).push([p.x, p.y]); }
-/* ---- the field brush (Hamlet): floors are painted, walls are placed ----
-   Pick it up with the Field key; walking into bare grass of your yard works a field tile into it (a short action, like ploughing) and steps you onto it;
-   holding on lays a row and stops at the yard's edge, or at a corner when a square beside or behind you still wants one (the farming run rule). */
-const FIELD_PAINT_MIN = 3;
-function fieldBrushOn(n): boolean { return !!(n && n.build && n.build.on && n.build.brush === 'field' && town.scenario === 'hamlet'); }
-function fieldBrushToggle(n, on?: boolean) {
-  const b = itBuildState(n), p = n.player; b.sel = 0; b.fieldHold = false; b.brush = (on === undefined ? b.brush !== 'field' : on) ? 'field' : null;
-  if (p) { p.act = null; p.lock = false; p.skip = null; p.grace = null; p.edgeHold = null; }
-  if (p) playerSay(n, b.brush ? 'Field brush in hand. Walk into grass inside your yard to lay a field.' : 'Field brush put away.');
-  itSync(true);
-}
-/** can the brush lay a field tile here: bare grass inside a yard (or a marked square in the tutorial), nobody and nothing on it */
-function fieldPaintable(n, x: number, y: number): boolean {
-  if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3 || (x === n.tx && y === n.ty)) return false;
-  const g = grid[y][x]; if ((g !== T.GRASS && !(g === T.DECK && isUpperY(y))) || roomAt[y][x] >= 0 || lfPropAt(x, y)) return false;
-  if ((town.siteAt && town.siteAt[y * W + x]) || (town.nodeMap && town.nodeMap.has(y * W + x))) return false;
-  if (typeof tut2Active === 'function' && tut2Active() && town.tut2.only) return tut2Tiles(town.tut2.only).some((t: any) => t.x === x && t.y === y);
-  return !!(typeof FIELD_ANYWHERE !== 'undefined' && FIELD_ANYWHERE) || !!(typeof yardAtXY === 'function' && yardAtXY(x, y));
-}
-/** the brush's action on the tile ahead (null when it is not a tile for a field) */
-function fieldPaintTarget(n, x: number, y: number): any {
-  if (!fieldPaintable(n, x, y)) return null;
-  if (!kitHas('field')) return { msg: 'No field tiles left. Paullus sells them.' };
-  return { key: 'paint' + x + ',' + y, min: FIELD_PAINT_MIN, text: 'Laying a field', tool: 'hoe', run(nn) { fieldPaintAt(nn, x, y); } };
-}
-function fieldPaintAt(n, x: number, y: number): boolean {
-  if (!kitHas('field') || grid[y][x] === T.CROP) return false;
-  setT(x, y, T.CROP); town.crops.push({ x, y, f: 'field' + n.id, pl: 1, st: 0, t0: 0, byField: n.id }); kitTake('field'); markDirty(x, y, 1, 1); town.gridV = (town.gridV || 0) + 1; if (typeof refreshReach === 'function') refreshReach(); sndPlace();
-  return true;
-}
-/** the Hamlet's field tile: one ploughed plot on the grass in front of you, paid from the kit (tests and tools; the player uses the brush) */
+/** the Hamlet's field tile: one ploughed plot on the grass in front of you, paid from the kit */
 function bldPlaceField(n, quiet?: boolean): boolean {
   if (!kitHas('field')) { if (!quiet) kitOut(n, 'field'); return false; }
   const f = lf2Front(n), x = f.x, y = f.y; if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) return false;
@@ -79,24 +48,35 @@ function bldPlaceField(n, quiet?: boolean): boolean {
   setT(x, y, T.CROP); town.crops.push({ x, y, f: 'field' + n.id, pl: 1, st: 0, t0: 0, byField: n.id }); kitTake('field'); markDirty(x, y, 1, 1); town.gridV = (town.gridV || 0) + 1; if (typeof refreshReach === 'function') refreshReach(); sndPlace();
   if (!quiet) playerSay(n, 'A field tile.'); return true;
 }
+/** the bare grass in front of you where a field tile would go (null: not there) */
+function bldFieldSpot(n): any {
+  const f = lf2Front(n), x = f.x, y = f.y; if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) return null; const g = grid[y][x];
+  if ((g !== T.GRASS && !(g === T.DECK && isUpperY(y))) || roomAt[y][x] >= 0 || lfPropAt(x, y) || (town.siteAt && town.siteAt[y * W + x]) || (town.nodeMap && town.nodeMap.has(y * W + x)) || (x === n.tx && y === n.ty)) return null;
+  if (town.scenario === 'hamlet' && typeof yardAtXY === 'function' && !(typeof FIELD_ANYWHERE !== 'undefined' && FIELD_ANYWHERE) && !yardAtXY(x, y)) return null;
+  return { x, y };
+}
+/** where one building item would go if you pressed its key now: the tile in front of you, or along the line past loose things in front, or the nearest free tile (the build view outlines it) */
+function bldPlaceSpot(n, kind: string): any {
+  if (kind === 'field' && town.scenario === 'hamlet') return bldFieldSpot(n);
+  if (kind === 'stallseed' || kind === 'stallcarp' || kind === 'stair' || kind === 'stairdown') return null;
+  const f = lf2Front(n);
+  const ok = (x, y) => x >= 3 && y >= 3 && x < W - 3 && y < H - 3 && walkable(x, y) && !lfPropAt(x, y) && !tileOwner.get(y * W + x) && !(x === n.tx && y === n.ty) && !town.siteAt[y * W + x] && ![T.DOOR, T.PLOT, T.TENT, T.PEW].includes(grid[y][x]);
+  { const dx = Math.sign(f.x - n.tx), dy = Math.sign(f.y - n.ty);   // (a loose thing in front: the new one goes on the next free tile along the line, so a row can be pushed along together)
+    if ((dx || dy) && lfPropAt(f.x, f.y)) { let x = f.x, y = f.y; for (let i = 0; i < 400 && lfPropAt(x, y); i++) { x += dx; y += dy; } if (ok(x, y)) return { x, y }; } }
+  const cand: [number, number, number][] = [];
+  for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const x = f.x + dx, y = f.y + dy; if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) continue; cand.push([Math.abs(dx) + Math.abs(dy) * 1.01, x, y]); }
+  cand.sort((a, b) => a[0] - b[0]);
+  for (const [, x, y] of cand) if (ok(x, y)) return { x, y };
+  return null;
+}
 function bldPlaceFront(n, kind: string) {
   if (kind === 'stallseed' || kind === 'stallcarp') return bldPlaceStall(n, kind) ? {} : null;
   if (kind === 'field' && town.scenario === 'hamlet') return bldPlaceField(n) ? {} : null;
   if (!kitHas(kind)) { kitOut(n, kind); return null; }
   if (kind === 'stair' || kind === 'stairdown') return stairPlace(n, kind === 'stairdown');
   if (town.props.length >= BUILD_CAP) { playerSay(n, 'The island is full of loose things. Smash some first.'); return null; }
-  const f = lf2Front(n), cand: [number, number, number][] = [];
-  const ok = (x, y) => x >= 3 && y >= 3 && x < W - 3 && y < H - 3 && walkable(x, y) && !lfPropAt(x, y) && !tileOwner.get(y * W + x) && !(x === n.tx && y === n.ty) && !town.siteAt[y * W + x] && ![T.DOOR, T.PLOT, T.TENT, T.PEW].includes(grid[y][x]);
-  { /* the tile in front is taken by a loose thing: the new one goes on the next tile in front, so a row of them can be pushed along together */
-    const dx = Math.sign(f.x - n.tx), dy = Math.sign(f.y - n.ty);
-    if ((dx || dy) && lfPropAt(f.x, f.y)) { let x = f.x, y = f.y; for (let i = 0; i < 400 && lfPropAt(x, y); i++) { x += dx; y += dy; } if (ok(x, y)) { const p: any = lfAddProp(kind, x, y); p.v = Math.floor(Math.random() * 5); p.rot = 0; bldQueue(p); kitTake(kind); sndPlace(); playerSay(n, 'A ' + (LF_NOUN[kind] || kind) + '.'); return p; } }
-  }
-  for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const x = f.x + dx, y = f.y + dy; if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) continue; cand.push([Math.abs(dx) + Math.abs(dy) * 1.01, x, y]); }
-  cand.sort((a, b) => a[0] - b[0]);
-  for (const [, x, y] of cand) {
-    if (!walkable(x, y) || lfPropAt(x, y) || tileOwner.get(y * W + x) || (x === n.tx && y === n.ty) || town.siteAt[y * W + x]) continue; const g = grid[y][x]; if (g === T.DOOR || g === T.PLOT || g === T.TENT || g === T.PEW) continue;
-    const p: any = lfAddProp(kind, x, y); p.v = Math.floor(Math.random() * 5); p.rot = 0; bldQueue(p); kitTake(kind); sndPlace(); playerSay(n, 'A ' + (LF_NOUN[kind] || kind) + '.'); return p;
-  }
+  const at = bldPlaceSpot(n, kind);
+  if (at) { const p: any = lfAddProp(kind, at.x, at.y); p.v = Math.floor(Math.random() * 5); p.rot = 0; bldQueue(p); kitTake(kind); sndPlace(); playerSay(n, 'A ' + (LF_NOUN[kind] || kind) + '.'); if (n.build) n.build.lastKind = kind; return p; }
   playerSay(n, 'No room here.'); return null;
 }
 /** turn a chair or a bed (loose, or standing in a room); returns false when there is nothing here that turns */

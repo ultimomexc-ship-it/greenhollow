@@ -371,7 +371,7 @@ function drawPlayerFx(c, now) {
     c.fillStyle = 'rgba(14,18,20,.55)'; c.beginPath(); if (c.roundRect) c.roundRect(s.x - tw / 2, y - th / 2, tw, th, th / 2); else c.rect(s.x - tw / 2, y - th / 2, tw, th); c.fill(); c.fillStyle = 'rgba(242,236,218,.92)'; c.fillText(a.text, s.x, y + 0.5); y -= th + 3; }
   }
   const age = clk() - p.msgAt;
-  if (p.msg && age >= 0 && age < 45) {
+  if (p.msg && age >= 0 && age < 45 && !(typeof tut2Active === 'function' && tut2Active())) {   // (in the tutorial the strip at the top says it all)
     const f2 = 6.5 * z; if (f2 >= 4.5) { c.globalAlpha = Math.min(1, (45 - age) / 15); c.font = '600 ' + f2 + 'px "IBM Plex Sans", sans-serif'; const yy = y - age * 0.15 * z;
     c.lineWidth = f2 * 0.35; c.strokeStyle = 'rgba(14,18,20,.7)'; c.lineJoin = 'round'; c.strokeText(p.msg, s.x, yy); c.fillStyle = '#ffe9a8'; c.fillText(p.msg, s.x, yy); c.globalAlpha = 1; }
   }
@@ -431,6 +431,7 @@ function bubbleSide(vx: number, vy: number, self?: boolean): string {
 }
 /* speech bubbles go on top of every other label */
 function drawBubbles(c, now) {
+  if (typeof talkPlace === 'function' && typeof talkUI !== 'undefined' && talkUI.o) talkPlace();
   const vw = cam.cw, vh = cam.ch;
   c.textBaseline = 'middle';
   // speech bubbles: sized with the world; too far away to read means not drawn
@@ -438,7 +439,7 @@ function drawBubbles(c, now) {
   c.font = '500 ' + 10.5 * kb + 'px "IBM Plex Sans", system-ui, sans-serif'; c.textAlign = 'left';
   for (let i = bubbles.length - 1; i >= 0; i--) if (now > bubbles[i].until) bubbles.splice(i, 1);
   for (const b of bubbles) {
-    if (!showB || now < b.from || (typeof talkUI !== 'undefined' && talkUI.o)) continue;
+    if (!showB || now < b.from || (typeof talkUI !== 'undefined' && talkUI.o && !b.talk2)) continue;   // (while you talk, only your conversation's bubbles show)
     const n = b.n; if (n.inShip || (!n.player && !canSee(n.x, n.y))) continue; const s = toScreen(n.x * TS + TS / 2, n.y * TS - 6 - 8 * (n.scale || 1));
     if (s.x < -80 || s.y < -40 || s.x > vw + 80 || s.y > vh + 40) continue;
     const lines = wrapText(c, (n.first ? n.first + ': ' : '') + b.text, 132 * kb).slice(0, 4), lh = 12.5 * kb;   // (NAME: what they say, so you know who is talking)

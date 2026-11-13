@@ -43,6 +43,20 @@ function jsStrike(tool: string, vol = 1) { if (!sndReady() || vol <= 0) return;
   if (tool === 'hoe') { sndNoise(0.09, 'lowpass', 700, 0.14 * vol, 200); sndTone(120, 0.1, 'sine', 0.13 * vol, 60); sndNoise(0.05, 'bandpass', 1800, 0.04 * vol, undefined, 0.02); }
   else if (tool === 'axe') { sndNoise(0.05, 'bandpass', 1900, 0.13 * vol); sndTone(320, 0.08, 'triangle', 0.1 * vol, 190); sndNoise(0.12, 'lowpass', 900, 0.06 * vol, 300, 0.02); }
   else if (tool === 'hammer') { sndTone(980, 0.09, 'square', 0.05 * vol, 700); sndTone(1460, 0.12, 'sine', 0.05 * vol, undefined, 0.01); sndNoise(0.05, 'highpass', 3200, 0.07 * vol); } }
+/** a snore: a rasping breath in (filtered noise swelling, with a low flutter) and a softer breath out; vol by distance, pan by which side of you the sleeper is */
+function jsSnore(vol: number, pan: number, deep: number) {
+  if (!sndReady() || vol <= 0.02) return; const c = SND.ctx, t = c.currentTime;
+  const out = c.createGain(); out.gain.value = vol; let node: any = out;
+  if (c.createStereoPanner) { const p = c.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); out.connect(p); p.connect(SND.master); } else out.connect(SND.master);
+  const breath = (at: number, dur: number, f0: number, f1: number, v: number) => { const s = c.createBufferSource(), fl = c.createBiquadFilter(), g = c.createGain();
+    s.buffer = SND.noiseBuf; fl.type = 'bandpass'; fl.Q.value = 3; fl.frequency.setValueAtTime(f0, t + at); fl.frequency.linearRampToValueAtTime(f1, t + at + dur);
+    g.gain.setValueAtTime(0.0001, t + at); g.gain.exponentialRampToValueAtTime(v, t + at + dur * 0.45); g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur); s.connect(fl); fl.connect(g); g.connect(node); s.start(t + at, Math.random()); s.stop(t + at + dur + 0.05); };
+  breath(0, 0.9, 260 * deep, 420 * deep, 0.22);   // (in: the rattle)
+  const o = c.createOscillator(), og = c.createGain(), lfo = c.createOscillator(), lg = c.createGain(); o.type = 'sawtooth'; o.frequency.value = 62 * deep; lfo.frequency.value = 28; lg.gain.value = 0.05; lfo.connect(lg); lg.connect(og.gain);
+  og.gain.setValueAtTime(0.0001, t); og.gain.exponentialRampToValueAtTime(0.06, t + 0.45); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.9); const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 380;
+  o.connect(og); og.connect(lp); lp.connect(node); o.start(t); lfo.start(t); o.stop(t + 0.95); lfo.stop(t + 0.95);
+  breath(1.25, 1.1, 900, 600, 0.06);   // (out: a soft whistle of air)
+}
 function jsDing() { if (!sndReady()) return; sndTone(880, 0.16, 'sine', 0.07); sndTone(1320, 0.28, 'sine', 0.05, undefined, 0.07); }
 function jsCrack() { if (!sndReady()) return; sndNoise(0.12, 'bandpass', 1100, 0.2, 400); sndTone(160, 0.1, 'square', 0.06, 70); sndNoise(0.25, 'lowpass', 300, 0.08, 120, 0.06); }
 function jsLullaby() { if (!sndReady()) return; [392, 330, 294, 262].forEach((f, i) => sndTone(f, 0.7, 'sine', 0.05, undefined, i * 0.38)); }
@@ -60,7 +74,6 @@ function jsVoice(n: any, text: string) {
 // @ts-expect-error -- deliberate patch
 const _jFinish = playerFinish; playerFinish = function (n, a) {
   const r = _jFinish(n, a); if (!n || !n.player || !a || !a.key) return r;
-  const fp = /^paint(\d+),(\d+)/.exec(a.key); if (fp) { const p = jTile(+fp[1], +fp[2]); jsPlough(jCombo('f')); jBurst(p.x, p.y + 4, 10, 'dot', ['#6b4a2b', '#8a6239', '#4e3420'], 1.0, 0.7); jShake(1.2); }   // (the field brush: a thud and a puff of earth, climbing the scale along a row)
   const m = /^crop(\d+),(\d+)([psh])/.exec(a.key); if (m) {
     const x = +m[1], y = +m[2], p = jTile(x, y), job = m[3], k = jCombo(job);
     if (job === 'p') { jsPlough(k); jBurst(p.x, p.y + 4, 12, 'dot', ['#6b4a2b', '#8a6239', '#4e3420'], 1.1, 0.8); jShake(1.6); }
@@ -124,6 +137,11 @@ function drawJuice(c: any, now: number) {
   // ripe crops twinkle now and then
   if (town && town.crops && Math.random() < 0.25) { const k = town.crops[(Math.random() * town.crops.length) | 0]; if (k && k.st && cropStage(k) === 4 && !itIsFlower(k)) jBurst(k.x * TS + jRand(4, TS - 4), k.y * TS + jRand(2, TS - 6), 1, 'spark', ['#fff4b0', '#ffe08a'], 0.15, 0.4); }
   const P = game.player, ps = JUICE.parts;
+  // sleepers snore, each in their own rhythm, louder the closer and from the side they lie on
+  if (P && typeof sndReady === 'function' && sndReady()) { const tnow = performance.now();
+    for (const n of npcs) { if (!n || n.dead || n === P || n.pose !== 'sleep' || n.infant) continue; const v = sndAt(n.x, n.y); if (v <= 0.15) { n._snore = 0; continue; }
+      if (!n._snore) n._snore = tnow + 400 + ((n.id * 977) % 2600); if (tnow < n._snore) continue; n._snore = tnow + 3000 + ((n.id * 131) % 900);
+      jsSnore(Math.pow(v, 1.6) * (n.age < 16 ? 0.4 : 0.75), (n.x - P.x) / 9, n.age < 16 ? 1.5 : n.female ? 1.2 : 1); } }
   // the swing comes down (the same phase the work pose draws, painters.ts swingTool): one strike sound for you and anybody working close by
   for (const n of npcs) { if (!n || n.dead || n.pose !== 'work' || !['hoe', 'axe', 'hammer'].includes(n.tool)) { if (n) n._jtt = null; continue; } const v = n === P ? 1 : sndAt(n.tx, n.ty) * 0.6; if (v <= 0.05) continue;
     const tt = ((Math.floor(now / 1000 * 30) % 20) / 20 + ((n.id || 0) % 7) * 0.13) % 1; if (n._jtt != null && tt < n._jtt) jsStrike(n.tool, v); n._jtt = tt; }
