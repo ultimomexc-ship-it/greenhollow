@@ -1900,7 +1900,10 @@ function workPose(kit, dir, sp, T, id) { const G = geo(kit), K = G.K, q = K.ua /
 /* ================= the composer: spec -> stacked layers ================= */
 /* spec: age, skin, hair, hs, beard, shirt, pat, acc, pants, hat, hatCol, hatOn, robe, role, apron, pose, tool, face {dx,dy}, status, dress, hold, mourning, wave, inv */
 function dollDir(sp) { const f = sp.face || { dx: 0, dy: 1 }; return f.dy > 0 && !f.dx ? 'front' : f.dy < 0 && !f.dx ? 'back' : 'side'; }
+/* Chibi proportions (a trial): a bigger head on a shorter body, so faces read at a glance. Off by default; ART.chibi.on = true to try it. */
+const CHIBI = { on: false, head: 1.45, body: 0.72, bodyW: 0.95 };
 function drawDoll(g, sp, x, y, k, T = 0) {
+  const CBX = CHIBI.on ? CHIBI.bodyW : 1, CBY = CHIBI.on ? CHIBI.body : 1;
   const kit = kitFor(sp), G = geo(kit), K = G.K, dir = dollDir(sp), f = sp.face || { dx: 0, dy: 1 }, flip = dir === 'side' && f.dx < 0;
   const pose0 = sp.pose || (sp.moving ? 'walk' : 'stand'), wf = Math.floor(T * 9) % 6;
   const hairC = sp.age >= 60 ? GREYH : sp.hair, dress = sp.dress, robe = !!sp.robe || dress === 'bride', shirt = dress === 'bride' ? '#f6f1e8' : dress === 'groom' ? '#2f2c38' : dress === 'mourn' ? '#2a2a30' : sp.shirt;
@@ -1914,7 +1917,7 @@ function drawDoll(g, sp, x, y, k, T = 0) {
   const put = (cv, dy = 0, dx = 0) => g.drawImage(cv, X0 + dx * k, Y0 + dy * k, W, W);
   /* the head is its own thing: it sways a little on the neck, drops if the person slouches, and is as wide as that person's head is */
   const putH = (cv, dy = 0, dx = 0) => { const a = (calm ? Math.sin(tt * 0.55) * 0.028 + Math.sin(tt * 1.1 + 1) * 0.01 : 0) + LK.post * 0.012, dyh = Math.max(0, -LK.post) * 0.14, px = X0 + DCX * k, py = Y0 + (G.chin + upDy) * k;
-    g.save(); g.translate(px, py); g.rotate(dir === 'side' ? a * 0.7 : a); g.scale(LK.hw / LK.bw, 1); g.translate(-px, -py + dyh * k); g.drawImage(cv, X0 + dx * k, Y0 + dy * k, W, W); g.restore(); };
+    g.save(); g.translate(px, py); g.rotate(dir === 'side' ? a * 0.7 : a); g.scale(LK.hw / LK.bw, 1); if (CHIBI.on) g.scale(CHIBI.head / CBX, CHIBI.head / CBY); g.translate(-px, -py + dyh * k); g.drawImage(cv, X0 + dx * k, Y0 + dy * k, W, W); g.restore(); };
   const lay = (name, color, fn, mode?) => { const kk = `${key}_${name}`; const base = L(kk, fn); return color ? tint(base, color, kk, mode) : base; };
   const gp = pose0 === 'walk' ? 'w' + fr : sit ? pose0 : 's';
   const inFrame = fn => { g.save(); g.translate(X0, Y0 + upDy * k); g.scale(k, k); fn(); g.restore(); };
@@ -1922,7 +1925,7 @@ function drawDoll(g, sp, x, y, k, T = 0) {
   g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
   if (flip) { g.translate(x + 12 * k, 0); g.scale(-1, 1); g.translate(-(x + 12 * k), 0); }
   g.fillStyle = 'rgba(40,30,80,.24)'; g.beginPath(); g.ellipse(x + 12 * k, y + (DBY - DO + 0.3) * k, (isAdultKit(kit) ? 5.4 : kit === 'child' ? 3.9 : 3.1) * k, (isAdultKit(kit) ? 1.9 : 1.4) * k, 0, 0, TAU); g.fill();
-  g.save(); { const fx = x + 12 * k, fy = y + (DBY - DO) * k; g.translate(fx, fy); g.scale(LK.ht * LK.bw, LK.ht); g.translate(-fx, -fy); }   // this person's height and build
+  g.save(); { const fx = x + 12 * k, fy = y + (DBY - DO) * k; g.translate(fx, fy); g.scale(LK.ht * LK.bw * CBX, LK.ht * CBY); g.translate(-fx, -fy); }   // this person's height and build
   if (!robe) put(lay(`legs_${gp}`, sp.pants, () => legsL(kit, dir, legPose, fr, false)));
   put(lay(`shoes_${gp}`, null, () => shoesL(kit, dir, legPose, fr, robe)));
   const armsOf = wp ? wp.arms : armRig(kit, dir, pose0 === 'walk' ? 'walk' : sit ? pose0 : 'stand', fr);
@@ -2222,7 +2225,7 @@ const DOLL_PAD = 6, DOLL_CACHE = new Map<string, any>(), DOLL_MAX = 1500;
 const dollIsLive = sp => !!(sp.wave || (sp.pose === 'work' && sp.tool) || (sp.hold && sp.pose !== 'walk' && sp.pose !== 'sit' && sp.pose !== 'kneel'));
 function dollKey(sp, kc, wf) {
   const f = sp.face || { dx: 0, dy: 1 }, inv = sp.inv;
-  return sp.id + '|' + kc + '|' + sp.age + (sp.female ? 'f' : 'm') + '|' + sp.skin + '|' + sp.hair + '|' + sp.hs + '|' + sp.beard + '|' + sp.shirt + '|' + sp.pat + '|' + sp.acc + '|' + sp.pants + '|' + sp.hat + '|' + sp.hatCol + (sp.hatOn ? 'h' : '') + (sp.robe ? 'r' : '') + (sp.apron ? 'a' : '')
+  return (CHIBI.on ? 'c' : '') + sp.id + '|' + kc + '|' + sp.age + (sp.female ? 'f' : 'm') + '|' + sp.skin + '|' + sp.hair + '|' + sp.hs + '|' + sp.beard + '|' + sp.shirt + '|' + sp.pat + '|' + sp.acc + '|' + sp.pants + '|' + sp.hat + '|' + sp.hatCol + (sp.hatOn ? 'h' : '') + (sp.robe ? 'r' : '') + (sp.apron ? 'a' : '')
     + '|' + f.dx + ',' + f.dy + '|' + sp.pose + (sp.moving ? 'm' : '') + '|' + sp.dress + (sp.mourning ? 'n' : '') + '|' + (inv ? (inv.wood ? 'w' : '') + (inv.stone ? 's' : '') : '') + '|' + (sp.pose === 'walk' ? wf : 0) + '|' + (sp.tool || '') + '|' + (sp.hold ? JSON.stringify(sp.hold) : '');
 }
 /** Draw a villager at tile-pixel position (x, y) with the screen scale Z (device pixels per game pixel). Same picture as drawDoll(g, sp, x, y, 1, T). */
@@ -2243,7 +2246,7 @@ function drawDollLOD(g, sp, x, y, T, Z) {
   } else { DOLL_CACHE.delete(key); DOLL_CACHE.set(key, e); }   // most recently used goes to the back
   g.drawImage(e.cv, x - DO - DOLL_PAD, y - DO - DOLL_PAD, e.size, e.size);
 }
-return { Q, S, FR, DF, DO, TP, BLK, terr, water, overlay, frameOf, BYID, ITEMS, h32, mul, drawDoll, drawDollLOD, drawSleeper, roomDress, kitOf };
+return { Q, S, FR, DF, DO, TP, BLK, terr, water, overlay, frameOf, BYID, ITEMS, h32, mul, drawDoll, drawDollLOD, drawSleeper, roomDress, kitOf, chibi: CHIBI };
 
 })();
 

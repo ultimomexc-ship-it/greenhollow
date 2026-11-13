@@ -7164,7 +7164,9 @@ const ART = (function() {
     const f = sp.face || { dx: 0, dy: 1 };
     return f.dy > 0 && !f.dx ? "front" : f.dy < 0 && !f.dx ? "back" : "side";
   }
+  const CHIBI = { on: false, head: 1.45, body: 0.72, bodyW: 0.95 };
   function drawDoll(g, sp, x, y, k, T2 = 0) {
+    const CBX = CHIBI.on ? CHIBI.bodyW : 1, CBY = CHIBI.on ? CHIBI.body : 1;
     const kit = kitFor(sp), G = geo(kit), K = G.K, dir = dollDir(sp), f = sp.face || { dx: 0, dy: 1 }, flip = dir === "side" && f.dx < 0;
     const pose0 = sp.pose || (sp.moving ? "walk" : "stand"), wf = Math.floor(T2 * 9) % 6;
     const hairC = sp.age >= 60 ? GREYH : sp.hair, dress = sp.dress, robe = !!sp.robe || dress === "bride", shirt = dress === "bride" ? "#f6f1e8" : dress === "groom" ? "#2f2c38" : dress === "mourn" ? "#2a2a30" : sp.shirt;
@@ -7182,6 +7184,7 @@ const ART = (function() {
       g.translate(px, py);
       g.rotate(dir === "side" ? a * 0.7 : a);
       g.scale(LK.hw / LK.bw, 1);
+      if (CHIBI.on) g.scale(CHIBI.head / CBX, CHIBI.head / CBY);
       g.translate(-px, -py + dyh * k);
       g.drawImage(cv, X0 + dx * k, Y0 + dy * k, W2, W2);
       g.restore();
@@ -7226,7 +7229,7 @@ const ART = (function() {
     {
       const fx = x + 12 * k, fy = y + (DBY - DO) * k;
       g.translate(fx, fy);
-      g.scale(LK.ht * LK.bw, LK.ht);
+      g.scale(LK.ht * LK.bw * CBX, LK.ht * CBY);
       g.translate(-fx, -fy);
     }
     if (!robe) put(lay(`legs_${gp}`, sp.pants, () => legsL(kit, dir, legPose, fr, false)));
@@ -7939,7 +7942,7 @@ const ART = (function() {
   const dollIsLive = (sp) => !!(sp.wave || sp.pose === "work" && sp.tool || sp.hold && sp.pose !== "walk" && sp.pose !== "sit" && sp.pose !== "kneel");
   function dollKey(sp, kc, wf) {
     const f = sp.face || { dx: 0, dy: 1 }, inv = sp.inv;
-    return sp.id + "|" + kc + "|" + sp.age + (sp.female ? "f" : "m") + "|" + sp.skin + "|" + sp.hair + "|" + sp.hs + "|" + sp.beard + "|" + sp.shirt + "|" + sp.pat + "|" + sp.acc + "|" + sp.pants + "|" + sp.hat + "|" + sp.hatCol + (sp.hatOn ? "h" : "") + (sp.robe ? "r" : "") + (sp.apron ? "a" : "") + "|" + f.dx + "," + f.dy + "|" + sp.pose + (sp.moving ? "m" : "") + "|" + sp.dress + (sp.mourning ? "n" : "") + "|" + (inv ? (inv.wood ? "w" : "") + (inv.stone ? "s" : "") : "") + "|" + (sp.pose === "walk" ? wf : 0) + "|" + (sp.tool || "") + "|" + (sp.hold ? JSON.stringify(sp.hold) : "");
+    return (CHIBI.on ? "c" : "") + sp.id + "|" + kc + "|" + sp.age + (sp.female ? "f" : "m") + "|" + sp.skin + "|" + sp.hair + "|" + sp.hs + "|" + sp.beard + "|" + sp.shirt + "|" + sp.pat + "|" + sp.acc + "|" + sp.pants + "|" + sp.hat + "|" + sp.hatCol + (sp.hatOn ? "h" : "") + (sp.robe ? "r" : "") + (sp.apron ? "a" : "") + "|" + f.dx + "," + f.dy + "|" + sp.pose + (sp.moving ? "m" : "") + "|" + sp.dress + (sp.mourning ? "n" : "") + "|" + (inv ? (inv.wood ? "w" : "") + (inv.stone ? "s" : "") : "") + "|" + (sp.pose === "walk" ? wf : 0) + "|" + (sp.tool || "") + "|" + (sp.hold ? JSON.stringify(sp.hold) : "");
   }
   function drawDollLOD(g, sp, x, y, T2, Z) {
     if (Z > 2 || dollIsLive(sp)) {
@@ -7976,7 +7979,7 @@ const ART = (function() {
     }
     g.drawImage(e.cv, x - DO - DOLL_PAD, y - DO - DOLL_PAD, e.size, e.size);
   }
-  return { Q, S, FR, DF, DO, TP, BLK, terr, water, overlay, frameOf, BYID, ITEMS, h32, mul, drawDoll, drawDollLOD, drawSleeper: drawSleeper2, roomDress, kitOf };
+  return { Q, S, FR, DF, DO, TP, BLK, terr, water, overlay, frameOf, BYID, ITEMS, h32, mul, drawDoll, drawDollLOD, drawSleeper: drawSleeper2, roomDress, kitOf, chibi: CHIBI };
 })();
 let W = 128, H = 84;
 const TS = 24;
