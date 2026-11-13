@@ -14188,7 +14188,8 @@ function tickPlayer0(n, dt) {
     }
     playerDirs(p);
     const d = playerAim(n, p);
-    if (d !== p.lastD) {
+    const freshD = d !== p.lastD;
+    if (freshD) {
       p.lastD = d;
       if (p.lock && !p.needRelease) p.lock = false;
     }
@@ -14225,6 +14226,14 @@ function tickPlayer0(n, dt) {
     const [dx, dy] = DIRV[d];
     const pf = n.face || { dx: 0, dy: 1 };
     n.face = { dx, dy };
+    if (freshD && itBuildOn(n) && dx === -pf.dx && dy === -pf.dy && !p.act && !n.moving) {
+      const bx = n.tx + pf.dx, by = n.ty + pf.dy, pr = lfPropAt(bx, by);
+      if (!walkable(bx, by) || pr && !lfBedAt(bx, by)) {
+        p.lock = true;
+        n.pose = "stand";
+        continue;
+      }
+    }
     const fx = n.tx + dx, fy = n.ty + dy;
     p.fx = fx;
     p.fy = fy;

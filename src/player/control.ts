@@ -188,7 +188,7 @@ function tickPlayer0(n, dt) {
     // automatic eating
     if (!p.act && n.hunger >= 60 && foodSat(n.inv) > 0) { p.act = { key: 'eat', min: 8, t: 0, text: 'Eating', tool: null, hold: 'plate', auto: true, run(n) { eatSat(n, n.inv); playerSay(n, 'Ate something'); } }; }
     playerDirs(p); const d = playerAim(n, p);
-    if (d !== p.lastD) { p.lastD = d; if (p.lock && !p.needRelease) p.lock = false; }
+    const freshD = d !== p.lastD; if (freshD) { p.lastD = d; if (p.lock && !p.needRelease) p.lock = false; }
     if (p.act && p.act.auto) { p.act.t += step; applyPlayerAct(n, p.act); if (p.act.t >= p.act.min) { const a = p.act; p.act = null; a.run(n); n.hold = null; n.pose = 'stand'; } continue; }
     if (!d && lf2Follow(n, p)) continue;
     if (!d || d !== p.edgeHold) p.edgeHold = null;   // (letting go or turning ends the hold at a field's edge)
@@ -196,6 +196,8 @@ function tickPlayer0(n, dt) {
     if ((p.idle || 0) >= 0.25) p.fresh = true;   // (a press that starts from rest: this is how you ask to work a plot)
     p.idle = 0;
     const [dx, dy] = DIRV[d]; const pf = n.face || { dx: 0, dy: 1 }; n.face = { dx, dy };
+    // build mode: with something solid in front of you (a wall, a fence, a tree ...), a fresh press the opposite way only turns you round; press again to walk
+    if (freshD && itBuildOn(n) && dx === -pf.dx && dy === -pf.dy && !p.act && !n.moving) { const bx = n.tx + pf.dx, by = n.ty + pf.dy, pr = lfPropAt(bx, by); if (!walkable(bx, by) || (pr && !lfBedAt(bx, by))) { p.lock = true; n.pose = 'stand'; continue; } }
     const fx = n.tx + dx, fy = n.ty + dy; p.fx = fx; p.fy = fy;
     if (p.grace) {
       const g = p.grace;
