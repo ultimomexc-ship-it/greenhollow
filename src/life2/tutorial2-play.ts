@@ -8,10 +8,12 @@ function tut2Dom(id: string, cls: string): any {
   d = document.createElement('div'); d.id = id; d.className = cls; stage.appendChild(d); return d;
 }
 let tut2HudSig = '';
+/** {k:gate} in a line becomes the number of the build slot that holds it now (the bar's order can change: a Push slot is added once pushing is known) */
+const tut2Keys2 = (t: any) => typeof t === 'string' ? t.replace(/\{k:(\w+)\}/g, (_: string, k: string) => String(((town.tut2.slots || []).indexOf(k) + 1) || '?')) : t;
 function tut2Hud() {
   if (typeof document === 'undefined' || !town) return;
   const on = tut2Active(), T2 = town.tut2, ui = on ? T2.ui : null, show = (on && T2.show) || {};
-  const flash = ui && ui.flash && performance.now() < ui.flash.until ? ui.flash.text : null, strip = on ? (flash || ui.strip) : null;
+  const flash = ui && ui.flash && performance.now() < ui.flash.until ? ui.flash.text : null, strip = on ? tut2Keys2(flash || ui.strip) : null;
   const sig = [on, strip, !!flash, show.tools, show.slots, ui && ui.fade].join('|'); if (sig === tut2HudSig) return; tut2HudSig = sig;
   const b = document.body.classList; b.toggle('tut2', on); b.toggle('tut2-notools', on && !show.tools); b.toggle('tut2-noslots', on && !show.slots);
   const s = tut2Dom('tutstrip', 'tutstrip'); if (s) { const changed = s.textContent !== (strip || ''); s.hidden = !strip; s.textContent = strip || ''; s.classList.toggle('flash', !!flash); if (changed && strip && !flash) { s.classList.remove('jpop'); void s.offsetWidth; s.classList.add('jpop'); } }   // (a new instruction pops in)
@@ -51,7 +53,7 @@ function drawTut2(c: any, now: number) {
     c.restore();
   }
   const a = tut2ArrowAt(); if (!a) return;
-  const bob = Math.sin(now / 260) * 4, big = ui.arrow && ui.arrow.big ? 1.5 : 1, x = a.x * TS + TS / 2, y = a.y * TS - (a.person ? TS + 6 : 4) + bob;
+  const bob = Math.sin(now / 260) * 4, big = ui.arrow && ui.arrow.big ? 1.5 : 1, x = a.x * TS + TS / 2, y = a.y * TS - (a.person ? 18 : 4) + bob;
   c.save(); c.fillStyle = '#f4c542'; c.strokeStyle = 'rgba(30,20,0,.8)'; c.lineWidth = 2; c.beginPath();
   c.moveTo(x, y); c.lineTo(x - 8 * big, y - 11 * big); c.lineTo(x - 3 * big, y - 11 * big); c.lineTo(x - 3 * big, y - 20 * big); c.lineTo(x + 3 * big, y - 20 * big); c.lineTo(x + 3 * big, y - 11 * big); c.lineTo(x + 8 * big, y - 11 * big); c.closePath(); c.fill(); c.stroke(); c.restore();
 }
@@ -91,7 +93,7 @@ const _t2Bar = itBuildBarHTML; itBuildBarHTML = function (n, face) {
     : k === 'destroy'
     ? `<button type="button" class="hbslot${b.sel === 1 ? ' on' : ''}" data-bslot="${i}" title="Destroy"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${IT_SVG.hammer}</svg><span class="hbcap">Destroy</span></button>`
     : `<button type="button" class="hbslot item" data-bslot="${i}" title="${esc(itBuildName(k))}"><em>${i + 1}</em>${itBuildIcon(k)}<u>${kitLabel(k)}</u><span class="hbcap">${esc(itBuildName(k))}</span></button>`).join('');
-  return `<div class="hbbadge" title="Build mode (B)"><b>BUILD</b><span>B to leave</span></div><div class="hbslots">${slots}</div><div class="hbface">${face || ''}</div>`;
+  return `<button type="button" class="hbbadge" data-bleave="1" title="Leave build mode (B)"><b>BUILD</b><span>B to leave</span></button><div class="hbslots">${slots}</div><div class="hbface">${face || ''}</div>`;
 };
 /** put one thing down in front of you, only on a marked tile */
 function tut2Place(n: any, kind: string) {
@@ -360,9 +362,9 @@ TUT2_SCENES.push(
     twait(() => (game.player.items || []).some((i: any) => i.kind === 'hammer') && (town.kit.gate || 0) >= 1, { bot: () => ({ shop: { tab: 'buy', i: (game.player.items || []).some((i: any) => i.kind === 'hammer') ? 1 : 0 } }) }),
     twait(() => !shopIsOpen(), { bot: () => ({ shop: { close: true } }) }),
     tarrow('gate'), tset(T2 => { T2.hammerAt = T2.at.gate; T2.autoHammer = true; }), tlock({ build: true }, ['destroy', 'gate'], 'gate'),
-    tstrip('Press B. The hammer is in your hand: walk into the marked fence to knock it out. Then press 2 to put the gate in the gap.'),
+    tstrip('Press B. The hammer is in your hand: walk into the marked fence to knock it out. Then press {k:gate} to put the gate in the gap.'),
     twait(T2 => { const p = lfPropAt(T2.at.gate.x, T2.at.gate.y); return !p; }, { bot: (T2: any) => { if (!buildOn()) return { key: 'b' }; const st = { x: T2.at.gate.x - 1, y: T2.at.gate.y }; return game.player.build.sel === 1 ? { stand: st, into: T2.at.gate } : { stand: st, key: '1', pressOnly: true }; } }),
-    twait(T2 => TUT2_DONE.gate(T2.at.gate.x, T2.at.gate.y), { bot: (T2: any) => ({ stand: { x: T2.at.gate.x - 1, y: T2.at.gate.y }, faceTo: T2.at.gate, key: '2' }) }),
+    twait(T2 => TUT2_DONE.gate(T2.at.gate.x, T2.at.gate.y), { bot: (T2: any) => ({ stand: { x: T2.at.gate.x - 1, y: T2.at.gate.y }, faceTo: T2.at.gate, key: String((T2.slots || []).indexOf('gate') + 1) }) }),
     tmark(), tset(T2 => { T2.hammerAt = null; T2.autoHammer = false; }), tstrip('Press B to let the world go on.'),
     twait(() => !buildOn(), { bot: () => ({ key: 'b' }) }),
     tlock({}), tstrip(), tarrow(),

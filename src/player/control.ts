@@ -109,8 +109,6 @@ function targetAt0(n, x, y) {
 }
 function playerDir(p) { for (const d of ['up', 'down', 'left', 'right']) if (p.keys[d]) return d; return null; }
 /* held keys, newest press first (so a fresh press slides you along a wall while the old key stays down) */
-/** build mode: how long (real seconds, as the sim counts them) a new direction must be held before you walk instead of only turning */
-const BUILD_TURN_S = 0.17;
 function playerDirs(p) {
   p.order = (p.order || []).filter(d => p.keys[d]);
   for (const d of ['up', 'down', 'left', 'right']) if (p.keys[d] && !p.order.includes(d)) p.order.push(d);
@@ -198,11 +196,9 @@ function tickPlayer0(n, dt) {
     if ((p.idle || 0) >= 0.25) p.fresh = true;   // (a press that starts from rest: this is how you ask to work a plot)
     p.idle = 0;
     const [dx, dy] = DIRV[d]; const pf = n.face || { dx: 0, dy: 1 }; n.face = { dx, dy };
-    // build mode: a fresh press in a new direction turns you first; keep holding and you walk (a tap only turns you, so you can face any square beside you)
-    if (itBuildOn(n) && !p.act && !n.moving) {
-      if (freshD && (dx !== pf.dx || dy !== pf.dy)) { p.turnHeld = 0; p.turnD = d; n.pose = 'stand'; continue; }
-      if (p.turnD === d && p.turnHeld != null) { p.turnHeld += step; if (p.turnHeld < BUILD_TURN_S * (typeof state !== 'undefined' ? state.rate * state.speed : 2)) { n.pose = 'stand'; continue; } p.turnHeld = null; }
-    }
+    // turning on the spot: holding Shift turns you to face a direction without moving (any mode); in build mode, with something solid in front of you (a wall, a fence, a tree ...), a fresh press the opposite way only turns you round (press again to walk)
+    if (p.shift && !p.act && !n.moving) { n.pose = 'stand'; continue; }
+    if (freshD && itBuildOn(n) && dx === -pf.dx && dy === -pf.dy && !p.act && !n.moving) { const bx = n.tx + pf.dx, by = n.ty + pf.dy, pr = lfPropAt(bx, by); if (!walkable(bx, by) || (pr && !lfBedAt(bx, by))) { p.lock = true; n.pose = 'stand'; continue; } }
     const fx = n.tx + dx, fy = n.ty + dy; p.fx = fx; p.fy = fy;
     if (p.grace) {
       const g = p.grace;

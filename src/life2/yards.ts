@@ -70,7 +70,7 @@ function yardScan(force?: boolean) {
   }
   // an open yard is gone after a day; what was in its store goes to whoever holds the ground now, or stays with its people
   const keep: any[] = []; let changed = false;
-  for (const y of town.yards) { if (y.open != null && game.time - y.open >= YARD_GRACE) { changed = true; y.gone = true; continue; } keep.push(y); }
+  for (const y of town.yards) { if (y.open != null && (game.time - y.open >= YARD_GRACE || (!y.fences.some((k: number) => { const q = town.propAt.get(k); return q && yardFence(q); }) && !yardPeople(y).length))) { changed = true; y.gone = true; continue; } keep.push(y); }   // (gone after the day's grace, or at once when not a single fence of it stands and nobody lives in it)
   const at2 = new Map<number, any>();
   for (const y of keep) if (y.open == null) for (const k of y.cells) at2.set(k, y);
   for (const y of keep) if (y.open != null) for (const k of y.cells) if (!at2.has(k) && !(town.propAt.get(k) && yardFence(town.propAt.get(k)))) at2.set(k, y);
@@ -154,7 +154,7 @@ YSORT.push(function (c: any, now: number) {
   for (const y of town.yards) {
     if (y.open != null) continue; const sp = yardSignSpot(y); if (!sp || sp.x < v.x0 - 2 || sp.x > v.x1 + 2 || sp.y < v.y0 || sp.y > v.y1) continue;
     out.push({ k: sp.y + 0.06, f: () => {
-      const t = yardName(y).replace(/^./, (ch: string) => ch.toUpperCase()); c.save(); c.font = `700 ${Math.round(TS * 0.3)}px Georgia, serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      const hc = typeof henCount === 'function' ? henCount(y) : 0, t = yardName(y).replace(/^./, (ch: string) => ch.toUpperCase()) + (hc ? ' · ' + hc + (hc === 1 ? ' hen' : ' hens') : ''); c.save(); c.font = `700 ${Math.round(TS * 0.3)}px Georgia, serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
       const cx = sp.x * TS + TS / 2, cy = sp.y * TS + TS * 0.42, w = Math.min(Math.max(c.measureText(t).width + TS * 0.4, TS * 1.2), Math.max(TS * 1.2, sp.len * TS - TS * 0.2)), h = TS * 0.5;
       c.fillStyle = '#5a3a1e'; c.fillRect(cx - w / 2 + TS * 0.12, cy + h / 2 - 1, TS * 0.1, TS * 0.32); c.fillRect(cx + w / 2 - TS * 0.22, cy + h / 2 - 1, TS * 0.1, TS * 0.32);   // (two posts)
       c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(cx - w / 2 + 1.5, cy - h / 2 + 2, w, h);

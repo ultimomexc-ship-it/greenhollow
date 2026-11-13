@@ -42,14 +42,14 @@ function menuFirst(root, sel) { const b = root && root.querySelector(sel); if (b
 function renderTalk() {
   const o = talkUI.o, n = game.player, box = el('talk'); if (!o || !n) return;
   box.hidden = false; box.classList.add('tkbub'); talkUI.dy = 0;
-  if (!(talkS && talkS.custom)) { const all = talkUI.opts || [], bye = all.filter((op: any) => op[0] === 'bye'); talkUI.opts = all.filter((op: any) => op[0] !== 'bye').slice(0, bye.length ? 3 : 4).concat(bye); }   // (three things to say, and goodbye)
+  if (!(talkS && talkS.custom)) { const all = talkUI.opts || [], bye = all.filter((op: any) => op[0] === 'bye'); const answering = typeof PT !== 'undefined' && PT.s && PT.s.pending; talkUI.opts = all.filter((op: any) => op[0] !== 'bye').slice(0, answering ? 8 : bye.length ? 3 : 4).concat(bye); }   // (three things to say and goodbye; every answer when you have been asked something)
   const opts = talkUI.opts;
-  box.innerHTML = '<div class="tkb" id="tkb"><div class="tkopts">' + opts.map((op, i) => '<button type="button" data-k="' + esc(op[0]) + '"><span>' + (i + 1) + '</span>' + esc(cvSpeak(op[1])) + '</button>').join('') + '</div>'
+  box.innerHTML = '<div class="tkb" id="tkb"><b class="tkwho">' + esc(n.first) + ':</b><div class="tkopts">' + opts.map((op, i) => '<button type="button" data-k="' + esc(op[0]) + '"><span>' + (i + 1) + '</span>' + esc(cvSpeak(op[1])) + '</button>').join('') + '</div>'
     + '</div>';
   box.querySelectorAll('[data-k]').forEach((b: any) => b.addEventListener('click', () => talkPick(b.dataset.k, b.textContent.replace(/^\d+/, ''))));
   // what was said goes up in speech bubbles, like everybody's: your line first, then their answer
   const said = talkUI.q && talkUI.q !== talkUI.lastQ, ans = talkUI.say && (talkUI.say !== talkUI.lastSay || said);
-  if (said) talkBubble(n, o, talkUI.q, 0);
+  if (said) { talkBubble(n, o, talkUI.q, 0); talkUI.hideUntil = performance.now() + 650 + 1400 + 25 * talkUI.q.length; }   // (your words take the bubble's place for a moment)
   if (ans) talkBubble(o, n, cvSpeak(talkUI.say), said ? 650 : 0);
   talkUI.lastQ = talkUI.q; talkUI.lastSay = talkUI.say;
   talkPlace(); menuFirst(box, '[data-k]');
@@ -60,11 +60,20 @@ function talkBubble(who: any, to: any, text: string, delay: number) {
   for (let i = bubbles.length - 1; i >= 0; i--) if (bubbles[i].n === who) bubbles.splice(i, 1);
   bubbles.push({ n: who, to, text, from: now + delay, until: now + delay + 60000, talk2: true });
 }
-/** the options bubble hangs over your head (or beside you when the two of you stand one above the other), with its tail pointing at you */
+/** the options are YOUR speech bubble: the same place, look and tail as the bubble your own lines appear in (behind you, opposite the way you face, drawBubbles).
+   While your chosen line is being said (and their answer comes), the line shows there instead; then the options come back in its place. */
 function talkPlace() {
   const o = talkUI.o, n = game.player, d = document.getElementById('tkb'); if (!o || !n || !d) return;
-  const side = Math.abs(o.y - n.y) > Math.abs(o.x - n.x), s = toScreen(n.x * TS + TS / 2, n.y * TS + (side ? TS * 0.2 : -TS * 0.75));
-  d.classList.toggle('side', side); d.style.left = Math.round(s.x + (side ? TS * cam.z * 0.6 : 0)) + 'px'; d.style.top = Math.round(s.y) + 'px';
+  const now = performance.now(), wait = now < (talkUI.hideUntil || 0);
+  d.style.visibility = wait ? 'hidden' : 'visible';
+  if (!wait && talkUI.hideUntil) { talkUI.hideUntil = 0; for (let i = bubbles.length - 1; i >= 0; i--) if (bubbles[i].n === n && bubbles[i].talk2) bubbles.splice(i, 1); }   // (your said line gives way to the next options)
+  const kb = Math.min(1.6, cam.z * 0.8), side = n.face && (n.face.dx || n.face.dy) ? bubbleBehind(n.face) : 'above';
+  const s = toScreen(n.x * TS + TS / 2, n.y * TS - 6 - 8 * (n.scale || 1)), foot = toScreen(n.x * TS + TS / 2, n.y * TS + TS - 3), midY = (s.y + foot.y) / 2;
+  d.style.fontSize = (10.5 * kb) + 'px'; d.className = 'tkb ' + side;
+  if (side === 'above') { d.style.left = s.x + 'px'; d.style.top = (s.y - 5) + 'px'; }
+  else if (side === 'below') { d.style.left = s.x + 'px'; d.style.top = (foot.y + 6 * kb) + 'px'; }
+  else if (side === 'right') { d.style.left = (s.x + 14 * kb) + 'px'; d.style.top = midY + 'px'; }
+  else { d.style.left = (s.x - 14 * kb) + 'px'; d.style.top = midY + 'px'; }
 }
 window.addEventListener('keydown', e => {
   if (!talkUI.o || typing(e)) return;

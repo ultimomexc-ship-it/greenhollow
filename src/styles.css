@@ -283,11 +283,16 @@ body.tut2-seedglow #hotbar .hbslots .hbslot:first-child { animation: tutbounce .
 
 /* talking with somebody: your options in a speech bubble over your head; what is said goes up in the ordinary bubbles */
 .talk.tkbub { inset: 0; display: block; padding: 0; }
-.tkb { position: absolute; transform: translate(-50%, -100%); pointer-events: auto; width: max-content; max-width: min(300px, 80vw); background: #fbf6e9; color: #2a2420; border: 2px solid #3a3028; border-radius: 12px; padding: 5px; box-shadow: 0 6px 18px rgba(0,0,0,.45); font: 500 13px/1.3 "IBM Plex Sans", system-ui, sans-serif; }
-.tkb::after { content: ''; position: absolute; left: 50%; bottom: -10px; margin-left: -8px; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 10px solid #3a3028; }
-.tkb.side { transform: translate(0, -50%); } .tkb.side::after { left: -10px; top: 50%; bottom: auto; margin: -8px 0 0; border-top: 8px solid transparent; border-bottom: 8px solid transparent; border-right: 10px solid #3a3028; border-left: 0; }
+.tkb { position: absolute; pointer-events: auto; width: max-content; max-width: min(19em, 70vw); background: rgba(250,246,232,.97); color: #1b1b1b; border: 1px solid rgba(20,20,20,.55); border-radius: 5px; padding: .45em .5em; box-shadow: 0 3px 10px rgba(0,0,0,.35); font-family: "IBM Plex Sans", system-ui, sans-serif; font-weight: 500; line-height: 1.25; }
+.tkb.above { transform: translate(-50%, -100%); } .tkb.below { transform: translate(-50%, 0); } .tkb.right { transform: translate(0, -50%); } .tkb.left { transform: translate(-100%, -50%); }
+.tkb::after { content: ''; position: absolute; border: .45em solid transparent; }
+.tkb.above::after { left: 50%; top: 100%; margin-left: -.45em; border-top-color: rgba(250,246,232,.97); }
+.tkb.below::after { left: 50%; bottom: 100%; margin-left: -.45em; border-bottom-color: rgba(250,246,232,.97); }
+.tkb.right::after { right: 100%; top: 50%; margin-top: -.45em; border-right-color: rgba(250,246,232,.97); }
+.tkb.left::after { left: 100%; top: 50%; margin-top: -.45em; border-left-color: rgba(250,246,232,.97); }
+.tkb .tkwho { display: block; font-weight: 500; padding: 0 .35em .15em; }
 .tkb .tkopts { display: flex; flex-direction: column; gap: 2px; }
-.tkb .tkopts button { display: flex; gap: 7px; align-items: baseline; text-align: left; border: 0; background: transparent; color: inherit; font: inherit; padding: 4px 8px; border-radius: 7px; cursor: pointer; }
-.tkb .tkopts button span { font: 600 11px var(--font-mono, monospace); color: #9a6a1c; }
+.tkb .tkopts button { display: flex; gap: .5em; align-items: baseline; text-align: left; border: 0; background: transparent; color: inherit; font: inherit; padding: .2em .35em; border-radius: 4px; cursor: pointer; }
+.tkb .tkopts button span { font: 600 .85em var(--font-mono, monospace); color: #9a6a1c; }
 .tkb .tkopts button:hover, .tkb .tkopts button.kf { background: #f0dfb4; outline: none !important; }
 .tkb .tklv { display: block; margin: 3px 0 0 auto; border: 0; background: transparent; color: #7a6a58; font: 500 11px system-ui, sans-serif; cursor: pointer; padding: 2px 6px; } .tkb .tklv i { font-style: normal; opacity: .7; }

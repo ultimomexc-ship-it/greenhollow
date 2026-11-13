@@ -114,7 +114,7 @@ const _t2SDraw = shopDraw; shopDraw = function () {
 function tut2GlowSlot(): number {
   const T2 = town.tut2, P = game.player, sl = T2.slots || []; if (!sl.length) return -1;
   if (T2.ui && T2.ui.lesson && sl.includes('push')) return P.build && P.build.sel === 0 ? -1 : sl.indexOf('push');
-  if (sl[0] === 'destroy') { const g = T2.at.gate, p = lfPropAt(g.x, g.y); if (p && p.kind === 'fence') return P.build && P.build.sel === 1 ? -1 : 0; return 1; }
+  if (sl[0] === 'destroy') { const g = T2.at.gate, p = lfPropAt(g.x, g.y); if (p && p.kind === 'fence') return P.build && P.build.sel === 1 ? -1 : sl.indexOf('destroy'); return sl.indexOf('gate'); }
   if (sl[0] === 'push') return -1;
   return 0;
 }

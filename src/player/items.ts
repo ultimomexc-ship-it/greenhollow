@@ -187,9 +187,9 @@ function itBagDraw() {
     const pad = a => { while (a.length < 6) a.push('<div class="bgcell empty"></div>'); return a.join(''); };
     b.innerHTML = `<div class="bgwrap"><div class="bghead"><b>${esc(nameOf(n))} · Inventory (I)</b><span class="coin">${Math.floor(n.coin || 0)} denarii</span><button type="button" class="bgx" data-close="1" title="Close (I)">×</button></div>`
       + `<div class="bglab">Hotbar · 1-0 · drag seeds or lockpicks here · click a slot to empty it</div><div class="bgbelt">${n.belt.map((_, i) => itSlotHTML(n, i, 'hbslot big')).join('')}</div>`
-      + `<div class="bglab">Tools · picked for you when you use them</div><div class="bggrid">${pad(tools)}</div>`
       + `<div class="bglab">Seeds and lockpicks · drag onto the hotbar</div><div class="bggrid">${pad(stacks)}</div>`
-      + `<div class="bglab">Goods</div><div class="bggrid">${pad(goods)}</div></div>`;
+      + `<div class="bglab">Goods</div><div class="bggrid">${pad(goods)}</div>`
+      + `<div class="bglab">Tools · picked for you when you use them</div><div class="bggrid">${pad(tools)}</div></div>`;   // (tools last: only seeds and lockpicks go on the hotbar)
     return;
   }
   const goods = Object.entries<number>(n.inv || {}).filter(([g, q]) => q > 0).map(([g, q]) => `<div class="bgcell"><span class="bgname">${esc((GOODS[g] && GOODS[g].name) || GICON[g] || g)}</span><u>${q}</u></div>`);

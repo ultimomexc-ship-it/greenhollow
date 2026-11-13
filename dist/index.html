@@ -293,12 +293,17 @@ body.tut2-seedglow #hotbar .hbslots .hbslot:first-child { animation: tutbounce .
 
 /* talking with somebody: your options in a speech bubble over your head; what is said goes up in the ordinary bubbles */
 .talk.tkbub { inset: 0; display: block; padding: 0; }
-.tkb { position: absolute; transform: translate(-50%, -100%); pointer-events: auto; width: max-content; max-width: min(300px, 80vw); background: #fbf6e9; color: #2a2420; border: 2px solid #3a3028; border-radius: 12px; padding: 5px; box-shadow: 0 6px 18px rgba(0,0,0,.45); font: 500 13px/1.3 "IBM Plex Sans", system-ui, sans-serif; }
-.tkb::after { content: ''; position: absolute; left: 50%; bottom: -10px; margin-left: -8px; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 10px solid #3a3028; }
-.tkb.side { transform: translate(0, -50%); } .tkb.side::after { left: -10px; top: 50%; bottom: auto; margin: -8px 0 0; border-top: 8px solid transparent; border-bottom: 8px solid transparent; border-right: 10px solid #3a3028; border-left: 0; }
+.tkb { position: absolute; pointer-events: auto; width: max-content; max-width: min(19em, 70vw); background: rgba(250,246,232,.97); color: #1b1b1b; border: 1px solid rgba(20,20,20,.55); border-radius: 5px; padding: .45em .5em; box-shadow: 0 3px 10px rgba(0,0,0,.35); font-family: "IBM Plex Sans", system-ui, sans-serif; font-weight: 500; line-height: 1.25; }
+.tkb.above { transform: translate(-50%, -100%); } .tkb.below { transform: translate(-50%, 0); } .tkb.right { transform: translate(0, -50%); } .tkb.left { transform: translate(-100%, -50%); }
+.tkb::after { content: ''; position: absolute; border: .45em solid transparent; }
+.tkb.above::after { left: 50%; top: 100%; margin-left: -.45em; border-top-color: rgba(250,246,232,.97); }
+.tkb.below::after { left: 50%; bottom: 100%; margin-left: -.45em; border-bottom-color: rgba(250,246,232,.97); }
+.tkb.right::after { right: 100%; top: 50%; margin-top: -.45em; border-right-color: rgba(250,246,232,.97); }
+.tkb.left::after { left: 100%; top: 50%; margin-top: -.45em; border-left-color: rgba(250,246,232,.97); }
+.tkb .tkwho { display: block; font-weight: 500; padding: 0 .35em .15em; }
 .tkb .tkopts { display: flex; flex-direction: column; gap: 2px; }
-.tkb .tkopts button { display: flex; gap: 7px; align-items: baseline; text-align: left; border: 0; background: transparent; color: inherit; font: inherit; padding: 4px 8px; border-radius: 7px; cursor: pointer; }
-.tkb .tkopts button span { font: 600 11px var(--font-mono, monospace); color: #9a6a1c; }
+.tkb .tkopts button { display: flex; gap: .5em; align-items: baseline; text-align: left; border: 0; background: transparent; color: inherit; font: inherit; padding: .2em .35em; border-radius: 4px; cursor: pointer; }
+.tkb .tkopts button span { font: 600 .85em var(--font-mono, monospace); color: #9a6a1c; }
 .tkb .tkopts button:hover, .tkb .tkopts button.kf { background: #f0dfb4; outline: none !important; }
 .tkb .tklv { display: block; margin: 3px 0 0 auto; border: 0; background: transparent; color: #7a6a58; font: 500 11px system-ui, sans-serif; cursor: pointer; padding: 2px 6px; } .tkb .tklv i { font-style: normal; opacity: .7; }
 
@@ -13984,7 +13989,6 @@ function playerDir(p) {
   for (const d of ["up", "down", "left", "right"]) if (p.keys[d]) return d;
   return null;
 }
-const BUILD_TURN_S = 0.17;
 function playerDirs(p) {
   p.order = (p.order || []).filter((d) => p.keys[d]);
   for (const d of ["up", "down", "left", "right"]) if (p.keys[d] && !p.order.includes(d)) p.order.push(d);
@@ -14240,20 +14244,16 @@ function tickPlayer0(n, dt) {
     const [dx, dy] = DIRV[d];
     const pf = n.face || { dx: 0, dy: 1 };
     n.face = { dx, dy };
-    if (itBuildOn(n) && !p.act && !n.moving) {
-      if (freshD && (dx !== pf.dx || dy !== pf.dy)) {
-        p.turnHeld = 0;
-        p.turnD = d;
+    if (p.shift && !p.act && !n.moving) {
+      n.pose = "stand";
+      continue;
+    }
+    if (freshD && itBuildOn(n) && dx === -pf.dx && dy === -pf.dy && !p.act && !n.moving) {
+      const bx = n.tx + pf.dx, by = n.ty + pf.dy, pr = lfPropAt(bx, by);
+      if (!walkable(bx, by) || pr && !lfBedAt(bx, by)) {
+        p.lock = true;
         n.pose = "stand";
         continue;
-      }
-      if (p.turnD === d && p.turnHeld != null) {
-        p.turnHeld += step;
-        if (p.turnHeld < BUILD_TURN_S * (typeof state !== "undefined" ? state.rate * state.speed : 2)) {
-          n.pose = "stand";
-          continue;
-        }
-        p.turnHeld = null;
       }
     }
     const fx = n.tx + dx, fy = n.ty + dy;
@@ -15018,7 +15018,7 @@ function lightSources(hour) {
   const fn = town.funeral;
   if (fn && fn.slot && !fn.done && game.time > fn.at - 20) out.push({ x: fn.slot.x, y: fn.slot.y, r: 3.5, s: 0.7 });
   const p = game.player;
-  if (p && !p.dead) out.push({ x: p.tx, y: p.ty, r: 2.4, s: 0.5 });
+  if (p && !p.dead) out.push({ x: p.x, y: p.y, r: 2.4, s: 0.5 });
   return out;
 }
 function buildLightMaps(hour) {
@@ -15027,7 +15027,8 @@ function buildLightMaps(hour) {
   const rw = x1 - x0, rh = y1 - y0, light = new Float32Array(rw * rh), vis = new Uint8Array(rw * rh), sight = new Float32Array(rw * rh);
   for (const s of lightSources(hour)) {
     const R2 = Math.ceil(s.r);
-    for (let y = Math.max(y0, s.y - R2); y < Math.min(y1, s.y + R2 + 1); y++) for (let x = Math.max(x0, s.x - R2); x < Math.min(x1, s.x + R2 + 1); x++) {
+    const sx = Math.round(s.x), sy = Math.round(s.y);
+    for (let y = Math.max(y0, Math.floor(s.y - R2)); y < Math.min(y1, Math.ceil(s.y + R2 + 1)); y++) for (let x = Math.max(x0, Math.floor(s.x - R2)); x < Math.min(x1, Math.ceil(s.x + R2 + 1)); x++) {
       const d = Math.hypot(x - s.x, y - s.y);
       if (d > s.r) continue;
       if (s.room && roomAt[y][x] !== rooms.indexOf(s.room) && grid[y][x] !== T.DOOR) {
@@ -15040,7 +15041,7 @@ function buildLightMaps(hour) {
         if (v2 > light[i2]) light[i2] = v2;
         continue;
       }
-      const k = seeThrough(s.x, s.y, x, y);
+      const k = seeThrough(sx, sy, x, y);
       if (k <= 0) continue;
       const f = 1 - d / (s.r + 0.5), v = s.s * k * f * (2 - f);
       const i = (y - y0) * rw + x - x0;
@@ -15082,7 +15083,7 @@ function canSee(x, y) {
   return day > 0.3 || m.light[i] > 0.12;
 }
 function drawLighting(c, hour, now) {
-  const key = Math.floor(cam.x / TS) + "," + Math.floor(cam.y / TS) + "," + (game.player ? game.player.tx + "," + game.player.ty : "") + "," + cam.z.toFixed(2);
+  const key = Math.floor(cam.x / TS) + "," + Math.floor(cam.y / TS) + "," + (game.player ? Math.round(game.player.x * 4) + "," + Math.round(game.player.y * 4) : "") + "," + cam.z.toFixed(2);
   if (!LGT.map || now - LGT.t > 150 || key !== LGT.key) {
     LGT.map = buildLightMaps(hour);
     LGT.t = now;
@@ -15178,6 +15179,8 @@ function wildOk(x, y) {
   return t === T.GRASS && roomAt[y][x] < 0 && Math.hypot(x - town.cx, y - town.cy) > 16;
 }
 function stepWild(now) {
+  WILD.list.length = 0;
+  return;
   const p = game.player;
   if (!p || !town) return;
   const gt = clk(), dt = Math.max(0, Math.min(5, gt - (WILD.last || gt)));
@@ -18296,7 +18299,7 @@ function lifeAct(n, p, fx, fy, dx, dy) {
       return { msg: `The carpenter's table. ${s.wood || 0} wood and ${s.stone || 0} stone in store. Bring more and he makes what you need.` };
     }
   }
-  if (pr && pr.kind === "gate" && !itBuildOn(n)) return null;
+  if (pr && pr.kind === "gate" && !(itBuildOn(n) && n.build.sel === 1)) return null;
   if (pr && pr.kind === "bed" && !itBuildOn(n)) return { msg: pr.owner && !pr.owner.dead ? pr.owner === n ? "Your bed." : pr.owner.first + "'s bed." : "A free bed. Somebody will take it." };
   if (pr) {
     const label = LF_NOUN[pr.kind];
@@ -21771,7 +21774,7 @@ function itBagDraw() {
       while (a.length < 6) a.push('<div class="bgcell empty"></div>');
       return a.join("");
     };
-    b.innerHTML = `<div class="bgwrap"><div class="bghead"><b>${esc(nameOf(n))} \xB7 Inventory (I)</b><span class="coin">${Math.floor(n.coin || 0)} denarii</span><button type="button" class="bgx" data-close="1" title="Close (I)">\xD7</button></div><div class="bglab">Hotbar \xB7 1-0 \xB7 drag seeds or lockpicks here \xB7 click a slot to empty it</div><div class="bgbelt">${n.belt.map((_, i) => itSlotHTML(n, i, "hbslot big")).join("")}</div><div class="bglab">Tools \xB7 picked for you when you use them</div><div class="bggrid">${pad(tools2)}</div><div class="bglab">Seeds and lockpicks \xB7 drag onto the hotbar</div><div class="bggrid">${pad(stacks2)}</div><div class="bglab">Goods</div><div class="bggrid">${pad(goods2)}</div></div>`;
+    b.innerHTML = `<div class="bgwrap"><div class="bghead"><b>${esc(nameOf(n))} \xB7 Inventory (I)</b><span class="coin">${Math.floor(n.coin || 0)} denarii</span><button type="button" class="bgx" data-close="1" title="Close (I)">\xD7</button></div><div class="bglab">Hotbar \xB7 1-0 \xB7 drag seeds or lockpicks here \xB7 click a slot to empty it</div><div class="bgbelt">${n.belt.map((_, i) => itSlotHTML(n, i, "hbslot big")).join("")}</div><div class="bglab">Seeds and lockpicks \xB7 drag onto the hotbar</div><div class="bggrid">${pad(stacks2)}</div><div class="bglab">Goods</div><div class="bggrid">${pad(goods2)}</div><div class="bglab">Tools \xB7 picked for you when you use them</div><div class="bggrid">${pad(tools2)}</div></div>`;
     return;
   }
   const goods = Object.entries(n.inv || {}).filter(([g, q]) => q > 0).map(([g, q]) => `<div class="bgcell"><span class="bgname">${esc(GOODS[g] && GOODS[g].name || GICON[g] || g)}</span><u>${q}</u></div>`);
@@ -22108,14 +22111,14 @@ const IT_ROTATE_SVG = '<path d="M28 18a10 10 0 1 1-4-8" fill="none" stroke="#a8e
 function itBuildBarHTML(n, face) {
   const b = itBuildState(n);
   const tool = (i, svg, name, on) => `<button type="button" class="hbslot${on ? " on" : ""}" data-bslot="${i}" title="${name}"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${svg}</svg><span class="hbcap">${name}</span></button>`;
-  const slots = b.bar.map((k, j) => `<button type="button" class="hbslot item${k && k === b.brush ? " on" : ""}" data-bslot="${j + 3}" title="${k ? esc(itBuildName(k)) : "Empty: drag one here in the build menu (I)"}"><em>${(j + 4) % 10}</em>${k ? itBuildIcon(k) : ""}${k ? "<u>" + kitLabel(k) + "</u>" : ""}<span class="hbcap">${k ? esc(itBuildName(k)) : ""}</span></button>`).join("");
-  return `<div class="hbbadge" title="Build mode (B)"><b>BUILD</b><span>B to leave</span></div><div class="hbslots">${tool(0, IT_SVG.push, "Push", b.sel === 0)}${tool(1, IT_SVG.hammer, "Destroy", b.sel === 1)}${tool(2, IT_ROTATE_SVG, "Turn", b.sel === 2)}<i class="hbsep"></i>${slots}</div><div class="hbface">${face || '<span class="dim">Walk to push \xB7 2 destroy \xB7 3 turn \xB7 4-0 put an item down \xB7 I menu</span>'}</div>`;
+  const slots = b.bar.map((k, j) => k && kitOn() && !kitHas(k) ? "" : `<button type="button" class="hbslot item${k && k === b.brush ? " on" : ""}" data-bslot="${j + 3}" title="${k ? esc(itBuildName(k)) : "Empty: drag one here in the build menu (I)"}"><em>${(j + 4) % 10}</em>${k ? itBuildIcon(k) : ""}${k ? "<u>" + kitLabel(k) + "</u>" : ""}<span class="hbcap">${k ? esc(itBuildName(k)) : ""}</span></button>`).join("");
+  return `<button type="button" class="hbbadge" data-bleave="1" title="Leave build mode (B)"><b>BUILD</b><span>B to leave</span></button><div class="hbslots">${tool(0, IT_SVG.push, "Push", b.sel === 0)}${tool(1, IT_SVG.hammer, "Destroy", b.sel === 1)}${tool(2, IT_ROTATE_SVG, "Turn", b.sel === 2)}<i class="hbsep"></i>${slots}</div><div class="hbface">${face || '<span class="dim">Walk to push \xB7 2 destroy \xB7 3 turn \xB7 4-0 put an item down \xB7 I menu</span>'}</div>`;
 }
 function itBuildBagHTML(n) {
   const b = itBuildState(n), sel = n._bpick || "";
   const items = itBuildList().map((it) => `<button type="button" class="bgcell bi${sel === it.kind ? " worn" : ""}" draggable="true" data-bkind="${it.kind}" title="Drag onto a build slot">${itBuildIcon(it.kind, 34)}<span class="bgname">${esc(it.name)} \xB7 ${kitLabel(it.kind)}</span></button>`).join("");
   const slots = b.bar.map((k, j) => `<button type="button" class="hbslot big item" data-bdrop="${j}" title="Build slot ${(j + 4) % 10}"><em>${(j + 4) % 10}</em>${k ? itBuildIcon(k, 38) : ""}</button>`).join("");
-  return `<div class="bglab">Build menu \xB7 drag an item onto a build slot (or click an item, then a slot)</div><div class="bgbuild">${items}</div><div class="bglab">Build hotbar \xB7 slots 4-0 (1 pushes, 2 destroys, 3 turns things) \xB7 click a slot while an item is picked to fill it, right-click to empty it</div><div class="bgbelt">${slots}</div>`;
+  return `<div class="bglab">Build hotbar \xB7 4-0 \xB7 drag an item here (or click an item, then a slot) \xB7 right-click a slot to empty it</div><div class="bgbelt">${slots}</div><div class="bglab">Building items \xB7 what you have</div><div class="bgbuild">${items}</div>`;
 }
 function itBuildAssign(n, j, kind) {
   const b = itBuildState(n);
@@ -22132,11 +22135,18 @@ window.addEventListener("keyup", (e) => {
   const bb = document.getElementById("bagbox"), hb = document.getElementById("hotbar");
   if (!bb || !hb) return;
   const css = document.createElement("style");
-  css.textContent = ".hbbadge{display:flex;flex-direction:column;justify-content:center;align-items:center;background:#1d2a14;border:2px solid #6aa83e;border-radius:7px;padding:2px 10px;color:#cfe9a8}.hbbadge b{letter-spacing:.14em;font-size:13px}.hbbadge span{font-size:9px;color:#8fb468}.hbcap{position:absolute;left:0;right:0;bottom:-15px;text-align:center;font-size:9px;color:#8d8570;white-space:nowrap;overflow:hidden;pointer-events:none}.hbsep{width:8px}.hbslot.item img{image-rendering:auto}.hotbar.build{border-color:#5a8a38;padding-bottom:20px}.hbtools{display:flex;gap:4px;align-items:center}.hbtool{position:relative;width:34px;height:44px;background:#171b20;border:2px solid #3a3226;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#9a927c}.hbtool.on{border-color:#a8e07a;background:#1d2a14;box-shadow:0 0 10px #a8e07a44}.hbtool.none{opacity:.35}.hbtool .hbwear{bottom:2px}.bgbuild{display:grid;grid-template-columns:repeat(7,74px);gap:5px}.bgcell.bi{height:62px;cursor:grab}.bgcell.bi:active{cursor:grabbing}.hbslot.item.drop{border-color:#6aa83e;background:#1d2a14}";
+  css.textContent = ".hbbadge{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:3px;line-height:1.1;background:#1d2a14;border:2px solid #6aa83e;border-radius:7px;padding:4px 10px;color:#cfe9a8;font:inherit;cursor:pointer;user-select:none;-webkit-user-select:none}.hbbadge:hover{background:#26371a}.hbbadge b{letter-spacing:.14em;font-size:13px}.hbbadge span{font-size:9px;color:#8fb468}.hbcap{position:absolute;left:0;right:0;bottom:-15px;text-align:center;font-size:9px;color:#8d8570;white-space:nowrap;overflow:hidden;pointer-events:none}.hbsep{width:8px}.hbslot.item img{image-rendering:auto}.hotbar.build{border-color:#5a8a38;padding-bottom:20px}.hbtools{display:flex;gap:4px;align-items:center}.hbtool{position:relative;width:34px;height:44px;background:#171b20;border:2px solid #3a3226;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#9a927c}.hbtool.on{border-color:#a8e07a;background:#1d2a14;box-shadow:0 0 10px #a8e07a44}.hbtool.none{opacity:.35}.hbtool .hbwear{bottom:2px}.bgbuild{display:grid;grid-template-columns:repeat(7,74px);gap:5px}.bgcell.bi{height:62px;cursor:grab}.bgcell.bi:active{cursor:grabbing}.hbslot.item.drop{border-color:#6aa83e;background:#1d2a14}";
   document.head.appendChild(css);
   hb.addEventListener("pointerdown", (e) => {
     const n = game.player;
     if (!n || !itBuildOn(n)) return;
+    if (e.target.closest("[data-bleave]")) {
+      itBuildToggle(n);
+      e.preventDefault();
+      e.stopPropagation();
+      canvas.focus({ preventScroll: true });
+      return;
+    }
     const s = e.target.closest("[data-bslot]");
     if (s) {
       itBuildSelect(n, +s.dataset.bslot);
@@ -27472,10 +27482,11 @@ function tut2Dom(id, cls) {
   return d;
 }
 let tut2HudSig = "";
+const tut2Keys2 = (t) => typeof t === "string" ? t.replace(/\{k:(\w+)\}/g, (_, k) => String((town.tut2.slots || []).indexOf(k) + 1 || "?")) : t;
 function tut2Hud() {
   if (typeof document === "undefined" || !town) return;
   const on = tut2Active(), T2 = town.tut2, ui = on ? T2.ui : null, show = on && T2.show || {};
-  const flash = ui && ui.flash && performance.now() < ui.flash.until ? ui.flash.text : null, strip = on ? flash || ui.strip : null;
+  const flash = ui && ui.flash && performance.now() < ui.flash.until ? ui.flash.text : null, strip = on ? tut2Keys2(flash || ui.strip) : null;
   const sig = [on, strip, !!flash, show.tools, show.slots, ui && ui.fade].join("|");
   if (sig === tut2HudSig) return;
   tut2HudSig = sig;
@@ -27575,7 +27586,7 @@ function drawTut2(c, now) {
   }
   const a = tut2ArrowAt();
   if (!a) return;
-  const bob = Math.sin(now / 260) * 4, big = ui.arrow && ui.arrow.big ? 1.5 : 1, x = a.x * TS + TS / 2, y = a.y * TS - (a.person ? TS + 6 : 4) + bob;
+  const bob = Math.sin(now / 260) * 4, big = ui.arrow && ui.arrow.big ? 1.5 : 1, x = a.x * TS + TS / 2, y = a.y * TS - (a.person ? 18 : 4) + bob;
   c.save();
   c.fillStyle = "#f4c542";
   c.strokeStyle = "rgba(30,20,0,.8)";
@@ -27662,7 +27673,7 @@ itBuildBarHTML = function(n, face) {
   if (!tut2Active()) return _t2Bar(n, face);
   const b = itBuildState(n);
   const slots = (town.tut2.slots || []).map((k, i) => k === "push" ? `<button type="button" class="hbslot${b.sel === 0 ? " on" : ""}" data-bslot="${i}" title="Push"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${IT_SVG.push}</svg><span class="hbcap">Push</span></button>` : k === "destroy" ? `<button type="button" class="hbslot${b.sel === 1 ? " on" : ""}" data-bslot="${i}" title="Destroy"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${IT_SVG.hammer}</svg><span class="hbcap">Destroy</span></button>` : `<button type="button" class="hbslot item" data-bslot="${i}" title="${esc(itBuildName(k))}"><em>${i + 1}</em>${itBuildIcon(k)}<u>${kitLabel(k)}</u><span class="hbcap">${esc(itBuildName(k))}</span></button>`).join("");
-  return `<div class="hbbadge" title="Build mode (B)"><b>BUILD</b><span>B to leave</span></div><div class="hbslots">${slots}</div><div class="hbface">${face || ""}</div>`;
+  return `<button type="button" class="hbbadge" data-bleave="1" title="Leave build mode (B)"><b>BUILD</b><span>B to leave</span></button><div class="hbslots">${slots}</div><div class="hbface">${face || ""}</div>`;
 };
 function tut2Place(n, kind) {
   const T2 = town.tut2, f = lf2Front(n), ok = tut2Tiles(T2.only).some((t) => t.x === f.x && t.y === f.y);
@@ -28276,7 +28287,7 @@ TUT2_SCENES.push(
       T2.autoHammer = true;
     }),
     tlock({ build: true }, ["destroy", "gate"], "gate"),
-    tstrip("Press B. The hammer is in your hand: walk into the marked fence to knock it out. Then press 2 to put the gate in the gap."),
+    tstrip("Press B. The hammer is in your hand: walk into the marked fence to knock it out. Then press {k:gate} to put the gate in the gap."),
     twait((T2) => {
       const p = lfPropAt(T2.at.gate.x, T2.at.gate.y);
       return !p;
@@ -28285,7 +28296,7 @@ TUT2_SCENES.push(
       const st = { x: T2.at.gate.x - 1, y: T2.at.gate.y };
       return game.player.build.sel === 1 ? { stand: st, into: T2.at.gate } : { stand: st, key: "1", pressOnly: true };
     } }),
-    twait((T2) => TUT2_DONE.gate(T2.at.gate.x, T2.at.gate.y), { bot: (T2) => ({ stand: { x: T2.at.gate.x - 1, y: T2.at.gate.y }, faceTo: T2.at.gate, key: "2" }) }),
+    twait((T2) => TUT2_DONE.gate(T2.at.gate.x, T2.at.gate.y), { bot: (T2) => ({ stand: { x: T2.at.gate.x - 1, y: T2.at.gate.y }, faceTo: T2.at.gate, key: String((T2.slots || []).indexOf("gate") + 1) }) }),
     tmark(),
     tset((T2) => {
       T2.hammerAt = null;
@@ -28757,8 +28768,8 @@ function tut2GlowSlot() {
   if (T2.ui && T2.ui.lesson && sl.includes("push")) return P.build && P.build.sel === 0 ? -1 : sl.indexOf("push");
   if (sl[0] === "destroy") {
     const g = T2.at.gate, p = lfPropAt(g.x, g.y);
-    if (p && p.kind === "fence") return P.build && P.build.sel === 1 ? -1 : 0;
-    return 1;
+    if (p && p.kind === "fence") return P.build && P.build.sel === 1 ? -1 : sl.indexOf("destroy");
+    return sl.indexOf("gate");
   }
   if (sl[0] === "push") return -1;
   return 0;
@@ -29622,6 +29633,171 @@ function drawBushSway(c, id, x, y, now, seed) {
   gaDraw(c, id, x * TS, y * TS, now, seed);
   c.restore();
 }
+const HENS = { seed: 4242, last: 0, n: 12 };
+const henRand = () => {
+  HENS.seed = HENS.seed * 1103515245 + 12345 & 2147483647;
+  return HENS.seed / 2147483647;
+};
+function henFree(x, y, chased) {
+  if (x < 2 || y < 2 || x >= W - 2 || y >= (town.h0 || H) - 2) return false;
+  const t = grid[y][x];
+  if (t !== T.GRASS && t !== T.PATH && t !== T.SAND && t !== T.CROP) return false;
+  if (roomAt[y][x] >= 0) return false;
+  const pr = town.propAt && town.propAt.get(y * W + x);
+  if (pr) return pr.kind === "gate" && chased;
+  return true;
+}
+function henSpawn() {
+  if (!town || town.chickens) return;
+  town.chickens = [];
+  HENS.seed = Number(String(town.seed).split("").reduce((a, ch) => a * 31 + ch.charCodeAt(0), 7)) & 2147483647 || 4242;
+  for (let tries = 0; tries < 2e3 && town.chickens.length < HENS.n; tries++) {
+    const a = henRand() * 6.283, d = 7 + henRand() * 22, x = Math.round(town.cx + Math.cos(a) * d), y = Math.round(town.cy + Math.sin(a) * d);
+    if (!henFree(x, y, false) || typeof yardAtXY === "function" && yardAtXY(x, y)) continue;
+    town.chickens.push({ id: town.chickens.length + 1, x, y, tx: x, ty: y, face: henRand() < 0.5 ? -1 : 1, peck: 0, chased: 0, yard: null });
+  }
+}
+function henStep(now) {
+  const P = game.player;
+  if (!town || !P) return;
+  henSpawn();
+  const dt = Math.min(0.1, Math.max(0, (now - (HENS.last || now)) / 1e3));
+  HENS.last = now;
+  if (!dt) return;
+  const frozen = typeof itBuildOn === "function" && itBuildOn(P);
+  if (frozen) return;
+  for (const c of town.chickens) {
+    const dp = Math.hypot(c.x - P.x, c.y - P.y);
+    if (dp < 2.6) {
+      if (!c.chased && typeof sndTone === "function" && typeof sndReady === "function" && sndReady() && dp < 2) {
+        sndTone(900 + henRand() * 300, 0.07, "square", 0.03, 1300);
+        sndTone(700, 0.09, "square", 0.025, 500, 0.08);
+      }
+      const ang = Math.atan2(c.y - P.y, c.x - P.x) + (henRand() - 0.5) * 0.9;
+      c.tx = c.x + Math.cos(ang) * 3;
+      c.ty = c.y + Math.sin(ang) * 3;
+      c.chased = 1.2;
+    } else if (c.chased > 0) c.chased -= dt;
+    else if (Math.hypot(c.tx - c.x, c.ty - c.y) < 0.15) {
+      if (henRand() < 0.4 * dt) {
+        c.peck = 0.6;
+      } else if (henRand() < 0.5 * dt) {
+        c.tx = c.x + (henRand() - 0.5) * 3;
+        c.ty = c.y + (henRand() - 0.5) * 3;
+      }
+    }
+    if (c.peck > 0) {
+      c.peck -= dt;
+      continue;
+    }
+    const chased = c.chased > 0, sp = (chased ? 3.2 : 0.7) * dt, dx = c.tx - c.x, dy = c.ty - c.y, dd = Math.hypot(dx, dy);
+    if (dd < 0.03) continue;
+    const k = Math.min(1, sp / dd), nx = c.x + dx * k, ny = c.y + dy * k, rx = Math.round(nx), ry = Math.round(ny);
+    if (rx === Math.round(c.x) && ry === Math.round(c.y) || henFree(rx, ry, chased)) {
+      c.x = nx;
+      c.y = ny;
+      if (Math.abs(dx) > 0.02) c.face = dx < 0 ? -1 : 1;
+    } else {
+      if (henFree(rx, Math.round(c.y), chased)) {
+        c.x = nx;
+        c.face = dx < 0 ? -1 : 1;
+      } else if (henFree(Math.round(c.x), ry, chased)) c.y = ny;
+      else {
+        c.tx = c.x;
+        c.ty = c.y;
+      }
+    }
+    const y2 = typeof yardAtXY === "function" ? yardAtXY(Math.round(c.x), Math.round(c.y)) : null, was = c.yard;
+    c.yard = y2 && y2.open == null ? y2.id : null;
+    if (c.yard && c.yard !== was && typeof jBurst === "function") {
+      const R = Math.random;
+      Math.random = henRand;
+      try {
+        jBurst((c.x + 0.5) * TS, (c.y + 0.5) * TS, 8, "spark", ["#fff4b0", "#ffe08a"], 0.6, 0.6);
+      } finally {
+        Math.random = R;
+      }
+      if (typeof jsDing === "function") jsDing();
+    }
+  }
+}
+const henCount = (y) => (town.chickens || []).filter((c) => c.yard === y.id).length;
+YSORT.push(function(c, now) {
+  if (!town || !town.chickens || cam.z < 0.55) return [];
+  henStep(now);
+  const v = gaView(), out = [];
+  for (const h of town.chickens) {
+    if (h.x < v.x0 - 1 || h.x > v.x1 + 1 || h.y < v.y0 - 1 || h.y > v.y1 + 1) continue;
+    if (typeof canSee === "function" && !canSee(Math.round(h.x), Math.round(h.y))) continue;
+    out.push({ k: h.y + 0.1, f: () => drawHen(c, h, now) });
+  }
+  return out;
+});
+function drawHen(c, h, now) {
+  const X = h.x * TS + TS / 2, Y = h.y * TS + TS * 0.78, run = h.chased > 0, t = now / 1e3 + h.id * 0.7, bob = run ? Math.abs(Math.sin(t * 18)) * 1.2 : 0, pk = h.peck > 0 ? Math.sin(h.peck * 12) * 0.5 + 0.5 : 0;
+  c.save();
+  c.translate(X, Y);
+  c.scale(h.face < 0 ? -1 : 1, 1);
+  c.fillStyle = "rgba(30,30,60,.22)";
+  c.beginPath();
+  c.ellipse(0, 0.6, 4.6, 1.5, 0, 0, 6.3);
+  c.fill();
+  c.strokeStyle = "#d98a2b";
+  c.lineWidth = 0.8;
+  c.lineCap = "round";
+  const st = run ? Math.sin(t * 18) * 1.4 : 0;
+  c.beginPath();
+  c.moveTo(-1, -2.4);
+  c.lineTo(-1 - st, 0);
+  c.moveTo(1.2, -2.4);
+  c.lineTo(1.2 + st, 0);
+  c.stroke();
+  c.translate(0, -bob);
+  c.fillStyle = "#efe9dc";
+  c.strokeStyle = "#6e604f";
+  c.lineWidth = 0.7;
+  c.beginPath();
+  c.moveTo(-5.2, -6.2);
+  c.lineTo(-3.6, -4.2);
+  c.lineTo(-5.4, -4.4);
+  c.closePath();
+  c.fill();
+  c.stroke();
+  c.beginPath();
+  c.ellipse(-0.4, -4.2, 4.4, 3.2, 0, 0, 6.3);
+  c.fill();
+  c.stroke();
+  c.fillStyle = "#e2d9c6";
+  c.beginPath();
+  c.ellipse(-1, -4, 2.4, 1.6, -0.3, 0, 6.3);
+  c.fill();
+  const hx = 3.2, hy = -7.2 + pk * 3.4;
+  c.fillStyle = "#efe9dc";
+  c.beginPath();
+  c.arc(hx, hy, 2.1, 0, 6.3);
+  c.fill();
+  c.stroke();
+  c.fillStyle = "#d8443a";
+  c.beginPath();
+  c.arc(hx - 0.6, hy - 2.1, 0.8, 0, 6.3);
+  c.arc(hx + 0.5, hy - 2.2, 0.7, 0, 6.3);
+  c.fill();
+  c.beginPath();
+  c.ellipse(hx + 1.2, hy + 1.5, 0.5, 0.8, 0, 0, 6.3);
+  c.fill();
+  c.fillStyle = "#f2b632";
+  c.beginPath();
+  c.moveTo(hx + 1.8, hy - 0.4);
+  c.lineTo(hx + 3.4, hy + 0.2);
+  c.lineTo(hx + 1.8, hy + 0.7);
+  c.closePath();
+  c.fill();
+  c.fillStyle = "#1b1410";
+  c.beginPath();
+  c.arc(hx + 0.7, hy - 0.4, 0.45, 0, 6.3);
+  c.fill();
+  c.restore();
+}
 function buildLook(c, now) {
   const P = game.player, on = !!(P && P.player && itBuildOn(P));
   if (typeof document !== "undefined") {
@@ -29839,7 +30015,10 @@ function yardScan(force) {
   const keep = [];
   let changed = false;
   for (const y of town.yards) {
-    if (y.open != null && game.time - y.open >= YARD_GRACE) {
+    if (y.open != null && (game.time - y.open >= YARD_GRACE || !y.fences.some((k) => {
+      const q = town.propAt.get(k);
+      return q && yardFence(q);
+    }) && !yardPeople(y).length)) {
       changed = true;
       y.gone = true;
       continue;
@@ -30015,7 +30194,7 @@ YSORT.push(function(c, now) {
     const sp = yardSignSpot(y);
     if (!sp || sp.x < v.x0 - 2 || sp.x > v.x1 + 2 || sp.y < v.y0 || sp.y > v.y1) continue;
     out.push({ k: sp.y + 0.06, f: () => {
-      const t = yardName(y).replace(/^./, (ch) => ch.toUpperCase());
+      const hc = typeof henCount === "function" ? henCount(y) : 0, t = yardName(y).replace(/^./, (ch) => ch.toUpperCase()) + (hc ? " \xB7 " + hc + (hc === 1 ? " hen" : " hens") : "");
       c.save();
       c.font = `700 ${Math.round(TS * 0.3)}px Georgia, serif`;
       c.textAlign = "center";
@@ -31024,6 +31203,7 @@ window.addEventListener("keydown", (e) => {
   }
   if (p.stairHold) delete p.stairHold[d];
   p.keys[d] = true;
+  p.shift = !!e.shiftKey;
   p.lastKey = performance.now();
   setFollow(true);
   e.preventDefault();
@@ -31031,6 +31211,7 @@ window.addEventListener("keydown", (e) => {
 window.addEventListener("keyup", (e) => {
   const p = game.player && game.player.player;
   if (!p) return;
+  if (e.key === "Shift") p.shift = false;
   const d = KEYDIR[e.key] || KEYDIR[(e.key || "").toLowerCase()];
   if (d) {
     p.keys[d] = false;
@@ -32412,13 +32593,17 @@ function renderTalk() {
   talkUI.dy = 0;
   if (!(talkS && talkS.custom)) {
     const all = talkUI.opts || [], bye = all.filter((op) => op[0] === "bye");
-    talkUI.opts = all.filter((op) => op[0] !== "bye").slice(0, bye.length ? 3 : 4).concat(bye);
+    const answering = typeof PT !== "undefined" && PT.s && PT.s.pending;
+    talkUI.opts = all.filter((op) => op[0] !== "bye").slice(0, answering ? 8 : bye.length ? 3 : 4).concat(bye);
   }
   const opts = talkUI.opts;
-  box.innerHTML = '<div class="tkb" id="tkb"><div class="tkopts">' + opts.map((op, i) => '<button type="button" data-k="' + esc(op[0]) + '"><span>' + (i + 1) + "</span>" + esc(cvSpeak(op[1])) + "</button>").join("") + "</div></div>";
+  box.innerHTML = '<div class="tkb" id="tkb"><b class="tkwho">' + esc(n.first) + ':</b><div class="tkopts">' + opts.map((op, i) => '<button type="button" data-k="' + esc(op[0]) + '"><span>' + (i + 1) + "</span>" + esc(cvSpeak(op[1])) + "</button>").join("") + "</div></div>";
   box.querySelectorAll("[data-k]").forEach((b) => b.addEventListener("click", () => talkPick(b.dataset.k, b.textContent.replace(/^\d+/, ""))));
   const said = talkUI.q && talkUI.q !== talkUI.lastQ, ans = talkUI.say && (talkUI.say !== talkUI.lastSay || said);
-  if (said) talkBubble(n, o, talkUI.q, 0);
+  if (said) {
+    talkBubble(n, o, talkUI.q, 0);
+    talkUI.hideUntil = performance.now() + 650 + 1400 + 25 * talkUI.q.length;
+  }
   if (ans) talkBubble(o, n, cvSpeak(talkUI.say), said ? 650 : 0);
   talkUI.lastQ = talkUI.q;
   talkUI.lastSay = talkUI.say;
@@ -32434,10 +32619,29 @@ function talkBubble(who, to, text, delay) {
 function talkPlace() {
   const o = talkUI.o, n = game.player, d = document.getElementById("tkb");
   if (!o || !n || !d) return;
-  const side = Math.abs(o.y - n.y) > Math.abs(o.x - n.x), s = toScreen(n.x * TS + TS / 2, n.y * TS + (side ? TS * 0.2 : -TS * 0.75));
-  d.classList.toggle("side", side);
-  d.style.left = Math.round(s.x + (side ? TS * cam.z * 0.6 : 0)) + "px";
-  d.style.top = Math.round(s.y) + "px";
+  const now = performance.now(), wait = now < (talkUI.hideUntil || 0);
+  d.style.visibility = wait ? "hidden" : "visible";
+  if (!wait && talkUI.hideUntil) {
+    talkUI.hideUntil = 0;
+    for (let i = bubbles.length - 1; i >= 0; i--) if (bubbles[i].n === n && bubbles[i].talk2) bubbles.splice(i, 1);
+  }
+  const kb = Math.min(1.6, cam.z * 0.8), side = n.face && (n.face.dx || n.face.dy) ? bubbleBehind(n.face) : "above";
+  const s = toScreen(n.x * TS + TS / 2, n.y * TS - 6 - 8 * (n.scale || 1)), foot = toScreen(n.x * TS + TS / 2, n.y * TS + TS - 3), midY = (s.y + foot.y) / 2;
+  d.style.fontSize = 10.5 * kb + "px";
+  d.className = "tkb " + side;
+  if (side === "above") {
+    d.style.left = s.x + "px";
+    d.style.top = s.y - 5 + "px";
+  } else if (side === "below") {
+    d.style.left = s.x + "px";
+    d.style.top = foot.y + 6 * kb + "px";
+  } else if (side === "right") {
+    d.style.left = s.x + 14 * kb + "px";
+    d.style.top = midY + "px";
+  } else {
+    d.style.left = s.x - 14 * kb + "px";
+    d.style.top = midY + "px";
+  }
 }
 window.addEventListener("keydown", (e) => {
   if (!talkUI.o || typing(e)) return;

@@ -26,7 +26,7 @@ function lightSources(hour) {
   if (town.yard && !town.fireGone) { const w = town.wedding, pt = typeof activeParty === 'function' && activeParty(); out.push({ x: town.cx, y: town.cy + 1, r: 6.5, s: (w && !w.done && game.time >= w.at - 40) || pt ? 0.7 : 0.95 }); }
   for (const rm of rooms) { if (rm.dead || rm.lit < 0.05) continue; out.push({ x: Math.floor(rm.x + rm.w / 2), y: Math.floor(rm.y + rm.h / 2), r: Math.hypot(rm.w, rm.h) * 0.62, s: rm.lit, room: rm }); }
   const fn = town.funeral; if (fn && fn.slot && !fn.done && game.time > fn.at - 20) out.push({ x: fn.slot.x, y: fn.slot.y, r: 3.5, s: 0.7 });
-  const p = game.player; if (p && !p.dead) out.push({ x: p.tx, y: p.ty, r: 2.4, s: 0.5 });
+  const p = game.player; if (p && !p.dead) out.push({ x: p.x, y: p.y, r: 2.4, s: 0.5 });   // (where you really are, between tiles too: the light glides with you)
   return out;
 }
 function buildLightMaps(hour) {
@@ -35,11 +35,12 @@ function buildLightMaps(hour) {
   const rw = x1 - x0, rh = y1 - y0, light = new Float32Array(rw * rh), vis = new Uint8Array(rw * rh), sight = new Float32Array(rw * rh);
   for (const s of lightSources(hour)) {
     const R = Math.ceil(s.r);
-    for (let y = Math.max(y0, s.y - R); y < Math.min(y1, s.y + R + 1); y++) for (let x = Math.max(x0, s.x - R); x < Math.min(x1, s.x + R + 1); x++) {
+    const sx = Math.round(s.x), sy = Math.round(s.y);
+    for (let y = Math.max(y0, Math.floor(s.y - R)); y < Math.min(y1, Math.ceil(s.y + R + 1)); y++) for (let x = Math.max(x0, Math.floor(s.x - R)); x < Math.min(x1, Math.ceil(s.x + R + 1)); x++) {
       const d = Math.hypot(x - s.x, y - s.y); if (d > s.r) continue;
       if (s.room && roomAt[y][x] !== rooms.indexOf(s.room) && grid[y][x] !== T.DOOR) { /* a lit room spills light only out through its door */
         const dr = s.room; const k = seeThrough(dr.doorX, dr.doorY, x, y) * seeThrough(s.x, s.y, dr.doorX, dr.doorY); const dd = Math.hypot(x - dr.doorX, y - dr.doorY); if (dd > 4) continue; const v = k * s.s * 0.8 * (1 - dd / 4.5); const i = (y - y0) * rw + x - x0; if (v > light[i]) light[i] = v; continue; }
-      const k = seeThrough(s.x, s.y, x, y); if (k <= 0) continue;
+      const k = seeThrough(sx, sy, x, y); if (k <= 0) continue;
       const f = 1 - d / (s.r + 0.5), v = s.s * k * f * (2 - f) ; const i = (y - y0) * rw + x - x0; if (v > light[i]) light[i] = v;
     }
   }
@@ -67,7 +68,7 @@ function canSee(x, y) {
   const day = daylight((game.time % 1440) / 60); return day > 0.3 || m.light[i] > 0.12;
 }
 function drawLighting(c, hour, now) {
-  const key = Math.floor(cam.x / TS) + ',' + Math.floor(cam.y / TS) + ',' + (game.player ? game.player.tx + ',' + game.player.ty : '') + ',' + cam.z.toFixed(2);
+  const key = Math.floor(cam.x / TS) + ',' + Math.floor(cam.y / TS) + ',' + (game.player ? Math.round(game.player.x * 4) + ',' + Math.round(game.player.y * 4) : '') + ',' + cam.z.toFixed(2);
   if (!LGT.map || now - LGT.t > 150 || key !== LGT.key) { LGT.map = buildLightMaps(hour); LGT.t = now; LGT.key = key; LGT.dirty = true; }
   const day = daylight(hour), night = 1 - day, warmth = 0;                // no orange: dusk and dawn are just darker and lighter
   if (!LGT.cv) { LGT.cv = document.createElement('canvas'); LGT.wcv = document.createElement('canvas'); }
@@ -117,6 +118,7 @@ function drawLighting(c, hour, now) {
 const WILD = { list: [], last: 0, spawnT: 0 };
 function wildOk(x, y) { if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1 || (typeof inCoast === 'function' && inCoast(x, y))) return false; const t = grid[y][x]; return (t === T.GRASS) && roomAt[y][x] < 0 && Math.hypot(x - town.cx, y - town.cy) > 16; }
 function stepWild(now) {
+  WILD.list.length = 0; return;   // (the wild animals are gone: the island has chickens instead, render/chickens.ts)
   const p = game.player; if (!p || !town) return;
   const gt = clk(), dt = Math.max(0, Math.min(5, gt - (WILD.last || gt))); WILD.last = gt; if (!dt) return;
   const day = daylight((game.time % 1440) / 60);
