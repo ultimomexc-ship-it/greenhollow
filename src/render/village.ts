@@ -246,6 +246,22 @@ function cropPit(c, x, y, k, h) {
   c.restore();
   c.strokeStyle = '#b08458'; c.lineWidth = 0.9 * k; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0.3, Math.PI - 0.3); c.stroke();   // (the near lip, in the light)
 }
+/* the pulling plays out after the harvest itself (which takes about a second): one plant every PULL_MS of real time, each flying to the one who
+   pulled it; the plot is plain earth again a moment after the last. Only drawing: the crop is already in the bag. */
+const PULLS = new Map<number, any>(), PULL_MS = 220;
+function pullStart(c: any, seed: any, who: any) {
+  const now = performance.now(); for (const [k, e] of PULLS) if (now - e.t0 > 5000) PULLS.delete(k);
+  PULLS.set(c.y * W + c.x, { c, seed, who, t0: now, n: 0 });
+}
+/** how many of the plot's plants are out by now (0 when there is no pulling going on); sends each new one flying */
+function pullCount(t: any): number {
+  const e = PULLS.get(t.y * W + t.x); if (!e || e.c !== t) return 0;
+  if (t.st) { PULLS.delete(t.y * W + t.x); return 0; }
+  const el = performance.now() - e.t0, n = Math.min(9, 1 + Math.floor(el / PULL_MS));
+  if (el > 9 * PULL_MS + 350) { PULLS.delete(t.y * W + t.x); return 0; }
+  while (e.n < n) { const q = PULL_ORDER[e.n++]; if (typeof jPullFly === 'function') jPullFly(t, e.seed, e.who, CROP_COL[q % 3], CROP_ROW[Math.floor(q / 3)]); }
+  return n;
+}
 /** a plot part way through its harvest: `n` of its nine plants pulled (in PULL_ORDER), their holes showing, the rest still standing */
 function cropPulling(c, t, st, sd, n, now) {
   const k = TS / 24, X = t.x * TS, Y = t.y * TS, gone = new Set(PULL_ORDER.slice(0, n));
@@ -259,15 +275,12 @@ function drawCrops(c, now) {
     const st = t.pl ? cropStage(t) : -1;   // -1 untilled (rough and weedy), 0 ploughed (dark furrows), 1-4 growing
     gaDraw(c, st < 0 ? 'crop_raw' : 'crop_0', t.x * TS, t.y * TS, now, 0);
     if (st > 0) plants.push(t);
+    else if (PULLS.size) { const n = pullCount(t); if (n) cropPulling(c, t, 4, PULLS.get(t.y * W + t.x).seed, n, now); }   // (just harvested: the plants still coming up one by one)
   }
   plants.sort((a, b) => a.y - b.y);
-  const pulling = new Map();   // plots being harvested right now: how many of the nine plants are out (one at a time, each leaving its hole)
-  if (plants.length && typeof workTargets === 'function') for (const w of workTargets()) if (w.kind === 'harvest') pulling.set(w.y * W + w.x, Math.min(9, Math.floor(w.f * 9 + 0.001)));
   for (const t of plants) {
     const st = cropStage(t), sd = t.seed && t.seed !== 'barley' && IT_SEEDS[t.seed] ? t.seed : null;   // every other crop and flower has its own plant
-    const id = sd ? 'crop_' + sd + '_' + (itWilted(t) ? 5 : Math.min(4, st)) : 'crop_' + Math.min(4, st), cols = pulling.get(t.y * W + t.x) || 0;
-    if (!cols) { gaDraw(c, id, t.x * TS, t.y * TS, now, t.x + t.y); continue; }
-    cropPulling(c, t, st, sd, cols, now);
+    gaDraw(c, sd ? 'crop_' + sd + '_' + (itWilted(t) ? 5 : Math.min(4, st)) : 'crop_' + Math.min(4, st), t.x * TS, t.y * TS, now, t.x + t.y);
   }
 }
 function drawNodes(c, now) {

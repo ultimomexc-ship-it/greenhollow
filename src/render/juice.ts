@@ -17,8 +17,8 @@ function jBurst(x: number, y: number, n: number, kind: string, col: string | str
   }
 }
 /** something flies from a world point up to the player (a turnip to the bag, a coin to the purse) */
-function jFly(x: number, y: number, kind: string, col: string, delay = 0) {
-  JUICE.parts.push({ x, y, x0: x, y0: y, t0: jNow() + delay, life: 520, kind: 'fly', icon: kind, col, s: kind === 'coin' ? 3 : 4.2 });
+function jFly(x: number, y: number, kind: string, col: string, delay = 0, who: any = null) {
+  JUICE.parts.push({ x, y, x0: x, y0: y, t0: jNow() + delay, life: 520, kind: 'fly', icon: kind, col, s: kind === 'coin' ? 3 : 4.2, who });
 }
 function jShake(px: number) { JUICE.shake = Math.max(JUICE.shake, px); }
 const jTile = (x: number, y: number) => ({ x: x * TS + TS / 2, y: y * TS + TS / 2 });
@@ -43,25 +43,25 @@ function jsStrike(tool: string, vol = 1) { if (!sndReady() || vol <= 0) return;
   if (tool === 'hoe') { sndNoise(0.09, 'lowpass', 700, 0.14 * vol, 200); sndTone(120, 0.1, 'sine', 0.13 * vol, 60); sndNoise(0.05, 'bandpass', 1800, 0.04 * vol, undefined, 0.02); }
   else if (tool === 'axe') { sndNoise(0.05, 'bandpass', 1900, 0.13 * vol); sndTone(320, 0.08, 'triangle', 0.1 * vol, 190); sndNoise(0.12, 'lowpass', 900, 0.06 * vol, 300, 0.02); }
   else if (tool === 'hammer') { sndTone(980, 0.09, 'square', 0.05 * vol, 700); sndTone(1460, 0.12, 'sine', 0.05 * vol, undefined, 0.01); sndNoise(0.05, 'highpass', 3200, 0.07 * vol); } }
-/** a snore: a rasping breath in and a soft breath out. Pitched in the range small speakers play (the old one sat at 62 Hz, which a laptop or a
-   phone hardly sounds): a buzzing voice at about 100 Hz with its harmonics kept, fluttering ~30 times a second, over breathy noise round 500 Hz.
-   vol by distance, pan by which side of you the sleeper is */
+/** a snore, the gentle cartoon kind: a slow soft breath in through the nose (filtered noise opening up, with a faint purr under it) and a little
+   falling whistle on the way out. vol by distance, pan by which side of you the sleeper is, deep < 1 lower (bigger people), > 1 higher (children) */
 function jsSnore(vol: number, pan: number, deep: number) {
   if (!sndReady() || vol <= 0.02) return; const c = SND.ctx, t = c.currentTime;
-  const out = c.createGain(); out.gain.value = Math.min(1.4, vol * 1.8); const node: any = out;
+  const out = c.createGain(); out.gain.value = Math.min(1, vol * 1.1);
   if (c.createStereoPanner) { const p = c.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); out.connect(p); p.connect(SND.master); } else out.connect(SND.master);
-  const breath = (at: number, dur: number, f0: number, f1: number, v: number, q: number) => { const s = c.createBufferSource(), fl = c.createBiquadFilter(), g = c.createGain();
-    s.buffer = SND.noiseBuf; fl.type = 'bandpass'; fl.Q.value = q; fl.frequency.setValueAtTime(f0, t + at); fl.frequency.linearRampToValueAtTime(f1, t + at + dur);
-    g.gain.setValueAtTime(0.0001, t + at); g.gain.exponentialRampToValueAtTime(v, t + at + dur * 0.5); g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur); s.connect(fl); fl.connect(g); g.connect(node); s.start(t + at, Math.random()); s.stop(t + at + dur + 0.05); };
-  // in: the rattle (a buzzing voice, its loudness chopped by a fast flutter), over a breath of noise
-  const o = c.createOscillator(), og = c.createGain(), am = c.createGain(), lfo = c.createOscillator(), lg = c.createGain(), lp = c.createBiquadFilter();
-  o.type = 'sawtooth'; o.frequency.setValueAtTime(92 * deep, t); o.frequency.linearRampToValueAtTime(108 * deep, t + 1.0);
-  lfo.type = 'square'; lfo.frequency.value = 26 + deep * 4; lg.gain.value = 0.5; am.gain.value = 0.5; lfo.connect(lg); lg.connect(am.gain);
-  lp.type = 'lowpass'; lp.frequency.value = 1100; lp.Q.value = 2;
-  og.gain.setValueAtTime(0.0001, t); og.gain.exponentialRampToValueAtTime(0.32, t + 0.55); og.gain.exponentialRampToValueAtTime(0.0001, t + 1.05);
-  o.connect(am); am.connect(lp); lp.connect(og); og.connect(node); o.start(t); lfo.start(t); o.stop(t + 1.1); lfo.stop(t + 1.1);
-  breath(0, 1.05, 380 * deep, 620 * deep, 0.55, 1.2);
-  breath(1.4, 1.2, 1100, 700, 0.22, 1.5);   // (out: a soft whistle of air)
+  const env = (g: any, at: number, up: number, peak: number, down: number) => { g.gain.setValueAtTime(0.0001, t + at); g.gain.exponentialRampToValueAtTime(peak, t + at + up); g.gain.exponentialRampToValueAtTime(0.0001, t + at + up + down); };
+  // in: breath through the nose
+  const s = c.createBufferSource(), lp = c.createBiquadFilter(), g = c.createGain();
+  s.buffer = SND.noiseBuf; lp.type = 'lowpass'; lp.Q.value = 4; lp.frequency.setValueAtTime(260 * deep, t); lp.frequency.linearRampToValueAtTime(620 * deep, t + 1.1);
+  env(g, 0, 0.8, 0.32, 0.45); s.connect(lp); lp.connect(g); g.connect(out); s.start(t, Math.random()); s.stop(t + 1.35);
+  // a faint purr under it (soft, round, slow flutter)
+  const o = c.createOscillator(), og = c.createGain(), am = c.createGain(), lfo = c.createOscillator(), lg = c.createGain(), olp = c.createBiquadFilter();
+  o.type = 'triangle'; o.frequency.value = 95 * deep; lfo.frequency.value = 14; lg.gain.value = 0.35; am.gain.value = 0.65; lfo.connect(lg); lg.connect(am.gain);
+  olp.type = 'lowpass'; olp.frequency.value = 420; env(og, 0.25, 0.55, 0.07, 0.4); o.connect(am); am.connect(olp); olp.connect(og); og.connect(out); o.start(t); lfo.start(t); o.stop(t + 1.3); lfo.stop(t + 1.3);
+  // out: a little whistle, falling
+  const w = c.createOscillator(), wg = c.createGain(), vib = c.createOscillator(), vg = c.createGain();
+  w.type = 'sine'; w.frequency.setValueAtTime(980 * deep, t + 1.5); w.frequency.exponentialRampToValueAtTime(620 * deep, t + 2.25); vib.frequency.value = 6; vg.gain.value = 12; vib.connect(vg); vg.connect(w.frequency);
+  env(wg, 1.5, 0.12, 0.045, 0.65); w.connect(wg); wg.connect(out); w.start(t + 1.5); vib.start(t + 1.5); w.stop(t + 2.35); vib.stop(t + 2.35);
 }
 function jsDing() { if (!sndReady()) return; sndTone(880, 0.16, 'sine', 0.07); sndTone(1320, 0.28, 'sine', 0.05, undefined, 0.07); }
 function jsCrack() { if (!sndReady()) return; sndNoise(0.12, 'bandpass', 1100, 0.2, 400); sndTone(160, 0.1, 'square', 0.06, 70); sndNoise(0.25, 'lowpass', 300, 0.08, 120, 0.06); }
@@ -84,7 +84,7 @@ const _jFinish = playerFinish; playerFinish = function (n, a) {
     const x = +m[1], y = +m[2], p = jTile(x, y), job = m[3], k = jCombo(job);
     if (job === 'p') { jsPlough(k); jBurst(p.x, p.y + 4, 12, 'dot', ['#6b4a2b', '#8a6239', '#4e3420'], 1.1, 0.8); jShake(1.6); }
     if (job === 's') { jsSow(k); jBurst(p.x, p.y, 7, 'spark', ['#c8e86a', '#f4d36a', '#ffffff'], 0.7, 0.6); }
-    if (job === 'h') { jsHarvest(k); jBurst(p.x, p.y, 10, 'leaf', ['#5fae3a', '#7fcf4a', '#3e8a2a'], 1.2, 1); jFly(p.x, p.y, 'crop', '#c86fd8'); jShake(1.2); jBuzz(12); }
+    if (job === 'h') { jsHarvest(k); jBurst(p.x, p.y, 10, 'leaf', ['#5fae3a', '#7fcf4a', '#3e8a2a'], 1.2, 1); jShake(1.2); jBuzz(12); }   // (the crop itself comes up plant by plant and flies to you: jPullFly)
     if (k >= 2) addPop(n.x * TS + TS / 2, n.y * TS - 18, 'x' + (k + 1), k >= 6 ? '#ffb347' : '#ffe08a');
     return r;
   }
@@ -156,7 +156,7 @@ function drawJuice(c: any, now: number) {
     const q = ps[i], age = now - q.t0; if (age < 0) continue; if (age > q.life) { ps.splice(i, 1); continue; }
     const t = age / 1000, k = age / q.life; c.save(); c.globalAlpha = q.kind === 'confetti' ? Math.min(1, (1 - k) * 2) : 1 - k * k;
     if (q.kind === 'fly') {   // (an arc from the plot to you)
-      const tx = P ? P.x * TS + TS / 2 : q.x0, ty = P ? P.y * TS + 2 : q.y0, e = k * k * (3 - 2 * k), x = q.x0 + (tx - q.x0) * e, y = q.y0 + (ty - q.y0) * e - Math.sin(k * Math.PI) * 26;
+      const T = q.who || P, tx = T ? T.x * TS + TS / 2 : q.x0, ty = T ? T.y * TS + (q.who ? 8 : 2) : q.y0, e = k * k * (3 - 2 * k), x = q.x0 + (tx - q.x0) * e, y = q.y0 + (ty - q.y0) * e - Math.sin(k * Math.PI) * 26;
       c.fillStyle = q.col; c.strokeStyle = 'rgba(40,25,10,.7)'; c.lineWidth = 1; c.beginPath(); c.arc(x, y, q.s * (1 - k * 0.4), 0, 6.3); c.fill(); c.stroke();
       if (q.icon === 'crop') { c.fillStyle = '#5fae3a'; c.fillRect(x - 1, y - q.s - 3, 2, 3); } else { c.fillStyle = '#fff6c0'; c.fillRect(x - 1, y - 1, 1.6, 1.6); }
       c.restore(); continue;
@@ -170,4 +170,19 @@ function drawJuice(c: any, now: number) {
   }
   // the shake decays; the canvas is moved, never the world
   if (typeof canvas !== 'undefined' && canvas) { const s = JUICE.shake; if (s > 0.05) { canvas.style.transform = `translate(${jRand(-s, s).toFixed(1)}px,${jRand(-s, s).toFixed(1)}px)`; JUICE.shake *= 0.82; } else if (JUICE.shake) { JUICE.shake = 0; canvas.style.transform = ''; } }
+}
+
+/* ---- pulling a crop: when a harvest is done the plants come up one at a time (drawn in render/village.ts) and each flies into the picker's pack ---- */
+// @ts-expect-error -- deliberate patch
+const _jHarvest = itHarvest; itHarvest = function (n, c) {
+  const seed = c && c.seed; const r = _jHarvest.apply(this, arguments as any);
+  if (c && !c.st && n && typeof pullStart === 'function' && !(typeof IT_SEEDS !== 'undefined' && seed && IT_SEEDS[seed] && IT_SEEDS[seed].flower)) pullStart(c, seed, n);
+  return r;
+};
+/** one plant out of the ground: a puff of earth, a little pop, and the crop in an arc to whoever pulled it (the colour of what grew) */
+function jPullFly(t: any, seed: any, who: any, cx: number, cy: number) {
+  const k = TS / 24, x = t.x * TS + cx * k, y = t.y * TS + cy * k - 3, col = (seed && IT_SEEDS[seed] && IT_SEEDS[seed].col) || '#e0c060';
+  jBurst(x, y + 2, 4, 'dot', ['#6b4a2b', '#8a6239'], 0.6, 0.5);
+  jFly(x, y, 'crop', col, 0, who);
+  const v = who && who.player ? 0.8 : sndAt(t.x, t.y) * 0.5; if (v > 0.05 && typeof sndTone === 'function' && sndReady()) { sndTone(jRand(520, 680), 0.06, 'sine', 0.05 * v, 900); sndNoise(0.05, 'lowpass', 900, 0.03 * v); }
 }

@@ -90,7 +90,7 @@ function drawWorkFx(c, now) {
         const t = q9 - k, hx = w.n.x * TS + 12 + (w.n.face ? w.n.face.dx * 5 : 0), hy = w.n.y * TS + 9 + (w.n.face ? w.n.face.dy * 3 : 0), tx = px + CROP_COL[k % 3], ty = py + CROP_ROW[Math.floor(k / 3)] - 0.6;
         seed(hx + (tx - hx) * t, hy + (ty - hy) * t - Math.sin(t * Math.PI) * 7); }
     } else if (w.kind === 'harvest') {
-      // (the plants come out one at a time, each leaving its hole: drawn with the crops, cropPulling in render/village.ts)
+      // (when it is done the plants come out one at a time, each leaving its hole and flying to the picker: pullStart / cropPulling in render/village.ts)
     } else {
       // cracks spread across the boulder, chips fly
       const cp = crackPath(w.x, w.y), segs = cp.main.length - 1, shown = f * (segs + 2);
