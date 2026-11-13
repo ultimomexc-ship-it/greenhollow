@@ -39,16 +39,9 @@ function crackPath(x, y) {
   const br = [[pts[2], [pts[2][0] + 4 * s, pts[2][1] - 1.5 * s], [pts[2][0] + 6.5 * s, pts[2][1] + 0.5 * s]], [pts[3], [pts[3][0] - 3.5 * s, pts[3][1] + 1 * s], [pts[3][0] - 6 * s, pts[3][1] - 0.5 * s]]];
   return { main: pts, br };
 }
-function drawWorkFx(c, now) {
-  c.imageSmoothingEnabled = true;
-  const swing = Math.max(0, Math.sin(now / 95));
-  for (const w of workTargets()) {
-    const px = w.x * TS, py = w.y * TS, f = w.f, side = w.n.tx < w.x ? -1 : w.n.tx > w.x ? 1 : -1;
-    if (w.kind === 'tree') {
-      // the canopy shudders with each blow and leans as the cut deepens
-      const lean = f > 0.65 ? (f - 0.65) * 6 * -side : 0, sh = swing * (0.5 + f) * (Math.sin(now / 37) > 0 ? 1 : -1);
-      if (!STYLE.soft) fillR(c, px + 10, py + 13, 4, 8, '#5a3c24');
-      canopy(c, px, py, w.x, w.y, sh + lean, Math.abs(sh) * 0.3);
+/** the notch on the worker's side, chips and a leaf or two: drawn over the tree being felled */
+function chopMarks(c, w, now) {
+  const swing = Math.max(0, Math.sin(now / 95)), px = w.x * TS, py = w.y * TS, f = w.f, side = w.n.tx < w.x ? -1 : w.n.tx > w.x ? 1 : -1;
       // the notch on the worker's side
       const d = 0.6 + f * 3.2, hy = 1 + f * 2.2, ex = side < 0 ? px + 10 : px + 14;
       c.fillStyle = '#e2c08a'; c.strokeStyle = '#2a180c'; c.lineWidth = 0.7; c.beginPath(); c.moveTo(ex + side * 0.6, py + 17 - hy); c.lineTo(ex - side * d, py + 17); c.lineTo(ex + side * 0.6, py + 17 + hy * 0.6); c.closePath(); c.fill(); c.stroke();
@@ -57,6 +50,19 @@ function drawWorkFx(c, now) {
       for (let i = 0; i < 3; i++) { const t = ((now / 700) + i / 3 + w.x * 0.13) % 1; c.globalAlpha = 1 - t; fillR(c, px + 12 + Math.sin(i * 2.1 + t * 4) * 6 + t * 3, py + 6 + t * 16, 1.6, 1.2, i % 2 ? '#4e8441' : '#6aa04a'); }
       if (swing > 0.85) { for (let i = 0; i < 2; i++) { c.globalAlpha = 0.9; fillR(c, ex + side * (2 + i * 2), py + 15 - i * 2, 1.2, 1.2, '#e8cf9a'); } }
       c.globalAlpha = 1;
+}
+function drawWorkFx(c, now) {
+  c.imageSmoothingEnabled = true;
+  const swing = Math.max(0, Math.sin(now / 95));
+  for (const w of workTargets()) {
+    const px = w.x * TS, py = w.y * TS, f = w.f, side = w.n.tx < w.x ? -1 : w.n.tx > w.x ? 1 : -1;
+    if (w.kind === 'tree') {
+      // the canopy shudders with each blow and leans as the cut deepens (close up the living tree in render/trees.ts sways instead and draws the marks over itself)
+      if (typeof treesLive === 'function' && treesLive()) continue;
+      const lean = f > 0.65 ? (f - 0.65) * 6 * -side : 0, sh = swing * (0.5 + f) * (Math.sin(now / 37) > 0 ? 1 : -1);
+      if (!STYLE.soft) fillR(c, px + 10, py + 13, 4, 8, '#5a3c24');
+      canopy(c, px, py, w.x, w.y, sh + lean, Math.abs(sh) * 0.3);
+      chopMarks(c, w, now);
     } else if (w.kind === 'wall') {
       // the wall piece rises from the ground as it is put up, with a little dust at its foot
       const st = w.mat === 'stone', hgt = (TS - 2) * Math.max(0.08, f), top = py + TS - 1 - hgt;

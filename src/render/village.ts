@@ -253,7 +253,7 @@ function drawNodes(c, now) {
   const v = gaView();
   for (const nd of town.nodes) {
     if (nd.x < v.x0 || nd.x >= v.x1 || nd.y < v.y0 || nd.y >= v.y1) continue; const f = nd.amt / nd.max, s = f <= 0.05 ? 0 : f < 0.6 ? 1 : 2;
-    gaDraw(c, (nd.kind === 'berry' ? 'berry_' : 'herb_') + s, nd.x * TS, nd.y * TS, now, nd.x * 3 + nd.y);
+    const bid = (nd.kind === 'berry' ? 'berry_' : 'herb_') + s; if (typeof treesLive === 'function' && treesLive()) drawBushSway(c, bid, nd.x, nd.y, now, nd.x * 3 + nd.y); else gaDraw(c, bid, nd.x * TS, nd.y * TS, now, nd.x * 3 + nd.y);
   }
 }
 function drawWild(c, now) {

@@ -263,3 +263,4 @@ Step 9 is built (words for the Hamlet; tools/playtest.mjs hamlet). Playtest verd
 - Living grass (swaying tufts that part as you walk) was tried and removed (owner: "it doesn't work"). Idea for later: the same wind sway and lean-away-from-walkers on trees instead.
 - Footprints and footstep particles (src/render/steps.ts) replace the grass: prints that fade (sand longest, then earth, path, grass, floors faint) and a puff of the surface per step, for everybody on screen; own random numbers, so the seeded stream is untouched.
 - Trees now sway in the wind and lean away from walkers (src/render/trees.ts). Footprints darker and quicker; dust in the tile's own colours, none on floors.
+- Bushes sway with the trees; a tree being felled sways about its foot instead of the whole sprite shifting.
