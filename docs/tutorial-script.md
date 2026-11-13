@@ -96,7 +96,7 @@ The tutorial island is the Hamlet's ground with these places, found by the scena
 *Ends when you lie down in your bed.*
 
 1. **STRIP** "Walk into each square to plough it." **ARROW** → the nearest raw PATCH tile. Farming works as it does now: a bump from rest ploughs, and holding the key works along the row.
-2. **WAIT** The first PATCH tile is ploughed.
+2. **WAIT** The first PATCH tile is ploughed. (Farming is automatic everywhere now: walking into a plot that needs work works it, no stopping first; a field is no longer crossed freely.)
 3. **SAY** Paullus: "That's it."
 4. **WAIT** All 9 PATCH tiles are ploughed. The arrow moves to the nearest raw one each time. **NUDGE** after 40 s with no new tile: the arrow pulses larger. Nobody speaks.
 5. **SAY** Paullus: "Good."
@@ -149,43 +149,26 @@ The tutorial island is the Hamlet's ground with these places, found by the scena
 11. **FACE** Paullus → you. **SAY** Paullus: "That's the whole trade."
 12. **SAY** Paullus: "Grow it. Sell it. Build with it."
 
-## Scene 5: the bed and the secret
+## Scene 5: Junia asks for a bed, and Paullus shows you build mode
 
 *Ends when the bed stands on JBED and you have left build mode.*
 
-1. **FACE** Paullus → SHORE. **ARROW** → Junia, for 3 s, so you see her on the beach.
-2. **SAY** Paullus: "Somebody came ashore in the night."
-3. **SAY** Paullus: "Nobody does it on purpose."
-4. **FACE** Paullus → you. **SAY** Paullus: "Found this on the beach."
-5. **GIVE** 1 bed into the kit, free.
-6. **SAY** Paullus: "You know what to do with it. Or you will."
-7. **MARK** JBED with a ghost bed. The 18 JYARD squares are drawn very faint, as a hint of what comes. **ARROW** → JBED.
-8. **UNLOCK** build mode. The build bar shows one slot: Bed × 1. Push and Destroy are not on the bar. **STRIP** "Press B to build."
-9. **WAIT** Build mode is on. Time stops as usual: villagers freeze, and only you move. Paullus's bubbles still show, because tutorial bubbles run on real time (*new*).
-10. **FACE** Paullus → you. **SAY** Paullus: "There. The world holds its breath while you build."
-11. **SAY** Paullus: "Nobody sees it. They only find the thing afterwards."
-12. **SAY** Paullus: "I did this for a long time. Now it's you. That stays between us."
-13. **STRIP** "Face the marked place and press 1 to put the bed down." The bed is placed only when the tile in front of you is JBED. Anywhere else the STRIP flashes "On the marked place." and nothing is placed.
-14. **WAIT** The bed stands on JBED, owner none (grey blanket). The ghost turns green and fades. **ARROW off.**
-15. **STRIP** "Press B to let the world go on."
-16. **WAIT** Build mode is off. **LOCK** build mode again. **STRIP off.**
+1. **FACE** Paullus → SHORE. **ARROW** → Junia. **SAY** Paullus: "Somebody came ashore in the night." **SAY** Paullus: "Nobody does it on purpose." **ARROW off.**
+2. **WALK** Junia, SHORE → a tile next to you. **FACE** Junia → you.
+3. **SAY** Junia: "I was ironing a shirt, and then there was sand." **SAY** Junia: "I've decided not to think about it."
+4. **SAY** Junia: "Is there anywhere to sleep, on this island?" *(new line)* **SAY** Junia: "I'm not fussy. A bed would do." *(new line)*
+5. **FACE** Paullus → you. **SAY** Paullus: "Found this on the beach." **GIVE** 1 bed into the kit, free. **SAY** Paullus: "You know what to do with it. Or you will."
+6. **WALK** Junia → the tile west of JBED (she waits there). **MARK** JBED with a ghost bed, the 18 JYARD squares faint. **ARROW** → JBED.
+7. **UNLOCK** build mode, one slot: Bed × 1. **STRIP** "Press B to build." **WAIT** build mode is on.
+8. **SAY** Paullus: "There. The world holds its breath while you build." "Nobody sees it. They only find the thing afterwards." "I did this for a long time. Now it's you. That stays between us."
+9. **STRIP** "The bar at the bottom is what you can build. The bed is on 1." (2.5 s) **STRIP** "Face the marked place and press 1 to put the bed down." Placed only on JBED.
+10. **WAIT** the bed stands on JBED. **STRIP** "Press B to let the world go on." **WAIT** build mode is off.
 
-## Scene 6: Junia comes up from the shore
+## Scene 6: her bed, and a wish for a fence
 
-*Ends when the fence is for sale and the ring is marked.*
-
-1. Time runs again (the world, not the clock: it stays hidden and at 06:30).
-2. **WALK** Junia, SHORE → the tile below JBED. **FACE** Junia → the bed.
-3. **SAY** Junia: "There's a bed here and nobody in it."
-4. **SAY** Junia: "I'm going to assume it's mine."
-5. **SET** The bed's owner is Junia (her blanket colour). Junia lies down on it awake: the sleeping pose, not asleep (*new: a rest pose*).
-6. **WAIT** You are within 4 tiles of Junia, or 20 s have passed.
-7. **FACE** Junia → you. **SAY** Junia: "I was ironing a shirt, and then there was sand." This is her backstory (`n.back`), told here once.
-8. **SAY** Junia: "I've decided not to think about it."
-9. **FACE** Junia → north (back on the bed, looking up). **SAY** Junia: "I'd sleep better with something round me. A fence, say."
-10. **MARK** the 18 JYARD squares, now at full strength.
-11. **STALL** Buy side: Fence × 18 at 1 coin each. Sell side empty.
-12. **STRIP** "The trader sells fence." **ARROW** → FRONT. From here Paullus speaks only through the shop panel and when you bump him.
+1. **SAY** Junia: "There's a bed here and nobody in it." **SAY** Junia: "I'm going to assume it's mine." **SET** the bed is hers; she lies on it awake.
+2. **SAY** Junia: "I'd sleep better with something round me. A fence, say."
+3. **MARK** the 18 JYARD squares. **STALL** Fence × 18 at 1. **STRIP** "The trader sells fence." **ARROW** → FRONT.
 
 ## Scene 7: the fence without a gate, and the hammer
 
@@ -196,8 +179,9 @@ The tutorial island is the Hamlet's ground with these places, found by the scena
 3. **STRIP** "Buy all 18."
 4. **WAIT** The kit holds 18 fences. You have 42 − 18 = 24 coin.
 5. **WAIT** The panel is closed. **ARROW** → the nearest unfilled JYARD square.
-6. **UNLOCK** build mode. The build bar shows one slot: Fence × 18. **STRIP** "Press B. Put a fence on every marked square."
-7. **WAIT** All 18 squares hold a fence. A fence is placed only on a marked square; anywhere else the STRIP flashes "On the marked squares." Pushing stays locked, so a fence can't be shoved off its square.
+6. **UNLOCK** build mode. The build bar shows one slot: Fence × 18. **STRIP** "Press B. Fence every marked square: facing a fence, 1 puts the next one on the end of the line." Fences go down the normal way (`bldPlaceFront`): facing a fence, the next goes on the end of the line, so a side is a few presses.
+7. **WAIT** All 18 squares hold a fence and no fence stands off the marks.
+   - **Pushing is taught the first time it is needed.** The first time a fence stands off the marks (most likely one press too many at a corner), it is outlined in orange, pushing unlocks, **SAY** Paullus: "That one's wandered. Walk into it in build mode and it goes where you push it." and the strip reads "Push the stray fence onto a mark: in build mode, walk into it." until no fence is out of place. If you close yourself inside the ring, the same: **SAY** Paullus: "You can shove them, you know. Press B and walk into one." (or, once pushing is known, "Shove one. They move."), strip "Shut in. In build mode, walk into a fence to push it out of the way." If neither happens, pushing waits for later. Once taught, pushing stays unlocked.
 8. **ARROW off. STRIP** "Press B to let the world go on."
 9. **WAIT** Build mode is off. **LOCK** build mode. **STRIP off.** The ring has no gate, so it is not a yard (`yardScan` needs one).
 10. Junia gets up. **WALK** Junia → the tile below JBED. **FACE** → the fence.

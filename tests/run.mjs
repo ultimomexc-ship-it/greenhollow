@@ -684,7 +684,7 @@ test('controls: a tree is felled with the axe that is picked for you; without an
   return `no axe: "${none.msg}"; axe picked for you: ${axe.act}`;
 }));
 
-test('controls: a plot is worked (hoe and seed picked for you) when you start from rest beside it, never when you walk over a field on your way somewhere', await controlScene('field', 41, async page => {
+test('controls: farming is automatic: walking into a plot works it (hoe and seed picked for you), even straight from a walk', await controlScene('field', 41, async page => {
   const s = await page.evaluate(() => {
     const c = town.crops.find(c => !town.crops.some(o => o.x === c.x - 1 && o.y === c.y) && [1, 2, 3].every(i => __free(c.x - i, c.y))); if (!c) throw new Error('no field edge with free ground beside it'); c.pl = 0; c.st = 0;   // (reset: villagers may have got to it already)
     for (const o of town.crops) { o.claim = null; } window.__c = c; for (const o of npcs) if (!o.player && !o.dead && o.ty === c.y && o.tx >= c.x - 4 && o.tx <= c.x + 1) { o.plan = null; o.si = 0; o.moving = false; o.path = []; o.tx = o.x = c.x - 8; o.ty = o.y = c.y - 4; }   /* (nobody standing in the way of the walk) */ for (const o of npcs) if (!o.player) o.talkUntil = game.time + 600; rebuildOcc(); window.__bag0 = game.player.bag.seed_barley;
@@ -692,19 +692,16 @@ test('controls: a plot is worked (hoe and seed picked for you) when you start fr
   });
   const art = () => page.evaluate(() => { const c = window.__c; return ART.BYID[!c.pl ? 'crop_raw' : c.st ? 'crop_1' : 'crop_0'].id; });
   const before = await art();
-  // walking over from a few tiles away (a continuous press) leaves the plot alone
-  await page.evaluate(() => { __place(game.player, window.__c.x - 3, window.__c.y, { dx: 1, dy: 0 }); }); await held(page, [], 4);
-  const crossed = await page.evaluate(() => ({ pl: window.__c.pl, x: game.player.tx })); check(!crossed.pl && crossed.x >= s.x, 'walking onto a field from a distance must not plough it: ' + JSON.stringify(crossed));
-  // standing at rest beside the plot and pressing toward it ploughs it
-  await page.evaluate(() => { game.player.player.keys = {}; __place(game.player, window.__c.x - 1, window.__c.y, { dx: 1, dy: 0 }); }); await simulate(page, 2); await held(page, [], 4);
+  // walking over from a few tiles away (a continuous press) ploughs the plot on the way (FARM_NEED_REST is false)
+  await page.evaluate(() => { __place(game.player, window.__c.x - 3, window.__c.y, { dx: 1, dy: 0 }); }); await held(page, [], 10);
   const ploughed = await page.evaluate(() => ({ pl: window.__c.pl, st: window.__c.st })); const mid = await art();
-  check(ploughed.pl && !ploughed.st, 'starting from rest beside it, a plot needing work should be ploughed with the hoe: ' + JSON.stringify(ploughed));
+  check(ploughed.pl && !ploughed.st, 'walking into it, a plot needing work should be ploughed with the hoe: ' + JSON.stringify(ploughed));
   await page.evaluate(() => { __place(game.player, window.__c.x - 1, window.__c.y, { dx: 1, dy: 0 }); }); await simulate(page, 2); await held(page, [], 12);
   const sown = await page.evaluate(() => { const c = window.__c; return { pl: c.pl, st: c.st, seed: c.seed, left: game.player.bag.seed_barley }; }); const after = await art();
   check(sown.pl && sown.st && sown.seed === 'barley', 'a ploughed plot should be sown with the seed you have most of (barley): ' + JSON.stringify(sown));
   check(sown.left === s.seeds - 1, `sowing should use one seed (${s.seeds} -> ${sown.left})`);
   check(new Set([before, mid, after]).size === 3, `untilled, ploughed and sown plots should be drawn differently: ${before}, ${mid}, ${after}`);
-  return `crossed without ploughing; ploughed from rest; sown barley (${s.seeds} -> ${sown.left} seeds): ${before} -> ${mid} -> ${after}`;
+  return `ploughed straight from a walk; sown barley (${s.seeds} -> ${sown.left} seeds): ${before} -> ${mid} -> ${after}`;
 }));
 
 test('controls: a sleeping person on the ground is pushed along, still asleep', await controlScene('sleeper', 41, async page => {
