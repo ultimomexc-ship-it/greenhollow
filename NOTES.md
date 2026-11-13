@@ -264,3 +264,4 @@ Step 9 is built (words for the Hamlet; tools/playtest.mjs hamlet). Playtest verd
 - Footprints and footstep particles (src/render/steps.ts) replace the grass: prints that fade (sand longest, then earth, path, grass, floors faint) and a puff of the surface per step, for everybody on screen; own random numbers, so the seeded stream is untouched.
 - Trees now sway in the wind and lean away from walkers (src/render/trees.ts). Footprints darker and quicker; dust in the tile's own colours, none on floors.
 - Bushes sway with the trees; a tree being felled sways about its foot instead of the whole sprite shifting.
+- Chibi villagers on by default (anime face and hair); axe redrawn; no chop notch; sound button and iPhone unlock. Sleeper sprite still old-style.
