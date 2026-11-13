@@ -388,7 +388,8 @@ function tut2End(T2: any) {
   game.time = game.ft = Math.floor(game.time / 1440) * 1440 + 12 * 60;
   T2.done = true; T2.locks = {}; T2.slots = []; T2.stock = null; T2.ui = { strip: null, arrow: null, marks: [] }; T2.show = {};
   for (const n of npcs) { if (n.tutHold) { n.tutHold = false; n.plan = null; n.si = 0; n.stepStarted = false; if (n.pose === 'sleep') n.pose = 'stand'; } }
-  T2.rentDay = Math.floor(game.time / 1440) + 1;
+  T2.rentDay = Math.floor(game.time / 1440) + 1; { const R = rentState(); R.day = Math.floor(game.time / 1440); }   // (no rent the day the clock starts: Junia brings the first one tomorrow)
+  if (typeof progState === 'function') { const P2 = progState(); P2.step = 1; P2.done = {}; P2.sold = 0; }   // (the turnips you sold in the tutorial do not count for the progression)
   yardScan(true); if (typeof yardHousing === 'function') yardHousing(); itSync(true); tut2Hud();
   chron('The clock started. Junia has a yard, a bed and six rows of turnips. Nobody saw who made any of it.', 'note');
   if (typeof isleSave === 'function') isleSave();
@@ -410,3 +411,18 @@ function tut2After() {
     }
   }
 }
+
+/* ---------------- the progression after the tutorial (prompt 8) ----------------
+   The five steps were written for an island that starts with a family of three. After the first morning there is you, Paullus and Junia in her
+   fenced yard, so the first two steps follow on from there: a roof over Junia's bed (rent goes up), then her first harvest sold. Steps 3 to 5
+   (five households and the seed stall, everyone under a roof and the carpenter, the island thriving) are as they were. */
+// @ts-expect-error -- deliberate patch
+const _t2Prog = progStep; progStep = function (n) {
+  if (!town || !town.tut2) return _t2Prog(n);
+  const J = tut2Who('junia'), P = progState();
+  if (n === 1) { const roof = !!(J && !J.dead && yardHasBed(J) && rentHome(J).roof);
+    return { n, title: "Walls round Junia's bed", say: 'Somebody put a fence round me. A roof would be the next thing, I suppose.', how: "Wall Junia's bed in: wall blocks all round it inside her yard, and a door. The trader sells them. Under a roof she pays more rent.", rows: [["Junia's bed under a roof", roof ? 1 : 0, 1]], who: J ? [J] : [], met: roof }; }
+  if (n === 2) return { n, title: 'The first harvest sold', say: 'The turnips are coming up. Somebody will have to sell them.', how: 'Junia harvests her field and takes what she can spare to the trader. You can sell yours too.', rows: [['Crops sold to the trader', Math.min(1, P.sold), 1]], who: J ? [J] : [], met: P.sold > 0 };
+  return _t2Prog(n);
+};
+LF2.tickers.push(() => { if (town && town.tut2) tut2After(); });   // (the first rent runs with the sim, not only with the frame loop)

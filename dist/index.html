@@ -26691,6 +26691,10 @@ function tut2Start(P, TR, st) {
     const f = lfAddProp(g ? "gate" : "fence", c.x, c.y);
     f.rot = 0;
   }
+  for (const t of at.jfield.concat(at.yard)) if (grid[t.y][t.x] !== T.GRASS) {
+    setT(t.x, t.y, T.GRASS);
+    markDirty(t.x, t.y, 1, 1);
+  }
   for (const c of at.patch) {
     setT(c.x, c.y, T.CROP);
     town.crops.push({ x: c.x, y: c.y, f: "tut", pl: 0, st: 0, t0: 0, byField: P.id });
@@ -27873,6 +27877,16 @@ function tut2End(T2) {
     }
   }
   T2.rentDay = Math.floor(game.time / 1440) + 1;
+  {
+    const R = rentState();
+    R.day = Math.floor(game.time / 1440);
+  }
+  if (typeof progState === "function") {
+    const P2 = progState();
+    P2.step = 1;
+    P2.done = {};
+    P2.sold = 0;
+  }
   yardScan(true);
   if (typeof yardHousing === "function") yardHousing();
   itSync(true);
@@ -27919,6 +27933,20 @@ function tut2After() {
     }
   }
 }
+const _t2Prog = progStep;
+progStep = function(n) {
+  if (!town || !town.tut2) return _t2Prog(n);
+  const J = tut2Who("junia"), P = progState();
+  if (n === 1) {
+    const roof = !!(J && !J.dead && yardHasBed(J) && rentHome(J).roof);
+    return { n, title: "Walls round Junia's bed", say: "Somebody put a fence round me. A roof would be the next thing, I suppose.", how: "Wall Junia's bed in: wall blocks all round it inside her yard, and a door. The trader sells them. Under a roof she pays more rent.", rows: [["Junia's bed under a roof", roof ? 1 : 0, 1]], who: J ? [J] : [], met: roof };
+  }
+  if (n === 2) return { n, title: "The first harvest sold", say: "The turnips are coming up. Somebody will have to sell them.", how: "Junia harvests her field and takes what she can spare to the trader. You can sell yours too.", rows: [["Crops sold to the trader", Math.min(1, P.sold), 1]], who: J ? [J] : [], met: P.sold > 0 };
+  return _t2Prog(n);
+};
+LF2.tickers.push(() => {
+  if (town && town.tut2) tut2After();
+});
 const YARD_MIN = 12, YARD_MAX = 400, YARD_GRACE = 1440;
 const yardOn = () => !!(town && town.scenario === "hamlet");
 const yardFence = (p) => !!p && (p.kind === "fence" || p.kind === "gate");

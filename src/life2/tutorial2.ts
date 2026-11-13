@@ -63,6 +63,7 @@ function tut2Start(P: any, TR: any, st: any) {
   { const r = rooms.find((q: any) => !q.dead && q.cells && q.cells.has(at.bed.x + at.bed.y * W)); if (r) { P.homeRoom = r; r.name = 'The old house'; at.room = r.id; } }
   // your yard: a ring of fence with a gate round the house and the patch (Paullus's old place; in the Hamlet ground is yours inside your own fence)
   for (const c of at.own) { const g = c.x === at.ownGate.x && c.y === at.ownGate.y; const f: any = lfAddProp(g ? 'gate' : 'fence', c.x, c.y); f.rot = 0; }
+  for (const t of at.jfield.concat(at.yard)) if (grid[t.y][t.x] !== T.GRASS) { setT(t.x, t.y, T.GRASS); markDirty(t.x, t.y, 1, 1); }   // (fields go on grass: a path tile there would refuse one)
   // the patch: nine raw plots
   for (const c of at.patch) { setT(c.x, c.y, T.CROP); town.crops.push({ x: c.x, y: c.y, f: 'tut', pl: 0, st: 0, t0: 0, byField: P.id }); markDirty(c.x, c.y, 1, 1); }
   town.gridV = (town.gridV || 0) + 1;

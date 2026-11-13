@@ -9,6 +9,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launch, openGame, simulate, summary } from './lib.mjs';
+import { playTutorial } from '../tools/tutorial.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const GAME = path.join(root, 'dist', 'index.html');
@@ -2846,6 +2847,30 @@ test('crops and flowers: every crop is its own plant with its own art; flowers s
   check(r.clear && r.cleared, 'clearing the withered flower empties the plot and gives a seed back: ' + JSON.stringify(r)); check(r.ripe && r.pumpkins, 'a pumpkin ripens and is harvested: ' + JSON.stringify(r));
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
   return `${r.seeds} seeds, flowers bloom for 40 days then wither and are cleared`;
+});
+
+test('tutorial: the first morning plays from the old house to the clock starting, word for word, with B and the hammer locked until it is their turn; Junia hands over the first rent at your door', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const early = await page.evaluate(() => { window.GH_NOTUT = false; newTown('tutorial', 'hamlet'); const P = game.player, T2 = town.tut2;
+    tut2Tick(0.05); const t0 = game.time; for (let i = 0; i < 30; i++) updateSim(2); itBuildToggle(P, true); itBag(true);
+    const r = rooms.find(q => q.cells && q.cells.has(T2.at.bed.x + T2.at.bed.y * W));
+    return { pop: npcs.length, clock: game.time === t0, build: itBuildOn(P), bag: itBagOpen(), room: !!r && !r.dead, bedIn: !!P.bed && P.bed.x === T2.at.bed.x, ownYard: !!yardOfN(P), tools: (P.items || []).length, coin: P.coin, hidden: document.body.classList.contains('tut2') }; });
+  check(early.pop === 2 && early.clock && !early.build && !early.bag, 'only you and Paullus, the clock stands still, B and I do nothing: ' + JSON.stringify(early));
+  check(early.room && early.bedIn && early.ownYard && early.tools === 0 && early.coin === 15 && early.hidden, 'you wake in the old house, in your own fenced yard, with 15 coin and nothing else, the HUD hidden: ' + JSON.stringify(early));
+  const rep = await playTutorial(page, { maxSec: 400 });
+  check(!rep.stuck && rep.done, 'the bot plays it to the end: ' + JSON.stringify(rep.stuck));
+  const said = rep.said.filter(l => l.scene === 1).map(l => l.text);
+  check(said.slice(0, 7).join(' | ') === ['Morning.', "You're new. Everybody is, here.", "This was mine. It's yours now.", "Don't ask how. I'm bad at the long version.", "Before anything else you'll want to eat.", "And for that you'll want a field.", 'Here. A hoe. The pointed end goes in the ground.'].join(' | '), 'Paullus says his lines in order: ' + said.join(' | '));
+  const end = await page.evaluate(() => { const P = game.player, T2 = town.tut2, J = tut2Who('junia'), y = J && yardOfN(J);
+    return { coin: P.coin, tools: (P.items || []).map(i => i.kind).sort().join(), time: fmtTime(game.time), yard: !!y && y.cells.length, gate: TUT2_DONE.gate(T2.at.gate.x, T2.at.gate.y), sown: T2.at.jfield.filter(t => { const c = tut2Crop(t.x, t.y); return c && c.st; }).length, kitFence: town.kit.fence || 0, hidden: document.body.classList.contains('tut2'), pill: progStep(progState().step).title }; });
+  check(end.coin === 5 && end.tools === 'hammer,hoe' && end.time === '12:00', 'you end with 5 coin, a hoe and a hammer, at noon: ' + JSON.stringify(end));
+  check(end.yard === 12 && end.gate && end.sown === 6 && end.kitFence === 1 && !end.hidden, "Junia's yard (12 tiles, a gate), six sown plots, the knocked-out fence back in the kit, the HUD back: " + JSON.stringify(end));
+  check(end.pill === "Walls round Junia's bed", 'the first step after the tutorial: ' + end.pill);
+  await simulate(page, 22 * 60);
+  const rent = await page.evaluate(() => ({ coin: game.player.coin, done: town.tut2.rent1, chron: town.chron.some(c => /Junia paid the first rent/.test(c.text || c)) }));
+  check(rent.done === 'done' && rent.coin === 7 && rent.chron, 'the next morning Junia hands over 2 coin in person: ' + JSON.stringify(rent));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return `played in ${rep.secs.toFixed(0)} s of real time (bubbles skipped), ${rep.said.length} lines`;
 });
 
 const browser = await launch();
