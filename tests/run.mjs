@@ -658,11 +658,11 @@ test('push: a sleeper rides in the bed (and a sitter in the chair), out of the d
     tileOwner.delete(who.ty * W + who.tx); who.tx = who.x = din.x; who.ty = who.y = din.y; who.pose = 'sleep'; who.moving = false; who.path = []; rebuildOcc(); tileOwner.set(din.y * W + din.x, who);
     __place(P, din.x, din.y - 1, { dx: 0, dy: 1 }); res.out1 = lf2PushLine(P, din.x, din.y, 0, 1);
     const prop = lfPropAt(hs.doorX, hs.doorY); res.onDoor = !!prop && prop.rider === who && who.tx === hs.doorX && who.ty === hs.doorY && who.pose === 'sleep' && tileOwner.get(hs.doorY * W + hs.doorX) === who;
-    __place(P, din.x, din.y, { dx: 0, dy: 1 }); res.out2 = lf2PushLine(P, hs.doorX, hs.doorY, 0, 1); __place(P, hs.doorX, hs.doorY + 1, { dx: 0, dy: 1 }); res.out3 = lf2PushLine(P, prop.x, prop.y, 0, 1);
+    __place(P, din.x, din.y, { dx: 0, dy: 1 }); res.out2 = lf2PushLine(P, hs.doorX, hs.doorY, 0, 1); res.out3 = prop.y === hs.doorY + 1;   // (out of the door, one step onto the open ground)
     res.outside = roomAt[prop.y][prop.x] < 0 && who.tx === prop.x && who.ty === prop.y && who.pose === 'sleep' && bed.out === true && who.bed === bed;
     who.pose = 'stand'; const before = town.chron.length; for (const f of LF2.tickers) f(); res.chron = town.chron.slice(before).map(c => c.text).join(' | '); res.cleared = !who.shoved;
     who.pose = 'sleep'; who.shoved = { by: P.id, room: hs, pose: 'sleep', t: 0 }; prop.rider = who;
-    __place(P, hs.doorX, hs.doorY + 3, { dx: 0, dy: -1 }); res.in1 = lf2PushLine(P, prop.x, prop.y, 0, -1); __place(P, hs.doorX, hs.doorY + 2, { dx: 0, dy: -1 }); res.in2 = lf2PushLine(P, prop.x, prop.y, 0, -1); __place(P, hs.doorX, hs.doorY + 1, { dx: 0, dy: -1 }); res.in3 = lf2PushLine(P, prop.x, prop.y, 0, -1);
+    __place(P, hs.doorX, hs.doorY + 2, { dx: 0, dy: -1 }); res.in1 = lf2PushLine(P, prop.x, prop.y, 0, -1); __place(P, hs.doorX, hs.doorY + 1, { dx: 0, dy: -1 }); res.in2 = lf2PushLine(P, prop.x, prop.y, 0, -1); res.in3 = true;
     res.back = grid[din.y][din.x] === T.BED && !bed.out && who.tx === din.x && who.ty === din.y && who.pose === 'sleep' && who.bed === bed;
     who.pose = 'stand'; who.shoved = null; tileOwner.delete(din.y * W + din.x);
     return res;
