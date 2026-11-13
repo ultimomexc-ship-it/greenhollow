@@ -11,8 +11,8 @@ const WX_DEF: Record<string, any> = {
   off: {},
   sunny: { warm: 0.22, rays: 1 },
   cloudy: { grey: 0.28, dark: 0.08, clouds: 0.55, wind: 1.4 },
-  rain: { grey: 0.32, dark: 0.18, rain: 0.6, clouds: 0.4, wind: 1.7, slant: 0.25, wet: 1 },
-  storm: { grey: 0.4, dark: 0.34, rain: 1, clouds: 0.6, wind: 3.4, slant: 0.55, wet: 1, bolts: 1, leaves: 0.4 },
+  rain: { grey: 0.36, dark: 0.26, rain: 0.6, clouds: 0.4, wind: 1.7, slant: 0.25, wet: 1 },
+  storm: { grey: 0.45, dark: 0.48, rain: 1, clouds: 0.6, wind: 3.4, slant: 0.55, wet: 1, bolts: 1, leaves: 0.4 },
   windy: { grey: 0.08, clouds: 0.3, wind: 3.2, leaves: 1, dust: 1 },
   fog: { grey: 0.2, fog: 1, wind: 0.6 },
   snow: { cold: 0.3, snow: 1, wind: 1.2, dark: 0.04 }
@@ -69,8 +69,8 @@ function drawWeather(c: any, now: number) {
   if (cl > 0 && !inside) {
     const drift = T * 18 * Math.max(1, wind * 0.6), S = 360 * z;
     for (let i = 0; i < 9; i++) {
-      const bx = ((i * 431 + drift * z - wx0 * z) % (w + S * 2) + w + S * 2) % (w + S * 2) - S, by = ((i * 277 + i * i * 53 - wy0 * z * 0.98) % (h + S) + h + S) % (h + S) - S / 2, r = (150 + (i * 37) % 110) * z;
-      const g = c.createRadialGradient(bx, by, 0, bx, by, r); g.addColorStop(0, `rgba(20,30,50,${0.22 * cl})`); g.addColorStop(1, 'rgba(20,30,50,0)');
+      const bx = ((i * 431 + drift * z - wx0 * z) % (w + S * 2) + w + S * 2) % (w + S * 2) - S, by = ((i * 277 + i * i * 53 - wy0 * z * 0.98) % (h + S) + h + S) % (h + S) - S / 2, r = (190 + (i * 37) % 130) * z;
+      const g = c.createRadialGradient(bx, by, 0, bx, by, r); g.addColorStop(0, `rgba(20,30,50,${0.38 * cl})`); g.addColorStop(1, 'rgba(20,30,50,0)');
       c.fillStyle = g; c.beginPath(); c.ellipse(bx, by, r * 1.5, r * 0.85, 0, 0, 6.3); c.fill();
     }
   }
@@ -86,10 +86,10 @@ function drawWeather(c: any, now: number) {
   }
   // rain: slanted streaks, and splashes rippling on the ground
   if (rain > 0.01 && !inside) {
-    const want = Math.round(700 * rain * (w * h) / (1280 * 720)), R = WX.rain, vx = (90 + 380 * slant) * Math.sign(wind || 1), vy = 900;
+    const want = Math.round(1150 * rain * (w * h) / (1280 * 720)), R = WX.rain, vx = (90 + 380 * slant) * Math.sign(wind || 1), vy = 900;
     while (R.length < want) R.push({ x: wxRand() * (w + 200) - 100, y: wxRand() * h, l: 12 + wxRand() * 16, s: 0.75 + wxRand() * 0.5 });
     if (R.length > want) R.length = want;
-    c.strokeStyle = 'rgba(200,215,235,0.42)'; c.lineWidth = 1; c.beginPath();
+    c.strokeStyle = 'rgba(210,222,240,0.62)'; c.lineWidth = 1.3; c.beginPath();
     for (const d of R) { d.x += vx * d.s * dt; d.y += vy * d.s * dt; if (d.y > h + 20 || d.x > w + 120 || d.x < -120) { d.y = -20 - wxRand() * 60; d.x = wxRand() * (w + 200) - 100; if (wxRand() < 0.35) WX.splash.push({ x: wxRand() * w, y: wxRand() * h, t: now }); }
       const k = d.l / Math.hypot(vx, vy); c.moveTo(d.x, d.y); c.lineTo(d.x - vx * k, d.y - vy * k); }
     c.stroke();
@@ -111,16 +111,16 @@ function drawWeather(c: any, now: number) {
   // wind: leaves and streaks of dust blowing across
   const lv = wxV('leaves'), dust = wxV('dust');
   if ((lv > 0.01 || dust > 0.01) && !inside) {
-    const want = Math.round(40 * lv + 30 * dust), L = WX.leaves, cols = ['#7fb04a', '#a8c45a', '#c9a24a', '#5f9a3a'];
+    const want = Math.round(80 * lv + 40 * dust), L = WX.leaves, cols = ['#7fb04a', '#a8c45a', '#c9a24a', '#5f9a3a'];
     while (L.length < want) L.push({ x: -20 - wxRand() * w * 0.5, y: wxRand() * h, s: 0.6 + wxRand() * 0.8, ph: wxRand() * 6.3, leaf: wxRand() < lv / Math.max(0.01, lv + dust), col: cols[Math.floor(wxRand() * 4)] });
     if (L.length > want) L.length = want;
     for (const q of L) { const gust = 0.6 + 0.4 * Math.sin(T * 0.7 + q.ph); q.x += (220 + 260 * gust) * q.s * dt; q.y += Math.sin(T * 3 + q.ph) * 30 * dt; if (q.x > w + 30) { q.x = -20 - wxRand() * 200; q.y = wxRand() * h; }
-      if (q.leaf) { c.save(); c.translate(q.x, q.y); c.rotate(T * 6 * q.s + q.ph); c.fillStyle = q.col; c.globalAlpha = 0.9; c.beginPath(); c.ellipse(0, 0, 3.4 * q.s * Math.max(1, z * 0.6), 1.6 * q.s * Math.max(1, z * 0.6), 0, 0, 6.3); c.fill(); c.restore(); }
-      else { c.strokeStyle = 'rgba(235,225,200,0.28)'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(q.x, q.y); c.lineTo(q.x - 40 * q.s, q.y + 1); c.stroke(); } }
+      if (q.leaf) { c.save(); c.translate(q.x, q.y); c.rotate(T * 6 * q.s + q.ph); c.fillStyle = q.col; c.globalAlpha = 0.9; c.beginPath(); c.ellipse(0, 0, 4.4 * q.s * Math.max(1, z * 0.7), 2 * q.s * Math.max(1, z * 0.7), 0, 0, 6.3); c.fill(); c.restore(); }
+      else { c.strokeStyle = 'rgba(235,225,200,0.4)'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(q.x, q.y); c.lineTo(q.x - 40 * q.s, q.y + 1); c.stroke(); } }
   }
   // fog: soft banks drifting by, thicker at the edges
   const fog = wxV('fog');
-  if (fog > 0.01) {
+  if (fog > 0.01 && !inside) {
     for (let i = 0; i < 7; i++) { const bx = ((i * 263 + T * (12 + i * 3) - wx0 * z * 0.6) % (w + 600) + w + 600) % (w + 600) - 300, by = (i * 151) % Math.max(1, h), r = 260 + (i * 71) % 160;
       const g = c.createRadialGradient(bx, by, 0, bx, by, r); g.addColorStop(0, `rgba(225,230,236,${0.42 * fog})`); g.addColorStop(1, 'rgba(225,230,236,0)'); c.fillStyle = g; c.fillRect(bx - r, by - r, r * 2, r * 2); }
     const v = c.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.2, w / 2, h / 2, Math.max(w, h) * 0.7); v.addColorStop(0, 'rgba(220,226,232,0)'); v.addColorStop(1, `rgba(220,226,232,${0.75 * fog})`); c.fillStyle = v; c.fillRect(0, 0, w, h);
