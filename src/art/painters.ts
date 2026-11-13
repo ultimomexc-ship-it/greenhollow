@@ -1901,9 +1901,45 @@ function workPose(kit, dir, sp, T, id) { const G = geo(kit), K = G.K, q = K.ua /
 /* spec: age, skin, hair, hs, beard, shirt, pat, acc, pants, hat, hatCol, hatOn, robe, role, apron, pose, tool, face {dx,dy}, status, dress, hold, mourning, wave, inv */
 function dollDir(sp) { const f = sp.face || { dx: 0, dy: 1 }; return f.dy > 0 && !f.dx ? 'front' : f.dy < 0 && !f.dx ? 'back' : 'side'; }
 /* Chibi proportions (a trial): a bigger head on a shorter body, so faces read at a glance. Off by default; ART.chibi.on = true to try it. */
-const CHIBI = { on: false, head: 1.45, body: 0.72, bodyW: 0.95 };
+const CHIBI = { on: false, head: 1.75, headW: 1.08, body: 0.6, bodyW: 1.0, kidHead: 1.32, kidBody: 0.74 };
+/* the chibi face: big shiny eyes, blush, a dot of a nose and a small mouth (front and side; the back has no face) */
+function chibiFaceL(kit, dir, o: any = {}) { const [c, g]: any = frame(); if (dir === 'back') return c;
+  const L = Object.assign({}, LOOK0, o.look || {}), h = hd(kit, dir), { X, hw, hh } = h, side = dir === 'side', ink = '#2a1712', ir = IRIS[L.iris] || IRIS.brown;
+  const eye = (cx, cy, rx, ry, out) => {
+    if (o.blink) { g.strokeStyle = ink; g.lineWidth = 0.28; g.lineCap = 'round'; g.beginPath(); g.arc(cx, cy + ry * 0.35, rx * 0.95, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); return; }
+    const gr = g.createLinearGradient(0, cy - ry, 0, cy + ry); gr.addColorStop(0, ir[1]); gr.addColorStop(0.45, ir[1]); gr.addColorStop(1, ir[0]);
+    g.fillStyle = gr; g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, 0, TAU); g.fill();
+    g.fillStyle = '#140c08'; g.beginPath(); g.ellipse(cx + out * rx * 0.05, cy - ry * 0.02, rx * 0.5, ry * 0.58, 0, 0, TAU); g.fill();
+    g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(cx - out * rx * 0.28, cy - ry * 0.36, rx * 0.34, ry * 0.3, 0, 0, TAU); g.fill();
+    g.beginPath(); g.arc(cx + out * rx * 0.38, cy + ry * 0.42, rx * 0.15, 0, TAU); g.fill();
+    g.strokeStyle = ink; g.lineCap = 'round'; g.lineWidth = 0.42; g.beginPath(); g.moveTo(cx - out * rx * 1.08, cy - ry * 0.35); g.quadraticCurveTo(cx, cy - ry * 1.38, cx + out * rx * 1.12, cy - ry * 0.5); g.lineTo(cx + out * rx * 1.45, cy - ry * 0.8); g.stroke();   // the lash line, flicked out
+    g.lineWidth = 0.14; g.strokeStyle = 'rgba(60,30,24,.55)'; g.beginPath(); g.moveTo(cx - out * rx * 0.7, cy + ry * 0.98); g.quadraticCurveTo(cx, cy + ry * 1.12, cx + out * rx * 0.75, cy + ry * 0.9); g.stroke(); };
+  const blush = (cx, cy, rx) => { const gr = g.createRadialGradient(cx, cy, 0, cx, cy, rx); gr.addColorStop(0, 'rgba(240,110,120,.55)'); gr.addColorStop(1, 'rgba(240,110,120,0)'); g.fillStyle = gr; g.beginPath(); g.ellipse(cx, cy, rx, rx * 0.6, 0, 0, TAU); g.fill(); };
+  const brow = (cx, cy, w, out) => { g.strokeStyle = 'rgba(70,44,32,.8)'; g.lineWidth = 0.2; g.lineCap = 'round'; g.beginPath(); g.moveTo(cx - out * w, cy + 0.08); g.quadraticCurveTo(cx, cy - 0.22, cx + out * w, cy); g.stroke(); };
+  const mouth = (mx, my, w) => { const m = L.mouth;
+    if (m === 'grin' || m === 'open') { g.fillStyle = '#7a2228'; g.beginPath(); g.moveTo(mx - w, my); g.quadraticCurveTo(mx, my + 0.08, mx + w, my); g.quadraticCurveTo(mx + w * 0.7, my + w * 1.3, mx, my + w * 1.35); g.quadraticCurveTo(mx - w * 0.7, my + w * 1.3, mx - w, my); g.fill(); g.fillStyle = '#e8737a'; g.beginPath(); g.ellipse(mx, my + w * 1.0, w * 0.55, w * 0.32, 0, 0, TAU); g.fill(); return; }
+    g.strokeStyle = '#6a2a26'; g.lineWidth = 0.2; g.lineCap = 'round'; g.beginPath();
+    if (m === 'frown') { g.moveTo(mx - w, my + 0.12); g.quadraticCurveTo(mx, my - 0.12, mx + w, my + 0.12); }
+    else if (m === 'neutral' || m === 'small') { g.moveTo(mx - w, my); g.quadraticCurveTo(mx - w * 0.5, my + 0.2, mx, my); g.quadraticCurveTo(mx + w * 0.5, my + 0.2, mx + w, my); }   // a little cat mouth
+    else { g.moveTo(mx - w, my - 0.04); g.quadraticCurveTo(mx, my + w * 0.9, mx + w, my - 0.04); }
+    g.stroke(); };
+  if (!side) {
+    const ey = h.y(0.64), ex = hw * 0.45, rx = hw * 0.27, ry = hh * 0.19;
+    blush(X - hw * 0.66, h.y(0.8), hw * 0.28); blush(X + hw * 0.66, h.y(0.8), hw * 0.28);
+    eye(X - ex, ey, rx, ry, -1); eye(X + ex, ey, rx, ry, 1);
+    brow(X - ex, h.y(0.44), rx * 0.6, -1); brow(X + ex, h.y(0.44), rx * 0.6, 1);
+    g.fillStyle = 'rgba(160,86,74,.55)'; g.beginPath(); g.arc(X, h.y(0.78), 0.12, 0, TAU); g.fill();
+    mouth(X, h.y(0.86), hw * 0.13);
+  } else {
+    const ex = X + hw * 0.52, ey = h.y(0.64);
+    blush(X + hw * 0.3, h.y(0.8), hw * 0.28);
+    eye(ex, ey, hw * 0.21, hh * 0.19, 1); brow(ex, h.y(0.44), hw * 0.17, 1);
+    mouth(X + hw * 0.78, h.y(0.86), hw * 0.1);
+  }
+  return c; }
 function drawDoll(g, sp, x, y, k, T = 0) {
-  const CBX = CHIBI.on ? CHIBI.bodyW : 1, CBY = CHIBI.on ? CHIBI.body : 1;
+  const kidK = kitFor(sp) === 'child' || kitFor(sp) === 'infant', CH = CHIBI.on ? (kidK ? CHIBI.kidHead : CHIBI.head) : 1, CHW = CHIBI.on && !kidK ? CHIBI.headW : 1;
+  const CBX = CHIBI.on ? CHIBI.bodyW : 1, CBY = CHIBI.on ? (kidK ? CHIBI.kidBody : CHIBI.body) : 1;
   const kit = kitFor(sp), G = geo(kit), K = G.K, dir = dollDir(sp), f = sp.face || { dx: 0, dy: 1 }, flip = dir === 'side' && f.dx < 0;
   const pose0 = sp.pose || (sp.moving ? 'walk' : 'stand'), wf = Math.floor(T * 9) % 6;
   const hairC = sp.age >= 60 ? GREYH : sp.hair, dress = sp.dress, robe = !!sp.robe || dress === 'bride', shirt = dress === 'bride' ? '#f6f1e8' : dress === 'groom' ? '#2f2c38' : dress === 'mourn' ? '#2a2a30' : sp.shirt;
@@ -1916,8 +1952,8 @@ function drawDoll(g, sp, x, y, k, T = 0) {
   const X0 = x - DO * k, Y0 = y - DO * k, W = DF * k, key = `${kit}_${dir}`;
   const put = (cv, dy = 0, dx = 0) => g.drawImage(cv, X0 + dx * k, Y0 + dy * k, W, W);
   /* the head is its own thing: it sways a little on the neck, drops if the person slouches, and is as wide as that person's head is */
-  const putH = (cv, dy = 0, dx = 0) => { const a = (calm ? Math.sin(tt * 0.55) * 0.028 + Math.sin(tt * 1.1 + 1) * 0.01 : 0) + LK.post * 0.012, dyh = Math.max(0, -LK.post) * 0.14, px = X0 + DCX * k, py = Y0 + (G.chin + upDy) * k;
-    g.save(); g.translate(px, py); g.rotate(dir === 'side' ? a * 0.7 : a); g.scale(LK.hw / LK.bw, 1); if (CHIBI.on) g.scale(CHIBI.head / CBX, CHIBI.head / CBY); g.translate(-px, -py + dyh * k); g.drawImage(cv, X0 + dx * k, Y0 + dy * k, W, W); g.restore(); };
+  const putH = (cv, dy = 0, dx = 0, clipChin = false) => { const a = (calm ? Math.sin(tt * 0.55) * 0.028 + Math.sin(tt * 1.1 + 1) * 0.01 : 0) + LK.post * 0.012, dyh = Math.max(0, -LK.post) * 0.14, px = X0 + DCX * k, py = Y0 + (G.chin + upDy) * k;
+    g.save(); if (clipChin && CHIBI.on) { g.beginPath(); g.rect(X0 - W, Y0 - W, W * 3, py - Y0 + W + G.K.nk * (dir === 'side' ? 3.2 : 0.95) * k); g.clip(); } g.translate(px, py); g.rotate(dir === 'side' ? a * 0.7 : a); g.scale(LK.hw / LK.bw, 1); if (CHIBI.on) g.scale(CH * CHW / CBX, CH / CBY); g.translate(-px, -py + dyh * k + (CHIBI.on ? G.K.nk * 0.85 * k / CH : 0)); g.drawImage(cv, X0 + dx * k, Y0 + dy * k, W, W); g.restore(); };
   const lay = (name, color, fn, mode?) => { const kk = `${key}_${name}`; const base = L(kk, fn); return color ? tint(base, color, kk, mode) : base; };
   const gp = pose0 === 'walk' ? 'w' + fr : sit ? pose0 : 's';
   const inFrame = fn => { g.save(); g.translate(X0, Y0 + upDy * k); g.scale(k, k); fn(); g.restore(); };
@@ -1952,8 +1988,8 @@ function drawDoll(g, sp, x, y, k, T = 0) {
     if ((sp.mourning && !sp.moving) || dress === 'mourn') put(lay('mourn', null, () => clothL(kit, dir, 'stand', 0, 'mourn')), upDy);
     if (dress === 'groom' && dir !== 'back') put(lay('groom', null, () => dressL(kit, dir, 'groom')), upDy);
     if (armsEarly) armBlock();
-    putH(lay('skin', sp.skin, () => skinL(kit, dir, 'stand', 0, {})), upDy);
-    { const bl = ((T + 1.3 + (sp.id || 0) * 1.37) % 4.1) < 0.15, LK = lookOf(sp); putH(lay((bl ? 'face_blink_' : 'face_') + lookSig(LK), null, () => faceL(kit, dir, 'stand', 0, { blink: bl, look: LK })), upDy); }
+    putH(lay('skin', sp.skin, () => skinL(kit, dir, 'stand', 0, {})), upDy, 0, true);
+    { const bl = ((T + 1.3 + (sp.id || 0) * 1.37) % 4.1) < 0.15, LK = lookOf(sp); if (CHIBI.on) putH(lay((bl ? 'cface_blink_' : 'cface_') + LK.iris + LK.mouth, null, () => chibiFaceL(kit, dir, { blink: bl, look: LK })), upDy); else putH(lay((bl ? 'face_blink_' : 'face_') + lookSig(LK), null, () => faceL(kit, dir, 'stand', 0, { blink: bl, look: LK })), upDy); }
     if (sp.beard && sp.age >= 18 && dir !== 'back') putH(lay(`bd_${sp.beard}`, hairC, () => beardL(kit, dir, sp.beard), 'overlay'), upDy);
     putH(lay(`hf_${sp.hs}`, hairC, () => hairL(kit, dir, sp.hs, 'front'), 'overlay'), upDy);
     if (sp.age >= 45 && sp.age < 60 && sp.hs !== 'bald') putH(lay('grey', null, () => greyL(kit, dir)), upDy);
