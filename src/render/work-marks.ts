@@ -84,10 +84,9 @@ function drawWorkFx(c, now) {
       for (let r = 0; r < 3; r++) { const k = Math.max(0, Math.min(1, f * 3 - r)); if (k <= 0) break; fillR(c, px + 1, py + 2 + r * 7.5, (TS - 2) * k, 6.5, '#5e4128'); fillR(c, px + 1, py + 2 + r * 7.5, (TS - 2) * k, 1.4, '#7a5636'); }
     } else if (w.kind === 'sow') {
       // seeds go in one at a time
-      const k = Math.floor(f * 9); for (let q = 0; q < k; q++) { const i = Math.floor(q / 3), j = q % 3; fillR(c, px + 4 + j * 8, py + 6 + i * 8, 2, 2, '#e8d9a0'); }
+      const k = Math.floor(f * 9); for (let q = 0; q < k; q++) { const i = Math.floor(q / 3), j = q % 3; fillR(c, px + CROP_COL[j] - 1, py + CROP_ROW[i] - 1.5, 2, 2, '#e8d9a0'); }   // (in the furrows, where the plants will stand)
     } else if (w.kind === 'harvest') {
-      // stalks cut down, column by column
-      const k = Math.floor(f * 3 + 0.001); for (let j = 0; j < k; j++) { fillR(c, px + 1 + j * 8, py + 1, 8, TS - 2, '#6e5236'); for (let i = 0; i < 3; i++) fillR(c, px + 4 + j * 8, py + 9 + i * 8, 2, 2, '#c8a74a'); }
+      // (the plants go column by column and leave their holes: drawn with the crops, drawCrops in render/village.ts)
     } else {
       // cracks spread across the boulder, chips fly
       const cp = crackPath(w.x, w.y), segs = cp.main.length - 1, shown = f * (segs + 2);

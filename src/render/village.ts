@@ -233,28 +233,23 @@ function drawDoors(c, dt) {
     gaDraw(c, (r.free ? gaInside(d.x, d.y + 1) : d.y === r.y) ? (op ? 'door_back_open' : 'door_back_closed') : (op ? 'door_mat_open' : 'door_mat_closed'), d.x * TS, d.y * TS, 0, 0);
   }
 }
-/* where a crop was pulled: a pit in each furrow, seen from above and a little to the south, so you look into it: the far wall inside lit
-   from above, the bottom in shadow, the near lip catching the light, and the earth that came out heaped beside it with a few clods */
-function cropHoles(c, X, Y, tx, ty) {
-  const k = TS / 24, h = (i: number, n: number) => hash(tx * 7 + i, ty * 13 + n, 57);
-  for (let i = 0; i < 3; i++) {
-    const x = X + (5.2 + i * 6.8 + (h(i, 1) - 0.5) * 1.6) * k, y = Y + (7 + i * 7.6 + (h(i, 2) - 0.5) * 1.2) * k, rx = (2.5 + h(i, 3) * 0.6) * k, ry = (1.55 + h(i, 4) * 0.3) * k, side = h(i, 5) < 0.5 ? -1 : 1;
-    // the heap of loose earth beside it, with clods
-    const mx = x + side * rx * 1.25, my = y - ry * 0.25;
-    c.fillStyle = 'rgba(30,16,8,.35)'; c.beginPath(); c.ellipse(mx + 0.4 * k, my + 0.7 * k, rx * 0.95, ry * 0.9, 0, 0, 6.3); c.fill();
-    c.fillStyle = '#7a5434'; c.beginPath(); c.ellipse(mx, my, rx * 0.9, ry * 0.85, side * 0.2, 0, 6.3); c.fill();
-    c.fillStyle = '#9a6e46'; c.beginPath(); c.ellipse(mx - side * 0.3 * k, my - 0.45 * k, rx * 0.55, ry * 0.45, 0, 0, 6.3); c.fill();
-    for (let j = 0; j < 4; j++) { const cx = mx + (h(i, 10 + j) - 0.5) * rx * 2.2, cy = my + (h(i, 20 + j) - 0.5) * ry * 1.8, r = (0.45 + h(i, 30 + j) * 0.45) * k;
-      c.fillStyle = '#4a2e1a'; c.beginPath(); c.arc(cx + 0.25 * k, cy + 0.3 * k, r, 0, 6.3); c.fill(); c.fillStyle = '#8f6440'; c.beginPath(); c.arc(cx, cy, r, 0, 6.3); c.fill(); }
-    // the pit: a dark rim, the far wall inside (lit near the top, darker going down), the bottom in shadow, the near lip in the light
-    c.save(); c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, 6.3); c.fillStyle = '#1f130a'; c.fill(); c.clip();
-    const g = c.createLinearGradient(0, y - ry, 0, y + ry * 0.4); g.addColorStop(0, '#6e4a2c'); g.addColorStop(0.55, '#3d2615'); g.addColorStop(1, '#170d06');
-    c.fillStyle = g; c.beginPath(); c.ellipse(x, y - ry * 0.55, rx * 1.05, ry * 0.95, 0, 0, 6.3); c.fill();
-    c.fillStyle = '#100803'; c.beginPath(); c.ellipse(x, y + ry * 0.55, rx * 0.8, ry * 0.55, 0, 0, 6.3); c.fill();
-    c.restore();
-    c.strokeStyle = '#a07650'; c.lineWidth = 0.9 * k; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0.25, Math.PI - 0.25); c.stroke();   // (the near lip)
-    c.strokeStyle = 'rgba(20,10,4,.6)'; c.lineWidth = 0.7 * k; c.beginPath(); c.ellipse(x, y, rx, ry, 0, Math.PI + 0.2, 6.28 - 0.2); c.stroke();   // (the far edge, in shadow)
-  }
+/* where the crops were pulled: a hole in the furrow where each of the nine plants stood (the same three by three the plants and the seeds use),
+   seen from above and a little to the south, so you look into it: the far wall inside lit from above, the bottom in shadow, the near lip catching
+   the light, and a few crumbs of the earth that came out beside it */
+const CROP_COL = [4.4, 12, 19.6], CROP_ROW = [7, 14.6, 22.2];
+function cropPit(c, x, y, k, h) {
+  const rx = (2.5 + h * 0.4) * k, ry = (1.45 + h * 0.2) * k, sd = h < 0.5 ? -1 : 1;
+  c.fillStyle = '#9a7048'; for (let q = 0; q < 3; q++) { c.beginPath(); c.arc(x + sd * (rx + (0.6 + q * 0.7) * k), y + (q - 1) * 0.7 * k, (0.55 - q * 0.1) * k, 0, 6.3); c.fill(); }   // (crumbs thrown out)
+  c.save(); c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, 6.3); c.fillStyle = '#140b05'; c.fill(); c.clip();
+  const g = c.createLinearGradient(0, y - ry, 0, y + ry * 0.3); g.addColorStop(0, '#7a5230'); g.addColorStop(0.55, '#3a2312'); g.addColorStop(1, '#0c0603');
+  c.fillStyle = g; c.beginPath(); c.ellipse(x, y - ry * 0.55, rx * 1.05, ry, 0, 0, 6.3); c.fill();
+  c.restore();
+  c.strokeStyle = '#b08458'; c.lineWidth = 0.9 * k; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0.3, Math.PI - 0.3); c.stroke();   // (the near lip, in the light)
+}
+/** the holes of a pulled plot; `cols` = how many columns (from the west) are pulled so far (3 = all of them) */
+function cropHoles(c, X, Y, tx, ty, cols = 3) {
+  const k = TS / 24;
+  for (let j = 0; j < cols; j++) for (let i = 0; i < 3; i++) { const h = hash(tx * 3 + j, ty * 3 + i, 57); cropPit(c, X + (CROP_COL[j] + (h - 0.5) * 0.8) * k, Y + (CROP_ROW[i] - 0.4) * k, k, h); }
 }
 function drawCrops(c, now) {
   if (!town.crops) return; const v = gaView(), plants: any[] = [];
@@ -266,9 +261,15 @@ function drawCrops(c, now) {
     else if (t.holes && !t.st && t.pl) cropHoles(c, t.x * TS, t.y * TS, t.x, t.y);   // (pulled up: the holes the crop came out of, until the plot is sown again)
   }
   plants.sort((a, b) => a.y - b.y);
+  const pulling = new Map();   // plots being harvested right now: how many columns are pulled (the plants go column by column, leaving their holes)
+  if (plants.length && typeof workTargets === 'function') for (const w of workTargets()) if (w.kind === 'harvest') pulling.set(w.y * W + w.x, Math.min(3, Math.floor(w.f * 3 + 0.001)));
   for (const t of plants) {
     const st = cropStage(t), sd = t.seed && t.seed !== 'barley' && IT_SEEDS[t.seed] ? t.seed : null;   // every other crop and flower has its own plant
-    gaDraw(c, sd ? 'crop_' + sd + '_' + (itWilted(t) ? 5 : Math.min(4, st)) : 'crop_' + Math.min(4, st), t.x * TS, t.y * TS, now, t.x + t.y);
+    const id = sd ? 'crop_' + sd + '_' + (itWilted(t) ? 5 : Math.min(4, st)) : 'crop_' + Math.min(4, st), cols = pulling.get(t.y * W + t.x) || 0;
+    if (!cols) { gaDraw(c, id, t.x * TS, t.y * TS, now, t.x + t.y); continue; }
+    cropHoles(c, t.x * TS, t.y * TS, t.x, t.y, cols);
+    const cut = t.x * TS + (CROP_COL[cols - 1] + 3.8) * TS / 24;   // (the plants still standing: everything east of the last pulled column)
+    c.save(); c.beginPath(); c.rect(cut, t.y * TS - TS, t.x * TS + TS - cut + 2, TS * 2); c.clip(); gaDraw(c, id, t.x * TS, t.y * TS, now, t.x + t.y); c.restore();
   }
 }
 function drawNodes(c, now) {
