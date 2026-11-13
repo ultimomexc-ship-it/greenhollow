@@ -2,7 +2,7 @@
    Drawn row by row in the same depth order as people (a YSORT provider), so the blades of the row you stand in come in front of your feet:
    you walk *in* the grass. Cheap: only the tiles on screen, only when zoomed in, one path per row and shade, positions from a hash (no state per
    blade); the bending comes from the people near the row and a short trail of where you have just been. */
-const GRASS: any = { on: true, minZoom: 0.9, tufts: 3, trail: [] as any[], plaza: null, plazaN: -1 };
+const GRASS: any = { on: true, minZoom: 0.9, tufts: 8, trail: [] as any[], plaza: null, plazaN: -1 };
 /** a fixed pseudo-random number for a tile and a blade (the same every frame) */
 const grHash = (x: number, y: number, i: number) => { let h = (x * 374761393 + y * 668265263 + i * 2147483647) | 0; h = (h ^ (h >>> 13)) * 1274126177; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 const GR_SHADES = ['#356b22', '#457f2a', '#589a34', '#6db03f', '#86c452'];
@@ -29,7 +29,7 @@ YSORT.push(function (c: any, now: number) {
       for (let x = x0; x <= x1; x++) {
         if (row[x] !== T.GRASS || (town.propAt && town.propAt.get(y * W + x)) || roomAt[y][x] >= 0 || GRASS.plaza.has(y * W + x) || !grOpen(x - 1, y) || !grOpen(x + 1, y) || !grOpen(x, y - 1) || !grOpen(x, y + 1)) continue;
         for (let i = 0; i < GRASS.tufts; i++) {
-          const hx = grHash(x, y, i), hy = grHash(x, y, i + 17), bx = x + 0.12 + hx * 0.76, by = y + 0.4 + hy * 0.55, len = 0.2 + grHash(x, y, i + 31) * 0.16;
+          const hx = grHash(x, y, i), hy = grHash(x, y, i + 17), bx = x + 0.12 + hx * 0.76, by = y + 0.4 + hy * 0.55, len = 0.22 + grHash(x, y, i + 31) * 0.2;
           // the wind: a slow sway that travels across the island, a little stronger in a gust
           let lean = Math.sin(t * 1.7 + bx * 0.9 + by * 0.5) * (0.16 + 0.22 * gust) + 0.06, flat = 1;
           // walkers: blades lean away from a foot nearby and flatten under it

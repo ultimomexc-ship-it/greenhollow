@@ -28945,7 +28945,7 @@ function drawJuice(c, now) {
     }
   }
 }
-const GRASS = { on: true, minZoom: 0.9, tufts: 3, trail: [], plaza: null, plazaN: -1 };
+const GRASS = { on: true, minZoom: 0.9, tufts: 8, trail: [], plaza: null, plazaN: -1 };
 const grHash = (x, y, i) => {
   let h = x * 374761393 + y * 668265263 + i * 2147483647 | 0;
   h = (h ^ h >>> 13) * 1274126177;
@@ -28986,7 +28986,7 @@ YSORT.push(function(c, now) {
       for (let x = x0; x <= x1; x++) {
         if (row[x] !== T.GRASS || town.propAt && town.propAt.get(y * W + x) || roomAt[y][x] >= 0 || GRASS.plaza.has(y * W + x) || !grOpen(x - 1, y) || !grOpen(x + 1, y) || !grOpen(x, y - 1) || !grOpen(x, y + 1)) continue;
         for (let i = 0; i < GRASS.tufts; i++) {
-          const hx = grHash(x, y, i), hy = grHash(x, y, i + 17), bx = x + 0.12 + hx * 0.76, by = y + 0.4 + hy * 0.55, len = 0.2 + grHash(x, y, i + 31) * 0.16;
+          const hx = grHash(x, y, i), hy = grHash(x, y, i + 17), bx = x + 0.12 + hx * 0.76, by = y + 0.4 + hy * 0.55, len = 0.22 + grHash(x, y, i + 31) * 0.2;
           let lean = Math.sin(t * 1.7 + bx * 0.9 + by * 0.5) * (0.16 + 0.22 * gust) + 0.06, flat = 1;
           for (const b of near) {
             const dx = bx - b.x, dy = by - b.y, d = Math.hypot(dx, dy);
