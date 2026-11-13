@@ -23,10 +23,6 @@ function jFly(x: number, y: number, kind: string, col: string, delay = 0, who: a
 function jShake(px: number) { JUICE.shake = Math.max(JUICE.shake, px); }
 const jTile = (x: number, y: number) => ({ x: x * TS + TS / 2, y: y * TS + TS / 2 });
 const jSemi = (n: number) => Math.pow(2, Math.min(14, n) / 12);
-/** consecutive farm work within a moment climbs a scale */
-function jCombo(job: string): number {
-  const c = JUICE.combo, now = jNow(); if (c.job === job && now - c.t < 2600) c.n++; else { c.job = job; c.n = 0; } c.t = now; return c.n;
-}
 const J_SCALE = [0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19, 21, 23, 24];   // (a major scale: a row of plots plays it upward)
 
 /* ---- the sounds ---- */
@@ -43,25 +39,16 @@ function jsStrike(tool: string, vol = 1) { if (!sndReady() || vol <= 0) return;
   if (tool === 'hoe') { sndNoise(0.09, 'lowpass', 700, 0.14 * vol, 200); sndTone(120, 0.1, 'sine', 0.13 * vol, 60); sndNoise(0.05, 'bandpass', 1800, 0.04 * vol, undefined, 0.02); }
   else if (tool === 'axe') { sndNoise(0.05, 'bandpass', 1900, 0.13 * vol); sndTone(320, 0.08, 'triangle', 0.1 * vol, 190); sndNoise(0.12, 'lowpass', 900, 0.06 * vol, 300, 0.02); }
   else if (tool === 'hammer') { sndTone(980, 0.09, 'square', 0.05 * vol, 700); sndTone(1460, 0.12, 'sine', 0.05 * vol, undefined, 0.01); sndNoise(0.05, 'highpass', 3200, 0.07 * vol); } }
-/** a snore, the gentle cartoon kind: a slow soft breath in through the nose (filtered noise opening up, with a faint purr under it) and a little
-   falling whistle on the way out. vol by distance, pan by which side of you the sleeper is, deep < 1 lower (bigger people), > 1 higher (children) */
+/** a snore: a little falling whistle, with a soft wobble (the breath and purr before it were disliked). vol by distance, pan by which side of you
+   the sleeper is, deep < 1 lower (bigger people), > 1 higher (children) */
 function jsSnore(vol: number, pan: number, deep: number) {
   if (!sndReady() || vol <= 0.02) return; const c = SND.ctx, t = c.currentTime;
   const out = c.createGain(); out.gain.value = Math.min(1, vol * 1.1);
   if (c.createStereoPanner) { const p = c.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); out.connect(p); p.connect(SND.master); } else out.connect(SND.master);
-  const env = (g: any, at: number, up: number, peak: number, down: number) => { g.gain.setValueAtTime(0.0001, t + at); g.gain.exponentialRampToValueAtTime(peak, t + at + up); g.gain.exponentialRampToValueAtTime(0.0001, t + at + up + down); };
-  // in: breath through the nose
-  const s = c.createBufferSource(), lp = c.createBiquadFilter(), g = c.createGain();
-  s.buffer = SND.noiseBuf; lp.type = 'lowpass'; lp.Q.value = 4; lp.frequency.setValueAtTime(260 * deep, t); lp.frequency.linearRampToValueAtTime(620 * deep, t + 1.1);
-  env(g, 0, 0.8, 0.32, 0.45); s.connect(lp); lp.connect(g); g.connect(out); s.start(t, Math.random()); s.stop(t + 1.35);
-  // a faint purr under it (soft, round, slow flutter)
-  const o = c.createOscillator(), og = c.createGain(), am = c.createGain(), lfo = c.createOscillator(), lg = c.createGain(), olp = c.createBiquadFilter();
-  o.type = 'triangle'; o.frequency.value = 95 * deep; lfo.frequency.value = 14; lg.gain.value = 0.35; am.gain.value = 0.65; lfo.connect(lg); lg.connect(am.gain);
-  olp.type = 'lowpass'; olp.frequency.value = 420; env(og, 0.25, 0.55, 0.07, 0.4); o.connect(am); am.connect(olp); olp.connect(og); og.connect(out); o.start(t); lfo.start(t); o.stop(t + 1.3); lfo.stop(t + 1.3);
-  // out: a little whistle, falling
   const w = c.createOscillator(), wg = c.createGain(), vib = c.createOscillator(), vg = c.createGain();
-  w.type = 'sine'; w.frequency.setValueAtTime(980 * deep, t + 1.5); w.frequency.exponentialRampToValueAtTime(620 * deep, t + 2.25); vib.frequency.value = 6; vg.gain.value = 12; vib.connect(vg); vg.connect(w.frequency);
-  env(wg, 1.5, 0.12, 0.045, 0.65); w.connect(wg); wg.connect(out); w.start(t + 1.5); vib.start(t + 1.5); w.stop(t + 2.35); vib.stop(t + 2.35);
+  w.type = 'sine'; w.frequency.setValueAtTime(980 * deep, t); w.frequency.exponentialRampToValueAtTime(620 * deep, t + 0.75); vib.frequency.value = 6; vg.gain.value = 12; vib.connect(vg); vg.connect(w.frequency);
+  wg.gain.setValueAtTime(0.0001, t); wg.gain.exponentialRampToValueAtTime(0.06, t + 0.12); wg.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
+  w.connect(wg); wg.connect(out); w.start(t); vib.start(t); w.stop(t + 0.85); vib.stop(t + 0.85);
 }
 function jsDing() { if (!sndReady()) return; sndTone(880, 0.16, 'sine', 0.07); sndTone(1320, 0.28, 'sine', 0.05, undefined, 0.07); }
 function jsCrack() { if (!sndReady()) return; sndNoise(0.12, 'bandpass', 1100, 0.2, 400); sndTone(160, 0.1, 'square', 0.06, 70); sndNoise(0.25, 'lowpass', 300, 0.08, 120, 0.06); }
@@ -81,11 +68,10 @@ function jsVoice(n: any, text: string) {
 const _jFinish = playerFinish; playerFinish = function (n, a) {
   const r = _jFinish(n, a); if (!n || !n.player || !a || !a.key) return r;
   const m = /^crop(\d+),(\d+)([psh])/.exec(a.key); if (m) {
-    const x = +m[1], y = +m[2], p = jTile(x, y), job = m[3], k = jCombo(job);
+    const x = +m[1], y = +m[2], p = jTile(x, y), job = m[3], k = 0;   // (every plot sounds the same: no climbing scale and no x3, x4 over your head, the owner's call)
     if (job === 'p') { jsPlough(k); jBurst(p.x, p.y + 4, 12, 'dot', ['#6b4a2b', '#8a6239', '#4e3420'], 1.1, 0.8); jShake(1.6); }
     if (job === 's') { jsSow(k); jBurst(p.x, p.y, 7, 'spark', ['#c8e86a', '#f4d36a', '#ffffff'], 0.7, 0.6); }
     if (job === 'h') { jsHarvest(k); jBurst(p.x, p.y, 10, 'leaf', ['#5fae3a', '#7fcf4a', '#3e8a2a'], 1.2, 1); jShake(1.2); jBuzz(12); }   // (the crop itself comes up plant by plant and flies to you: jPullFly)
-    if (k >= 2) addPop(n.x * TS + TS / 2, n.y * TS - 18, 'x' + (k + 1), k >= 6 ? '#ffb347' : '#ffe08a');
     return r;
   }
   if (/^(tree|rock)/.test(a.key)) { const f = lf2Front(n), p = jTile(f.x, f.y); jBurst(p.x, p.y, 10, 'dot', /^tree/.test(a.key) ? ['#7a5230', '#5fae3a'] : ['#9a9a9a', '#cfcfcf'], 1.2, 1); jShake(2.4); }
@@ -157,6 +143,9 @@ function drawJuice(c: any, now: number) {
     const t = age / 1000, k = age / q.life; c.save(); c.globalAlpha = q.kind === 'confetti' ? Math.min(1, (1 - k) * 2) : 1 - k * k;
     if (q.kind === 'fly') {   // (an arc from the plot to you)
       const T = q.who || P, tx = T ? T.x * TS + TS / 2 : q.x0, ty = T ? T.y * TS + (q.who ? 8 : 2) : q.y0, e = k * k * (3 - 2 * k), x = q.x0 + (tx - q.x0) * e, y = q.y0 + (ty - q.y0) * e - Math.sin(k * Math.PI) * 26;
+      if (q.plant) {   // (the whole plant, as it stood, shrinking a little as it goes into the pack)
+        const sc = TS / 24 * (1 - k * 0.45), pl = q.plant; c.translate(x, y); c.rotate(Math.sin(k * Math.PI) * 0.5 * (pl.j === 0 ? -1 : 1)); c.scale(sc / (TS / 24), sc / (TS / 24)); c.scale(TS / 24, TS / 24);
+        c.translate(-CROP_COL[pl.j], -CROP_ROW[pl.i] + 3); ART.plantsDraw(c, 0, pl.seed || 'barley', 4, (i, j) => i === pl.i && j === pl.j); c.restore(); continue; }
       c.fillStyle = q.col; c.strokeStyle = 'rgba(40,25,10,.7)'; c.lineWidth = 1; c.beginPath(); c.arc(x, y, q.s * (1 - k * 0.4), 0, 6.3); c.fill(); c.stroke();
       if (q.icon === 'crop') { c.fillStyle = '#5fae3a'; c.fillRect(x - 1, y - q.s - 3, 2, 3); } else { c.fillStyle = '#fff6c0'; c.fillRect(x - 1, y - 1, 1.6, 1.6); }
       c.restore(); continue;
@@ -177,6 +166,6 @@ function drawJuice(c: any, now: number) {
 function jPullFly(t: any, seed: any, who: any, cx: number, cy: number) {
   const k = TS / 24, x = t.x * TS + cx * k, y = t.y * TS + cy * k - 3, col = (seed && IT_SEEDS[seed] && IT_SEEDS[seed].col) || '#e0c060';
   jBurst(x, y + 2, 4, 'dot', ['#6b4a2b', '#8a6239'], 0.6, 0.5);
-  jFly(x, y, 'crop', col, 0, who);
+  jFly(x, y, 'crop', col, 0, who); const fl = JUICE.parts[JUICE.parts.length - 1]; fl.plant = { seed, i: CROP_ROW.indexOf(cy), j: CROP_COL.indexOf(cx) }; fl.life = 600;
   const v = who && who.player ? 0.8 : sndAt(t.x, t.y) * 0.5; if (v > 0.05 && typeof sndTone === 'function' && sndReady()) { sndTone(jRand(520, 680), 0.06, 'sine', 0.05 * v, 900); sndNoise(0.05, 'lowpass', 900, 0.03 * v); }
 }

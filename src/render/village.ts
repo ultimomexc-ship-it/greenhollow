@@ -238,13 +238,12 @@ function drawDoors(c, dt) {
    part of the harvest: when the last plant is up the plot is plain ploughed earth again. */
 const CROP_COL = [4.4, 12, 19.6], CROP_ROW = [7, 14.6, 22.2], PULL_ORDER = [6, 7, 8, 3, 4, 5, 0, 1, 2];   // (row * 3 + column)
 function cropPit(c, x, y, k, h) {
-  const rx = (2.5 + h * 0.4) * k, ry = (1.45 + h * 0.2) * k, sd = h < 0.5 ? -1 : 1;
-  c.fillStyle = '#9a7048'; for (let q = 0; q < 3; q++) { c.beginPath(); c.arc(x + sd * (rx + (0.6 + q * 0.7) * k), y + (q - 1) * 0.7 * k, (0.55 - q * 0.1) * k, 0, 6.3); c.fill(); }   // (crumbs thrown out)
-  c.save(); c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, 6.3); c.fillStyle = '#140b05'; c.fill(); c.clip();
-  const g = c.createLinearGradient(0, y - ry, 0, y + ry * 0.3); g.addColorStop(0, '#7a5230'); g.addColorStop(0.55, '#3a2312'); g.addColorStop(1, '#0c0603');
-  c.fillStyle = g; c.beginPath(); c.ellipse(x, y - ry * 0.55, rx * 1.05, ry, 0, 0, 6.3); c.fill();
+  const rx = (2.6 + h * 0.4) * k, ry = (1.6 + h * 0.2) * k;
+  c.fillStyle = 'rgba(20,10,4,.45)'; c.beginPath(); c.ellipse(x, y + 0.2 * k, rx + 0.5 * k, ry + 0.45 * k, 0, 0, 6.3); c.fill();   // (the soft shade round its edge)
+  c.save(); c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, 6.3); c.fillStyle = '#0d0703'; c.fill(); c.clip();
+  const g = c.createLinearGradient(0, y - ry, 0, y + ry * 0.2); g.addColorStop(0, '#5e3d22'); g.addColorStop(0.6, '#2a1809'); g.addColorStop(1, '#0d0703');   // (the far wall inside, lit from above, going dark toward the bottom)
+  c.fillStyle = g; c.beginPath(); c.ellipse(x, y - ry * 0.6, rx * 1.1, ry, 0, 0, 6.3); c.fill();
   c.restore();
-  c.strokeStyle = '#b08458'; c.lineWidth = 0.9 * k; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0.3, Math.PI - 0.3); c.stroke();   // (the near lip, in the light)
 }
 /* pulling is the harvest's progress: one plant comes up with each ninth of it (the first at once), each flying to the one pulling; let go before
    the last and the plot is whole again (nothing was harvested). PULLS remembers how many have flown for each plot being pulled. */

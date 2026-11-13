@@ -16527,33 +16527,26 @@ function drawDoors(c, dt) {
 }
 const CROP_COL = [4.4, 12, 19.6], CROP_ROW = [7, 14.6, 22.2], PULL_ORDER = [6, 7, 8, 3, 4, 5, 0, 1, 2];
 function cropPit(c, x, y, k, h) {
-  const rx = (2.5 + h * 0.4) * k, ry = (1.45 + h * 0.2) * k, sd = h < 0.5 ? -1 : 1;
-  c.fillStyle = "#9a7048";
-  for (let q = 0; q < 3; q++) {
-    c.beginPath();
-    c.arc(x + sd * (rx + (0.6 + q * 0.7) * k), y + (q - 1) * 0.7 * k, (0.55 - q * 0.1) * k, 0, 6.3);
-    c.fill();
-  }
+  const rx = (2.6 + h * 0.4) * k, ry = (1.6 + h * 0.2) * k;
+  c.fillStyle = "rgba(20,10,4,.45)";
+  c.beginPath();
+  c.ellipse(x, y + 0.2 * k, rx + 0.5 * k, ry + 0.45 * k, 0, 0, 6.3);
+  c.fill();
   c.save();
   c.beginPath();
   c.ellipse(x, y, rx, ry, 0, 0, 6.3);
-  c.fillStyle = "#140b05";
+  c.fillStyle = "#0d0703";
   c.fill();
   c.clip();
-  const g = c.createLinearGradient(0, y - ry, 0, y + ry * 0.3);
-  g.addColorStop(0, "#7a5230");
-  g.addColorStop(0.55, "#3a2312");
-  g.addColorStop(1, "#0c0603");
+  const g = c.createLinearGradient(0, y - ry, 0, y + ry * 0.2);
+  g.addColorStop(0, "#5e3d22");
+  g.addColorStop(0.6, "#2a1809");
+  g.addColorStop(1, "#0d0703");
   c.fillStyle = g;
   c.beginPath();
-  c.ellipse(x, y - ry * 0.55, rx * 1.05, ry, 0, 0, 6.3);
+  c.ellipse(x, y - ry * 0.6, rx * 1.1, ry, 0, 0, 6.3);
   c.fill();
   c.restore();
-  c.strokeStyle = "#b08458";
-  c.lineWidth = 0.9 * k;
-  c.beginPath();
-  c.ellipse(x, y, rx, ry, 0, 0.3, Math.PI - 0.3);
-  c.stroke();
 }
 const PULLS = /* @__PURE__ */ new Map();
 function cropPulling(c, t, st, sd, n, now) {
@@ -28875,16 +28868,6 @@ function jShake(px) {
 }
 const jTile = (x, y) => ({ x: x * TS + TS / 2, y: y * TS + TS / 2 });
 const jSemi = (n) => Math.pow(2, Math.min(14, n) / 12);
-function jCombo(job) {
-  const c = JUICE.combo, now = jNow();
-  if (c.job === job && now - c.t < 2600) c.n++;
-  else {
-    c.job = job;
-    c.n = 0;
-  }
-  c.t = now;
-  return c.n;
-}
 const J_SCALE = [0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19, 21, 23, 24];
 function jsPlough(k) {
   if (!sndReady()) return;
@@ -28967,57 +28950,23 @@ function jsSnore(vol, pan, deep) {
     out.connect(p);
     p.connect(SND.master);
   } else out.connect(SND.master);
-  const env = (g2, at, up, peak, down) => {
-    g2.gain.setValueAtTime(1e-4, t + at);
-    g2.gain.exponentialRampToValueAtTime(peak, t + at + up);
-    g2.gain.exponentialRampToValueAtTime(1e-4, t + at + up + down);
-  };
-  const s = c.createBufferSource(), lp = c.createBiquadFilter(), g = c.createGain();
-  s.buffer = SND.noiseBuf;
-  lp.type = "lowpass";
-  lp.Q.value = 4;
-  lp.frequency.setValueAtTime(260 * deep, t);
-  lp.frequency.linearRampToValueAtTime(620 * deep, t + 1.1);
-  env(g, 0, 0.8, 0.32, 0.45);
-  s.connect(lp);
-  lp.connect(g);
-  g.connect(out);
-  s.start(t, Math.random());
-  s.stop(t + 1.35);
-  const o = c.createOscillator(), og = c.createGain(), am = c.createGain(), lfo = c.createOscillator(), lg = c.createGain(), olp = c.createBiquadFilter();
-  o.type = "triangle";
-  o.frequency.value = 95 * deep;
-  lfo.frequency.value = 14;
-  lg.gain.value = 0.35;
-  am.gain.value = 0.65;
-  lfo.connect(lg);
-  lg.connect(am.gain);
-  olp.type = "lowpass";
-  olp.frequency.value = 420;
-  env(og, 0.25, 0.55, 0.07, 0.4);
-  o.connect(am);
-  am.connect(olp);
-  olp.connect(og);
-  og.connect(out);
-  o.start(t);
-  lfo.start(t);
-  o.stop(t + 1.3);
-  lfo.stop(t + 1.3);
   const w = c.createOscillator(), wg = c.createGain(), vib = c.createOscillator(), vg = c.createGain();
   w.type = "sine";
-  w.frequency.setValueAtTime(980 * deep, t + 1.5);
-  w.frequency.exponentialRampToValueAtTime(620 * deep, t + 2.25);
+  w.frequency.setValueAtTime(980 * deep, t);
+  w.frequency.exponentialRampToValueAtTime(620 * deep, t + 0.75);
   vib.frequency.value = 6;
   vg.gain.value = 12;
   vib.connect(vg);
   vg.connect(w.frequency);
-  env(wg, 1.5, 0.12, 0.045, 0.65);
+  wg.gain.setValueAtTime(1e-4, t);
+  wg.gain.exponentialRampToValueAtTime(0.06, t + 0.12);
+  wg.gain.exponentialRampToValueAtTime(1e-4, t + 0.8);
   w.connect(wg);
   wg.connect(out);
-  w.start(t + 1.5);
-  vib.start(t + 1.5);
-  w.stop(t + 2.35);
-  vib.stop(t + 2.35);
+  w.start(t);
+  vib.start(t);
+  w.stop(t + 0.85);
+  vib.stop(t + 0.85);
 }
 function jsDing() {
   if (!sndReady()) return;
@@ -29063,7 +29012,7 @@ playerFinish = function(n, a) {
   if (!n || !n.player || !a || !a.key) return r;
   const m = /^crop(\d+),(\d+)([psh])/.exec(a.key);
   if (m) {
-    const x = +m[1], y = +m[2], p = jTile(x, y), job = m[3], k = jCombo(job);
+    const x = +m[1], y = +m[2], p = jTile(x, y), job = m[3], k = 0;
     if (job === "p") {
       jsPlough(k);
       jBurst(p.x, p.y + 4, 12, "dot", ["#6b4a2b", "#8a6239", "#4e3420"], 1.1, 0.8);
@@ -29079,7 +29028,6 @@ playerFinish = function(n, a) {
       jShake(1.2);
       jBuzz(12);
     }
-    if (k >= 2) addPop(n.x * TS + TS / 2, n.y * TS - 18, "x" + (k + 1), k >= 6 ? "#ffb347" : "#ffe08a");
     return r;
   }
   if (/^(tree|rock)/.test(a.key)) {
@@ -29247,6 +29195,17 @@ function drawJuice(c, now) {
     c.globalAlpha = q.kind === "confetti" ? Math.min(1, (1 - k) * 2) : 1 - k * k;
     if (q.kind === "fly") {
       const T2 = q.who || P, tx = T2 ? T2.x * TS + TS / 2 : q.x0, ty = T2 ? T2.y * TS + (q.who ? 8 : 2) : q.y0, e = k * k * (3 - 2 * k), x2 = q.x0 + (tx - q.x0) * e, y2 = q.y0 + (ty - q.y0) * e - Math.sin(k * Math.PI) * 26;
+      if (q.plant) {
+        const sc = TS / 24 * (1 - k * 0.45), pl = q.plant;
+        c.translate(x2, y2);
+        c.rotate(Math.sin(k * Math.PI) * 0.5 * (pl.j === 0 ? -1 : 1));
+        c.scale(sc / (TS / 24), sc / (TS / 24));
+        c.scale(TS / 24, TS / 24);
+        c.translate(-CROP_COL[pl.j], -CROP_ROW[pl.i] + 3);
+        ART.plantsDraw(c, 0, pl.seed || "barley", 4, (i2, j) => i2 === pl.i && j === pl.j);
+        c.restore();
+        continue;
+      }
       c.fillStyle = q.col;
       c.strokeStyle = "rgba(40,25,10,.7)";
       c.lineWidth = 1;
@@ -29297,6 +29256,9 @@ function jPullFly(t, seed, who, cx, cy) {
   const k = TS / 24, x = t.x * TS + cx * k, y = t.y * TS + cy * k - 3, col = seed && IT_SEEDS[seed] && IT_SEEDS[seed].col || "#e0c060";
   jBurst(x, y + 2, 4, "dot", ["#6b4a2b", "#8a6239"], 0.6, 0.5);
   jFly(x, y, "crop", col, 0, who);
+  const fl = JUICE.parts[JUICE.parts.length - 1];
+  fl.plant = { seed, i: CROP_ROW.indexOf(cy), j: CROP_COL.indexOf(cx) };
+  fl.life = 600;
   const v = who && who.player ? 0.8 : sndAt(t.x, t.y) * 0.5;
   if (v > 0.05 && typeof sndTone === "function" && sndReady()) {
     sndTone(jRand(520, 680), 0.06, "sine", 0.05 * v, 900);
