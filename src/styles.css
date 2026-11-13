@@ -262,3 +262,17 @@ body.buildmode .stage canvas { outline: 4px solid #4a8ee8; outline-offset: -4px;
 
 .cardveil { position: absolute; inset: 0; z-index: 44; background: rgba(0,0,0,.55); }
 body.tut2-seedglow #hotbar .hbslots .hbslot:first-child { animation: tutbounce .8s ease-in-out infinite; box-shadow: 0 0 0 3px #f4c542, 0 0 14px #f4c542; }
+
+/* juice: the shop shines on a trade, the item card and popups land with a bounce, the strip pops when it changes */
+.shoppanel.jshine { animation: jshine .45s ease-out; }
+@keyframes jshine { 0% { box-shadow: 0 0 0 0 rgba(244,197,66,.9), 0 10px 30px rgba(0,0,0,.5); } 100% { box-shadow: 0 0 0 18px rgba(244,197,66,0), 0 10px 30px rgba(0,0,0,.5); } }
+.itemcard { animation: jcardin .42s cubic-bezier(.2,1.6,.4,1); } .itemcard .icpic { animation: jicon 1.6s ease-in-out infinite; }
+@keyframes jcardin { from { transform: translate(-50%, -40%) scale(.7); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+@keyframes jicon { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-4px) rotate(2deg); } }
+.itemcard .icpic { box-shadow: 0 0 22px rgba(244,197,66,.35) inset; }
+.tutpop.in { animation: jpopin .45s cubic-bezier(.2,1.6,.4,1); }
+@keyframes jpopin { from { transform: translate(-50%, -18px) scale(.6); opacity: 0; } to { transform: translate(-50%, 0) scale(1); opacity: 1; } }
+.tutstrip { transition: transform .2s; } .tutstrip.jpop { animation: jstrip .4s cubic-bezier(.2,1.8,.4,1); }
+@keyframes jstrip { from { transform: translateX(-50%) scale(.85); } to { transform: translateX(-50%) scale(1); } }
+.shoppanel .sptile { transition: transform .12s; } .shoppanel .sptile:hover { transform: translateY(-2px); }
+.btn:active { transform: scale(.94); }

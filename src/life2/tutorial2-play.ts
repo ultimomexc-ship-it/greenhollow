@@ -14,7 +14,7 @@ function tut2Hud() {
   const flash = ui && ui.flash && performance.now() < ui.flash.until ? ui.flash.text : null, strip = on ? (flash || ui.strip) : null;
   const sig = [on, strip, !!flash, show.tools, show.slots, ui && ui.fade].join('|'); if (sig === tut2HudSig) return; tut2HudSig = sig;
   const b = document.body.classList; b.toggle('tut2', on); b.toggle('tut2-notools', on && !show.tools); b.toggle('tut2-noslots', on && !show.slots);
-  const s = tut2Dom('tutstrip', 'tutstrip'); if (s) { s.hidden = !strip; s.textContent = strip || ''; s.classList.toggle('flash', !!flash); }
+  const s = tut2Dom('tutstrip', 'tutstrip'); if (s) { const changed = s.textContent !== (strip || ''); s.hidden = !strip; s.textContent = strip || ''; s.classList.toggle('flash', !!flash); if (changed && strip && !flash) { s.classList.remove('jpop'); void s.offsetWidth; s.classList.add('jpop'); } }   // (a new instruction pops in)
   const f = tut2Dom('tutfade', 'tutfade'); if (f) f.style.opacity = String(on ? ui.fade || 0 : 0);
 }
 /** a set of tiles by name, as the scenes name them */
