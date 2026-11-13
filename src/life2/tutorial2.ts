@@ -12,7 +12,8 @@ const TUT2_MAP = {
   house: { w: 5, h: 3 }, door: [2, 2], window: [3, 0], bed: [1, 1], start: [2, 1], out: [2, 3],
   patch: { x: 7, y: 0, w: 3, h: 3 }, watch: [6, 1],                              // (where Paullus stands to watch the patch: west of its middle row)
   yard: { x: 13, y: -1, w: 6, h: 5 }, gate: [13, 1], jbed: [14, 0], jfield: [[15, 1], [16, 1], [17, 1], [15, 2], [16, 2], [17, 2]],
-  box: { x0: -1, y0: -2, x1: 19, y1: 4 }                                        // (all of it, with a tile round it, must be clear grass)
+  own: { x: -1, y: -1, w: 13, h: 7 }, ownGate: [2, 5],                          // (your own yard: a fence ring round the house and the patch, the gate below the door: in the Hamlet only a fenced yard makes ground yours)
+  box: { x0: -2, y0: -2, x1: 19, y1: 6 }                                        // (all of it, with a tile round it, must be clear grass)
 };
 /** find a clear piece of ground near the stall for the whole layout and keep its places in town.tut2.at */
 function tut2Layout(st: any): any {
@@ -22,7 +23,7 @@ function tut2Layout(st: any): any {
   const clearable = (x: number, y: number) => (grid[y][x] === T.TREE || grid[y][x] === T.ROCK) && !lfPropAt(x, y) && roomAt[y][x] < 0;   // (a few trees and rocks are cleared away)
   let best: any = null, bs = 1e9;
   for (let oy = sy - 26; oy <= sy + 26; oy++) for (let ox = sx - 34; ox <= sx + 26; ox++) {
-    const yc = { x: ox + M.yard.x + 3, y: oy + M.yard.y + 2 }, hc = { x: ox + 2, y: oy + 1 };
+    const yc = { x: ox + M.yard.x + 3, y: oy + M.yard.y + 2 }, hc = { x: ox + 2, y: oy + 3 };
     const dY = Math.hypot(yc.x - sx, yc.y - sy), dH = Math.hypot(hc.x - sx, hc.y - sy); if (dY > 11 || dH > 20) continue;
     let s = dY + dH * 0.5; if (s >= bs) continue;
     let ok = true; for (let y = oy + M.box.y0; y <= oy + M.box.y1 && ok; y++) for (let x = ox + M.box.x0; x <= ox + M.box.x1 && ok; x++) {
@@ -34,7 +35,8 @@ function tut2Layout(st: any): any {
   if (!best) return null;
   const o = best, P = (p: number[]) => ({ x: o.x + p[0], y: o.y + p[1] });
   const at: any = { o, door: P(M.door), out: P(M.out), bed: P(M.bed), start: P(M.start), window: P(M.window), watch: P(M.watch), gate: P(M.gate), jbed: P(M.jbed), jfield: M.jfield.map(P),
-    keep: { x: st.x, y: st.y }, front: { x: st.front.x, y: st.front.y }, patch: [], house: [], yard: [] };
+    keep: { x: st.x, y: st.y }, front: { x: st.front.x, y: st.front.y }, patch: [], house: [], yard: [], own: [], ownGate: P(M.ownGate) };
+  for (let j = 0; j < M.own.h; j++) for (let i = 0; i < M.own.w; i++) if (i === 0 || j === 0 || i === M.own.w - 1 || j === M.own.h - 1) at.own.push({ x: o.x + M.own.x + i, y: o.y + M.own.y + j });
   for (let j = 0; j < M.patch.h; j++) for (let i = 0; i < M.patch.w; i++) at.patch.push({ x: o.x + M.patch.x + i, y: o.y + M.patch.y + j });
   for (let j = 0; j < M.house.h; j++) for (let i = 0; i < M.house.w; i++) if (i === 0 || j === 0 || i === M.house.w - 1 || j === M.house.h - 1) at.house.push({ x: o.x + i, y: o.y + j });
   for (let j = 0; j < M.yard.h; j++) for (let i = 0; i < M.yard.w; i++) if (i === 0 || j === 0 || i === M.yard.w - 1 || j === M.yard.h - 1) at.yard.push({ x: o.x + M.yard.x + i, y: o.y + M.yard.y + j });
@@ -59,6 +61,8 @@ function tut2Start(P: any, TR: any, st: any) {
   const bed: any = lfAddProp('bed', at.bed.x, at.bed.y); bed.v = 2; bed.rot = 0; bed.owner = P; P.bed = bed; P.homeless = false;
   if (typeof visHomes === 'function') visHomes();
   { const r = rooms.find((q: any) => !q.dead && q.cells && q.cells.has(at.bed.x + at.bed.y * W)); if (r) { P.homeRoom = r; r.name = 'The old house'; at.room = r.id; } }
+  // your yard: a ring of fence with a gate round the house and the patch (Paullus's old place; in the Hamlet ground is yours inside your own fence)
+  for (const c of at.own) { const g = c.x === at.ownGate.x && c.y === at.ownGate.y; const f: any = lfAddProp(g ? 'gate' : 'fence', c.x, c.y); f.rot = 0; }
   // the patch: nine raw plots
   for (const c of at.patch) { setT(c.x, c.y, T.CROP); town.crops.push({ x: c.x, y: c.y, f: 'tut', pl: 0, st: 0, t0: 0, byField: P.id }); markDirty(c.x, c.y, 1, 1); }
   town.gridV = (town.gridV || 0) + 1;
@@ -72,7 +76,7 @@ function tut2Start(P: any, TR: any, st: any) {
 const TUT2: any = { st: null, skip: false, bubbleEnd: 0, t: 0, nudged: false, waitT: 0, last: null };
 const tut2Who = (w: string): any => { if (!town.tut2) return null; if (w === 'you') return game.player; const id = town.tut2.who[w]; return id != null ? byId(id) : null; };
 /** a place name or a {x,y} or a person: where it is */
-function tut2Pos(p: any): any { if (!p) return null; if (typeof p === 'function') return tut2Pos(p()); if (typeof p === 'string') { const n = tut2Who(p); if (n) return { x: n.tx, y: n.ty }; return town.tut2.at[p] || null; } return p; }
+function tut2Pos(p: any): any { if (!p) return null; if (typeof p === 'function') return tut2Pos(p(town.tut2)); if (typeof p === 'string') { const n = tut2Who(p); if (n) return { x: n.tx, y: n.ty }; return town.tut2.at[p] || null; } return p; }
 const tut2Adj = (a: any, b: any) => !!a && !!b && Math.abs(a.x - b.x) + Math.abs(a.y - b.y) === 1;
 const tut2NextTo = (who: any, tiles: any[]) => tiles.some(t => tut2Adj({ x: who.tx, y: who.ty }, t));
 /** walk a held villager to a tile (the normal path) */
@@ -116,6 +120,7 @@ if (typeof window !== 'undefined') {
 const tut2Scene = (): any[] => TUT2_SCENES[town.tut2.scene] || [];
 /** one frame of the tutorial (real seconds) */
 function tut2Tick(dt: number) {
+  if (typeof tut2Hud === 'function') tut2Hud(); if (typeof tut2After === 'function' && town) tut2After();
   if (!tut2Active()) return; const T2 = town.tut2;
   for (let guard = 0; guard < 40; guard++) {
     const sc = tut2Scene(); if (!sc.length) { T2.done = true; return; }
@@ -139,8 +144,9 @@ function tut2Begin(s: any): boolean {
     case 'face': { const n = tut2Who(s.who); tut2Face(n, s.dir ? { dir: s.dir } : (typeof s.to === 'string' && tut2Who(s.to)) || tut2Pos(s.to)); return false; }
     case 'give': s.fn(game.player, T2); return false;
     case 'strip': ui.strip = s.text || null; return false;
-    case 'arrow': ui.arrow = s.to ? { to: s.to, at: performance.now() } : null; return false;
-    case 'mark': ui.marks = s.tiles ? [{ tiles: s.tiles, kind: s.kind || 'tile', done: s.done || null }] : []; return false;
+    case 'arrow': ui.arrow = s.to ? { to: s.to, done: s.done || null } : null; return false;
+    case 'mark': ui.marks = s.tiles ? [Object.assign({}, s, { do: undefined })] : []; return false;
+    case 'fade': TUT2.f0 = ui.fade || 0; return true;
     case 'time': TUT2.time0 = game.time; TUT2.time1 = Math.floor(game.time / 1440) * 1440 + s.at + (s.nextDay ? 1440 : 0); if (!s.over) { game.time = game.ft = TUT2.time1; return false; } return true;
     case 'wait': return !s.until(T2);
   }
@@ -152,6 +158,7 @@ function tut2Going(s: any, dt: number): boolean {
   switch (s.do) {
     case 'say': case 'think': if (TUT2.skip) { TUT2.skip = false; for (let i = bubbles.length - 1; i >= 0; i--) if (bubbles[i].tut) bubbles[i].until = performance.now(); return false; } return performance.now() < TUT2.bubbleEnd;
     case 'walk': { const n = tut2Who(s.who); if (!n) return false; if (!n.moving) { const to = tut2Pos(s.to); if (to && (n.tx !== to.x || n.ty !== to.y) && TUT2.t > 0.5 && Math.floor(TUT2.t) !== Math.floor(TUT2.t - dt)) tut2Walk(n, to); } return !!n.moving || TUT2.t < 0.05; }
+    case 'fade': { const k = Math.min(1, TUT2.t / s.over); town.tut2.ui.fade = TUT2.f0 + (s.to - TUT2.f0) * k; return k < 1; }
     case 'time': { const k = Math.min(1, TUT2.t / s.over); game.time = game.ft = TUT2.time0 + (TUT2.time1 - TUT2.time0) * k; return k < 1; }
     case 'wait': {
       if (s.until(T2)) return false;

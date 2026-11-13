@@ -233,7 +233,7 @@ YSORT.push(function (c, now) {
   for (const pr of town.props || []) {
     if (!gaOnScreen(pr.x, pr.y, 2)) continue;
     const [px, py] = lfPropPos(pr, now);   // (life2/push.ts: follows the player's step when pushed by the player)
-    out.push({ k: py - 0.015, f: () => { gaDraw(c, lfPropArt(pr), px * TS, py * TS, now, 0); } });
+    out.push({ k: py - 0.015, f: () => { const open = pr.kind === 'gate' && tileOwner.get(pr.y * W + pr.x); if (open) { c.save(); c.globalAlpha = 0.3; } gaDraw(c, lfPropArt(pr), px * TS, py * TS, now, 0); if (open) c.restore(); } });   // (a gate stands open while somebody is in it)
   }
   return out;
 });

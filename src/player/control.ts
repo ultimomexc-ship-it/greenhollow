@@ -201,7 +201,8 @@ function tickPlayer0(n, dt) {
     // Push mode: people are pushed like furniture (they move one tile, or you swap places); it is harmless, not a crime
     if (itHand(n, 'push') && occ && occ !== n && !occ.infant) { pushed = true; if (!tg) occ = null; }   // (a person is a piece in the line: lifeAct has pushed them, or said why not)
     if (occ && occ !== n && !occ.infant && !pushed) {
-      if (occ.tutHold) tg = { msg: occ.first + ': ' + tut2Bump(occ) };   // (the tutorial holds them: no talk menu)
+      if (occ.shop && occ.shop.def === HAMLET_TRADER_DEF && Math.abs(occ.shop.front.x - n.tx) + Math.abs(occ.shop.front.y - n.ty) <= 1.5 && typeof shopOpen === 'function') tg = { key: 'tstall' + occ.id, min: 0.4, text: 'At the trading stall', tool: null, run() { shopOpen(occ.shop); } };   // (the Hamlet's trader always serves: the shop panel, life2/tutorial2-play.ts)
+      else if (occ.tutHold) tg = { msg: occ.first + ': ' + tut2Bump(occ) };   // (the tutorial holds them: no talk menu)
       else if (occ.pose === 'sleep') tg = { msg: occ.first + ' is asleep.' };
       else if (!itTalking(n)) tg = { msg: occ.first + ': ' + itWant(n, 'talk') };
       else if (occ.shop && occ.shop.serving && Math.abs(occ.shop.front.x - n.tx) + Math.abs(occ.shop.front.y - n.ty) <= 1.5) tg = { key: 'stall' + occ.id, min: 0.8, text: 'Stepping up to the ' + (town.farmEcon ? occ.shop.def.noun : 'larder'), tool: null, run(n) { if (town.farmEcon && typeof farmShopDialog === 'function') farmShopDialog(occ.shop); else if (typeof openShop === 'function') openShop(occ.shop); } };

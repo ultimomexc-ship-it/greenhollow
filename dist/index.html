@@ -230,6 +230,24 @@ body.fs #c { height: 100vh !important; height: 100dvh !important; }
 
 .rentchip{display:inline-block;margin-left:6px;padding:4px 10px;border-radius:999px;background:rgba(22,27,30,.86);border:1px solid #6b5a2a;color:#e8c88a;font-size:12.5px;white-space:nowrap}.reqsay .rentchip{margin-left:0}
 
+/* the first morning (life2/tutorial2*.ts): the strip, the fade, the hidden HUD and the shop panel */
+.tutstrip { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 30; max-width: 80%; padding: 8px 18px; border-radius: 999px; background: rgba(20,22,26,.88); color: #f6efd8; font: 600 15px/1.3 "IBM Plex Sans", system-ui, sans-serif; box-shadow: 0 2px 10px rgba(0,0,0,.35); pointer-events: none; text-align: center; }
+.tutstrip.flash { background: rgba(160,70,30,.92); }
+.tutfade { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 25; transition: none; }
+body.tut2 [id=clock], body.tut2 .stripwrap, body.tut2 #reqbox, body.tut2 aside.side, body.tut2 #hud, body.tut2 #legend, body.tut2 #resbar, body.tut2 #dayline, body.tut2 .speeds { display: none !important; }
+body.tut2-notools.tut2-noslots #hotbar:not(.build) { display: none !important; }
+body.tut2-notools .hbtools { visibility: hidden; }
+body.tut2-noslots #hotbar:not(.build) .hbslots, body.tut2-noslots #hotbar:not(.build) .hbface { display: none; }
+.shoppanel { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 40; width: min(560px, 92%); max-height: 80%; overflow: auto; background: #1d2026; color: #eee; border: 1px solid #3a3f48; border-radius: 12px; padding: 14px 16px; box-shadow: 0 10px 30px rgba(0,0,0,.5); font: 14px/1.35 "IBM Plex Sans", system-ui, sans-serif; }
+.shoppanel .sphead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.shoppanel .sphead b { font-size: 17px; } .shoppanel .sphead span { flex: 1; color: #cfc6a8; font-style: italic; } .shoppanel .sphead em { font-style: normal; color: #f4c542; font-weight: 700; }
+.shoppanel .spx { margin-left: auto; }
+.shoppanel .sptabs { margin-bottom: 10px; }
+.shoppanel .spgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.shoppanel .sptile { background: #272b33; border: 1px solid #3a3f48; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+.shoppanel .spic { height: 34px; display: flex; align-items: center; } .shoppanel .spdot { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #4a6b3a; font-weight: 700; }
+.shoppanel .spbtns { display: flex; gap: 6px; margin-top: 4px; } .shoppanel .spempty { padding: 18px; text-align: center; } .shoppanel .spnote { min-height: 18px; margin-top: 8px; color: #b9e29a; }
+
 </style>
 </head>
 <body>
@@ -13931,7 +13949,10 @@ function tickPlayer0(n, dt) {
       if (!tg) occ = null;
     }
     if (occ && occ !== n && !occ.infant && !pushed) {
-      if (occ.tutHold) tg = { msg: occ.first + ": " + tut2Bump(occ) };
+      if (occ.shop && occ.shop.def === HAMLET_TRADER_DEF && Math.abs(occ.shop.front.x - n.tx) + Math.abs(occ.shop.front.y - n.ty) <= 1.5 && typeof shopOpen === "function") tg = { key: "tstall" + occ.id, min: 0.4, text: "At the trading stall", tool: null, run() {
+        shopOpen(occ.shop);
+      } };
+      else if (occ.tutHold) tg = { msg: occ.first + ": " + tut2Bump(occ) };
       else if (occ.pose === "sleep") tg = { msg: occ.first + " is asleep." };
       else if (!itTalking(n)) tg = { msg: occ.first + ": " + itWant(n, "talk") };
       else if (occ.shop && occ.shop.serving && Math.abs(occ.shop.front.x - n.tx) + Math.abs(occ.shop.front.y - n.ty) <= 1.5) tg = { key: "stall" + occ.id, min: 0.8, text: "Stepping up to the " + (town.farmEcon ? occ.shop.def.noun : "larder"), tool: null, run(n2) {
@@ -17249,7 +17270,13 @@ YSORT.push(function(c, now) {
     if (!gaOnScreen(pr.x, pr.y, 2)) continue;
     const [px, py] = lfPropPos(pr, now);
     out.push({ k: py - 0.015, f: () => {
+      const open = pr.kind === "gate" && tileOwner.get(pr.y * W + pr.x);
+      if (open) {
+        c.save();
+        c.globalAlpha = 0.3;
+      }
       gaDraw(c, lfPropArt(pr), px * TS, py * TS, now, 0);
+      if (open) c.restore();
     } });
   }
   return out;
@@ -17883,6 +17910,7 @@ function lifeAct(n, p, fx, fy, dx, dy) {
       return { msg: `The carpenter's table. ${s.wood || 0} wood and ${s.stone || 0} stone in store. Bring more and he makes what you need.` };
     }
   }
+  if (pr && pr.kind === "gate" && !itBuildOn(n)) return null;
   if (pr && pr.kind === "bed" && !itBuildOn(n)) return { msg: pr.owner && !pr.owner.dead ? pr.owner === n ? "Your bed." : pr.owner.first + "'s bed." : "A free bed. Somebody will take it." };
   if (pr) {
     const label = LF_NOUN[pr.kind];
@@ -24229,6 +24257,7 @@ function render(now, dtSec, hourOfDay) {
   if (typeof drawYards === "function") drawYards(c, now);
   if (typeof drawStallSigns === "function") drawStallSigns(c, now);
   if (typeof drawGuides === "function") drawGuides(c, now);
+  if (typeof drawTut2 === "function") drawTut2(c, now);
   drawSites(c, now);
   drawEventsFx(c, now);
   drawWorkFx(c, now);
@@ -26537,7 +26566,10 @@ const TUT2_MAP = {
   gate: [13, 1],
   jbed: [14, 0],
   jfield: [[15, 1], [16, 1], [17, 1], [15, 2], [16, 2], [17, 2]],
-  box: { x0: -1, y0: -2, x1: 19, y1: 4 }
+  own: { x: -1, y: -1, w: 13, h: 7 },
+  ownGate: [2, 5],
+  // (your own yard: a fence ring round the house and the patch, the gate below the door: in the Hamlet only a fenced yard makes ground yours)
+  box: { x0: -2, y0: -2, x1: 19, y1: 6 }
   // (all of it, with a tile round it, must be clear grass)
 };
 function tut2Layout(st) {
@@ -26547,7 +26579,7 @@ function tut2Layout(st) {
   const clearable = (x, y) => (grid[y][x] === T.TREE || grid[y][x] === T.ROCK) && !lfPropAt(x, y) && roomAt[y][x] < 0;
   let best = null, bs = 1e9;
   for (let oy = sy - 26; oy <= sy + 26; oy++) for (let ox = sx - 34; ox <= sx + 26; ox++) {
-    const yc = { x: ox + M.yard.x + 3, y: oy + M.yard.y + 2 }, hc = { x: ox + 2, y: oy + 1 };
+    const yc = { x: ox + M.yard.x + 3, y: oy + M.yard.y + 2 }, hc = { x: ox + 2, y: oy + 3 };
     const dY = Math.hypot(yc.x - sx, yc.y - sy), dH = Math.hypot(hc.x - sx, hc.y - sy);
     if (dY > 11 || dH > 20) continue;
     let s = dY + dH * 0.5;
@@ -26594,8 +26626,11 @@ function tut2Layout(st) {
     front: { x: st.front.x, y: st.front.y },
     patch: [],
     house: [],
-    yard: []
+    yard: [],
+    own: [],
+    ownGate: P(M.ownGate)
   };
+  for (let j = 0; j < M.own.h; j++) for (let i = 0; i < M.own.w; i++) if (i === 0 || j === 0 || i === M.own.w - 1 || j === M.own.h - 1) at.own.push({ x: o.x + M.own.x + i, y: o.y + M.own.y + j });
   for (let j = 0; j < M.patch.h; j++) for (let i = 0; i < M.patch.w; i++) at.patch.push({ x: o.x + M.patch.x + i, y: o.y + M.patch.y + j });
   for (let j = 0; j < M.house.h; j++) for (let i = 0; i < M.house.w; i++) if (i === 0 || j === 0 || i === M.house.w - 1 || j === M.house.h - 1) at.house.push({ x: o.x + i, y: o.y + j });
   for (let j = 0; j < M.yard.h; j++) for (let i = 0; i < M.yard.w; i++) if (i === 0 || j === 0 || i === M.yard.w - 1 || j === M.yard.h - 1) at.yard.push({ x: o.x + M.yard.x + i, y: o.y + M.yard.y + j });
@@ -26651,6 +26686,11 @@ function tut2Start(P, TR, st) {
       at.room = r.id;
     }
   }
+  for (const c of at.own) {
+    const g = c.x === at.ownGate.x && c.y === at.ownGate.y;
+    const f = lfAddProp(g ? "gate" : "fence", c.x, c.y);
+    f.rot = 0;
+  }
   for (const c of at.patch) {
     setT(c.x, c.y, T.CROP);
     town.crops.push({ x: c.x, y: c.y, f: "tut", pl: 0, st: 0, t0: 0, byField: P.id });
@@ -26676,7 +26716,7 @@ const tut2Who = (w) => {
 };
 function tut2Pos(p) {
   if (!p) return null;
-  if (typeof p === "function") return tut2Pos(p());
+  if (typeof p === "function") return tut2Pos(p(town.tut2));
   if (typeof p === "string") {
     const n = tut2Who(p);
     if (n) return { x: n.tx, y: n.ty };
@@ -26760,6 +26800,8 @@ if (typeof window !== "undefined") {
 }
 const tut2Scene = () => TUT2_SCENES[town.tut2.scene] || [];
 function tut2Tick(dt) {
+  if (typeof tut2Hud === "function") tut2Hud();
+  if (typeof tut2After === "function" && town) tut2After();
   if (!tut2Active()) return;
   const T2 = town.tut2;
   for (let guard = 0; guard < 40; guard++) {
@@ -26836,11 +26878,14 @@ function tut2Begin(s) {
       ui.strip = s.text || null;
       return false;
     case "arrow":
-      ui.arrow = s.to ? { to: s.to, at: performance.now() } : null;
+      ui.arrow = s.to ? { to: s.to, done: s.done || null } : null;
       return false;
     case "mark":
-      ui.marks = s.tiles ? [{ tiles: s.tiles, kind: s.kind || "tile", done: s.done || null }] : [];
+      ui.marks = s.tiles ? [Object.assign({}, s, { do: void 0 })] : [];
       return false;
+    case "fade":
+      TUT2.f0 = ui.fade || 0;
+      return true;
     case "time":
       TUT2.time0 = game.time;
       TUT2.time1 = Math.floor(game.time / 1440) * 1440 + s.at + (s.nextDay ? 1440 : 0);
@@ -26873,6 +26918,11 @@ function tut2Going(s, dt) {
         if (to && (n.tx !== to.x || n.ty !== to.y) && TUT2.t > 0.5 && Math.floor(TUT2.t) !== Math.floor(TUT2.t - dt)) tut2Walk(n, to);
       }
       return !!n.moving || TUT2.t < 0.05;
+    }
+    case "fade": {
+      const k = Math.min(1, TUT2.t / s.over);
+      town.tut2.ui.fade = TUT2.f0 + (s.to - TUT2.f0) * k;
+      return k < 1;
     }
     case "time": {
       const k = Math.min(1, TUT2.t / s.over);
@@ -26955,6 +27005,920 @@ const TUT2_SCENES = [
     { do: "face", who: "paullus", dir: { dx: 1, dy: 0 } }
   ]
 ];
+function tut2Dom(id, cls) {
+  let d = document.getElementById(id);
+  if (d) return d;
+  const stage = document.querySelector(".stage");
+  if (!stage) return null;
+  d = document.createElement("div");
+  d.id = id;
+  d.className = cls;
+  stage.appendChild(d);
+  return d;
+}
+let tut2HudSig = "";
+function tut2Hud() {
+  if (typeof document === "undefined" || !town) return;
+  const on = tut2Active(), T2 = town.tut2, ui = on ? T2.ui : null, show = on && T2.show || {};
+  const flash = ui && ui.flash && performance.now() < ui.flash.until ? ui.flash.text : null, strip = on ? flash || ui.strip : null;
+  const sig = [on, strip, !!flash, show.tools, show.slots, ui && ui.fade].join("|");
+  if (sig === tut2HudSig) return;
+  tut2HudSig = sig;
+  const b = document.body.classList;
+  b.toggle("tut2", on);
+  b.toggle("tut2-notools", on && !show.tools);
+  b.toggle("tut2-noslots", on && !show.slots);
+  const s = tut2Dom("tutstrip", "tutstrip");
+  if (s) {
+    s.hidden = !strip;
+    s.textContent = strip || "";
+    s.classList.toggle("flash", !!flash);
+  }
+  const f = tut2Dom("tutfade", "tutfade");
+  if (f) f.style.opacity = String(on ? ui.fade || 0 : 0);
+}
+function tut2Tiles(name) {
+  if (!name) return [];
+  if (Array.isArray(name)) return name;
+  const v = town.tut2.at[name];
+  return Array.isArray(v) ? v : v ? [v] : [];
+}
+const tut2Crop = (x, y) => town.crops.find((c) => c.x === x && c.y === y) || null;
+const TUT2_DONE = {
+  ploughed: (x, y) => {
+    const c = tut2Crop(x, y);
+    return !!c && c.pl >= 1;
+  },
+  sown: (x, y) => {
+    const c = tut2Crop(x, y);
+    return !!c && !!c.st;
+  },
+  pulled: (x, y) => {
+    const c = tut2Crop(x, y);
+    return !c || !c.st;
+  },
+  fence: (x, y) => {
+    const p = lfPropAt(x, y);
+    return !!p && (p.kind === "fence" || p.kind === "gate");
+  },
+  gate: (x, y) => {
+    const p = lfPropAt(x, y);
+    return !!p && p.kind === "gate";
+  },
+  bed: (x, y) => {
+    const p = lfPropAt(x, y);
+    return !!p && p.kind === "bed";
+  },
+  field: (x, y) => !!tut2Crop(x, y),
+  gone: (x, y) => {
+    const p = lfPropAt(x, y);
+    return !p || p.kind === "gate";
+  }
+};
+const tut2AllDone = (name, done) => tut2Tiles(name).every((t) => TUT2_DONE[done](t.x, t.y));
+function tut2ArrowAt() {
+  const ui = town.tut2.ui, a = ui.arrow;
+  if (!a) return null;
+  if (typeof a.to === "string" && tut2Who(a.to)) {
+    const n = tut2Who(a.to);
+    return { x: n.x, y: n.y, person: true };
+  }
+  const tiles = tut2Tiles(a.to);
+  const todo = a.done ? tiles.filter((t) => !TUT2_DONE[a.done](t.x, t.y)) : tiles;
+  const P = game.player;
+  if (!todo.length || !P) return null;
+  return todo.slice().sort((p, q) => Math.abs(p.x - P.tx) + Math.abs(p.y - P.ty) - (Math.abs(q.x - P.tx) + Math.abs(q.y - P.ty)))[0];
+}
+function drawTut2(c, now) {
+  if (!tut2Active()) return;
+  const ui = town.tut2.ui, pulse = 0.55 + 0.25 * Math.sin(now / 380);
+  for (const m of ui.marks || []) for (const t of tut2Tiles(m.tiles)) {
+    const ok = m.done ? TUT2_DONE[m.done](t.x, t.y) : false, px = t.x * TS, py = t.y * TS;
+    c.save();
+    c.globalAlpha = (m.faint ? 0.3 : 1) * (ok ? 0.5 : pulse);
+    c.lineWidth = 2;
+    c.setLineDash([5, 4]);
+    c.strokeStyle = ok ? "#8bd05f" : m.color || "#e0a93b";
+    c.fillStyle = ok ? "rgba(139,208,95,.22)" : m.color ? "rgba(240,120,60,.2)" : "rgba(224,169,59,.16)";
+    c.fillRect(px + 2, py + 2, TS - 4, TS - 4);
+    c.strokeRect(px + 2, py + 2, TS - 4, TS - 4);
+    if (m.ghost && !ok) {
+      c.globalAlpha = 0.45 * pulse;
+      gaDraw(c, "bed_head_up_5", px, py, now, 0);
+    }
+    c.restore();
+  }
+  const a = tut2ArrowAt();
+  if (!a) return;
+  const bob = Math.sin(now / 260) * 4, big = ui.arrow && ui.arrow.big ? 1.5 : 1, x = a.x * TS + TS / 2, y = a.y * TS - (a.person ? 20 : 4) + bob;
+  c.save();
+  c.fillStyle = "#f4c542";
+  c.strokeStyle = "rgba(30,20,0,.8)";
+  c.lineWidth = 2;
+  c.beginPath();
+  c.moveTo(x, y);
+  c.lineTo(x - 8 * big, y - 11 * big);
+  c.lineTo(x - 3 * big, y - 11 * big);
+  c.lineTo(x - 3 * big, y - 20 * big);
+  c.lineTo(x + 3 * big, y - 20 * big);
+  c.lineTo(x + 3 * big, y - 11 * big);
+  c.lineTo(x + 8 * big, y - 11 * big);
+  c.closePath();
+  c.fill();
+  c.stroke();
+  c.restore();
+}
+function tut2Flash(text) {
+  if (!tut2Active()) return;
+  town.tut2.ui.flash = { text, until: performance.now() + 1400 };
+}
+const tut2Lock = (k) => tut2Active() && !(town.tut2.locks || {})[k];
+const _t2Toggle = itBuildToggle;
+itBuildToggle = function(n, on) {
+  const b = itBuildState(n), want = on == null ? !b.on : on;
+  if (want && !b.on && tut2Lock("build")) return;
+  return _t2Toggle(n, on);
+};
+const _t2Bag = itBag;
+itBag = function(open) {
+  if (open && tut2Active()) return;
+  return _t2Bag(open);
+};
+const _t2Leave = yardLeaveCheck;
+yardLeaveCheck = function(n) {
+  if (tut2Active()) return false;
+  return _t2Leave(n);
+};
+const _t2Push = lf2PushLine;
+lf2PushLine = function(n, x, y, dx, dy) {
+  if (tut2Lock("push")) return null;
+  return _t2Push(n, x, y, dx, dy);
+};
+const _t2Fits = itFits;
+itFits = function(n, need) {
+  if (need === "hammer" && tut2Active() && !itBuildOn(n)) return false;
+  return _t2Fits(n, need);
+};
+const _t2Select = itBuildSelect;
+itBuildSelect = function(n, i) {
+  if (!tut2Active()) return _t2Select(n, i);
+  const k = (town.tut2.slots || [])[i], b = itBuildState(n);
+  if (!k) return;
+  if (k === "destroy") {
+    b.sel = b.sel === 1 ? 0 : 1;
+    const p = n.player;
+    if (p) {
+      p.act = null;
+      p.lock = false;
+    }
+    itSync(true);
+    return;
+  }
+  b.sel = 0;
+  tut2Place(n, k);
+};
+const _t2Bar = itBuildBarHTML;
+itBuildBarHTML = function(n, face) {
+  if (!tut2Active()) return _t2Bar(n, face);
+  const b = itBuildState(n);
+  const slots = (town.tut2.slots || []).map((k, i) => k === "destroy" ? `<button type="button" class="hbslot${b.sel === 1 ? " on" : ""}" data-bslot="${i}" title="Destroy"><em>${i + 1}</em><svg width="30" height="30" viewBox="0 0 38 38" aria-hidden="true">${IT_SVG.hammer}</svg><span class="hbcap">Destroy</span></button>` : `<button type="button" class="hbslot item" data-bslot="${i}" title="${esc(itBuildName(k))}"><em>${i + 1}</em>${itBuildIcon(k)}<u>${kitLabel(k)}</u><span class="hbcap">${esc(itBuildName(k))}</span></button>`).join("");
+  return `<div class="hbbadge" title="Build mode (B)"><b>BUILD</b><span>B to leave</span></div><div class="hbslots">${slots}</div><div class="hbface">${face || ""}</div>`;
+};
+function tut2Place(n, kind) {
+  const T2 = town.tut2, f = lf2Front(n), ok = tut2Tiles(T2.only).some((t) => t.x === f.x && t.y === f.y);
+  if (!ok || lfPropAt(f.x, f.y) || kind === "field" && tut2Crop(f.x, f.y)) {
+    tut2Flash(T2.onlyMsg || "On the marked squares.");
+    return;
+  }
+  if (!kitHas(kind)) {
+    kitOut(n, kind);
+    return;
+  }
+  if (kind === "field") {
+    bldPlaceField(n);
+    itSync(true);
+    return;
+  }
+  const p = lfAddProp(kind, f.x, f.y);
+  p.v = 5;
+  p.rot = 0;
+  bldQueue(p);
+  kitTake(kind);
+  sndPlace();
+  itSync(true);
+}
+LF2.pre.unshift({ player(n, p, fx, fy) {
+  if (!town || town.scenario !== "hamlet") return null;
+  const T2 = town.tut2;
+  if (grid[fy][fx] === T.STALL && !itBuildOn(n)) {
+    const m = (town.stalls || []).map((s) => s.tiles && s.tiles.some((t) => t.x === fx && t.y === fy) && (s.owner && s.owner.shop || merchants.find((q) => q.post && Math.abs(q.post.x - fx) + Math.abs(q.post.y - fy) <= 1))).find(Boolean) || stallTrade(n, fx, fy);
+    const tr = merchants.find((q) => q.def === HAMLET_TRADER_DEF), mm = m || tr;
+    if (mm && (mm.def === HAMLET_TRADER_DEF || mm.serving || tut2Active())) return { key: "tstall" + mm.n.id, min: 0.4, text: "At the " + mm.def.noun, tool: null, run() {
+      shopOpen(mm);
+    } };
+    return null;
+  }
+  if (!T2 || T2.done) return null;
+  const pr = lfPropAt(fx, fy);
+  if (itBuildOn(n) && n.build.sel === 1) {
+    const h = T2.hammerAt;
+    if (!(h && h.x === fx && h.y === fy && pr)) {
+      if (pr || grid[fy][fx] === T.WALL || grid[fy][fx] === T.DOOR) {
+        tut2Flash("Only the marked fence, for now.");
+        return { msg: "Thunk." };
+      }
+    }
+  }
+  if (pr && pr.kind === "bed" && pr.owner === n && !T2.bedOk) return { msg: "Not yet. It's morning." };
+  return null;
+} });
+const SHOP = { open: false, m: null, tab: "buy", line: "" };
+const shopName = (g) => LF_NOUN[g] ? LF_NOUN[g][0].toUpperCase() + LF_NOUN[g].slice(1) : g === "hammer" ? "Hammer" : GOODS[g] ? GOODS[g].name[0].toUpperCase() + GOODS[g].name.slice(1) : g;
+const shopKitPrice = (m, k) => Math.max(1, Math.round((HAMLET_PRICES[k] || 1) * (m.def.disc || 1)));
+function shopStock(m) {
+  const P = game.player;
+  if (tut2Active() && town.tut2.stock) {
+    const s = town.tut2.stock;
+    return { buy: s.buy || [], sell: (s.sell || []).filter((e) => (P.inv[e.item] || 0) > 0), line: s.line || "" };
+  }
+  const buy = [], sell = [];
+  if (m.def === HAMLET_TRADER_DEF || m.def.kit) for (const k of m.def.kit ? HAMLET_BUILD : hamletBuildKinds()) buy.push({ item: k, price: shopKitPrice(m, k), kit: true });
+  for (const g of Object.keys(m.sells || {})) {
+    if (!((m.stock[g] || 0) >= 1)) continue;
+    if (g.startsWith("seed_") && !(m.def.range || farmSeedRange()).includes(g.slice(5))) continue;
+    buy.push({ item: g, price: sellPrice(m, g), qty: Math.floor(m.stock[g]) });
+  }
+  for (const g of Object.keys(m.buys || {})) {
+    const q = P.inv[g] || 0;
+    if (q >= 1) sell.push({ item: g, price: buyPrice(m, g) });
+  }
+  return { buy, sell, line: serviceSay("shop_greet_back", m.n, P, { item: "", qty: 1, shop: m.def.noun }) };
+}
+function shopOpen(m) {
+  if (!m) return;
+  const P = game.player;
+  if (town.tut2 && town.tut2.done && !town.tut2.parting && m.def === HAMLET_TRADER_DEF) {
+    town.tut2.parting = true;
+    tut2Say(m.n, "That's the lot from me for now.", P);
+    setTimeout(() => tut2Say(m.n, "Come and see me if you need anything. I'm always here. I never did get the hang of sleeping.", P), 2600);
+  }
+  const st = shopStock(m);
+  SHOP.open = true;
+  SHOP.m = m;
+  SHOP.tab = st.sell.length && !st.buy.length ? "sell" : "buy";
+  SHOP.note = "";
+  shopDraw();
+}
+function shopClose() {
+  SHOP.open = false;
+  SHOP.m = null;
+  const d = document.getElementById("shoppanel");
+  if (d) d.hidden = true;
+}
+function shopBuy(e, q) {
+  const m = SHOP.m, P = game.player;
+  let got = 0;
+  while (got < q && P.coin >= e.price && (e.qty == null || e.qty > 0)) {
+    pay(P, m.n, e.price);
+    got++;
+    if (e.qty != null) e.qty--;
+    if (e.item === "hammer" || e.item === "axe" || e.item === "hoe" || e.item === "rod") itGiveTool(P, e.item);
+    else if (e.kit || LF_NOUN[e.item] && !GOODS[e.item]) {
+      town.kit[e.item] = (town.kit[e.item] || 0) + 1;
+    } else if (e.item.startsWith("seed_")) {
+      itGiveStack(P, e.item, 1);
+      if (m.stock[e.item] != null) m.stock[e.item]--;
+    } else {
+      P.inv[e.item] = (P.inv[e.item] || 0) + 1;
+      if (m.stock[e.item] != null) m.stock[e.item]--;
+    }
+  }
+  if (got && GOODS[e.item]) logTrade(P, m.n, e.item, got, got * e.price, "buy");
+  SHOP.note = got ? `Bought ${got} ${got > 1 ? shopName(e.item).toLowerCase() + (/s$/.test(e.item) ? "" : "s") : shopName(e.item).toLowerCase()} for ${got * e.price}.` : P.coin < e.price ? "Not enough coin." : "None left.";
+  if (got) sndPlace();
+  itSync(true);
+  shopDraw();
+}
+function shopSell(e, q) {
+  const m = SHOP.m, P = game.player;
+  let got = 0, tot = 0;
+  while (got < q && (P.inv[e.item] || 0) >= 1) {
+    const p = tut2Active() ? e.price : buyPrice(m, e.item);
+    if (p <= 0 || m.n.coin < p) break;
+    pay(m.n, P, p);
+    P.inv[e.item]--;
+    m.stock[e.item] = (m.stock[e.item] || 0) + 1;
+    tot += p;
+    got++;
+  }
+  if (got) {
+    logTrade(m.n, P, e.item, got, tot, "sell");
+    sndPick();
+  }
+  SHOP.note = got ? `Sold ${got} for ${tot}.` : "He will not take any more.";
+  shopDraw();
+}
+function shopDraw() {
+  const d = tut2Dom("shoppanel", "shoppanel");
+  if (!d) return;
+  const m = SHOP.m, P = game.player;
+  if (!SHOP.open || !m) {
+    d.hidden = true;
+    return;
+  }
+  const st = shopStock(m), list = SHOP.tab === "buy" ? st.buy : st.sell;
+  d.hidden = false;
+  const icon = (g) => YARD_ITEMS.some((q) => q.kind === g) ? itBuildIcon(g, 30) : ["hammer", "axe", "hoe", "rod"].includes(g) ? itIcon(g, 30) : `<span class="spdot">${esc((GOODS[g] && GOODS[g].name || g).replace(/^seed_/, "")[0].toUpperCase())}</span>`;
+  const tiles = list.map((e, i) => {
+    const n = SHOP.tab === "buy" ? e.qty != null ? Math.min(e.qty, Math.floor(P.coin / e.price)) : Math.floor(P.coin / e.price) : P.inv[e.item] || 0;
+    const left = SHOP.tab === "buy" ? e.qty != null ? `${e.qty} left` : "" : `you have ${P.inv[e.item] || 0}`;
+    const v = SHOP.tab === "buy" ? "Buy" : "Sell", all = SHOP.tab === "buy" && e.qty != null ? e.qty : n;
+    return `<div class="sptile"><div class="spic">${icon(e.item)}</div><b>${esc(shopName(e.item))}</b><span class="dim">${e.price} each${left ? " \xB7 " + left : ""}</span><div class="spbtns"><button type="button" class="btn" data-sp="${i}" data-q="1" ${n < 1 ? "disabled" : ""}>${v} 1</button>${all > 1 ? `<button type="button" class="btn primary" data-sp="${i}" data-q="${all}" ${n < 1 ? "disabled" : ""}>${v} all ${all}</button>` : ""}</div></div>`;
+  }).join("") || `<div class="dim spempty">${SHOP.tab === "buy" ? "Nothing for you yet." : "Nothing to sell."}</div>`;
+  d.innerHTML = `<div class="sphead"><b>${esc(m.def === HAMLET_TRADER_DEF ? "The Trading Stall" : m.def.noun[0].toUpperCase() + m.def.noun.slice(1))}</b><span>${esc(m.n.first)}: ${esc(st.line)}</span><em>${Math.floor(P.coin)} coin</em><button type="button" class="btn spx" data-spx="1" aria-label="Close">\u2715</button></div><div class="seg sptabs"><button type="button" data-spt="buy" aria-pressed="${SHOP.tab === "buy"}">Buy</button><button type="button" data-spt="sell" aria-pressed="${SHOP.tab === "sell"}">Sell</button></div><div class="spgrid">${tiles}</div><div class="spnote">${esc(SHOP.note || "")}</div>`;
+  d.querySelectorAll("[data-sp]").forEach((b) => b.addEventListener("click", () => {
+    const e = list[+b.dataset.sp];
+    if (SHOP.tab === "buy") shopBuy(e, +b.dataset.q);
+    else shopSell(e, +b.dataset.q);
+  }));
+  d.querySelectorAll("[data-spt]").forEach((b) => b.addEventListener("click", () => {
+    SHOP.tab = b.dataset.spt;
+    SHOP.note = "";
+    shopDraw();
+  }));
+  const x = d.querySelector("[data-spx]");
+  if (x) x.addEventListener("click", shopClose);
+}
+if (typeof window !== "undefined") window.addEventListener("keydown", (e) => {
+  if (!SHOP.open) return;
+  if (e.key === "Escape") {
+    shopClose();
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    return;
+  }
+  if (e.key === "Tab") {
+    SHOP.tab = SHOP.tab === "buy" ? "sell" : "buy";
+    shopDraw();
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    return;
+  }
+  if (e.key === "Enter") {
+    const st = shopStock(SHOP.m), l = SHOP.tab === "buy" ? st.buy : st.sell;
+    if (l[0]) {
+      const q = e.shiftKey ? 999 : 1;
+      if (SHOP.tab === "buy") shopBuy(l[0], q);
+      else shopSell(l[0], q);
+    }
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    return;
+  }
+  if (/^Arrow|^[wasdbi0-9 ]$/i.test(e.key)) {
+    e.stopImmediatePropagation();
+  }
+}, true);
+const _t2Farm = farmShopDialog;
+farmShopDialog = function(m) {
+  if (town && town.scenario === "hamlet") {
+    shopOpen(m);
+    return;
+  }
+  return _t2Farm(m);
+};
+const _t2Harvest = itHarvest;
+itHarvest = function(n, c) {
+  if (c && c.f === "tut") {
+    n.inv.turnip = (n.inv.turnip || 0) + 1;
+    c.st = 0;
+    c.seed = null;
+    LIFE.emit("harvested", n, { item: "turnip", qty: 1, crop: "turnip" });
+    if (n.player) sndPick();
+    return { q: 1, what: "turnips", back: 0 };
+  }
+  return _t2Harvest(n, c);
+};
+const T2W = { x: 0 };
+const tset = (fn) => ({ do: "set", fn });
+const tstrip = (text) => ({ do: "strip", text: text || null });
+const tarrow = (to, done) => ({ do: "arrow", to: to || null, done });
+const tmark = (tiles, done, extra) => Object.assign({ do: "mark", tiles: tiles || null, done }, extra || {});
+const twait = (until, extra) => Object.assign({ do: "wait", until }, extra || {});
+const tpause = (s) => ({ do: "wait", until: () => TUT2.t >= s });
+const tlock = (locks, slots, only, onlyMsg) => tset((T2) => {
+  T2.locks = Object.assign({}, locks);
+  T2.slots = slots || [];
+  T2.only = only || null;
+  T2.onlyMsg = onlyMsg || null;
+});
+const tstock = (buy, sell, line) => tset((T2) => {
+  T2.stock = { buy, sell, line };
+});
+const shopIsOpen = () => SHOP.open;
+const buildOn = () => itBuildOn(game.player);
+const nearestTo = (tiles) => {
+  const P = game.player;
+  return tiles.slice().sort((p, q) => (q.y - p.y) * 100 + Math.abs(p.x - P.tx) - Math.abs(q.x - P.tx))[0];
+};
+function tut2Beside(t) {
+  const P = game.player;
+  const c = [[0, 1], [-1, 0], [1, 0], [0, -1]].map(([dx, dy]) => ({ x: t.x + dx, y: t.y + dy })).filter((q) => walkable(q.x, q.y) && !lfPropAt(q.x, q.y) && !(tileOwner.get(q.y * W + q.x) && tileOwner.get(q.y * W + q.x) !== P));
+  return c[0] || null;
+}
+const botWork = (name, done) => (T2) => {
+  const k = TUT2.bw;
+  if (k && k.done === done && !TUT2_DONE[done](k.into.x, k.into.y)) return k;
+  const todo = tut2Tiles(name).filter((t2) => !TUT2_DONE[done](t2.x, t2.y));
+  if (!todo.length) return null;
+  const t = nearestTo(todo);
+  TUT2.bw = { stand: tut2Beside(t), into: t, done };
+  return TUT2.bw;
+};
+const botStall = (T2) => ({ stand: T2.at.front, into: T2.at.keep });
+const botRing = (done, key) => (T2) => {
+  if (!buildOn()) return { key: "b" };
+  const ring = tut2Tiles("yard"), o = T2.at.o, M = TUT2_MAP.yard, x0 = o.x + M.x, y0 = o.y + M.y, x1 = x0 + M.w - 1, y1 = y0 + M.h - 1;
+  const t = ring.find((q) => !TUT2_DONE[done](q.x, q.y));
+  if (!t) return null;
+  const st = t.x === x0 ? { x: t.x - 1, y: t.y } : t.x === x1 ? { x: t.x + 1, y: t.y } : t.y === y0 ? { x: t.x, y: t.y - 1 } : { x: t.x, y: t.y + 1 };
+  return { stand: st, faceTo: t, key };
+};
+function tut2YardInner(T2) {
+  const o = T2.at.o, M = TUT2_MAP.yard, r = [];
+  for (let j = 1; j < M.h - 1; j++) for (let i = 1; i < M.w - 1; i++) r.push({ x: o.x + M.x + i, y: o.y + M.y + j });
+  return r;
+}
+function tut2Lap(T2) {
+  const o = T2.at.o, M = TUT2_MAP.yard, x0 = o.x + M.x + 1, y0 = o.y + M.y + 1, x1 = x0 + M.w - 3, y1 = y0 + M.h - 3, r = [];
+  for (let x = x0; x <= x1; x++) r.push({ x, y: y0 });
+  for (let y = y0 + 1; y <= y1; y++) r.push({ x: x1, y });
+  for (let x = x1 - 1; x >= x0; x--) r.push({ x, y: y1 });
+  for (let y = y1 - 1; y > y0; y--) r.push({ x: x0, y });
+  return r;
+}
+const below = (name) => (T2) => {
+  const t = T2.at[name];
+  return { x: t.x, y: t.y + 1 };
+};
+TUT2_SCENES.push(
+  // Scene 2: plough and sow, then dusk
+  [
+    tset((T2) => {
+      T2.show = Object.assign({}, T2.show, { tools: true });
+    }),
+    tstrip("Walk into each square to plough it."),
+    tarrow("patch", "ploughed"),
+    tmark("patch", "ploughed"),
+    twait((T2) => tut2Tiles("patch").some((t) => TUT2_DONE.ploughed(t.x, t.y)), { bot: botWork("patch", "ploughed") }),
+    tsay("paullus", "That's it."),
+    twait(() => tut2AllDone("patch", "ploughed"), { bot: botWork("patch", "ploughed"), nudge: { after: 40, fn: (T2) => {
+      if (T2.ui.arrow) T2.ui.arrow.big = true;
+    } } }),
+    tsay("paullus", "Good."),
+    tsay("paullus", "Now it wants seed."),
+    { do: "walk", who: "paullus", to: () => tut2Beside(tut2Pos("you")) || tut2Pos("watch") },
+    { do: "face", who: "paullus", to: "you" },
+    tsay("paullus", "Nine. Turnips. Quick, and forgiving."),
+    tset((T2) => {
+      const P = game.player;
+      itGiveStack(P, "seed_turnip", 9);
+      const i = P.belt.indexOf("s:seed_turnip");
+      if (i >= 0) P.sel = i;
+      T2.show = Object.assign({}, T2.show, { slots: true });
+      itSync(true);
+    }),
+    { do: "walk", who: "paullus", to: "watch", async: true },
+    tstrip("Walk into each square to sow it."),
+    tarrow("patch", "sown"),
+    tmark("patch", "sown"),
+    twait(() => tut2AllDone("patch", "sown"), { bot: botWork("patch", "sown") }),
+    { do: "face", who: "paullus", dir: { dx: 1, dy: 0 } },
+    tstrip(),
+    tarrow(),
+    tmark(),
+    { do: "time", at: 19 * 60, over: 4 },
+    tsay("paullus", "That's a day."),
+    tsay("paullus", "Go to bed. They'll be up by morning."),
+    tsay("paullus", "I don't sleep. Never got the hang of it. I'll stand here and keep an eye on them."),
+    tset((T2) => {
+      T2.bedOk = true;
+      T2.at.myBed = [T2.at.bed];
+    }),
+    tarrow("myBed"),
+    tstrip("Walk into your bed to sleep."),
+    twait(() => !!(game.player.player && game.player.player.sleeping), { nudge: { after: 40, say: ["paullus", "The house. The bed's in it."] }, bot: (T2) => ({ stand: T2.at.start, into: T2.at.bed }) })
+  ],
+  // Scene 3: night and morning
+  [
+    tstrip(),
+    tarrow(),
+    tset((T2) => {
+      T2.input = false;
+    }),
+    { do: "think", text: "I should probably wonder how I got here. I'll do it tomorrow." },
+    { do: "fade", to: 1, over: 1.5 },
+    tset((T2) => {
+      const P = game.player, R = tut2Who("paullus"), at = T2.at;
+      game.time = game.ft = (Math.floor(game.time / 1440) + 1) * 1440 + 6 * 60 + 30;
+      for (const t of at.patch) {
+        const c = tut2Crop(t.x, t.y);
+        if (c) {
+          c.pl = 1;
+          c.st = 1;
+          c.seed = "turnip";
+          c.t0 = game.time - 30 * 1440;
+          markDirty(t.x, t.y, 1, 1);
+        }
+      }
+      P.player.sleeping = false;
+      P.player.wakeAt = 0;
+      P.tx = P.x = at.start.x;
+      P.ty = P.y = at.start.y;
+      P.pose = "stand";
+      P.face = { dx: 0, dy: 1 };
+      P.path = [];
+      P.moving = false;
+      if (R) {
+        R.tx = R.x = at.watch.x;
+        R.ty = R.y = at.watch.y;
+        R.face = { dx: 1, dy: 0 };
+        R.pose = "stand";
+      }
+      const Rr = rng(town.seed + 4242), J = arrMake(Rr, 31, { female: true, surname: pick(Rr, SURNAMES) });
+      if (J.first !== "Junia") {
+        town.used && town.used.add && town.used.add("Junia");
+        J.first = "Junia";
+      }
+      J.x = J.tx = at.shore.x;
+      J.y = J.ty = at.shore.y;
+      J.face = { dx: 0, dy: 1 };
+      J.pose = "stand";
+      J.coin = 8;
+      J.inv.seed_turnip = 6;
+      J.inv.grain = 4;
+      J.back = "was ironing a shirt, and then there was sand";
+      J.tutHold = true;
+      J.newcomer = null;
+      npcs.push(J);
+      town.byId.set(J.id, J);
+      T2.who.junia = J.id;
+      for (const o of npcs) if (o !== J) {
+        J.know[o.id] = 1;
+        o.know[J.id] = 1;
+        J.aff[o.id] = 6;
+        o.aff[J.id] = 6;
+      }
+      rebuildOcc();
+      refreshReach();
+    }),
+    tpause(3),
+    { do: "fade", to: 0, over: 1.5 },
+    tset((T2) => {
+      T2.input = true;
+    }),
+    tstrip("Go and look at the turnips."),
+    tarrow("patch"),
+    twait((T2) => tut2NextTo(game.player, T2.at.patch), { bot: (T2) => ({ stand: { x: T2.at.patch[6].x, y: T2.at.patch[6].y + 1 } }) }),
+    { do: "face", who: "paullus", to: "you" },
+    tsay("paullus", "There. Told you.")
+  ],
+  // Scene 4: harvest and the first sale
+  [
+    tstrip("Walk into the turnips to pull them."),
+    tarrow("patch", "pulled"),
+    tmark("patch", "pulled"),
+    twait(() => tut2AllDone("patch", "pulled"), { bot: botWork("patch", "pulled") }),
+    tmark(),
+    tsay("paullus", "Bring them to the stall."),
+    tset((T2) => {
+      const R = tut2Who("paullus");
+      if (R) R.coin = Math.max(R.coin || 0, 200);
+    }),
+    { do: "walk", who: "paullus", to: "keep", async: true },
+    tarrow("front"),
+    tstrip("Take the turnips to the stall."),
+    tstock([], [{ item: "turnip", price: 3 }], "Turnips. I'll take them."),
+    twait(shopIsOpen, { bot: botStall }),
+    tstrip("Sell all 9."),
+    twait(() => !(game.player.inv.turnip > 0), { bot: () => ({ shop: { tab: "sell", i: 0, all: true } }) }),
+    tstrip("Close the panel."),
+    twait(() => !shopIsOpen(), { bot: () => ({ shop: { close: true } }) }),
+    tstrip(),
+    tarrow(),
+    tstock([], [], ""),
+    { do: "walk", who: "paullus", to: "keep" },
+    { do: "face", who: "paullus", to: "you" },
+    tsay("paullus", "That's the whole trade."),
+    tsay("paullus", "Grow it. Sell it. Build with it.")
+  ],
+  // Scene 5: the bed and the secret
+  [
+    { do: "face", who: "paullus", to: "junia" },
+    tarrow("junia"),
+    tsay("paullus", "Somebody came ashore in the night."),
+    tsay("paullus", "Nobody does it on purpose."),
+    tarrow(),
+    { do: "face", who: "paullus", to: "you" },
+    tsay("paullus", "Found this on the beach."),
+    tset(() => {
+      town.kit.bed = (town.kit.bed || 0) + 1;
+    }),
+    tsay("paullus", "You know what to do with it. Or you will."),
+    tset((T2) => {
+      T2.ui.marks = [{ tiles: "jbed", done: "bed", ghost: true }, { tiles: "yard", faint: true }];
+    }),
+    tarrow("jbed", "bed"),
+    tlock({ build: true }, ["bed"], "jbed", "On the marked place."),
+    tstrip("Press B to build."),
+    twait(buildOn, { bot: (T2) => ({ stand: below("jbed")(T2), key: buildOn() ? null : "b" }) }),
+    { do: "face", who: "paullus", to: "you" },
+    tsay("paullus", "There. The world holds its breath while you build."),
+    tsay("paullus", "Nobody sees it. They only find the thing afterwards."),
+    tsay("paullus", "I did this for a long time. Now it's you. That stays between us."),
+    tstrip("Face the marked place and press 1 to put the bed down."),
+    twait((T2) => TUT2_DONE.bed(T2.at.jbed.x, T2.at.jbed.y), { bot: (T2) => ({ stand: below("jbed")(T2), face: "up", key: "1" }) }),
+    tarrow(),
+    tstrip("Press B to let the world go on."),
+    twait(() => !buildOn(), { bot: () => ({ key: "b" }) }),
+    tlock({}),
+    tstrip(),
+    tmark()
+  ],
+  // Scene 6: Junia comes up from the shore
+  [
+    { do: "walk", who: "junia", to: below("jbed") },
+    { do: "face", who: "junia", dir: { dx: 0, dy: -1 } },
+    tsay("junia", "There's a bed here and nobody in it."),
+    tsay("junia", "I'm going to assume it's mine."),
+    tset((T2) => {
+      const J = tut2Who("junia"), b = lfPropAt(T2.at.jbed.x, T2.at.jbed.y);
+      if (J && b) {
+        if (b.owner && b.owner !== J && b.owner.bed === b) b.owner.bed = { owner: null };
+        b.owner = J;
+        b.v = 3;
+        J.bed = b;
+        J.homeless = false;
+        J.tx = J.x = b.x;
+        J.ty = J.y = b.y;
+        J.pose = "sleep";
+        J.status = "Lying on the bed, awake";
+        town.lfPV = (town.lfPV || 0) + 1;
+      }
+    }),
+    twait((T2) => {
+      const J = tut2Who("junia"), P = game.player;
+      return Math.abs(J.tx - P.tx) + Math.abs(J.ty - P.ty) <= 4 || TUT2.t > 20;
+    }),
+    tsay("junia", "I was ironing a shirt, and then there was sand."),
+    tsay("junia", "I've decided not to think about it."),
+    tsay("junia", "I'd sleep better with something round me. A fence, say."),
+    tmark("yard", "fence"),
+    tstock([{ item: "fence", qty: 18, price: 1 }], [], "Eighteen fences. Take all of them."),
+    tstrip("The trader sells fence."),
+    tarrow("front")
+  ],
+  // Scene 7: the fence without a gate, and the hammer
+  [
+    twait(shopIsOpen, { bot: botStall }),
+    tstrip("Buy all 18."),
+    twait(() => (town.kit.fence || 0) >= 18, { bot: () => ({ shop: { tab: "buy", i: 0, all: true } }) }),
+    twait(() => !shopIsOpen(), { bot: () => ({ shop: { close: true } }) }),
+    tarrow("yard", "fence"),
+    tlock({ build: true }, ["fence"], "yard"),
+    tstrip("Press B. Put a fence on every marked square."),
+    twait((T2) => tut2AllDone("yard", "fence"), { bot: botRing("fence", "1") }),
+    tarrow(),
+    tstrip("Press B to let the world go on."),
+    twait(() => !buildOn(), { bot: () => ({ key: "b" }) }),
+    tlock({}),
+    tstrip(),
+    tmark(),
+    tset((T2) => {
+      const J = tut2Who("junia");
+      if (J) J.pose = "stand";
+    }),
+    { do: "walk", who: "junia", to: below("jbed") },
+    { do: "face", who: "junia", dir: { dx: 0, dy: 1 } },
+    tsay("junia", "Somebody has put a fence round my bed."),
+    tsay("junia", "It is a very good fence."),
+    tset((T2) => {
+      T2.lap = tut2Lap(T2);
+      T2.lapI = 0;
+    }),
+    twait((T2) => {
+      const J = tut2Who("junia");
+      if (!J) return true;
+      if (J.moving) return false;
+      if (T2.lapI >= T2.lap.length) return true;
+      const t = T2.lap[T2.lapI++];
+      tut2Walk(J, t);
+      return false;
+    }),
+    { do: "walk", who: "junia", to: below("jbed") },
+    { do: "face", who: "junia", to: "you" },
+    tsay("junia", "I cannot find the way in. Or, I suppose, out."),
+    tset((T2) => {
+      T2.ui.marks = [{ tiles: "gate", done: "gone", color: "#f0783c" }];
+    }),
+    tstock([{ item: "hammer", qty: 1, price: 4 }, { item: "gate", qty: 1, price: 3 }], [], "A hammer and a gate. You'll want both."),
+    tstrip("The trader has something new."),
+    tarrow("front"),
+    twait(shopIsOpen, { bot: botStall }),
+    twait(() => (game.player.items || []).some((i) => i.kind === "hammer") && (town.kit.gate || 0) >= 1, { bot: () => ({ shop: { tab: "buy", i: (game.player.items || []).some((i) => i.kind === "hammer") ? 1 : 0 } }) }),
+    twait(() => !shopIsOpen(), { bot: () => ({ shop: { close: true } }) }),
+    tarrow("gate"),
+    tset((T2) => {
+      T2.hammerAt = T2.at.gate;
+    }),
+    tlock({ build: true }, ["destroy", "gate"], "gate"),
+    tstrip("Press B. Knock out the marked fence with the hammer, then put the gate in the gap."),
+    twait((T2) => {
+      const p = lfPropAt(T2.at.gate.x, T2.at.gate.y);
+      return !p;
+    }, { bot: (T2) => {
+      if (!buildOn()) return { key: "b" };
+      const st = { x: T2.at.gate.x - 1, y: T2.at.gate.y };
+      return game.player.build.sel === 1 ? { stand: st, into: T2.at.gate } : { stand: st, key: "1" };
+    } }),
+    twait((T2) => TUT2_DONE.gate(T2.at.gate.x, T2.at.gate.y), { bot: (T2) => ({ stand: { x: T2.at.gate.x - 1, y: T2.at.gate.y }, faceTo: T2.at.gate, key: "2" }) }),
+    tmark(),
+    tset((T2) => {
+      T2.hammerAt = null;
+    }),
+    tstrip("Press B to let the world go on."),
+    twait(() => !buildOn(), { bot: () => ({ key: "b" }) }),
+    tlock({}),
+    tstrip(),
+    tarrow(),
+    tset(() => {
+      yardScan(true);
+    }),
+    { do: "walk", who: "junia", to: (() => {
+      const T2 = town.tut2;
+      return { x: T2.at.gate.x - 1, y: T2.at.gate.y };
+    }) },
+    { do: "face", who: "junia", dir: { dx: 1, dy: 0 } },
+    tsay("junia", "A gate."),
+    tsay("junia", "With a latch, even."),
+    { do: "walk", who: "junia", to: (() => {
+      const T2 = town.tut2;
+      return { x: T2.at.gate.x + 1, y: T2.at.gate.y };
+    }) },
+    { do: "walk", who: "junia", to: (() => {
+      const T2 = town.tut2;
+      return { x: T2.at.gate.x - 1, y: T2.at.gate.y };
+    }) },
+    { do: "walk", who: "junia", to: (() => {
+      const T2 = town.tut2;
+      return { x: T2.at.gate.x + 1, y: T2.at.gate.y };
+    }) }
+  ],
+  // Scene 8: her field, the end of the tutorial
+  [
+    { do: "walk", who: "junia", to: (() => tut2YardInner(town.tut2)[5]) },
+    { do: "face", who: "junia", dir: { dx: 0, dy: 1 } },
+    tsay("junia", "It's a good yard."),
+    tsay("junia", "I could grow something in it. If there were somewhere to grow it."),
+    tmark("jfield", "field"),
+    tstock([{ item: "field", qty: 6, price: 2 }], [], "Six. That'll feed one."),
+    tstrip("The trader has field."),
+    tarrow("front"),
+    twait(shopIsOpen, { bot: botStall }),
+    twait(() => (town.kit.field || 0) >= 6, { bot: () => ({ shop: { tab: "buy", i: 0, all: true } }) }),
+    twait(() => !shopIsOpen(), { bot: () => ({ shop: { close: true } }) }),
+    tarrow("jfield", "field"),
+    tlock({ build: true }, ["field"], "jfield"),
+    tstrip("Press B. Lay the field on the marked squares."),
+    twait(() => tut2AllDone("jfield", "field"), { bot: (T2) => {
+      if (!buildOn()) {
+        const inn = tut2YardInner(T2)[0];
+        const P = game.player;
+        return yardAtXY(P.tx, P.ty) ? { key: "b" } : { stand: { x: inn.x, y: inn.y + 1 } };
+      }
+      const todo = tut2Tiles("jfield").filter((t2) => !TUT2_DONE.field(t2.x, t2.y));
+      if (!todo.length) return null;
+      const t = nearestTo(todo);
+      return { stand: tut2Beside(t), faceTo: t, key: "1" };
+    } }),
+    tstrip("Press B to let the world go on."),
+    twait(() => !buildOn(), { bot: () => ({ key: "b" }) }),
+    tlock({}),
+    tstrip(),
+    tarrow(),
+    tmark(),
+    { do: "walk", who: "junia", to: (() => {
+      const t = town.tut2.at.jfield[0];
+      return { x: t.x - 1, y: t.y };
+    }) },
+    { do: "face", who: "junia", dir: { dx: 1, dy: 0 } },
+    tsay("junia", "Hm."),
+    tsay("junia", "I have no idea why I have turnip seed."),
+    tset((T2) => {
+      T2.sowI = 0;
+    }),
+    twait((T2) => {
+      const J = tut2Who("junia");
+      if (!J) return true;
+      if (J.moving) return false;
+      const f = T2.at.jfield;
+      if (T2.sowI >= f.length) {
+        J.pose = "stand";
+        J.tool = null;
+        return true;
+      }
+      const t = f[T2.sowI], st = { x: t.x, y: t.y - 1 <= T2.at.o.y + TUT2_MAP.yard.y ? t.y + 1 : t.y - 1 };
+      const spot = walkable(t.x - 1, t.y) && !lfPropAt(t.x - 1, t.y) ? { x: t.x - 1, y: t.y } : st;
+      if (J.tx !== t.x || J.ty !== t.y) {
+        if (Math.abs(J.tx - t.x) + Math.abs(J.ty - t.y) !== 1) {
+          tut2Walk(J, t);
+          return false;
+        }
+      }
+      J.face = { dx: Math.sign(t.x - J.tx), dy: Math.sign(t.y - J.ty) };
+      J.pose = "work";
+      J.tool = "hoe";
+      if ((T2.sowT = (T2.sowT || 0) + 1) < 12) return false;
+      T2.sowT = 0;
+      const c = tut2Crop(t.x, t.y);
+      if (c && !c.st) {
+        c.st = 1;
+        c.seed = "turnip";
+        c.t0 = game.time;
+        J.inv.seed_turnip = Math.max(0, (J.inv.seed_turnip || 0) - 1);
+        markDirty(t.x, t.y, 1, 1);
+      }
+      T2.sowI++;
+      void spot;
+      return false;
+    }),
+    tset((T2) => tut2End(T2))
+  ]
+);
+function tut2End(T2) {
+  game.time = game.ft = Math.floor(game.time / 1440) * 1440 + 12 * 60;
+  T2.done = true;
+  T2.locks = {};
+  T2.slots = [];
+  T2.stock = null;
+  T2.ui = { strip: null, arrow: null, marks: [] };
+  T2.show = {};
+  for (const n of npcs) {
+    if (n.tutHold) {
+      n.tutHold = false;
+      n.plan = null;
+      n.si = 0;
+      n.stepStarted = false;
+      if (n.pose === "sleep") n.pose = "stand";
+    }
+  }
+  T2.rentDay = Math.floor(game.time / 1440) + 1;
+  yardScan(true);
+  if (typeof yardHousing === "function") yardHousing();
+  itSync(true);
+  tut2Hud();
+  chron("The clock started. Junia has a yard, a bed and six rows of turnips. Nobody saw who made any of it.", "note");
+  if (typeof isleSave === "function") isleSave();
+}
+function tut2After() {
+  const T2 = town && town.tut2;
+  if (!T2 || !T2.done || T2.rent1 === "done" || T2.rentDay == null) return;
+  const J = tut2Who("junia"), P = game.player;
+  if (!J || J.dead || !P) {
+    T2.rent1 = "done";
+    return;
+  }
+  const day = Math.floor(game.time / 1440), tod = game.time % 1440;
+  if (!T2.rent1 && day >= T2.rentDay && tod >= 5 * 60 + 50) {
+    T2.rent1 = "walk";
+    J.tutRentSkip = true;
+    J.tutHold = true;
+    tut2Walk(J, T2.at.out);
+  }
+  if (T2.rent1 === "walk") {
+    if (!J.moving && (J.tx !== T2.at.out.x || J.ty !== T2.at.out.y)) tut2Walk(J, T2.at.out);
+    const near = Math.abs(J.tx - P.tx) + Math.abs(J.ty - P.ty) <= 2;
+    if (near && !J.moving || tod >= 9 * 60 || day > T2.rentDay) {
+      T2.rent1 = "done";
+      J.tutRentSkip = false;
+      J.tutHold = false;
+      J.plan = null;
+      faceTo(J, P);
+      tut2Say(J, "For the yard. It seems fair.", P);
+      setTimeout(() => tut2Say(J, "I don't know who to give it to, so I'm giving it to you.", P), 2400);
+      const amt = Math.min(J.coin, rentOf(J).amt || 2);
+      if (amt > 0) {
+        pay(J, P, amt);
+        const R = rentState();
+        R.today += amt;
+        R.total += amt;
+        J.rentLast = { t: game.time, amt, ok: true };
+        LIFE.emit("rent_paid", J, { price: amt });
+      }
+      chron("Junia paid the first rent.", "note");
+    }
+  }
+}
 const YARD_MIN = 12, YARD_MAX = 400, YARD_GRACE = 1440;
 const yardOn = () => !!(town && town.scenario === "hamlet");
 const yardFence = (p) => !!p && (p.kind === "fence" || p.kind === "gate");
@@ -27236,7 +28200,7 @@ function drawYards(c, now) {
 }
 const RENT_HOUR = 6, RENT_FLOWER_R = 4;
 const RENT_BASE = 2, RENT_ROOF = 1, RENT_WINDOW = 1, RENT_FLOWERS = 1;
-const rentTrader = (n) => !!(n && n.shop && n.shop.def === HAMLET_TRADER_DEF);
+const rentTrader = (n) => !!(n && (n.shop && n.shop.def === HAMLET_TRADER_DEF || n.tutRentSkip));
 function rentHome(n) {
   const o = { yard: null, roof: false, window: false, flowers: false };
   if (!yardOn() || !yardHasBed(n)) return o;
@@ -29357,7 +30321,7 @@ function frame(now) {
   }
   try {
     if (typeof tut2Tick === "function") tut2Tick(dt);
-    if (state.speed > 0 && !(town && town.decision)) {
+    if (state.speed > 0 && !(town && town.decision) && !(typeof SHOP !== "undefined" && SHOP.open)) {
       let m = dt * state.rate * state.speed;
       const t0 = performance.now();
       while (m > 0 && performance.now() - t0 < 14) {

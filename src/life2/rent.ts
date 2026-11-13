@@ -4,7 +4,7 @@
 
 const RENT_HOUR = 6, RENT_FLOWER_R = 4;   // (the amounts are HAMLET_TUNE: rentBase, rentRoof, rentWindow, rentFlowers)
 const RENT_BASE = 2, RENT_ROOF = 1, RENT_WINDOW = 1, RENT_FLOWERS = 1;   // (the starting values, for the tests and the tooltip)
-const rentTrader = (n: any) => !!(n && n.shop && n.shop.def === HAMLET_TRADER_DEF);
+const rentTrader = (n: any) => !!(n && ((n.shop && n.shop.def === HAMLET_TRADER_DEF) || n.tutRentSkip));   // (tutRentSkip: Junia's first rent is handed over in person, life2/tutorial2-play.ts)
 /** what somebody's home is like: { yard, roof, window, flowers } (all false without a bed) */
 function rentHome(n: any): any {
   const o: any = { yard: null, roof: false, window: false, flowers: false }; if (!yardOn() || !yardHasBed(n)) return o;

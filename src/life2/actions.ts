@@ -95,6 +95,7 @@ function lifeAct(n, p, fx, fy, dx, dy) {
     if (r && r.fn === 'workshop') { const w = n.inv.wood || 0, st = n.inv.stone || 0; if (w + st > 0) return { key: 'givewood' + pr.id, min: 1.5, text: 'Handing in wood and stone', tool: null, run(nn) { const s = lf2Stock(r); s.wood = (s.wood || 0) + (nn.inv.wood || 0); s.stone = (s.stone || 0) + (nn.inv.stone || 0); playerSay(nn, 'You hand in ' + (nn.inv.wood || 0) + ' wood and ' + (nn.inv.stone || 0) + ' stone.'); nn.inv.wood = 0; nn.inv.stone = 0; } };
       const s = lf2Stock(r); return { msg: `The carpenter's table. ${s.wood || 0} wood and ${s.stone || 0} stone in store. Bring more and he makes what you need.` }; }
   }
+  if (pr && pr.kind === 'gate' && !itBuildOn(n)) return null;   // (a gate opens for anybody who walks into it, like a door: you walk through)
   if (pr && pr.kind === 'bed' && !itBuildOn(n)) return { msg: pr.owner && !pr.owner.dead ? (pr.owner === n ? 'Your bed.' : pr.owner.first + '\'s bed.') : 'A free bed. Somebody will take it.' };
   if (pr) {
     const label = LF_NOUN[pr.kind];
