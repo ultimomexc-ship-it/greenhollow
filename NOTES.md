@@ -259,3 +259,5 @@ Step 9 is built (words for the Hamlet; tools/playtest.mjs hamlet). Playtest verd
 - The bot (`node tools/tutorial.mjs`) plays it end to end: 140 s skipping bubbles, 257 s reading every bubble (`--patient`); a person will take longer, near the 7:30 target.
 - Decided while building: you start inside your own fenced yard (in the Hamlet only a fence makes ground yours); Junia's ring is 18 fences (16 encloses 9 tiles, under YARD_MIN 12); the trader always serves (walk into Paullus from the customer tile or into the counter); gates are walked through.
 - Known gaps: a reload mid-tutorial does not resume a scene cleanly yet (prompt 9); Junia "lying awake" uses the sleep pose; the old Hamlet tests still drive the conversational shop menu (`GH_OLDSHOP`), the panel is covered by the tutorial test only.
+
+- Living grass (swaying tufts that part as you walk) was tried and removed (owner: "it doesn't work"). Idea for later: the same wind sway and lean-away-from-walkers on trees instead.
