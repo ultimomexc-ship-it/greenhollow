@@ -382,7 +382,7 @@ function drawActivityBars(c) {
     if (sc.x < -40 || sc.x > cam.cw + 40 || sc.y < -20 || sc.y > cam.ch + 40) continue;
     const w = 26, x = sc.x - w / 2, y = sc.y - 7 * cam.z - 12 + 4;
     const own = s.act === 'eat' || !n.face || !(n.face.dx || n.face.dy);
-    if ((s.act === 'work' && ['axe', 'hammer', 'pick', 'fish', 'hoe'].includes(s.tool)) || s.hold === 'plate' || s.slot) continue;
+    if ((s.act === 'work' && ['axe', 'hammer', 'pick', 'fish', 'hoe', 'pull', 'sow'].includes(s.tool)) || s.hold === 'plate' || s.slot) continue;
     drawPie(c, own ? n.tx : n.tx + n.face.dx, own ? n.ty : n.ty + n.face.dy, f, s.act === 'eat' ? 'rgba(224,169,63,.75)' : 'rgba(127,208,255,.7)');
   }
 }
