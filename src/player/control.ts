@@ -15,6 +15,13 @@ function releasePlayer() {
   if (!n.dead) { n.plan = null; n.si = 0; n.stepStarted = false; n.path = []; n.moving = false; n.x = n.tx; n.y = n.ty; }
 }
 const FARM_NEED_REST = false;   // (true: a plot is worked only from rest, so a field can be crossed: the old field rule)
+/** what a plot of yours wants from you now: 'p' plough, 's' sow (with a seed in hand), 'h' harvest, or null */
+function farmNeed(n, x, y): string | null {
+  const c = cropAt(x, y); if (!c || (typeof yardMine === 'function' && !yardMine(n, c))) return null;
+  if (!c.pl) return 'p';
+  if (c.st) return (cropStage(c) === 4 && !itIsFlower(c)) || (itIsFlower(c) && itWilted(c)) ? 'h' : null;
+  return itActiveSeed(n) ? 's' : null;
+}
 function playerSay(n, text) { n.player.msg = cvSpeak(text); n.player.msgAt = clk(); }
 const nodeAt = (x, y) => { const k = y * W + x; return town.nodes.find(nd => nd.x === x && nd.y === y && nd.amt >= 1); };
 const cropAt = (x, y) => town.crops.find(c => c.x === x && c.y === y);
@@ -196,6 +203,12 @@ function tickPlayer0(n, dt) {
       else { g.t += step; n.pose = 'stand'; n.tool = null; n.hold = null; if (g.t < g.max) continue; p.grace = null; p.act = null; if (g.talk) p.lock = true; else p.skip = { x: fx, y: fy }; }
     }
     if (p.lock) continue;
+    // a farming run (you worked a plot and are still holding the direction): carry on only with the same job; stop when the plot ahead wants another job, or when it wants none and a plot to your left, right or behind wants yours
+    if (IT_AUTO && p.edgeHold && p.runJob && !itBuildOn(n) && grid[n.ty][n.tx] === T.CROP && grid[fy] && grid[fy][fx] === T.CROP) {
+      const job = farmNeed(n, fx, fy);
+      if (job && job !== p.runJob) { n.pose = 'stand'; continue; }
+      if (!job && [[dy, -dx], [-dy, dx], [-dx, -dy]].some(([ax, ay]) => farmNeed(n, n.tx + ax, n.ty + ay) === p.runJob)) { n.pose = 'stand'; continue; }
+    }
     let tg = itGate(n, lifeAct(n, p, fx, fy, dx, dy) || targetAt(n, fx, fy), walkable(fx, fy));
     // auto farming: walking into a plot that needs work works it (plough, sow with the seed in hand or the one you have most of, harvest), no stopping first; a field is not crossed freely (FARM_NEED_REST brings the old rule back)
     if (IT_AUTO && FARM_NEED_REST && !itBuildOn(n) && tg && tg.key && /^crop/.test(tg.key) && !p.fresh) tg = null;
@@ -218,7 +231,7 @@ function tickPlayer0(n, dt) {
       p.act.t += step; applyPlayerAct(n, p.act);
       if (p.act.t >= p.act.min) {
         const a = p.act; playerFinish(n, a); n.tool = null; n.hold = null;
-        if (IT_AUTO && /^crop/.test(a.key) && !itBuildOn(n) && !p.sleeping && walkable(fx, fy) && !tileOwner.get(tkey(fx, fy))) { p.act = null; p.grace = null; p.edgeHold = d; n.path = [{ x: fx, y: fy }]; n.moving = true; n.t = 0; n.pose = 'walk'; continue; }   // (you step onto the plot you have just worked, so holding a direction works a whole row)
+        if (IT_AUTO && /^crop/.test(a.key) && !itBuildOn(n) && !p.sleeping && walkable(fx, fy) && !tileOwner.get(tkey(fx, fy))) { p.act = null; p.grace = null; p.edgeHold = d; p.runJob = (a.key.match(/^crop[\d,]+([psh])/) || [])[1] || null; n.path = [{ x: fx, y: fy }]; n.moving = true; n.t = 0; n.pose = 'walk'; continue; }   // (you step onto the plot you have just worked, so holding a direction works a whole row)
         if (!p.sleeping) { const nt = targetAt(n, fx, fy); if (!(nt && nt.key === a.key && a.repeat)) { /* bar stays full for a beat: let go to stay, keep holding to move on */ p.grace = { t: 0, max: 0.3 * (typeof state !== 'undefined' ? state.rate * state.speed : 2), x: fx, y: fy, talk: /^talk/.test(a.key) }; p.act = Object.assign({}, a, { t: a.min, done: true }); } }
       }
       continue;

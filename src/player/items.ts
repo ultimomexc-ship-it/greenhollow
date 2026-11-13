@@ -59,6 +59,7 @@ function itNeedOf(key: string): string | null {
 const itHasTool = (n, kind: string) => (n.items || []).some(i => i.kind === kind);
 /** the seed that goes in the ground: the seed in hand, else the one you have most of (auto) */
 function itActiveSeed(n): string | null {
+  if (IT_AUTO && n.noSeed) return null;   // (no seed in hand, on purpose: nothing is sown)
   const h = itHeld(n); if (IT_STACKS[h.kind] && IT_STACKS[h.kind].seed && h.count > 0) return h.kind;
   let best: string | null = null, bq = 0; for (const k of Object.keys(IT_STACKS)) if (IT_STACKS[k].seed && (n.bag[k] || 0) > bq) { bq = n.bag[k]; best = k; } return best;
 }
@@ -117,7 +118,7 @@ function itFacing(n): { what: string; verb: string; need: string | null } | null
 }
 
 /* ---------------- keys: Q hand mode, 1-9 the belt, B the bag ---------------- */
-function itSelect(n, i: number) { if (!n.belt || i < 0 || i >= n.belt.length || !n.belt[i]) return; n.sel = IT_AUTO && n.sel === i ? -1 : i;   // (auto: pressing the held slot again puts it away)
+function itSelect(n, i: number) { if (!n.belt || i < 0 || i >= n.belt.length || !n.belt[i]) return; n.sel = IT_AUTO && n.sel === i ? -1 : i; n.noSeed = IT_AUTO && n.sel === -1;   // (putting the seed away means: walk over ploughed ground without sowing)   // (auto: pressing the held slot again puts it away)
   const p = n.player; if (p) { p.act = null; p.lock = false; p.skip = null; p.grace = null; } itSync(true); }
 function itCycleMode(n) { if (!n.belt) return; if ((n.sel || 0) !== 0) n.sel = 0; else n.mode = IT_MODES[(IT_MODES.indexOf(itMode(n)) + 1) % IT_MODES.length]; const p = n.player; if (p) { p.act = null; p.lock = false; p.skip = null; p.grace = null; } itSync(true); }
 window.addEventListener('keydown', e => {

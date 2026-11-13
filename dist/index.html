@@ -13447,6 +13447,13 @@ function releasePlayer() {
   }
 }
 const FARM_NEED_REST = false;
+function farmNeed(n, x, y) {
+  const c = cropAt(x, y);
+  if (!c || typeof yardMine === "function" && !yardMine(n, c)) return null;
+  if (!c.pl) return "p";
+  if (c.st) return cropStage(c) === 4 && !itIsFlower(c) || itIsFlower(c) && itWilted(c) ? "h" : null;
+  return itActiveSeed(n) ? "s" : null;
+}
 function playerSay(n, text) {
   n.player.msg = cvSpeak(text);
   n.player.msgAt = clk();
@@ -13965,6 +13972,17 @@ function tickPlayer0(n, dt) {
       }
     }
     if (p.lock) continue;
+    if (IT_AUTO && p.edgeHold && p.runJob && !itBuildOn(n) && grid[n.ty][n.tx] === T.CROP && grid[fy] && grid[fy][fx] === T.CROP) {
+      const job = farmNeed(n, fx, fy);
+      if (job && job !== p.runJob) {
+        n.pose = "stand";
+        continue;
+      }
+      if (!job && [[dy, -dx], [-dy, dx], [-dx, -dy]].some(([ax, ay]) => farmNeed(n, n.tx + ax, n.ty + ay) === p.runJob)) {
+        n.pose = "stand";
+        continue;
+      }
+    }
     let tg = itGate(n, lifeAct(n, p, fx, fy, dx, dy) || targetAt(n, fx, fy), walkable(fx, fy));
     if (IT_AUTO && FARM_NEED_REST && !itBuildOn(n) && tg && tg.key && /^crop/.test(tg.key) && !p.fresh) tg = null;
     let occ = tileOwner.get(tkey(fx, fy)), pushed = false;
@@ -14011,6 +14029,7 @@ function tickPlayer0(n, dt) {
           p.act = null;
           p.grace = null;
           p.edgeHold = d;
+          p.runJob = (a.key.match(/^crop[\d,]+([psh])/) || [])[1] || null;
           n.path = [{ x: fx, y: fy }];
           n.moving = true;
           n.t = 0;
@@ -21122,6 +21141,7 @@ function itNeedOf(key) {
 }
 const itHasTool = (n, kind) => (n.items || []).some((i) => i.kind === kind);
 function itActiveSeed(n) {
+  if (IT_AUTO && n.noSeed) return null;
   const h = itHeld(n);
   if (IT_STACKS[h.kind] && IT_STACKS[h.kind].seed && h.count > 0) return h.kind;
   let best = null, bq = 0;
@@ -21255,6 +21275,7 @@ function itFacing(n) {
 function itSelect(n, i) {
   if (!n.belt || i < 0 || i >= n.belt.length || !n.belt[i]) return;
   n.sel = IT_AUTO && n.sel === i ? -1 : i;
+  n.noSeed = IT_AUTO && n.sel === -1;
   const p = n.player;
   if (p) {
     p.act = null;
@@ -24312,6 +24333,7 @@ function render(now, dtSec, hourOfDay) {
   if (typeof drawStallSigns === "function") drawStallSigns(c, now);
   if (typeof drawGuides === "function") drawGuides(c, now);
   if (typeof drawTut2 === "function") drawTut2(c, now);
+  if (typeof drawRipeGlow === "function") drawRipeGlow(c, now);
   drawSites(c, now);
   drawEventsFx(c, now);
   drawWorkFx(c, now);
@@ -28576,6 +28598,22 @@ function buildLook(c, now) {
     c.fillRect(s.x + 2, s.y + 2, ts - 4, ts - 4);
     c.strokeRect(s.x + 2, s.y + 2, ts - 4, ts - 4);
     c.setLineDash([]);
+  }
+  c.restore();
+}
+function drawRipeGlow(c, now) {
+  if (!town || !town.crops || !town.crops.length) return;
+  const x0 = Math.floor(cam.x / TS) - 1, y0 = Math.floor(cam.y / TS) - 1, x1 = x0 + Math.ceil(cam.cw / cam.z / TS) + 2, y1 = y0 + Math.ceil(cam.ch / cam.z / TS) + 2;
+  const pu = 0.55 + 0.25 * Math.sin(now / 420);
+  c.save();
+  c.globalCompositeOperation = "lighter";
+  for (const k of town.crops) {
+    if (k.x < x0 || k.x > x1 || k.y < y0 || k.y > y1 || !k.st || cropStage(k) !== 4 || itIsFlower(k)) continue;
+    const cx = k.x * TS + TS / 2, cy = k.y * TS + TS / 2, g = c.createRadialGradient(cx, cy, 2, cx, cy, TS * 0.7);
+    g.addColorStop(0, `rgba(255,214,90,${0.38 * pu})`);
+    g.addColorStop(1, "rgba(255,214,90,0)");
+    c.fillStyle = g;
+    c.fillRect(k.x * TS - TS * 0.2, k.y * TS - TS * 0.2, TS * 1.4, TS * 1.4);
   }
   c.restore();
 }

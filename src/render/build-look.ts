@@ -29,3 +29,17 @@ function buildLook(c: any, now: number) {
   }
   c.restore();
 }
+
+/** ripe crops glow yellow, so you can see what is ready to pull (world space, after the ground and the guides) */
+function drawRipeGlow(c: any, now: number) {
+  if (!town || !town.crops || !town.crops.length) return;
+  const x0 = Math.floor(cam.x / TS) - 1, y0 = Math.floor(cam.y / TS) - 1, x1 = x0 + Math.ceil(cam.cw / cam.z / TS) + 2, y1 = y0 + Math.ceil(cam.ch / cam.z / TS) + 2;
+  const pu = 0.55 + 0.25 * Math.sin(now / 420);
+  c.save(); c.globalCompositeOperation = 'lighter';
+  for (const k of town.crops) {
+    if (k.x < x0 || k.x > x1 || k.y < y0 || k.y > y1 || !k.st || cropStage(k) !== 4 || itIsFlower(k)) continue;
+    const cx = k.x * TS + TS / 2, cy = k.y * TS + TS / 2, g = c.createRadialGradient(cx, cy, 2, cx, cy, TS * 0.7);
+    g.addColorStop(0, `rgba(255,214,90,${0.38 * pu})`); g.addColorStop(1, 'rgba(255,214,90,0)'); c.fillStyle = g; c.fillRect(k.x * TS - TS * 0.2, k.y * TS - TS * 0.2, TS * 1.4, TS * 1.4);
+  }
+  c.restore();
+}

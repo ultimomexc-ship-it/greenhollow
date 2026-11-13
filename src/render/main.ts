@@ -186,7 +186,7 @@ function render(now, dtSec, hourOfDay) {
   drawDoors(c, dtSec);
   if (typeof drawTide === 'function') drawTide(c, now);
 
-  drawNodes(c, now); if (typeof drawShrooms === 'function') drawShrooms(c, now); if (typeof drawSigns === 'function') drawSigns(c, now); if (typeof drawYards === 'function') drawYards(c, now); if (typeof drawStallSigns === 'function') drawStallSigns(c, now); if (typeof drawGuides === 'function') drawGuides(c, now); if (typeof drawTut2 === 'function') drawTut2(c, now); drawSites(c, now); drawEventsFx(c, now); drawWorkFx(c, now); stepWild(now); drawWild(c, now); if (typeof stepSea === 'function') { stepSea(now); drawSea(c, now); }
+  drawNodes(c, now); if (typeof drawShrooms === 'function') drawShrooms(c, now); if (typeof drawSigns === 'function') drawSigns(c, now); if (typeof drawYards === 'function') drawYards(c, now); if (typeof drawStallSigns === 'function') drawStallSigns(c, now); if (typeof drawGuides === 'function') drawGuides(c, now); if (typeof drawTut2 === 'function') drawTut2(c, now); if (typeof drawRipeGlow === 'function') drawRipeGlow(c, now); drawSites(c, now); drawEventsFx(c, now); drawWorkFx(c, now); stepWild(now); drawWild(c, now); if (typeof stepSea === 'function') { stepSea(now); drawSea(c, now); }
   drawLabels(c);
 
   // people, the forest sprites, the statue... and any tall tile standing in front of them: all in order of who is

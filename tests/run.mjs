@@ -2940,6 +2940,34 @@ test('tutorial: the Watch button lets the bot play the whole first morning insid
   return `finished in ${r.secs} s of game-page real time; cards: ${r.cards}`;
 });
 
+test('farming runs: walk on over done plots, stop for a plot of the same job beside you, stop when the plot ahead wants another job, and no seed in hand walks over ploughed ground', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    newTown('run-test', 'blank'); if (!town.props) lfInitProps(); startPlaying(npcs[0]); const P = game.player, p = P.player;
+    let at = null; for (let y = town.cy - 20; y < town.cy + 20 && !at; y++) for (let x = town.cx - 25; x < town.cx + 25 && !at; x++) { let ok = true; for (let j = -1; j <= 1 && ok; j++) for (let i = 0; i < 8 && ok; i++) if (grid[y + j][x + i] !== T.GRASS || lfPropAt(x + i, y + j) || !walkable(x + i, y + j) || tileOwner.get((y + j) * W + x + i)) ok = false; if (ok) at = { x, y }; }
+    const clear = () => { for (const c of town.crops.slice()) if (Math.abs(c.y - at.y) <= 1 && c.x >= at.x && c.x < at.x + 8) { setT(c.x, c.y, T.GRASS); town.crops.splice(town.crops.indexOf(c), 1); } };
+    const plot = (i, j, kind) => { const c = { x: at.x + i, y: at.y + j, f: 'run', pl: kind === 'r' ? 0 : 1, st: kind === 'R' ? 1 : 0, t0: kind === 'R' ? game.time - 99999 : 0, seed: kind === 'R' ? 'turnip' : null, byField: P.id }; setT(c.x, c.y, T.CROP); town.crops.push(c); return c; };
+    const go = (row, extra) => { clear(); row.split('').forEach((k, i) => { if (k !== '.') plot(i + 1, 0, k); }); for (const e of extra || []) plot(e[0], e[1], e[2]); refreshReach();
+      P.tx = P.x = at.x; P.ty = P.y = at.y; P.path = []; P.moving = false; P.face = { dx: 1, dy: 0 }; p.edgeHold = null; p.runJob = null; p.act = null; p.grace = null; p.keys = { right: true }; p.idle = 1;
+      for (let i = 0; i < 300; i++) updateSim(0.5); p.keys = {}; updateSim(0.5); return P.tx - at.x; };
+    const st = (i, j) => { const c = town.crops.find(q => q.x === at.x + i && q.y === at.y + j); return c ? (c.st ? 's' : c.pl ? 'p' : 'r') : '.'; };
+    const out = {};
+    P.noSeed = true; out.walkOn = go('rppr'); out.walkOnLast = st(4, 0);      // (no seed in hand, so ploughed plots want nothing: ploughs the first, walks over the two done ones, ploughs the last)
+    out.side = go('rppr', [[1, -1, 'r']]); P.noSeed = false;                  // (a raw plot above the first: stop there)
+    out.sowAhead = go('rp');                                                  // (with seed in hand the ploughed plot ahead wants sowing: another job, stop)
+    out.other = go('rR'); out.otherRipe = st(2, 0);                           // (ripe ahead while ploughing: stop, leave it)
+    P.noSeed = true; out.noSeedAt = go('pp'); out.noSeedSown = st(1, 0) + st(2, 0); P.noSeed = false;   // (no seed in hand: walk over ploughed ground)
+    return out;
+  });
+  check(r.walkOn === 4 && r.walkOnLast === 'p', 'walks on over ploughed plots to plough the next raw one: ' + JSON.stringify(r));
+  check(r.side === 1, 'stops when a plot beside you still needs ploughing: ' + JSON.stringify(r));
+  check(r.sowAhead === 1, 'ploughing with seed in hand, a ploughed plot ahead wants sowing: you stop in front of it: ' + JSON.stringify(r));
+  check(r.other === 1 && r.otherRipe === 's', 'stops when the plot ahead wants a different job (ripe while ploughing): ' + JSON.stringify(r));
+  check(r.noSeedSown === 'pp' && r.noSeedAt >= 2, 'with no seed in hand you walk over ploughed ground and nothing is sown: ' + JSON.stringify(r));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return 'walk on, stop for a side plot, stop for another job, no seed walks over';
+});
+
 const browser = await launch();
 let failed = 0;
 const chosen = tests.filter(t => t.name.includes(filter));
