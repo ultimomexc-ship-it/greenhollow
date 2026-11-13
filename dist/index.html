@@ -29020,7 +29020,7 @@ function drawSteps(c, now) {
   }
   c.restore();
 }
-const TREES = { on: true, spring: /* @__PURE__ */ new Map(), last: 0, seed: 777 };
+const TREES = { on: true, wind: 1, push: 1, spring: /* @__PURE__ */ new Map(), last: 0, seed: 777 };
 const trRand = () => {
   TREES.seed = TREES.seed * 1103515245 + 12345 & 2147483647;
   return TREES.seed / 2147483647;
@@ -29048,7 +29048,7 @@ YSORT.push(function(c, now) {
         const dx = x - n.x, dy = y - n.y;
         if (Math.abs(dx) > 1.6 || dy < -1.2 || dy > 0.9) continue;
         const d = Math.hypot(dx, dy * 1.4);
-        if (d < 1.6) push += Math.sign(dx || (n.face || 1) * -0.01) * (1 - d / 1.6) * (n.moving || n.player ? 0.16 : 0.05);
+        if (d < 1.6) push += Math.sign(dx || (n.face || 1) * -0.01) * (1 - d / 1.6) * (n.moving || n.player ? 0.38 : 0.1) * TREES.push;
       }
       let sp = TREES.spring.get(key);
       if (push || sp) {
@@ -29059,7 +29059,7 @@ YSORT.push(function(c, now) {
         sp.v += ((push - sp.p) * 60 - sp.v * 7) * dt;
         sp.p += sp.v * dt;
         seen.add(key);
-        if (Math.abs(push) > 0.06 && Math.abs(sp.v) > 0.5 && trRand() < 0.06 && typeof jBurst === "function") {
+        if (Math.abs(push) > 0.1 && Math.abs(sp.v) > 0.5 && trRand() < 0.1 && typeof jBurst === "function") {
           const R = Math.random;
           Math.random = trRand;
           try {
@@ -29070,7 +29070,7 @@ YSORT.push(function(c, now) {
         }
         if (!push && Math.abs(sp.p) < 2e-3 && Math.abs(sp.v) < 0.01) TREES.spring.delete(key);
       }
-      const wind = Math.sin(t * 1.15 + x * 0.55 + y * 0.35) * 0.028 * gust + Math.sin(t * 2.7 + x * 1.3) * 8e-3 + 0.012 * gust;
+      const wind = (Math.sin(t * 1.15 + x * 0.55 + y * 0.35) * 0.085 * gust + Math.sin(t * 2.7 + x * 1.3) * 0.025 + 0.035 * gust) * TREES.wind;
       const sk = wind + (sp ? sp.p : 0);
       items.push({ k: y - 0.02, f: () => {
         const id = gaSpriteId(x, y, T.TREE), it = id && ART.BYID[id];
@@ -29078,7 +29078,7 @@ YSORT.push(function(c, now) {
         const bx = x * TS + it.gw / 2, by = y * TS + TS;
         c.save();
         c.translate(bx, by);
-        c.transform(1, 0, -sk, 1 - Math.abs(sk) * 0.15, 0, 0);
+        c.transform(1, 0, -sk, 1 - Math.abs(sk) * 0.2, 0, 0);
         c.drawImage(ART.frameOf(it, 0), -it.gw / 2, -it.gh, it.gw, it.gh);
         c.restore();
       } });
