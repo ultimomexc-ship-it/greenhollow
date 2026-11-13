@@ -172,13 +172,7 @@ function drawJuice(c: any, now: number) {
   if (typeof canvas !== 'undefined' && canvas) { const s = JUICE.shake; if (s > 0.05) { canvas.style.transform = `translate(${jRand(-s, s).toFixed(1)}px,${jRand(-s, s).toFixed(1)}px)`; JUICE.shake *= 0.82; } else if (JUICE.shake) { JUICE.shake = 0; canvas.style.transform = ''; } }
 }
 
-/* ---- pulling a crop: when a harvest is done the plants come up one at a time (drawn in render/village.ts) and each flies into the picker's pack ---- */
-// @ts-expect-error -- deliberate patch
-const _jHarvest = itHarvest; itHarvest = function (n, c) {
-  const seed = c && c.seed; const r = _jHarvest.apply(this, arguments as any);
-  if (c && !c.st && n && typeof pullStart === 'function' && !(typeof IT_SEEDS !== 'undefined' && seed && IT_SEEDS[seed] && IT_SEEDS[seed].flower)) pullStart(c, seed, n);
-  return r;
-};
+/* ---- pulling a crop: the plants come up one at a time while you harvest (render/village.ts) and each flies into the picker's pack ---- */
 /** one plant out of the ground: a puff of earth, a little pop, and the crop in an arc to whoever pulled it (the colour of what grew) */
 function jPullFly(t: any, seed: any, who: any, cx: number, cy: number) {
   const k = TS / 24, x = t.x * TS + cx * k, y = t.y * TS + cy * k - 3, col = (seed && IT_SEEDS[seed] && IT_SEEDS[seed].col) || '#e0c060';

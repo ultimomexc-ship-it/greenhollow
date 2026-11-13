@@ -7248,7 +7248,8 @@ const ART = (function() {
         A2(false, [res.tool.x + Math.cos(ang) * 2.8, res.tool.y + Math.sin(ang) * 2.8], { kind: "fist", ang, bend: 1 });
         break;
       }
-      case "pick": {
+      case "pick":
+      case "pull": {
         res.lean = 0.42;
         const r = 0.5 + 0.5 * sw;
         A2(true, H2(true, 3.6 + r * 1.6, 1.8, -3.4 - r * 1.2), { kind: "open" });
@@ -11439,7 +11440,7 @@ function farmPlan(n) {
     if (!st) st = { x: c.x, y: c.y };
     steps.push(goS({ x: st.x, y: st.y, face: { dx: Math.sign(c.x - st.x), dy: Math.sign(c.y - st.y) } }, i ? "Moving along the rows" : "Heading to the fields"));
     prev = { x: c.x, y: c.y };
-    steps.push(waitS(kind === "plow" ? 3 : kind === "harvest" ? 4 : 7, "work", txt, { tool: kind === "sow" ? "sow" : "hoe", onEnd(n2) {
+    steps.push(waitS(kind === "plow" ? 3 : kind === "harvest" ? 4 : 7, "work", txt, { tool: kind === "sow" ? "sow" : kind === "harvest" ? "pull" : "hoe", onEnd(n2) {
       if (kind === "harvest") {
         if (c.st && cropStage(c) === 4) itHarvest(n2, c);
       } else if (kind === "sow") {
@@ -13899,7 +13900,7 @@ function targetAt0(n, x, y) {
         playerSay(n2, "Cleared. The ground is ready again. +1 seed");
       }
     } };
-    if (c.st && st === 4 && !fl) return { key: "crop" + x + "," + y + "h", min: 4, text: "Harvesting grain", tool: "hoe", walkOn: true, run(n2) {
+    if (c.st && st === 4 && !fl) return { key: "crop" + x + "," + y + "h", min: 8, text: "Harvesting grain", tool: "pull", walkOn: true, run(n2) {
       if (c.st && cropStage(c) === 4) {
         const h = itHarvest(n2, c);
         playerSay(n2, "+" + h.q + " " + h.what + (h.back ? ", +" + h.back + " seed" : ""));
@@ -16554,30 +16555,7 @@ function cropPit(c, x, y, k, h) {
   c.ellipse(x, y, rx, ry, 0, 0.3, Math.PI - 0.3);
   c.stroke();
 }
-const PULLS = /* @__PURE__ */ new Map(), PULL_MS = 220;
-function pullStart(c, seed, who) {
-  const now = performance.now();
-  for (const [k, e] of PULLS) if (now - e.t0 > 5e3) PULLS.delete(k);
-  PULLS.set(c.y * W + c.x, { c, seed, who, t0: now, n: 0 });
-}
-function pullCount(t) {
-  const e = PULLS.get(t.y * W + t.x);
-  if (!e || e.c !== t) return 0;
-  if (t.st) {
-    PULLS.delete(t.y * W + t.x);
-    return 0;
-  }
-  const el2 = performance.now() - e.t0, n = Math.min(9, 1 + Math.floor(el2 / PULL_MS));
-  if (el2 > 9 * PULL_MS + 350) {
-    PULLS.delete(t.y * W + t.x);
-    return 0;
-  }
-  while (e.n < n) {
-    const q = PULL_ORDER[e.n++];
-    if (typeof jPullFly === "function") jPullFly(t, e.seed, e.who, CROP_COL[q % 3], CROP_ROW[Math.floor(q / 3)]);
-  }
-  return n;
-}
+const PULLS = /* @__PURE__ */ new Map();
 function cropPulling(c, t, st, sd, n, now) {
   const k = TS / 24, X = t.x * TS, Y = t.y * TS, gone = new Set(PULL_ORDER.slice(0, n));
   for (const q of gone) {
@@ -16598,15 +16576,27 @@ function drawCrops(c, now) {
     const st = t.pl ? cropStage(t) : -1;
     gaDraw(c, st < 0 ? "crop_raw" : "crop_0", t.x * TS, t.y * TS, now, 0);
     if (st > 0) plants.push(t);
-    else if (PULLS.size) {
-      const n = pullCount(t);
-      if (n) cropPulling(c, t, 4, PULLS.get(t.y * W + t.x).seed, n, now);
-    }
   }
   plants.sort((a, b) => a.y - b.y);
+  const pulling = /* @__PURE__ */ new Map();
+  if (plants.length && typeof workTargets === "function") {
+    for (const w of workTargets()) if (w.kind === "harvest") pulling.set(w.y * W + w.x, { n: Math.min(9, Math.floor(w.f * 9) + 1), who: w.n });
+  }
+  for (const k of [...PULLS.keys()]) if (!pulling.has(k)) PULLS.delete(k);
   for (const t of plants) {
     const st = cropStage(t), sd = t.seed && t.seed !== "barley" && IT_SEEDS[t.seed] ? t.seed : null;
-    gaDraw(c, sd ? "crop_" + sd + "_" + (itWilted(t) ? 5 : Math.min(4, st)) : "crop_" + Math.min(4, st), t.x * TS, t.y * TS, now, t.x + t.y);
+    const pl = pulling.get(t.y * W + t.x);
+    if (!pl) {
+      gaDraw(c, sd ? "crop_" + sd + "_" + (itWilted(t) ? 5 : Math.min(4, st)) : "crop_" + Math.min(4, st), t.x * TS, t.y * TS, now, t.x + t.y);
+      continue;
+    }
+    let e = PULLS.get(t.y * W + t.x);
+    if (!e || e.who !== pl.who) PULLS.set(t.y * W + t.x, e = { n: 0, who: pl.who });
+    while (e.n < pl.n) {
+      const q = PULL_ORDER[e.n++];
+      if (typeof jPullFly === "function") jPullFly(t, t.seed, pl.who, CROP_COL[q % 3], CROP_ROW[Math.floor(q / 3)]);
+    }
+    cropPulling(c, t, st, sd, pl.n, now);
   }
 }
 function drawNodes(c, now) {
@@ -25255,9 +25245,9 @@ function workTargets() {
       if (nd) out.push({ x: nd.x, y: nd.y, f, n, kind: nd.kind === "berry" ? "berry" : "herb" });
     } else if (tool === "fish") {
       if (g === T.WATER) out.push({ x: fx, y: fy, f, n, kind: "fish" });
-    } else if (tool === "hoe" || tool === "sow") {
+    } else if (tool === "hoe" || tool === "sow" || tool === "pull") {
       const c = cropAtR(fx, fy);
-      if (c) out.push({ x: c.x, y: c.y, f, n, kind: tool === "sow" || /Sow/.test(text) ? "sow" : /Plough/.test(text) ? "plough" : "harvest" });
+      if (c) out.push({ x: c.x, y: c.y, f, n, kind: tool === "sow" || /Sow/.test(text) ? "sow" : tool === "pull" ? "harvest" : /Plough/.test(text) ? "plough" : "harvest" });
     }
   }
   return out;
@@ -29303,13 +29293,6 @@ function drawJuice(c, now) {
     }
   }
 }
-const _jHarvest = itHarvest;
-itHarvest = function(n, c) {
-  const seed = c && c.seed;
-  const r = _jHarvest.apply(this, arguments);
-  if (c && !c.st && n && typeof pullStart === "function" && !(typeof IT_SEEDS !== "undefined" && seed && IT_SEEDS[seed] && IT_SEEDS[seed].flower)) pullStart(c, seed, n);
-  return r;
-};
 function jPullFly(t, seed, who, cx, cy) {
   const k = TS / 24, x = t.x * TS + cx * k, y = t.y * TS + cy * k - 3, col = seed && IT_SEEDS[seed] && IT_SEEDS[seed].col || "#e0c060";
   jBurst(x, y + 2, 4, "dot", ["#6b4a2b", "#8a6239"], 0.6, 0.5);
@@ -29743,7 +29726,7 @@ function drawRipeGlow(c, now) {
   const x0 = Math.floor(cam.x / TS) - 1, y0 = Math.floor(cam.y / TS) - 1, x1 = x0 + Math.ceil(cam.cw / cam.z / TS) + 2, y1 = y0 + Math.ceil(cam.ch / cam.z / TS) + 2;
   const pu = 0.7 + 0.3 * Math.sin(now / 380), o = Math.max(0.55, 1.2 / cam.z);
   for (const k of town.crops) {
-    if (k.x < x0 || k.x > x1 || k.y < y0 || k.y > y1 || !k.st || cropStage(k) !== 4 || itIsFlower(k)) continue;
+    if (k.x < x0 || k.x > x1 || k.y < y0 || k.y > y1 || !k.st || cropStage(k) !== 4 || itIsFlower(k) || PULLS.has(k.y * W + k.x)) continue;
     const sd = k.seed && k.seed !== "barley" && IT_SEEDS[k.seed] ? k.seed : null, id = sd ? "crop_" + sd + "_4" : "crop_4", it = ART.BYID[id];
     if (!it) continue;
     const fr = ART.frameOf(it, gaFrame(it, now, k.x + k.y)), sil = ripeSil(fr), X = k.x * TS, Y = k.y * TS + TS - it.gh;

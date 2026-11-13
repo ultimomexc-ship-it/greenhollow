@@ -22,7 +22,7 @@ function workTargets() {
     else if ((tool === 'hammer' || /^rock/.test(key)) && g === T.ROCK) out.push({ x: fx, y: fy, f, n, kind: 'rock' });
     else if (tool === 'pick' || /^node/.test(key)) { const nd = nodeAt(fx, fy); if (nd) out.push({ x: nd.x, y: nd.y, f, n, kind: nd.kind === 'berry' ? 'berry' : 'herb' }); }
     else if (tool === 'fish') { if (g === T.WATER) out.push({ x: fx, y: fy, f, n, kind: 'fish' }); }
-    else if (tool === 'hoe' || tool === 'sow') { const c = cropAtR(fx, fy); if (c) out.push({ x: c.x, y: c.y, f, n, kind: tool === 'sow' || /Sow/.test(text) ? 'sow' : /Plough/.test(text) ? 'plough' : 'harvest' }); }
+    else if (tool === 'hoe' || tool === 'sow' || tool === 'pull') { const c = cropAtR(fx, fy); if (c) out.push({ x: c.x, y: c.y, f, n, kind: tool === 'sow' || /Sow/.test(text) ? 'sow' : tool === 'pull' ? 'harvest' : /Plough/.test(text) ? 'plough' : 'harvest' }); }
   }
   return out;
 }
@@ -90,7 +90,7 @@ function drawWorkFx(c, now) {
         const t = q9 - k, hx = w.n.x * TS + 12 + (w.n.face ? w.n.face.dx * 5 : 0), hy = w.n.y * TS + 9 + (w.n.face ? w.n.face.dy * 3 : 0), tx = px + CROP_COL[k % 3], ty = py + CROP_ROW[Math.floor(k / 3)] - 0.6;
         seed(hx + (tx - hx) * t, hy + (ty - hy) * t - Math.sin(t * Math.PI) * 7); }
     } else if (w.kind === 'harvest') {
-      // (when it is done the plants come out one at a time, each leaving its hole and flying to the picker: pullStart / cropPulling in render/village.ts)
+      // (the plants come out one at a time as the harvest goes on, each leaving its hole and flying to the picker: cropPulling in render/village.ts)
     } else {
       // cracks spread across the boulder, chips fly
       const cp = crackPath(w.x, w.y), segs = cp.main.length - 1, shown = f * (segs + 2);

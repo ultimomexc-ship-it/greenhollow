@@ -44,7 +44,7 @@ function drawRipeGlow(c: any, now: number) {
   const x0 = Math.floor(cam.x / TS) - 1, y0 = Math.floor(cam.y / TS) - 1, x1 = x0 + Math.ceil(cam.cw / cam.z / TS) + 2, y1 = y0 + Math.ceil(cam.ch / cam.z / TS) + 2;
   const pu = 0.7 + 0.3 * Math.sin(now / 380), o = Math.max(0.55, 1.2 / cam.z);
   for (const k of town.crops) {
-    if (k.x < x0 || k.x > x1 || k.y < y0 || k.y > y1 || !k.st || cropStage(k) !== 4 || itIsFlower(k)) continue;
+    if (k.x < x0 || k.x > x1 || k.y < y0 || k.y > y1 || !k.st || cropStage(k) !== 4 || itIsFlower(k) || PULLS.has(k.y * W + k.x)) continue;   // (being pulled: drawn plant by plant in drawCrops)
     const sd = k.seed && k.seed !== 'barley' && IT_SEEDS[k.seed] ? k.seed : null, id = sd ? 'crop_' + sd + '_4' : 'crop_4', it = ART.BYID[id]; if (!it) continue;
     const fr = ART.frameOf(it, gaFrame(it, now, k.x + k.y)), sil = ripeSil(fr), X = k.x * TS, Y = k.y * TS + TS - it.gh;
     c.save(); c.globalAlpha = pu;
