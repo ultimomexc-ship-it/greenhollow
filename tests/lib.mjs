@@ -23,7 +23,7 @@ export async function openGame(browser, file, opts = {}) {
   // (requests to the web are blocked on purpose, so their "Failed to load resource" messages are not errors)
   page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
   await page.route(/^https?:/, r => r.abort());
-  await page.addInitScript(() => { window.GH_NOSAVE = true; window.GH_KIT_LIMITED = true; window.GH_NOSOUND = true; window.GH_LIFE_STRICT = true; window.GH_NOTUT = true; });   // (GH_NOTUT: a new Hamlet island starts without the tutorial; the tutorial test and tools/tutorial.mjs turn it back on)   // (the tests never touch saved islands)
+  await page.addInitScript(() => { window.GH_NOSAVE = true; window.GH_KIT_LIMITED = true; window.GH_NOSOUND = true; window.GH_LIFE_STRICT = true; window.GH_NOTUT = true; window.GH_OLDSHOP = true; });   // (GH_NOTUT: a new Hamlet island starts without the tutorial; the tutorial test and tools/tutorial.mjs turn it back on)   // (the tests never touch saved islands)
   if (!live) await page.addInitScript(seed => {
     let a = seed >>> 0;
     Math.random = function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };

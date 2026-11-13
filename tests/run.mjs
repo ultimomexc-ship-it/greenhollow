@@ -2851,7 +2851,7 @@ test('crops and flowers: every crop is its own plant with its own art; flowers s
 
 test('tutorial: the first morning plays from the old house to the clock starting, word for word, with B and the hammer locked until it is their turn; Junia hands over the first rent at your door', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
-  const early = await page.evaluate(() => { window.GH_NOTUT = false; newTown('tutorial', 'hamlet'); const P = game.player, T2 = town.tut2;
+  const early = await page.evaluate(() => { window.GH_NOTUT = false; window.GH_OLDSHOP = false; newTown('tutorial', 'hamlet'); const P = game.player, T2 = town.tut2;
     tut2Tick(0.05); const t0 = game.time; for (let i = 0; i < 30; i++) updateSim(2); itBuildToggle(P, true); itBag(true);
     const r = rooms.find(q => q.cells && q.cells.has(T2.at.bed.x + T2.at.bed.y * W));
     return { pop: npcs.length, clock: game.time === t0, build: itBuildOn(P), bag: itBagOpen(), room: !!r && !r.dead, bedIn: !!P.bed && P.bed.x === T2.at.bed.x, ownYard: !!yardOfN(P), tools: (P.items || []).length, coin: P.coin, hidden: document.body.classList.contains('tut2') }; });

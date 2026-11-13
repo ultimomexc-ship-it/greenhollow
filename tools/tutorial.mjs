@@ -15,7 +15,7 @@ fs.mkdirSync(out, { recursive: true });
 
 export async function playTutorial(page, { patient = false, until = 99, shots = null, maxSec = 900 } = {}) {
   await page.evaluate(() => {
-    window.GH_NOTUT = false; newTown('tutorial', 'hamlet');
+    window.GH_NOTUT = false; window.GH_OLDSHOP = false; newTown('tutorial', 'hamlet');
     /** one frame of the real frame loop, without drawing: the tutorial on real time, then the sim */
     window.__tutFrame = ms => { window.__advance(ms); const dt = ms / 1000; tut2Tick(dt); if (state.speed > 0 && !town.decision) updateSim(dt * state.rate * state.speed); drainEvents(performance.now()); };
     /** what the bot does now: skip a bubble, walk toward the step's target, or nothing */

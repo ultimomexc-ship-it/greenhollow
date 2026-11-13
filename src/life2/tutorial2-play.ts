@@ -179,7 +179,7 @@ if (typeof window !== 'undefined') window.addEventListener('keydown', (e: any) =
 }, true);
 /* the Hamlet's player uses the panel at every stall; the old conversational menu stays for the other islands */
 // @ts-expect-error -- deliberate patch
-const _t2Farm = farmShopDialog; farmShopDialog = function (m) { if (town && town.scenario === 'hamlet') { shopOpen(m); return; } return _t2Farm(m); };
+const _t2Farm = farmShopDialog; farmShopDialog = function (m) { if (town && town.scenario === 'hamlet' && !(window as any).GH_OLDSHOP) { shopOpen(m); return; } return _t2Farm(m); };   // (GH_OLDSHOP: the older Hamlet tests drive the conversational menu)
 /* tutorial patches on the game: one turnip per patch plot and no seed back; Junia's first rent is handed over at your door */
 // @ts-expect-error -- deliberate patch
 const _t2Harvest = itHarvest; itHarvest = function (n, c) {

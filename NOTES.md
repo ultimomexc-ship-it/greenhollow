@@ -253,3 +253,9 @@ Step 6 is built: tools/balance.mjs (the Hamlet's balance harness). First reading
 Step 7 is built: the seed stall and carpenter stall (unlock with hamletUnlock; the progression step wires it). Next: step 8, the progression steps and the closing card.
 Step 8 is built (life2/progress.ts) and a playable build is published for testing. The carter now calls every six hours (hamletCarter): rent is mostly paid. Still open for step 10: single-person yards are always broke (1 adult, 7 fields), and step 4 (everyone roofed) is far: walls for every bed cost 36 to 60 coin a household.
 Step 9 is built (words for the Hamlet; tools/playtest.mjs hamlet). Playtest verdict in a six-day hamlet run: no slips; conversations a day a little under the 20 mark with five to eleven people. Next: step 10, the tuning pass.
+
+## The first morning (tutorial), built on branch first-morning
+- Spec: docs/tutorial-script.md (copy of the design doc's Screenplay tab); build order: docs/tutorial-prompts.md. Prompts 1-8 are built (one session, Opus); 9 (off script and reloads) and 10 (play it and read it) are left.
+- The bot (`node tools/tutorial.mjs`) plays it end to end: 140 s skipping bubbles, 257 s reading every bubble (`--patient`); a person will take longer, near the 7:30 target.
+- Decided while building: you start inside your own fenced yard (in the Hamlet only a fence makes ground yours); Junia's ring is 18 fences (16 encloses 9 tiles, under YARD_MIN 12); the trader always serves (walk into Paullus from the customer tile or into the counter); gates are walked through.
+- Known gaps: a reload mid-tutorial does not resume a scene cleanly yet (prompt 9); Junia "lying awake" uses the sleep pose; the old Hamlet tests still drive the conversational shop menu (`GH_OLDSHOP`), the panel is covered by the tutorial test only.

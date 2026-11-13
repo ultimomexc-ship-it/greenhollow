@@ -52,6 +52,7 @@ The tutorial island is the Hamlet's ground with these places, found by the scena
 | Name | What it is |
 | --- | --- |
 | **HOUSE** (`#`) | Paullus's old house: a sealed room with a window, a door and your bed (`b`, owned by you). |
+| **YOUR YARD** | A ring of fence with a gate below the door, round the house and the patch: in the Hamlet only a fenced yard makes ground yours, so you start on your own yard. |
 | **DOOR** (`D`) | Its door. **OUT** (`o`) is the tile just outside it. |
 | **PATCH** (`p`) | 3 x 3 raw plots (`crop_raw`), 3 tiles east of the house. |
 | **STALL** (`=`) | The trading stall's counter. **KEEP** (`k`) is where Paullus stands to serve. **FRONT** (`c`) is the customer's tile. |
@@ -65,7 +66,7 @@ The tutorial island is the Hamlet's ground with these places, found by the scena
 
 1. **SET** Tipping (you) stands on the floor tile beside your bed in HOUSE, facing DOOR. You have 15 coin, an empty bag and no tools.
 2. **SET** Paullus stands on OUT, facing DOOR. He is the only other person on the island. The family of three is not in the tutorial.
-3. **SET** The 9 PATCH tiles are raw plots. JYARD, JBED and JFIELD are bare grass with nothing marked.
+3. **SET** Your yard is fenced, with a gate. The 9 PATCH tiles are raw plots. JYARD, JBED and JFIELD are bare grass with nothing marked.
 4. **TIME** 08:00, morning light. The clock is hidden and does not run. Crops do not grow by themselves. Everybody's needs are held still.
 5. **LOCK** Hidden: the clock, the hotbar, the tool strip, the request pill, the rent chip and the side tabs. Locked: build mode (B), the inventory (I), the request card (N), pushing, the hammer, and the talk menu. Bumping a person gives the line described under *Off script* instead. Not locked: walking, M (mute) and Esc.
 6. **SET** The stall is open for the whole tutorial. Paullus serves whenever you bump the counter, wherever he is standing (`def.always`). Until scene 4 its stock is empty.
@@ -275,3 +276,7 @@ There is no skip button and no way to fail. These rules hold through every scene
 | Hammer 4, gate 3 | −7 | 17 |
 | 6 field tiles, 2 each | −12 | 5 |
 | Junia's first rent | +2 | 7 |
+
+## How it was built
+
+`src/life2/tutorial2.ts` (the runner, the layout, scenes 0 and 1) and `src/life2/tutorial2-play.ts` (strip, arrow, marks, locks, the shop panel, scenes 2 to 8, the first rent, the progression after it). `node tools/tutorial.mjs` plays it with a bot and writes a report; the test `tutorial: the first morning` runs it in `npm test`. Bumping the counter: the stall's customer tile faces Paullus, so walking into him from there opens the shop panel.
