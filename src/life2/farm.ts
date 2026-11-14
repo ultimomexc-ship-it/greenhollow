@@ -16,6 +16,8 @@ const SEED_DEF: any = { buys: {}, sells: {} as any, open: [6.5, 17], tool: 'wipe
 for (const k of FARM_SEED_ORDER) SEED_DEF.sells['seed_' + k] = IT_SEEDS[k] && IT_SEEDS[k].flower ? 14 : 30;
 const GROCER_DEF: any = { buys: { grain: 30, flowers: 24 } as any, sells: { grain: 30, flowers: 24 } as any, open: [7, 18.5], tool: 'wipe', noun: 'greengrocer' };
 for (const g of FARM_YIELDS) { GROCER_DEF.buys[g] = 24; GROCER_DEF.sells[g] = 24; }
+// eggs: laid by hens in a fenced yard (render/chickens.ts), bought by whoever buys crops
+(GOODS as any).egg = { base: 2, name: 'eggs' }; GROCER_DEF.buys.egg = 24; GROCER_DEF.sells.egg = 24;
 const farmSeller = () => merchants.find((m: any) => m.def === SEED_DEF) || merchants.find((m: any) => m.def === HAMLET_SEEDSTALL_DEF && m.n.shop === m && !m.n.dead) || merchants.find((m: any) => m.def === HAMLET_TRADER_DEF);   // (the Hamlet's one trader sells the seed and buys the crops)
 const farmGrocer = () => merchants.find((m: any) => m.def === GROCER_DEF) || merchants.find((m: any) => m.def === HAMLET_TRADER_DEF);
 

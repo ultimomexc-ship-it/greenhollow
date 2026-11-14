@@ -77,3 +77,72 @@ function drawHen(c: any, h: any, now: number) {
   c.fillStyle = '#1b1410'; c.beginPath(); c.arc(hx + 0.7, hy - 0.4, 0.45, 0, 6.3); c.fill();
   c.restore();
 }
+
+/* ---- eggs: every hen inside a closed yard lays one each morning on a free tile of grass in it (`town.eggs` { x, y, yard, t }, at most EGG.max a yard).
+   You pick up an egg by walking over it in your own yard, an empty one or anywhere outside a yard (it goes in your bag, `inv.egg`); in somebody's yard
+   they collect them in the morning and sell them to the trader, which is money for the well. Paullus buys eggs like a crop (`GROCER_DEF.buys.egg`). ---- */
+const EGG: any = { hour: 7, collect: 9, max: 10 };
+const eggList = (): any[] => town.eggs || (town.eggs = []);
+const eggYard = (id: any) => (town.yards || []).find((y: any) => y.id === id && y.open == null) || null;
+function eggFree(x: number, y: number): boolean {
+  return !!grid[y] && grid[y][x] === T.GRASS && !lfPropAt(x, y) && roomAt[y][x] < 0 && !tileOwner.get(y * W + x) && !eggList().some((e: any) => e.x === x && e.y === y);
+}
+/** the morning lay: one egg a hen, on the free grass tile of her yard nearest to her */
+function eggLay() {
+  if (!town.chickens) return;
+  for (const c of town.chickens) {
+    const y = c.yard != null ? eggYard(c.yard) : null; if (!y || c.laid === Math.floor(game.time / 1440)) continue;
+    if (eggList().filter((e: any) => e.yard === y.id).length >= EGG.max) continue;
+    let best: any = null, bd = 1e9;
+    for (const k of y.cells) { const x = k % W, yy = (k / W) | 0; if (!eggFree(x, yy)) continue; const d = Math.hypot(x - c.x, yy - c.y); if (d < bd) { bd = d; best = { x, y: yy }; } }
+    if (!best) continue;
+    c.laid = Math.floor(game.time / 1440); eggList().push({ x: best.x, y: best.y, yard: y.id, t: game.time });
+  }
+}
+/** whose egg is it to pick up: yours in your own yard, an empty yard, or out in the open */
+function eggMine(e: any): boolean {
+  const y = eggYard(e.yard); if (!y) return true; const ppl = yardPeople(y), pl = yardPlayer();
+  return !ppl.length || (!!pl && ppl.includes(pl));
+}
+/** you walk over an egg: into the bag */
+function eggPickup() {
+  const P = game.player; if (!P || !town.eggs || !town.eggs.length || (typeof itBuildOn === 'function' && itBuildOn(P))) return;
+  const i = town.eggs.findIndex((e: any) => e.x === P.tx && e.y === P.ty); if (i < 0 || !eggMine(town.eggs[i])) return;
+  const e = town.eggs.splice(i, 1)[0]; P.inv.egg = (P.inv.egg || 0) + 1;
+  if (typeof sndPick === 'function') try { sndPick(); } catch (er) {}
+  if (typeof jBurst === 'function') jBurst((e.x + 0.5) * TS, (e.y + 0.6) * TS, 6, 'dot', ['#fff8e6', '#f1e2c2'], 0.6, 0.8);
+  if (!(typeof itemCard === 'function' && itemCard('egg', 1)) && typeof addPop === 'function') try { addPop((e.x + 0.5) * TS, e.y * TS, '+1 egg', '#fff3c4'); } catch (er) {}
+  if (typeof itSync === 'function') itSync(true);
+}
+/** the households collect their eggs and sell them to the trader (what they are paid owes the well its share, like any earnings) */
+function eggCollect() {
+  const keep: any[] = [];
+  for (const e of eggList()) {
+    const y = eggYard(e.yard), ppl = y ? yardPeople(y).filter((n: any) => !n.player && n.age >= 16 && !n.dead) : [];
+    if (!ppl.length || eggMine(e)) { keep.push(e); continue; }
+    const n = ppl[0], m = typeof farmGrocer === 'function' ? farmGrocer() : null, pr = m ? buyPrice(m, 'egg') : 0;
+    if (m && pr > 0 && m.n && m.n.coin >= pr && !m.n.dead) { pay(m.n, n, pr); m.stock.egg = (m.stock.egg || 0) + 1; logTrade(m.n, n, 'egg', 1, pr, 'sell'); }
+    else n.inv.egg = (n.inv.egg || 0) + 1;
+  }
+  town.eggs = keep;
+}
+LF2.hourly.push(() => { if (!town || !town.chickens) return; const h = Math.floor((game.time % 1440) / 60); if (h === EGG.hour) eggLay(); if (h === EGG.collect) eggCollect(); });
+LF2.tickers.push(() => eggPickup());
+/* an egg on the grass: a small speckled oval with a shadow */
+YSORT.push(function (c: any) {
+  if (!town || !town.eggs || !town.eggs.length || cam.z < 0.6) return [];
+  const v = gaView(), out: any[] = [];
+  for (const e of town.eggs) {
+    if (e.x < v.x0 - 1 || e.x > v.x1 + 1 || e.y < v.y0 - 1 || e.y > v.y1 + 1) continue;
+    out.push({ k: e.y - 0.3, f: () => {
+      const cx = (e.x + 0.5) * TS + ((e.x * 7 + e.y * 3) % 5 - 2), cy = (e.y + 0.62) * TS;
+      c.save(); c.fillStyle = 'rgba(0,0,0,.22)'; c.beginPath(); c.ellipse(cx + 1, cy + TS * 0.09, TS * 0.12, TS * 0.045, 0, 0, 6.3); c.fill();
+      const g = c.createRadialGradient(cx - TS * 0.03, cy - TS * 0.05, 1, cx, cy, TS * 0.14); g.addColorStop(0, '#fffdf6'); g.addColorStop(1, '#e9d8b8');
+      c.fillStyle = g; c.beginPath(); c.ellipse(cx, cy, TS * 0.09, TS * 0.12, 0, 0, 6.3); c.fill();
+      c.strokeStyle = 'rgba(120,90,50,.45)'; c.lineWidth = 0.7; c.stroke();
+      c.fillStyle = 'rgba(150,110,70,.5)'; for (const [dx, dy] of [[-0.03, -0.02], [0.03, 0.03], [0.0, 0.06]]) c.fillRect(cx + dx * TS, cy + dy * TS, 1, 1);
+      c.restore();
+    } });
+  }
+  return out;
+});

@@ -156,6 +156,7 @@ const ITEM_INFO: Record<string, [string, string]> = {
   bwindow: ['Window', 'A wall block with glass. A window in a room adds to the rent.'],
   bdoor: ['Door', 'Every room needs one, and a way out to open ground.'],
   turnip: ['Turnips', 'Your first harvest. Paullus buys turnips at the stall: selling crops is how the island earns its coin.'],
+  egg: ['Eggs', 'A hen inside a fenced yard lays one a day, on a free patch of grass. Walk over it to pick it up. Paullus buys eggs.'],
   grain: ['Barley', 'Grain. The staple: people eat it, and Paullus buys what is left over.']
 };
 function itemInfo(key: string): [string, string] | null {

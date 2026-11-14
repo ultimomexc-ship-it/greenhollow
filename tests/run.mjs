@@ -2954,6 +2954,26 @@ test('surprises: somebody pushed in build mode, or given fields, never knows who
   return `"${r.words}" / news: "${r.evText}"`;
 });
 
+test('eggs: a hen in a closed yard lays one a day on free grass; you pick yours up by walking over it and sell it to the trader; a household sells its own', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r0 = await page.evaluate(() => { newTown('egg-test', 'town'); const P = game.player, mine = yardOfN(P), other = town.yards.find(y => y.open == null && y !== mine && yardPeople(y).length);
+    const put = (c, y) => { const k = y.cells.find(k => grid[(k / W) | 0][k % W] === T.GRASS && !lfPropAt(k % W, (k / W) | 0)); c.x = c.tx = k % W; c.y = c.ty = (k / W) | 0; c.yard = y.id; };
+    henSpawn(); put(town.chickens[0], mine); put(town.chickens[1], other); town.eggs = []; game.time = Math.floor(game.time / 1440) * 1440 + 1440 + 6 * 60 + 30;
+    return { mine: mine.id, other: other.id, stock0: farmGrocer().stock.egg || 0 }; });
+  await simulate(page, 60);
+  const r1 = await page.evaluate(o => ({ eggs: town.eggs.map(e => e.yard), grass: town.eggs.every(e => grid[e.y][e.x] === T.GRASS && !lfPropAt(e.x, e.y)) }), r0);
+  check(r1.eggs.includes(r0.mine) && r1.eggs.includes(r0.other) && r1.grass, 'one egg in each yard, on free grass, in the morning: ' + JSON.stringify(r1));
+  await simulate(page, 150);
+  const r2 = await page.evaluate(o => { const P = game.player, e = town.eggs.find(q => q.yard === o.mine), out = { otherLeft: town.eggs.some(q => q.yard === o.other), stock: farmGrocer().stock.egg || 0 };
+    if (e) { P.tx = P.x = e.x; P.ty = P.y = e.y; for (const f of LF2.tickers) f(); }
+    out.bag = P.inv.egg || 0; out.mineLeft = town.eggs.some(q => q.yard === o.mine);
+    const m = farmGrocer(); shopOpen(m); out.sell = shopStock(m).sell.some(q => q.item === 'egg'); shopClose(); return out; }, r0);
+  check(!r2.otherLeft && r2.stock > r0.stock0, 'the household collected its egg and sold it to the trader: ' + JSON.stringify(r2));
+  check(r2.bag === 1 && !r2.mineLeft && r2.sell, 'you pick up the egg in your own yard and the trader will buy it: ' + JSON.stringify(r2));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return 'laid, picked up, sold';
+});
+
 test('wishing well: the build town has one in the middle; households drop a share of what they earn into it instead of paying rent; walking into it opens it and you can take the coin', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r0 = await page.evaluate(() => { newTown('well-test', 'town'); const w = town.wish; let tiles = 0; if (w) for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) if (grid[w.y + j][w.x + i] === T.WELL) tiles++;
