@@ -28599,10 +28599,11 @@ function tut2NookLayout(T2, J) {
     }
   }
   cands.sort((a, b) => a.s - b.s);
-  const k = (t) => t.y * W + t.x, plStart = [{ x: F.x - 1, y: F.y }, { x: F.x + 1, y: F.y }, { x: F.x, y: F.y + 1 }].find((t) => tut2WalkFree(t.x, t.y)) || { x: F.x, y: F.y + 1 };
-  for (const c of cands.slice(0, 60)) {
+  const k = (t) => t.y * W + t.x, K = at.keep, plStart = { x: F.x, y: F.y };
+  const sides = [{ x: K.x + 1, y: K.y - 1 }, { x: K.x - 1, y: K.y - 1 }, { x: K.x + 2, y: K.y }, { x: K.x - 2, y: K.y }].filter((t) => tut2WalkFree(t.x, t.y));
+  for (const c of cands.slice(0, 60)) for (const side of sides) {
     const trees = new Set(c.trees.map(k));
-    const p1 = tut2BoxPlan(F, plStart, c.N, /* @__PURE__ */ new Set([...trees, k(c.R)]));
+    const p1 = tut2BoxPlan(K, plStart, c.N, /* @__PURE__ */ new Set([...trees, k(c.R), k(side)]));
     if (!p1) continue;
     const p2 = tut2BoxPlan(c.R, { x: c.O.x + c.d.dx, y: c.O.y + c.d.dy }, c.O, /* @__PURE__ */ new Set([...trees, k(c.N)]));
     if (!p2) continue;
@@ -28615,18 +28616,19 @@ function tut2NookLayout(T2, J) {
     const rk = lfAddProp("rock", c.R.x, c.R.y);
     rk.v = 2;
     rk.tutRock = true;
-    const bed = lfAddProp("bed", F.x, F.y);
+    const bed = lfAddProp("bed", K.x, K.y);
     bed.v = 3;
     bed.rot = 0;
     bed.owner = J;
     bed.rider = J;
     J.bed = bed;
     J.homeless = false;
-    J.tx = J.x = F.x;
-    J.ty = J.y = F.y;
+    at.keepSide = side;
+    J.tx = J.x = K.x;
+    J.ty = J.y = K.y;
     J.pose = "sleep";
     J.face = { dx: 0, dy: 1 };
-    J.status = "Asleep in her bed, in front of the stall";
+    J.status = "Asleep in her bed, behind the counter";
     at.nook = c.N;
     at.nookO = c.O;
     at.nookD = c.d;
@@ -28688,6 +28690,20 @@ const tut2BedAt = (t) => {
 const tut2RockAt = (t) => {
   const r = tut2NookRock();
   return !!r && !!t && r.x === t.x && r.y === t.y;
+};
+const TUT2_LEAVE = ["That's done. Press B and let the world go on.", "Good. B, and the world can carry on.", "That'll do. Let it go on: B.", "Done. Press B. They are all waiting.", "There. B, and we carry on.", "Good work. B, and the world starts again."];
+const TUT2_LEAVE_I = { i: 0 };
+const tleave = () => {
+  const line = TUT2_LEAVE[TUT2_LEAVE_I.i++ % TUT2_LEAVE.length];
+  return [{ do: "face", who: "paullus", to: "you" }, tsay("paullus", line), tstrip("Press B to let the world go on."), twait(() => !buildOn(), { nudge: { after: 10, say: ["paullus", "B. The world is waiting on you."] }, bot: () => ({ key: "b" }) })];
+};
+const _t2PushLine = lf2PushLine;
+lf2PushLine = function(n, x, y, dx, dy) {
+  if (tut2Active() && n && n.player) {
+    const line = pushLine(n, x, y, dx, dy);
+    if (line && line.some((q) => q.pr && (q.pr.kind === "fence" || q.pr.kind === "gate")) && !line.some((q) => q.pr && lfYardFixed(q.pr))) return "Fences stay where you put them, for now.";
+  }
+  return _t2PushLine(n, x, y, dx, dy);
 };
 const below = (name) => (T2) => {
   const t = T2.at[name];
@@ -28838,7 +28854,7 @@ TUT2_SCENES.push(
       const R = tut2Who("paullus");
       if (R) R.coin = Math.max(R.coin || 0, 200);
     }),
-    { do: "walk", who: "paullus", to: "keep", async: true },
+    { do: "walk", who: "paullus", to: (T2) => T2.at.keepSide || T2.at.keep, async: true },
     tarrow("front"),
     tstrip("Take the turnips to the stall."),
     twait((T2) => {
@@ -28850,9 +28866,9 @@ TUT2_SCENES.push(
   ],
   // Scene 5: the puzzle: her bed into the grove, the rock in its opening; then the sale, at a better price
   [
-    { do: "walk", who: "paullus", to: "keep" },
-    { do: "face", who: "paullus", to: "front" },
-    tarrow("front"),
+    { do: "walk", who: "paullus", to: (T2) => T2.at.keepSide || T2.at.keep },
+    { do: "face", who: "paullus", to: "keep" },
+    tarrow("keep"),
     tsay("paullus", "There's a woman asleep in my shop."),
     tsay("paullus", "I don't like to wake people. Nobody does it well."),
     { do: "face", who: "paullus", to: "you" },
@@ -28885,10 +28901,10 @@ TUT2_SCENES.push(
     tarrow(),
     tsay("paullus", "Tidy."),
     tsay("paullus", "She'll sleep well in there."),
-    tstrip("Press B to let the world go on."),
-    twait(() => !buildOn(), { bot: () => ({ key: "b" }) }),
+    ...tleave(),
     tlock({}),
     tstrip(),
+    { do: "walk", who: "paullus", to: "keep" },
     { do: "face", who: "paullus", to: "you" },
     tsay("paullus", "Now. Turnips."),
     tarrow("front"),
@@ -28941,8 +28957,7 @@ TUT2_SCENES.push(
       T2.ui.marks = [];
     }),
     tarrow(),
-    tstrip("Press B to let the world go on."),
-    twait(() => !buildOn(), { bot: () => ({ key: "b" }) }),
+    ...tleave(),
     tlock({}),
     tstrip(),
     { do: "walk", who: "junia", to: () => tut2Beside(tut2Pos("you")) || tut2Pos("front") },
@@ -28979,8 +28994,7 @@ TUT2_SCENES.push(
       T2.ui.ghost = null;
     }),
     tarrow(),
-    tstrip("Press B to let the world go on."),
-    twait(() => !buildOn(), { bot: () => ({ key: "b" }) }),
+    ...tleave(),
     tlock({}),
     tstrip(),
     tmark(),
@@ -29028,7 +29042,7 @@ TUT2_SCENES.push(
     tarrow("gap", "fence"),
     tlock({ build: true, push: true }, ["fence", "push"], "gap"),
     tstrip("Close the gap: stand where the shadow stands and press 1. The fence goes on the end of the row."),
-    twait((T2) => TUT2_DONE.fence(T2.at.gap.x, T2.at.gap.y), { bot: (T2) => {
+    twait((T2) => !T2.nookOK || TUT2_DONE.fence(T2.at.gap.x, T2.at.gap.y), { bot: (T2) => {
       const o = T2.at.o, M = TUT2_MAP.yard, st = { x: o.x + M.x, y: o.y + M.y + M.h };
       return { stand: st, faceTo: { x: st.x, y: st.y - 1 }, key: "1" };
     } }),
@@ -29037,8 +29051,7 @@ TUT2_SCENES.push(
       T2.ui.ghost = null;
     }),
     tarrow(),
-    tstrip("Press B to let the world go on."),
-    twait(() => !buildOn(), { bot: () => ({ key: "b" }) }),
+    ...tleave(),
     tlock({}),
     tstrip(),
     tmark(),
@@ -29097,8 +29110,7 @@ TUT2_SCENES.push(
       T2.hammerAt = null;
       T2.autoHammer = false;
     }),
-    tstrip("Press B to let the world go on."),
-    twait(() => !buildOn(), { bot: () => ({ key: "b" }) }),
+    ...tleave(),
     tlock({}),
     tstrip(),
     tarrow(),
@@ -29152,8 +29164,7 @@ TUT2_SCENES.push(
       const t = nearestTo(todo);
       return { stand: tut2Beside(t), faceTo: t, key: "1" };
     } }),
-    tstrip("Press B to let the world go on."),
-    twait(() => !buildOn(), { bot: () => ({ key: "b" }) }),
+    ...tleave(),
     tlock({}),
     tstrip(),
     tarrow(),
