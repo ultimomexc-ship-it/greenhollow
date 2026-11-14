@@ -360,6 +360,19 @@ body.tut2-seedglow #hotbar .hbslots .hbslot:first-child { animation: tutbounce .
 .shoppanel .wlstar { color: #9ff6ff; text-shadow: 0 0 8px rgba(140, 240, 255, .7); } .shoppanel .wltown .wlstar { color: #f4c542; } .shoppanel .wldone { opacity: .75; } .shoppanel .wldone .wlstar { color: #8fd17a; text-shadow: none; }
 .shoppanel .wlwish em { color: #f4c542; font-style: normal; font-size: 12px; }
 
+/* play mode (developer mode off, X): only the map, filling the window; the Islands button sits with the zoom buttons */
+body.play { overflow: hidden; padding: 0; }
+body.play .app > :not(main), body.play .side, body.play .legend, body.play .maphint { display: none !important; }
+body.play .main { display: block; }
+body.play .stage { position: fixed; inset: 0; z-index: 100; border: 0; border-radius: 0; }
+body.play .hud .hint { display: none; }
+body.play #c { height: 100vh !important; height: 100dvh !important; }
+.zoombar #zisl { display: none; background: rgba(21,25,27,.88); font-size: 15px; padding: 8px 10px; }
+body.play .zoombar #zisl { display: inline-block; }
+.devtoast { position: absolute; top: 46%; left: 50%; transform: translate(-50%, -50%); z-index: 120; padding: 10px 16px; border-radius: 8px; background: rgba(21,25,27,.9); color: #f3ecd8; font: 600 14px system-ui, sans-serif; line-height: 1.3; pointer-events: none; }
+.devtoast[hidden] { display: none; }
+body.play .islnew .devonly { display: none; }
+
 </style>
 </head>
 <body>
@@ -396,7 +409,7 @@ body.tut2-seedglow #hotbar .hbslots .hbslot:first-child { animation: tutbounce .
     <section class="stage"><canvas id="c" tabindex="0" aria-label="Village map. Drag to pan, scroll or pinch to zoom, arrow keys to move, plus and minus to zoom."></canvas>
       <div class="legend" id="legend" aria-hidden="true"></div>
       <div class="clock" id="clock" aria-live="polite"><div class="ct" id="clockT"></div><ul id="clockE"></ul></div>
-      <div class="zoombar"><div class="seg" role="group" aria-label="Zoom"><button type="button" id="zin" aria-label="Zoom in">+</button><button type="button" id="zout" aria-label="Zoom out">&minus;</button><button type="button" id="zfit" aria-label="Fit whole map">Fit</button></div><button type="button" class="btn fol" id="zfs" title="Full screen (F)" aria-label="Full screen">&#x26F6;</button><button type="button" class="btn fol" id="zsnd" title="Sound (M)" aria-label="Sound">&#x1F507;</button><button type="button" class="btn fol" id="zfol" aria-pressed="false" title="Keep the selected villager centred">Follow</button></div>
+      <div class="zoombar"><div class="seg" role="group" aria-label="Zoom"><button type="button" id="zin" aria-label="Zoom in">+</button><button type="button" id="zout" aria-label="Zoom out">&minus;</button><button type="button" id="zfit" aria-label="Fit whole map">Fit</button></div><button type="button" class="btn fol" id="zisl" title="Islands" aria-label="Islands">&#x1F3DD;</button><button type="button" class="btn fol" id="zfs" title="Full screen (F)" aria-label="Full screen">&#x26F6;</button><button type="button" class="btn fol" id="zsnd" title="Sound (M)" aria-label="Sound">&#x1F507;</button><button type="button" class="btn fol" id="zfol" aria-pressed="false" title="Keep the selected villager centred">Follow</button></div>
       <div class="talk" id="talk" hidden></div>
       <div class="notice" id="notice" hidden><span id="noticeText"></span><button type="button" class="btn primary" id="noticeGo">Go there</button><button type="button" class="btn" id="noticeX" aria-label="Dismiss">✕</button></div>
       <div class="tip" id="tip" hidden></div>
@@ -24993,7 +25006,7 @@ function sizeCanvas() {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   cam.dpr = dpr;
   cam.cw = canvas.clientWidth || 800;
-  const want = document.body.classList.contains("fs") ? window.innerHeight : Math.round(Math.max(300, Math.min(window.innerHeight * 0.74, 760, cam.cw * H / W + 4)));
+  const want = document.body.classList.contains("fs") || document.body.classList.contains("play") ? window.innerHeight : Math.round(Math.max(300, Math.min(window.innerHeight * 0.74, 760, cam.cw * H / W + 4)));
   if (Math.abs(canvas.clientHeight - want) > 1) canvas.style.height = want + "px";
   cam.ch = canvas.clientHeight || want;
   canvas.width = Math.round(cam.cw * dpr);
@@ -33866,6 +33879,7 @@ function isleAgo(t) {
   const m = Math.max(0, Math.round((Date.now() - t) / 6e4));
   return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " days ago";
 }
+const PLAYING = () => typeof DEV !== "undefined" && !DEV.on;
 async function isleShow(first) {
   let box = document.getElementById("islands");
   if (!box) {
@@ -33888,7 +33902,7 @@ async function isleShow(first) {
     const btns = ISLE.confirmDel === m.id ? `<button type="button" class="btn danger" data-idelyes="${m.id}">Yes, delete</button><button type="button" class="btn" data-idelno="1">Keep</button>` : `<button type="button" class="btn primary" data-icont="${m.id}">${m.id === ISLE.id ? "Resume" : "Continue"}</button><button type="button" class="btn" data-iexp="${m.id}" title="Download this island as a file (to send it for a look)">Export</button><button type="button" class="btn" data-idel="${m.id}">Delete</button>`;
     return `<div class="islrow"><div>${nm} <span class="dim">${m.scenario === "blank" ? "blank island" : m.variant === "town" ? "build town" : m.scenario === "hamlet" ? "tutorial" : m.scenario === "farm" ? "ready farming village" : "ready village"}</span><br><span class="dim">day ${m.day} \xB7 ${m.pop} ${m.pop === 1 ? "person" : "people"}${m.you ? " \xB7 you: " + esc(m.you) : ""} \xB7 ${isleAgo(m.savedAt)}</span></div><div class="islbtns">${btns}</div></div>`;
   }).join("");
-  box.innerHTML = `<div class="bgwrap isl"><div class="bghead"><b>Islands</b>${ISLE.id || !first ? '<button type="button" class="bgx" data-iclose="1" title="Close">\xD7</button>' : ""}</div>` + (err ? `<p class="sub">${esc(err)}</p>` : "") + (rows2 ? `<div class="bglab">Your islands \xB7 each one is saved automatically</div>${rows2}` : '<p class="sub">No islands yet. Start one below.</p>') + `<div class="bglab">New island</div><div class="islnew"><label><input type="radio" name="isc" value="blank" checked> <b>Blank island</b> <span class="dim">you alone, an empty island: build it up</span></label><label><input type="radio" name="isc" value="village"> <b>Ready village</b> <span class="dim">a built village with people (for trying things)</span></label><label><input type="radio" name="isc" value="hamlet"> <b>Tutorial</b> <span class="dim">the first morning: learn to farm, fence and build, then grow your own hamlet from a trader and a family with nowhere to sleep</span></label><label><input type="radio" name="isc" value="town"> <b>Build town</b> <span class="dim">a town under the fence rules, already going: twenty people in fenced yards with houses and fields, a trader at his stall; build it bigger</span></label><label><input type="radio" name="isc" value="farm"> <b>Ready farming village</b> <span class="dim">only what farming needs: fields, a seed seller, a greengrocer (for testing the farm economy)</span></label><div class="islseed"><label>Name <input id="islname" type="text" autocomplete="off" spellcheck="false" maxlength="40" placeholder="your island's name"></label></div><div class="islseed"><label>Seed <input id="islseed" type="text" autocomplete="off" spellcheck="false" placeholder="random"></label><button type="button" class="btn primary" data-inew="1">Start</button></div></div></div>`;
+  box.innerHTML = `<div class="bgwrap isl"><div class="bghead"><b>Islands</b>${ISLE.id || !first ? '<button type="button" class="bgx" data-iclose="1" title="Close">\xD7</button>' : ""}</div>` + (err ? `<p class="sub">${esc(err)}</p>` : "") + (rows2 ? `<div class="bglab">Your islands \xB7 each one is saved automatically</div>${rows2}` : '<p class="sub">No islands yet. Start one below.</p>') + `<div class="bglab">New island</div><div class="islnew"><label class="devonly"><input type="radio" name="isc" value="blank"${PLAYING() ? "" : " checked"}> <b>Blank island</b> <span class="dim">you alone, an empty island: build it up</span></label><label class="devonly"><input type="radio" name="isc" value="village"> <b>Ready village</b> <span class="dim">a built village with people (for trying things)</span></label><label><input type="radio" name="isc" value="hamlet"${PLAYING() ? " checked" : ""}> <b>Tutorial</b> <span class="dim">the first morning: learn to farm, fence and build, then grow your own hamlet from a trader and a family with nowhere to sleep</span></label><label><input type="radio" name="isc" value="town"> <b>Build town</b> <span class="dim">a town under the fence rules, already going: twenty people in fenced yards with houses and fields, a trader at his stall; build it bigger</span></label><label class="devonly"><input type="radio" name="isc" value="farm"> <b>Ready farming village</b> <span class="dim">only what farming needs: fields, a seed seller, a greengrocer (for testing the farm economy)</span></label><div class="islseed"><label>Name <input id="islname" type="text" autocomplete="off" spellcheck="false" maxlength="40" placeholder="your island's name"></label></div><div class="islseed"><label>Seed <input id="islseed" type="text" autocomplete="off" spellcheck="false" placeholder="random"></label><button type="button" class="btn primary" data-inew="1">Start</button></div></div></div>`;
 }
 function isleHide() {
   const b = document.getElementById("islands");
@@ -33995,6 +34009,10 @@ document.addEventListener("click", async (e) => {
 async function isleBoot() {
   if (!isleOK()) {
     newTown();
+    return;
+  }
+  if (typeof DEV !== "undefined" && !DEV.on) {
+    isleShow(true);
     return;
   }
   let last2 = null;
@@ -34623,6 +34641,59 @@ if (typeof document !== "undefined") {
 window.addEventListener("keydown", (e) => {
   if ((e.key === "m" || e.key === "M") && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target && e.target.tagName || "")) sndMute();
 });
+const DEV = { on: false };
+function devSet(on, save) {
+  DEV.on = on;
+  document.body.classList.toggle("play", !on);
+  if (save) try {
+    localStorage.setItem("gh.dev", on ? "1" : "0");
+  } catch (e) {
+  }
+  if (typeof canvas !== "undefined" && canvas) canvas.style.height = "";
+  if (typeof town !== "undefined" && town && typeof sizeCanvas === "function") {
+    sizeCanvas();
+    requestAnimationFrame(() => sizeCanvas());
+  }
+}
+{
+  let v = null;
+  try {
+    v = localStorage.getItem("gh.dev");
+  } catch (e) {
+  }
+  const auto = !!(window.GH_NOSAVE || window.GH_DEV || typeof navigator !== "undefined" && navigator.webdriver);
+  devSet(v === "1" || v == null && auto);
+}
+window.addEventListener("keydown", (e) => {
+  if (e.key !== "x" && e.key !== "X" || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+  const t = e.target;
+  if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+  devSet(!DEV.on, true);
+  devToast(DEV.on ? "Developer mode: menus shown (X hides them)" : "Developer mode off (X shows the menus)");
+});
+{
+  const b = document.getElementById("zisl");
+  if (b) b.addEventListener("click", () => {
+    if (typeof isleShow === "function") isleShow();
+  });
+}
+function devToast(text) {
+  const st = typeof canvas !== "undefined" && canvas ? canvas.parentNode : null;
+  if (!st) return;
+  let d = document.getElementById("devtoast");
+  if (!d) {
+    d = document.createElement("div");
+    d.id = "devtoast";
+    d.className = "devtoast";
+    st.appendChild(d);
+  }
+  d.textContent = text;
+  d.hidden = false;
+  clearTimeout(DEV.tt);
+  DEV.tt = setTimeout(() => {
+    d.hidden = true;
+  }, 2200);
+}
 let last = performance.now();
 function eventSlow() {
   const n = game.player;

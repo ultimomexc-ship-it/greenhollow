@@ -73,7 +73,7 @@ let waterDirty = false;
 function sizeCanvas() {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   cam.dpr = dpr; cam.cw = canvas.clientWidth || 800;
-  const want = document.body.classList.contains('fs') ? window.innerHeight : Math.round(Math.max(300, Math.min(window.innerHeight * 0.74, 760, cam.cw * H / W + 4)));
+  const want = document.body.classList.contains('fs') || document.body.classList.contains('play') ? window.innerHeight : Math.round(Math.max(300, Math.min(window.innerHeight * 0.74, 760, cam.cw * H / W + 4)));
   if (Math.abs(canvas.clientHeight - want) > 1) canvas.style.height = want + 'px';
   cam.ch = canvas.clientHeight || want;
   canvas.width = Math.round(cam.cw * dpr); canvas.height = Math.round(cam.ch * dpr);

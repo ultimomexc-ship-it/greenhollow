@@ -87,6 +87,7 @@
   "ui/hud-villager.ts",
   "ui/hud-journal.ts",
   "ui/sound.ts",
+  "ui/devmode.ts",
   "ui/loop.ts",
   "ui/menus-hud.ts",
   "talk/registry.ts",

@@ -131,6 +131,8 @@ function isleLabel() {
 
 /* ---------- the Islands panel ---------- */
 function isleAgo(t: number) { const m = Math.max(0, Math.round((Date.now() - t) / 60000)); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' days ago'; }
+/** playing (developer mode off): only the islands meant to be played are offered */
+const PLAYING = () => typeof DEV !== 'undefined' && !DEV.on;
 async function isleShow(first?: boolean) {
   let box = document.getElementById('islands'); if (!box) { box = document.createElement('div'); box.id = 'islands'; box.className = 'bagbox'; (canvas.parentNode as any).appendChild(box); }
   box.hidden = false; box.innerHTML = '<div class="bgwrap isl"><div class="bghead"><b>Islands</b></div><p class="sub">Loading…</p></div>';
@@ -144,7 +146,7 @@ async function isleShow(first?: boolean) {
   box.innerHTML = `<div class="bgwrap isl"><div class="bghead"><b>Islands</b>${ISLE.id || !first ? '<button type="button" class="bgx" data-iclose="1" title="Close">×</button>' : ''}</div>`
     + (err ? `<p class="sub">${esc(err)}</p>` : '')
     + (rows ? `<div class="bglab">Your islands · each one is saved automatically</div>${rows}` : '<p class="sub">No islands yet. Start one below.</p>')
-    + `<div class="bglab">New island</div><div class="islnew"><label><input type="radio" name="isc" value="blank" checked> <b>Blank island</b> <span class="dim">you alone, an empty island: build it up</span></label><label><input type="radio" name="isc" value="village"> <b>Ready village</b> <span class="dim">a built village with people (for trying things)</span></label><label><input type="radio" name="isc" value="hamlet"> <b>Tutorial</b> <span class="dim">the first morning: learn to farm, fence and build, then grow your own hamlet from a trader and a family with nowhere to sleep</span></label><label><input type="radio" name="isc" value="town"> <b>Build town</b> <span class="dim">a town under the fence rules, already going: twenty people in fenced yards with houses and fields, a trader at his stall; build it bigger</span></label><label><input type="radio" name="isc" value="farm"> <b>Ready farming village</b> <span class="dim">only what farming needs: fields, a seed seller, a greengrocer (for testing the farm economy)</span></label>`
+    + `<div class="bglab">New island</div><div class="islnew"><label class="devonly"><input type="radio" name="isc" value="blank"${PLAYING() ? '' : ' checked'}> <b>Blank island</b> <span class="dim">you alone, an empty island: build it up</span></label><label class="devonly"><input type="radio" name="isc" value="village"> <b>Ready village</b> <span class="dim">a built village with people (for trying things)</span></label><label><input type="radio" name="isc" value="hamlet"${PLAYING() ? ' checked' : ''}> <b>Tutorial</b> <span class="dim">the first morning: learn to farm, fence and build, then grow your own hamlet from a trader and a family with nowhere to sleep</span></label><label><input type="radio" name="isc" value="town"> <b>Build town</b> <span class="dim">a town under the fence rules, already going: twenty people in fenced yards with houses and fields, a trader at his stall; build it bigger</span></label><label class="devonly"><input type="radio" name="isc" value="farm"> <b>Ready farming village</b> <span class="dim">only what farming needs: fields, a seed seller, a greengrocer (for testing the farm economy)</span></label>`
     + `<div class="islseed"><label>Name <input id="islname" type="text" autocomplete="off" spellcheck="false" maxlength="40" placeholder="your island's name"></label></div><div class="islseed"><label>Seed <input id="islseed" type="text" autocomplete="off" spellcheck="false" placeholder="random"></label><button type="button" class="btn primary" data-inew="1">Start</button></div></div></div>`;
 }
 function isleHide() { const b = document.getElementById('islands'); if (b) b.hidden = true; canvas.focus({ preventScroll: true }); }
@@ -165,6 +167,7 @@ document.addEventListener('click', async (e: any) => {
 /** on page load: carry on with the island you left, or choose one */
 async function isleBoot() {
   if (!isleOK()) { newTown(); return; }
+  if (typeof DEV !== 'undefined' && !DEV.on) { isleShow(true); return; }   // (playing: choose an island first, then straight into it)
   let last: string | null = null; try { last = localStorage.getItem('gh.last'); } catch (e) {}
   try { const list = await isleList(); if (last && list.some(m => m.id === last) && await isleLoad(last)) return; if (!list.length) { isleShow(true); return; } } catch (e) { newTown(); return; }
   isleShow(true);

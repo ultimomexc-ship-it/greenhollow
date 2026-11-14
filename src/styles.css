@@ -349,3 +349,16 @@ body.tut2-seedglow #hotbar .hbslots .hbslot:first-child { animation: tutbounce .
 .shoppanel .wlwish, .shoppanel .wldone { display: flex; gap: 8px; align-items: baseline; } .shoppanel .wlwish span:nth-child(2), .shoppanel .wldone span:nth-child(2) { flex: 1; }
 .shoppanel .wlstar { color: #9ff6ff; text-shadow: 0 0 8px rgba(140, 240, 255, .7); } .shoppanel .wltown .wlstar { color: #f4c542; } .shoppanel .wldone { opacity: .75; } .shoppanel .wldone .wlstar { color: #8fd17a; text-shadow: none; }
 .shoppanel .wlwish em { color: #f4c542; font-style: normal; font-size: 12px; }
+
+/* play mode (developer mode off, X): only the map, filling the window; the Islands button sits with the zoom buttons */
+body.play { overflow: hidden; padding: 0; }
+body.play .app > :not(main), body.play .side, body.play .legend, body.play .maphint { display: none !important; }
+body.play .main { display: block; }
+body.play .stage { position: fixed; inset: 0; z-index: 100; border: 0; border-radius: 0; }
+body.play .hud .hint { display: none; }
+body.play #c { height: 100vh !important; height: 100dvh !important; }
+.zoombar #zisl { display: none; background: rgba(21,25,27,.88); font-size: 15px; padding: 8px 10px; }
+body.play .zoombar #zisl { display: inline-block; }
+.devtoast { position: absolute; top: 46%; left: 50%; transform: translate(-50%, -50%); z-index: 120; padding: 10px 16px; border-radius: 8px; background: rgba(21,25,27,.9); color: #f3ecd8; font: 600 14px system-ui, sans-serif; line-height: 1.3; pointer-events: none; }
+.devtoast[hidden] { display: none; }
+body.play .islnew .devonly { display: none; }
