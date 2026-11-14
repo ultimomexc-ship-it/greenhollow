@@ -20,7 +20,18 @@ const yardPlayer = (): any => (town.hamletPlayer != null && byId(town.hamletPlay
 function yardName(y: any): string {
   if (!y) return 'nobody';
   const ppl = yardPeople(y), pl = yardPlayer(); if (pl && ppl.includes(pl)) return 'your yard';
-  const ad = ppl.filter(n => n.age >= 16)[0] || ppl[0]; return ad ? (ad.shop ? `${ad.first}'s yard` : `the ${ad.surname} yard`) : 'an empty yard';
+  // (first names only: nobody here knows anybody's surname)
+  const ns = yardNames(y); if (!ns.length) return 'an empty yard';
+  return ns.length === 1 ? `${ns[0]}'s yard` : ns.length === 2 ? `${ns[0]} and ${ns[1]}'s yard` : `the yard of ${ns.slice(0, -1).join(', ')} and ${ns[ns.length - 1]}`;
+}
+/** the first names of who lives in a yard, grown-ups first */
+const yardNames = (y: any): string[] => (y ? yardPeople(y) : []).slice().sort((a: any, b: any) => (b.age >= 16 ? 1 : 0) - (a.age >= 16 ? 1 : 0)).map((n: any) => n.first);
+/** what the yard's sign says, a line each: "Your yard", "Junia's yard", or the names one under another; the hens last */
+function yardSignLines(y: any): string[] {
+  const pl = yardPlayer(), ppl = yardPeople(y), ns = yardNames(y), hc = typeof henCount === 'function' ? henCount(y) : 0;
+  const out = pl && ppl.includes(pl) ? ['Your yard'] : ns.length === 1 ? [`${ns[0]}'s yard`] : ns.length ? (ns.length > 4 ? ns.slice(0, 3).concat([`and ${ns.length - 3} more`]) : ns) : ['An empty yard'];
+  if (hc) out.push(hc + (hc === 1 ? ' hen' : ' hens'));
+  return out;
 }
 /** may this person work this plot? Villagers farm only the fields in their own yard; you farm your own yard and everything outside every yard */
 function yardMine(n: any, c: any): boolean {
@@ -161,11 +172,14 @@ function drawYards(c: any, now: number) {
 /** where a yard's wooden sign hangs: the middle of the longest stretch of its south fence without a gate (cached until the ring changes) */
 function yardSignSpot(y: any): any {
   const key = y.fences.length + ':' + y.gates.join(',') + ':' + y.cells.length; if (y._signKey === key) return y._sign; y._signKey = key; y._sign = null;
-  const cells = new Set<number>(y.cells), south = y.fences.filter((k: number) => cells.has(k - W)); if (!south.length) return null;
+  const cells = new Set<number>(y.cells), south = y.fences.filter((k: number) => cells.has(k - W) && !y.gates.includes(k)); if (!south.length) return null;
   const rows = new Map<number, number[]>(); for (const k of south) { const yy = (k / W) | 0; if (!rows.has(yy)) rows.set(yy, []); rows.get(yy)!.push(k % W); }
-  let best: any = null;
+  let best: any = null; const gates = new Set<number>(y.gates);
   for (const [yy, xs] of rows) { xs.sort((a, b) => a - b); let s0 = xs[0], prev = xs[0];
-    for (let i = 1; i <= xs.length; i++) { const x = xs[i]; if (x === prev + 1) { prev = x; continue; } const len = prev - s0 + 1; if (!best || len > best.len || (len === best.len && yy > best.y)) best = { x: (s0 + prev) / 2, y: yy, len }; s0 = prev = x; } }
+    for (let i = 1; i <= xs.length; i++) { const x = xs[i]; if (x === prev + 1) { prev = x; continue; }
+      // (keep a fence's width clear beside a gate, so the sign never hangs over the way in)
+      let a = s0, z = prev; if (gates.has(yy * W + a - 1)) a++; if (gates.has(yy * W + z + 1)) z--;
+      const len = z - a + 1; if (len > 0 && (!best || len > best.len || (len === best.len && yy > best.y))) best = { x: (a + z) / 2, y: yy, len }; s0 = prev = x; } }
   return (y._sign = best);
 }
 /* the sign itself: a small board on the fence with the yard's name burnt into it, drawn with the fence row so people pass in front of it */
@@ -175,16 +189,21 @@ YSORT.push(function (c: any, now: number) {
   for (const y of town.yards) {
     if (y.open != null) continue; const sp = yardSignSpot(y); if (!sp || sp.x < v.x0 - 2 || sp.x > v.x1 + 2 || sp.y < v.y0 || sp.y > v.y1) continue;
     out.push({ k: sp.y + 0.06, f: () => {
-      const hc = typeof henCount === 'function' ? henCount(y) : 0, t = yardName(y).replace(/^./, (ch: string) => ch.toUpperCase()) + (hc ? ' · ' + hc + (hc === 1 ? ' hen' : ' hens') : ''); c.save(); c.font = `700 ${Math.round(TS * 0.3)}px Georgia, serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
-      const cx = sp.x * TS + TS / 2, cy = sp.y * TS + TS * 0.42, w = Math.min(Math.max(c.measureText(t).width + TS * 0.4, TS * 1.2), Math.max(TS * 1.2, sp.len * TS - TS * 0.2)), h = TS * 0.5;
-      c.fillStyle = '#5a3a1e'; c.fillRect(cx - w / 2 + TS * 0.12, cy + h / 2 - 1, TS * 0.1, TS * 0.32); c.fillRect(cx + w / 2 - TS * 0.22, cy + h / 2 - 1, TS * 0.1, TS * 0.32);   // (two posts)
-      c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(cx - w / 2 + 1.5, cy - h / 2 + 2, w, h);
-      const gr = c.createLinearGradient(0, cy - h / 2, 0, cy + h / 2); gr.addColorStop(0, '#c99a62'); gr.addColorStop(1, '#a8773f'); c.fillStyle = gr; c.fillRect(cx - w / 2, cy - h / 2, w, h);
-      c.strokeStyle = 'rgba(90,56,26,.45)'; c.lineWidth = 0.6; for (const f of [0.3, 0.68]) { c.beginPath(); c.moveTo(cx - w / 2 + 2, cy - h / 2 + h * f); c.lineTo(cx + w / 2 - 2, cy - h / 2 + h * f + 0.4); c.stroke(); }   // (the grain)
-      c.strokeStyle = '#4a2e14'; c.lineWidth = 1; c.strokeRect(cx - w / 2 + 0.5, cy - h / 2 + 0.5, w - 1, h - 1);
-      c.fillStyle = '#3c2410'; for (const sx of [-1, 1]) { c.beginPath(); c.arc(cx + sx * (w / 2 - 2.6), cy - h / 2 + 2.6, 0.9, 0, 6.3); c.fill(); }   // (nails)
-      let fs = Math.round(TS * 0.3); while (fs > 6 && c.measureText(t).width > w - TS * 0.25) { fs--; c.font = `700 ${fs}px Georgia, serif`; }
-      c.fillStyle = 'rgba(255,230,190,.35)'; c.fillText(t, cx, cy + 0.6); c.fillStyle = '#3a2210'; c.fillText(t, cx, cy); c.restore();
+      const lines = yardSignLines(y); c.save(); c.textAlign = 'center'; c.textBaseline = 'middle';
+      let fs = Math.round(TS * 0.3); c.font = `700 ${fs}px Georgia, serif`;
+      const maxW = Math.max(TS * 1.2, sp.len * TS - TS * 0.2), widest = () => Math.max(...lines.map(t => c.measureText(t).width));
+      while (fs > 6 && widest() > maxW - TS * 0.25) { fs--; c.font = `700 ${fs}px Georgia, serif`; }
+      const lh = fs * 1.15, w = Math.min(Math.max(widest() + TS * 0.4, TS * 1.2), maxW), h = Math.max(TS * 0.5, lines.length * lh + TS * 0.18);
+      // (the board stands on its posts at the fence; a taller one grows upward)
+      const cx = sp.x * TS + TS / 2, bot = sp.y * TS + TS * 0.67, top = bot - h, cy = (top + bot) / 2;
+      c.fillStyle = '#5a3a1e'; c.fillRect(cx - w / 2 + TS * 0.12, bot - 1, TS * 0.1, TS * 0.32); c.fillRect(cx + w / 2 - TS * 0.22, bot - 1, TS * 0.1, TS * 0.32);   // (two posts)
+      c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(cx - w / 2 + 1.5, top + 2, w, h);
+      const gr = c.createLinearGradient(0, top, 0, bot); gr.addColorStop(0, '#c99a62'); gr.addColorStop(1, '#a8773f'); c.fillStyle = gr; c.fillRect(cx - w / 2, top, w, h);
+      c.strokeStyle = 'rgba(90,56,26,.45)'; c.lineWidth = 0.6; for (let f = 0.3; f < 1; f += 0.38 / Math.max(1, lines.length * 0.6)) { c.beginPath(); c.moveTo(cx - w / 2 + 2, top + h * f); c.lineTo(cx + w / 2 - 2, top + h * f + 0.4); c.stroke(); }   // (the grain)
+      c.strokeStyle = '#4a2e14'; c.lineWidth = 1; c.strokeRect(cx - w / 2 + 0.5, top + 0.5, w - 1, h - 1);
+      c.fillStyle = '#3c2410'; for (const sx of [-1, 1]) { c.beginPath(); c.arc(cx + sx * (w / 2 - 2.6), top + 2.6, 0.9, 0, 6.3); c.fill(); }   // (nails)
+      lines.forEach((t, i) => { const ty = cy + (i - (lines.length - 1) / 2) * lh; c.fillStyle = 'rgba(255,230,190,.35)'; c.fillText(t, cx, ty + 0.6); c.fillStyle = '#3a2210'; c.fillText(t, cx, ty); });
+      c.restore();
     } });
   }
   return out;
