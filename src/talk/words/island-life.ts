@@ -390,3 +390,68 @@ lxi('remark_place', 'The rent is paid at six. It is the one thing {place} that i
 lxi('remark_work', 'I have a field of my own. It is a small thing and I think about it often.', {}, ['feature:yards']);
 lxi('remark_state', 'I have no bed. I am told it is a phase.', { state: 'bedless' });
 lxi('remark_state', 'The rent was due and I was not ready. It was brief.', { state: 'behind' });
+
+/* ---- surprises (talk/surprise.ts, life2/surprise.ts), in the island voice: startled, and still exact ---- */
+const SURP_LINES_I: any = {
+  woke_moved: [
+    'I went to sleep indoors and woke up outside, in the same bed.',
+    'I was carried out of the house in my sleep. The bed came too.',
+    'I woke up out of doors. I did not go to bed out of doors.'
+  ],
+  chair_moved: [
+    'I was sitting in my chair and then the chair was somewhere else, with me in it.',
+    'My chair moved while I sat in it. I did not get up.'
+  ],
+  moved: [
+    'I was standing somewhere else a moment ago, and I did not walk here.',
+    'I have been moved. I was in one place and now I am in this one.',
+    'I turned up here without walking. I have checked my feet.'
+  ],
+  bed_new: ['There is a bed with my name on it. Nobody will say where it came from.', 'I have a bed now. It arrived while I was not looking.'],
+  bed_gone: ['My bed is gone. Nobody saw it go.', 'I had a bed and now I do not.'],
+  bed_moved: ['My bed is not where I left it.', 'My bed has moved. It did not ask.'],
+  roof: ['There are walls round my bed now, and a roof.', 'I have a house. It was put up round me while nobody was looking.'],
+  roof_gone: ['The walls round my bed have gone. I can see the sky from my pillow.', 'My roof is gone.'],
+  window: ['My house has a window now.', 'There is a window in my wall that was not there before. I have looked through it several times.'],
+  window_gone: ['My window has gone. It is wall now.'],
+  yard: ['There is a fence round my place now, with a gate.', 'I have a yard. The fence turned up while I was elsewhere.'],
+  yard_open: ['There is a gap in my fence.', 'Part of my fence is missing. The rest is where it was.'],
+  yard_gone: ['My fence is gone. All of it.', 'I had a yard. Now I have the place where a yard was.'],
+  fields_more: ['There are {qty} new fields in my yard.', 'Somebody laid {qty} fields in my yard. I counted them twice.'],
+  fields_less: ['{qty} of my fields have gone back to grass.', 'I have {qty} fewer fields than I had.']
+};
+for (const k of Object.keys(SURP_LINES_I)) for (const t of SURP_LINES_I[k]) lxi('blurt', t, { how: k });
+const SURP_CRY_I: any = {
+  woke_moved: ['This is not my bedroom.', 'There is a tree where the ceiling was.'],
+  chair_moved: ['I was indoors a moment ago.'],
+  moved: ['I was not here a moment ago.', 'I do not know how I got here.', 'I was over there.'],
+  bed_new: ['That bed has my name on it.'],
+  bed_gone: ['My bed is not here.'],
+  bed_moved: ['That is not where my bed was.'],
+  roof: ['There are walls round my bed.'],
+  roof_gone: ['My walls are gone.'],
+  window: ['There is a window in my wall.'],
+  window_gone: ['My window is gone.'],
+  yard: ['There is a fence round my place.'],
+  yard_open: ['There is a hole in my fence.'],
+  yard_gone: ['My fence is gone.'],
+  fields_more: ['Those fields are new.'],
+  fields_less: ['Some of my fields are gone.']
+};
+for (const k of Object.keys(SURP_CRY_I)) for (const t of SURP_CRY_I[k]) lxi('odd_cry', t, { how: k });
+lxi('odd_glad', 'That is good luck. I am glad for you.', { op: 'good' });
+lxi('odd_glad', 'Nothing like that has happened to me. I would not say no.', { op: 'good' });
+lxi('odd_sorry', 'That is a hard thing to find. I am sorry.', { op: 'bad' });
+lxi('odd_sorry', 'I am sorry. That is not a fair thing to happen.', { op: 'bad' });
+lxi('odd_wonder', 'That is strange.', {});
+lxi('odd_wonder', 'Nobody saw anything. That is the strange part.', {});
+lxi('odd_wonder', 'Things happen here that nobody does.', {});
+lxi('odd_explain', 'You may have walked in your sleep.', { op: 'odd' });
+lxi('odd_explain', 'You were more tired than you thought.', { op: 'odd' });
+lxi('odd_explain', 'It may have been there all along.', { op: 'good' });
+lxi('ev:turned_up', '{t} was suddenly {place} and did not walk there');
+lxi('ev:turned_up', '{t} turned up {place}, and nobody knows how');
+lxi('ev:home_changed', '{t} has {place} now, and nobody saw it arrive');
+lxi('ev:home_changed', '{t} was given {place} by nobody anybody knows of');
+lxi('ev:home_lost', "{t}'s {place} went missing, and nobody saw it go");
+lxi('ev:home_lost', "{t}'s {place} is gone");

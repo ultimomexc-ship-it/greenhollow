@@ -22,6 +22,7 @@ const LF2_TAGS = {
   arrest: { v: -0.6, spice: 1.6, pity: 0.2 }, justice: { v: 0.4, spice: 0.8, pity: 0 }, smelly: { v: -0.15, spice: 0.45, pity: 0 }, rich: { v: 0.1, spice: 0.6, pity: 0 }, gamble: { v: -0.1, spice: 0.8, pity: 0 },
   affair: { v: -0.6, spice: 2.2, pity: 0.9 }, jealous: { v: -0.3, spice: 1.4, pity: 0.3 }, sabotage: { v: -1, spice: 1.4, pity: 0.6 }, bribe: { v: -0.7, spice: 1.5, pity: 0 }
 };
+Object.assign(LF2_TAGS, { mystery: { v: 0, spice: 1.3, pity: 0.3 } });
 Object.assign(LF2_TAGS, { health: { v: 0, spice: 1, pity: 1.2 }, debt: { v: -0.4, spice: 1.3, pity: 0.3 }, honest: { v: 0.5, spice: 0.7, pity: 0 }, news: { v: 0, spice: 0.8, pity: 0 }, business: { v: 0, spice: 0.7, pity: 0.3 } });
 /* character bends a judgement */
 const LF2_TRAITMUL = {

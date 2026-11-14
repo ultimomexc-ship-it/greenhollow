@@ -25,6 +25,7 @@ function talkBudget(n: any, o: any): number {
 
 /** what a conversation is *for*: the acts that come from a real reason (a grudge, a request, a crush, news, something owed). The first topic is one of these when there is one. */
 const TALK_PURPOSE = [
+  'blurt',
   'raise_deed',
   'ask_favour',
   'chase_favour',

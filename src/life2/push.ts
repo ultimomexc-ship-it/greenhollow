@@ -121,9 +121,10 @@ function lf2PushLine(n, x, y, dx, dy): true | string | null {
   sndPush(n && n.player ? 1 : sndAt(n.x, n.y));
   return true;
 }
-/** a person pushed along: they stumble one tile (harmless: no crime, no gossip beyond "you pushed somebody") */
+/** a person pushed along: pushing happens in build mode, while time stands still, so nobody notices it happen and nobody knows who did it.
+    Somebody pushed far enough to notice finds out when time runs again (`surpSettle`, life2/surprise.ts) and is surprised, not cross. */
 function pushMovePerson(n, who, tx, ty) {
-  if (who.pose === 'sleep') pushCarry(who, tx, ty, n); else { if (n && n.player) meddleNote('person_pushed', who.tx, who.ty, n, { room: -1, residents: [who] }); lf2Relocate(who, tx, ty); } cvSaw(n, who, 'push'); if (!who.player && Math.random() < 0.3) lfShout(who, anyOf(PUSH_WORDS));
+  if (who.pose === 'sleep') pushCarry(who, tx, ty, n); else lf2Relocate(who, tx, ty);
 }
 /** move somebody one tile without waking or standing them: a sleeper in a bed, a sitter on a chair, a sleeper on the ground. Their plan carries on; they remember who did it and where they were. */
 function pushCarry(who, tx, ty, by?) {
@@ -132,22 +133,14 @@ function pushCarry(who, tx, ty, by?) {
   who.tx = tx; who.ty = ty; who.x = tx; who.y = ty; who.moving = false; who.path = []; who.t = 0; tileOwner.set(tkey(tx, ty), who);
   who.slide = by && by.player ? { fx, fy, st: performance.now(), by, w: by.walked } : { fx, fy, st: performance.now() };
   if (!who.shoved) { const hr = roomAt[fy] && roomAt[fy][fx] >= 0 ? rooms[roomAt[fy][fx]] : null; who.shoved = { by: by ? by.id : null, room: hr, pose: who.pose, t: game.time }; }
-  if (by && by !== who) cvSaw(by, who, 'push');
 }
-/** somebody who was carried out of the house in their bed (or chair) comes to: a shout, a grudge, a line in the chronicle */
+/** somebody who was carried out of the house in their bed (or chair) comes to: a surprise (life2/surprise.ts), news with nobody's name on it, a line in the chronicle */
 LF2.tickers.push(() => {
   for (const who of npcs) {
     const sh = who.shoved; if (!sh) continue; if (who.dead) { who.shoved = null; continue; }
     if (who.pose === 'sleep' || who.pose === 'sit') continue;
     who.shoved = null; const ri = roomAt[who.ty] && roomAt[who.ty][who.tx], here = ri >= 0 ? rooms[ri] : null; if (here && here === sh.room) continue;   // (shifted about, but still at home)
-    let trees = 0; for (let yy = -3; yy <= 3; yy++) for (let xx = -3; xx <= 3; xx++) if (grid[who.ty + yy] && grid[who.ty + yy][who.tx + xx] === T.TREE) trees++;
-    const where = ri >= 0 ? 'in somebody else\'s house' : trees >= 6 ? 'in the middle of the forest' : grid[who.ty][who.tx] === T.PATH ? 'in the middle of the road' : trees >= 2 ? 'under a tree' : 'in a field';
-    const bad = sh.pose === 'sleep' ? ['WHAT?! Where am I?!', 'My bed! Where is my roof?', 'Is that... a tree? Who moved my bed?!', 'By Jupiter, I went to sleep indoors!'] : ['Who has carried off my chair?', 'How did I get out here?!', 'I was sitting down just now!'];
-    if (game.player && TALK.on.deed !== false) { const c: any = { a: who, b: game.player, done: {}, turns: [{ by: who.id, act: 'cry_deed', x: { how: sh.pose === 'sleep' ? 'bed' : 'chair' } }], stage: 'topic', t0: game.time }; talkFinish(c, who, game.player, true); }
-    who.mood = Math.max(0, (who.mood == null ? 60 : who.mood) - 8);
-    const by = null;   // nobody knows who did it, only that it happened
-    if (sh.pose === 'sleep') lfEmit('bed_moved', { actor: sh.by != null ? lf2By(sh.by) : null, target: who, x: who.tx, y: who.ty, sev: 2, tags: ['nuisance', 'embarrass'], anon: true, sawActor: [], witnessIds: [who.id], chron: false, loud: true });
-    chron(`${who.first} ${sh.pose === 'sleep' ? 'woke up' : 'got up'} ${where}, ${sh.pose === 'sleep' ? 'bed' : 'chair'} and all.`, 'life');
+    surpAdd(who, [[sh.pose === 'sleep' ? 'woke_moved' : 'chair_moved', 1]], { cry: true });
   }
 });
 /** swap places with the piece in front of you: it goes to the tile you stand on (the same step carries you into its tile, and it is drawn following your step) */

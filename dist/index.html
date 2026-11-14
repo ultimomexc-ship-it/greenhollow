@@ -18095,6 +18095,7 @@ const LF2_TAGS = {
   sabotage: { v: -1, spice: 1.4, pity: 0.6 },
   bribe: { v: -0.7, spice: 1.5, pity: 0 }
 };
+Object.assign(LF2_TAGS, { mystery: { v: 0, spice: 1.3, pity: 0.3 } });
 Object.assign(LF2_TAGS, { health: { v: 0, spice: 1, pity: 1.2 }, debt: { v: -0.4, spice: 1.3, pity: 0.3 }, honest: { v: 0.5, spice: 0.7, pity: 0 }, news: { v: 0, spice: 0.8, pity: 0 }, business: { v: 0, spice: 0.7, pity: 0.3 } });
 const LF2_TRAITMUL = {
   theft: { devout: 1.4, greedy: 0.5, generous: 1.2 },
@@ -18949,12 +18950,7 @@ function lf2PushLine(n, x, y, dx, dy) {
 }
 function pushMovePerson(n, who, tx, ty) {
   if (who.pose === "sleep") pushCarry(who, tx, ty, n);
-  else {
-    if (n && n.player) meddleNote("person_pushed", who.tx, who.ty, n, { room: -1, residents: [who] });
-    lf2Relocate(who, tx, ty);
-  }
-  cvSaw(n, who, "push");
-  if (!who.player && Math.random() < 0.3) lfShout(who, anyOf(PUSH_WORDS));
+  else lf2Relocate(who, tx, ty);
 }
 function pushCarry(who, tx, ty, by) {
   const fx = who.x, fy = who.y;
@@ -18972,7 +18968,6 @@ function pushCarry(who, tx, ty, by) {
     const hr = roomAt[fy] && roomAt[fy][fx] >= 0 ? rooms[roomAt[fy][fx]] : null;
     who.shoved = { by: by ? by.id : null, room: hr, pose: who.pose, t: game.time };
   }
-  if (by && by !== who) cvSaw(by, who, "push");
 }
 LF2.tickers.push(() => {
   for (const who of npcs) {
@@ -18986,18 +18981,7 @@ LF2.tickers.push(() => {
     who.shoved = null;
     const ri2 = roomAt[who.ty] && roomAt[who.ty][who.tx], here = ri2 >= 0 ? rooms[ri2] : null;
     if (here && here === sh.room) continue;
-    let trees = 0;
-    for (let yy = -3; yy <= 3; yy++) for (let xx = -3; xx <= 3; xx++) if (grid[who.ty + yy] && grid[who.ty + yy][who.tx + xx] === T.TREE) trees++;
-    const where = ri2 >= 0 ? "in somebody else's house" : trees >= 6 ? "in the middle of the forest" : grid[who.ty][who.tx] === T.PATH ? "in the middle of the road" : trees >= 2 ? "under a tree" : "in a field";
-    const bad = sh.pose === "sleep" ? ["WHAT?! Where am I?!", "My bed! Where is my roof?", "Is that... a tree? Who moved my bed?!", "By Jupiter, I went to sleep indoors!"] : ["Who has carried off my chair?", "How did I get out here?!", "I was sitting down just now!"];
-    if (game.player && TALK.on.deed !== false) {
-      const c = { a: who, b: game.player, done: {}, turns: [{ by: who.id, act: "cry_deed", x: { how: sh.pose === "sleep" ? "bed" : "chair" } }], stage: "topic", t0: game.time };
-      talkFinish(c, who, game.player, true);
-    }
-    who.mood = Math.max(0, (who.mood == null ? 60 : who.mood) - 8);
-    const by = null;
-    if (sh.pose === "sleep") lfEmit("bed_moved", { actor: sh.by != null ? lf2By(sh.by) : null, target: who, x: who.tx, y: who.ty, sev: 2, tags: ["nuisance", "embarrass"], anon: true, sawActor: [], witnessIds: [who.id], chron: false, loud: true });
-    chron(`${who.first} ${sh.pose === "sleep" ? "woke up" : "got up"} ${where}, ${sh.pose === "sleep" ? "bed" : "chair"} and all.`, "life");
+    surpAdd(who, [[sh.pose === "sleep" ? "woke_moved" : "chair_moved", 1]], { cry: true });
   }
 });
 function pushSwap(n, piece) {
@@ -21559,7 +21543,6 @@ const lf2PersonOK = (x, y) => {
   const g = grid[y] && grid[y][x];
   return walkable(x, y) && !(typeof noStep === "function" && noStep(x, y)) && g !== T.SEAT && g !== T.BED && g !== T.PEW && g !== T.TENT && !lfPropAt(x, y);
 };
-const PUSH_WORDS = ["Oh! Excuse me.", "Hm? Oh, right.", "Mind how you go.", "Oh, I will shift.", "Right, right."];
 function lf2Relocate(o, x, y) {
   const fx = o.x, fy = o.y;
   if (tileOwner.get(tkey(o.tx, o.ty)) === o) tileOwner.delete(tkey(o.tx, o.ty));
@@ -21585,8 +21568,6 @@ function lf2PushPerson(n, o, dx, dy) {
   if (lf2PersonOK(bx, by) && !tileOwner.get(tkey(bx, by))) move(bx, by);
   else if (lf2PersonOK(n.tx, n.ty)) move(n.tx, n.ty);
   else return "There is no room to push " + o.first + ".";
-  cvSaw(n, o, "push");
-  if (!o.player && Math.random() < 0.3) lfShout(o, anyOf(PUSH_WORDS));
   return true;
 }
 function gaSlide(n, now) {
@@ -31192,6 +31173,130 @@ function rentCardRow(n) {
   if (why.length) out += row("About home", why.join(", "));
   return out;
 }
+const SURP = { snap: null, pending: false, days: 3, cries: 4, criesLeft: 0 };
+const SURP_ORDER = ["woke_moved", "chair_moved", "moved", "bed_gone", "roof_gone", "bed_new", "roof", "bed_moved", "yard_gone", "yard", "yard_open", "window", "window_gone", "fields_more", "fields_less"];
+const SURP_GOOD = ["bed_new", "roof", "yard", "window", "fields_more"];
+const SURP_BAD = ["bed_gone", "roof_gone", "yard_gone", "yard_open", "window_gone", "fields_less"];
+const surpTone = (k) => SURP_GOOD.includes(k) ? "good" : SURP_BAD.includes(k) ? "bad" : "odd";
+const SURP_WHAT = {
+  bed_new: "a bed of their own",
+  roof: "a roof over the bed",
+  window: "a window",
+  yard: "a fence round the yard",
+  fields_more: "new fields",
+  bed_gone: "bed",
+  roof_gone: "roof",
+  window_gone: "window",
+  yard_gone: "fence",
+  yard_open: "fence",
+  fields_less: "fields",
+  bed_moved: "bed"
+};
+function surpHome(n) {
+  const b = n.bed && n.bed.x != null && !n.homeless ? n.bed : null;
+  const ri2 = b && roomAt[b.y] ? roomAt[b.y][b.x] : -1, r = ri2 >= 0 ? rooms[ri2] : null, roof = !!(r && !r.dead);
+  let win = false;
+  if (roof) {
+    for (const k of r.walls || []) if (town.win && town.win.has(k) || town.winS && town.winS.has(k)) {
+      win = true;
+      break;
+    }
+  }
+  const yd = b && typeof yardAtXY === "function" ? yardAtXY(b.x, b.y) : null;
+  let fields = 0;
+  if (yd) {
+    for (const c of town.crops || []) if (town.yardAt.get(c.y * W + c.x) === yd) fields++;
+  }
+  return { x: n.tx, y: n.ty, rm: roomAt[n.ty] ? roomAt[n.ty][n.tx] : -1, bed: b, bx: b ? b.x : null, by: b ? b.y : null, roof, win, yard: yd, yopen: !!(yd && yd.open != null), fields };
+}
+function surpTake() {
+  if (typeof town === "undefined" || !town || tut2Active()) {
+    SURP.snap = null;
+    return;
+  }
+  SURP.snap = /* @__PURE__ */ new Map();
+  for (const n of npcs) if (!n.dead && !n.player && !n.infant) SURP.snap.set(n.id, surpHome(n));
+}
+function surpDiff(n, a, b) {
+  const out = [], held = n.pose === "sleep" || n.pose === "sit";
+  const far = Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+  if (!held && far > 0 && (far >= 2 || lvlOf(a.y) !== lvlOf(b.y) || a.rm !== b.rm)) out.push(["moved", far]);
+  if (!a.bed && b.bed) out.push(["bed_new", 1]);
+  else if (a.bed && !b.bed) out.push(["bed_gone", 1]);
+  else if (a.bed && b.bed && !held && (a.bx !== b.bx || a.by !== b.by)) out.push(["bed_moved", 1]);
+  if (b.bed && !a.roof && b.roof) out.push(["roof", 1]);
+  if (a.bed && b.bed && a.roof && !b.roof) out.push(["roof_gone", 1]);
+  if (b.roof && !a.win && b.win) out.push(["window", 1]);
+  if (a.roof && b.roof && a.win && !b.win) out.push(["window_gone", 1]);
+  if (b.yard && !a.yard) out.push(["yard", 1]);
+  else if (a.yard && !b.yard && b.bed) out.push(["yard_gone", 1]);
+  else if (b.yard && !a.yopen && b.yopen) out.push(["yard_open", 1]);
+  const f0 = a.yard ? a.fields : 0, f1 = b.yard ? b.fields : 0;
+  if (f1 > f0 && b.yard) out.push(["fields_more", f1 - f0]);
+  else if (f1 < f0 && a.yard && b.yard) out.push(["fields_less", f0 - f1]);
+  return out;
+}
+function surpWhere(n) {
+  const ri2 = roomAt[n.ty] ? roomAt[n.ty][n.tx] : -1, r = ri2 >= 0 ? rooms[ri2] : null;
+  if (r) return n.homeRoom === r || n.bed && (r.beds || []).includes(n.bed) ? "back indoors at home" : "in somebody else's house";
+  const yd = typeof yardAtXY === "function" ? yardAtXY(n.tx, n.ty) : null;
+  if (yd) return yd === (typeof yardOfN === "function" ? yardOfN(n) : null) ? n.female ? "in her own yard" : "in his own yard" : "in somebody else's yard";
+  let trees = 0;
+  for (let yy = -3; yy <= 3; yy++) for (let xx = -3; xx <= 3; xx++) if (grid[n.ty + yy] && grid[n.ty + yy][n.tx + xx] === T.TREE) trees++;
+  const g = grid[n.ty][n.tx];
+  return trees >= 6 ? "in the middle of the woods" : g === T.CROP ? "in the middle of a field" : g === T.PATH ? "in the middle of the road" : g === T.SAND ? "on the beach" : trees >= 2 ? "under a tree" : "out in the open";
+}
+function surpAdd(n, list, o = {}) {
+  if (!list.length || n.dead || n.player) return [];
+  list.sort((x, y) => SURP_ORDER.indexOf(x[0]) - SURP_ORDER.indexOf(y[0]));
+  const now = game.time, keep = (n.surp || []).filter((s) => now - s.t < SURP.days * 1440);
+  const recs = list.map(([k2, q]) => ({ k: k2, q: q || 1, t: now, told: {}, ev: null }));
+  const [k] = list[0], tone = surpTone(k);
+  const kind = k === "woke_moved" || k === "chair_moved" ? "bed_moved" : k === "moved" ? "turned_up" : tone === "bad" || k === "bed_moved" ? "home_lost" : "home_changed";
+  const place = kind === "turned_up" || kind === "bed_moved" ? surpWhere(n) : String(SURP_WHAT[k] || "something").replace("their", n.female ? "her" : "his");
+  const ev = lfEmit(kind, { actor: null, target: n, x: n.tx, y: n.ty, sev: tone === "good" ? 1 : 2, tags: ["mystery"], place, witnessIds: [n.id], chron: false });
+  recs[0].ev = ev ? ev.id : null;
+  if (kind === "turned_up" || kind === "bed_moved") chron(`${n.first} ${k === "woke_moved" ? "woke up" : k === "chair_moved" ? "got up" : "found themselves"} ${place}${k === "woke_moved" ? ", bed and all" : k === "chair_moved" ? ", chair and all" : ""}. Nobody knows how.`, "life");
+  n.mood = Math.max(0, Math.min(100, (n.mood == null ? 60 : n.mood) + (tone === "good" ? 4 : tone === "bad" ? -6 : -2)));
+  n.surp = keep.concat(recs).slice(-10);
+  if (!o.quiet && TALK.on.life !== false && (o.cry || SURP.criesLeft > 0)) {
+    if (!o.cry) SURP.criesLeft--;
+    const c = { a: n, b: n, solo: true, done: {}, turns: [{ by: n.id, act: "odd_cry", x: { how: k } }], stage: "topic", t0: now };
+    talkFinish(c, n, n, !!game.player && lfDist(n, game.player) <= TALK.earshot);
+  }
+  return recs;
+}
+function surpSettle() {
+  const snap = SURP.snap;
+  SURP.snap = null;
+  if (!snap || tut2Active()) return;
+  SURP.criesLeft = SURP.cries;
+  for (const n of npcs) {
+    if (n.dead || n.player || n.infant) continue;
+    const a = snap.get(n.id);
+    if (!a) continue;
+    surpAdd(n, surpDiff(n, a, surpHome(n)));
+  }
+}
+function surpUntold(n, li) {
+  const now = game.time;
+  return (n.surp || []).filter((s) => now - s.t < SURP.days * 1440 && !s.told[li.id]).sort((x, y) => SURP_ORDER.indexOf(x.k) - SURP_ORDER.indexOf(y.k))[0] || null;
+}
+const _surpToggle = itBuildToggle;
+itBuildToggle = function(n, on) {
+  const was = !!(n.build && n.build.on);
+  _surpToggle(n, on);
+  const now = !!(n.build && n.build.on);
+  if (n.player && !was && now) surpTake();
+  if (n.player && was && !now && SURP.snap) SURP.pending = true;
+};
+LF2.tickers.push(() => {
+  if (SURP.pending) {
+    SURP.pending = false;
+    if (typeof yardScan === "function" && yardOn()) yardScan(true);
+    surpSettle();
+  }
+});
 const ARR_FIRST = 0.5, ARR_GAP = [1.5, 2.5], ARR_KIDS = 3;
 function arrYard() {
   if (!yardOn()) return null;
@@ -33702,8 +33807,11 @@ EVK("found", "daily", { needs: ["thing"], tell: 0.6 });
 EVK("got_bed", "home", { tell: 0.5 });
 EVK("lost_bed", "home", { tell: 0.7, tags: ["misfortune"] });
 EVK("moved_house", "home", { tell: 0.6 });
+EVK("turned_up", "home", { tell: 0.85, tags: ["mystery"] });
+EVK("home_changed", "home", { tell: 0.7, tags: ["mystery"] });
+EVK("home_lost", "home", { tell: 0.8, tags: ["mystery"] });
 EVK("wall_removed", "meddle", { needs: ["place"], tell: 0.9, tags: ["embarrass", "nuisance"] });
-EVK("bed_moved", "meddle", { tell: 0.7, tags: ["nuisance"] });
+EVK("bed_moved", "meddle", { tell: 0.8, tags: ["mystery"] });
 EVK("home_destroyed", "meddle", { tell: 1, tags: ["harm"] });
 EVK("furniture_removed", "meddle", { tell: 0.7, tags: ["nuisance"] });
 EVK("person_pushed", "meddle", { tell: 0.5, tags: ["nuisance", "embarrass"] });
@@ -35591,6 +35699,50 @@ ACTS.praise = {
 };
 ACTS.thank_praise = { kind: "feeling", stage: "topic", reply: true, when: () => true, w: () => 1, apply: () => {
 }, replies: [] };
+ACTS.blurt = {
+  kind: "life",
+  stage: "topic",
+  when: (c, sp, li) => {
+    if (sp.player || sp.pose === "sleep" || (c.done.blurt || 0) >= 3 || typeof surpUntold !== "function") return false;
+    const s = surpUntold(sp, li);
+    if (!s) return false;
+    c.lifeItem = "surprise:" + s.k + ":" + s.t;
+    return true;
+  },
+  w: () => 30,
+  apply: (c, sp, li) => {
+    const s = surpUntold(sp, li);
+    c.done.blurt = (c.done.blurt || 0) + 1;
+    if (!s) return;
+    s.told[li.id] = game.time;
+    c.newsHow = s.k;
+    c.surpK = s.k;
+    c.op = surpTone(s.k);
+    c.lifeQty = s.q;
+    const ev = s.ev != null ? lf2EvById(s.ev) : null;
+    if (ev && !TM.ofEv(li, ev.id)) TM.addEv(li, ev, "told", 0.95, sp, 1, { who: null, sev: ev.sev });
+  },
+  replies: ["odd_glad", "odd_sorry", "odd_wonder", "odd_explain"]
+};
+ACTS.odd_cry = { kind: "life", stage: "topic", when: () => false, apply: () => {
+}, replies: [] };
+const oddReply = (id, tone, w, fx) => {
+  ACTS[id] = {
+    kind: "life",
+    stage: "topic",
+    reply: true,
+    when: (c) => !!c.surpK && tone.includes(c.op),
+    w: () => w,
+    apply: (c, sp, li) => {
+      if (fx) fx(c, sp, li);
+    },
+    replies: []
+  };
+};
+oddReply("odd_glad", ["good"], 3, (c, sp, li) => lfAff(li, sp, 1, "was glad for me"));
+oddReply("odd_sorry", ["bad"], 3, (c, sp, li) => lfAff(li, sp, 1, "felt for me"));
+oddReply("odd_wonder", ["good", "bad", "odd"], 1.5);
+oddReply("odd_explain", ["odd", "good"], 1);
 const SECRET_TAGS = ["harm", "embarrass", "scandal", "theft", "deceit", "nuisance"];
 function secretPick(sp, li) {
   let best = null, bs = 0;
@@ -36462,6 +36614,7 @@ function talkBudget(n, o) {
   return Math.max(1, b);
 }
 const TALK_PURPOSE = [
+  "blurt",
   "raise_deed",
   "ask_favour",
   "chase_favour",
@@ -36929,7 +37082,12 @@ const PT_LABEL = {
   propose: ["Heart", "Propose marriage"],
   confront_jealous: ["Heart", "Ask about {about}"],
   snap: ["Heart", "Snap at them"],
+  blurt: ["Tell", "Tell what happened"],
   // answers
+  odd_glad: ["Answer", "Be glad for them"],
+  odd_sorry: ["Answer", "Feel for them"],
+  odd_wonder: ["Answer", "Say it is strange"],
+  odd_explain: ["Answer", "Offer an explanation"],
   answer_how: ["Answer", "Say how you are"],
   share_gladness: ["Answer", "Be glad with them"],
   sympathise_how: ["Answer", "Sympathise"],
@@ -37050,7 +37208,7 @@ function ptBegin(o, p) {
   const back = talkTurn(c, o, p, "greet_back");
   c.stage = "topic";
   let say2 = talkWords(back, p, o);
-  for (const id of ["raise_deed", "ask_favour"]) {
+  for (const id of ["blurt", "raise_deed", "ask_favour"]) {
     if (S.pending || !TALK.on[ACTS[id].kind]) continue;
     const bind = talkBind(c, o, p, id);
     if (!bind) continue;
@@ -37958,6 +38116,75 @@ lx("remark_place", "plain", "Rent day comes round quick {place}.", {}, ["feature
 lx("remark_work", "plain", "Good to have a field of my own to work.", {}, ["feature:yards"]);
 lx("remark_state", "plain", "Still no bed. It's getting old.", { state: "bedless" });
 lx("remark_state", "plain", "I'm behind with the rent.", { state: "behind" });
+const SURP_LINES_P = {
+  woke_moved: [
+    "You will not believe this. I went to sleep in my own bed and woke up outside, bed and all!",
+    "I woke up out of doors! Still in my bed! How does that happen?",
+    "Somebody carried me off in my sleep, bed and everything, and I never woke!"
+  ],
+  chair_moved: ["I was sitting in my chair, and then my chair and I were somewhere else!", "My chair moved! With me in it! I never felt a thing."],
+  moved: [
+    "The strangest thing just happened. One moment I was in one place, the next I was somewhere else entirely!",
+    "I didn't walk here. I know I didn't. I was somewhere else a moment ago!",
+    "Have you ever just turned up somewhere? Because I just did!"
+  ],
+  bed_new: [
+    "There's a bed with my name on it! I don't know where it came from, but it's mine!",
+    "I have a bed! A real one! Nobody will say who made it."
+  ],
+  bed_gone: ["My bed is gone! Just gone! Where does a bed go?", "Someone's made off with my bed, and nobody saw a thing!"],
+  bed_moved: ["My bed isn't where I left it. Beds don't walk, do they?", "My bed has moved itself! I left it in one place and found it in another!"],
+  roof: [
+    "There's a roof over my bed now! Walls and all! It wasn't there before!",
+    "I've got a house! Somebody put walls round my bed while nobody was looking!"
+  ],
+  roof_gone: ["My roof is gone! I can see the sky from my bed!", "The walls round my bed have vanished! Just like that!"],
+  window: ["There's a window in my house now! I can see out!", "Somebody gave my house a window! I keep looking through it."],
+  window_gone: ["My window has gone! There was a window, and now it is wall."],
+  yard: [
+    "There's a fence all round my place now! A gate and everything! Who did that?",
+    "I have a yard! A fence, a gate, the lot! It just appeared!"
+  ],
+  yard_open: ["There's a gap in my fence! Somebody's had a piece of it!", "My fence has a hole in it now. It didn't have one before!"],
+  yard_gone: ["My fence is gone! The whole yard, gone!", "My yard has vanished! The fence, the gate, all of it!"],
+  fields_more: ["I have new fields! {qty} more of them, out of nowhere!", "Somebody laid fields in my yard! {qty} of them, ready to plant!"],
+  fields_less: ["Some of my fields are gone! {qty} of them, back to grass!", "{qty} of my fields have just disappeared!"]
+};
+for (const k of Object.keys(SURP_LINES_P)) for (const t of SURP_LINES_P[k]) lx("blurt", "plain", t, { how: k });
+const SURP_CRY_P = {
+  woke_moved: ["Where am I? This was my bedroom!", "Is that a tree? Where is my roof?"],
+  chair_moved: ["My chair... how did I get out here?"],
+  moved: ["Wait, how did I get here?", "Where... where am I?", "Huh? I was over there!"],
+  bed_new: ["Is that... a bed for me?"],
+  bed_gone: ["Where is my bed?"],
+  bed_moved: ["Who moved my bed?"],
+  roof: ["Walls! Where did these come from?"],
+  roof_gone: ["Where did my walls go?"],
+  window: ["A window! Since when?"],
+  window_gone: ["My window!"],
+  yard: ["A fence? Round my place?"],
+  yard_open: ["There is a hole in my fence!"],
+  yard_gone: ["Where is my fence?"],
+  fields_more: ["Fields! Whose are these? Mine?"],
+  fields_less: ["My fields! Where did they go?"]
+};
+for (const k of Object.keys(SURP_CRY_P)) for (const t of SURP_CRY_P[k]) lx("odd_cry", "plain", t, { how: k });
+lx("odd_glad", "plain", "Well, isn't that lucky! Good for you.", { op: "good" });
+lx("odd_glad", "plain", "A gift from nowhere! I wish it would happen to me.", { op: "good" });
+lx("odd_sorry", "plain", "Oh no, that's awful. I'm sorry.", { op: "bad" });
+lx("odd_sorry", "plain", "That's a rotten thing to wake up to.", { op: "bad" });
+lx("odd_wonder", "plain", "That's the strangest thing I've heard all week.", {});
+lx("odd_wonder", "plain", "Strange things happen on this island.", {});
+lx("odd_wonder", "plain", "And nobody saw anything? How odd.", {});
+lx("odd_explain", "plain", "Maybe you walked in your sleep?", { op: "odd" });
+lx("odd_explain", "plain", "You must have been more tired than you thought.", { op: "odd" });
+lx("odd_explain", "plain", "Maybe it was always there and you never noticed.", { op: "good" });
+lx("ev:turned_up", "plain", "{t} suddenly found themselves {place}, and nobody knows how");
+lx("ev:turned_up", "plain", "{t} turned up {place} without walking a step");
+lx("ev:home_changed", "plain", "{t} got {place} out of nowhere, and nobody saw who");
+lx("ev:home_changed", "plain", "{t} has {place} now, and nobody saw it arrive");
+lx("ev:home_lost", "plain", "{t}'s {place} went missing, and nobody saw a thing");
+lx("ev:home_lost", "plain", "{t}'s {place} just vanished");
 lx("ask_news", "plain", "Any news?");
 lx("ask_news", "plain", "Heard anything lately?");
 lx("ask_news", "plain", "What's the word today?");
@@ -39266,6 +39493,69 @@ lxi("remark_place", "The rent is paid at six. It is the one thing {place} that i
 lxi("remark_work", "I have a field of my own. It is a small thing and I think about it often.", {}, ["feature:yards"]);
 lxi("remark_state", "I have no bed. I am told it is a phase.", { state: "bedless" });
 lxi("remark_state", "The rent was due and I was not ready. It was brief.", { state: "behind" });
+const SURP_LINES_I = {
+  woke_moved: [
+    "I went to sleep indoors and woke up outside, in the same bed.",
+    "I was carried out of the house in my sleep. The bed came too.",
+    "I woke up out of doors. I did not go to bed out of doors."
+  ],
+  chair_moved: [
+    "I was sitting in my chair and then the chair was somewhere else, with me in it.",
+    "My chair moved while I sat in it. I did not get up."
+  ],
+  moved: [
+    "I was standing somewhere else a moment ago, and I did not walk here.",
+    "I have been moved. I was in one place and now I am in this one.",
+    "I turned up here without walking. I have checked my feet."
+  ],
+  bed_new: ["There is a bed with my name on it. Nobody will say where it came from.", "I have a bed now. It arrived while I was not looking."],
+  bed_gone: ["My bed is gone. Nobody saw it go.", "I had a bed and now I do not."],
+  bed_moved: ["My bed is not where I left it.", "My bed has moved. It did not ask."],
+  roof: ["There are walls round my bed now, and a roof.", "I have a house. It was put up round me while nobody was looking."],
+  roof_gone: ["The walls round my bed have gone. I can see the sky from my pillow.", "My roof is gone."],
+  window: ["My house has a window now.", "There is a window in my wall that was not there before. I have looked through it several times."],
+  window_gone: ["My window has gone. It is wall now."],
+  yard: ["There is a fence round my place now, with a gate.", "I have a yard. The fence turned up while I was elsewhere."],
+  yard_open: ["There is a gap in my fence.", "Part of my fence is missing. The rest is where it was."],
+  yard_gone: ["My fence is gone. All of it.", "I had a yard. Now I have the place where a yard was."],
+  fields_more: ["There are {qty} new fields in my yard.", "Somebody laid {qty} fields in my yard. I counted them twice."],
+  fields_less: ["{qty} of my fields have gone back to grass.", "I have {qty} fewer fields than I had."]
+};
+for (const k of Object.keys(SURP_LINES_I)) for (const t of SURP_LINES_I[k]) lxi("blurt", t, { how: k });
+const SURP_CRY_I = {
+  woke_moved: ["This is not my bedroom.", "There is a tree where the ceiling was."],
+  chair_moved: ["I was indoors a moment ago."],
+  moved: ["I was not here a moment ago.", "I do not know how I got here.", "I was over there."],
+  bed_new: ["That bed has my name on it."],
+  bed_gone: ["My bed is not here."],
+  bed_moved: ["That is not where my bed was."],
+  roof: ["There are walls round my bed."],
+  roof_gone: ["My walls are gone."],
+  window: ["There is a window in my wall."],
+  window_gone: ["My window is gone."],
+  yard: ["There is a fence round my place."],
+  yard_open: ["There is a hole in my fence."],
+  yard_gone: ["My fence is gone."],
+  fields_more: ["Those fields are new."],
+  fields_less: ["Some of my fields are gone."]
+};
+for (const k of Object.keys(SURP_CRY_I)) for (const t of SURP_CRY_I[k]) lxi("odd_cry", t, { how: k });
+lxi("odd_glad", "That is good luck. I am glad for you.", { op: "good" });
+lxi("odd_glad", "Nothing like that has happened to me. I would not say no.", { op: "good" });
+lxi("odd_sorry", "That is a hard thing to find. I am sorry.", { op: "bad" });
+lxi("odd_sorry", "I am sorry. That is not a fair thing to happen.", { op: "bad" });
+lxi("odd_wonder", "That is strange.", {});
+lxi("odd_wonder", "Nobody saw anything. That is the strange part.", {});
+lxi("odd_wonder", "Things happen here that nobody does.", {});
+lxi("odd_explain", "You may have walked in your sleep.", { op: "odd" });
+lxi("odd_explain", "You were more tired than you thought.", { op: "odd" });
+lxi("odd_explain", "It may have been there all along.", { op: "good" });
+lxi("ev:turned_up", "{t} was suddenly {place} and did not walk there");
+lxi("ev:turned_up", "{t} turned up {place}, and nobody knows how");
+lxi("ev:home_changed", "{t} has {place} now, and nobody saw it arrive");
+lxi("ev:home_changed", "{t} was given {place} by nobody anybody knows of");
+lxi("ev:home_lost", "{t}'s {place} went missing, and nobody saw it go");
+lxi("ev:home_lost", "{t}'s {place} is gone");
 lxi("ask_news", "Has anything happened? Anything at all. I will take a small one.");
 lxi("ask_news", "Any news?");
 lxi("ask_news", "Have you heard anything? About anyone. About anything.");

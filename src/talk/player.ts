@@ -62,7 +62,12 @@ const PT_LABEL: any = {
   propose: ['Heart', 'Propose marriage'],
   confront_jealous: ['Heart', 'Ask about {about}'],
   snap: ['Heart', 'Snap at them'],
+  blurt: ['Tell', 'Tell what happened'],
   // answers
+  odd_glad: ['Answer', 'Be glad for them'],
+  odd_sorry: ['Answer', 'Feel for them'],
+  odd_wonder: ['Answer', 'Say it is strange'],
+  odd_explain: ['Answer', 'Offer an explanation'],
   answer_how: ['Answer', 'Say how you are'],
   share_gladness: ['Answer', 'Be glad with them'],
   sympathise_how: ['Answer', 'Sympathise'],
@@ -185,8 +190,8 @@ function ptBegin(o: any, p: any): any {
   const back = talkTurn(c, o, p, 'greet_back');
   c.stage = 'topic';
   let say = talkWords(back, p, o);
-  // somebody with a grievance against you, or something to ask of you, does not wait to be asked
-  for (const id of ['raise_deed', 'ask_favour']) {
+  // something startling that happened to them comes out first (life2/surprise.ts); then a grievance against you, or something to ask of you: none of it waits to be asked
+  for (const id of ['blurt', 'raise_deed', 'ask_favour']) {
     if (S.pending || !TALK.on[ACTS[id].kind]) continue;
     const bind = talkBind(c, o, p, id);
     if (!bind) continue;

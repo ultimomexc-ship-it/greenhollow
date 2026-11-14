@@ -2412,7 +2412,7 @@ test('every act the player can say or answer with has a menu label in a known gr
   const r = await page.evaluate(() => {
     const reps = new Set(); for (const id of Object.keys(ACTS)) for (const x of (ACTS[id].replies || [])) reps.add(x);
     const SHOP = /^(shop_greet|shop_greet_back|ask_item|quote_price|pay_ok|thank_shop|farewell_shop|cant_afford|make_do|no_stock|offer_goods|bid_price|accept_deal|no_demand|new_stock_remark|keeper_call|call_reply)$/;
-    const ids = Object.keys(ACTS).filter(id => ACTS[id].kind !== 'ritual' && !SHOP.test(id) && ((ACTS[id].stage === 'topic' && !ACTS[id].reply) || reps.has(id)) && !['cry_deed', 'mutter', 'call_child', 'gift_from_nobody', 'gift_anon_reply'].includes(id));
+    const ids = Object.keys(ACTS).filter(id => ACTS[id].kind !== 'ritual' && !SHOP.test(id) && ((ACTS[id].stage === 'topic' && !ACTS[id].reply) || reps.has(id)) && !['cry_deed', 'odd_cry', 'mutter', 'call_child', 'gift_from_nobody', 'gift_anon_reply'].includes(id));
     const missing = ids.filter(id => !PT_LABEL[id]), badGroup = ids.filter(id => PT_LABEL[id] && !PT_GROUPS.includes(PT_LABEL[id][0])), badSlot = ids.filter(id => PT_LABEL[id] && (PT_LABEL[id][1].match(/\{(\w+)\}/g) || []).some(x => !['{about}', '{item}', '{news}'].includes(x)));
     const long = ids.filter(id => PT_LABEL[id] && PT_LABEL[id][1].replace(/\{\w+\}/g, 'xxxxxx').length > 40);
     return { n: ids.length, missing, badGroup, badSlot, long };
@@ -2906,6 +2906,47 @@ test('tutorial: the fence ring is built row by row from where the shadow stands,
   check(/closed fence stands like a wall/.test(r.fixed || ''), 'a closed yard does not push: ' + r.fixed);
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
   return 'row by row from the shadow, nothing off the marks, a closed yard stands';
+});
+
+test('surprises: somebody pushed in build mode, or given fields, never knows who did it, is startled when time runs, and says so first the next time they talk, to you or anybody', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r0 = await page.evaluate(() => { newTown('surprise-test', 'town'); TALK.words = true;
+    const P = game.player, adults = npcs.filter(n => n !== P && !n.dead && n.adult && n.pose !== 'sleep' && yardOfN(n) && !n.shop);
+    const V = adults[0], Q = adults.find(n => yardOfN(n) !== yardOfN(V) && yardOfN(n) !== yardOfN(P));
+    const ev0 = lf2Ev().length, aff0 = V.aff[P.id] || 0, x0 = V.tx, y0 = V.ty; V.pose = 'stand';
+    itBuildToggle(P, true);
+    for (let k = 0; k < 6; k++) { const d = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dy]) => lf2PersonOK(V.tx + dx, V.ty + dy) && !tileOwner.get((V.ty + dy) * W + V.tx + dx) && Math.abs(V.tx + dx - x0) + Math.abs(V.ty + dy - y0) > Math.abs(V.tx - x0) + Math.abs(V.ty - y0)); if (d) pushMovePerson(P, V, V.tx + d[0], V.ty + d[1]); }
+    const yq = yardOfN(Q); let laid = 0;
+    for (const k of yq.cells) { const x = k % W, y = (k / W) | 0; if (laid < 3 && grid[y][x] === T.GRASS && !lfPropAt(x, y) && roomAt[y][x] < 0) { setT(x, y, T.CROP); town.crops.push({ x, y, pl: 1, st: 0, t0: 0, byField: P.id }); laid++; } }
+    const quietWhileFrozen = TALK.log.length;
+    itBuildToggle(P, false);
+    return { V: V.id, Q: Q.id, ev0, aff0, moved: Math.abs(V.tx - x0) + Math.abs(V.ty - y0), laid, quietWhileFrozen };
+  });
+  await simulate(page, 5);
+  const r = await page.evaluate(r0 => {
+    const P = game.player, V = byId(r0.V), Q = byId(r0.Q), evs = lf2Ev().slice(r0.ev0);
+    const out = { vs: (V.surp || []).map(s => s.k), qs: (Q.surp || []).map(s => s.k + ':' + s.q), kinds: evs.map(e => e.kind + (e.actor != null ? '@' + e.actor : '')),
+      blamed: evs.some(e => e.actor === P.id) || evs.some(e => e.kind === 'person_pushed'), affSame: (V.aff[P.id] || 0) === r0.aff0, suspect: (V.tmem || []).some(m => m.ver && m.ver.suspect),
+      cry: TALK.log.slice(r0.quietWhileFrozen).some(l => (l.acts || []).some(a => a.act === 'odd_cry')) };
+    // talking to the player: it comes out first, right after the greeting
+    const menu = ptBegin(V, P), S = PT.s, acts = S.c.turns.map(t => t.act);
+    out.first = acts[2]; out.words = talkWords(S.c.turns[2], V, P); out.answers = (S.pending || []).slice();
+    closeTalk();
+    ptBegin(V, P); out.again = PT.s.c.turns.map(t => t.act).includes('blurt'); closeTalk();
+    // and to anybody else: the first thing they raise, and the listener keeps it as news
+    const X = npcs.find(n => n !== P && n !== V && n !== Q && !n.dead && n.adult);
+    const c = talkRun(V, X, true), topics = c.turns.filter(t => !['greet', 'greet_back'].includes(t.act)).map(t => t.act);
+    out.toX = topics[0]; const ev = lf2EvById((V.surp || []).find(s => s.ev != null).ev); out.xKnows = !!(ev && TM.ofEv(X, ev.id)); out.evText = ev && TE.text(ev, { who: null }, X, P);
+    out.miss = Object.keys(LX_MISS).filter(k => /blurt|odd_/.test(k));
+    return out;
+  }, r0);
+  check(r0.moved >= 2 && r0.laid === 3, 'set up: pushed ' + r0.moved + ' tiles, 3 fields laid: ' + JSON.stringify(r0));
+  check(r.vs.includes('moved') && r.qs.includes('fields_more:3'), 'what changed is a surprise for each of them: ' + JSON.stringify([r.vs, r.qs]));
+  check(!r.blamed && r.affSame && !r.suspect && r.kinds.includes('turned_up') && r.kinds.includes('home_changed'), 'nobody is named, blamed or suspected; it is news with no actor: ' + JSON.stringify(r));
+  check(r.first === 'blurt' && r.words && r.answers.includes('odd_wonder') && !r.again, 'the first thing said to you after hello, with answers to choose, and only once: ' + JSON.stringify([r.first, r.words, r.answers, r.again]));
+  check(r.toX === 'blurt' && r.xKnows && r.miss.length === 0, 'the first thing said to anybody else too, who can pass it on: ' + JSON.stringify([r.toX, r.xKnows, r.evText, r.miss]));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return `"${r.words}" / news: "${r.evText}"`;
 });
 
 test('build town: twenty people in fenced yards, each household in a sealed house with a bed each and fields; no settlers come from the road; it runs three days fed and housed', async b => {

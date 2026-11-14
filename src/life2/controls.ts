@@ -4,7 +4,6 @@
    The verbs in lf2Verbs (steal, pick a lock, wreck, shove, give, wake, follow ...) are still registered in the hooks but nothing reaches them yet.   */
 /* ---------------- pushing people like furniture ---------------- */
 const lf2PersonOK = (x, y) => { const g = grid[y] && grid[y][x]; return walkable(x, y) && !(typeof noStep === 'function' && noStep(x, y)) && g !== T.SEAT && g !== T.BED && g !== T.PEW && g !== T.TENT && !lfPropAt(x, y); };
-const PUSH_WORDS: string[] = ['Oh! Excuse me.', 'Hm? Oh, right.', 'Mind how you go.', 'Oh, I will shift.', 'Right, right.'];
 /** Put o on tile (x, y) at once (it slides there on screen) and let them find their feet; no event, no rumour. */
 function lf2Relocate(o, x, y) {
   const fx = o.x, fy = o.y;
@@ -24,9 +23,7 @@ function lf2PushPerson(n, o, dx, dy): true | string {
   if (lf2PersonOK(bx, by) && !tileOwner.get(tkey(bx, by))) move(bx, by);
   else if (lf2PersonOK(n.tx, n.ty)) move(n.tx, n.ty);      // against a wall or a crowd: change places
   else return 'There is no room to push ' + o.first + '.';
-  cvSaw(n, o, 'push');
-  if (!o.player && Math.random() < 0.3) lfShout(o, anyOf(PUSH_WORDS));
-  return true;
+  return true;   // (nobody notices a push while it happens: see life2/surprise.ts)
 }
 /** how a villager is drawn while they slide to the tile they were pushed onto (screen time, not game time) */
 function gaSlide(n, now) {

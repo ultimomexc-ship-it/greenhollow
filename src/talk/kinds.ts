@@ -83,9 +83,13 @@ EVK('found', 'daily', { needs: ['thing'], tell: 0.6 });
 EVK('got_bed', 'home', { tell: 0.5 });
 EVK('lost_bed', 'home', { tell: 0.7, tags: ['misfortune'] });
 EVK('moved_house', 'home', { tell: 0.6 });
+// surprises (life2/surprise.ts): build mode changed somebody's place or home while time stood still; nobody knows who or how ({place} says what)
+EVK('turned_up', 'home', { tell: 0.85, tags: ['mystery'] });
+EVK('home_changed', 'home', { tell: 0.7, tags: ['mystery'] });
+EVK('home_lost', 'home', { tell: 0.8, tags: ['mystery'] });
 // meddling (phase 3)
 EVK('wall_removed', 'meddle', { needs: ['place'], tell: 0.9, tags: ['embarrass', 'nuisance'] });
-EVK('bed_moved', 'meddle', { tell: 0.7, tags: ['nuisance'] });
+EVK('bed_moved', 'meddle', { tell: 0.8, tags: ['mystery'] });
 EVK('home_destroyed', 'meddle', { tell: 1, tags: ['harm'] });
 EVK('furniture_removed', 'meddle', { tell: 0.7, tags: ['nuisance'] });
 EVK('person_pushed', 'meddle', { tell: 0.5, tags: ['nuisance', 'embarrass'] });

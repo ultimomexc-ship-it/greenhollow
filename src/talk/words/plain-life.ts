@@ -256,3 +256,74 @@ lx('remark_place', 'plain', 'Rent day comes round quick {place}.', {}, ['feature
 lx('remark_work', 'plain', 'Good to have a field of my own to work.', {}, ['feature:yards']);
 lx('remark_state', 'plain', "Still no bed. It's getting old.", { state: 'bedless' });
 lx('remark_state', 'plain', "I'm behind with the rent.", { state: 'behind' });
+
+/* ---- surprises (talk/surprise.ts, life2/surprise.ts): what changed while nobody was looking. Said first, to whoever they talk to next ---- */
+const SURP_LINES_P: any = {
+  woke_moved: [
+    'You will not believe this. I went to sleep in my own bed and woke up outside, bed and all!',
+    'I woke up out of doors! Still in my bed! How does that happen?',
+    'Somebody carried me off in my sleep, bed and everything, and I never woke!'
+  ],
+  chair_moved: ['I was sitting in my chair, and then my chair and I were somewhere else!', 'My chair moved! With me in it! I never felt a thing.'],
+  moved: [
+    'The strangest thing just happened. One moment I was in one place, the next I was somewhere else entirely!',
+    "I didn't walk here. I know I didn't. I was somewhere else a moment ago!",
+    'Have you ever just turned up somewhere? Because I just did!'
+  ],
+  bed_new: [
+    "There's a bed with my name on it! I don't know where it came from, but it's mine!",
+    'I have a bed! A real one! Nobody will say who made it.'
+  ],
+  bed_gone: ['My bed is gone! Just gone! Where does a bed go?', "Someone's made off with my bed, and nobody saw a thing!"],
+  bed_moved: ["My bed isn't where I left it. Beds don't walk, do they?", 'My bed has moved itself! I left it in one place and found it in another!'],
+  roof: [
+    "There's a roof over my bed now! Walls and all! It wasn't there before!",
+    "I've got a house! Somebody put walls round my bed while nobody was looking!"
+  ],
+  roof_gone: ['My roof is gone! I can see the sky from my bed!', 'The walls round my bed have vanished! Just like that!'],
+  window: ["There's a window in my house now! I can see out!", 'Somebody gave my house a window! I keep looking through it.'],
+  window_gone: ['My window has gone! There was a window, and now it is wall.'],
+  yard: [
+    "There's a fence all round my place now! A gate and everything! Who did that?",
+    'I have a yard! A fence, a gate, the lot! It just appeared!'
+  ],
+  yard_open: ["There's a gap in my fence! Somebody's had a piece of it!", "My fence has a hole in it now. It didn't have one before!"],
+  yard_gone: ['My fence is gone! The whole yard, gone!', 'My yard has vanished! The fence, the gate, all of it!'],
+  fields_more: ['I have new fields! {qty} more of them, out of nowhere!', 'Somebody laid fields in my yard! {qty} of them, ready to plant!'],
+  fields_less: ['Some of my fields are gone! {qty} of them, back to grass!', '{qty} of my fields have just disappeared!']
+};
+for (const k of Object.keys(SURP_LINES_P)) for (const t of SURP_LINES_P[k]) lx('blurt', 'plain', t, { how: k });
+const SURP_CRY_P: any = {
+  woke_moved: ['Where am I? This was my bedroom!', 'Is that a tree? Where is my roof?'],
+  chair_moved: ['My chair... how did I get out here?'],
+  moved: ['Wait, how did I get here?', 'Where... where am I?', 'Huh? I was over there!'],
+  bed_new: ['Is that... a bed for me?'],
+  bed_gone: ['Where is my bed?'],
+  bed_moved: ['Who moved my bed?'],
+  roof: ['Walls! Where did these come from?'],
+  roof_gone: ['Where did my walls go?'],
+  window: ['A window! Since when?'],
+  window_gone: ['My window!'],
+  yard: ['A fence? Round my place?'],
+  yard_open: ['There is a hole in my fence!'],
+  yard_gone: ['Where is my fence?'],
+  fields_more: ['Fields! Whose are these? Mine?'],
+  fields_less: ['My fields! Where did they go?']
+};
+for (const k of Object.keys(SURP_CRY_P)) for (const t of SURP_CRY_P[k]) lx('odd_cry', 'plain', t, { how: k });
+lx('odd_glad', 'plain', "Well, isn't that lucky! Good for you.", { op: 'good' });
+lx('odd_glad', 'plain', 'A gift from nowhere! I wish it would happen to me.', { op: 'good' });
+lx('odd_sorry', 'plain', "Oh no, that's awful. I'm sorry.", { op: 'bad' });
+lx('odd_sorry', 'plain', "That's a rotten thing to wake up to.", { op: 'bad' });
+lx('odd_wonder', 'plain', "That's the strangest thing I've heard all week.", {});
+lx('odd_wonder', 'plain', 'Strange things happen on this island.', {});
+lx('odd_wonder', 'plain', 'And nobody saw anything? How odd.', {});
+lx('odd_explain', 'plain', 'Maybe you walked in your sleep?', { op: 'odd' });
+lx('odd_explain', 'plain', 'You must have been more tired than you thought.', { op: 'odd' });
+lx('odd_explain', 'plain', 'Maybe it was always there and you never noticed.', { op: 'good' });
+lx('ev:turned_up', 'plain', '{t} suddenly found themselves {place}, and nobody knows how');
+lx('ev:turned_up', 'plain', '{t} turned up {place} without walking a step');
+lx('ev:home_changed', 'plain', '{t} got {place} out of nowhere, and nobody saw who');
+lx('ev:home_changed', 'plain', '{t} has {place} now, and nobody saw it arrive');
+lx('ev:home_lost', 'plain', "{t}'s {place} went missing, and nobody saw a thing");
+lx('ev:home_lost', 'plain', "{t}'s {place} just vanished");
