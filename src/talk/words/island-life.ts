@@ -468,14 +468,36 @@ const WISH_LINES_I: any = {
   flowers: ['I wished for flowers near my bed.', 'My wish was flowers. Something to look at in the morning.'],
   hen: ['I wished for a hen in our yard.', 'I made a wish for a hen. I have a name ready.'],
   seedstall: ['I wished for a seed stall, for the town.', 'I made a wish for the town. A seed stall.'],
-  carpenter: ["I wished for a carpenter's stall, for the town.", "I made a wish for the town. A carpenter."]
+  carpenter: ["I wished for a carpenter's stall, for the town.", 'I made a wish for the town. A carpenter.']
 };
 for (const k of Object.keys(WISH_LINES_I)) for (const t of WISH_LINES_I[k]) lxi('tell_wish', t, { how: k });
+const WISH_WANT_I: any = {
+  bed: 'A bed of my own.',
+  yard: 'A yard with a fence round it.',
+  roof: 'A roof over my bed.',
+  room: 'More room in the house.',
+  window: 'A window.',
+  fields: 'More fields.',
+  flowers: 'Flowers near my bed.',
+  hen: 'A hen in our yard.',
+  seedstall: 'A seed stall, for the town.',
+  carpenter: "A carpenter's stall, for the town."
+};
+for (const k of Object.keys(WISH_WANT_I)) lxi('answer_wish', WISH_WANT_I[k], { how: k });
+lxi('ask_wish', 'If you could wish for one thing, what would it be?');
+lxi('ask_wish', 'What would you wish for?');
+lxi('no_wish', 'Nothing. I have what I need.');
+lxi('no_wish', 'I cannot think of anything. I have tried.');
 lxi('wish_hope', 'I hope it comes true.', {});
 lxi('wish_hope', 'I hope the well is listening.', {});
 lxi('wish_doubt', 'It is a well. I am not sure it listens.', {});
 lxi('wish_doubt', 'I have never seen a well do anything.', {});
-for (const t of ['I made a wish at the well, and it came true.', 'My wish came true. I am trying not to read too much into it.', 'The well granted my wish.']) lxi('blurt', t, { how: 'wish' });
+for (const t of [
+  'I made a wish at the well, and it came true.',
+  'My wish came true. I am trying not to read too much into it.',
+  'The well granted my wish.'
+])
+  lxi('blurt', t, { how: 'wish' });
 lxi('odd_cry', 'My wish came true.', { how: 'wish' });
 LXLI('wished', ['I made a wish at the well.', 'I put a wish in the well.']);
 LXLI('wish_granted', ['My wish came true.', 'The well granted my wish.']);

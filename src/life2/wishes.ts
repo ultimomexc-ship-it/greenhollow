@@ -6,7 +6,8 @@
 
 const WISH: any = { days: 6, town: 3, again: 2 * 1440 };
 const wishYard = (n: any) => (typeof yardOfN === 'function' ? yardOfN(n) : null);
-const wishPeople = (y: any) => (y ? yardPeople(y) : []).filter((o: any) => !o.dead && !o.player && !rentTrader(o));
+const wishMe = (o: any) => !!o && (o.player || o === game.player || (typeof yardPlayer === 'function' && o === yardPlayer()));
+const wishPeople = (y: any) => (y ? yardPeople(y) : []).filter((o: any) => !o.dead && !wishMe(o) && !rentTrader(o));
 function wishRoom(n: any): any { const b = n.bed; if (!b || b.x == null) return null; const ri = roomAt[b.y] ? roomAt[b.y][b.x] : -1, r = ri >= 0 ? rooms[ri] : null; return r && !r.dead ? r : null; }
 function wishRoomFit(n: any): number[] { const r = wishRoom(n); if (!r) return [0, 1]; const cells = r.cells ? r.cells.size : r.w * r.h, ppl = npcs.filter((o: any) => !o.dead && o.bed && o.bed.x != null && r.cells && r.cells.has(o.bed.y * W + o.bed.x)).length; return [cells, ppl * 2 + 2]; }
 function wishFields(n: any): number[] { const y = wishYard(n); if (!y) return [0, 1]; let f = 0; for (const c of town.crops || []) if (town.yardAt.get(c.y * W + c.x) === y) f++; return [f, Math.max(4, 4 * wishPeople(y).filter((o: any) => o.age >= 16).length)]; }
@@ -52,19 +53,19 @@ function wishTick() {
   if (!wellOn()) return;
   for (const w of wishOpen()) {
     const d = WISH_DEF[w.kind], n = byId(w.who);
-    if (!d || !n || n.dead) { w.state = 'expired'; continue; }
+    if (!d || !n || n.dead || wishMe(n)) { w.state = 'expired'; continue; }
     if (d.ok(n)) { w.state = 'granted'; w.done = game.time; LIFE.emit('wish_granted', n, {}); if (typeof surpAdd === 'function') surpAdd(n, [['wish', 1]], { noNews: true }); continue; }
     if (game.time > w.until) { w.state = 'expired'; (town.wishSkip || (town.wishSkip = {}))[w.key + ':' + w.kind] = game.time + WISH.again; }
   }
   const open = new Set(wishOpen().map((w: any) => w.key));
   const homes = new Map<string, any[]>();
-  for (const n of npcs) { if (n.dead || n.player || n.infant || rentTrader(n)) continue; const k = wishKeyOf(n); if (!homes.has(k)) homes.set(k, []); homes.get(k).push(n); }
+  for (const n of npcs) { if (n.dead || wishMe(n) || n.infant || rentTrader(n)) continue; const k = wishKeyOf(n); if (!homes.has(k)) homes.set(k, []); homes.get(k).push(n); }
   for (const [key, people] of homes) { if (open.has(key)) continue; const p = wishPick(people, key); if (p) wishMake(p.n, p.kind, key); }
   // the town's wishes: the next stall it lacks, once there are households enough to want it
   const lived = (town.yards || []).filter((y: any) => yardPeople(y).length).length, townOpen = wishOpen().filter((w: any) => w.key === 'town');
   if (townOpen.length < WISH.town) for (const kind of ['seedstall', 'carpenter']) {
     if (townOpen.some((w: any) => w.kind === kind) || WISH_DEF[kind].ok() || wishSkip('town', kind) || lived < (kind === 'seedstall' ? 4 : 6)) continue;
-    const who = npcs.filter((o: any) => !o.dead && !o.player && o.age >= 16 && !rentTrader(o)); if (who.length) wishMake(who[Math.floor(Math.random() * who.length)], kind, 'town'); break;
+    const who = npcs.filter((o: any) => !o.dead && !wishMe(o) && o.age >= 16 && !rentTrader(o)); if (who.length) wishMake(who[Math.floor(Math.random() * who.length)], kind, 'town'); break;
   }
 }
 LF2.hourly.push(() => wishTick());

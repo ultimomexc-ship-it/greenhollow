@@ -2969,6 +2969,38 @@ test('wishing well: the build town has one in the middle; households drop a shar
   return `${r.givers} people dropped ${r.given} coin in three days; you took ${r.took}`;
 });
 
+test('wishes: every household keeps a wish in the well, the panel lists them, a wish is granted by whatever gives it and the wisher blurts that it came true; asking anybody what they would wish for gives the same answer', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  await page.evaluate(() => { newTown('wish-test', 'town'); TALK.words = true; });
+  await simulate(page, 120);
+  const r = await page.evaluate(() => {
+    const open = wishOpen(), kinds = {}; for (const w of open) kinds[w.kind] = (kinds[w.kind] || 0) + 1;
+    const homes = new Set(open.map(w => w.key)).size;
+    wellOpen(); const panel = document.getElementById('shoppanel').innerHTML; shopClose();
+    // grant a flowers wish (or make one): poppies in bloom beside the wisher's bed
+    let w = open.find(q => q.kind === 'flowers');
+    if (!w) { const n = npcs.find(q => !q.player && q.age >= 16 && yardOfN(q) && !rentTrader(q) && !rentHome(q).flowers); const old = wishOpen().find(q => q.key === wishKeyOf(n)); if (old) old.state = 'expired'; w = wishMake(n, 'flowers', wishKeyOf(n)); }
+    const n = byId(w.who), b = n.bed; let put = false;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [2, 0], [0, 2]]) { const x = b.x + dx, y = b.y + dy; if (!lfPropAt(x, y) && [T.FLOOR, T.GRASS].includes(grid[y][x])) { const c = { x, y, pl: 1, st: 1, seed: 'poppy', t0: 0 }; c.t0 = game.time - itGrow(c) * 1.5; town.crops.push(c); put = true; break; } }
+    return { open: open.length, homes, kinds, panel: /Wishes/.test(panel) && /wishes for/.test(panel), wid: w.id, who: n.id, put };
+  });
+  await simulate(page, 70);
+  const r2 = await page.evaluate(r => {
+    const w = wishList().find(q => q.id === r.wid), n = byId(r.who), P = game.player;
+    ptBegin(n, P); const first = PT.s.c.turns[2], firstSay = first && talkWords(first, n, P); closeTalk();
+    // asking: the player asks somebody else with an open wish what they would wish for
+    const o = wishOpen().map(q => byId(q.who)).find(q => q && q !== n && q.age >= 16);
+    const c = { a: P, b: o, done: {}, turns: [], left: {} }; talkTurn(c, P, o, 'ask_wish'); const rep = talkChoose(c, o, P, ACTS.ask_wish.replies); const t = rep ? talkTurn(c, o, P, rep) : null;
+    return { state: w.state, surp: (n.surp || []).map(s => s.k), first: first && first.act, how: first && first.x && first.x.how, firstSay, rep, ans: t && talkWords(t, P, o), wish: wishOf(o) && wishOf(o).kind, miss: Object.keys(LX_MISS).filter(k => /wish|blurt|odd_/.test(k)) };
+  }, r);
+  check(r.homes >= 8 && r.panel, 'each household has a wish open, listed in the well: ' + JSON.stringify(r));
+  check(r.put && r2.state === 'granted' && r2.surp.includes('wish'), 'flowers by the bed grant the flowers wish: ' + JSON.stringify(r2));
+  check(r2.first === 'blurt' && r2.how === 'wish' && r2.firstSay, 'the first thing the wisher says is that it came true: ' + JSON.stringify(r2));
+  check(r2.rep === 'answer_wish' && r2.ans && r2.miss.length === 0, 'asked what they would wish for, they say their wish: ' + JSON.stringify(r2));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return `${r.open} wishes open ${JSON.stringify(r.kinds)}; "${r2.firstSay}" / asked: "${r2.ans}"`;
+});
+
 test('build town: twenty people in fenced yards, each household in a sealed house with a bed each and fields; no settlers come from the road; it runs three days fed and housed', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r0 = await page.evaluate(() => { newTown('build-town-test', 'town');

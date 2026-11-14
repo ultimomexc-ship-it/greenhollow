@@ -21,6 +21,7 @@ So a wish's check is broad ("a room of theirs with a window", "a table and two s
 | Open wishes | One per household plus three for the town, for now. |
 | Old wishes | Expire, or are replaced by a newer wish from the same household, if not granted. |
 | Children | Wish too ("I wish there was somewhere to play"). |
+| Wishes for others | People can wish for another household (a friend, or somebody struggling). Generous characters do it often, selfish ones never. |
 | Unlocks | A wish **can unlock** an item or building you cannot build yet. Some wishes need something else first (a carpenter's stall before fine furniture, for example). |
 | Pledged coin | **Does nothing for now.** The well is one purse; you can answer an expensive wish cheaply and go elaborate somewhere else. |
 | Wells | **One** per town to start. |
@@ -48,6 +49,10 @@ A wish is a record the game can check: `{ who (person or household or 'town'), k
 - **Taste wishes** come from what they like (section 3): "I wish we had somewhere to entertain guests", "flowers by the door".
 - **Town wishes** are for public buildings (section 6): "I wish there was a bathhouse", "the bathhouse has no water", "it is too small for us all", "it could be nicer".
 - **Children's wishes**: a playground, a swing, a pet hen in the yard.
+- **Wishes for somebody else**: people can wish for another household: a friend's, or somebody who is not doing well. "Poor Herbus makes barely any money. If only he had more fields to plough." The wish is made in the wisher's name but checked against the other household (more fields in Herbus's yard), and when it comes true both are glad: the one it was for, and the one who wished it (who may tell everybody it was their wish).
+  - **Generous and selfish people**: character decides who wishes for others. Generous, kind and devout villagers often spend their wish on a friend or on whoever is struggling most (the lowest satisfaction or the least coin in town); selfish, greedy or proud ones only ever wish for themselves, and may grumble when somebody else's wish comes true first ("Herbus gets fields and I still have no window."). Most people are in between: their own household first, others now and then.
+  - Who counts as struggling comes from what the game already knows: coin, hunger, satisfaction, sleeping rough, rent or deposits they could not make.
+  - In talk this is gossip with a heart: "Have you heard what Livia wished for? Fields for Herbus." It makes the wisher liked, and tells you who in town needs help without going to the well.
 - **Wishes that unlock**: a wish may name something not yet in the kit ("I wish we had a proper table to eat at"); making the wish puts that item on the trader's list (or the carpenter's), so the town's wishes open up the build menu over time. Some wishes wait on something else first (fine furniture needs the carpenter's stall; a bath needs a bathhouse): the panel shows what it is waiting for.
 - **Checks are broad**: a wish is met by anything that gives what it asks for, wherever it fits, and partly met is worth something (see the rule above).
 - **Growing up and down**: once the town is full, wishes turn to the homes themselves: a second room, a room upstairs, a roof garden, a cellar. The stairs, decks and mines that already exist are where those answers go.

@@ -64,6 +64,9 @@ const PT_LABEL: any = {
   snap: ['Heart', 'Snap at them'],
   blurt: ['Tell', 'Tell what happened'],
   tell_wish: ['Tell', 'Tell their wish'],
+  ask_wish: ['Ask', 'Ask what they would wish for'],
+  answer_wish: ['Answer', 'Say what you would wish for'],
+  no_wish: ['Answer', 'Say you want for nothing'],
   wish_hope: ['Answer', 'Hope it comes true'],
   wish_doubt: ['Answer', 'Doubt the well'],
   // answers

@@ -213,7 +213,11 @@ LXP(
 );
 
 /* the Hamlet: rent, yards and moving in (life2/rent.ts, yards.ts) */
-LXLP('well_gave', ['I dropped {money} in the wishing well.', 'Put {money} in the well. For luck, and for the town.', 'Dropped a few coins in the well today.']);
+LXLP('well_gave', [
+  'I dropped {money} in the wishing well.',
+  'Put {money} in the well. For luck, and for the town.',
+  'Dropped a few coins in the well today.'
+]);
 LXLP('rent_paid', ['I paid the rent today.', 'Rent is paid. That is one thing settled.', 'Paid my rent at six, same as every day.']);
 LXLP('rent_unpaid', ['I could not pay the rent today.', 'I had nothing for the rent today.', 'The rent went unpaid. I do not like that.']);
 LXLP('no_yard', ['I have no yard of my own.', 'I have nowhere that is mine. No fence, no field.', 'Still no yard. I cannot grow a thing.']);
@@ -340,14 +344,36 @@ const WISH_LINES_P: any = {
   flowers: ['I wished for flowers by my bed. Something nice to wake up to.', 'My wish? Flowers near the house.'],
   hen: ['I wished for a hen! In our yard! A real one!', 'I put a wish in the well for a hen of our own.'],
   seedstall: ['I made a wish for the whole town: a seed stall.', 'I wished we had a proper seed stall.'],
-  carpenter: ["I wished for a carpenter's stall. The town could use one.", "My wish was for the town: a carpenter."]
+  carpenter: ["I wished for a carpenter's stall. The town could use one.", 'My wish was for the town: a carpenter.']
 };
 for (const k of Object.keys(WISH_LINES_P)) for (const t of WISH_LINES_P[k]) lx('tell_wish', 'plain', t, { how: k });
+const WISH_WANT_P: any = {
+  bed: 'A bed. Just a bed of my own.',
+  yard: 'A yard. A fence round my bed and my things.',
+  roof: 'A roof over my bed, more than anything.',
+  room: 'More room. The house is too small for us.',
+  window: 'A window. Some light inside.',
+  fields: 'More fields to work.',
+  flowers: 'Flowers by my bed.',
+  hen: 'A hen! In our yard!',
+  seedstall: 'A seed stall for the town.',
+  carpenter: "A carpenter's stall for the town."
+};
+for (const k of Object.keys(WISH_WANT_P)) lx('answer_wish', 'plain', WISH_WANT_P[k], { how: k });
+lx('ask_wish', 'plain', 'If you could wish for one thing, what would it be?');
+lx('ask_wish', 'plain', 'What would you wish for, if the well were listening?');
+lx('no_wish', 'plain', "Nothing, really. I've got what I need.");
+lx('no_wish', 'plain', "I can't think of a thing. That's lucky, isn't it?");
 lx('wish_hope', 'plain', 'I hope it comes true.', {});
 lx('wish_hope', 'plain', 'Fingers crossed for you.', {});
 lx('wish_doubt', 'plain', "You don't really think a well grants wishes?", {});
 lx('wish_doubt', 'plain', "It's a well. It holds water.", {});
-for (const t of ['I made a wish at the well, and it came true!', 'My wish came true! I only wished it a few days ago!', 'The well granted my wish. I never thought it would.']) lx('blurt', 'plain', t, { how: 'wish' });
+for (const t of [
+  'I made a wish at the well, and it came true!',
+  'My wish came true! I only wished it a few days ago!',
+  'The well granted my wish. I never thought it would.'
+])
+  lx('blurt', 'plain', t, { how: 'wish' });
 lx('odd_cry', 'plain', 'My wish! It came true!', { how: 'wish' });
 LXLP('wished', ['I made a wish at the well today.', 'Put a wish in the well.']);
 LXLP('wish_granted', ['My wish came true.', 'The well granted my wish.']);

@@ -51,7 +51,55 @@ ACTS.tell_wish = {
   },
   replies: ['wish_hope', 'wish_doubt']
 };
-ACTS.wish_hope = { kind: 'life', stage: 'topic', reply: true, when: (c: any) => !!c.newsHow, w: () => 3, apply: (c: any, sp: any, li: any) => lfAff(li, sp, 1, 'hoped my wish comes true'), replies: [] };
+// asking what somebody wishes for: the same answer with or without a well (their open wish, else the first thing they lack), so quests can be learned from talk alone
+const wishWant = (n: any): any => {
+  if (typeof wishOf === 'function') {
+    const w = wishOf(n);
+    if (w) return { kind: w.kind, w };
+  }
+  if (typeof wishPick !== 'function' || n.player) return null;
+  const p = wishPick([n], 'ask:' + n.id);
+  return p && p.n === n ? { kind: p.kind, w: null } : null;
+};
+ACTS.ask_wish = {
+  kind: 'life',
+  stage: 'topic',
+  when: (c: any, sp: any, li: any) => !li.player && !c.done.ask_wish && (sp.player || Math.random() < 0.3),
+  w: () => 0.6,
+  apply: (c: any) => {
+    c.done.ask_wish = 1;
+  },
+  replies: ['answer_wish', 'no_wish']
+};
+ACTS.answer_wish = {
+  kind: 'life',
+  stage: 'topic',
+  reply: true,
+  when: (c: any, sp: any) => {
+    const q = wishWant(sp);
+    if (!q) return false;
+    c.newsHow = q.kind;
+    return true;
+  },
+  w: () => 5,
+  apply: (c: any, sp: any, li: any) => {
+    const q = wishWant(sp);
+    if (!q) return;
+    c.newsHow = q.kind;
+    if (q.w) (q.w.told || (q.w.told = {}))[li.id] = game.time;
+  },
+  replies: ['wish_hope', 'wish_doubt']
+};
+ACTS.no_wish = { kind: 'life', stage: 'topic', reply: true, when: (c: any, sp: any) => !wishWant(sp), w: () => 1, apply: () => {}, replies: [] };
+ACTS.wish_hope = {
+  kind: 'life',
+  stage: 'topic',
+  reply: true,
+  when: (c: any) => !!c.newsHow,
+  w: () => 3,
+  apply: (c: any, sp: any, li: any) => lfAff(li, sp, 1, 'hoped my wish comes true'),
+  replies: []
+};
 ACTS.wish_doubt = { kind: 'life', stage: 'topic', reply: true, when: (c: any) => !!c.newsHow, w: () => 1, apply: () => {}, replies: [] };
 ACTS.odd_cry = { kind: 'life', stage: 'topic', when: () => false, apply: () => {}, replies: [] };
 const oddReply = (id: string, tone: string[], w: number, fx?: (c: any, sp: any, li: any) => void) => {

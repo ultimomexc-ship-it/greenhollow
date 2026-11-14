@@ -354,6 +354,11 @@ body.tut2-seedglow #hotbar .hbslots .hbslot:first-child { animation: tutbounce .
 .shoppanel .wlcoin { width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff3a0, #e0b440 55%, #a8781c); box-shadow: 0 0 10px rgba(244, 197, 66, .6); }
 .shoppanel .wlbtns { justify-content: center; } .shoppanel .wlstats { text-align: center; margin: 8px 0 4px; font-size: 12px; }
 .shoppanel .wllog { list-style: none; margin: 4px 0 0; padding: 0; max-height: 170px; overflow: auto; font-size: 13px; } .shoppanel .wllog li { padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
+.shoppanel .wlwishes { max-height: 300px; }
+.shoppanel .wlh { margin-top: 10px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: #b9c9a8; }
+.shoppanel .wlwish, .shoppanel .wldone { display: flex; gap: 8px; align-items: baseline; } .shoppanel .wlwish span:nth-child(2), .shoppanel .wldone span:nth-child(2) { flex: 1; }
+.shoppanel .wlstar { color: #9ff6ff; text-shadow: 0 0 8px rgba(140, 240, 255, .7); } .shoppanel .wltown .wlstar { color: #f4c542; } .shoppanel .wldone { opacity: .75; } .shoppanel .wldone .wlstar { color: #8fd17a; text-shadow: none; }
+.shoppanel .wlwish em { color: #f4c542; font-style: normal; font-size: 12px; }
 
 </style>
 </head>
@@ -31405,8 +31410,8 @@ function rentCardRow(n) {
   return out;
 }
 const SURP = { snap: null, pending: false, days: 3, cries: 4, criesLeft: 0 };
-const SURP_ORDER = ["woke_moved", "chair_moved", "moved", "bed_gone", "roof_gone", "bed_new", "roof", "bed_moved", "yard_gone", "yard", "yard_open", "window", "window_gone", "fields_more", "fields_less"];
-const SURP_GOOD = ["bed_new", "roof", "yard", "window", "fields_more"];
+const SURP_ORDER = ["wish", "woke_moved", "chair_moved", "moved", "bed_gone", "roof_gone", "bed_new", "roof", "bed_moved", "yard_gone", "yard", "yard_open", "window", "window_gone", "fields_more", "fields_less"];
+const SURP_GOOD = ["wish", "bed_new", "roof", "yard", "window", "fields_more"];
 const SURP_BAD = ["bed_gone", "roof_gone", "yard_gone", "yard_open", "window_gone", "fields_less"];
 const surpTone = (k) => SURP_GOOD.includes(k) ? "good" : SURP_BAD.includes(k) ? "bad" : "odd";
 const SURP_WHAT = {
@@ -31485,9 +31490,9 @@ function surpAdd(n, list, o = {}) {
   const [k] = list[0], tone = surpTone(k);
   const kind = k === "woke_moved" || k === "chair_moved" ? "bed_moved" : k === "moved" ? "turned_up" : tone === "bad" || k === "bed_moved" ? "home_lost" : "home_changed";
   const place = kind === "turned_up" || kind === "bed_moved" ? surpWhere(n) : String(SURP_WHAT[k] || "something").replace("their", n.female ? "her" : "his");
-  const ev = lfEmit(kind, { actor: null, target: n, x: n.tx, y: n.ty, sev: tone === "good" ? 1 : 2, tags: ["mystery"], place, witnessIds: [n.id], chron: false });
+  const ev = o.noNews ? null : lfEmit(kind, { actor: null, target: n, x: n.tx, y: n.ty, sev: tone === "good" ? 1 : 2, tags: ["mystery"], place, witnessIds: [n.id], chron: false });
   recs[0].ev = ev ? ev.id : null;
-  if (kind === "turned_up" || kind === "bed_moved") chron(`${n.first} ${k === "woke_moved" ? "woke up" : k === "chair_moved" ? "got up" : "found themselves"} ${place}${k === "woke_moved" ? ", bed and all" : k === "chair_moved" ? ", chair and all" : ""}. Nobody knows how.`, "life");
+  if (!o.noNews && (kind === "turned_up" || kind === "bed_moved")) chron(`${n.first} ${k === "woke_moved" ? "woke up" : k === "chair_moved" ? "got up" : "found themselves"} ${place}${k === "woke_moved" ? ", bed and all" : k === "chair_moved" ? ", chair and all" : ""}. Nobody knows how.`, "life");
   n.mood = Math.max(0, Math.min(100, (n.mood == null ? 60 : n.mood) + (tone === "good" ? 4 : tone === "bad" ? -6 : -2)));
   n.surp = keep.concat(recs).slice(-10);
   if (!o.quiet && TALK.on.life !== false && (o.cry || SURP.criesLeft > 0)) {
@@ -31682,7 +31687,17 @@ function wellDraw() {
     return `<li>${esc(n ? n.first + " " + (n.surname || "") : "Somebody")} <span class="dim">dropped in ${e.amt} \xB7 ${ago(e.t)}</span></li>`;
   }).join("") || '<li class="dim">Nobody has dropped anything in yet.</li>';
   const ten = Math.min(10, w.coin);
-  d.innerHTML = `<div class="sphead"><b>The Wishing Well</b><span>What the households drop in is kept here for the town.</span><em>${Math.floor(P.coin)} coin</em><button type="button" class="btn spx" data-spx="1" aria-label="Close">\u2715</button></div><div class="wlbig"><span class="wlcoin"></span><b>${Math.floor(w.coin)}</b> coin in the well</div><div class="spbtns wlbtns"><button type="button" class="btn" data-wt="${ten}" ${ten < 1 ? "disabled" : ""}>Take ${ten || 10}</button><button type="button" class="btn primary" data-wt="${w.coin}" ${w.coin < 1 ? "disabled" : ""}>Take all ${Math.floor(w.coin)}</button></div><div class="wlstats dim">Dropped in so far: ${w.given} \xB7 taken out: ${w.taken}</div><ul class="wllog">${log}</ul><div class="spnote">${esc(SHOP.note || "People still tell you what they need when you talk to them.")}</div>`;
+  const open = typeof wishOpen === "function" ? wishOpen() : [], done = typeof wishList === "function" ? wishList().filter((q) => q.state === "granted").slice(-4).reverse() : [];
+  const who = (id) => {
+    const n = byId(id);
+    return n ? esc(n.first + " " + (n.surname || "")) : "Somebody";
+  };
+  const wl = open.map((q) => {
+    const [h, nd] = wishProgress(q), left = Math.max(0, Math.ceil((q.until - game.time) / 1440)), town1 = q.key === "town";
+    return `<li class="wlwish${town1 ? " wltown" : ""}"><span class="wlstar">\u2726</span><span><b>${who(q.who)}</b> wishes for ${esc(WISH_DEF[q.kind].label)}${town1 ? " <em>for the town</em>" : ""}</span><span class="dim">${nd > 1 ? h + " of " + nd + " \xB7 " : ""}${left} d left</span></li>`;
+  }).join("") || '<li class="dim">No wishes yet.</li>';
+  const gl = done.map((q) => `<li class="wldone"><span class="wlstar">\u2713</span><span>${who(q.who)}: ${esc(WISH_DEF[q.kind].label)}</span><span class="dim">${ago(q.done)}</span></li>`).join("");
+  d.innerHTML = `<div class="sphead"><b>The Wishing Well</b><span>What the households drop in is kept here for the town.</span><em>${Math.floor(P.coin)} coin</em><button type="button" class="btn spx" data-spx="1" aria-label="Close">\u2715</button></div><div class="wlbig"><span class="wlcoin"></span><b>${Math.floor(w.coin)}</b> coin in the well</div><div class="spbtns wlbtns"><button type="button" class="btn" data-wt="${ten}" ${ten < 1 ? "disabled" : ""}>Take ${ten || 10}</button><button type="button" class="btn primary" data-wt="${w.coin}" ${w.coin < 1 ? "disabled" : ""}>Take all ${Math.floor(w.coin)}</button></div><div class="wlh">Wishes</div><ul class="wllog wlwishes">${wl}${gl}</ul><div class="wlh">Dropped in lately <span class="dim">(${w.given} in all \xB7 ${w.taken} taken out)</span></div><ul class="wllog">${log}</ul><div class="spnote">${esc(SHOP.note || "")}</div>`;
   d.querySelectorAll("[data-wt]").forEach((b) => b.addEventListener("click", () => {
     const got = wellTake(+b.dataset.wt);
     SHOP.note = got ? `You took ${got} coin. Nobody saw.` : "The well is empty.";
@@ -31713,6 +31728,127 @@ YSORT.push(function(c, now) {
     c.drawImage(ART.frameOf(it, gaFrame(it, now, w.x + w.y)), w.x * TS, (w.y - 1) * TS, 3 * TS, 4 * TS);
   } }];
 });
+const WISH = { days: 6, town: 3, again: 2 * 1440 };
+const wishYard = (n) => typeof yardOfN === "function" ? yardOfN(n) : null;
+const wishMe = (o) => !!o && (o.player || o === game.player || typeof yardPlayer === "function" && o === yardPlayer());
+const wishPeople = (y) => (y ? yardPeople(y) : []).filter((o) => !o.dead && !wishMe(o) && !rentTrader(o));
+function wishRoom(n) {
+  const b = n.bed;
+  if (!b || b.x == null) return null;
+  const ri2 = roomAt[b.y] ? roomAt[b.y][b.x] : -1, r = ri2 >= 0 ? rooms[ri2] : null;
+  return r && !r.dead ? r : null;
+}
+function wishRoomFit(n) {
+  const r = wishRoom(n);
+  if (!r) return [0, 1];
+  const cells = r.cells ? r.cells.size : r.w * r.h, ppl = npcs.filter((o) => !o.dead && o.bed && o.bed.x != null && r.cells && r.cells.has(o.bed.y * W + o.bed.x)).length;
+  return [cells, ppl * 2 + 2];
+}
+function wishFields(n) {
+  const y = wishYard(n);
+  if (!y) return [0, 1];
+  let f = 0;
+  for (const c of town.crops || []) if (town.yardAt.get(c.y * W + c.x) === y) f++;
+  return [f, Math.max(4, 4 * wishPeople(y).filter((o) => o.age >= 16).length)];
+}
+const wishBuilt = (kind) => (town.stalls || []).some((s) => s.built === kind);
+const WISH_DEF = {
+  bed: { label: "a bed of their own", ok: (n) => yardHasBed(n) },
+  yard: { label: "a fenced yard round the bed", ok: (n) => !!wishYard(n) },
+  roof: { label: "a roof over the bed", ok: (n) => rentHome(n).roof },
+  room: { label: "more room in the house", ok: (n) => {
+    const [h, nd] = wishRoomFit(n);
+    return h >= nd;
+  }, prog: wishRoomFit },
+  window: { label: "a window", ok: (n) => rentHome(n).window },
+  fields: { label: "more fields", ok: (n) => {
+    const [h, nd] = wishFields(n);
+    return h >= nd;
+  }, prog: wishFields },
+  flowers: { label: "flowers near the bed", ok: (n) => rentHome(n).flowers },
+  hen: { label: "a hen in the yard", child: true, ok: (n) => {
+    const y = wishYard(n);
+    return !!y && henCount(y) >= 1;
+  } },
+  seedstall: { label: "a seed stall", town: true, unlock: "seedstall", ok: () => wishBuilt("stallseed") },
+  carpenter: { label: "a carpenter's stall", town: true, unlock: "carpenter", ok: () => wishBuilt("stallcarp") }
+};
+const WISH_ADULT = ["bed", "yard", "roof", "room", "window", "fields", "flowers"];
+const wishList = () => town.wishes || (town.wishes = []);
+const wishOpen = () => wishList().filter((w) => w.state === "open");
+const wishKeyOf = (n) => {
+  const y = wishYard(n);
+  return y ? "y" + y.id : "p" + n.id;
+};
+const wishSkip = (key, kind) => {
+  const s = town.wishSkip || {};
+  return (s[key + ":" + kind] || -1e9) > game.time;
+};
+function wishProgress(w) {
+  const d = WISH_DEF[w.kind], n = byId(w.who);
+  if (!d || !n) return [0, 1];
+  if (d.prog) return d.prog(n);
+  return d.ok(n) ? [1, 1] : [0, 1];
+}
+function wishMake(n, kind, key) {
+  const w = { id: town.wishId = (town.wishId || 0) + 1, key, who: n.id, kind, made: game.time, until: game.time + WISH.days * 1440, done: null, state: "open" };
+  wishList().push(w);
+  if (wishList().length > 80) town.wishes = wishList().slice(-80);
+  const d = WISH_DEF[kind];
+  if (d.unlock && typeof hamletUnlock === "function" && !hamletUnlocked(d.unlock)) hamletUnlock(d.unlock);
+  LIFE.emit("wished", n, {});
+  return w;
+}
+function wishPick(people, key) {
+  const kids = people.filter((o) => o.age < 16 && !o.infant), adults = people.filter((o) => o.age >= 16);
+  if (kids.length && Math.random() < 0.35 && !wishSkip(key, "hen") && !WISH_DEF.hen.ok(kids[0])) return { n: kids[Math.floor(Math.random() * kids.length)], kind: "hen" };
+  for (const kind of WISH_ADULT) for (const n of adults) if (!wishSkip(key, kind) && !WISH_DEF[kind].ok(n)) return { n, kind };
+  if (kids.length && !wishSkip(key, "flowers") && !WISH_DEF.flowers.ok(kids[0])) return { n: kids[0], kind: "flowers" };
+  return null;
+}
+function wishTick() {
+  if (!wellOn()) return;
+  for (const w of wishOpen()) {
+    const d = WISH_DEF[w.kind], n = byId(w.who);
+    if (!d || !n || n.dead || wishMe(n)) {
+      w.state = "expired";
+      continue;
+    }
+    if (d.ok(n)) {
+      w.state = "granted";
+      w.done = game.time;
+      LIFE.emit("wish_granted", n, {});
+      if (typeof surpAdd === "function") surpAdd(n, [["wish", 1]], { noNews: true });
+      continue;
+    }
+    if (game.time > w.until) {
+      w.state = "expired";
+      (town.wishSkip || (town.wishSkip = {}))[w.key + ":" + w.kind] = game.time + WISH.again;
+    }
+  }
+  const open = new Set(wishOpen().map((w) => w.key));
+  const homes = /* @__PURE__ */ new Map();
+  for (const n of npcs) {
+    if (n.dead || wishMe(n) || n.infant || rentTrader(n)) continue;
+    const k = wishKeyOf(n);
+    if (!homes.has(k)) homes.set(k, []);
+    homes.get(k).push(n);
+  }
+  for (const [key, people] of homes) {
+    if (open.has(key)) continue;
+    const p = wishPick(people, key);
+    if (p) wishMake(p.n, p.kind, key);
+  }
+  const lived = (town.yards || []).filter((y) => yardPeople(y).length).length, townOpen = wishOpen().filter((w) => w.key === "town");
+  if (townOpen.length < WISH.town) for (const kind of ["seedstall", "carpenter"]) {
+    if (townOpen.some((w) => w.kind === kind) || WISH_DEF[kind].ok() || wishSkip("town", kind) || lived < (kind === "seedstall" ? 4 : 6)) continue;
+    const who = npcs.filter((o) => !o.dead && !wishMe(o) && o.age >= 16 && !rentTrader(o));
+    if (who.length) wishMake(who[Math.floor(Math.random() * who.length)], kind, "town");
+    break;
+  }
+}
+LF2.hourly.push(() => wishTick());
+const wishOf = (n) => wishOpen().find((w) => w.who === n.id) || null;
 const ARR_FIRST = 0.5, ARR_GAP = [1.5, 2.5], ARR_KIDS = 3;
 function arrYard() {
   if (!yardOn()) return null;
@@ -34183,6 +34319,8 @@ EVK("step_reached", "place", { needs: ["qty"], tell: 0.1 });
 EVK("came_ashore", "home", { needs: ["qty"], tell: 0.4 });
 EVK("apart", "home", { tell: 0.5, tags: ["misfortune"] });
 EVK("rent_paid", "home", { needs: ["price"], tell: 0.12 });
+EVK("wished", "home", { tell: 0.3 });
+EVK("wish_granted", "home", { tell: 0.7 });
 EVK("well_gave", "home", { needs: ["price"], tell: 0.2 });
 EVK("rent_unpaid", "home", { needs: ["price"], tell: 0.6, tags: ["misfortune"] });
 EVK("no_yard", "home", { tell: 0.55, tags: ["misfortune"] });
@@ -36141,6 +36279,76 @@ ACTS.blurt = {
   },
   replies: ["odd_glad", "odd_sorry", "odd_wonder", "odd_explain"]
 };
+ACTS.tell_wish = {
+  kind: "life",
+  stage: "topic",
+  when: (c, sp, li) => {
+    if (sp.player || typeof wishOf !== "function") return false;
+    const w = wishOf(sp);
+    if (!w || w.told && w.told[li.id]) return false;
+    c.lifeItem = "wish:" + w.id;
+    return true;
+  },
+  w: () => 12,
+  apply: (c, sp, li) => {
+    const w = wishOf(sp);
+    if (!w) return;
+    (w.told || (w.told = {}))[li.id] = game.time;
+    c.newsHow = w.kind;
+  },
+  replies: ["wish_hope", "wish_doubt"]
+};
+const wishWant = (n) => {
+  if (typeof wishOf === "function") {
+    const w = wishOf(n);
+    if (w) return { kind: w.kind, w };
+  }
+  if (typeof wishPick !== "function" || n.player) return null;
+  const p = wishPick([n], "ask:" + n.id);
+  return p && p.n === n ? { kind: p.kind, w: null } : null;
+};
+ACTS.ask_wish = {
+  kind: "life",
+  stage: "topic",
+  when: (c, sp, li) => !li.player && !c.done.ask_wish && (sp.player || Math.random() < 0.3),
+  w: () => 0.6,
+  apply: (c) => {
+    c.done.ask_wish = 1;
+  },
+  replies: ["answer_wish", "no_wish"]
+};
+ACTS.answer_wish = {
+  kind: "life",
+  stage: "topic",
+  reply: true,
+  when: (c, sp) => {
+    const q = wishWant(sp);
+    if (!q) return false;
+    c.newsHow = q.kind;
+    return true;
+  },
+  w: () => 5,
+  apply: (c, sp, li) => {
+    const q = wishWant(sp);
+    if (!q) return;
+    c.newsHow = q.kind;
+    if (q.w) (q.w.told || (q.w.told = {}))[li.id] = game.time;
+  },
+  replies: ["wish_hope", "wish_doubt"]
+};
+ACTS.no_wish = { kind: "life", stage: "topic", reply: true, when: (c, sp) => !wishWant(sp), w: () => 1, apply: () => {
+}, replies: [] };
+ACTS.wish_hope = {
+  kind: "life",
+  stage: "topic",
+  reply: true,
+  when: (c) => !!c.newsHow,
+  w: () => 3,
+  apply: (c, sp, li) => lfAff(li, sp, 1, "hoped my wish comes true"),
+  replies: []
+};
+ACTS.wish_doubt = { kind: "life", stage: "topic", reply: true, when: (c) => !!c.newsHow, w: () => 1, apply: () => {
+}, replies: [] };
 ACTS.odd_cry = { kind: "life", stage: "topic", when: () => false, apply: () => {
 }, replies: [] };
 const oddReply = (id, tone, w, fx) => {
@@ -37032,6 +37240,7 @@ function talkBudget(n, o) {
 }
 const TALK_PURPOSE = [
   "blurt",
+  "tell_wish",
   "raise_deed",
   "ask_favour",
   "chase_favour",
@@ -37500,6 +37709,12 @@ const PT_LABEL = {
   confront_jealous: ["Heart", "Ask about {about}"],
   snap: ["Heart", "Snap at them"],
   blurt: ["Tell", "Tell what happened"],
+  tell_wish: ["Tell", "Tell their wish"],
+  ask_wish: ["Ask", "Ask what they would wish for"],
+  answer_wish: ["Answer", "Say what you would wish for"],
+  no_wish: ["Answer", "Say you want for nothing"],
+  wish_hope: ["Answer", "Hope it comes true"],
+  wish_doubt: ["Answer", "Doubt the well"],
   // answers
   odd_glad: ["Answer", "Be glad for them"],
   odd_sorry: ["Answer", "Feel for them"],
@@ -38492,7 +38707,11 @@ LXP(
   ],
   {}
 );
-LXLP("well_gave", ["I dropped {money} in the wishing well.", "Put {money} in the well. For luck, and for the town.", "Dropped a few coins in the well today."]);
+LXLP("well_gave", [
+  "I dropped {money} in the wishing well.",
+  "Put {money} in the well. For luck, and for the town.",
+  "Dropped a few coins in the well today."
+]);
 LXLP("rent_paid", ["I paid the rent today.", "Rent is paid. That is one thing settled.", "Paid my rent at six, same as every day."]);
 LXLP("rent_unpaid", ["I could not pay the rent today.", "I had nothing for the rent today.", "The rent went unpaid. I do not like that."]);
 LXLP("no_yard", ["I have no yard of my own.", "I have nowhere that is mine. No fence, no field.", "Still no yard. I cannot grow a thing."]);
@@ -38603,6 +38822,49 @@ lx("ev:home_changed", "plain", "{t} got {place} out of nowhere, and nobody saw w
 lx("ev:home_changed", "plain", "{t} has {place} now, and nobody saw it arrive");
 lx("ev:home_lost", "plain", "{t}'s {place} went missing, and nobody saw a thing");
 lx("ev:home_lost", "plain", "{t}'s {place} just vanished");
+const WISH_LINES_P = {
+  bed: ["I made a wish at the well. A bed of my own, that is all.", "I wished for a bed. I'm tired of the ground."],
+  yard: ["I put a wish in the well for a yard. A fence round my things.", "I wished for a yard of my own."],
+  roof: ["I wished for a roof over my bed. Rain is no friend of mine.", "My wish at the well? A roof."],
+  room: ["I made a wish at the well: more room. We're on top of each other in there.", "I wished for a bigger house. There are a lot of us."],
+  window: ["I wished for a window. Some light in the house.", "My wish is a window. Is that too much to ask?"],
+  fields: ["I put a wish in for more fields. More to grow, more to sell.", "I wished for more fields."],
+  flowers: ["I wished for flowers by my bed. Something nice to wake up to.", "My wish? Flowers near the house."],
+  hen: ["I wished for a hen! In our yard! A real one!", "I put a wish in the well for a hen of our own."],
+  seedstall: ["I made a wish for the whole town: a seed stall.", "I wished we had a proper seed stall."],
+  carpenter: ["I wished for a carpenter's stall. The town could use one.", "My wish was for the town: a carpenter."]
+};
+for (const k of Object.keys(WISH_LINES_P)) for (const t of WISH_LINES_P[k]) lx("tell_wish", "plain", t, { how: k });
+const WISH_WANT_P = {
+  bed: "A bed. Just a bed of my own.",
+  yard: "A yard. A fence round my bed and my things.",
+  roof: "A roof over my bed, more than anything.",
+  room: "More room. The house is too small for us.",
+  window: "A window. Some light inside.",
+  fields: "More fields to work.",
+  flowers: "Flowers by my bed.",
+  hen: "A hen! In our yard!",
+  seedstall: "A seed stall for the town.",
+  carpenter: "A carpenter's stall for the town."
+};
+for (const k of Object.keys(WISH_WANT_P)) lx("answer_wish", "plain", WISH_WANT_P[k], { how: k });
+lx("ask_wish", "plain", "If you could wish for one thing, what would it be?");
+lx("ask_wish", "plain", "What would you wish for, if the well were listening?");
+lx("no_wish", "plain", "Nothing, really. I've got what I need.");
+lx("no_wish", "plain", "I can't think of a thing. That's lucky, isn't it?");
+lx("wish_hope", "plain", "I hope it comes true.", {});
+lx("wish_hope", "plain", "Fingers crossed for you.", {});
+lx("wish_doubt", "plain", "You don't really think a well grants wishes?", {});
+lx("wish_doubt", "plain", "It's a well. It holds water.", {});
+for (const t of [
+  "I made a wish at the well, and it came true!",
+  "My wish came true! I only wished it a few days ago!",
+  "The well granted my wish. I never thought it would."
+])
+  lx("blurt", "plain", t, { how: "wish" });
+lx("odd_cry", "plain", "My wish! It came true!", { how: "wish" });
+LXLP("wished", ["I made a wish at the well today.", "Put a wish in the well."]);
+LXLP("wish_granted", ["My wish came true.", "The well granted my wish."]);
 lx("ask_news", "plain", "Any news?");
 lx("ask_news", "plain", "Heard anything lately?");
 lx("ask_news", "plain", "What's the word today?");
@@ -39975,6 +40237,49 @@ lxi("ev:home_changed", "{t} has {place} now, and nobody saw it arrive");
 lxi("ev:home_changed", "{t} was given {place} by nobody anybody knows of");
 lxi("ev:home_lost", "{t}'s {place} went missing, and nobody saw it go");
 lxi("ev:home_lost", "{t}'s {place} is gone");
+const WISH_LINES_I = {
+  bed: ["I wished for a bed of my own.", "I made a wish at the well. A bed. The ground has been patient with me."],
+  yard: ["I wished for a yard with a fence round it.", "I put a wish in the well for a yard."],
+  roof: ["I wished for a roof over my bed.", "My wish was a roof. The sky is a poor ceiling."],
+  room: ["I wished for more room in the house.", "I made a wish for a bigger house. We sleep in a row."],
+  window: ["I wished for a window.", "I wished for a window. I would like to see out."],
+  fields: ["I wished for more fields.", "I put a wish in the well for more fields to work."],
+  flowers: ["I wished for flowers near my bed.", "My wish was flowers. Something to look at in the morning."],
+  hen: ["I wished for a hen in our yard.", "I made a wish for a hen. I have a name ready."],
+  seedstall: ["I wished for a seed stall, for the town.", "I made a wish for the town. A seed stall."],
+  carpenter: ["I wished for a carpenter's stall, for the town.", "I made a wish for the town. A carpenter."]
+};
+for (const k of Object.keys(WISH_LINES_I)) for (const t of WISH_LINES_I[k]) lxi("tell_wish", t, { how: k });
+const WISH_WANT_I = {
+  bed: "A bed of my own.",
+  yard: "A yard with a fence round it.",
+  roof: "A roof over my bed.",
+  room: "More room in the house.",
+  window: "A window.",
+  fields: "More fields.",
+  flowers: "Flowers near my bed.",
+  hen: "A hen in our yard.",
+  seedstall: "A seed stall, for the town.",
+  carpenter: "A carpenter's stall, for the town."
+};
+for (const k of Object.keys(WISH_WANT_I)) lxi("answer_wish", WISH_WANT_I[k], { how: k });
+lxi("ask_wish", "If you could wish for one thing, what would it be?");
+lxi("ask_wish", "What would you wish for?");
+lxi("no_wish", "Nothing. I have what I need.");
+lxi("no_wish", "I cannot think of anything. I have tried.");
+lxi("wish_hope", "I hope it comes true.", {});
+lxi("wish_hope", "I hope the well is listening.", {});
+lxi("wish_doubt", "It is a well. I am not sure it listens.", {});
+lxi("wish_doubt", "I have never seen a well do anything.", {});
+for (const t of [
+  "I made a wish at the well, and it came true.",
+  "My wish came true. I am trying not to read too much into it.",
+  "The well granted my wish."
+])
+  lxi("blurt", t, { how: "wish" });
+lxi("odd_cry", "My wish came true.", { how: "wish" });
+LXLI("wished", ["I made a wish at the well.", "I put a wish in the well."]);
+LXLI("wish_granted", ["My wish came true.", "The well granted my wish."]);
 lxi("ask_news", "Has anything happened? Anything at all. I will take a small one.");
 lxi("ask_news", "Any news?");
 lxi("ask_news", "Have you heard anything? About anyone. About anything.");
