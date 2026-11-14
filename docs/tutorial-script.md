@@ -81,9 +81,9 @@ The tutorial island is the Hamlet's ground with these places, found by the scena
 3. **FACE** Paullus → you. **STRIP off. ARROW off.**
 4. **SAY** Paullus: "Morning."
 5. **SAY** Paullus: "You're new. Everybody is, here."
-6. **SAY** Paullus: "This was mine. It's yours now."
+6. **SAY** Paullus: "This house was mine. It's yours now."
 7. **SAY** Paullus: "Don't ask how. I'm bad at the long version."
-8. **SAY** Paullus: "Before anything else you'll want to eat."
+8. **SAY** Paullus: "You'll want coin. Everybody here wants coin." "And for coin, a field." "Don't look like that. It's not one of those farming games." "One field, one morning. Then we build things."
 9. **SAY** Paullus: "And for that you'll want a field."
 10. **GIVE** the hoe (`itGiveTool`). The tool strip appears with only the hoe in it, lit.
 11. **SAY** Paullus: "Here. A hoe. The pointed end goes in the ground."
@@ -269,3 +269,9 @@ There is no skip button and no way to fail. These rules hold through every scene
 - Paullus and Junia walk over to the building site before each build step, and Paullus keeps reminding you to press B (every 9 s, `TUT2_NAG`) until you do.
 - Junia's ring is 2 bigger each way (8 x 7) so a house fits round her bed and the bed can still be pushed every way.
 - Both houses are above the square, both gates bottom right, and a fenced yard gets a path from its gate to the square.
+
+## Round 8 (the owner's notes)
+- Opening: "This house was mine. It's yours now." (the house, not the island); you farm for coin, not to eat; a joke: "Don't look like that. It's not one of those farming games." "One field, one morning. Then we build things."
+- "Now. About selling me those turnips."
+- Scenes 6 and 7 reordered: after the rock, Junia would rather not sleep in the woods ("Something hooted at me.") and asks to put her bed next to yours; you swap past it at the grove's opening and push it beside your yard. Then the well and her wish for a fence round her bed; you build the fence all the way round (26, in four rows), she cannot find the way in, and the hammer and the gate follow. The "It might reset" bit and the gap are gone.
+- The axe is given through the talk box: walking into her opens it with the one option "Give Junia the axe".
