@@ -337,3 +337,10 @@ body.tut2-seedglow #hotbar .hbslots .hbslot:first-child { animation: tutbounce .
 #dressup .dsfoot span { flex: 1; }
 .dsbtn { margin-left: 6px; }
 @media (max-width: 700px) { #dressup .dsbox { flex-direction: column; height: 94vh; overflow-y: auto; } #dressup .dsleft { flex: 0 0 auto; } #dressup canvas#dsprev { width: 200px; height: 240px; } }
+
+/* the wishing well panel (life2/well.ts), in the shop panel's frame */
+.shoppanel .wlbig { display: flex; align-items: center; gap: 10px; justify-content: center; font-size: 15px; color: #cfe8f0; margin: 6px 0 10px; }
+.shoppanel .wlbig b { font-size: 34px; color: #f4c542; text-shadow: 0 0 12px rgba(244, 197, 66, .45); }
+.shoppanel .wlcoin { width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff3a0, #e0b440 55%, #a8781c); box-shadow: 0 0 10px rgba(244, 197, 66, .6); }
+.shoppanel .wlbtns { justify-content: center; } .shoppanel .wlstats { text-align: center; margin: 8px 0 4px; font-size: 12px; }
+.shoppanel .wllog { list-style: none; margin: 4px 0 0; padding: 0; max-height: 170px; overflow: auto; font-size: 13px; } .shoppanel .wllog li { padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,.06); }

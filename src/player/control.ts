@@ -73,6 +73,7 @@ function targetAt0(n, x, y) {
     if (!c.st) return { key: 'crop' + x + ',' + y + 's', min: 7, text: 'Sowing seed', tool: 'sow', walkOn: true, run(n) { if (!c.st) { c.st = 1; c.t0 = game.time; c.byPlayer = true; playerSay(n, 'Sown'); } } };   // any ploughed plot can be sown; only the farmers wait for the whole field
   }
   if (g === T.STALL && itBuildOn(n)) { if (n.build.sel === 1 && (town.stalls || []).some((q: any) => q.built && q.tiles.some((t: any) => t.x === x && t.y === y))) return { key: 'wallS' + x + ',' + y, min: 4, text: 'Taking the stall down', tool: 'hammer', run(nn) { bldDeleteStall(x, y); playerSay(nn, 'Gone.'); } }; return { msg: 'A stall. The hammer takes down the ones you built.' }; }
+  if (g === T.WELL && typeof wellAt === 'function' && wellAt(x, y)) return itBuildOn(n) ? null : { key: 'well', min: 0.5, text: 'Looking into the wishing well', tool: null, run() { wellOpen(); } };
   if (g === T.STALL) {
     const m = stallTrade(n, x, y);
     if (!m) return { msg: 'Nobody is at this stall.' };

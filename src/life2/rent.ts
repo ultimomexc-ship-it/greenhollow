@@ -65,7 +65,7 @@ function rentHUD(): string {
   let exp = 0; for (const n of npcs) exp += rentOf(n).amt;
   return `<span class="rentchip" title="Rent is paid each morning at six by every adult with a yard: ${HAMLET_TUNE.rentBase} coin, and more for a roof, a window and flowers near the bed.">${Math.floor(pl.coin)} coin · rent ${R.day >= 0 && R.due ? `today ${R.today}${R.today < R.due ? ' of ' + R.due : ''}` : `tomorrow ${exp}`}</span>`;
 }
-const rentSig = () => { if (!yardOn()) return ''; const pl = yardPlayer(), R = rentState(); let exp = 0; for (const n of npcs) exp += rentOf(n).amt; return Math.floor(pl ? pl.coin : 0) + ':' + R.today + ':' + R.due + ':' + exp; };
+const rentSig = () => { if (!yardOn()) return ''; const pl = yardPlayer(), R = rentState(); let exp = 0; for (const n of npcs) exp += rentOf(n).amt; return Math.floor(pl ? pl.coin : 0) + ':' + R.today + ':' + R.due + ':' + exp + (typeof wellOn === 'function' && wellOn() ? ':w' + town.wish.coin : ''); };
 /** the villager card: what they pay and why, and what they think of where they live */
 function rentCardRow(n: any): string {
   if (!yardOn() || n.dead) return ''; const pl = yardPlayer(), row = (a: string, b: string) => `<div class="vcrow"><span class="dim">${a}</span> ${esc(b)}</div>`;

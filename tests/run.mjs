@@ -2949,6 +2949,26 @@ test('surprises: somebody pushed in build mode, or given fields, never knows who
   return `"${r.words}" / news: "${r.evText}"`;
 });
 
+test('wishing well: the build town has one in the middle; households drop a share of what they earn into it instead of paying rent; walking into it opens it and you can take the coin', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r0 = await page.evaluate(() => { newTown('well-test', 'town'); const w = town.wish; let tiles = 0; if (w) for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) if (grid[w.y + j][w.x + i] === T.WELL) tiles++;
+    return { w: !!w, tiles, inYard: w ? !!yardAtXY(w.x + 1, w.y + 1) : true, pop: npcs.length }; });
+  check(r0.w && r0.tiles === 9 && !r0.inYard && r0.pop === 20, 'a 3 x 3 well outside every yard, twenty people: ' + JSON.stringify(r0));
+  await simulate(page, 3 * 1440);
+  const r = await page.evaluate(() => { const w = town.wish, P = game.player, givers = new Set(w.log.map(e => e.id));
+    const out = { coin: w.coin, given: w.given, givers: givers.size, rent: (town.rent || {}).total || 0, said: LIFE.digest(2).kinds ? LIFE.digest(2).kinds.well_gave || 0 : (town.lifeStats || {}).well_gave, hud: rentHUD() };
+    // walking into the well opens it
+    const spot = wellSpot(P); P.tx = P.x = spot.x; P.ty = P.y = spot.y; const dx = Math.sign(w.x + 1 - spot.x) * (spot.x < w.x || spot.x > w.x + 2 ? 1 : 0), dy = dx ? 0 : Math.sign(w.y + 1 - spot.y);
+    const tg = typeof targetAt0 === 'function' ? targetAt0(P, spot.x + dx, spot.y + dy) : null; if (tg && tg.run) tg.run(P);
+    out.open = SHOP.open && SHOP.well; const c0 = P.coin, inWell = w.coin; const btn = document.querySelector('#shoppanel [data-wt]:not([disabled]).primary'); if (btn) btn.click();
+    out.took = P.coin - c0; out.left = w.coin; out.inWell = inWell; out.taken = w.taken; shopClose(); out.closed = !SHOP.open && !SHOP.well; return out; });
+  check(r.given > 0 && r.givers >= 1 && r.rent === 0, 'households dropped coin in the well and nobody paid rent: ' + JSON.stringify(r));
+  check(/well \d+/.test(r.hud), 'the chip shows the well: ' + r.hud);
+  check(r.open && r.took === r.inWell && r.left === 0 && r.taken === r.inWell && r.closed, 'walking into the well opens it, Take all empties it into your purse: ' + JSON.stringify(r));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return `${r.givers} people dropped ${r.given} coin in three days; you took ${r.took}`;
+});
+
 test('build town: twenty people in fenced yards, each household in a sealed house with a bed each and fields; no settlers come from the road; it runs three days fed and housed', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r0 = await page.evaluate(() => { newTown('build-town-test', 'town');
@@ -2957,11 +2977,11 @@ test('build town: twenty people in fenced yards, each household in a sealed hous
   check(r0.pop === 20 && r0.scen === 'hamlet' && r0.variant === 'town' && !r0.tut, 'twenty people under the yard rules, no tutorial: ' + JSON.stringify(r0));
   check(r0.lived >= 10 && r0.huts >= 9 && r0.bedless === 0 && r0.roofless === 0 && r0.sown > 10, 'every household in a yard and a house, a bed each, fields growing: ' + JSON.stringify(r0));
   await simulate(page, 3 * 1440);
-  const r1 = await page.evaluate(() => ({ pop: npcs.filter(n => !n.dead).length, road: town.chron.filter(c => /arrived from the road/.test(c.text)).length, bedless: npcs.filter(n => !n.bed || n.bed.x == null).length, hungry: npcs.filter(n => n.hunger > 80).length, harvested: LIFE.digest(3).kinds.harvested || 0, rent: (town.rent || {}).total || 0 }));
+  const r1 = await page.evaluate(() => ({ pop: npcs.filter(n => !n.dead).length, road: town.chron.filter(c => /arrived from the road/.test(c.text)).length, bedless: npcs.filter(n => !n.bed || n.bed.x == null).length, hungry: npcs.filter(n => n.hunger > 80).length, harvested: LIFE.digest(3).kinds.harvested || 0, rent: (town.wish || {}).given || 0 }));
   check(r1.road === 0 && r1.bedless === 0 && r1.pop >= 20, 'nobody turns up from the road to sleep rough: ' + JSON.stringify(r1));
-  check(r1.hungry <= 2 && r1.harvested > 20 && r1.rent > 0, 'three days later they are fed, harvesting and paying rent: ' + JSON.stringify(r1));
+  check(r1.hungry <= 2 && r1.harvested > 20 && r1.rent > 0, 'three days later they are fed, harvesting and putting coin in the well: ' + JSON.stringify(r1));
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
-  return `20 people, ${r0.huts} houses, ${r0.sown} plots growing; after 3 days ${r1.harvested} harvests, ${r1.rent} coin of rent`;
+  return `20 people, ${r0.huts} houses, ${r0.sown} plots growing; after 3 days ${r1.harvested} harvests, ${r1.rent} coin in the well`;
 });
 
 test('farming a row: holding a direction works each plot and steps onto it, and stops on the last plot instead of running onto the grass', async b => {

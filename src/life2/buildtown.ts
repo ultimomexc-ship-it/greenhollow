@@ -70,6 +70,8 @@ function townBuild(R: any, P: any, fam: any[], taken: Set<number>, cx: number, c
   // the family's and your own loose beds from the Hamlet's start go: everybody gets a bed in a house
   for (const pr of town.props.slice()) if (pr.kind === 'bed' && (pr.owner === P || fam.includes(pr.owner))) { town.props.splice(town.props.indexOf(pr), 1); town.propAt.delete(pr.y * W + pr.x); town.pblock[pr.y * W + pr.x] = 0; }
   for (const n of [P].concat(fam)) { n.bed = { owner: null }; n.homeless = true; }
+  // the wishing well first, in the middle of the town; then the lots round it
+  if (typeof wellPlace === 'function') wellPlace(cx, cy, taken);
   const homes: any[][] = [[P], fam].concat(TOWN_HOMES.map(s => townHousehold(R, s)));
   for (const h of homes) { const at = townLotFind(cx, cy, taken); if (!at) break; townLot(R, at, h, taken); }
   // everybody has met everybody (a town that has been here a while), neighbours a little better than strangers

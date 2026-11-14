@@ -348,6 +348,13 @@ body.tut2-seedglow #hotbar .hbslots .hbslot:first-child { animation: tutbounce .
 .dsbtn { margin-left: 6px; }
 @media (max-width: 700px) { #dressup .dsbox { flex-direction: column; height: 94vh; overflow-y: auto; } #dressup .dsleft { flex: 0 0 auto; } #dressup canvas#dsprev { width: 200px; height: 240px; } }
 
+/* the wishing well panel (life2/well.ts), in the shop panel's frame */
+.shoppanel .wlbig { display: flex; align-items: center; gap: 10px; justify-content: center; font-size: 15px; color: #cfe8f0; margin: 6px 0 10px; }
+.shoppanel .wlbig b { font-size: 34px; color: #f4c542; text-shadow: 0 0 12px rgba(244, 197, 66, .45); }
+.shoppanel .wlcoin { width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff3a0, #e0b440 55%, #a8781c); box-shadow: 0 0 10px rgba(244, 197, 66, .6); }
+.shoppanel .wlbtns { justify-content: center; } .shoppanel .wlstats { text-align: center; margin: 8px 0 4px; font-size: 12px; }
+.shoppanel .wllog { list-style: none; margin: 4px 0 0; padding: 0; max-height: 170px; overflow: auto; font-size: 13px; } .shoppanel .wllog li { padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
+
 </style>
 </head>
 <body>
@@ -4582,6 +4589,225 @@ const ART = (function() {
     g.restore();
     tufts(g, 6, 42, 43.6, 34, 10, 2);
   }
+  function wishWell(g, t) {
+    const MARB = pal("#c9c3b6", "#fffbf0", "#e6e0d2"), SAND = pal("#c2a074", "#fbe9c6", "#dcc094"), GOLD = "#e0b440", GOLDL = "#fff0a0";
+    shadowE(g, 37, 90, 34, 6.5);
+    stoneBlocks(g, blob(36, 80, 34, 13, 41, 48, 0.015, 3), { P: MARB, seed: 61, course: 3.4, bw: 7 });
+    g.fillStyle = "rgba(255,255,255,.35)";
+    g.beginPath();
+    g.ellipse(36, 77.5, 31, 10.2, 0, Math.PI, TAU);
+    g.fill();
+    const bas = [[11, 60], [12, 74], [16, 80], [36, 84.5], [56, 80], [60, 74], [61, 60], [56, 56], [36, 53], [16, 56]];
+    stoneBlocks(g, bas, { P: SAND, seed: 62, course: 4.2, bw: 6 });
+    g.save();
+    g.beginPath();
+    trace(g, bas, false);
+    g.clip();
+    const sg = g.createLinearGradient(11, 0, 61, 0);
+    sg.addColorStop(0, "rgba(255,240,200,.18)");
+    sg.addColorStop(0.55, "rgba(0,0,0,0)");
+    sg.addColorStop(1, "rgba(60,50,130,.32)");
+    g.fillStyle = sg;
+    g.fillRect(0, 0, 72, 96);
+    g.restore();
+    g.strokeStyle = INK;
+    g.lineWidth = 1.5;
+    g.beginPath();
+    g.moveTo(12, 70);
+    g.quadraticCurveTo(36, 83, 60, 70);
+    g.stroke();
+    g.strokeStyle = GOLD;
+    g.lineWidth = 1.1;
+    g.beginPath();
+    g.moveTo(12, 70);
+    g.quadraticCurveTo(36, 83, 60, 70);
+    g.stroke();
+    g.strokeStyle = GOLDL;
+    g.lineWidth = 0.35;
+    g.beginPath();
+    g.moveTo(14, 69.6);
+    g.quadraticCurveTo(30, 78.4, 40, 77.6);
+    g.stroke();
+    for (const x of [20, 28, 44, 52]) {
+      const y = 70 + 13 * (1 - Math.pow((x - 36) / 24, 2)) * 0.5;
+      dab(g, x, y, 0.9, 0.9, 0, GOLDL);
+      dab(g, x, y, 0.5, 0.5, 0, "#b8862c");
+    }
+    {
+      const px = 31, py = 63.5;
+      g.fillStyle = INK;
+      g.fillRect(px - 0.5, py - 0.5, 11, 6);
+      g.fillStyle = "#5a3e2a";
+      g.fillRect(px, py, 10, 5);
+      g.strokeStyle = GOLD;
+      g.lineWidth = 0.45;
+      g.strokeRect(px + 0.5, py + 0.5, 9, 4);
+      g.fillStyle = GOLDL;
+      dab(g, px + 5, py + 2.5, 1.3, 1.3, 0, GOLD);
+      dab(g, px + 4.7, py + 2.2, 0.5, 0.5, 0, GOLDL);
+    }
+    g.fillStyle = INK;
+    g.beginPath();
+    g.ellipse(36, 56.5, 25.6, 9.6, 0, 0, TAU);
+    g.fill();
+    g.fillStyle = "#efe2c4";
+    g.beginPath();
+    g.ellipse(36, 56, 24.8, 9, 0, 0, TAU);
+    g.fill();
+    g.fillStyle = "rgba(160,130,90,.5)";
+    g.beginPath();
+    g.ellipse(36, 57, 24.8, 8.4, 0, 0, Math.PI);
+    g.fill();
+    g.fillStyle = "#1c3460";
+    g.beginPath();
+    g.ellipse(36, 56.4, 21, 6.9, 0, 0, TAU);
+    g.fill();
+    g.save();
+    g.beginPath();
+    g.ellipse(36, 56.6, 20.4, 6.5, 0, 0, TAU);
+    g.clip();
+    const wg = g.createRadialGradient(36, 57.5, 1, 36, 57, 21);
+    wg.addColorStop(0, "#9ff6ff");
+    wg.addColorStop(0.45, "#3fc0dc");
+    wg.addColorStop(1, "#1e5a9a");
+    g.fillStyle = wg;
+    g.fillRect(14, 48, 44, 18);
+    const R = mul(77);
+    for (let i = 0; i < 16; i++) {
+      const a = R() * TAU, d = Math.sqrt(R()) * 0.85, x = 36 + Math.cos(a) * 18 * d, y = 57 + Math.sin(a) * 5.4 * d;
+      dab(g, x, y, 1, 0.55, R(), i % 3 ? "#e8c050" : "#c8a0e8");
+      dab(g, x - 0.3, y - 0.15, 0.4, 0.2, 0, "rgba(255,255,230,.9)");
+    }
+    for (let i = 0; i < 3; i++) {
+      const p = (t + i / 3) % 1;
+      g.strokeStyle = `rgba(230,255,255,${0.7 * (1 - p)})`;
+      g.lineWidth = 0.4;
+      g.beginPath();
+      g.ellipse(36 + (i - 1) * 4, 56.6, 2 + p * 13, 0.8 + p * 4.2, 0, 0, TAU);
+      g.stroke();
+    }
+    g.fillStyle = "rgba(255,255,255,.35)";
+    g.beginPath();
+    g.ellipse(28, 54.8, 7, 1.2, -0.08, 0, TAU);
+    g.fill();
+    g.restore();
+    glow24(g, 36, 56, 22, "140,240,255", 0.32 + 0.12 * Math.sin(TAU * t));
+    for (const cx of [13.5, 58.5]) {
+      const col = rect(cx - 3.1, 24, 6.2, 37);
+      c24(g, [col], MARB, { smooth: false, seed: 63 + cx, hs: 0.01, lx: -0.5, ly: -0.4, rim: 0.5 });
+      g.save();
+      g.beginPath();
+      trace(g, col, false);
+      g.clip();
+      for (const f of [-1.6, 0, 1.6]) ln(g, cx + f, 25, cx + f, 61, "rgba(120,110,140,.35)", 0.35);
+      g.fillStyle = "rgba(70,72,150,.25)";
+      g.fillRect(cx + 1, 24, 2.2, 37);
+      g.restore();
+      c24(g, [rect(cx - 4.4, 59.5, 8.8, 3.4)], MARB, { smooth: false, seed: 64, hs: 0.01 });
+      c24(g, [[[cx - 4.8, 24], [cx + 4.8, 24], [cx + 3.6, 27.6], [cx - 3.6, 27.6]]], pal("#c8962e", "#fff2a8", "#ecc650"), { smooth: false, seed: 65, hs: 0.01 });
+      const IV = mul(70 + cx);
+      let x = cx + (cx < 36 ? 2 : -2), y = 60;
+      for (let k = 0; k < 13; k++) {
+        const nx = cx + Math.sin(k * 1.3 + cx) * 2.4, ny = y - 2.6;
+        ln(g, x, y, nx, ny, "#3d6a34", 0.45);
+        leafAt(g, nx + (k % 2 ? 1.2 : -1.2), ny + 0.4, k % 2 ? 0.6 : -0.6, 1.5, 0.8, k % 3 ? "#5fa34a" : "#78b95a", INK, "rgba(30,70,40,.4)");
+        if (IV() < 0.3) dab(g, nx, ny - 0.6, 0.7, 0.7, 0, "#f6c4dc");
+        x = nx;
+        y = ny;
+      }
+    }
+    wood(g, 10, 25.5, 52, 3.6, { dir: "h", planks: 1, seed: 66, P: WOODD, nails: false, knots: 0.3 });
+    ln(g, 62, 27.3, 66.5, 27.3, INK, 1.4);
+    ln(g, 62, 27.3, 66.5, 27.3, "#a07040", 0.8);
+    ln(g, 66.5, 27.3, 66.5 + Math.cos(TAU * t * 0.5) * 2.4, 27.3 + Math.sin(TAU * t * 0.5) * 2.4, "#d8b24a", 0.7);
+    const wob = Math.sin(TAU * t) * 0.7, by = 40;
+    ln(g, 36, 29, 36 + wob, by, INK, 0.75);
+    ln(g, 36, 29, 36 + wob, by, "#d4b484", 0.42);
+    wood(g, 32.2 + wob, by, 7.6, 6.2, { dir: "v", planks: 3, seed: 67, P: pal("#8a5a32", "#d8a066", "#ab7640"), nails: false, knots: 0.2 });
+    for (const y of [by + 1, by + 4.6]) ln(g, 32.2 + wob, y, 39.8 + wob, y, GOLD, 0.6);
+    ln(g, 32.6 + wob, by, 36 + wob, by - 2.4, "#3a3d44", 0.35);
+    ln(g, 39.4 + wob, by, 36 + wob, by - 2.4, "#3a3d44", 0.35);
+    const roof = [[1.5, 21], [36, 5], [70.5, 21], [67, 26], [5, 26]];
+    c24(g, [roof], pal("#a4553a", "#f0a678", "#c87452"), { smooth: false, seed: 68, hs: 0.01, lx: -0.8, ly: -1 });
+    g.save();
+    g.beginPath();
+    trace(g, roof, false);
+    g.clip();
+    for (let r = 0; r < 8; r++) {
+      const y0 = 5 + r * 2.7;
+      for (let x = -3 + r % 2 * 2.2; x < 74; x += 4.4) {
+        const yy = y0 + Math.abs(x + 2.2 - 36) * 0.46 - 0.6;
+        g.fillStyle = (Math.floor(x / 4.4) + r) % 3 ? "#b4643e" : "#924a30";
+        g.beginPath();
+        g.moveTo(x, yy);
+        g.lineTo(x + 4.2, yy);
+        g.lineTo(x + 4.2, yy + 2.4);
+        g.quadraticCurveTo(x + 2.1, yy + 3.4, x, yy + 2.4);
+        g.fill();
+        g.strokeStyle = "rgba(40,20,30,.5)";
+        g.lineWidth = 0.16;
+        g.stroke();
+        g.fillStyle = "rgba(255,220,180,.35)";
+        g.fillRect(x, yy, 4.2, 0.45);
+      }
+    }
+    {
+      const rg = g.createLinearGradient(30, 0, 60, 0);
+      rg.addColorStop(0, "rgba(54,56,140,0)");
+      rg.addColorStop(1, "rgba(54,56,140,.3)");
+      g.fillStyle = rg;
+      g.fillRect(36, 0, 40, 30);
+    }
+    g.restore();
+    ln(g, 5, 26, 67, 26, GOLD, 0.8);
+    ln(g, 1.5, 21, 36, 5, GOLD, 0.6);
+    ln(g, 36, 5, 70.5, 21, GOLD, 0.6);
+    ln(g, 36, 5, 36, 2.6, INK, 1);
+    dab(g, 36, 2.2, 2.3, 2.3, 0, INK);
+    dab(g, 36, 2.2, 1.9, 1.9, 0, GOLD);
+    dab(g, 35.4, 1.6, 0.7, 0.6, 0, GOLDL);
+    glow24(g, 36, 2.2, 5, "255,230,140", 0.4 + 0.3 * Math.sin(TAU * t + 1));
+    for (const lx2 of [6.5, 65.5]) {
+      ln(g, lx2, 28, lx2 + (lx2 < 36 ? 4.5 : -4.5), 28, INK, 0.6);
+      ln(g, lx2, 28, lx2, 31, INK, 0.4);
+      c24(g, [rect(lx2 - 1.8, 31, 3.6, 4.6)], pal("#3a3440", "#8a8094", "#5a5264"), { smooth: false, seed: 69 });
+      g.fillStyle = "#ffd36a";
+      g.fillRect(lx2 - 1.1, 31.8, 2.2, 3);
+      glow24(g, lx2, 33.4, 7, "255,200,110", 0.45 + 0.1 * Math.sin(TAU * t * 2 + lx2));
+    }
+    for (const [fx, fy, c1, c2] of [[8, 84, "#ef6a8a", "#ffd0dc"], [64, 84, "#f2c94c", "#fff3b0"]]) {
+      c24(g, [[[fx - 4, fy - 4], [fx + 4, fy - 4], [fx + 3, fy + 2.5], [fx - 3, fy + 2.5]]], pal("#b45a32", "#f0a070", "#d07a4a"), { smooth: false, seed: 70 });
+      const F = mul(fx);
+      for (let i = 0; i < 7; i++) {
+        const x = fx - 3.5 + F() * 7, y = fy - 5.5 - F() * 4;
+        leafAt(g, x, y + 1.6, F() * 2 - 1, 1.4, 0.7, "#5fa34a", INK, "rgba(30,70,40,.4)");
+      }
+      for (let i = 0; i < 5; i++) {
+        const x = fx - 3 + F() * 6, y = fy - 6 - F() * 4;
+        for (let k = 0; k < 5; k++) {
+          const a = k / 5 * TAU;
+          dab(g, x + Math.cos(a) * 0.9, y + Math.sin(a) * 0.8, 0.75, 0.6, a, c1);
+        }
+        dab(g, x, y, 0.45, 0.45, 0, c2);
+      }
+    }
+    for (let i = 0; i < 6; i++) {
+      const p = (t + i / 6) % 1, x = 24 + i * 37 % 24 + Math.sin(TAU * (p + i * 0.3)) * 1.5, y = 55 - p * 26, a = Math.sin(Math.PI * p);
+      g.fillStyle = `rgba(255,250,200,${0.9 * a})`;
+      g.beginPath();
+      g.moveTo(x, y - 1.6 * a);
+      g.lineTo(x + 0.4, y - 0.4);
+      g.lineTo(x + 1.6 * a, y);
+      g.lineTo(x + 0.4, y + 0.4);
+      g.lineTo(x, y + 1.6 * a);
+      g.lineTo(x - 0.4, y + 0.4);
+      g.lineTo(x - 1.6 * a, y);
+      g.lineTo(x - 0.4, y - 0.4);
+      g.closePath();
+      g.fill();
+    }
+    tufts(g, 2, 70, 92.5, 71, 14, 2.4);
+  }
   const FUR = { deer: pal("#b4783c", "#f0b878", "#cc9050"), rabbit: pal("#c4b094", "#f4e8d0", "#dccab0"), fox: pal("#d46c2c", "#ffb070", "#e88a48") };
   function animal24(g, t, kind, run) {
     const ph = run ? Math.floor(t * 6) / 6 : 0, bob = run ? Math.abs(Math.sin(TAU * ph)) * 1.4 : 0, br = Math.sin(TAU * t) * 0.18, y0 = 16 - bob;
@@ -8003,6 +8229,7 @@ const ART = (function() {
   A("campfire", "camp", "Campfire", 24, 24, FR, (g, t) => campfire24(g, t, false));
   A("feastfire", "camp", "Feast fire", 24, 24, FR, (g, t) => campfire24(g, t, true));
   A("well", "camp", "Well (2 \xD7 2 tiles)", 48, 48, FR, (g, t) => well24(g, t), { footprint: [2, 2] });
+  A("wishwell", "camp", "Wishing well (3 \xD7 3 tiles)", 72, 96, FR, (g, t) => wishWell(g, t), { footprint: [3, 3] });
   for (const v of R3(4)) A(`stall_${v}`, "camp", `Market stall ${v + 1}`, 24, 24, FR, (g, t) => stall24(g, t, v));
   for (const v of R3(4)) {
     A(`stall_seed_${v}`, "camp", `Seed stall ${v + 1}`, 24, 24, FR, (g, t) => stall24(g, t, v, "seed"));
@@ -14153,6 +14380,9 @@ function targetAt0(n, x, y) {
     } };
     return { msg: "A stall. The hammer takes down the ones you built." };
   }
+  if (g === T.WELL && typeof wellAt === "function" && wellAt(x, y)) return itBuildOn(n) ? null : { key: "well", min: 0.5, text: "Looking into the wishing well", tool: null, run() {
+    wellOpen();
+  } };
   if (g === T.STALL) {
     const m = stallTrade(n, x, y);
     if (!m) return { msg: "Nobody is at this stall." };
@@ -27120,6 +27350,7 @@ function townBuild(R, P, fam, taken, cx, cy) {
     n.bed = { owner: null };
     n.homeless = true;
   }
+  if (typeof wellPlace === "function") wellPlace(cx, cy, taken);
   const homes = [[P], fam].concat(TOWN_HOMES.map((s) => townHousehold(R, s)));
   for (const h of homes) {
     const at = townLotFind(cx, cy, taken);
@@ -31158,7 +31389,7 @@ const rentSig = () => {
   const pl = yardPlayer(), R = rentState();
   let exp = 0;
   for (const n of npcs) exp += rentOf(n).amt;
-  return Math.floor(pl ? pl.coin : 0) + ":" + R.today + ":" + R.due + ":" + exp;
+  return Math.floor(pl ? pl.coin : 0) + ":" + R.today + ":" + R.due + ":" + exp + (typeof wellOn === "function" && wellOn() ? ":w" + town.wish.coin : "");
 };
 function rentCardRow(n) {
   if (!yardOn() || n.dead) return "";
@@ -31296,6 +31527,191 @@ LF2.tickers.push(() => {
     if (typeof yardScan === "function" && yardOn()) yardScan(true);
     surpSettle();
   }
+});
+const WELL = { minShare: 0.08, share0: 0.15, share1: 0.5, owe: 2, keep: 10, spare: 0.5, hour: 8 };
+const wellOn = () => !!(typeof town !== "undefined" && town && town.wish && typeof yardOn === "function" && yardOn());
+const wellAt = (x, y) => {
+  const w = town && town.wish;
+  return !!w && x >= w.x && x < w.x + 3 && y >= w.y && y < w.y + 3;
+};
+function wellShare(n) {
+  const m = n.mood == null ? 60 : n.mood;
+  return m < 30 ? WELL.minShare : WELL.share0 + (WELL.share1 - WELL.share0) * Math.min(1, (m - 30) / 60);
+}
+function wellPlace(cx, cy, taken) {
+  const ok = (x, y) => x >= 3 && y >= 3 && x < W - 3 && y < (town.h0 || H) - 3 && [T.GRASS, T.PATH, T.SAND, T.TREE, T.ROCK].includes(grid[y][x]) && roomAt[y][x] < 0 && !lfPropAt(x, y) && !(taken && taken.has(y * W + x)) && !(town.markets || []).some((m) => (m.plaza || []).some((p) => p.x === x && p.y === y)) && !(town.stalls || []).some((s) => Math.abs(s.x - x) <= 1 && Math.abs(s.y - y) <= 2) && !tileOwner.get(y * W + x);
+  for (let r = 3; r < 30; r++) for (let k = 0; k < 24; k++) {
+    const a = k / 24 * 6.283, x0 = Math.round(cx + Math.cos(a) * r) - 1, y0 = Math.round(cy + Math.sin(a) * r) - 1;
+    let fine = true;
+    for (let j = -1; j <= 3 && fine; j++) for (let i = -1; i <= 3; i++) if (!ok(x0 + i, y0 + j)) {
+      fine = false;
+      break;
+    }
+    if (!fine) continue;
+    for (let j = -1; j <= 3; j++) for (let i = -1; i <= 3; i++) {
+      const x = x0 + i, y = y0 + j, key = y * W + x;
+      if (taken) taken.add(key);
+      if (town.nodeMap && town.nodeMap.has(key)) {
+        const nd = town.nodeMap.get(key);
+        town.nodes = town.nodes.filter((q) => q !== nd);
+        town.nodeMap.delete(key);
+      }
+      setT(x, y, i >= 0 && i < 3 && j >= 0 && j < 3 ? T.WELL : T.PATH);
+    }
+    markDirty(x0 - 1, y0 - 1, 5, 5);
+    town.gridV = (town.gridV || 0) + 1;
+    town.wish = { x: x0, y: y0, coin: 0, given: 0, taken: 0, log: [] };
+    if (typeof refreshReach === "function") refreshReach();
+    return town.wish;
+  }
+  return null;
+}
+function wellSpot(n) {
+  const w = town.wish;
+  if (!w) return null;
+  const c = [];
+  for (let j = -1; j <= 3; j++) for (let i = -1; i <= 3; i++) {
+    if (i >= 0 && i < 3 && j >= 0 && j < 3) continue;
+    if ((i === -1 || i === 3) && (j === -1 || j === 3)) continue;
+    const x = w.x + i, y = w.y + j;
+    if (walkable(x, y) && !lfPropAt(x, y)) c.push({ x, y });
+  }
+  c.sort((a, b) => Math.hypot(a.x - n.tx, a.y - n.ty) - Math.hypot(b.x - n.tx, b.y - n.ty));
+  return c[0] || null;
+}
+function wellGive(n) {
+  const w = town.wish;
+  if (!w) return 0;
+  const amt = Math.max(0, Math.min(Math.floor(n.wellOwe || 0), Math.floor(n.coin || 0)));
+  if (!amt) return 0;
+  n.coin -= amt;
+  n.wellOwe = (n.wellOwe || 0) - amt;
+  w.coin += amt;
+  w.given += amt;
+  w.log.unshift({ t: game.time, id: n.id, amt });
+  if (w.log.length > 30) w.log.length = 30;
+  LIFE.emit("well_gave", n, { price: amt });
+  if (typeof faceTo === "function") faceTo(n, { x: w.x + 1, y: w.y + 1, tx: w.x + 1, ty: w.y + 1 });
+  if (typeof jBurst === "function" && game.player && lfDist(n, game.player) < 14) jBurst((w.x + 1.5) * TS, (w.y + 1.4) * TS, 10, "sparks", ["#fff3a0", "#9ff6ff", "#f4c542"]);
+  if (SHOP.well) wellDraw();
+  return amt;
+}
+function wellTake(q) {
+  const w = town.wish, P = game.player;
+  if (!w || !P) return 0;
+  const got = Math.max(0, Math.min(q, w.coin));
+  if (!got) return 0;
+  w.coin -= got;
+  w.taken += got;
+  P.coin += got;
+  if (typeof jsCoins === "function") jsCoins(got);
+  if (typeof jFly === "function") for (let i = 0; i < Math.min(12, got); i++) jFly(P.x * TS + TS / 2 + (Math.random() - 0.5) * 60, P.y * TS - 10 - Math.random() * 30, "coin", "#f4c542", i * 45);
+  return got;
+}
+const _wellPay = pay;
+pay = function(from, to, amt) {
+  _wellPay(from, to, amt);
+  if (wellOn() && to && from && to !== from && !to.player && !to.dead && to.age >= 16 && !rentTrader(to) && amt > 0) to.wellOwe = (to.wellOwe || 0) + amt * wellShare(to);
+};
+LF2.hourly.push((h) => {
+  if (!wellOn() || h !== WELL.hour) return;
+  for (const n of npcs) {
+    if (n.dead || n.player || n.age < 16 || rentTrader(n)) continue;
+    const spare = Math.floor(n.coin || 0) - WELL.keep;
+    if (spare > 0) n.wellOwe = (n.wellOwe || 0) + spare * wellShare(n) * WELL.spare;
+  }
+});
+function wellErrand(n) {
+  if (!wellOn() || n.player || n.age < 16 || rentTrader(n) || (n.wellErr || 0) > game.time) return null;
+  const hr = game.time / 60 % 24;
+  if (Math.floor(n.wellOwe || 0) < WELL.owe || n.coin < 1 || hr < 7 || hr > 19) return null;
+  n.wellErr = game.time + 240;
+  return [goS(wellSpot, "Walking to the wishing well"), waitS(2, "stand", "Dropping coins in the well", { nopie: true, onEnd(nn) {
+    wellGive(nn);
+  } })];
+}
+LF2.dec.push(wellErrand);
+const _wellRent = rentCollect;
+rentCollect = function() {
+  if (wellOn()) return;
+  return _wellRent();
+};
+const _wellErr = rentErrand;
+rentErrand = function(n) {
+  if (wellOn()) return null;
+  return _wellErr(n);
+};
+LF2.dec.splice(LF2.dec.indexOf(_wellErr), 1, (n) => rentErrand(n));
+const _wellHUD = rentHUD;
+rentHUD = function() {
+  if (!wellOn()) return _wellHUD();
+  const P = yardPlayer();
+  if (!P) return "";
+  return `<span class="rentchip" title="Households put a share of what they earn in the wishing well; walk into the well to take it out.">${Math.floor(P.coin)} coin \xB7 well ${Math.floor(town.wish.coin)}</span>`;
+};
+const _wellCard = rentCardRow;
+rentCardRow = function(n) {
+  const out = _wellCard(n);
+  if (!wellOn() || n.player || n.age < 16 || rentTrader(n)) return out;
+  const gave = (town.wish.log || []).filter((e) => e.id === n.id).reduce((s, e) => s + e.amt, 0);
+  return out.replace(/<div class="vcrow"><span class="dim">Rent<\/span>.*?<\/div>/, `<div class="vcrow"><span class="dim">The well</span> ${esc(`gives ${Math.round(wellShare(n) * 100)}% of what they earn${gave ? ` \xB7 gave ${gave} lately` : ""} \xB7 has ${Math.floor(n.coin)} coin`)}</div>`);
+};
+function wellOpen() {
+  SHOP.open = true;
+  SHOP.well = true;
+  SHOP.m = null;
+  SHOP.ki = null;
+  SHOP.note = "";
+  wellDraw();
+}
+function wellDraw() {
+  const d = tut2Dom("shoppanel", "shoppanel");
+  if (!d) return;
+  const w = town.wish, P = game.player;
+  if (!SHOP.open || !SHOP.well || !w) {
+    d.hidden = true;
+    return;
+  }
+  d.hidden = false;
+  const ago = (t) => {
+    const m = Math.max(0, game.time - t);
+    return m < 60 ? "just now" : m < 1440 ? Math.floor(m / 60) + " h ago" : Math.floor(m / 1440) + " d ago";
+  };
+  const log = (w.log || []).slice(0, 8).map((e) => {
+    const n = byId(e.id);
+    return `<li>${esc(n ? n.first + " " + (n.surname || "") : "Somebody")} <span class="dim">dropped in ${e.amt} \xB7 ${ago(e.t)}</span></li>`;
+  }).join("") || '<li class="dim">Nobody has dropped anything in yet.</li>';
+  const ten = Math.min(10, w.coin);
+  d.innerHTML = `<div class="sphead"><b>The Wishing Well</b><span>What the households drop in is kept here for the town.</span><em>${Math.floor(P.coin)} coin</em><button type="button" class="btn spx" data-spx="1" aria-label="Close">\u2715</button></div><div class="wlbig"><span class="wlcoin"></span><b>${Math.floor(w.coin)}</b> coin in the well</div><div class="spbtns wlbtns"><button type="button" class="btn" data-wt="${ten}" ${ten < 1 ? "disabled" : ""}>Take ${ten || 10}</button><button type="button" class="btn primary" data-wt="${w.coin}" ${w.coin < 1 ? "disabled" : ""}>Take all ${Math.floor(w.coin)}</button></div><div class="wlstats dim">Dropped in so far: ${w.given} \xB7 taken out: ${w.taken}</div><ul class="wllog">${log}</ul><div class="spnote">${esc(SHOP.note || "People still tell you what they need when you talk to them.")}</div>`;
+  d.querySelectorAll("[data-wt]").forEach((b) => b.addEventListener("click", () => {
+    const got = wellTake(+b.dataset.wt);
+    SHOP.note = got ? `You took ${got} coin. Nobody saw.` : "The well is empty.";
+    wellDraw();
+  }));
+  const x = d.querySelector("[data-spx]");
+  if (x) x.addEventListener("click", shopClose);
+  shopKeyMark();
+}
+const _wellShopDraw = shopDraw;
+shopDraw = function() {
+  if (SHOP.well) return wellDraw();
+  return _wellShopDraw();
+};
+const _wellShopClose = shopClose;
+shopClose = function() {
+  SHOP.well = false;
+  return _wellShopClose();
+};
+YSORT.push(function(c, now) {
+  const w = town && town.wish;
+  if (!w) return [];
+  const v = gaView();
+  if (w.x + 3 < v.x0 - 1 || w.x > v.x1 + 1 || w.y + 3 < v.y0 - 2 || w.y - 2 > v.y1) return [];
+  return [{ k: w.y + 2.9, f: () => {
+    const it = ART.BYID.wishwell;
+    if (!it) return;
+    c.drawImage(ART.frameOf(it, gaFrame(it, now, w.x + w.y)), w.x * TS, (w.y - 1) * TS, 3 * TS, 4 * TS);
+  } }];
 });
 const ARR_FIRST = 0.5, ARR_GAP = [1.5, 2.5], ARR_KIDS = 3;
 function arrYard() {
@@ -33767,6 +34183,7 @@ EVK("step_reached", "place", { needs: ["qty"], tell: 0.1 });
 EVK("came_ashore", "home", { needs: ["qty"], tell: 0.4 });
 EVK("apart", "home", { tell: 0.5, tags: ["misfortune"] });
 EVK("rent_paid", "home", { needs: ["price"], tell: 0.12 });
+EVK("well_gave", "home", { needs: ["price"], tell: 0.2 });
 EVK("rent_unpaid", "home", { needs: ["price"], tell: 0.6, tags: ["misfortune"] });
 EVK("no_yard", "home", { tell: 0.55, tags: ["misfortune"] });
 EVK("bought", "trade", { needs: ["item", "qty"], tell: 0.25 });
@@ -38075,6 +38492,7 @@ LXP(
   ],
   {}
 );
+LXLP("well_gave", ["I dropped {money} in the wishing well.", "Put {money} in the well. For luck, and for the town.", "Dropped a few coins in the well today."]);
 LXLP("rent_paid", ["I paid the rent today.", "Rent is paid. That is one thing settled.", "Paid my rent at six, same as every day."]);
 LXLP("rent_unpaid", ["I could not pay the rent today.", "I had nothing for the rent today.", "The rent went unpaid. I do not like that."]);
 LXLP("no_yard", ["I have no yard of my own.", "I have nowhere that is mine. No fence, no field.", "Still no yard. I cannot grow a thing."]);
@@ -39452,6 +39870,7 @@ LXI(
   ],
   {}
 );
+LXLI("well_gave", ["I put {money} in the wishing well.", "I dropped {money} in the well. It made a pleasant sound.", "I gave the well {money}."]);
 LXLI("rent_paid", ["I paid the rent at six.", "The rent is paid. I checked my pocket twice afterwards.", "I paid my rent today."]);
 LXLI("rent_unpaid", ["I could not pay the rent today.", "The rent was due at six. I was not ready at six.", "I had no coin for the rent today."]);
 LXLI("no_yard", ["I have no yard.", "I have a patch of ground I stand on. It is not mine.", "No fence has my name on it yet."]);

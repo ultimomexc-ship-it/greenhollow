@@ -1,6 +1,6 @@
 # The wishing well: building is the game
 
-Status: design, under discussion. Nothing here is built yet.
+Status: step 1 (the well and deposits) is built in the build town; the rest is design.
 
 ## The idea in one paragraph
 

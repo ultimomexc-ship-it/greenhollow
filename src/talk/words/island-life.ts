@@ -347,6 +347,7 @@ LXI(
 );
 
 /* the Hamlet: rent, yards and moving in (life2/rent.ts, yards.ts) */
+LXLI('well_gave', ['I put {money} in the wishing well.', 'I dropped {money} in the well. It made a pleasant sound.', 'I gave the well {money}.']);
 LXLI('rent_paid', ['I paid the rent at six.', 'The rent is paid. I checked my pocket twice afterwards.', 'I paid my rent today.']);
 LXLI('rent_unpaid', ['I could not pay the rent today.', 'The rent was due at six. I was not ready at six.', 'I had no coin for the rent today.']);
 LXLI('no_yard', ['I have no yard.', 'I have a patch of ground I stand on. It is not mine.', 'No fence has my name on it yet.']);

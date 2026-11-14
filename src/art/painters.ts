@@ -1210,6 +1210,71 @@ function well24(g, t) { /* 2 x 2 tiles: 48 x 48 */ shadowE(g, 25.6, 44, 20.4, 4)
   g.save(); g.beginPath(); trace(g, roof, false); g.clip(); for (let r = 0; r < 4; r++) { const y = 1.6 + r * 2.1; for (let x = -2 + (r % 2) * 1.8; x < 48; x += 3.6) { const yy = y + (x < 24 ? (24 - x) * 0.06 : (x - 24) * 0.06); g.fillStyle = (Math.floor(x / 3.6) + r) % 3 ? '#a8623e' : '#8a4a30'; g.beginPath(); g.moveTo(x, yy); g.lineTo(x + 3.4, yy); g.lineTo(x + 3.4, yy + 1.7); g.quadraticCurveTo(x + 1.7, yy + 2.5, x, yy + 1.7); g.fill(); g.strokeStyle = 'rgba(40,20,30,.5)'; g.lineWidth = 0.15; g.stroke(); g.fillStyle = 'rgba(255,214,170,.35)'; g.fillRect(x, yy, 3.4, 0.4); } }
   { const rg = g.createLinearGradient(16, 0, 34, 0); rg.addColorStop(0, 'rgba(54,56,140,0)'); rg.addColorStop(1, 'rgba(54,56,140,.28)'); g.fillStyle = rg; g.fillRect(0, 0, 48, 10); } g.restore(); tufts(g, 6, 42, 43.6, 34, 10, 2); }
 
+/* the wishing well (docs/wishing-well.md): the heart of the town, 3 x 3 tiles on the ground and rising a tile above them (72 x 96, the footprint is the bottom 72 x 72).
+   A marble step all round, a carved sandstone basin with a gold band, glowing water with coins at the bottom, two ivy-hung columns, a terracotta roof with a gilded
+   finial, a crank and a brass-bound bucket, two hanging lanterns and pots of flowers; sparkles rise from the water. */
+function wishWell(g, t) {
+  const MARB = pal('#c9c3b6', '#fffbf0', '#e6e0d2'), SAND = pal('#c2a074', '#fbe9c6', '#dcc094'), GOLD = '#e0b440', GOLDL = '#fff0a0';
+  shadowE(g, 37, 90, 34, 6.5);
+  // the round step, paved
+  stoneBlocks(g, blob(36, 80, 34, 13, 41, 48, 0.015, 3), { P: MARB, seed: 61, course: 3.4, bw: 7 });
+  g.fillStyle = 'rgba(255,255,255,.35)'; g.beginPath(); g.ellipse(36, 77.5, 31, 10.2, 0, Math.PI, TAU); g.fill();
+  // the basin: carved sandstone, a gold band, a plaque
+  const bas = [[11, 60], [12, 74], [16, 80], [36, 84.5], [56, 80], [60, 74], [61, 60], [56, 56], [36, 53], [16, 56]];
+  stoneBlocks(g, bas, { P: SAND, seed: 62, course: 4.2, bw: 6 });
+  g.save(); g.beginPath(); trace(g, bas, false); g.clip(); const sg = g.createLinearGradient(11, 0, 61, 0); sg.addColorStop(0, 'rgba(255,240,200,.18)'); sg.addColorStop(0.55, 'rgba(0,0,0,0)'); sg.addColorStop(1, 'rgba(60,50,130,.32)'); g.fillStyle = sg; g.fillRect(0, 0, 72, 96); g.restore();
+  g.strokeStyle = INK; g.lineWidth = 1.5; g.beginPath(); g.moveTo(12, 70); g.quadraticCurveTo(36, 83, 60, 70); g.stroke();
+  g.strokeStyle = GOLD; g.lineWidth = 1.1; g.beginPath(); g.moveTo(12, 70); g.quadraticCurveTo(36, 83, 60, 70); g.stroke(); g.strokeStyle = GOLDL; g.lineWidth = 0.35; g.beginPath(); g.moveTo(14, 69.6); g.quadraticCurveTo(30, 78.4, 40, 77.6); g.stroke();
+  for (const x of [20, 28, 44, 52]) { const y = 70 + 13 * (1 - Math.pow((x - 36) / 24, 2)) * 0.5; dab(g, x, y, 0.9, 0.9, 0, GOLDL); dab(g, x, y, 0.5, 0.5, 0, '#b8862c'); }
+  { const px = 31, py = 63.5; g.fillStyle = INK; g.fillRect(px - 0.5, py - 0.5, 11, 6); g.fillStyle = '#5a3e2a'; g.fillRect(px, py, 10, 5); g.strokeStyle = GOLD; g.lineWidth = 0.45; g.strokeRect(px + 0.5, py + 0.5, 9, 4); g.fillStyle = GOLDL; dab(g, px + 5, py + 2.5, 1.3, 1.3, 0, GOLD); dab(g, px + 4.7, py + 2.2, 0.5, 0.5, 0, GOLDL); }
+  // the rim and the water
+  g.fillStyle = INK; g.beginPath(); g.ellipse(36, 56.5, 25.6, 9.6, 0, 0, TAU); g.fill();
+  g.fillStyle = '#efe2c4'; g.beginPath(); g.ellipse(36, 56, 24.8, 9, 0, 0, TAU); g.fill();
+  g.fillStyle = 'rgba(160,130,90,.5)'; g.beginPath(); g.ellipse(36, 57, 24.8, 8.4, 0, 0, Math.PI); g.fill();
+  g.fillStyle = '#1c3460'; g.beginPath(); g.ellipse(36, 56.4, 21, 6.9, 0, 0, TAU); g.fill();
+  g.save(); g.beginPath(); g.ellipse(36, 56.6, 20.4, 6.5, 0, 0, TAU); g.clip();
+  const wg = g.createRadialGradient(36, 57.5, 1, 36, 57, 21); wg.addColorStop(0, '#9ff6ff'); wg.addColorStop(0.45, '#3fc0dc'); wg.addColorStop(1, '#1e5a9a'); g.fillStyle = wg; g.fillRect(14, 48, 44, 18);
+  const R = mul(77); for (let i = 0; i < 16; i++) { const a = R() * TAU, d = Math.sqrt(R()) * 0.85, x = 36 + Math.cos(a) * 18 * d, y = 57 + Math.sin(a) * 5.4 * d; dab(g, x, y, 1, 0.55, R(), i % 3 ? '#e8c050' : '#c8a0e8'); dab(g, x - 0.3, y - 0.15, 0.4, 0.2, 0, 'rgba(255,255,230,.9)'); }
+  for (let i = 0; i < 3; i++) { const p = (t + i / 3) % 1; g.strokeStyle = `rgba(230,255,255,${0.7 * (1 - p)})`; g.lineWidth = 0.4; g.beginPath(); g.ellipse(36 + (i - 1) * 4, 56.6, 2 + p * 13, 0.8 + p * 4.2, 0, 0, TAU); g.stroke(); }
+  g.fillStyle = 'rgba(255,255,255,.35)'; g.beginPath(); g.ellipse(28, 54.8, 7, 1.2, -0.08, 0, TAU); g.fill();
+  g.restore();
+  glow24(g, 36, 56, 22, '140,240,255', 0.32 + 0.12 * Math.sin(TAU * t));
+  // two columns, marble with gold capitals, ivy climbing
+  for (const cx of [13.5, 58.5]) {
+    const col = rect(cx - 3.1, 24, 6.2, 37); c24(g, [col], MARB, { smooth: false, seed: 63 + cx, hs: 0.01, lx: -0.5, ly: -0.4, rim: 0.5 });
+    g.save(); g.beginPath(); trace(g, col, false); g.clip(); for (const f of [-1.6, 0, 1.6]) ln(g, cx + f, 25, cx + f, 61, 'rgba(120,110,140,.35)', 0.35); g.fillStyle = 'rgba(70,72,150,.25)'; g.fillRect(cx + 1, 24, 2.2, 37); g.restore();
+    c24(g, [rect(cx - 4.4, 59.5, 8.8, 3.4)], MARB, { smooth: false, seed: 64, hs: 0.01 });
+    c24(g, [[[cx - 4.8, 24], [cx + 4.8, 24], [cx + 3.6, 27.6], [cx - 3.6, 27.6]]], pal('#c8962e', '#fff2a8', '#ecc650'), { smooth: false, seed: 65, hs: 0.01 });
+    const IV = mul(70 + cx); let x = cx + (cx < 36 ? 2 : -2), y = 60; for (let k = 0; k < 13; k++) { const nx = cx + Math.sin(k * 1.3 + cx) * 2.4, ny = y - 2.6; ln(g, x, y, nx, ny, '#3d6a34', 0.45); leafAt(g, nx + (k % 2 ? 1.2 : -1.2), ny + 0.4, k % 2 ? 0.6 : -0.6, 1.5, 0.8, k % 3 ? '#5fa34a' : '#78b95a', INK, 'rgba(30,70,40,.4)'); if (IV() < 0.3) dab(g, nx, ny - 0.6, 0.7, 0.7, 0, '#f6c4dc'); x = nx; y = ny; }
+  }
+  // the beam, the crank, the rope and the bucket
+  wood(g, 10, 25.5, 52, 3.6, { dir: 'h', planks: 1, seed: 66, P: WOODD, nails: false, knots: 0.3 });
+  ln(g, 62, 27.3, 66.5, 27.3, INK, 1.4); ln(g, 62, 27.3, 66.5, 27.3, '#a07040', 0.8); ln(g, 66.5, 27.3, 66.5 + Math.cos(TAU * t * 0.5) * 2.4, 27.3 + Math.sin(TAU * t * 0.5) * 2.4, '#d8b24a', 0.7);
+  const wob = Math.sin(TAU * t) * 0.7, by = 40; ln(g, 36, 29, 36 + wob, by, INK, 0.75); ln(g, 36, 29, 36 + wob, by, '#d4b484', 0.42);
+  wood(g, 32.2 + wob, by, 7.6, 6.2, { dir: 'v', planks: 3, seed: 67, P: pal('#8a5a32', '#d8a066', '#ab7640'), nails: false, knots: 0.2 }); for (const y of [by + 1, by + 4.6]) ln(g, 32.2 + wob, y, 39.8 + wob, y, GOLD, 0.6);
+  ln(g, 32.6 + wob, by, 36 + wob, by - 2.4, '#3a3d44', 0.35); ln(g, 39.4 + wob, by, 36 + wob, by - 2.4, '#3a3d44', 0.35);
+  // the roof: terracotta, shingled, a gilded orb on top
+  const roof = [[1.5, 21], [36, 5], [70.5, 21], [67, 26], [5, 26]]; c24(g, [roof], pal('#a4553a', '#f0a678', '#c87452'), { smooth: false, seed: 68, hs: 0.01, lx: -0.8, ly: -1 });
+  g.save(); g.beginPath(); trace(g, roof, false); g.clip();
+  for (let r = 0; r < 8; r++) { const y0 = 5 + r * 2.7; for (let x = -3 + (r % 2) * 2.2; x < 74; x += 4.4) { const yy = y0 + Math.abs(x + 2.2 - 36) * 0.46 - 0.6; g.fillStyle = (Math.floor(x / 4.4) + r) % 3 ? '#b4643e' : '#924a30'; g.beginPath(); g.moveTo(x, yy); g.lineTo(x + 4.2, yy); g.lineTo(x + 4.2, yy + 2.4); g.quadraticCurveTo(x + 2.1, yy + 3.4, x, yy + 2.4); g.fill(); g.strokeStyle = 'rgba(40,20,30,.5)'; g.lineWidth = 0.16; g.stroke(); g.fillStyle = 'rgba(255,220,180,.35)'; g.fillRect(x, yy, 4.2, 0.45); } }
+  { const rg = g.createLinearGradient(30, 0, 60, 0); rg.addColorStop(0, 'rgba(54,56,140,0)'); rg.addColorStop(1, 'rgba(54,56,140,.3)'); g.fillStyle = rg; g.fillRect(36, 0, 40, 30); } g.restore();
+  ln(g, 5, 26, 67, 26, GOLD, 0.8); ln(g, 1.5, 21, 36, 5, GOLD, 0.6); ln(g, 36, 5, 70.5, 21, GOLD, 0.6);
+  ln(g, 36, 5, 36, 2.6, INK, 1); dab(g, 36, 2.2, 2.3, 2.3, 0, INK); dab(g, 36, 2.2, 1.9, 1.9, 0, GOLD); dab(g, 35.4, 1.6, 0.7, 0.6, 0, GOLDL);
+  glow24(g, 36, 2.2, 5, '255,230,140', 0.4 + 0.3 * Math.sin(TAU * t + 1));
+  // lanterns on the columns
+  for (const lx of [6.5, 65.5]) { ln(g, lx, 28, lx + (lx < 36 ? 4.5 : -4.5), 28, INK, 0.6); ln(g, lx, 28, lx, 31, INK, 0.4);
+    c24(g, [rect(lx - 1.8, 31, 3.6, 4.6)], pal('#3a3440', '#8a8094', '#5a5264'), { smooth: false, seed: 69 }); g.fillStyle = '#ffd36a'; g.fillRect(lx - 1.1, 31.8, 2.2, 3); glow24(g, lx, 33.4, 7, '255,200,110', 0.45 + 0.1 * Math.sin(TAU * t * 2 + lx)); }
+  // pots of flowers at the front
+  for (const [fx, fy, c1, c2] of [[8, 84, '#ef6a8a', '#ffd0dc'], [64, 84, '#f2c94c', '#fff3b0']] as any) {
+    c24(g, [[[fx - 4, fy - 4], [fx + 4, fy - 4], [fx + 3, fy + 2.5], [fx - 3, fy + 2.5]]], pal('#b45a32', '#f0a070', '#d07a4a'), { smooth: false, seed: 70 });
+    const F = mul(fx); for (let i = 0; i < 7; i++) { const x = fx - 3.5 + F() * 7, y = fy - 5.5 - F() * 4; leafAt(g, x, y + 1.6, F() * 2 - 1, 1.4, 0.7, '#5fa34a', INK, 'rgba(30,70,40,.4)'); }
+    for (let i = 0; i < 5; i++) { const x = fx - 3 + F() * 6, y = fy - 6 - F() * 4; for (let k = 0; k < 5; k++) { const a = k / 5 * TAU; dab(g, x + Math.cos(a) * 0.9, y + Math.sin(a) * 0.8, 0.75, 0.6, a, c1); } dab(g, x, y, 0.45, 0.45, 0, c2); }
+  }
+  // sparkles rising from the water
+  for (let i = 0; i < 6; i++) { const p = (t + i / 6) % 1, x = 24 + ((i * 37) % 24) + Math.sin(TAU * (p + i * 0.3)) * 1.5, y = 55 - p * 26, a = Math.sin(Math.PI * p);
+    g.fillStyle = `rgba(255,250,200,${0.9 * a})`; g.beginPath(); g.moveTo(x, y - 1.6 * a); g.lineTo(x + 0.4, y - 0.4); g.lineTo(x + 1.6 * a, y); g.lineTo(x + 0.4, y + 0.4); g.lineTo(x, y + 1.6 * a); g.lineTo(x - 0.4, y + 0.4); g.lineTo(x - 1.6 * a, y); g.lineTo(x - 0.4, y - 0.4); g.closePath(); g.fill(); }
+  tufts(g, 2, 70, 92.5, 71, 14, 2.4); }
+
 /* ================= wild animals, forest sprites, the coast kit =================
    Animals face right at the middle of a 24 x 24 tile (the game draws them at the tile centre, 16 down). Coast pieces use their own sizes. */
 const FUR = { deer: pal('#b4783c', '#f0b878', '#cc9050'), rabbit: pal('#c4b094', '#f4e8d0', '#dccab0'), fox: pal('#d46c2c', '#ffb070', '#e88a48') };
@@ -2199,6 +2264,7 @@ for (const v of R3(4)) A(`tent_${v}`, 'camp', `Tent ${v + 1}`, 24, 26, FR, (g, t
 A('lamp_unlit', 'camp', 'Lamp post, day', 24, 26, 1, g => lamp24(g, 0, false), { bot: true }); A('lamp_lit', 'camp', 'Lamp post, lit', 24, 26, FR, (g, t) => lamp24(g, t, true), { bot: true });
 A('campfire', 'camp', 'Campfire', 24, 24, FR, (g, t) => campfire24(g, t, false)); A('feastfire', 'camp', 'Feast fire', 24, 24, FR, (g, t) => campfire24(g, t, true));
 A('well', 'camp', 'Well (2 × 2 tiles)', 48, 48, FR, (g, t) => well24(g, t), { footprint: [2, 2] });
+A('wishwell', 'camp', 'Wishing well (3 × 3 tiles)', 72, 96, FR, (g, t) => wishWell(g, t), { footprint: [3, 3] });
 for (const v of R3(4)) A(`stall_${v}`, 'camp', `Market stall ${v + 1}`, 24, 24, FR, (g, t) => stall24(g, t, v));
 for (const v of R3(4)) { A(`stall_seed_${v}`, 'camp', `Seed stall ${v + 1}`, 24, 24, FR, (g, t) => stall24(g, t, v, 'seed')); A(`stall_veg_${v}`, 'camp', `Greengrocer ${v + 1}`, 24, 24, FR, (g, t) => stall24(g, t, v, 'veg')); }
 A('stake', 'camp', 'Survey stake', 24, 24, 1, g => stake24(g)); for (const m of ['wood', 'stone']) for (const b of [0, 1]) A(`site_${m}_${b ? 'built' : 'open'}`, 'camp', `${m === 'wood' ? 'Timber' : 'Stone'} plot, ${b ? 'built' : 'marked'}`, 24, 24, 1, g => slot24(g, m, b));

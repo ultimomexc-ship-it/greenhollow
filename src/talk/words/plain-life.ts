@@ -213,6 +213,7 @@ LXP(
 );
 
 /* the Hamlet: rent, yards and moving in (life2/rent.ts, yards.ts) */
+LXLP('well_gave', ['I dropped {money} in the wishing well.', 'Put {money} in the well. For luck, and for the town.', 'Dropped a few coins in the well today.']);
 LXLP('rent_paid', ['I paid the rent today.', 'Rent is paid. That is one thing settled.', 'Paid my rent at six, same as every day.']);
 LXLP('rent_unpaid', ['I could not pay the rent today.', 'I had nothing for the rent today.', 'The rent went unpaid. I do not like that.']);
 LXLP('no_yard', ['I have no yard of my own.', 'I have nowhere that is mine. No fence, no field.', 'Still no yard. I cannot grow a thing.']);
