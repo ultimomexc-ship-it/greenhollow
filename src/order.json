@@ -69,6 +69,7 @@
   "render/trees.ts",
   "render/weather.ts",
   "render/seasons.ts",
+  "render/water-gl.ts",
   "ui/dressup.ts",
   "render/chickens.ts",
   "render/build-look.ts",

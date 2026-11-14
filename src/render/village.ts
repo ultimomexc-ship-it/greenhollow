@@ -39,10 +39,11 @@ function gaTerrain(g, x, y, wt) {
   }
   const X = x * TS, Y = y * TS, v = (ART.h32(x, y, GA.seed, 4) * 4) | 0, D = im => g.drawImage(im, X, Y, TS, TS);
   const lv = [gaLevel(x, y), gaLevel(x + 1, y), gaLevel(x + 1, y + 1), gaLevel(x, y + 1)], masks = [1, 2, 3].map(L => { let m = 0; for (let i = 0; i < 4; i++) if (lv[i] >= L) m |= 1 << i; return m; });
+  if (masks[1] === 0 && GA.wgl) return;                                        // realistic water: left transparent, the shader draws it under (render/water-gl.ts)
   if (wt && masks[1] === 0) { wt.push(x, y, masks[0]); return; }              // open water: painted afresh each frame
   let top = -1; for (let i = 2; i >= 0; i--) if (masks[i] === 15) { top = i; break; }
-  if (top < 0) D(ART.water('deep', 0));
-  for (let i = Math.max(top, 0); i < 3; i++) { const m = masks[i]; if (!m) continue; D(m === 15 ? (i === 0 ? ART.water('shallow', 0) : ART.terr(GA_LAYERS[i], v)) : ART.overlay(GA_LAYERS[i], m, 0)); }
+  if (top < 0 && !GA.wgl) D(ART.water('deep', 0));
+  for (let i = Math.max(top, 0); i < 3; i++) { const m = masks[i]; if (!m || (i === 0 && GA.wgl)) continue; D(m === 15 ? (i === 0 ? ART.water('shallow', 0) : ART.terr(GA_LAYERS[i], v)) : ART.overlay(GA_LAYERS[i], m, 0)); }
   let pm = 0; if (gaPathV(x, y)) pm |= 1; if (gaPathV(x + 1, y)) pm |= 2; if (gaPathV(x + 1, y + 1)) pm |= 4; if (gaPathV(x, y + 1)) pm |= 8;
   if (pm) D(pm === 15 ? ART.terr('path', v) : ART.overlay('path', pm, 0));
   if (grid[y][x] === T.CROP) D(ART.terr('soil', v & 1));
@@ -163,7 +164,7 @@ function gaTileColour(x, y) {
   if (roomAt[y][x] >= 0) { const t = grid[y][x]; return t === T.WALL || t === T.DOOR ? '#a69a80' : '#9c7a52'; }
   const t = grid[y][x], K = gclass(x, y);
   if (t === T.TREE) return '#3f7a3a'; if (t === T.ROCK) return '#8c8f92'; if (t === T.MOUNTAIN) return '#8f9488'; if (t === T.TENT) return '#cdbf94'; if (t === T.STALL) return '#b5683a'; if (t === T.GRAVE) return '#7d9a6a';
-  if (K === 'water') return GA.shal[y * W + x] ? '#58b0bf' : '#3f8aa8';
+  if (K === 'water') return GA.wgl ? null : GA.shal[y * W + x] ? '#58b0bf' : '#3f8aa8';
   if (K === 'sand') return '#ead9a4';
   if (K === 'path') return '#d2b57c'; if (K === 'soil') return '#8c6a45';
   return '#79a845';
@@ -172,10 +173,11 @@ function gaOverview() {
   const cv = GA.ov || (GA.ov = document.createElement('canvas')); cv.width = W * OVP; cv.height = H * OVP; const g = GA.ovc = cv.getContext('2d');
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const col = gaTileColour(x, y); if (!col) continue; g.fillStyle = col; g.fillRect(x * OVP, y * OVP, OVP, OVP); }
 }
-function gaOverviewRect(x0, y0, x1, y1) { const g = GA.ovc; if (!g) return; for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { g.fillStyle = gaTileColour(x, y); g.fillRect(x * OVP, y * OVP, OVP, OVP); } }
+function gaOverviewRect(x0, y0, x1, y1) { const g = GA.ovc; if (!g) return; for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const col = gaTileColour(x, y); g.clearRect(x * OVP, y * OVP, OVP, OVP); if (!col) continue; g.fillStyle = col; g.fillRect(x * OVP, y * OVP, OVP, OVP); } }
 
 /* ---- the game's hooks ---- */
 function buildStatic() {
+  GA.wgl = typeof wglReady === 'function' && wglReady(); if (typeof wglInvalidate === 'function') wglInvalidate();   // (realistic water: render/water-gl.ts)
   dirtyList = []; GA.chunks.clear(); GA.px = 0; GA.seed = ((town.seed | 0) % 997 + 997) % 997 + 7; GA.boost = 3;
   const sh = GA.shal = new Uint8Array(W * H);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { if (grid[y][x] !== T.WATER) continue; let near = false; for (let j = -2; j <= 2 && !near; j++) for (let i = -2; i <= 2; i++) { const xx = x + i, yy = y + j; if (xx >= 0 && yy >= 0 && xx < W && yy < H && grid[yy][xx] !== T.WATER) { near = true; break; } } if (near) sh[y * W + x] = 1; }

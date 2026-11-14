@@ -2961,6 +2961,28 @@ test('surprises: somebody pushed in build mode, or given fields, never knows who
   return `"${r.words}" / news: "${r.evText}"`;
 });
 
+test('realistic water: the sea is drawn by a WebGL shader under the ground, the baked ground leaves water transparent, and the classic tiles come back when it is switched off', async b => {
+  const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  const r = await page.evaluate(() => {
+    window.GH_WATERGL = true; window.GH_NOCARDS = true; newTown('isle1', 'village'); buildStatic();
+    const out = { ok: WATER.ok, wgl: GA.wgl, err: WATER.err };
+    const sh = shoreTiles.slice().sort((a, b) => (a.y - b.y) || (a.x - b.x)), best = sh[Math.floor(sh.length * 0.6)];
+    // a water tile a few tiles out from that shore
+    let wx = best.x, wy = best.y; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { let k = 1; while (k < 6 && grid[best.y + dy * k] && grid[best.y + dy * k][best.x + dx * k] === T.WATER) k++; if (k >= 4) { wx = best.x + dx * 3; wy = best.y + dy * 3; break; } }
+    const P = game.player; P.tx = P.x = best.x; P.ty = P.y = best.y; rebuildOcc(); cam.follow = false; cam.z = 1.5; cam.x = wx * TS - cam.cw / cam.z / 2; cam.y = wy * TS - cam.ch / cam.z / 2; clampCam(); GA.boost = 50;
+    const px = () => { for (let k = 0; k < 3; k++) { window.__advance(300); render(performance.now(), 0.05, 12); } const X = Math.round((wx * TS + TS / 2 - cam.x) * cam.z * cam.dpr), Y = Math.round((wy * TS + TS / 2 - cam.y) * cam.z * cam.dpr); return Array.from(ctx.getImageData(X, Y, 1, 1).data).slice(0, 3); };
+    out.real = px(); out.overviewClear = (() => { const g = GA.ovc, d = g.getImageData(wx * OVP + 1, wy * OVP + 1, 1, 1).data; return d[3] === 0; })();
+    waterSet('classic'); out.classic = px(); out.wglAfter = GA.wgl; waterSet('real'); out.back = GA.wgl;
+    return out;
+  });
+  if (!r.ok) return 'no WebGL in this browser (' + r.err + '): the classic water is used';
+  check(r.wgl && r.overviewClear, 'the ground is baked for it: water left transparent in the overview: ' + JSON.stringify(r));
+  check(r.real[2] > r.real[0] && r.real[1] > r.real[0], 'the water is drawn, blue-green: ' + JSON.stringify(r.real));
+  check(!r.wglAfter && r.back && r.classic.join() !== r.real.join(), 'Classic brings the painted tiles back, Realistic the shader: ' + JSON.stringify(r));
+  check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
+  return 'water pixel ' + r.real.join(',') + ' (classic ' + r.classic.join(',') + ')';
+});
+
 test('eggs: a hen in a closed yard lays one a day on free grass; you pick yours up by walking over it and sell it to the trader; a household sells its own', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r0 = await page.evaluate(() => { newTown('egg-test', 'town'); const P = game.player, mine = yardOfN(P), other = town.yards.find(y => y.open == null && y !== mine && yardPeople(y).length);

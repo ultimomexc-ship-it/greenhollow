@@ -143,6 +143,8 @@ function render(now, dtSec, hourOfDay) {
   const tdy = typeof talkUI !== 'undefined' && talkUI.o ? talkUI.dy || 0 : 0;
   if ((cam.follow || tdy) && ft) centerOn(ft.x, ft.y + tdy, Math.min(1, dtSec * 6)); else clampCam();
   c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = '#0b0e0f'; c.fillRect(0, 0, canvas.width, canvas.height);
+  // realistic water first, under everything (render/water-gl.ts); up on a roof it is the sea below, under the dimmed ground; never in a mine
+  if (GA.wgl && !(ft && town.h0 && isMineY(ft.y))) wglDraw(c, cam.x, ft && town.h0 && isUpperY(ft.y) ? cam.y - town.h0 * TS : cam.y);
   c.setTransform(Z, 0, 0, Z, -cam.x * Z, -cam.y * Z);
   c.imageSmoothingEnabled = true; GA.hour = hourOfDay;
   flushDirty();
