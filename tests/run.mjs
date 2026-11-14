@@ -2867,14 +2867,16 @@ test('tutorial: the first morning plays from the old house to the clock starting
     return { coin: P.coin, tools: (P.items || []).map(i => i.kind).sort().join(), time: fmtTime(game.time), yard: !!y && y.cells.length, gate: TUT2_DONE.gate(T2.at.gate.x, T2.at.gate.y), sown: T2.at.jfield.filter(t => { const c = tut2Crop(t.x, t.y); return c && c.st; }).length, kitFence: town.kit.fence || 0, hidden: document.body.classList.contains('tut2'), pill: progStep(progState().step).title, well: !!town.wish && !!(ART.BYID.wishwell), axe: !!J && (J.items || []).some(i => i.kind === 'axe'), wishes: (town.wishes || []).filter(w => w.who === (J && J.id)).map(w => w.kind + ':' + w.state).sort().join(), deposit: !!town.wish && town.wish.log.filter(e => e.id === (J && J.id)).length >= 2, nook: !!T2.nookOK, jbedAt: !!J && !!J.bed && J.bed.x === T2.at.jbed.x && J.bed.y === T2.at.jbed.y, rock: (() => { const r = tut2NookRock(); return !!r && r.x === T2.at.rockAside.x && r.y === T2.at.rockAside.y; })(), trees: (T2.at.trees || []).filter(t => grid[t.y][t.x] === T.TREE).length,
       bedMoves: (() => { const b = J && J.bed; if (!b) return 0; let k = 0; for (const d of TUT2_DIRS) if (tut2BoxPlan(b, { x: T2.at.gate.x, y: T2.at.gate.y + 1 }, { x: b.x + d.dx, y: b.y + d.dy }, null, b)) k++; return k; })(),
       paths: [T2.at.ownGate, T2.at.gate].filter(g => grid[g.y + 1][g.x] === T.PATH).length,
-      north: T2.at.o.y + TUT2_MAP.box.y1 < T2.at.keep.y }; });
+      north: T2.at.o.y + TUT2_MAP.box.y1 < T2.at.keep.y, given: town.wish ? town.wish.given : 0 }; });
   check(end.bedMoves === 4 && end.paths === 2 && end.north, "after it Junia's bed can be pushed every way inside her yard, both gates have a path to the square, and the layout is above the stall: " + JSON.stringify(end));
   check(end.nook && end.jbedAt && end.rock && end.trees === 3, "the puzzle: Junia's bed pushed into the grove, the rock into its opening and aside, her bed through the gap onto its spot in her yard: " + JSON.stringify(end));
   check(end.coin === 31 && end.tools === 'hammer,hoe' && end.time === '12:00', 'you end with 31 coin (turnips at 5, Junia\'s coin from the well, the axe given away), a hoe and a hammer, at noon: ' + JSON.stringify(end));
   check(end.yard === 30 && end.gate && end.kitFence === 1 && !end.hidden && end.well && end.axe && /axe:granted/.test(end.wishes) && /yard:granted/.test(end.wishes) && end.deposit, "Junia's yard (30 tiles, a gate), the well shown with her wishes granted, her axe and her first deposit, the knocked-out fence back in the kit, the HUD back: " + JSON.stringify(end));
   check(end.pill === "Walls round Junia's bed", 'the first step after the tutorial: ' + end.pill);
-  await simulate(page, 22 * 60);
-  const after = await page.evaluate(() => ({ rent: (town.rent || {}).total || 0, rent1: town.tut2.rent1 || null }));
+  await simulate(page, 2 * 1440 + 22 * 60);
+  const after = await page.evaluate(() => ({ rent: (town.rent || {}).total || 0, rent1: town.tut2.rent1 || null, given: town.wish ? town.wish.given : 0, paullusBed: (() => { const R = tut2Who('paullus'); return !!(R && R.bed && R.bed.x != null); })(), paullusWish: (town.wishes || []).some(w => w.who === town.tut2.who.paullus) }));
+  check(after.given > end.given, 'doing nothing for three days, coin still goes into the well (odd jobs, a coin for luck): ' + end.given + ' -> ' + after.given);
+  check(!after.paullusBed && !after.paullusWish, 'Paullus never gets a bed or makes a wish: ' + JSON.stringify(after));
   check(after.rent === 0 && !after.rent1, 'no rent the next morning: the well has taken its place: ' + JSON.stringify(after));
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
   return `played in ${rep.secs.toFixed(0)} s of real time (bubbles skipped), ${rep.said.length} lines`;

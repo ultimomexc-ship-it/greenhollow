@@ -3,7 +3,7 @@
    sees that, so nobody minds. It is also the town's quest log: the panel lists what each household wishes for (life2/wishes.ts).
    `town.wish` = { x, y (top left of its 3 x 3 tiles, `T.WELL`), coin, given, taken, log: [{ t, id, amt }] }. Art: `wishwell` in art/painters.ts, drawn standing up (YSORT). */
 
-const WELL: any = { minShare: 0.08, share0: 0.15, share1: 0.5, owe: 2, keep: 10, spare: 0.5, hour: 8 };
+const WELL: any = { minShare: 0.08, share0: 0.15, share1: 0.5, owe: 2, keep: 10, spare: 0.5, hour: 8, luck: 1, wishLuck: 2, odd: 3, oddHour: 16 };
 const wellOn = (): boolean => !!(typeof town !== 'undefined' && town && town.wish && typeof yardOn === 'function' && yardOn());
 const wellAt = (x: number, y: number): boolean => { const w = town && town.wish; return !!w && x >= w.x && x < w.x + 3 && y >= w.y && y < w.y + 3; };
 /** how much of what they earn somebody puts in the well: a little when miserable, half when delighted */
@@ -68,8 +68,23 @@ const _wellPay = pay; pay = function (from: any, to: any, amt: number) {
 // spare cash: each morning a grown-up with more than a few coins to hand means to drop part of the rest in (the same share as of earnings, times WELL.spare)
 LF2.hourly.push((h: number) => {
   if (!wellOn() || h !== WELL.hour) return;
-  for (const n of npcs) { if (n.dead || n.player || n.age < 16 || rentTrader(n)) continue; const spare = Math.floor(n.coin || 0) - WELL.keep; if (spare > 0) n.wellOwe = (n.wellOwe || 0) + spare * wellShare(n) * WELL.spare; }
+  for (const n of npcs) { if (n.dead || n.player || n.age < 16 || rentTrader(n)) continue; const spare = Math.floor(n.coin || 0) - WELL.keep; if (spare > 0) n.wellOwe = (n.wellOwe || 0) + spare * wellShare(n) * WELL.spare;
+    // a coin for luck every morning, wished for or not; with a wish still open a few more (more coin might be what it takes)
+    if ((n.coin || 0) >= 1) n.wellOwe = (n.wellOwe || 0) + WELL.luck + (typeof wishOf === 'function' && wishOf(n) ? WELL.wishLuck : 0); }
 });
+/* waiting earns: every grown-up does a day's odd work whatever you do (an axe fells a tree and the wood is sold, anybody else gathers herbs), paid by the
+   trader at WELL.oddHour, so coin keeps coming in and part of it reaches the well even if you build nothing at all and your purse is empty */
+function wellOddJobs() {
+  const m = typeof farmGrocer === 'function' ? farmGrocer() : null, R = m && m.n; if (!R || R.dead) return;
+  for (const n of npcs) {
+    if (n.dead || n.player || n.age < 16 || rentTrader(n) || n.tutHold || n.oddDay === Math.floor(game.time / 1440)) continue;
+    n.oddDay = Math.floor(game.time / 1440);
+    const axe = (n.items || []).some((i: any) => i.kind === 'axe'), g = axe ? 'wood' : 'herbs', q = axe ? 3 : 1, amt = axe ? 6 : WELL.odd;
+    if ((R.coin || 0) < amt) continue;
+    pay(R, n, amt); logTrade(R, n, g, q, amt, 'sell');
+  }
+}
+LF2.hourly.push((h: number) => { if (wellOn() && h === WELL.oddHour) wellOddJobs(); });
 /** the errand: somebody with a few coins owed walks to the well by day and drops them in */
 function wellErrand(n: any) {
   if (!wellOn() || n.player || n.age < 16 || rentTrader(n) || (n.wellErr || 0) > game.time) return null;
