@@ -6,6 +6,12 @@ Status: design, under discussion. Nothing here is built yet.
 
 The fun of Greenhollow is building, not farming. Households earn their own living (fields, stalls, jobs), and instead of paying you rent they drop a share of what they earn into a **wishing well** in the middle of town, usually with a **wish** ("I wish we had a window", "I wish the bathhouse had water"). The well is the town's pooled money and its quest list. You take coin from the well and spend it however you like on building. Because build mode stops time and nobody sees you work (see Surprises in CLAUDE.md), the islanders never learn who does it: **they believe the well grants wishes.** Happier homes earn more and give more, so building feeds building. New people only come when the people already here are content, so the town grows well, not just big.
 
+## The rule above all: building stays creative
+
+Wishes are **desires, not blueprints**. A wish says what somebody wants to feel or have ("somewhere to entertain guests", "more light", "flowers near my bed"), never "put this block here". Any way you find to answer it counts: a big room or a small one, any furniture that fits, inside or out. You can answer an expensive wish cheaply and spend lavishly somewhere nobody asked for. Wishes are suggestions and a source of feedback, never a checklist, and nothing forces you to grant them. Two players should end up with two different islands, each made of their own choices.
+
+So a wish's check is broad ("a room of theirs with a window", "a table and two seats anywhere in the yard", "the bathhouse has at least one pool"), there is credit for part of it where that makes sense, and the words people say about it ("My wish came true", "It is not quite what I meant, but I like it") come from how well what you built fits them, not from whether you followed a recipe.
+
 ## What is decided
 
 | Question | Decision |
@@ -17,6 +23,8 @@ The fun of Greenhollow is building, not farming. Households earn their own livin
 | Children | Wish too ("I wish there was somewhere to play"). |
 | Tutorial | Rewritten after the well has been tried in play. |
 | Household feedback | Needed. The yard sign is small: **walk into a fence** to read the household's card. |
+| Unlocks | A wish **can unlock** an item or building you cannot build yet. Some wishes need something else first (a carpenter's stall before fine furniture, for example). |
+| Pledged coin | **Does nothing for now.** The well is one purse; you can answer an expensive wish cheaply and go elaborate somewhere else. |
 | Public buildings | **Typed walls** (bathhouse wall, tavern wall ...), so a public building is easy to tell apart. Build inventory gets **groups** (Home, Fences and fields, Bathhouse, Tavern ...). |
 
 ## 1. The well and the money
@@ -32,12 +40,14 @@ The fun of Greenhollow is building, not farming. Households earn their own livin
 
 ## 2. Wishes: the quest list
 
-A wish is a record the game can check: `{ who (person or household or 'town'), kind, target (yard, room, building), need (a condition with have/need numbers, like the progression rows), coin pledged, made, expires }`.
+A wish is a record the game can check: `{ who (person or household or 'town'), kind, target (yard, room, building), need (a broad condition with have/need numbers, like the progression rows), coin pledged (shown, no effect for now), unlocks (items it adds to the kit), waits on (what must exist first), made, expires }`.
 
 - **Basic wishes** come from what is missing: a bed, a roof, a window, room for everybody ("the house is too small for four of us"), more fields, a gate that closes.
 - **Taste wishes** come from what they like (section 3): "I wish we had somewhere to entertain guests", "flowers by the door".
 - **Town wishes** are for public buildings (section 5): "I wish there was a bathhouse", "the bathhouse has no water", "it is too small for us all", "it could be nicer".
 - **Children's wishes**: a playground, a swing, a pet hen in the yard.
+- **Wishes that unlock**: a wish may name something not yet in the kit ("I wish we had a proper table to eat at"); making the wish puts that item on the trader's list (or the carpenter's), so the town's wishes open up the build menu over time. Some wishes wait on something else first (fine furniture needs the carpenter's stall; a bath needs a bathhouse): the panel shows what it is waiting for.
+- **Checks are broad**: a wish is met by anything that gives what it asks for, wherever it fits, and partly met is worth something (see the rule above).
 
 Where wishes show:
 - **The well panel** is the quest board: each wish, who made it, the coin pledged, how far along it is (have/need).
@@ -98,9 +108,7 @@ Public buildings stand outside every fence and are for everybody.
 
 ## Still open
 
-1. Can wishes ever ask for things you cannot build yet (and unlock them), or only for what the kit offers?
-2. Does the coin pledged to a wish matter for anything, or is it only a sign of how badly it is wanted?
-3. How does contentment turn into a share of earnings (numbers to find with the harness)?
-4. Yard tint by satisfaction in build mode, yes or no?
-5. Typed walls: one item per building type, or one "public wall" plus a sign that picks the type? Leaning to one item per type, grouped in the inventory.
-6. One well per town, or more as the town grows (one per neighbourhood)?
+1. How does contentment turn into a share of earnings (numbers to find with the harness)?
+2. Yard tint by satisfaction in build mode, yes or no?
+3. Typed walls: one item per building type, or one "public wall" plus a sign that picks the type? Leaning to one item per type, grouped in the inventory.
+4. One well per town, or more as the town grows (one per neighbourhood)?
