@@ -20,7 +20,7 @@ function tut2Hud() {
   const f = tut2Dom('tutfade', 'tutfade'); if (f) f.style.opacity = String(on ? ui.fade || 0 : 0);
 }
 /** a set of tiles by name, as the scenes name them */
-function tut2Tiles(name: any): any[] { if (!name) return []; if (Array.isArray(name)) return name; const v = town.tut2.at[name]; return Array.isArray(v) ? v : v ? [v] : []; }
+function tut2Tiles(name: any): any[] { if (!name) return []; if (typeof name === 'function') { const v = name(town.tut2); return Array.isArray(v) ? v : v ? [v] : []; } if (Array.isArray(name)) return name; const v = town.tut2.at[name]; return Array.isArray(v) ? v : v ? [v] : []; }
 const tut2Crop = (x: number, y: number) => town.crops.find((c: any) => c.x === x && c.y === y) || null;
 /** is this tile finished, for what the step asks */
 const TUT2_DONE: Record<string, (x: number, y: number) => boolean> = {
@@ -243,7 +243,7 @@ const botRows = (T2: any) => { if (!buildOn()) return { key: 'b' }; const r = tu
 /** where to stand: a greyed-out shadow of you on that tile, facing the right way (T2.ui.ghost: { at, face }, or 'fenceRow' for the next row of the ring); it is hidden while you stand there facing that way */
 function tut2DrawGhost(c: any, now: number) {
   const T2 = town.tut2, g0 = T2 && T2.ui && T2.ui.ghost, P = game.player; if (!g0 || !P) return;
-  const g = g0 === 'fenceRow' ? tut2FenceRow(T2) : g0; if (!g || !g.at) return;
+  const g = g0 === 'fenceRow' ? tut2FenceRow(T2) : typeof g0 === 'function' ? g0(T2) : g0; if (!g || !g.at) return;
   if (P.tx === g.at.x && P.ty === g.at.y && P.face && P.face.dx === g.face.dx && P.face.dy === g.face.dy) return;
   const sp = Object.assign({}, gaSpec(P, now), { face: g.face, pose: 'stand', moving: false, tool: null, hold: null, wave: false });
   c.save(); c.globalAlpha = 0.42 + 0.12 * Math.sin(now / 380); try { c.filter = 'grayscale(1) brightness(1.25)'; } catch (e) { /* (no canvas filters: just faded) */ }
@@ -254,6 +254,29 @@ function tut2DrawGhost(c: any, now: number) {
 function tut2YardInner(T2: any): any[] { const o = T2.at.o, M = TUT2_MAP.yard, r: any[] = []; for (let j = 1; j < M.h - 1; j++) for (let i = 1; i < M.w - 1; i++) r.push({ x: o.x + M.x + i, y: o.y + M.y + j }); return r; }
 function tut2Lap(T2: any): any[] { const o = T2.at.o, M = TUT2_MAP.yard, x0 = o.x + M.x + 1, y0 = o.y + M.y + 1, x1 = x0 + M.w - 3, y1 = y0 + M.h - 3, r: any[] = [];
   for (let x = x0; x <= x1; x++) r.push({ x, y: y0 }); for (let y = y0 + 1; y <= y1; y++) r.push({ x: x1, y }); for (let x = x1 - 1; x >= x0; x--) r.push({ x, y: y1 }); for (let y = y1 - 1; y > y0; y--) r.push({ x: x0, y }); return r; }
+/* ---- the clean-up: pushing taught right after the first sale. The night left two pieces of driftwood by the fire and a rock on the beach; driftwood is
+   pushed into the fire (it burns), the rock into the sea (it sinks): `pushDisposal` in life2/push.ts. Laid out in the morning (`tut2CleanLayout`), in a
+   straight line so the first push shows a chain: the two logs go together. ---- */
+function tut2CleanLayout(T2: any) {
+  const F = typeof allFires === 'function' ? allFires()[0] : null; T2.cleanOK = false; if (!F) return;
+  const at = T2.at, busy = (x: number, y: number) => ['keep', 'front', 'shore', 'watch', 'start', 'out'].some(k => at[k] && at[k].x === x && at[k].y === y);
+  const free = (x: number, y: number) => !!grid[y] && walkable(x, y) && grid[y][x] !== T.WATER && !lfPropAt(x, y) && !tileOwner.get(y * W + x) && !busy(x, y) && !pushFireAt(x, y);
+  let fd: any = null; for (const [dx, dy] of [[-1, 0], [0, -1], [1, 0], [0, 1]]) if ([1, 2, 3, 4].every(k => free(F.x + dx * k, F.y + dy * k))) { fd = { dx, dy }; break; }
+  const S = at.shore || at.front; let wd: any = null, wt: any = null;
+  for (let r = 1; r <= 10 && !wt; r++) for (let j = -r; j <= r && !wt; j++) for (let i = -r; i <= r && !wt; i++) { if (Math.max(Math.abs(i), Math.abs(j)) !== r) continue; const x = S.x + i, y = S.y + j; if (!grid[y] || grid[y][x] !== T.WATER) continue;
+    for (const [dx, dy] of [[0, 1], [1, 0], [-1, 0], [0, -1]]) if ([1, 2, 3].every(k => free(x - dx * k, y - dy * k))) { wt = { x, y }; wd = { dx, dy }; break; } }
+  if (!fd || !wt) return;
+  at.fire = { x: F.x, y: F.y }; at.fd = fd; at.water = wt; at.wd = wd;
+  for (const k of [1, 2]) { const pr: any = lfAddProp('drift', F.x + fd.dx * k, F.y + fd.dy * k); pr.art = 'drop_wood'; }
+  const rk: any = lfAddProp('rock', wt.x - wd.dx, wt.y - wd.dy); rk.v = 1; rk.tutRock = true;
+  T2.cleanOK = true;
+}
+const tut2Drifts = () => (town.props || []).filter((p: any) => p.kind === 'drift');
+const tut2Rock = () => (town.props || []).find((p: any) => p.kind === 'rock' && p.tutRock) || null;
+/** the driftwood furthest from the fire (push it and the line goes), where to stand behind it, and which way to face */
+function tut2DriftPush(T2: any): any { const f = T2.at.fire, d = T2.at.fd; if (!f || !d) return null; const p = tut2Drifts().sort((a: any, b: any) => (Math.abs(b.x - f.x) + Math.abs(b.y - f.y)) - (Math.abs(a.x - f.x) + Math.abs(a.y - f.y)))[0]; return p ? { into: { x: p.x, y: p.y }, stand: { x: p.x + d.dx, y: p.y + d.dy }, face: { dx: -d.dx, dy: -d.dy } } : null; }
+function tut2RockPush(T2: any): any { const r = tut2Rock(), d = T2.at.wd; if (!r || !d) return null; return { into: { x: r.x, y: r.y }, stand: { x: r.x - d.dx, y: r.y - d.dy }, face: { dx: d.dx, dy: d.dy } }; }
+const tut2PushBot = (fn: (T2: any) => any) => (T2: any) => { const q = fn(T2); return q ? { stand: q.stand, into: q.into } : null; };
 const below = (name: string) => (T2: any) => { const t = T2.at[name]; return { x: t.x, y: t.y + 1 }; };
 
 TUT2_SCENES.push(
@@ -298,7 +321,7 @@ TUT2_SCENES.push(
       J.x = J.tx = at.shore.x; J.y = J.ty = at.shore.y; J.face = { dx: 0, dy: 1 }; J.pose = 'stand'; J.coin = 8; J.inv.seed_turnip = 6; J.inv.grain = 4; J.back = 'was ironing a shirt, and then there was sand'; J.tutHold = true; J.newcomer = null;
       npcs.push(J); town.byId.set(J.id, J); T2.who.junia = J.id;
       for (const o of npcs) if (o !== J) { J.know[o.id] = 1; o.know[J.id] = 1; J.aff[o.id] = 6; o.aff[J.id] = 6; }
-      rebuildOcc(); refreshReach();
+      rebuildOcc(); tut2CleanLayout(T2); refreshReach();
     }),
     tpause(3), { do: 'fade', to: 0, over: 1.5 }, tset(T2 => { T2.input = true; }),
     tstrip('Go and look at the turnips.'), tarrow('patch'),
@@ -323,7 +346,30 @@ TUT2_SCENES.push(
     { do: 'walk', who: 'paullus', to: 'keep' }, { do: 'face', who: 'paullus', to: 'you' },
     tsay('paullus', "That's the whole trade."), tsay('paullus', 'Grow it. Sell it. Build with it.')
   ],
-  // Scene 5: Junia comes up from the shore and wishes for a bed; Paullus shows you build mode
+  // Scene 5: the clean-up (pushing): driftwood into the fire, a rock into the sea
+  [
+    { do: 'face', who: 'paullus', to: 'fire' }, tarrow(() => tut2Drifts()),
+    tsay('paullus', 'The sea left us some rubbish in the night.'), tsay('paullus', 'Driftwood. And a rock. It does that.'),
+    { do: 'face', who: 'paullus', to: 'you' }, tsay('paullus', 'Wood goes on the fire. Stone goes back in the sea.'),
+    tset(T2 => { T2.pushTaught = true; }), tlock({ build: true, push: true }, ['push']), tstrip('Press B to build.'),
+    twait(T2 => buildOn() || !T2.cleanOK, { nudge: { after: 25, say: ['paullus', 'B. The world stops for it.'] }, bot: (T2: any) => ({ stand: (tut2DriftPush(T2) || {}).stand, key: buildOn() ? null : 'b' }) }),
+    tsay('paullus', 'There. The world holds its breath while you build.'), tsay('paullus', 'Nobody sees it. They only find the thing afterwards.'),
+    tset(T2 => { T2.ui.ghost = (t: any) => { const q = tut2DriftPush(t); return q ? { at: q.stand, face: q.face } : null; }; }),
+    tstrip('Stand where the shadow stands and walk into the driftwood. Push it into the fire.'),
+    twait(() => tut2Drifts().length < 2, { bot: tut2PushBot(tut2DriftPush) }),
+    tsay('paullus', 'Never throw anything away.'), tsay('paullus', 'Burn it.'),
+    tstrip('Push the other one in too.'),
+    twait(() => tut2Drifts().length === 0, { bot: tut2PushBot(tut2DriftPush) }),
+    tarrow(() => tut2Rock()), tset(T2 => { T2.ui.ghost = (t: any) => { const q = tut2RockPush(t); return q ? { at: q.stand, face: q.face } : null; }; }),
+    tstrip('Now the rock. Push it into the sea.'),
+    twait(() => !tut2Rock(), { bot: tut2PushBot(tut2RockPush) }),
+    tset(T2 => { T2.ui.ghost = null; }), tarrow(),
+    tsay('paullus', 'The sea gave it to us.'), tsay('paullus', 'The sea can have it back.'),
+    tstrip('Press B to let the world go on.'),
+    twait(() => !buildOn(), { bot: () => ({ key: 'b' }) }),
+    tlock({}), tstrip()
+  ],
+  // Scene 6: Junia comes up from the shore and wishes for a bed; Paullus shows you build mode
   [
     { do: 'face', who: 'paullus', to: 'junia' }, tarrow('junia'),
     tsay('paullus', 'Somebody came ashore in the night.'), tsay('paullus', 'Nobody does it on purpose.'), tarrow(),
@@ -338,7 +384,7 @@ TUT2_SCENES.push(
     tarrow('jbed', 'bed'), tlock({ build: true }, ['bed'], 'jbed', 'On the marked place.'), tstrip('Press B to build.'), tset(T2 => { T2.ui.ghost = { at: below('jbed')(T2), face: { dx: 0, dy: -1 } }; }),
     twait(buildOn, { nudge: { after: 25, say: ['junia', "I think you press B. Don't ask me how I know."] }, bot: (T2: any) => ({ stand: below('jbed')(T2), key: buildOn() ? null : 'b' }) }),
     { do: 'face', who: 'paullus', to: 'you' },
-    tsay('paullus', 'There. The world holds its breath while you build.'), tsay('paullus', 'Nobody sees it. They only find the thing afterwards.'), tsay('paullus', "I did this for a long time. Now it's you. That stays between us."),
+    tsay('paullus', "I did this for a long time. Now it's you. That stays between us."),
     tstrip('The bar at the bottom is what you can build. The bed is on 1.'), tpause(2.5),
     tstrip('Stand where the shadow stands, facing the marked place, and press 1 to put the bed down.'),
     twait(T2 => TUT2_DONE.bed(T2.at.jbed.x, T2.at.jbed.y), { bot: (T2: any) => ({ stand: below('jbed')(T2), face: 'up', key: '1' }) }), tset(T2 => { T2.ui.ghost = null; }),
@@ -346,7 +392,7 @@ TUT2_SCENES.push(
     twait(() => !buildOn(), { bot: () => ({ key: 'b' }) }),
     tlock({}), tstrip(), tmark()
   ],
-  // Scene 6: her bed, and a wish for a fence
+  // Scene 7: her bed, and a wish for a fence
   [
     { do: 'walk', who: 'junia', to: (T2: any) => ({ x: T2.at.jbed.x + 1, y: T2.at.jbed.y }) }, { do: 'face', who: 'junia', dir: { dx: -1, dy: 0 } },
     tsay('junia', "There's a bed here and nobody in it."), tsay('junia', "I'm going to assume it's mine."),
@@ -356,7 +402,7 @@ TUT2_SCENES.push(
     tstock([{ item: 'fence', qty: 18, price: 1 }], [], 'Eighteen fences. Take all of them.'),
     tstrip('The trader sells fence.'), tarrow('front')
   ],
-  // Scene 7: the fence without a gate, and the hammer
+  // Scene 8: the fence without a gate, and the hammer
   [
     twait(shopIsOpen, { bot: botStall }), tstrip('Buy all 18.'),
     twait(() => (town.kit.fence || 0) >= 18, { bot: () => ({ shop: { tab: 'buy', i: 0, all: true } }) }),
@@ -395,7 +441,7 @@ TUT2_SCENES.push(
     { do: 'walk', who: 'junia', to: (() => { const T2 = town.tut2; return { x: T2.at.gate.x - 1, y: T2.at.gate.y }; }) },
     { do: 'walk', who: 'junia', to: (() => { const T2 = town.tut2; return { x: T2.at.gate.x + 1, y: T2.at.gate.y }; }) }
   ],
-  // Scene 8: her field, the end of the tutorial
+  // Scene 9: her field, the end of the tutorial
   [
     { do: 'walk', who: 'junia', to: (() => tut2YardInner(town.tut2)[5]) }, { do: 'face', who: 'junia', dir: { dx: 0, dy: 1 } },
     tsay('junia', "It's a good yard."), tsay('junia', 'I could grow something in it. If there were somewhere to grow it.'),

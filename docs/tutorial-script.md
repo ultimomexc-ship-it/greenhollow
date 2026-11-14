@@ -149,6 +149,22 @@ The tutorial island is the Hamlet's ground with these places, found by the scena
 11. **FACE** Paullus → you. **SAY** Paullus: "That's the whole trade."
 12. **SAY** Paullus: "Grow it. Sell it. Build with it."
 
+## Scene 4b (in the code: scene 5): the clean-up, pushing
+
+*Ends when the driftwood is burnt, the rock is in the sea, and you have left build mode.* Laid out at dawn (`tut2CleanLayout`): two pieces of driftwood in a line beside the camp fire, a rock on the beach one tile from the water. If no spot is found the scene passes straight through.
+
+1. **FACE** Paullus → the fire. **ARROW** → the driftwood. **SAY** Paullus: "The sea left us some rubbish in the night." "Driftwood. And a rock. It does that."
+2. **FACE** Paullus → you. **SAY** Paullus: "Wood goes on the fire. Stone goes back in the sea."
+3. **UNLOCK** build mode and pushing (the bar: Push). **STRIP** "Press B to build." **WAIT** build mode is on. (Nudge: "B. The world stops for it.")
+4. **SAY** Paullus: "There. The world holds its breath while you build." "Nobody sees it. They only find the thing afterwards." (Moved here from the bed scene.)
+5. **GHOST** where to stand behind the outer log. **STRIP** "Stand where the shadow stands and walk into the driftwood. Push it into the fire." **WAIT** one log has burnt: the push moves both, the front one goes into the fire (`pushDisposal` 'burn': flames, sparks, a crackle).
+6. **SAY** Paullus: "Never throw anything away." "Burn it." **STRIP** "Push the other one in too." **WAIT** none left.
+7. **ARROW** → the rock, **GHOST** behind it. **STRIP** "Now the rock. Push it into the sea." **WAIT** it has sunk (`pushDisposal` 'sink': a splash).
+8. **SAY** Paullus: "The sea gave it to us." "The sea can have it back."
+9. **STRIP** "Press B to let the world go on." **WAIT** build mode is off. **LOCK** everything again.
+
+Only driftwood burns and only loose rocks sink, for now (`PUSH_BURN`, `PUSH_SINK` in life2/push.ts): to be tried out before anything else does.
+
 ## Scene 5: Junia asks for a bed, and Paullus shows you build mode
 
 *Ends when the bed stands on JBED and you have left build mode.*

@@ -104,8 +104,13 @@ function lf2PushLine(n, x, y, dx, dy): true | string | null {
     if (!pushFurnitureOK(last.f, nx, ny, true)) return pushSwap(n, line[0]);
     if (!pushRoomConnected(r, line.map(p => [p.x, p.y, p.x + dx, p.y + dy] as [number, number, number, number]))) return 'That would block the way in the ' + (r.kind === 'house' ? 'house' : 'room') + '.';
   } else {
-    const stuck = line.some(p => p.kind === 'person' && pushSettled(p.who)), endOK = stairTo ? true : last.kind === 'person' ? pushPersonOK(nx, ny) : pushLooseOK(nx, ny);
-    if (stuck || !endOK) return pushSwap(n, line[0]);
+    // the front piece pushed into the fire (driftwood) or the sea (a loose rock) is gone, and the rest of the line steps up behind it
+    const disp = !stairTo && last.kind === 'prop' && last.pr ? pushDisposal(last.pr, nx, ny) : null;
+    if (disp) { pushDispose(last.pr, disp, nx, ny); line.pop(); }
+    else {
+      const stuck = line.some(p => p.kind === 'person' && pushSettled(p.who)), endOK = stairTo ? true : last.kind === 'person' ? pushPersonOK(nx, ny) : pushLooseOK(nx, ny);
+      if (stuck || !endOK) return pushSwap(n, line[0]);
+    }
   }
   if (line.length > PUSH_MAX) return 'Too much to push at once.';
   // move from the front, so each piece lands on the tile the next one has just left
@@ -120,6 +125,33 @@ function lf2PushLine(n, x, y, dx, dy): true | string | null {
   for (const pr of moved) if (typeof lf2AfterPush === 'function' && lfPropAt(pr.x, pr.y) === pr) lf2AfterPush(n, pr);
   sndPush(n && n.player ? 1 : sndAt(n.x, n.y));
   return true;
+}
+/* Getting rid of things by pushing (the tutorial's clean-up, to be tried out): driftwood pushed into a fire burns, a loose rock pushed into the sea sinks.
+   Only these two for now (`PUSH_BURN`, `PUSH_SINK`); anything else stops at the fire or the water as before. */
+const PUSH_BURN = new Set(['drift']), PUSH_SINK = new Set(['rock']);
+for (const [k, v] of [['drift', 'driftwood'], ['rock', 'rock']]) if (!LF_NOUN[k]) LF_NOUN[k] = v;   // (names for the hotbar's facing box)
+const pushFireAt = (x: number, y: number) => typeof allFires === 'function' && allFires().some((f: any) => f.x === x && f.y === y);
+function pushDisposal(pr: any, x: number, y: number): string | null {
+  if (!grid[y] || grid[y][x] == null) return null;
+  if (PUSH_BURN.has(pr.kind) && pushFireAt(x, y)) return 'burn';
+  if (PUSH_SINK.has(pr.kind) && grid[y][x] === T.WATER) return 'sink';
+  return null;
+}
+/** it goes: off the map of things, with flames or a splash */
+function pushDispose(pr: any, how: string, x: number, y: number) {
+  town.pblock[pr.y * W + pr.x] = 0; town.propAt.delete(pr.y * W + pr.x); town.props = town.props.filter((q: any) => q !== pr); town.lfPV = (town.lfPV || 0) + 1;
+  town.disposed = (town.disposed || 0) + 1;
+  const cx = x * TS + TS / 2, cy = y * TS + TS / 2;
+  if (typeof jBurst === 'function') {
+    if (how === 'burn') { jBurst(cx, cy - 6, 26, 'spark', ['#ffd36a', '#ff8a3a', '#ffef9a', '#e2502a'], 1.4, 2.2); jBurst(cx, cy - 10, 10, 'dot', ['rgba(90,90,90,.7)', 'rgba(140,140,140,.6)'], 0.6, 1.6); }
+    else { jBurst(cx, cy, 22, 'dot', ['#cfefff', '#8fd3ef', '#ffffff', '#5aaed0'], 1.2, 1.8); }
+  }
+  if (typeof jShake === 'function') jShake(how === 'burn' ? 3 : 2);
+  if (typeof sndNoise === 'function') {
+    const v = game.player ? sndAt(x, y) : 0;
+    if (how === 'burn') { sndNoise(0.5, 'lowpass', 900, 0.22 * v, 200); sndNoise(0.9, 'bandpass', 2400, 0.08 * v, 1200, 0.15); }
+    else { sndNoise(0.35, 'lowpass', 1600, 0.2 * v, 300); sndTone(420, 0.18, 'sine', 0.08 * v, 180, 0.05); }
+  }
 }
 /** a person pushed along: pushing happens in build mode, while time stands still, so nobody notices it happen and nobody knows who did it.
     Somebody pushed far enough to notice finds out when time runs again (`surpSettle`, life2/surprise.ts) and is surprised, not cross. */
