@@ -149,42 +149,15 @@ The tutorial island is the Hamlet's ground with these places, found by the scena
 11. **FACE** Paullus → you. **SAY** Paullus: "That's the whole trade."
 12. **SAY** Paullus: "Grow it. Sell it. Build with it."
 
-## Scene 4b (in the code: scene 5): the clean-up, pushing
+## Scenes 4 to 7 (rewritten): pushing Junia
 
-*Ends when the driftwood is burnt, the rock is in the sea, and you have left build mode.* Laid out at dawn (`tut2CleanLayout`): two pieces of driftwood in a line beside the camp fire, a rock on the beach one tile from the water. If no spot is found the scene passes straight through.
+*This replaces the old scenes 5 and 6 (Junia asks for a bed, Paullus gives one) and the start of 7. The code is the reference: `TUT2_SCENES` in src/life2/tutorial2-play.ts.*
 
-1. **FACE** Paullus → the fire. **ARROW** → the driftwood. **SAY** Paullus: "The sea left us some rubbish in the night." "Driftwood. And a rock. It does that."
-2. **FACE** Paullus → you. **SAY** Paullus: "Wood goes on the fire. Stone goes back in the sea."
-3. **UNLOCK** build mode and pushing (the bar: Push). **STRIP** "Press B to build." **WAIT** build mode is on. (Nudge: "B. The world stops for it.")
-4. **SAY** Paullus: "There. The world holds its breath while you build." "Nobody sees it. They only find the thing afterwards." (Moved here from the bed scene.)
-5. **GHOST** where to stand behind the outer log. **STRIP** "Stand where the shadow stands and walk into the driftwood. Push it into the fire." **WAIT** one log has burnt: the push moves both, the front one goes into the fire (`pushDisposal` 'burn': flames, sparks, a crackle).
-6. **SAY** Paullus: "Never throw anything away." "Burn it." **STRIP** "Push the other one in too." **WAIT** none left.
-7. **ARROW** → the rock, **GHOST** behind it. **STRIP** "Now the rock. Push it into the sea." **WAIT** it has sunk (`pushDisposal` 'sink': a splash).
-8. **SAY** Paullus: "The sea gave it to us." "The sea can have it back."
-9. **STRIP** "Press B to let the world go on." **WAIT** build mode is off. **LOCK** everything again.
-
-Only driftwood burns and only loose rocks sink, for now (`PUSH_BURN`, `PUSH_SINK` in life2/push.ts): to be tried out before anything else does.
-
-## Scene 5: Junia asks for a bed, and Paullus shows you build mode
-
-*Ends when the bed stands on JBED and you have left build mode.*
-
-1. **FACE** Paullus → SHORE. **ARROW** → Junia. **SAY** Paullus: "Somebody came ashore in the night." **SAY** Paullus: "Nobody does it on purpose." **ARROW off.**
-2. **WALK** Junia, SHORE → a tile next to you. **FACE** Junia → you.
-3. **SAY** Junia: "I was ironing a shirt, and then there was sand." **SAY** Junia: "I've decided not to think about it."
-4. **SAY** Junia: "Is there anywhere to sleep, on this island?" *(new line)* **SAY** Junia: "I'm not fussy. A bed would do." *(new line)*
-5. **FACE** Paullus → you. **SAY** Paullus: "Found this on the beach." **GIVE** 1 bed into the kit, free. **SAY** Paullus: "You know what to do with it. Or you will."
-6. **WALK** Junia → the tile west of JBED (she waits there). **MARK** JBED with a ghost bed, the 18 JYARD squares faint. **ARROW** → JBED.
-7. **UNLOCK** build mode, one slot: Bed × 1. **STRIP** "Press B to build." **WAIT** build mode is on.
-8. **SAY** Paullus: "There. The world holds its breath while you build." "Nobody sees it. They only find the thing afterwards." "I did this for a long time. Now it's you. That stays between us."
-9. **STRIP** "The bar at the bottom is what you can build. The bed is on 1." (2.5 s) **STRIP** "Face the marked place and press 1 to put the bed down." Placed only on JBED.
-10. **WAIT** the bed stands on JBED. **STRIP** "Press B to let the world go on." **WAIT** build mode is off.
-
-## Scene 6: her bed, and a wish for a fence
-
-1. **SAY** Junia: "There's a bed here and nobody in it." **SAY** Junia: "I'm going to assume it's mine." **SET** the bed is hers; she lies on it awake.
-2. **SAY** Junia: "I'd sleep better with something round me. A fence, say."
-3. **MARK** the 18 JYARD squares. **STALL** Fence × 18 at 1. **STRIP** "The trader sells fence." **ARROW** → FRONT.
+- **Dawn (scene 3):** Junia has washed up in the night, asleep in her own bed, on the customer's square in front of the stall. A grove of three trees with one side open stands nearby, a rock two tiles along from its opening. Placed by `tut2NookLayout`, which plans every push first.
+- **Scene 4:** harvest, "Bring them to the stall." You walk over and find the bed in the way.
+- **Scene 5, the puzzle:** Paullus: "There's a woman asleep in my shop." "I don't like to wake people. Nobody does it well." "I can't sell you anything with her there. It wouldn't be right." "Those trees. She would sleep well in among them." B and pushing unlock; "There. The world holds its breath while you build." "Nobody sees it. They only find the thing afterwards." The shadow shows each push: her bed into the grove ("In she goes."), then the rock into the opening ("Tidy." "She'll sleep well in there."). Pushing the rock in first blocks the grove: the shadow shows taking it back out. Then the sale: "Five each. For the help. Don't tell anyone." (9 turnips, 45 coin.)
+- **Scene 6:** Junia wakes: "I went to sleep in my own bed." "I woke up in my own bed." "There are trees on three sides of it now." "And a rock." Paullus: "She can't get out. That one's yours." You push the rock aside (it stays by the trees). Junia: "I was ironing a shirt, and then there was sand." "I've decided not to think about it." "Is there anywhere to live, on this island?" "I'd like a place of my own. With a fence round it, say." The ring is marked, its gap in yellow; the trader sells 18 fences.
+- **Scene 7:** buy 18, build the ring in rows from the shadow, leaving the yellow square open. Junia: "It's been a long morning." "I'm going back to sleep. It might reset." She walks back to her bed in the grove and sleeps. Paullus: "She'll want to wake up inside it." Walk into her bed from the opening: it cannot go back, so you swap places with it. Push it through the gap onto her spot, then close the gap from the last row's spot (press 1: the fence goes on the end of the row). Junia: "It didn't reset." Then the fence gag and the gate, as below (the gate goes where the gap was).
 
 ## Scene 7: the fence without a gate, and the hammer
 

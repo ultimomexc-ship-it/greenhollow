@@ -2864,24 +2864,24 @@ test('tutorial: the first morning plays from the old house to the clock starting
   const said = rep.said.filter(l => l.scene === 1).map(l => l.text);
   check(said.slice(0, 7).join(' | ') === ['Morning.', "You're new. Everybody is, here.", "This was mine. It's yours now.", "Don't ask how. I'm bad at the long version.", "Before anything else you'll want to eat.", "And for that you'll want a field.", 'Here. A hoe. The pointed end goes in the ground.'].join(' | '), 'Paullus says his lines in order: ' + said.join(' | '));
   const end = await page.evaluate(() => { const P = game.player, T2 = town.tut2, J = tut2Who('junia'), y = J && yardOfN(J);
-    return { coin: P.coin, tools: (P.items || []).map(i => i.kind).sort().join(), time: fmtTime(game.time), yard: !!y && y.cells.length, gate: TUT2_DONE.gate(T2.at.gate.x, T2.at.gate.y), sown: T2.at.jfield.filter(t => { const c = tut2Crop(t.x, t.y); return c && c.st; }).length, kitFence: town.kit.fence || 0, hidden: document.body.classList.contains('tut2'), pill: progStep(progState().step).title, disposed: town.disposed || 0, left: (town.props || []).filter(p => p.kind === 'drift' || p.tutRock).length }; });
-  check(end.disposed === 3 && end.left === 0, 'the clean-up: two pieces of driftwood burnt and the rock sunk, pushed by the bot: ' + JSON.stringify(end));
-  check(end.coin === 5 && end.tools === 'hammer,hoe' && end.time === '12:00', 'you end with 5 coin, a hoe and a hammer, at noon: ' + JSON.stringify(end));
+    return { coin: P.coin, tools: (P.items || []).map(i => i.kind).sort().join(), time: fmtTime(game.time), yard: !!y && y.cells.length, gate: TUT2_DONE.gate(T2.at.gate.x, T2.at.gate.y), sown: T2.at.jfield.filter(t => { const c = tut2Crop(t.x, t.y); return c && c.st; }).length, kitFence: town.kit.fence || 0, hidden: document.body.classList.contains('tut2'), pill: progStep(progState().step).title, nook: !!T2.nookOK, jbedAt: !!J && !!J.bed && J.bed.x === T2.at.jbed.x && J.bed.y === T2.at.jbed.y, rock: (() => { const r = tut2NookRock(); return !!r && r.x === T2.at.rockAside.x && r.y === T2.at.rockAside.y; })(), trees: (T2.at.trees || []).filter(t => grid[t.y][t.x] === T.TREE).length }; });
+  check(end.nook && end.jbedAt && end.rock && end.trees === 3, "the puzzle: Junia's bed pushed into the grove, the rock into its opening and aside, her bed through the gap onto its spot in her yard: " + JSON.stringify(end));
+  check(end.coin === 23 && end.tools === 'hammer,hoe' && end.time === '12:00', 'you end with 23 coin (the turnips sold at 5 for moving Junia), a hoe and a hammer, at noon: ' + JSON.stringify(end));
   check(end.yard === 12 && end.gate && end.sown === 6 && end.kitFence === 1 && !end.hidden, "Junia's yard (12 tiles, a gate), six sown plots, the knocked-out fence back in the kit, the HUD back: " + JSON.stringify(end));
   check(end.pill === "Walls round Junia's bed", 'the first step after the tutorial: ' + end.pill);
   await simulate(page, 22 * 60);
   const rent = await page.evaluate(() => ({ coin: game.player.coin, done: town.tut2.rent1, chron: town.chron.some(c => /Junia paid the first rent/.test(c.text || c)) }));
-  check(rent.done === 'done' && rent.coin === 7 && rent.chron, 'the next morning Junia hands over 2 coin in person: ' + JSON.stringify(rent));
+  check(rent.done === 'done' && rent.coin === 25 && rent.chron, 'the next morning Junia hands over 2 coin in person: ' + JSON.stringify(rent));
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
   return `played in ${rep.secs.toFixed(0)} s of real time (bubbles skipped), ${rep.said.length} lines`;
 });
 
-test('tutorial: the fence ring is built row by row from where the shadow stands, only on the marked squares; Junia asks for her bed before it is given', async b => {
+test('tutorial: the fence ring is built row by row from where the shadow stands, only on the marked squares; Junia wakes in the grove before she asks for a place of her own', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const rep = await playTutorial(page, { maxSec: 300, until: 7 });
   check(!rep.stuck, 'reaches scene 7: ' + JSON.stringify(rep.stuck));
-  const wish = rep.said.findIndex(l => /anywhere to sleep/.test(l.text)), gift = rep.said.findIndex(l => /Found this on the beach/.test(l.text));
-  check(wish >= 0 && gift > wish, 'Junia asks for somewhere to sleep before Paullus hands over the bed');
+  const woke = rep.said.findIndex(l => /I woke up in my own bed/.test(l.text)), wish = rep.said.findIndex(l => /a place of my own/.test(l.text));
+  check(woke >= 0 && wish > woke, 'Junia wakes up in the grove, then asks for a place of her own');
   const r = await page.evaluate(() => {
     const T2 = town.tut2, P = game.player, out = {}; town.kit.fence = 30; T2.locks = { build: true }; T2.slots = ['fence']; T2.only = 'yard'; T2.fenceFree = true; T2.ui.ghost = 'fenceRow';
     for (const t of T2.at.yard) { const q = lfPropAt(t.x, t.y); if (q) bldDeleteProp(q); }
@@ -2902,7 +2902,7 @@ test('tutorial: the fence ring is built row by row from where the shadow stands,
     T2.locks.push = true; P.tx = P.x = t.x; P.ty = P.y = t.y + 1; P.face = { dx: 0, dy: -1 }; out.fixed = lf2PushLine(P, t.x, t.y, 0, -1);   // (from inside, against the top row) out.dbg = { yards: (town.yards || []).map(y => [y.id, y.cells.length, y.open, y.gates.length]), fixedFn: typeof lfYardFixed === 'function' ? lfYardFixed(lfPropAt(t.x, t.y)) : 'nofn', at: [t.x, t.y], kind: (lfPropAt(t.x, t.y) || {}).kind, ring: T2.at.yard.filter(q => !lfPropAt(q.x, q.y)).length };
     return out;
   });
-  check(r.locked && r.firstRow && r.row, 'pushing stays locked, and from the shadow spot pressing 1 again and again lays the whole top row: ' + JSON.stringify(r));
+  check(r.firstRow && r.row, 'from the shadow spot pressing 1 again and again lays the whole top row: ' + JSON.stringify(r));
   check(r.noStray && r.next && r.notBeside, 'a press past the marks puts nothing down, the shadow moves to the next row, and nothing goes beside you: ' + JSON.stringify(r));
   check(/closed fence stands like a wall/.test(r.fixed || ''), 'a closed yard does not push: ' + r.fixed);
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
@@ -3045,7 +3045,7 @@ test('tutorial: the Watch button lets the bot play the whole first morning insid
     return { shown, done: !!(town.tut2 && town.tut2.done), secs: Math.round(t), scene: town.tut2 && town.tut2.scene, step: town.tut2 && town.tut2.step, cards: Object.keys(town.itemSeen || {}).join(), off: !TUTBOT.on };
   });
   check(r.shown && r.done && r.off, 'the bot plays it to the end from the button: ' + JSON.stringify(r));
-  check(/hoe/.test(r.cards) && /fence/.test(r.cards) && /bed/.test(r.cards), 'item cards were shown (and closed) on the way: ' + r.cards);
+  check(/hoe/.test(r.cards) && /fence/.test(r.cards) && /gate/.test(r.cards), 'item cards were shown (and closed) on the way: ' + r.cards);
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
   return `finished in ${r.secs} s of game-page real time; cards: ${r.cards}`;
 });

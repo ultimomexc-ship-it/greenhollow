@@ -4,7 +4,7 @@
 /** a short path that steps round people and things standing in the way (findPath ignores people); a breadth-first search within 40 tiles */
 function tut2BotPath(a: any, b: any): any[] | null {
   const P = game.player, R = 40, seen = new Map<number, number>(), q: number[] = [a.y * W + a.x]; seen.set(q[0], -1);
-  const free = (x: number, y: number) => walkable(x, y) && (!lfPropAt(x, y) || lfBedAt(x, y) || (x === b.x && y === b.y)) && !(tileOwner.get(y * W + x) && tileOwner.get(y * W + x) !== P) && Math.abs(x - a.x) <= R && Math.abs(y - a.y) <= R;
+  const free = (x: number, y: number) => walkable(x, y) && (!lfPropAt(x, y) || (lfBedAt(x, y) && !(lfPropAt(x, y).kind === 'bed' && lfPropAt(x, y).owner && lfPropAt(x, y).owner !== P)) || (x === b.x && y === b.y)) && !(tileOwner.get(y * W + x) && tileOwner.get(y * W + x) !== P) && Math.abs(x - a.x) <= R && Math.abs(y - a.y) <= R;
   for (let h = 0; h < q.length; h++) { const k = q[h], x = k % W, y = (k / W) | 0; if (x === b.x && y === b.y) { const out: any[] = []; let c = k; while (c !== q[0]) { out.unshift({ x: c % W, y: (c / W) | 0 }); c = seen.get(c) as number; } return out; }
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy, nk = ny * W + nx; if (seen.has(nk) || !free(nx, ny)) continue; seen.set(nk, k); q.push(nk); } }
   return findPath(a.x, a.y, b.x, b.y);   // (nothing better: the ordinary path)

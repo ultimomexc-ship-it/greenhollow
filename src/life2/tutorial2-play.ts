@@ -30,6 +30,7 @@ const TUT2_DONE: Record<string, (x: number, y: number) => boolean> = {
   fence: (x, y) => { const p = lfPropAt(x, y); return !!p && (p.kind === 'fence' || p.kind === 'gate'); },
   gate: (x, y) => { const p = lfPropAt(x, y); return !!p && p.kind === 'gate'; },
   bed: (x, y) => { const p = lfPropAt(x, y); return !!p && p.kind === 'bed'; },
+  rock: (x, y) => { const p = lfPropAt(x, y); return !!p && p.kind === 'rock'; },
   field: (x, y) => !!tut2Crop(x, y),
   gone: (x, y) => { const p = lfPropAt(x, y); return !p || p.kind === 'gate'; }
 };
@@ -254,29 +255,113 @@ function tut2DrawGhost(c: any, now: number) {
 function tut2YardInner(T2: any): any[] { const o = T2.at.o, M = TUT2_MAP.yard, r: any[] = []; for (let j = 1; j < M.h - 1; j++) for (let i = 1; i < M.w - 1; i++) r.push({ x: o.x + M.x + i, y: o.y + M.y + j }); return r; }
 function tut2Lap(T2: any): any[] { const o = T2.at.o, M = TUT2_MAP.yard, x0 = o.x + M.x + 1, y0 = o.y + M.y + 1, x1 = x0 + M.w - 3, y1 = y0 + M.h - 3, r: any[] = [];
   for (let x = x0; x <= x1; x++) r.push({ x, y: y0 }); for (let y = y0 + 1; y <= y1; y++) r.push({ x: x1, y }); for (let x = x1 - 1; x >= x0; x--) r.push({ x, y: y1 }); for (let y = y1 - 1; y > y0; y--) r.push({ x: x0, y }); return r; }
-/* ---- the clean-up: pushing taught right after the first sale. The night left two pieces of driftwood by the fire and a rock on the beach; driftwood is
-   pushed into the fire (it burns), the rock into the sea (it sinks): `pushDisposal` in life2/push.ts. Laid out in the morning (`tut2CleanLayout`), in a
-   straight line so the first push shows a chain: the two logs go together. ---- */
-function tut2CleanLayout(T2: any) {
-  const F = typeof allFires === 'function' ? allFires()[0] : null; T2.cleanOK = false; if (!F) return;
-  const at = T2.at, busy = (x: number, y: number) => ['keep', 'front', 'shore', 'watch', 'start', 'out'].some(k => at[k] && at[k].x === x && at[k].y === y);
-  const free = (x: number, y: number) => !!grid[y] && walkable(x, y) && grid[y][x] !== T.WATER && !lfPropAt(x, y) && !tileOwner.get(y * W + x) && !busy(x, y) && !pushFireAt(x, y);
-  let fd: any = null; for (const [dx, dy] of [[-1, 0], [0, -1], [1, 0], [0, 1]]) if ([1, 2, 3, 4].every(k => free(F.x + dx * k, F.y + dy * k))) { fd = { dx, dy }; break; }
-  const S = at.shore || at.front; let wd: any = null, wt: any = null;
-  for (let r = 1; r <= 10 && !wt; r++) for (let j = -r; j <= r && !wt; j++) for (let i = -r; i <= r && !wt; i++) { if (Math.max(Math.abs(i), Math.abs(j)) !== r) continue; const x = S.x + i, y = S.y + j; if (!grid[y] || grid[y][x] !== T.WATER) continue;
-    for (const [dx, dy] of [[0, 1], [1, 0], [-1, 0], [0, -1]]) if ([1, 2, 3].every(k => free(x - dx * k, y - dy * k))) { wt = { x, y }; wd = { dx, dy }; break; } }
-  if (!fd || !wt) return;
-  at.fire = { x: F.x, y: F.y }; at.fd = fd; at.water = wt; at.wd = wd;
-  for (const k of [1, 2]) { const pr: any = lfAddProp('drift', F.x + fd.dx * k, F.y + fd.dy * k); pr.art = 'drop_wood'; }
-  const rk: any = lfAddProp('rock', wt.x - wd.dx, wt.y - wd.dy); rk.v = 1; rk.tutRock = true;
-  T2.cleanOK = true;
+/* ---- pushing Junia: she washes up in the night, asleep in her own bed, on the customer's square in front of Paullus's stall. A grove of three
+   trees stands nearby with one side open and a rock two tiles off. You push her bed into the grove and the rock into its opening (the shop opens and
+   pays better for it); later she goes back to sleep there and you push her, bed and all, out of the grove (a swap: it cannot go back) and into her
+   fenced ring through the gap left for her, then close it. Every push is checked when the grove is laid out (`tut2BoxPlan`, a small Sokoban solver
+   for one thing at a time), and the same solver tells the shadow (`T2.ui.ghost`) and the bot where to stand next, so it never fails. ---- */
+const TUT2_DIRS = [{ dx: 1, dy: 0 }, { dx: -1, dy: 0 }, { dx: 0, dy: 1 }, { dx: 0, dy: -1 }];
+/** can a loose thing stand here (for planning a push) */
+function tut2BoxFree(x: number, y: number, extra?: Set<number>): boolean {
+  if (!grid[y] || grid[y][x] == null || (extra && extra.has(y * W + x))) return false;
+  const g = grid[y][x], who = tileOwner.get(y * W + x); if (!walkable(x, y) || g === T.WATER || g === T.CROP || roomAt[y][x] >= 0 || lfPropAt(x, y) || (who && who !== game.player)) return false;   // (you step out of the way as you push)
+  return !(typeof pushFireAt === 'function' && pushFireAt(x, y));
 }
-const tut2Drifts = () => (town.props || []).filter((p: any) => p.kind === 'drift');
-const tut2Rock = () => (town.props || []).find((p: any) => p.kind === 'rock' && p.tutRock) || null;
-/** the driftwood furthest from the fire (push it and the line goes), where to stand behind it, and which way to face */
-function tut2DriftPush(T2: any): any { const f = T2.at.fire, d = T2.at.fd; if (!f || !d) return null; const p = tut2Drifts().sort((a: any, b: any) => (Math.abs(b.x - f.x) + Math.abs(b.y - f.y)) - (Math.abs(a.x - f.x) + Math.abs(a.y - f.y)))[0]; return p ? { into: { x: p.x, y: p.y }, stand: { x: p.x + d.dx, y: p.y + d.dy }, face: { dx: -d.dx, dy: -d.dy } } : null; }
-function tut2RockPush(T2: any): any { const r = tut2Rock(), d = T2.at.wd; if (!r || !d) return null; return { into: { x: r.x, y: r.y }, stand: { x: r.x - d.dx, y: r.y - d.dy }, face: { dx: d.dx, dy: d.dy } }; }
-const tut2PushBot = (fn: (T2: any) => any) => (T2: any) => { const q = fn(T2); return q ? { stand: q.stand, into: q.into } : null; };
+/** can the player walk here (for planning) */
+function tut2WalkFree(x: number, y: number, extra?: Set<number>): boolean {
+  if (!grid[y] || grid[y][x] == null || (extra && extra.has(y * W + x))) return false;
+  if (!walkable(x, y)) return false; const p = lfPropAt(x, y); if (p && p.kind !== 'gate' && p.kind !== 'bed') return false;
+  const o = tileOwner.get(y * W + x); return !o || o === game.player || o.pose === 'sleep';
+}
+/** a plan for pushing one thing from `box` to the goal (a tile, or a test), the player starting at `pl`: the pushes in order [{ x, y, dx, dy }] (where the
+    thing is before each push and which way it goes), or null. `extra` are tiles to treat as blocked (things not placed yet) */
+function tut2BoxPlan(box: any, pl: any, goal: any, extra?: Set<number>, ignore?: any): any[] | null {
+  const isGoal = typeof goal === 'function' ? goal : (x: number, y: number) => x === goal.x && y === goal.y;
+  const gx = typeof goal === 'function' ? box.x : goal.x, gy = typeof goal === 'function' ? box.y : goal.y, M = 8;
+  const x0 = Math.min(box.x, gx, pl.x) - M, x1 = Math.max(box.x, gx, pl.x) + M, y0 = Math.min(box.y, gy, pl.y) - M, y1 = Math.max(box.y, gy, pl.y) + M;
+  const inR = (x: number, y: number) => x >= x0 && x <= x1 && y >= y0 && y <= y1;
+  const ig = (x: number, y: number) => !!ignore && ignore.x === x && ignore.y === y;   // (the thing being planned, where it stands now, does not block itself)
+  const walk = (x: number, y: number) => inR(x, y) && (ig(x, y) || tut2WalkFree(x, y, extra)), canBox = (x: number, y: number) => inR(x, y) && (ig(x, y) || tut2BoxFree(x, y, extra));
+  const reach = (bx: number, by: number, px: number, py: number) => { const seen = new Set<number>([py * W + px]), q = [[px, py]]; let mn = py * W + px;
+    for (let h = 0; h < q.length; h++) { const [x, y] = q[h]; for (const d of TUT2_DIRS) { const nx = x + d.dx, ny = y + d.dy, k = ny * W + nx; if (seen.has(k) || (nx === bx && ny === by) || !walk(nx, ny)) continue; seen.add(k); if (k < mn) mn = k; q.push([nx, ny]); } }
+    return { seen, mn }; };
+  if (isGoal(box.x, box.y)) return [];
+  const r0 = reach(box.x, box.y, pl.x, pl.y), start = { bx: box.x, by: box.y, px: pl.x, py: pl.y, path: [] as any[] }, vis = new Set<string>([box.x + ',' + box.y + ',' + r0.mn]);
+  const q: any[] = [start];
+  for (let h = 0; h < q.length && h < 6000; h++) {
+    const s0 = q[h], r = reach(s0.bx, s0.by, s0.px, s0.py);
+    for (const d of TUT2_DIRS) {
+      const sx = s0.bx - d.dx, sy = s0.by - d.dy, nx = s0.bx + d.dx, ny = s0.by + d.dy;
+      if (!r.seen.has(sy * W + sx) || !canBox(nx, ny)) continue;
+      const path = s0.path.concat([{ x: s0.bx, y: s0.by, dx: d.dx, dy: d.dy }]);
+      if (isGoal(nx, ny)) return path;
+      const r2 = reach(nx, ny, s0.bx, s0.by), key = nx + ',' + ny + ',' + r2.mn; if (vis.has(key)) continue; vis.add(key);
+      q.push({ bx: nx, by: ny, px: s0.bx, py: s0.by, path });
+    }
+  }
+  return null;
+}
+/** the next push of a plan as a shadow and a bot hint: where to stand, which way to face, what to walk into */
+function tut2NextPush(box: any, goal: any, extra?: Set<number>): any {
+  if (!box) return null; const P = game.player; const cur = P.moving && P.path && P.path.length ? P.path[P.path.length - 1] : { x: P.tx, y: P.ty };
+  const key = box.x + ',' + box.y + ':' + cur.x + ',' + cur.y + ':' + (typeof goal === 'function' ? 'f' : goal.x + ',' + goal.y) + ':' + (town.lfPV || 0);
+  const C = TUT2_PLAN; if (C.key !== key) { C.key = key; C.plan = tut2BoxPlan(box, cur, goal, extra, box); }
+  const p = C.plan; if (!p || !p.length) return null; const s = p[0];
+  return { stand: { x: s.x - s.dx, y: s.y - s.dy }, face: { dx: s.dx, dy: s.dy }, into: { x: s.x, y: s.y } };
+}
+const TUT2_PLAN: any = { key: '', plan: null };
+const tut2JBed = (): any => { const J = tut2Who('junia'); return J && J.bed && J.bed.x != null ? J.bed : null; };
+const tut2NookRock = (): any => (town.props || []).find((p: any) => p.kind === 'rock' && p.tutRock) || null;
+const tut2InRing = (x: number, y: number) => { const T2 = town.tut2, o = T2.at.o, M = TUT2_MAP.yard; return x > o.x + M.x && x < o.x + M.x + M.w - 1 && y > o.y + M.y && y < o.y + M.y + M.h - 1; };
+/** the grove: three trees round a free tile (N) with one side open (O), a rock two tiles along from the opening, near the stall. Every push the story needs
+    is planned before anything is placed; the first place where all of them work is used. Junia's bed is put on the customer's square, with her asleep in it. */
+function tut2NookLayout(T2: any, J: any): boolean {
+  const at = T2.at, F = at.front, o = at.o, B = TUT2_MAP.box; T2.nookOK = false;
+  const inBox = (x: number, y: number) => x >= o.x + B.x0 - 1 && x <= o.x + B.x1 + 1 && y >= o.y + B.y0 - 1 && y <= o.y + B.y1 + 1;
+  const near = (x: number, y: number) => (Math.abs(x - at.keep.x) <= 1 && Math.abs(y - at.keep.y) <= 1) || (x === F.x && y === F.y) || (typeof pushFireAt === 'function' && [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([i, j]) => pushFireAt(x + i, y + j)));
+  const free = (x: number, y: number) => !!grid[y] && [T.GRASS, T.PATH, T.SAND].includes(grid[y][x]) && walkable(x, y) && !lfPropAt(x, y) && !tileOwner.get(y * W + x) && roomAt[y][x] < 0 && !(town.nodeMap && town.nodeMap.has(y * W + x)) && !inBox(x, y) && !near(x, y);
+  const ringBlock = new Set<number>(); for (const t of at.yardFence.concat(at.own)) ringBlock.add(t.y * W + t.x);
+  const cands: any[] = [];
+  for (let j = -9; j <= 9; j++) for (let i = -9; i <= 9; i++) { const N = { x: F.x + i, y: F.y + j }, dist = Math.abs(i) + Math.abs(j); if (dist < 3 || !free(N.x, N.y)) continue;
+    for (const d of TUT2_DIRS) for (const e of [{ dx: d.dy, dy: d.dx }, { dx: -d.dy, dy: -d.dx }]) {
+      const O = { x: N.x + d.dx, y: N.y + d.dy }, trees = [{ x: N.x - d.dx, y: N.y - d.dy }, { x: N.x + e.dx, y: N.y + e.dy }, { x: N.x - e.dx, y: N.y - e.dy }];
+      const need = [O, { x: O.x + d.dx, y: O.y + d.dy }, { x: O.x + e.dx, y: O.y + e.dy }, { x: O.x + 2 * e.dx, y: O.y + 2 * e.dy }, { x: O.x + 3 * e.dx, y: O.y + 3 * e.dy }, { x: O.x - e.dx, y: O.y - e.dy }].concat(trees);
+      if (need.every(t => free(t.x, t.y))) cands.push({ N, O, d, e, trees, R: { x: O.x + 2 * e.dx, y: O.y + 2 * e.dy }, s: dist + Math.hypot(N.x - at.gap.x, N.y - at.gap.y) * 0.4 });
+    } }
+  cands.sort((a, b) => a.s - b.s);
+  const k = (t: any) => t.y * W + t.x, plStart = [{ x: F.x - 1, y: F.y }, { x: F.x + 1, y: F.y }, { x: F.x, y: F.y + 1 }].find(t => tut2WalkFree(t.x, t.y)) || { x: F.x, y: F.y + 1 };
+  for (const c of cands.slice(0, 60)) {
+    const trees = new Set<number>(c.trees.map(k));
+    // 1: the bed from the shop into the grove, the rock lying where it will be
+    const p1 = tut2BoxPlan(F, plStart, c.N, new Set([...trees, k(c.R)])); if (!p1) continue;
+    // 2: the rock into the opening, the bed in the grove
+    const p2 = tut2BoxPlan(c.R, { x: c.O.x + c.d.dx, y: c.O.y + c.d.dy }, c.O, new Set([...trees, k(c.N)])); if (!p2) continue;
+    // 3: later the bed comes out (a swap at the opening) and goes through the gap into her ring; the rock lies one tile aside, the ring stands but for the gap
+    const rock3 = { x: c.O.x + c.e.dx, y: c.O.y + c.e.dy }, p3 = tut2BoxPlan(c.O, c.N, at.jbed, new Set([...trees, k(rock3), ...ringBlock])); if (!p3) continue;
+    // all of it works: plant the trees, lay the rock, put Junia's bed in front of the shop with her asleep in it
+    for (const t of c.trees) { setT(t.x, t.y, T.TREE); markDirty(t.x, t.y, 1, 1); }
+    const rk: any = lfAddProp('rock', c.R.x, c.R.y); rk.v = 2; rk.tutRock = true;
+    const bed: any = lfAddProp('bed', F.x, F.y); bed.v = 3; bed.rot = 0; bed.owner = J; bed.rider = J; J.bed = bed; J.homeless = false;
+    J.tx = J.x = F.x; J.ty = J.y = F.y; J.pose = 'sleep'; J.face = { dx: 0, dy: 1 }; J.status = 'Asleep in her bed, in front of the stall';
+    at.nook = c.N; at.nookO = c.O; at.nookD = c.d; at.nookE = c.e; at.rock0 = c.R; at.rockAside = rock3; at.trees = c.trees;
+    town.gridV = (town.gridV || 0) + 1; town.lfPV = (town.lfPV || 0) + 1; town.treeCache = null; T2.nookOK = true;
+    return true;
+  }
+  // (no room for the grove: she still washes up, just beside the stall; the puzzle steps pass straight through)
+  J.x = J.tx = at.shore.x; J.y = J.ty = at.shore.y; J.pose = 'stand';
+  return false;
+}
+/** the shadow for the next push of Junia's bed to a place, or of the rock */
+const tut2BedGhost = (goal: any) => (T2: any) => { const b = tut2JBed(); const g = typeof goal === 'function' ? goal(T2) : typeof goal === 'string' ? T2.at[goal] : goal; const q = b && g ? tut2NextPush(b, g) : null; return q ? { at: q.stand, face: q.face } : null; };
+const tut2BedBot = (goal: any) => (T2: any) => { const b = tut2JBed(); const g = typeof goal === 'function' ? goal(T2) : typeof goal === 'string' ? T2.at[goal] : goal; const q = b && g ? tut2NextPush(b, g) : null; return q ? { stand: q.stand, into: q.into } : null; };
+const tut2RockGoal = (T2: any) => { const b = tut2JBed(), n = T2.at.nook; return b && b.x === n.x && b.y === n.y ? T2.at.nookO : T2.at.rock0; };   // (into the opening once she is in; back where it was if it got there first)
+const tut2RockGhost = (T2: any) => { const r = tut2NookRock(); const q = r ? tut2NextPush(r, tut2RockGoal(T2)) : null; return q ? { at: q.stand, face: q.face } : null; };
+const tut2RockBot = (T2: any) => { const r = tut2NookRock(); const q = r ? tut2NextPush(r, tut2RockGoal(T2)) : null; return q ? { stand: q.stand, into: q.into } : null; };
+/** the puzzle's own shadow: the bed into the grove first; if the rock blocks the opening first, the rock out of the way */
+const tut2PuzzleGhost = (T2: any) => { const b = tut2JBed(), n = T2.at.nook, inN = b && b.x === n.x && b.y === n.y; if (inN) return tut2RockGhost(T2); return tut2BedGhost(n)(T2) || tut2RockGhost(T2); };
+const tut2PuzzleBot = (T2: any) => { const b = tut2JBed(), n = T2.at.nook, inN = b && b.x === n.x && b.y === n.y; if (inN) return tut2RockBot(T2); return tut2BedBot(n)(T2) || tut2RockBot(T2); };
+const tut2BedAt = (t: any) => { const b = tut2JBed(); return !!b && !!t && b.x === t.x && b.y === t.y; };
+const tut2RockAt = (t: any) => { const r = tut2NookRock(); return !!r && !!t && r.x === t.x && r.y === t.y; };
 const below = (name: string) => (T2: any) => { const t = T2.at[name]; return { x: t.x, y: t.y + 1 }; };
 
 TUT2_SCENES.push(
@@ -321,14 +406,14 @@ TUT2_SCENES.push(
       J.x = J.tx = at.shore.x; J.y = J.ty = at.shore.y; J.face = { dx: 0, dy: 1 }; J.pose = 'stand'; J.coin = 8; J.inv.seed_turnip = 6; J.inv.grain = 4; J.back = 'was ironing a shirt, and then there was sand'; J.tutHold = true; J.newcomer = null;
       npcs.push(J); town.byId.set(J.id, J); T2.who.junia = J.id;
       for (const o of npcs) if (o !== J) { J.know[o.id] = 1; o.know[J.id] = 1; J.aff[o.id] = 6; o.aff[J.id] = 6; }
-      rebuildOcc(); tut2CleanLayout(T2); refreshReach();
+      rebuildOcc(); tut2NookLayout(T2, J); rebuildOcc(); refreshReach();
     }),
     tpause(3), { do: 'fade', to: 0, over: 1.5 }, tset(T2 => { T2.input = true; }),
     tstrip('Go and look at the turnips.'), tarrow('patch'),
     twait(T2 => tut2NextTo(game.player, T2.at.patch), { bot: (T2: any) => ({ stand: { x: T2.at.patch[6].x, y: T2.at.patch[6].y + 1 } }) }),
     { do: 'face', who: 'paullus', to: 'you' }, tsay('paullus', 'There. Told you.')
   ],
-  // Scene 4: harvest and the first sale
+  // Scene 4: harvest, and a woman asleep in front of the shop
   [
     tstrip('Walk into the turnips to pull them.'), tarrow('patch', 'pulled'), tmark('patch', 'pulled'),
     twait(() => tut2AllDone('patch', 'pulled'), { bot: botWork('patch', 'pulled') }),
@@ -336,84 +421,97 @@ TUT2_SCENES.push(
     tset(T2 => { const R = tut2Who('paullus'); if (R) R.coin = Math.max(R.coin || 0, 200); }),
     { do: 'walk', who: 'paullus', to: 'keep', async: true },
     tarrow('front'), tstrip('Take the turnips to the stall.'),
-    tstock([], [{ item: 'turnip', price: 3 }], "Turnips. I'll take them."),
+    twait(T2 => { const P = game.player, f = T2.at.front; return Math.abs(P.tx - f.x) + Math.abs(P.ty - f.y) <= 3; }, { bot: (T2: any) => ({ stand: tut2Beside(T2.at.front) || T2.at.front }) }),
+    tstrip(), tarrow()
+  ],
+  // Scene 5: the puzzle: her bed into the grove, the rock in its opening; then the sale, at a better price
+  [
+    { do: 'walk', who: 'paullus', to: 'keep' }, { do: 'face', who: 'paullus', to: 'front' }, tarrow('front'),
+    tsay('paullus', "There's a woman asleep in my shop."), tsay('paullus', "I don't like to wake people. Nobody does it well."),
+    { do: 'face', who: 'paullus', to: 'you' }, tsay('paullus', "I can't sell you anything with her there. It wouldn't be right."),
+    tarrow('nook'), tsay('paullus', 'Those trees. She would sleep well in among them.'),
+    tset(T2 => { T2.pushTaught = true; T2.ui.marks = T2.nookOK ? [{ tiles: 'nook', done: 'bed', ghost: true }, { tiles: 'nookO', done: 'rock', color: '#f0b43c' }] : []; }),
+    tlock({ build: true, push: true }, ['push']), tstrip('Press B to build.'),
+    twait(T2 => buildOn() || !T2.nookOK, { nudge: { after: 25, say: ['paullus', 'B. The world stops for it.'] }, bot: (T2: any) => ({ key: buildOn() ? null : 'b' }) }),
+    tsay('paullus', 'There. The world holds its breath while you build.'), tsay('paullus', 'Nobody sees it. They only find the thing afterwards.'),
+    tset(T2 => { T2.ui.ghost = tut2PuzzleGhost; }), tarrow(() => tut2JBed()),
+    tstrip('Stand where the shadow stands and walk into her bed. Push it into the gap between the three trees.'),
+    twait(T2 => !T2.nookOK || tut2BedAt(T2.at.nook), { bot: tut2PuzzleBot }),
+    tsay('paullus', 'In she goes.'),
+    tarrow(() => tut2NookRock()), tstrip('Now the rock. Push it into the opening, so she stays put.'),
+    twait(T2 => !T2.nookOK || (tut2BedAt(T2.at.nook) && tut2RockAt(T2.at.nookO)), { bot: tut2PuzzleBot }),
+    tset(T2 => { T2.ui.ghost = null; T2.ui.marks = []; }), tarrow(),
+    tsay('paullus', 'Tidy.'), tsay('paullus', "She'll sleep well in there."),
+    tstrip('Press B to let the world go on.'),
+    twait(() => !buildOn(), { bot: () => ({ key: 'b' }) }),
+    tlock({}), tstrip(),
+    { do: 'face', who: 'paullus', to: 'you' }, tsay('paullus', 'Now. Turnips.'),
+    tarrow('front'), tstrip('Sell the turnips to Paullus.'),
+    tstock([], [{ item: 'turnip', price: 5 }], "Five each. For the help. Don't tell anyone."),
     twait(shopIsOpen, { bot: botStall }),
     tstrip('Sell all 9.'),
     twait(() => !(game.player.inv.turnip > 0), { bot: () => ({ shop: { tab: 'sell', i: 0, all: true } }) }),
     tstrip('Close the panel.'),
     twait(() => !shopIsOpen(), { bot: () => ({ shop: { close: true } }) }),
     tstrip(), tarrow(), tstock([], [], ''),
-    { do: 'walk', who: 'paullus', to: 'keep' }, { do: 'face', who: 'paullus', to: 'you' },
+    { do: 'face', who: 'paullus', to: 'you' },
     tsay('paullus', "That's the whole trade."), tsay('paullus', 'Grow it. Sell it. Build with it.')
   ],
-  // Scene 5: the clean-up (pushing): driftwood into the fire, a rock into the sea
+  // Scene 6: Junia wakes up in the grove; the rock aside; she wishes for a place of her own with a fence round it
   [
-    { do: 'face', who: 'paullus', to: 'fire' }, tarrow(() => tut2Drifts()),
-    tsay('paullus', 'The sea left us some rubbish in the night.'), tsay('paullus', 'Driftwood. And a rock. It does that.'),
-    { do: 'face', who: 'paullus', to: 'you' }, tsay('paullus', 'Wood goes on the fire. Stone goes back in the sea.'),
-    tset(T2 => { T2.pushTaught = true; }), tlock({ build: true, push: true }, ['push']), tstrip('Press B to build.'),
-    twait(T2 => buildOn() || !T2.cleanOK, { nudge: { after: 25, say: ['paullus', 'B. The world stops for it.'] }, bot: (T2: any) => ({ stand: (tut2DriftPush(T2) || {}).stand, key: buildOn() ? null : 'b' }) }),
-    tsay('paullus', 'There. The world holds its breath while you build.'), tsay('paullus', 'Nobody sees it. They only find the thing afterwards.'),
-    tset(T2 => { T2.ui.ghost = (t: any) => { const q = tut2DriftPush(t); return q ? { at: q.stand, face: q.face } : null; }; }),
-    tstrip('Stand where the shadow stands and walk into the driftwood. Push it into the fire.'),
-    twait(() => tut2Drifts().length < 2, { bot: tut2PushBot(tut2DriftPush) }),
-    tsay('paullus', 'Never throw anything away.'), tsay('paullus', 'Burn it.'),
-    tstrip('Push the other one in too.'),
-    twait(() => tut2Drifts().length === 0, { bot: tut2PushBot(tut2DriftPush) }),
-    tarrow(() => tut2Rock()), tset(T2 => { T2.ui.ghost = (t: any) => { const q = tut2RockPush(t); return q ? { at: q.stand, face: q.face } : null; }; }),
-    tstrip('Now the rock. Push it into the sea.'),
-    twait(() => !tut2Rock(), { bot: tut2PushBot(tut2RockPush) }),
-    tset(T2 => { T2.ui.ghost = null; }), tarrow(),
-    tsay('paullus', 'The sea gave it to us.'), tsay('paullus', 'The sea can have it back.'),
+    tset(T2 => { const J = tut2Who('junia'); if (J) { J.pose = 'stand'; J.status = 'Awake, among three trees'; const b = J.bed; if (b) b.rider = null; } }),
+    { do: 'face', who: 'junia', to: 'you' },
+    tsay('junia', 'I went to sleep in my own bed.'), tsay('junia', 'I woke up in my own bed.'),
+    tsay('junia', 'There are trees on three sides of it now.'), tsay('junia', 'And a rock.'),
+    { do: 'face', who: 'paullus', to: 'you' }, tsay('paullus', "She can't get out. That one's yours."),
+    tset(T2 => { T2.ui.ghost = T2.nookOK ? { at: { x: T2.at.nookO.x - T2.at.nookE.dx, y: T2.at.nookO.y - T2.at.nookE.dy }, face: T2.at.nookE } : null; T2.ui.marks = T2.nookOK ? [{ tiles: 'rockAside', done: 'rock', color: '#f0b43c' }] : []; }),
+    tarrow(() => tut2NookRock()), tlock({ build: true, push: true }, ['push']),
+    tstrip('Press B and push the rock aside, so she can get out.'),
+    twait(T2 => !T2.nookOK || !tut2RockAt(T2.at.nookO), { bot: (T2: any) => { if (!buildOn()) return { key: 'b' }; const at = T2.at; return { stand: { x: at.nookO.x - at.nookE.dx, y: at.nookO.y - at.nookE.dy }, into: at.nookO }; } }),
+    tset(T2 => { T2.ui.ghost = null; T2.ui.marks = []; }), tarrow(),
     tstrip('Press B to let the world go on.'),
     twait(() => !buildOn(), { bot: () => ({ key: 'b' }) }),
-    tlock({}), tstrip()
-  ],
-  // Scene 6: Junia comes up from the shore and wishes for a bed; Paullus shows you build mode
-  [
-    { do: 'face', who: 'paullus', to: 'junia' }, tarrow('junia'),
-    tsay('paullus', 'Somebody came ashore in the night.'), tsay('paullus', 'Nobody does it on purpose.'), tarrow(),
+    tlock({}), tstrip(),
     { do: 'walk', who: 'junia', to: () => tut2Beside(tut2Pos('you')) || tut2Pos('front') }, { do: 'face', who: 'junia', to: 'you' },
     tsay('junia', 'I was ironing a shirt, and then there was sand.'), tsay('junia', "I've decided not to think about it."),
-    tsay('junia', 'Is there anywhere to sleep, on this island?'), tsay('junia', "I'm not fussy. A bed would do."),
-    { do: 'face', who: 'paullus', to: 'you' }, tsay('paullus', 'Found this on the beach.'),
-    tset(() => { town.kit.bed = (town.kit.bed || 0) + 1; itemCard('bed'); }),
-    tsay('paullus', 'You know what to do with it. Or you will.'),
-    { do: 'walk', who: 'junia', to: (T2: any) => ({ x: T2.at.jbed.x + 1, y: T2.at.jbed.y }), async: true },   // (she waits inside the ring, off the fence marks)
-    tset(T2 => { T2.ui.marks = [{ tiles: 'jbed', done: 'bed', ghost: true }, { tiles: 'yard', faint: true }]; }),
-    tarrow('jbed', 'bed'), tlock({ build: true }, ['bed'], 'jbed', 'On the marked place.'), tstrip('Press B to build.'), tset(T2 => { T2.ui.ghost = { at: below('jbed')(T2), face: { dx: 0, dy: -1 } }; }),
-    twait(buildOn, { nudge: { after: 25, say: ['junia', "I think you press B. Don't ask me how I know."] }, bot: (T2: any) => ({ stand: below('jbed')(T2), key: buildOn() ? null : 'b' }) }),
-    { do: 'face', who: 'paullus', to: 'you' },
-    tsay('paullus', "I did this for a long time. Now it's you. That stays between us."),
-    tstrip('The bar at the bottom is what you can build. The bed is on 1.'), tpause(2.5),
-    tstrip('Stand where the shadow stands, facing the marked place, and press 1 to put the bed down.'),
-    twait(T2 => TUT2_DONE.bed(T2.at.jbed.x, T2.at.jbed.y), { bot: (T2: any) => ({ stand: below('jbed')(T2), face: 'up', key: '1' }) }), tset(T2 => { T2.ui.ghost = null; }),
-    tarrow(), tstrip('Press B to let the world go on.'),
-    twait(() => !buildOn(), { bot: () => ({ key: 'b' }) }),
-    tlock({}), tstrip(), tmark()
-  ],
-  // Scene 7: her bed, and a wish for a fence
-  [
-    { do: 'walk', who: 'junia', to: (T2: any) => ({ x: T2.at.jbed.x + 1, y: T2.at.jbed.y }) }, { do: 'face', who: 'junia', dir: { dx: -1, dy: 0 } },
-    tsay('junia', "There's a bed here and nobody in it."), tsay('junia', "I'm going to assume it's mine."),
-    tset(T2 => { const J = tut2Who('junia'), b = lfPropAt(T2.at.jbed.x, T2.at.jbed.y); if (J && b) { if (b.owner && b.owner !== J && b.owner.bed === b) b.owner.bed = { owner: null }; b.owner = J; b.v = 3; J.bed = b; J.homeless = false; J.tx = J.x = b.x; J.ty = J.y = b.y; J.pose = 'sleep'; J.status = 'Lying on the bed, awake'; town.lfPV = (town.lfPV || 0) + 1; } }),
-    tsay('junia', "I'd sleep better with something round me. A fence, say."),
-    tmark('yard', 'fence'),
+    tsay('junia', 'Is there anywhere to live, on this island?'), tsay('junia', "I'd like a place of my own. With a fence round it, say."),
+    tmark('yardFence', 'fence'), tset(T2 => { T2.ui.marks = T2.ui.marks.concat([{ tiles: 'gap', color: '#f0b43c' }]); }),
     tstock([{ item: 'fence', qty: 18, price: 1 }], [], 'Eighteen fences. Take all of them.'),
     tstrip('The trader sells fence.'), tarrow('front')
   ],
-  // Scene 8: the fence without a gate, and the hammer
+  // Scene 7: the fence with a gap; she goes back to sleep; her bed through the gap, the gap closed; the fence without a gate, and the hammer
   [
     twait(shopIsOpen, { bot: botStall }), tstrip('Buy all 18.'),
     twait(() => (town.kit.fence || 0) >= 18, { bot: () => ({ shop: { tab: 'buy', i: 0, all: true } }) }),
     twait(() => !shopIsOpen(), { bot: () => ({ shop: { close: true } }) }),
-    tarrow('yard', 'fence'), tlock({ build: true }, ['fence'], 'yard'), tset(T2 => { T2.fenceFree = true; T2.ui.ghost = 'fenceRow'; }),
-    tstrip('Press B. Stand where the shadow stands, face the same way, and press 1 again and again: each fence goes on the end of the row.'),
-    twait(T2 => tut2AllDone('yard', 'fence'), { bot: botRows }),
+    tarrow('yardFence', 'fence'), tlock({ build: true, push: true }, ['fence', 'push'], 'yardFence'), tset(T2 => { T2.fenceFree = true; T2.gapOpen = true; T2.ui.ghost = 'fenceRow'; }),
+    tstrip('Press B. Stand where the shadow stands, face the same way, and press 1 again and again: each fence goes on the end of the row. Leave the yellow square open.'),
+    twait(T2 => tut2AllDone('yardFence', 'fence'), { bot: botRows }),
     tset(T2 => { T2.fenceFree = false; T2.ui.ghost = null; }),
     tarrow(), tstrip('Press B to let the world go on.'),
     twait(() => !buildOn(), { bot: () => ({ key: 'b' }) }),
     tlock({}), tstrip(), tmark(),
+    // she is tired: back to her bed in the grove, asleep
+    { do: 'face', who: 'junia', to: 'you' }, tsay('junia', "It's been a long morning."), tsay('junia', "I'm going back to sleep. It might reset."),
+    { do: 'walk', who: 'junia', to: 'nook' },
+    tset(T2 => { const J = tut2Who('junia'), b = J && J.bed; if (J && b && b.x != null) { J.tx = J.x = b.x; J.ty = J.y = b.y; J.pose = 'sleep'; J.status = 'Asleep again, hoping it resets'; b.rider = J; rebuildOcc(); } }),
+    { do: 'face', who: 'paullus', to: 'you' }, tsay('paullus', "She'll want to wake up inside it."),
+    tset(T2 => { T2.ui.marks = [{ tiles: 'jbed', done: 'bed', ghost: true }, { tiles: 'gap', color: '#f0b43c' }]; T2.ui.ghost = T2.nookOK ? { at: T2.at.nookO, face: { dx: -T2.at.nookD.dx, dy: -T2.at.nookD.dy } } : null; }),
+    tarrow(() => tut2JBed()), tlock({ build: true, push: true }, ['push']),
+    tstrip('Press B. Walk into her bed from the opening: it cannot go back, so you swap places with it.'),
+    twait(T2 => !T2.nookOK || !tut2BedAt(T2.at.nook), { bot: (T2: any) => { if (!buildOn()) return { key: 'b' }; return { stand: T2.at.nookO, into: T2.at.nook }; } }),
+    tset(T2 => { T2.ui.ghost = tut2BedGhost('jbed'); }),
+    tstrip('Now push her bed into her yard, through the gap.'),
+    twait(T2 => !T2.nookOK || tut2BedAt(T2.at.jbed), { bot: tut2BedBot('jbed') }),
+    tset(T2 => { const o = T2.at.o, M = TUT2_MAP.yard; T2.gapOpen = false; T2.fenceFree = true; T2.ui.marks = [{ tiles: 'gap', done: 'fence' }]; T2.ui.ghost = { at: { x: o.x + M.x, y: o.y + M.y + M.h }, face: { dx: 0, dy: -1 } }; }),
+    tarrow('gap', 'fence'), tlock({ build: true, push: true }, ['fence', 'push'], 'gap'),
+    tstrip('Close the gap: stand where the shadow stands and press 1. The fence goes on the end of the row.'),
+    twait(T2 => TUT2_DONE.fence(T2.at.gap.x, T2.at.gap.y), { bot: (T2: any) => { const o = T2.at.o, M = TUT2_MAP.yard, st = { x: o.x + M.x, y: o.y + M.y + M.h }; return { stand: st, faceTo: { x: st.x, y: st.y - 1 }, key: '1' }; } }),
+    tset(T2 => { T2.fenceFree = false; T2.ui.ghost = null; }),
+    tarrow(), tstrip('Press B to let the world go on.'),
+    twait(() => !buildOn(), { bot: () => ({ key: 'b' }) }),
+    tlock({}), tstrip(), tmark(),
+    tsay('junia', 'It didn\'t reset.'),
     tset(T2 => { const J = tut2Who('junia'); if (J) J.pose = 'stand'; }),
     { do: 'walk', who: 'junia', to: below('jbed') }, { do: 'face', who: 'junia', dir: { dx: 0, dy: 1 } },
     tsay('junia', 'Somebody has put a fence round my bed.'), tsay('junia', 'It is a very good fence.'),
@@ -441,7 +539,7 @@ TUT2_SCENES.push(
     { do: 'walk', who: 'junia', to: (() => { const T2 = town.tut2; return { x: T2.at.gate.x - 1, y: T2.at.gate.y }; }) },
     { do: 'walk', who: 'junia', to: (() => { const T2 = town.tut2; return { x: T2.at.gate.x + 1, y: T2.at.gate.y }; }) }
   ],
-  // Scene 9: her field, the end of the tutorial
+  // Scene 8: her field, the end of the tutorial
   [
     { do: 'walk', who: 'junia', to: (() => tut2YardInner(town.tut2)[5]) }, { do: 'face', who: 'junia', dir: { dx: 0, dy: 1 } },
     tsay('junia', "It's a good yard."), tsay('junia', 'I could grow something in it. If there were somewhere to grow it.'),

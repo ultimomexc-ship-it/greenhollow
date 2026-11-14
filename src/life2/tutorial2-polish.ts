@@ -125,9 +125,9 @@ const _t2Bar2 = itBuildBarHTML; itBuildBarHTML = function (n, face) {
   if (/^Press B to let/.test(town.tut2.ui.strip || '')) h = h.replace('class="hbbadge"', 'class="hbbadge tutglow"');
   return h;
 };
-/* Junia, when you go to her while the bed waits */
+/* Junia, when you bump her while she sleeps */
 // @ts-expect-error -- deliberate patch
-const _t2Bump2 = tut2Bump; tut2Bump = function (o) { const T2 = town.tut2; if (T2 && T2.scene === 6 && o === tut2Who('junia') && !TUT2_DONE.bed(T2.at.jbed.x, T2.at.jbed.y)) return itBuildOn(game.player) ? 'On the marked place, I think. Then 1.' : "I think you press B. Don't ask me how I know."; return _t2Bump2(o); };
+const _t2Bump2 = tut2Bump; tut2Bump = function (o) { const T2 = town.tut2; if (T2 && o === tut2Who('junia') && o.pose === 'sleep') return 'Mm. Five more minutes.'; return _t2Bump2(o); };
 
 /* ---------------- the strip is big when it is about B, and the HUD pieces tick ---------------- */
 // @ts-expect-error -- deliberate patch
