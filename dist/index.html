@@ -27444,15 +27444,18 @@ const TUT2_MAP = {
   patch: { x: 7, y: 0, w: 3, h: 3 },
   watch: [6, 1],
   // (where Paullus stands to watch the patch: west of its middle row)
-  yard: { x: 14, y: -1, w: 6, h: 5 },
-  gate: [14, 0],
-  jbed: [16, 0],
-  jfield: [[16, 1], [17, 1], [18, 1], [16, 2], [17, 2], [18, 2]],
-  // (two clear tiles between your ring and hers, so a gate can be faced)
+  // Junia's ring: 8 x 7 fences, 6 x 5 inside, the gate in the bottom row two in from the right-hand corner (so her bed, pushed in through it, is never against a fence and can go any way)
+  yard: { x: 14, y: -1, w: 8, h: 7 },
+  gate: [19, 5],
+  jbed: [19, 3],
+  jfield: [[15, 1], [16, 1], [17, 1], [15, 2], [16, 2], [17, 2]],
+  // (two clear tiles between your ring and hers)
   own: { x: -1, y: -1, w: 13, h: 7 },
-  ownGate: [2, 5],
-  // (your own yard: a fence ring round the house and the patch, the gate below the door: in the Hamlet only a fenced yard makes ground yours)
-  box: { x0: -2, y0: -2, x1: 20, y1: 6 }
+  ownGate: [10, 5],
+  // (your own yard: a fence ring round the house and the patch, the gate bottom right, toward the square: in the Hamlet only a fenced yard makes ground yours)
+  watchRing: [12, 6],
+  // (where Paullus stands while you build round Junia: between the two yards, below them, in earshot)
+  box: { x0: -2, y0: -2, x1: 22, y1: 7 }
   // (all of it, with a tile round it, must be clear grass)
 };
 function tut2Layout(st) {
@@ -27476,11 +27479,12 @@ function tut2Layout(st) {
   }
   const clearable = (x, y) => !keep.has(y * W + x) && grid[y][x] !== T.LAMP && !HARD.has(grid[y][x]) && roomAt[y][x] < 0 && !(lfPropAt(x, y) && lfPropAt(x, y).fixed) && !(town.hgt && town.hgt[y * W + x] >= 0);
   let best = null, bs = 1e9;
-  for (const [lim, far] of [[11, 20], [16, 28], [24, 40]]) {
+  for (const [lim, far, north] of [[14, 20, 1], [18, 28, 1], [26, 40, 1], [11, 20, 0], [16, 28, 0], [24, 40, 0]]) {
     for (let oy = sy - 40; oy <= sy + 40; oy++) for (let ox = sx - 46; ox <= sx + 40; ox++) {
       const yc = { x: ox + M.yard.x + 3, y: oy + M.yard.y + 2 }, hc = { x: ox + 2, y: oy + 3 };
       const dY = Math.hypot(yc.x - sx, yc.y - sy), dH = Math.hypot(hc.x - sx, hc.y - sy);
       if (dY > lim || dH > far) continue;
+      if (north && oy + M.box.y1 >= sy - 1) continue;
       let s = dY + dH * 0.5;
       if (s >= bs) continue;
       let ok = true;
@@ -27541,6 +27545,7 @@ function tut2Layout(st) {
     start: P(M.start),
     window: P(M.window),
     watch: P(M.watch),
+    watchRing: P(M.watchRing),
     gate: P(M.gate),
     jbed: P(M.jbed),
     jfield: M.jfield.map(P),
@@ -27869,10 +27874,14 @@ function tut2Going(s, dt) {
         TUT2.nudged = true;
         const nu = s.nudge;
         if (nu.say) {
-          const n = tut2Who(nu.say[0]);
-          TUT2.bubbleEnd = tut2Say(n, nu.say[1], game.player);
+          const n = tut2Who(nu.say[0]), lines = nu.say.slice(1);
+          TUT2.bubbleEnd = tut2Say(n, lines[(TUT2.nudgeN = (TUT2.nudgeN || 0) + 1) % lines.length], game.player);
         }
         if (nu.fn) nu.fn(T2);
+      }
+      if (s.nudge && s.nudge.every && TUT2.nudged && TUT2.t >= s.nudge.after + s.nudge.every) {
+        TUT2.nudged = false;
+        TUT2.t = s.nudge.after - 1e-3;
       }
       return true;
     }
@@ -28457,13 +28466,14 @@ const botWork = (name, done) => (T2) => {
 };
 const botStall = (T2) => ({ stand: T2.at.front, into: T2.at.keep });
 function tut2FenceRows(T2) {
-  const o = T2.at.o, M = TUT2_MAP.yard, x0 = o.x + M.x, y0 = o.y + M.y, x1 = x0 + M.w - 1, y1 = y0 + M.h - 1, run = (n, f) => Array.from({ length: n }, (_, i) => f(i));
+  const o = T2.at.o, M = TUT2_MAP.yard, x0 = o.x + M.x, y0 = o.y + M.y, x1 = x0 + M.w - 1, y1 = y0 + M.h - 1, gx = T2.at.gap.x, run = (n, f) => Array.from({ length: n }, (_, i) => f(i));
   return [
     { at: { x: x0 - 1, y: y0 }, face: { dx: 1, dy: 0 }, tiles: run(x1 - x0 + 1, (i) => ({ x: x0 + i, y: y0 })) },
     { at: { x: x1, y: y0 - 1 }, face: { dx: 0, dy: 1 }, tiles: run(y1 - y0, (i) => ({ x: x1, y: y0 + 1 + i })) },
-    { at: { x: x1 + 1, y: y1 }, face: { dx: -1, dy: 0 }, tiles: run(x1 - x0, (i) => ({ x: x1 - 1 - i, y: y1 })) },
-    { at: { x: x0, y: y1 + 1 }, face: { dx: 0, dy: -1 }, tiles: run(y1 - y0 - 1, (i) => ({ x: x0, y: y1 - 1 - i })) }
-  ];
+    { at: { x: x1 + 1, y: y1 }, face: { dx: -1, dy: 0 }, tiles: run(x1 - 1 - gx, (i) => ({ x: x1 - 1 - i, y: y1 })) },
+    { at: { x: x0, y: y0 - 1 }, face: { dx: 0, dy: 1 }, tiles: run(y1 - y0, (i) => ({ x: x0, y: y0 + 1 + i })) },
+    { at: { x: x0 - 1, y: y1 }, face: { dx: 1, dy: 0 }, tiles: run(gx - x0 - 1, (i) => ({ x: x0 + 1 + i, y: y1 })) }
+  ].filter((r) => r.tiles.length);
 }
 const tut2FenceRow = (T2) => tut2FenceRows(T2).find((r) => r.tiles.some((t) => !TUT2_DONE.fence(t.x, t.y))) || null;
 const botRows = (T2) => {
@@ -28592,7 +28602,7 @@ function tut2NookLayout(T2, J) {
   const near = (x, y) => Math.abs(x - at.keep.x) <= 1 && Math.abs(y - at.keep.y) <= 1 || x === F.x && y === F.y || typeof pushFireAt === "function" && [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([i, j]) => pushFireAt(x + i, y + j));
   const free = (x, y) => !!grid[y] && [T.GRASS, T.PATH, T.SAND].includes(grid[y][x]) && walkable(x, y) && !lfPropAt(x, y) && !tileOwner.get(y * W + x) && roomAt[y][x] < 0 && !(town.nodeMap && town.nodeMap.has(y * W + x)) && !inBox(x, y) && !near(x, y);
   const ringBlock = /* @__PURE__ */ new Set();
-  for (const t of at.yardFence.concat(at.own)) ringBlock.add(t.y * W + t.x);
+  for (const t of at.yardFence.concat(at.own, [at.watchRing, { x: at.watchRing.x + 1, y: at.watchRing.y + 1 }])) ringBlock.add(t.y * W + t.x);
   if (wr) for (let j = -1; j <= 3; j++) for (let i = -1; i <= 3; i++) ringBlock.add((wr.y + j) * W + wr.x + i);
   const cands = [];
   for (let j = -9; j <= 9; j++) for (let i = -9; i <= 9; i++) {
@@ -28699,9 +28709,10 @@ const tut2RockAt = (t) => {
 };
 const TUT2_LEAVE = ["That's done. Press B and let the world go on.", "Good. B, and the world can carry on.", "That'll do. Let it go on: B.", "Done. Press B. They are all waiting.", "There. B, and we carry on.", "Good work. B, and the world starts again."];
 const TUT2_LEAVE_I = { i: 0 };
+const TUT2_NAG = ["B. The world is waiting on you.", "Still frozen out here. B.", "I can't scratch my nose till you press B.", "B. Whenever you like. Now, ideally.", "The kettle stopped mid-boil. B, please.", "Press B. I have been standing like this a while."];
 const tleave = () => {
   const line = TUT2_LEAVE[TUT2_LEAVE_I.i++ % TUT2_LEAVE.length];
-  return [{ do: "face", who: "paullus", to: "you" }, tsay("paullus", line), tstrip("Press B to let the world go on."), twait(() => !buildOn(), { nudge: { after: 10, say: ["paullus", "B. The world is waiting on you."] }, bot: () => ({ key: "b" }) })];
+  return [{ do: "face", who: "paullus", to: "you" }, tsay("paullus", line), tstrip("Press B to let the world go on."), twait(() => !buildOn(), { nudge: { after: 8, every: 9, say: ["paullus", ...TUT2_NAG] }, bot: () => ({ key: "b" }) })];
 };
 const _t2PushLine = lf2PushLine;
 lf2PushLine = function(n, x, y, dx, dy) {
@@ -29037,8 +29048,8 @@ TUT2_SCENES.push(
     tstrip(),
     { do: "walk", who: "junia", to: () => tut2Beside(tut2Pos("you")) || tut2Pos("front") },
     { do: "face", who: "junia", to: "you" },
-    tsay("junia", "I was ironing a shirt, and then there was sand."),
-    tsay("junia", "I've decided not to think about it."),
+    tsay("junia", "The last thing I remember is my own ceiling."),
+    tsay("junia", "My mother always said I slept like the dead. I don't think this is what she meant."),
     tsay("junia", "Is there anywhere you make wishes, here?"),
     // the well is there all along, unseen: she flips a coin over her shoulder onto bare ground, it lands in water, and the well is there
     { do: "walk", who: "junia", to: (T2) => T2.at.well ? { x: T2.at.well.x + 1, y: T2.at.well.y + 4 } : tut2Pos("front") },
@@ -29076,16 +29087,20 @@ TUT2_SCENES.push(
     tset((T2) => {
       T2.ui.marks = T2.ui.marks.concat([{ tiles: "gap", color: "#f0b43c" }]);
     }),
-    tstock([{ item: "fence", qty: 18, price: 1 }], [], "Eighteen fences. Take all of them."),
+    tstock([{ item: "fence", qty: 26, price: 1 }], [], "Twenty-six fences. Take all of them."),
     tstrip("The trader sells fence."),
     tarrow("front")
   ],
   // Scene 7: the fence with a gap; she goes back to sleep; her bed through the gap, the gap closed; the fence without a gate, and the hammer
   [
     twait(shopIsOpen, { bot: botStall }),
-    tstrip("Buy all 18."),
-    twait(() => (town.kit.fence || 0) >= 18, { bot: () => ({ shop: { tab: "buy", i: 0, all: true } }) }),
+    tstrip("Buy all 26."),
+    twait(() => (town.kit.fence || 0) >= 26, { bot: () => ({ shop: { tab: "buy", i: 0, all: true } }) }),
     twait(() => !shopIsOpen(), { bot: () => ({ shop: { close: true } }) }),
+    // (they come along to where you build: in build mode they stand still, so they walk over first, and you hear what they say there)
+    { do: "walk", who: "junia", to: (T2) => ({ x: T2.at.watchRing.x + 1, y: T2.at.watchRing.y + 1 }), async: true },
+    { do: "walk", who: "paullus", to: "watchRing" },
+    { do: "face", who: "paullus", to: "you" },
     tarrow("yardFence", "fence"),
     tlock({ build: true, push: true }, ["fence", "push"], "yardFence"),
     tset((T2) => {
@@ -29143,14 +29158,14 @@ TUT2_SCENES.push(
       T2.gapOpen = false;
       T2.fenceFree = true;
       T2.ui.marks = [{ tiles: "gap", done: "fence" }];
-      T2.ui.ghost = { at: { x: o.x + M.x, y: o.y + M.y + M.h }, face: { dx: 0, dy: -1 } };
+      T2.ui.ghost = { at: { x: T2.at.gap.x, y: T2.at.gap.y + 1 }, face: { dx: 0, dy: -1 } };
     }),
     tarrow("gap", "fence"),
     tlock({ build: true, push: true }, ["fence", "push"], "gap"),
-    tstrip("Close the gap: stand where the shadow stands and press 1. The fence goes on the end of the row."),
+    tstrip("Close the gap: stand where the shadow stands, below it, and press 1."),
     twait((T2) => !T2.nookOK || TUT2_DONE.fence(T2.at.gap.x, T2.at.gap.y), { bot: (T2) => {
-      const o = T2.at.o, M = TUT2_MAP.yard, st = { x: o.x + M.x, y: o.y + M.y + M.h };
-      return { stand: st, faceTo: { x: st.x, y: st.y - 1 }, key: "1" };
+      const st = { x: T2.at.gap.x, y: T2.at.gap.y + 1 };
+      return { stand: st, faceTo: T2.at.gap, key: "1" };
     } }),
     tset((T2) => {
       T2.fenceFree = false;
@@ -29189,12 +29204,16 @@ TUT2_SCENES.push(
     tset((T2) => {
       T2.ui.marks = [{ tiles: "gate", done: "gone", color: "#f0783c" }];
     }),
+    { do: "walk", who: "paullus", to: "keep" },
+    { do: "face", who: "paullus", to: "front" },
     tstock([{ item: "hammer", qty: 1, price: 4 }, { item: "gate", qty: 1, price: 3 }], [], "A hammer and a gate. You'll want both."),
     tstrip("The trader has something new."),
     tarrow("front"),
     twait(shopIsOpen, { bot: botStall }),
     twait(() => (game.player.items || []).some((i) => i.kind === "hammer") && (town.kit.gate || 0) >= 1, { bot: () => ({ shop: { tab: "buy", i: (game.player.items || []).some((i) => i.kind === "hammer") ? 1 : 0 } }) }),
     twait(() => !shopIsOpen(), { bot: () => ({ shop: { close: true } }) }),
+    { do: "walk", who: "paullus", to: "watchRing" },
+    { do: "face", who: "paullus", to: "you" },
     tarrow("gate"),
     tset((T2) => {
       T2.hammerAt = T2.at.gate;
@@ -29207,10 +29226,10 @@ TUT2_SCENES.push(
       return !p;
     }, { bot: (T2) => {
       if (!buildOn()) return { key: "b" };
-      const st = { x: T2.at.gate.x - 1, y: T2.at.gate.y };
+      const st = { x: T2.at.gate.x, y: T2.at.gate.y + 1 };
       return game.player.build.sel === 1 ? { stand: st, into: T2.at.gate } : { stand: st, key: "1", pressOnly: true };
     } }),
-    twait((T2) => TUT2_DONE.gate(T2.at.gate.x, T2.at.gate.y), { bot: (T2) => ({ stand: { x: T2.at.gate.x - 1, y: T2.at.gate.y }, faceTo: T2.at.gate, key: String((T2.slots || []).indexOf("gate") + 1) }) }),
+    twait((T2) => TUT2_DONE.gate(T2.at.gate.x, T2.at.gate.y), { bot: (T2) => ({ stand: { x: T2.at.gate.x, y: T2.at.gate.y + 1 }, faceTo: T2.at.gate, key: String((T2.slots || []).indexOf("gate") + 1) }) }),
     tmark(),
     tset((T2) => {
       T2.hammerAt = null;
@@ -29225,22 +29244,22 @@ TUT2_SCENES.push(
     }),
     { do: "walk", who: "junia", to: (() => {
       const T2 = town.tut2;
-      return { x: T2.at.gate.x - 1, y: T2.at.gate.y };
+      return { x: T2.at.gate.x, y: T2.at.gate.y - 1 };
     }) },
-    { do: "face", who: "junia", dir: { dx: 1, dy: 0 } },
+    { do: "face", who: "junia", dir: { dx: 0, dy: 1 } },
     tsay("junia", "A gate."),
     tsay("junia", "With a latch, even."),
     { do: "walk", who: "junia", to: (() => {
       const T2 = town.tut2;
-      return { x: T2.at.gate.x + 1, y: T2.at.gate.y };
+      return { x: T2.at.gate.x, y: T2.at.gate.y + 1 };
     }) },
     { do: "walk", who: "junia", to: (() => {
       const T2 = town.tut2;
-      return { x: T2.at.gate.x - 1, y: T2.at.gate.y };
+      return { x: T2.at.gate.x, y: T2.at.gate.y - 1 };
     }) },
     { do: "walk", who: "junia", to: (() => {
       const T2 = town.tut2;
-      return { x: T2.at.gate.x + 1, y: T2.at.gate.y };
+      return { x: T2.at.gate.x, y: T2.at.gate.y + 1 };
     }) },
     tset((T2) => {
       const w = (typeof wishList === "function" ? wishList() : []).find((q) => q.id === T2.wishYard);
@@ -29268,6 +29287,8 @@ TUT2_SCENES.push(
     }),
     { do: "face", who: "paullus", to: "you" },
     tsay("paullus", "An axe. I have one of those."),
+    { do: "walk", who: "paullus", to: "keep" },
+    { do: "face", who: "paullus", to: "front" },
     tstock([{ item: "axe", qty: 1, price: 4 }], [], "It's for her, I suppose. Four."),
     tstrip("Buy the axe from Paullus."),
     tarrow("front"),
@@ -31551,6 +31572,58 @@ function yardScan(force) {
   town.yards = keep;
   town.yardAt = at2;
   for (const y of keep) y.household = yardPeople(y).map((n) => n.id);
+  yardPaths();
+}
+const YARD_PATH_MAX = 60;
+function yardPaths() {
+  for (const y of town.yards || []) {
+    if (y.pathed || y.open != null || !y.gates || !y.gates.length) continue;
+    y.pathed = true;
+    const inY = new Set(y.cells), fen = new Set(y.fences);
+    const ok = (x, yy) => !!grid[yy] && (grid[yy][x] === T.GRASS || grid[yy][x] === T.SAND || grid[yy][x] === T.PATH) && !lfPropAt(x, yy) && roomAt[yy][x] < 0 && !town.yardAt.has(yy * W + x) && !(town.nodeMap && town.nodeMap.has(yy * W + x));
+    const prev = /* @__PURE__ */ new Map(), q = [], dist2 = /* @__PURE__ */ new Map();
+    for (const g of y.gates) {
+      const gx = g % W, gy = g / W | 0;
+      for (const [dx, dy] of [[0, 1], [1, 0], [-1, 0], [0, -1]]) {
+        const x = gx + dx, yy = gy + dy, k = yy * W + x;
+        if (inY.has(k) || fen.has(k) || !ok(x, yy) || dist2.has(k)) continue;
+        dist2.set(k, 0);
+        prev.set(k, -1);
+        q.push(k);
+      }
+    }
+    let hit = -1;
+    for (let h = 0; h < q.length; h++) {
+      const k = q[h], x = k % W, yy = k / W | 0;
+      if (grid[yy][x] === T.PATH) {
+        hit = k;
+        break;
+      }
+      const d = dist2.get(k);
+      if (d >= YARD_PATH_MAX) continue;
+      for (const [dx, dy] of [[0, 1], [1, 0], [-1, 0], [0, -1]]) {
+        const nx = x + dx, ny = yy + dy, nk = ny * W + nx;
+        if (dist2.has(nk) || !ok(nx, ny)) continue;
+        dist2.set(nk, d + 1);
+        prev.set(nk, k);
+        q.push(nk);
+      }
+    }
+    if (hit < 0) continue;
+    let any = false;
+    for (let k = prev.get(hit); k != null && k >= 0; k = prev.get(k)) {
+      const x = k % W, yy = k / W | 0;
+      if (grid[yy][x] !== T.PATH) {
+        setT(x, yy, T.PATH);
+        markDirty(x, yy, 1, 1);
+        any = true;
+      }
+    }
+    if (any) {
+      town.gridV = (town.gridV || 0) + 1;
+      if (typeof refreshReach === "function") refreshReach();
+    }
+  }
 }
 function yardGroup(n) {
   const out = /* @__PURE__ */ new Set([n]);

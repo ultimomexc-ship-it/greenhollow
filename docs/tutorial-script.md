@@ -57,7 +57,7 @@ The tutorial island is the Hamlet's ground with these places, found by the scena
 | **PATCH** (`p`) | 3 x 3 raw plots (`crop_raw`), 3 tiles east of the house. |
 | **STALL** (`=`) | The trading stall's counter. **KEEP** (`k`) is where Paullus stands to serve. **FRONT** (`c`) is the customer's tile. |
 | **SHORE** (`S`) | The sand tile nearest the camp. Junia waits there on day 2. |
-| **JYARD** (`f`, `g`) | A ring of 18 squares, 6 x 5, with 12 tiles inside, 4 tiles east of the patch, within 8 tiles of the stall so Paullus's bubbles are on screen while you build. |
+| **JYARD** (`f`, `g`) | A ring of 26 squares, 8 x 7, with 30 tiles inside, two tiles east of your own ring, the gap (later the gate) in the bottom row two in from the right-hand corner, her bed two tiles inside it. Both rings are above the square, gates bottom right, and each closed yard gets a path to the square. Paullus and Junia walk over to watch while you build, so their lines are on screen. |
 | **GATEPOST** (`g`) | The middle square of the ring's west side, facing the camp. |
 | **JBED** (`B`) | The top-left tile inside the ring. |
 | **JFIELD** (`x`) | Six tiles inside the ring, two rows of three. |
@@ -156,17 +156,17 @@ The tutorial island is the Hamlet's ground with these places, found by the scena
 - **Dawn (scene 3):** Junia has washed up in the night, asleep in her own bed, on the customer's square in front of the stall. A grove of three trees with one side open stands nearby, a rock two tiles along from its opening. Placed by `tut2NookLayout`, which plans every push first.
 - **Scene 4:** harvest, "Bring them to the stall." You walk over and find the bed in the way.
 - **Scene 5, the puzzle:** Paullus: "There's a woman asleep in my shop." "I don't like to wake people. Nobody does it well." "I can't sell you anything with her there. It wouldn't be right." "Those trees. She would sleep well in among them." B and pushing unlock; "There. The world holds its breath while you build." "Nobody sees it. They only find the thing afterwards." The shadow shows each push: her bed into the grove ("In she goes."), then the rock into the opening ("Tidy." "She'll sleep well in there."). Pushing the rock in first blocks the grove: the shadow shows taking it back out. Then the sale: "Five each. For the help. Don't tell anyone." (9 turnips, 45 coin.)
-- **Scene 6:** Junia wakes: "I went to sleep in my own bed." "I woke up in my own bed." "There are trees on three sides of it now." "And a rock." Paullus: "She can't get out. That one's yours." You push the rock aside (it stays by the trees). Junia: "I was ironing a shirt, and then there was sand." "I've decided not to think about it." "Is there anywhere to live, on this island?" "I'd like a place of my own. With a fence round it, say." The ring is marked, its gap in yellow; the trader sells 18 fences.
-- **Scene 7:** buy 18, build the ring in rows from the shadow, leaving the yellow square open. Junia: "It's been a long morning." "I'm going back to sleep. It might reset." She walks back to her bed in the grove and sleeps. Paullus: "She'll want to wake up inside it." Walk into her bed from the opening: it cannot go back, so you swap places with it. Push it through the gap onto her spot, then close the gap from the last row's spot (press 1: the fence goes on the end of the row). Junia: "It didn't reset." Then the fence gag and the gate, as below (the gate goes where the gap was).
+- **Scene 6:** Junia wakes: "I went to sleep in my own bed." "I woke up in my own bed." "There are trees on three sides of it now." "And a rock." Paullus: "She can't get out. That one's yours." You push the rock aside (it stays by the trees). Junia: "The last thing I remember is my own ceiling." "My mother always said I slept like the dead. I don't think this is what she meant." "Is there anywhere to live, on this island?" "I'd like a place of my own. With a fence round it, say." The ring is marked, its gap in yellow; the trader sells 26 fences.
+- **Scene 7:** buy 26, build the ring in rows from the shadow, leaving the yellow square open. Junia: "It's been a long morning." "I'm going back to sleep. It might reset." She walks back to her bed in the grove and sleeps. Paullus: "She'll want to wake up inside it." Walk into her bed from the opening: it cannot go back, so you swap places with it. Push it through the gap onto her spot, then close the gap from just below it (press 1). Junia: "It didn't reset." Then the fence gag and the gate, as below (the gate goes where the gap was).
 
 ## Scene 7: the fence without a gate, and the hammer
 
 *Ends when the gate is in and Junia has walked through it.*
 
 1. **WAIT** You bump the counter. The panel opens on **Buy** with one tile, "Fence, 1 each, 18 left", and two buttons: **Buy 1** and **Buy all 18**. The rest of the panel is empty.
-2. The panel's header line, Paullus: "Eighteen fences. Take all of them."
+2. The panel's header line, Paullus: "Twenty-six fences. Take all of them."
 3. **STRIP** "Buy all 18."
-4. **WAIT** The kit holds 18 fences. You have 42 − 18 = 24 coin.
+4. **WAIT** The kit holds 26 fences. (Coin: see the table below.)
 5. **WAIT** The panel is closed. **ARROW** → the nearest unfilled JYARD square.
 6. **UNLOCK** build mode. The build bar shows one slot: Fence × 18. **STRIP** "Press B. Fence every marked square: facing a fence, 1 puts the next one on the end of the line." Fences go down the normal way (`bldPlaceFront`): facing a fence, the next goes on the end of the line, so a side is a few presses.
 7. **WAIT** All 18 squares hold a fence and no fence stands off the marks.
@@ -226,7 +226,7 @@ The tutorial island is the Hamlet's ground with these places, found by the scena
 
 ## The well and the axe (scenes 6 and 8, built)
 
-- **Scene 6, after the rock is pushed aside:** Junia: "I was ironing a shirt, and then there was sand." "I've decided not to think about it." "Is there anywhere you make wishes, here?" She walks to an empty patch of the square and flips a coin over her shoulder: no clink, a plop, and the well fades in where it landed (it was there all along, unseen), glowing, with a chime. Junia: "That's new." "I'd like a place of my own. With a fence round it." (her first wish, in the well). Paullus: "I've stood here eleven years." "That's new." To you: "Coin goes in. Wishes go in." "Somebody has to take them out." Walk into the well: the panel shows her wish; take her coin (Take all); close it. Then the fences, bought with her coin and your turnip money.
+- **Scene 6, after the rock is pushed aside:** Junia: "The last thing I remember is my own ceiling." "My mother always said I slept like the dead. I don't think this is what she meant." "Is there anywhere you make wishes, here?" She walks to an empty patch of the square and flips a coin over her shoulder: no clink, a plop, and the well fades in where it landed (it was there all along, unseen), glowing, with a chime. Junia: "That's new." "I'd like a place of my own. With a fence round it." (her first wish, in the well). Paullus: "I've stood here eleven years." "That's new." To you: "Coin goes in. Wishes go in." "Somebody has to take them out." Walk into the well: the panel shows her wish; take her coin (Take all); close it. Then the fences, bought with her coin and your turnip money.
 - **End of scene 7:** when the gate is in, her wish comes true. Junia: "I wished for a fence." "I got a fence."
 - **Scene 8 (replaces the field):** at the well: "I'd like something to do." "Something with an axe, maybe." (her second wish). Paullus: "An axe. I have one of those." He sells it to you ("It's for her, I suppose. Four."). Walk into Junia to give it to her: "An axe." "You've brought me an axe." "I wished for one at the well. This was quicker." Paullus: "There's her first job, then." She fells a tree near her yard ("Timber."), sells the wood to Paullus ("Two each."), and drops her first coin in the well: "For the well." "It seemed only fair." Paullus: "That's the whole of it." "Grow it. Build it. Let the well take the credit." The clock starts. No rent at the door: the well has taken its place.
 
@@ -255,7 +255,7 @@ There is no skip button and no way to fail. These rules hold through every scene
 | --- | --- | --- |
 | Start coin | 15 | 15 |
 | 9 turnips sold, 3 each | +27 | 42 |
-| 18 fences, 1 each | −18 | 24 |
+| 26 fences, 1 each | −26 | (8 less from here on: you end with 31) |
 | Hammer 4, gate 3 | −7 | 17 |
 | 6 field tiles, 2 each | −12 | 5 |
 | Junia's first rent | +2 | 7 |
@@ -263,3 +263,9 @@ There is no skip button and no way to fail. These rules hold through every scene
 ## How it was built
 
 `src/life2/tutorial2.ts` (the runner, the layout, scenes 0 and 1) and `src/life2/tutorial2-play.ts` (strip, arrow, marks, locks, the shop panel, scenes 2 to 8, the first rent, the progression after it). `node tools/tutorial.mjs` plays it with a bot and writes a report; the test `tutorial: the first morning` runs it in `npm test`. Bumping the counter: the stall's customer tile faces Paullus, so walking into him from there opens the shop panel.
+
+## Round 7 (the owner's notes)
+- Junia woke up asleep, so the ironing line went: "The last thing I remember is my own ceiling." "My mother always said I slept like the dead. I don't think this is what she meant."
+- Paullus and Junia walk over to the building site before each build step, and Paullus keeps reminding you to press B (every 9 s, `TUT2_NAG`) until you do.
+- Junia's ring is 2 bigger each way (8 x 7) so a house fits round her bed and the bed can still be pushed every way.
+- Both houses are above the square, both gates bottom right, and a fenced yard gets a path from its gate to the square.

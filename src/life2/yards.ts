@@ -77,6 +77,27 @@ function yardScan(force?: boolean) {
   if (changed) for (const y of town.yards) if (y.gone) { const heir = y.cells.map((k: number) => at2.get(k)).find(Boolean), ppl = npcs.filter((n: any) => !n.dead && yardHasBed(n) && town.yardAt.get(n.bed.y * W + n.bed.x) === y), to = heir ? heir.store : ppl[0] ? ppl[0].inv : null; if (to) for (const g of Object.keys(y.store || {})) to[g] = (to[g] || 0) + y.store[g]; }
   town.yards = keep; town.yardAt = at2;
   for (const y of keep) y.household = yardPeople(y).map(n => n.id);
+  yardPaths();
+}
+/** a yard closed for the first time gets a path from its gate to the nearest path (the square, or another yard's path): laid over grass and sand, round
+    fields, things, water and other yards, at most `YARD_PATH_MAX` tiles. Once per yard (`y.pathed`); if no way is found it is not tried again. */
+const YARD_PATH_MAX = 60;
+function yardPaths() {
+  for (const y of town.yards || []) {
+    if (y.pathed || y.open != null || !y.gates || !y.gates.length) continue;
+    y.pathed = true;
+    const inY = new Set<number>(y.cells), fen = new Set<number>(y.fences);
+    const ok = (x: number, yy: number) => !!grid[yy] && (grid[yy][x] === T.GRASS || grid[yy][x] === T.SAND || grid[yy][x] === T.PATH) && !lfPropAt(x, yy) && roomAt[yy][x] < 0 && !town.yardAt.has(yy * W + x) && !(town.nodeMap && town.nodeMap.has(yy * W + x));
+    const prev = new Map<number, number>(), q: number[] = [], dist = new Map<number, number>();
+    for (const g of y.gates) { const gx = g % W, gy = (g / W) | 0; for (const [dx, dy] of [[0, 1], [1, 0], [-1, 0], [0, -1]]) { const x = gx + dx, yy = gy + dy, k = yy * W + x; if (inY.has(k) || fen.has(k) || !ok(x, yy) || dist.has(k)) continue; dist.set(k, 0); prev.set(k, -1); q.push(k); } }
+    let hit = -1;
+    for (let h = 0; h < q.length; h++) { const k = q[h], x = k % W, yy = (k / W) | 0; if (grid[yy][x] === T.PATH) { hit = k; break; } const d = dist.get(k); if (d >= YARD_PATH_MAX) continue;
+      for (const [dx, dy] of [[0, 1], [1, 0], [-1, 0], [0, -1]]) { const nx = x + dx, ny = yy + dy, nk = ny * W + nx; if (dist.has(nk) || !ok(nx, ny)) continue; dist.set(nk, d + 1); prev.set(nk, k); q.push(nk); } }
+    if (hit < 0) continue;
+    let any = false;
+    for (let k = prev.get(hit); k != null && k >= 0; k = prev.get(k)) { const x = k % W, yy = (k / W) | 0; if (grid[yy][x] !== T.PATH) { setT(x, yy, T.PATH); markDirty(x, yy, 1, 1); any = true; } }
+    if (any) { town.gridV = (town.gridV || 0) + 1; if (typeof refreshReach === 'function') refreshReach(); }
+  }
 }
 
 /** family: spouse, partner and children under sixteen go together */

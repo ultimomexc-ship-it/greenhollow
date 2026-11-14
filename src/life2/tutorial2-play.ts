@@ -227,16 +227,17 @@ function tut2Beside(t: any): any { const P = game.player; const c = [[0, 1], [-1
 /** the bot: work every tile of a set that is not done yet (stand beside it, walk into it) */
 const botWork = (name: string, done: string) => (T2: any) => { const k = TUT2.bw; if (k && k.done === done && !TUT2_DONE[done](k.into.x, k.into.y)) return k; const todo = tut2Tiles(name).filter(t => !TUT2_DONE[done](t.x, t.y)); if (!todo.length) return null; const t = nearestTo(todo); TUT2.bw = { stand: tut2Beside(t), into: t, done }; return TUT2.bw; };   // (keeps one target until it is done)
 const botStall = (T2: any) => ({ stand: T2.at.front, into: T2.at.keep });
-/** Junia's ring as four rows, each built from one spot outside it by pressing again and again (the first fence in front, every next one on the end
-   of the row): the top from its west end looking east, the east side from above its corner looking south, the bottom from its east end looking
-   west, the west side from below its corner looking north. The shadow stands at the first row that is not finished. */
+/** Junia's ring as rows, each built from one spot outside it by pressing again and again (the first fence in front, every next one on the end of the row):
+   the top from its west end looking east, the east side from above its corner looking south, the short piece right of the gap from the east looking west,
+   the west side from above its corner looking south, the bottom from its west end looking east up to the gap. The shadow stands at the first row not finished. */
 function tut2FenceRows(T2: any): any[] {
-  const o = T2.at.o, M = TUT2_MAP.yard, x0 = o.x + M.x, y0 = o.y + M.y, x1 = x0 + M.w - 1, y1 = y0 + M.h - 1, run = (n: number, f: (i: number) => any) => Array.from({ length: n }, (_, i) => f(i));
+  const o = T2.at.o, M = TUT2_MAP.yard, x0 = o.x + M.x, y0 = o.y + M.y, x1 = x0 + M.w - 1, y1 = y0 + M.h - 1, gx = T2.at.gap.x, run = (n: number, f: (i: number) => any) => Array.from({ length: n }, (_, i) => f(i));
   return [
     { at: { x: x0 - 1, y: y0 }, face: { dx: 1, dy: 0 }, tiles: run(x1 - x0 + 1, i => ({ x: x0 + i, y: y0 })) },
     { at: { x: x1, y: y0 - 1 }, face: { dx: 0, dy: 1 }, tiles: run(y1 - y0, i => ({ x: x1, y: y0 + 1 + i })) },
-    { at: { x: x1 + 1, y: y1 }, face: { dx: -1, dy: 0 }, tiles: run(x1 - x0, i => ({ x: x1 - 1 - i, y: y1 })) },
-    { at: { x: x0, y: y1 + 1 }, face: { dx: 0, dy: -1 }, tiles: run(y1 - y0 - 1, i => ({ x: x0, y: y1 - 1 - i })) }];
+    { at: { x: x1 + 1, y: y1 }, face: { dx: -1, dy: 0 }, tiles: run(x1 - 1 - gx, i => ({ x: x1 - 1 - i, y: y1 })) },
+    { at: { x: x0, y: y0 - 1 }, face: { dx: 0, dy: 1 }, tiles: run(y1 - y0, i => ({ x: x0, y: y0 + 1 + i })) },
+    { at: { x: x0 - 1, y: y1 }, face: { dx: 1, dy: 0 }, tiles: run(gx - x0 - 1, i => ({ x: x0 + 1 + i, y: y1 })) }].filter(r => r.tiles.length);
 }
 const tut2FenceRow = (T2: any) => tut2FenceRows(T2).find(r => r.tiles.some((t: any) => !TUT2_DONE.fence(t.x, t.y))) || null;
 /** the bot builds the ring the way the shadow shows: from each row's spot, pressing 1 until the row is done */
@@ -321,7 +322,7 @@ function tut2NookLayout(T2: any, J: any): boolean {
   const inBox = (x: number, y: number) => (x >= o.x + B.x0 - 1 && x <= o.x + B.x1 + 1 && y >= o.y + B.y0 - 1 && y <= o.y + B.y1 + 1) || inWell(x, y);
   const near = (x: number, y: number) => (Math.abs(x - at.keep.x) <= 1 && Math.abs(y - at.keep.y) <= 1) || (x === F.x && y === F.y) || (typeof pushFireAt === 'function' && [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([i, j]) => pushFireAt(x + i, y + j)));
   const free = (x: number, y: number) => !!grid[y] && [T.GRASS, T.PATH, T.SAND].includes(grid[y][x]) && walkable(x, y) && !lfPropAt(x, y) && !tileOwner.get(y * W + x) && roomAt[y][x] < 0 && !(town.nodeMap && town.nodeMap.has(y * W + x)) && !inBox(x, y) && !near(x, y);
-  const ringBlock = new Set<number>(); for (const t of at.yardFence.concat(at.own)) ringBlock.add(t.y * W + t.x);
+  const ringBlock = new Set<number>(); for (const t of at.yardFence.concat(at.own, [at.watchRing, { x: at.watchRing.x + 1, y: at.watchRing.y + 1 }])) ringBlock.add(t.y * W + t.x);   // (Paullus and Junia stand by while you build)
   if (wr) for (let j = -1; j <= 3; j++) for (let i = -1; i <= 3; i++) ringBlock.add((wr.y + j) * W + wr.x + i);   // (the well will be standing by then)
   const cands: any[] = [];
   for (let j = -9; j <= 9; j++) for (let i = -9; i <= 9; i++) { const N = { x: F.x + i, y: F.y + j }, dist = Math.abs(i) + Math.abs(j); if (dist < 3 || !free(N.x, N.y)) continue;
@@ -368,8 +369,10 @@ const tut2RockAt = (t: any) => { const r = tut2NookRock(); return !!r && !!t && 
 /** a step is done in build mode: Paullus says to leave it (he can talk while the world holds still), and says it again if you do not */
 const TUT2_LEAVE = ["That's done. Press B and let the world go on.", 'Good. B, and the world can carry on.', "That'll do. Let it go on: B.", 'Done. Press B. They are all waiting.', 'There. B, and we carry on.', 'Good work. B, and the world starts again.'];
 const TUT2_LEAVE_I = { i: 0 };
+/** what he says, again and again, while you stay in build mode (`nudge.every`) */
+const TUT2_NAG = ['B. The world is waiting on you.', 'Still frozen out here. B.', "I can't scratch my nose till you press B.", 'B. Whenever you like. Now, ideally.', 'The kettle stopped mid-boil. B, please.', 'Press B. I have been standing like this a while.'];
 const tleave = (): any[] => { const line = TUT2_LEAVE[TUT2_LEAVE_I.i++ % TUT2_LEAVE.length];
-  return [{ do: 'face', who: 'paullus', to: 'you' }, tsay('paullus', line), tstrip('Press B to let the world go on.'), twait(() => !buildOn(), { nudge: { after: 10, say: ['paullus', 'B. The world is waiting on you.'] }, bot: () => ({ key: 'b' }) })]; };
+  return [{ do: 'face', who: 'paullus', to: 'you' }, tsay('paullus', line), tstrip('Press B to let the world go on.'), twait(() => !buildOn(), { nudge: { after: 8, every: 9, say: ['paullus', ...TUT2_NAG] }, bot: () => ({ key: 'b' }) })]; };
 /* fences stay where they are put while you are learning: no pushing them in the tutorial (only placing, on the marked squares) */
 // @ts-expect-error -- deliberate patch
 const _t2PushLine = lf2PushLine; lf2PushLine = function (n: any, x: number, y: number, dx: number, dy: number) {
@@ -513,7 +516,7 @@ TUT2_SCENES.push(
     ...tleave(),
     tlock({}), tstrip(),
     { do: 'walk', who: 'junia', to: () => tut2Beside(tut2Pos('you')) || tut2Pos('front') }, { do: 'face', who: 'junia', to: 'you' },
-    tsay('junia', 'I was ironing a shirt, and then there was sand.'), tsay('junia', "I've decided not to think about it."),
+    tsay('junia', 'The last thing I remember is my own ceiling.'), tsay('junia', "My mother always said I slept like the dead. I don't think this is what she meant."),
     tsay('junia', 'Is there anywhere you make wishes, here?'),
     // the well is there all along, unseen: she flips a coin over her shoulder onto bare ground, it lands in water, and the well is there
     { do: 'walk', who: 'junia', to: (T2: any) => T2.at.well ? { x: T2.at.well.x + 1, y: T2.at.well.y + 4 } : tut2Pos('front') }, { do: 'face', who: 'junia', dir: { dx: 0, dy: 1 } },
@@ -529,14 +532,16 @@ TUT2_SCENES.push(
     tstrip('Close it.'), twait(() => !SHOP.open, { bot: () => ({ click: '#shoppanel [data-spx]' }) }),
     tarrow(), tstrip(),
     tmark('yardFence', 'fence'), tset(T2 => { T2.ui.marks = T2.ui.marks.concat([{ tiles: 'gap', color: '#f0b43c' }]); }),
-    tstock([{ item: 'fence', qty: 18, price: 1 }], [], 'Eighteen fences. Take all of them.'),
+    tstock([{ item: 'fence', qty: 26, price: 1 }], [], 'Twenty-six fences. Take all of them.'),
     tstrip('The trader sells fence.'), tarrow('front')
   ],
   // Scene 7: the fence with a gap; she goes back to sleep; her bed through the gap, the gap closed; the fence without a gate, and the hammer
   [
-    twait(shopIsOpen, { bot: botStall }), tstrip('Buy all 18.'),
-    twait(() => (town.kit.fence || 0) >= 18, { bot: () => ({ shop: { tab: 'buy', i: 0, all: true } }) }),
+    twait(shopIsOpen, { bot: botStall }), tstrip('Buy all 26.'),
+    twait(() => (town.kit.fence || 0) >= 26, { bot: () => ({ shop: { tab: 'buy', i: 0, all: true } }) }),
     twait(() => !shopIsOpen(), { bot: () => ({ shop: { close: true } }) }),
+    // (they come along to where you build: in build mode they stand still, so they walk over first, and you hear what they say there)
+    { do: 'walk', who: 'junia', to: (T2: any) => ({ x: T2.at.watchRing.x + 1, y: T2.at.watchRing.y + 1 }), async: true }, { do: 'walk', who: 'paullus', to: 'watchRing' }, { do: 'face', who: 'paullus', to: 'you' },
     tarrow('yardFence', 'fence'), tlock({ build: true, push: true }, ['fence', 'push'], 'yardFence'), tset(T2 => { T2.fenceFree = true; T2.gapOpen = true; T2.ui.ghost = 'fenceRow'; }),
     tstrip('Press B. Stand where the shadow stands, face the same way, and press 1 again and again: each fence goes on the end of the row. Leave the yellow square open.'),
     twait(T2 => tut2AllDone('yardFence', 'fence'), { bot: botRows }),
@@ -555,10 +560,10 @@ TUT2_SCENES.push(
     tset(T2 => { T2.ui.ghost = tut2BedGhost('jbed'); }),
     tstrip('Now push her bed into her yard, through the gap.'),
     twait(T2 => !T2.nookOK || tut2BedAt(T2.at.jbed), { bot: tut2BedBot('jbed') }),
-    tset(T2 => { const o = T2.at.o, M = TUT2_MAP.yard; T2.gapOpen = false; T2.fenceFree = true; T2.ui.marks = [{ tiles: 'gap', done: 'fence' }]; T2.ui.ghost = { at: { x: o.x + M.x, y: o.y + M.y + M.h }, face: { dx: 0, dy: -1 } }; }),
+    tset(T2 => { const o = T2.at.o, M = TUT2_MAP.yard; T2.gapOpen = false; T2.fenceFree = true; T2.ui.marks = [{ tiles: 'gap', done: 'fence' }]; T2.ui.ghost = { at: { x: T2.at.gap.x, y: T2.at.gap.y + 1 }, face: { dx: 0, dy: -1 } }; }),
     tarrow('gap', 'fence'), tlock({ build: true, push: true }, ['fence', 'push'], 'gap'),
-    tstrip('Close the gap: stand where the shadow stands and press 1. The fence goes on the end of the row.'),
-    twait(T2 => !T2.nookOK || TUT2_DONE.fence(T2.at.gap.x, T2.at.gap.y), { bot: (T2: any) => { const o = T2.at.o, M = TUT2_MAP.yard, st = { x: o.x + M.x, y: o.y + M.y + M.h }; return { stand: st, faceTo: { x: st.x, y: st.y - 1 }, key: '1' }; } }),
+    tstrip('Close the gap: stand where the shadow stands, below it, and press 1.'),
+    twait(T2 => !T2.nookOK || TUT2_DONE.fence(T2.at.gap.x, T2.at.gap.y), { bot: (T2: any) => { const st = { x: T2.at.gap.x, y: T2.at.gap.y + 1 }; return { stand: st, faceTo: T2.at.gap, key: '1' }; } }),
     tset(T2 => { T2.fenceFree = false; T2.ui.ghost = null; }),
     tarrow(), ...tleave(),
     tlock({}), tstrip(), tmark(),
@@ -571,23 +576,25 @@ TUT2_SCENES.push(
     { do: 'walk', who: 'junia', to: below('jbed') }, { do: 'face', who: 'junia', to: 'you' },
     tsay('junia', 'I cannot find the way in. Or, I suppose, out.'),
     tset(T2 => { T2.ui.marks = [{ tiles: 'gate', done: 'gone', color: '#f0783c' }]; }),
+    { do: 'walk', who: 'paullus', to: 'keep' }, { do: 'face', who: 'paullus', to: 'front' },
     tstock([{ item: 'hammer', qty: 1, price: 4 }, { item: 'gate', qty: 1, price: 3 }], [], "A hammer and a gate. You'll want both."),
     tstrip('The trader has something new.'), tarrow('front'),
     twait(shopIsOpen, { bot: botStall }),
     twait(() => (game.player.items || []).some((i: any) => i.kind === 'hammer') && (town.kit.gate || 0) >= 1, { bot: () => ({ shop: { tab: 'buy', i: (game.player.items || []).some((i: any) => i.kind === 'hammer') ? 1 : 0 } }) }),
     twait(() => !shopIsOpen(), { bot: () => ({ shop: { close: true } }) }),
+    { do: 'walk', who: 'paullus', to: 'watchRing' }, { do: 'face', who: 'paullus', to: 'you' },
     tarrow('gate'), tset(T2 => { T2.hammerAt = T2.at.gate; T2.autoHammer = true; }), tlock({ build: true }, ['destroy', 'gate'], 'gate'),
     tstrip('Press B. The hammer is in your hand: walk into the marked fence to knock it out. Then press {k:gate} to put the gate in the gap.'),
-    twait(T2 => { const p = lfPropAt(T2.at.gate.x, T2.at.gate.y); return !p; }, { bot: (T2: any) => { if (!buildOn()) return { key: 'b' }; const st = { x: T2.at.gate.x - 1, y: T2.at.gate.y }; return game.player.build.sel === 1 ? { stand: st, into: T2.at.gate } : { stand: st, key: '1', pressOnly: true }; } }),
-    twait(T2 => TUT2_DONE.gate(T2.at.gate.x, T2.at.gate.y), { bot: (T2: any) => ({ stand: { x: T2.at.gate.x - 1, y: T2.at.gate.y }, faceTo: T2.at.gate, key: String((T2.slots || []).indexOf('gate') + 1) }) }),
+    twait(T2 => { const p = lfPropAt(T2.at.gate.x, T2.at.gate.y); return !p; }, { bot: (T2: any) => { if (!buildOn()) return { key: 'b' }; const st = { x: T2.at.gate.x, y: T2.at.gate.y + 1 }; return game.player.build.sel === 1 ? { stand: st, into: T2.at.gate } : { stand: st, key: '1', pressOnly: true }; } }),
+    twait(T2 => TUT2_DONE.gate(T2.at.gate.x, T2.at.gate.y), { bot: (T2: any) => ({ stand: { x: T2.at.gate.x, y: T2.at.gate.y + 1 }, faceTo: T2.at.gate, key: String((T2.slots || []).indexOf('gate') + 1) }) }),
     tmark(), tset(T2 => { T2.hammerAt = null; T2.autoHammer = false; }), ...tleave(),
     tlock({}), tstrip(), tarrow(),
     tset(() => { yardScan(true); }),
-    { do: 'walk', who: 'junia', to: (() => { const T2 = town.tut2; return { x: T2.at.gate.x - 1, y: T2.at.gate.y }; }) }, { do: 'face', who: 'junia', dir: { dx: 1, dy: 0 } },
+    { do: 'walk', who: 'junia', to: (() => { const T2 = town.tut2; return { x: T2.at.gate.x, y: T2.at.gate.y - 1 }; }) }, { do: 'face', who: 'junia', dir: { dx: 0, dy: 1 } },
     tsay('junia', 'A gate.'), tsay('junia', 'With a latch, even.'),
-    { do: 'walk', who: 'junia', to: (() => { const T2 = town.tut2; return { x: T2.at.gate.x + 1, y: T2.at.gate.y }; }) },
-    { do: 'walk', who: 'junia', to: (() => { const T2 = town.tut2; return { x: T2.at.gate.x - 1, y: T2.at.gate.y }; }) },
-    { do: 'walk', who: 'junia', to: (() => { const T2 = town.tut2; return { x: T2.at.gate.x + 1, y: T2.at.gate.y }; }) },
+    { do: 'walk', who: 'junia', to: (() => { const T2 = town.tut2; return { x: T2.at.gate.x, y: T2.at.gate.y + 1 }; }) },
+    { do: 'walk', who: 'junia', to: (() => { const T2 = town.tut2; return { x: T2.at.gate.x, y: T2.at.gate.y - 1 }; }) },
+    { do: 'walk', who: 'junia', to: (() => { const T2 = town.tut2; return { x: T2.at.gate.x, y: T2.at.gate.y + 1 }; }) },
     tset(T2 => { const w = (typeof wishList === 'function' ? wishList() : []).find((q: any) => q.id === T2.wishYard); const J = tut2Who('junia'); if (w && w.state === 'open') { w.state = 'granted'; w.done = game.time; if (J) LIFE.emit('wish_granted', J, {}); } }),
     { do: 'face', who: 'junia', to: 'you' }, tsay('junia', 'I wished for a fence.'), tsay('junia', 'I got a fence.')
   ],
@@ -596,7 +603,7 @@ TUT2_SCENES.push(
     { do: 'walk', who: 'junia', to: (T2: any) => (town.wish && wellSpot(tut2Who('junia'))) || tut2Pos('front') }, { do: 'face', who: 'junia', to: (T2: any) => town.wish ? { x: town.wish.x + 1, y: town.wish.y + 1 } : tut2Pos('keep') },
     tsay('junia', "I'd like something to do."), tsay('junia', 'Something with an axe, maybe.'),
     tset(T2 => { const J = tut2Who('junia'); if (J && town.wish && typeof wishMake === 'function') T2.wishAxe = wishMake(J, 'axe', wishKeyOf(J)).id; if (typeof jBurst === 'function' && town.wish) jBurst((town.wish.x + 1.5) * TS, (town.wish.y + 1.4) * TS, 14, 'spark', ['#9ff6ff', '#fff3a0'], 1, 2); }),
-    { do: 'face', who: 'paullus', to: 'you' }, tsay('paullus', 'An axe. I have one of those.'),
+    { do: 'face', who: 'paullus', to: 'you' }, tsay('paullus', 'An axe. I have one of those.'), { do: 'walk', who: 'paullus', to: 'keep' }, { do: 'face', who: 'paullus', to: 'front' },
     tstock([{ item: 'axe', qty: 1, price: 4 }], [], "It's for her, I suppose. Four."),
     tstrip('Buy the axe from Paullus.'), tarrow('front'),
     twait(shopIsOpen, { bot: botStall }),

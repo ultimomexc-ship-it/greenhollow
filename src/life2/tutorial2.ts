@@ -11,9 +11,11 @@ const tut2Active = (): boolean => !!(typeof town !== 'undefined' && town && town
 const TUT2_MAP = {
   house: { w: 5, h: 3 }, door: [2, 2], window: [3, 0], bed: [1, 1], start: [2, 1], out: [2, 3],
   patch: { x: 7, y: 0, w: 3, h: 3 }, watch: [6, 1],                              // (where Paullus stands to watch the patch: west of its middle row)
-  yard: { x: 14, y: -1, w: 6, h: 5 }, gate: [14, 0], jbed: [16, 0], jfield: [[16, 1], [17, 1], [18, 1], [16, 2], [17, 2], [18, 2]],   // (two clear tiles between your ring and hers, so a gate can be faced)
-  own: { x: -1, y: -1, w: 13, h: 7 }, ownGate: [2, 5],                          // (your own yard: a fence ring round the house and the patch, the gate below the door: in the Hamlet only a fenced yard makes ground yours)
-  box: { x0: -2, y0: -2, x1: 20, y1: 6 }                                        // (all of it, with a tile round it, must be clear grass)
+  // Junia's ring: 8 x 7 fences, 6 x 5 inside, the gate in the bottom row two in from the right-hand corner (so her bed, pushed in through it, is never against a fence and can go any way)
+  yard: { x: 14, y: -1, w: 8, h: 7 }, gate: [19, 5], jbed: [19, 3], jfield: [[15, 1], [16, 1], [17, 1], [15, 2], [16, 2], [17, 2]],   // (two clear tiles between your ring and hers)
+  own: { x: -1, y: -1, w: 13, h: 7 }, ownGate: [10, 5],                         // (your own yard: a fence ring round the house and the patch, the gate bottom right, toward the square: in the Hamlet only a fenced yard makes ground yours)
+  watchRing: [12, 6],                                                           // (where Paullus stands while you build round Junia: between the two yards, below them, in earshot)
+  box: { x0: -2, y0: -2, x1: 22, y1: 7 }                                        // (all of it, with a tile round it, must be clear grass)
 };
 /** find a clear piece of ground near the stall for the whole layout and keep its places in town.tut2.at */
 function tut2Layout(st: any): any {
@@ -26,10 +28,12 @@ function tut2Layout(st: any): any {
   try { for (const l of allLamps()) keepAt(l.x, l.y, 1); for (const f of allFires()) keepAt(f.x, f.y, 1); for (const m of town.markets || []) for (const q of m.plaza || []) keepAt(q.x, q.y, 0); for (const s2 of town.stalls || []) { for (const t of s2.tiles || []) keepAt(t.x, t.y, 1); if (s2.front) keepAt(s2.front.x, s2.front.y, 1); } } catch (e) {}
   const clearable = (x: number, y: number) => !keep.has(y * W + x) && grid[y][x] !== T.LAMP && !HARD.has(grid[y][x]) && roomAt[y][x] < 0 && !(lfPropAt(x, y) && lfPropAt(x, y).fixed) && !(town.hgt && town.hgt[y * W + x] >= 0);   // (anything but water, buildings and stairs is cleared away: trees, rocks, bushes, sand, loose things)
   let best: any = null, bs = 1e9;
-  for (const [lim, far] of [[11, 20], [16, 28], [24, 40]]) {   // (close to the stall first; further out if the ground near it will not do)
+  // above the square first (the whole layout north of the stall, so both gates at the bottom right face it), close to the stall first; further out, then anywhere, if the ground will not do
+  for (const [lim, far, north] of [[14, 20, 1], [18, 28, 1], [26, 40, 1], [11, 20, 0], [16, 28, 0], [24, 40, 0]]) {
     for (let oy = sy - 40; oy <= sy + 40; oy++) for (let ox = sx - 46; ox <= sx + 40; ox++) {
       const yc = { x: ox + M.yard.x + 3, y: oy + M.yard.y + 2 }, hc = { x: ox + 2, y: oy + 3 };
       const dY = Math.hypot(yc.x - sx, yc.y - sy), dH = Math.hypot(hc.x - sx, hc.y - sy); if (dY > lim || dH > far) continue;
+      if (north && oy + M.box.y1 >= sy - 1) continue;
       let s = dY + dH * 0.5; if (s >= bs) continue;
       let ok = true; for (let y = oy + M.box.y0; y <= oy + M.box.y1 && ok; y++) for (let x = ox + M.box.x0; x <= ox + M.box.x1 && ok; x++) {
         if (!inMap(x, y) || Math.abs(x - sx) + Math.abs(y - sy) <= 2 || (x >= sx - 1 && x <= sx + 2 && y >= sy - 1 && y <= sy + 3)) { ok = false; break; }
@@ -46,7 +50,7 @@ function tut2Layout(st: any): any {
   if (best) { town.gridV = (town.gridV || 0) + 1; town.lfPV = (town.lfPV || 0) + 1; town.treeCache = null; }
   if (!best) return null;
   const o = best, P = (p: number[]) => ({ x: o.x + p[0], y: o.y + p[1] });
-  const at: any = { o, door: P(M.door), out: P(M.out), bed: P(M.bed), start: P(M.start), window: P(M.window), watch: P(M.watch), gate: P(M.gate), jbed: P(M.jbed), jfield: M.jfield.map(P),
+  const at: any = { o, door: P(M.door), out: P(M.out), bed: P(M.bed), start: P(M.start), window: P(M.window), watch: P(M.watch), watchRing: P(M.watchRing), gate: P(M.gate), jbed: P(M.jbed), jfield: M.jfield.map(P),
     keep: { x: st.x, y: st.y }, front: { x: st.front.x, y: st.front.y }, patch: [], house: [], yard: [], own: [], ownGate: P(M.ownGate) };
   for (let j = 0; j < M.own.h; j++) for (let i = 0; i < M.own.w; i++) if (i === 0 || j === 0 || i === M.own.w - 1 || j === M.own.h - 1) at.own.push({ x: o.x + M.own.x + i, y: o.y + M.own.y + j });
   for (let j = 0; j < M.patch.h; j++) for (let i = 0; i < M.patch.w; i++) at.patch.push({ x: o.x + M.patch.x + i, y: o.y + M.patch.y + j });
@@ -179,7 +183,9 @@ function tut2Going(s: any, dt: number): boolean {
     case 'time': { const k = Math.min(1, TUT2.t / s.over); game.time = game.ft = TUT2.time0 + (TUT2.time1 - TUT2.time0) * k; return k < 1; }
     case 'wait': {
       if (s.until(T2)) return false;
-      if (s.nudge && !TUT2.nudged && TUT2.t >= s.nudge.after) { TUT2.nudged = true; const nu = s.nudge; if (nu.say) { const n = tut2Who(nu.say[0]); TUT2.bubbleEnd = tut2Say(n, nu.say[1], game.player); } if (nu.fn) nu.fn(T2); }
+      if (s.nudge && !TUT2.nudged && TUT2.t >= s.nudge.after) { TUT2.nudged = true; const nu = s.nudge; if (nu.say) { const n = tut2Who(nu.say[0]), lines = nu.say.slice(1); TUT2.bubbleEnd = tut2Say(n, lines[(TUT2.nudgeN = (TUT2.nudgeN || 0) + 1) % lines.length], game.player); } if (nu.fn) nu.fn(T2); }
+      // (a nudge with `every` comes again, with the next of its lines, until the wait is over)
+      if (s.nudge && s.nudge.every && TUT2.nudged && TUT2.t >= s.nudge.after + s.nudge.every) { TUT2.nudged = false; TUT2.t = s.nudge.after - 0.001; }
       return true;
     }
   }
