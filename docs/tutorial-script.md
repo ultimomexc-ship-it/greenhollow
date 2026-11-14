@@ -224,6 +224,10 @@ The tutorial island is the Hamlet's ground with these places, found by the scena
 20. **SAY** Junia: "I don't know who to give it to, so I'm giving it to you."
 21. **GIVE** Her rent (`rentOf`: 2 coin, a yard with no roof) moves from her coin to yours. Chronicle line: "Junia paid the first rent." From then on rent is collected the normal way.
 
+## Ideas to try
+
+- **Teach Shift (turn on the spot) at the fence's bottom row.** The bottom row of Junia's ring is built from its east end facing west, and the player arrives there walking east, so they face the wrong way. Today a rock happens to lie just east of that spot (the owner's playthrough). If something that cannot be pushed stood there instead (a tree, or a post), walking east would do nothing, and the strip could say "Hold Shift and press a direction to turn without moving", which teaches Shift exactly where it is needed. The layout would place it on purpose rather than by luck.
+
 ## Off script
 
 There is no skip button and no way to fail. These rules hold through every scene.
