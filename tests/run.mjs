@@ -2862,7 +2862,7 @@ test('tutorial: the first morning plays from the old house to the clock starting
   const rep = await playTutorial(page, { maxSec: 400 });
   check(!rep.stuck && rep.done, 'the bot plays it to the end: ' + JSON.stringify(rep.stuck));
   const said = rep.said.filter(l => l.scene === 1).map(l => l.text);
-  check(said.slice(0, 7).join(' | ') === ['Morning.', "You're new. Everybody is, here.", "This was mine. It's yours now.", "Don't ask how. I'm bad at the long version.", "Before anything else you'll want to eat.", "And for that you'll want a field.", 'Here. A hoe. The pointed end goes in the ground.'].join(' | '), 'Paullus says his lines in order: ' + said.join(' | '));
+  check(said.slice(0, 9).join(' | ') === ['Morning.', "You're new. Everybody is, here.", "This house was mine. It's yours now.", "Don't ask how. I'm bad at the long version.", "You'll want coin. Everybody here wants coin.", "And for coin, a field.", "Don't look like that. It's not one of those farming games.", 'One field, one morning. Then we build things.', 'Here. A hoe. The pointed end goes in the ground.'].join(' | '), 'Paullus says his lines in order: ' + said.join(' | '));
   const end = await page.evaluate(() => { const P = game.player, T2 = town.tut2, J = tut2Who('junia'), y = J && yardOfN(J);
     return { coin: P.coin, tools: (P.items || []).map(i => i.kind).sort().join(), time: fmtTime(game.time), yard: !!y && y.cells.length, gate: TUT2_DONE.gate(T2.at.gate.x, T2.at.gate.y), sown: T2.at.jfield.filter(t => { const c = tut2Crop(t.x, t.y); return c && c.st; }).length, kitFence: town.kit.fence || 0, hidden: document.body.classList.contains('tut2'), pill: progStep(progState().step).title, well: !!town.wish && !!(ART.BYID.wishwell), axe: !!J && (J.items || []).some(i => i.kind === 'axe'), wishes: (town.wishes || []).filter(w => w.who === (J && J.id)).map(w => w.kind + ':' + w.state).sort().join(), deposit: !!town.wish && town.wish.log.filter(e => e.id === (J && J.id)).length >= 2, nook: !!T2.nookOK, jbedAt: !!J && !!J.bed && J.bed.x === T2.at.jbed.x && J.bed.y === T2.at.jbed.y, rock: (() => { const r = tut2NookRock(); return !!r && r.x === T2.at.rockAside.x && r.y === T2.at.rockAside.y; })(), trees: (T2.at.trees || []).filter(t => grid[t.y][t.x] === T.TREE).length,
       bedMoves: (() => { const b = J && J.bed; if (!b) return 0; let k = 0; for (const d of TUT2_DIRS) if (tut2BoxPlan(b, { x: T2.at.gate.x, y: T2.at.gate.y + 1 }, { x: b.x + d.dx, y: b.y + d.dy }, null, b)) k++; return k; })(),
@@ -2880,12 +2880,12 @@ test('tutorial: the first morning plays from the old house to the clock starting
   return `played in ${rep.secs.toFixed(0)} s of real time (bubbles skipped), ${rep.said.length} lines`;
 });
 
-test('tutorial: the fence ring is built row by row from where the shadow stands, only on the marked squares; Junia wakes in the grove before she asks for a place of her own', async b => {
+test('tutorial: the fence ring is built row by row from where the shadow stands, only on the marked squares; Junia wakes in the grove before she wishes for a fence', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const rep = await playTutorial(page, { maxSec: 300, until: 7 });
   check(!rep.stuck, 'reaches scene 7: ' + JSON.stringify(rep.stuck));
-  const woke = rep.said.findIndex(l => /I woke up in my own bed/.test(l.text)), wish = rep.said.findIndex(l => /a place of my own/.test(l.text));
-  check(woke >= 0 && wish > woke, 'Junia wakes up in the grove, then asks for a place of her own');
+  const woke = rep.said.findIndex(l => /I woke up in my own bed/.test(l.text)), wish = rep.said.findIndex(l => /fence round my bed/.test(l.text));
+  check(woke >= 0 && wish > woke, 'Junia wakes up in the grove, then wishes for a fence round her bed');
   const r = await page.evaluate(() => {
     const T2 = town.tut2, P = game.player, out = {}; town.kit.fence = 30; T2.locks = { build: true }; T2.slots = ['fence']; T2.only = 'yard'; T2.fenceFree = true; T2.ui.ghost = 'fenceRow';
     for (const t of T2.at.yard) { const q = lfPropAt(t.x, t.y); if (q) bldDeleteProp(q); }

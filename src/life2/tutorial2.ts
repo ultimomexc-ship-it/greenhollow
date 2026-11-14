@@ -56,7 +56,7 @@ function tut2Layout(st: any): any {
   for (let j = 0; j < M.patch.h; j++) for (let i = 0; i < M.patch.w; i++) at.patch.push({ x: o.x + M.patch.x + i, y: o.y + M.patch.y + j });
   for (let j = 0; j < M.house.h; j++) for (let i = 0; i < M.house.w; i++) if (i === 0 || j === 0 || i === M.house.w - 1 || j === M.house.h - 1) at.house.push({ x: o.x + i, y: o.y + j });
   for (let j = 0; j < M.yard.h; j++) for (let i = 0; i < M.yard.w; i++) if (i === 0 || j === 0 || i === M.yard.w - 1 || j === M.yard.h - 1) at.yard.push({ x: o.x + M.yard.x + i, y: o.y + M.yard.y + j });
-  at.gap = at.gate; at.yardFence = at.yard.filter((t: any) => !(t.x === at.gap.x && t.y === at.gap.y));   // (the ring is built with its gap left open: Junia comes in through it, asleep)
+  at.gap = at.gate;   // (where the gate goes: the fence is built all the way round her bed first, and the gate comes after)
   const sh = (shoreTiles || []).slice().sort((a: any, b: any) => Math.hypot(a.x - sx, a.y - sy) - Math.hypot(b.x - sx, b.y - sy))[0];
   at.shore = sh ? { x: sh.x, y: sh.y } : { x: sx, y: sy + 6 };
   return at;
@@ -217,10 +217,12 @@ const TUT2_SCENES: any[][] = [
     { do: 'face', who: 'paullus', to: 'you' }, { do: 'strip' }, { do: 'arrow' },
     tsay('paullus', 'Morning.'),
     tsay('paullus', "You're new. Everybody is, here."),
-    tsay('paullus', "This was mine. It's yours now."),
+    tsay('paullus', "This house was mine. It's yours now."),
     tsay('paullus', "Don't ask how. I'm bad at the long version."),
-    tsay('paullus', "Before anything else you'll want to eat."),
-    tsay('paullus', "And for that you'll want a field."),
+    tsay('paullus', "You'll want coin. Everybody here wants coin."),
+    tsay('paullus', "And for coin, a field."),
+    tsay('paullus', "Don't look like that. It's not one of those farming games."),
+    tsay('paullus', 'One field, one morning. Then we build things.'),
     { do: 'give', fn: (P: any) => { if (!(P.items || []).some((i: any) => i.kind === 'hoe')) itGiveTool(P, 'hoe'); } },
     tsay('paullus', 'Here. A hoe. The pointed end goes in the ground.'),
     { do: 'mark', tiles: 'patch' }, { do: 'arrow', to: 'patch' }, { do: 'strip', text: 'Walk to the marked ground.' },

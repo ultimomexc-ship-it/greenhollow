@@ -221,6 +221,7 @@ function tickPlayer0(n, dt) {
     if (itHand(n, 'push') && occ && occ !== n && !occ.infant) { pushed = true; if (!tg) occ = null; }   // (a person is a piece in the line: lifeAct has pushed them, or said why not)
     if (occ && occ !== n && !occ.infant && !pushed) {
       if (occ.shop && occ.shop.def === HAMLET_TRADER_DEF && typeof shopOpen === 'function' && Math.abs(occ.tx - occ.shop.front.x) + Math.abs(occ.ty - occ.shop.front.y) <= 2 && (!(typeof tut2Active === 'function' && tut2Active()) || (town.tut2.stock && ((town.tut2.stock.buy || []).length || (town.tut2.stock.sell || []).length)))) tg = { key: 'tstall' + occ.id, min: 0.4, text: 'At the trading stall', tool: null, run() { shopOpen(occ.shop); } };   // (the Hamlet's trader always serves: the shop panel, life2/tutorial2-play.ts)
+      else if (occ.tutHold && typeof tut2GiveTalk === 'function' && tut2GiveTalk(occ)) tg = { key: 'talk' + occ.id, min: 0.3, text: 'Talking to ' + occ.first, tool: null, run() { tut2GiveTalk(occ, true); } };   // (the tutorial's gift: through the talk options)
       else if (occ.tutHold) tg = { msg: occ.first + ': ' + tut2Bump(occ) };   // (the tutorial holds them: no talk menu)
       else if (occ.pose === 'sleep') tg = { msg: occ.first + ' is asleep.' };
       else if (!itTalking(n)) tg = { msg: occ.first + ': ' + itWant(n, 'talk') };
