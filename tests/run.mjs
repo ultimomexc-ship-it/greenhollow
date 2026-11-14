@@ -377,7 +377,7 @@ test('push: a table can be pushed inside a house (never out of the door, never s
 
 test('build mode (B): 1 push, 2 destroy, 3 turn, 4-0 put an item down in front of you; trees are cleared with the hammer; the build menu (I) fills the slots; lamp posts, fires and tents can be destroyed and built; no sleeping in a tent', await controlScene('buildmode', 41, async page => {
   const r = await page.evaluate(() => {
-    const P = game.player, res = {}; const [x, y] = __find((x, y) => [-1, 0, 1, 2, 3].every(i => __free(x + i, y)) && __free(x, y - 1) && __free(x, y + 1)); __place(P, x, y, { dx: 1, dy: 0 });
+    const P = game.player, res = {}; const [x, y] = __find((x, y) => Array.from({ length: 15 }, (_, i) => i - 1).every(i => __free(x + i, y)) && __free(x, y - 1) && __free(x, y + 1)); __place(P, x, y, { dx: 1, dy: 0 });
     const was = { sel: P.sel, mode: P.mode }; itBuildToggle(P, true); res.on = itBuildOn(P); res.mode = itMode(P); res.hand = itHeld(P).kind;
     // 3-9: one of each item appears in front of you
     const n0 = town.props.length; for (let i = 3; i <= 9; i++) itBuildSelect(P, i); res.placed = town.props.length - n0; res.kinds = town.props.slice(n0).map(p => p.kind).join();
