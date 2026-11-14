@@ -126,6 +126,12 @@ Personalities (a starting set):
 
 Each run writes a report (`tools/wellbot.mjs`, like the balance harness): the day each person arrived, satisfaction over time per household, the wishes made, granted, expired, what was built, coin in and out of the well, and **pictures of the island** every few days and at the end (a whole-town view and a close-up of each home), so the towns can be compared side by side.
 
+## 8. A tool given is a job (the owner's idea, to try)
+
+What somebody does for a living comes from the tool they were given: give a villager a hoe (a plough) and they farm, a hammer and they mine or gather stone, a fishing rod and they fish, an axe and they fell trees. Give them a different tool and they change jobs. When a child comes of age, you give them their first tool on their birthday, and that is the life they start. Tools are bought (the trader, later the carpenter) and handed over as a gift in talk, so giving one is also how gifting is taught.
+
+First try, in the tutorial: Junia's second wish (after the fence) is for an axe. You buy one, give it to her, and felling trees becomes her first job. Fields for her come later, once the field mechanic is settled.
+
 ## Build order (each step playable and tested)
 
 1. **The well and deposits** replace rent; well panel with coin and taking it.
