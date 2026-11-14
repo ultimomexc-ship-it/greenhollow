@@ -1,6 +1,6 @@
 /* The wishing well (docs/wishing-well.md, step 1). In the build town the households stop paying rent: whenever they earn (sales, wages), a share of it is owed to the
    well, more the happier they are, and every so often they walk over and drop it in. The well keeps the coin for the town and you take it out to build with; nobody
-   sees that, so nobody minds. People still tell you what they need when you talk to them: the well is only where the money is kept and counted.
+   sees that, so nobody minds. It is also the town's quest log: the panel lists what each household wishes for (life2/wishes.ts).
    `town.wish` = { x, y (top left of its 3 x 3 tiles, `T.WELL`), coin, given, taken, log: [{ t, id, amt }] }. Art: `wishwell` in art/painters.ts, drawn standing up (YSORT). */
 
 const WELL: any = { minShare: 0.08, share0: 0.15, share1: 0.5, owe: 2, keep: 10, spare: 0.5, hour: 8 };
@@ -98,11 +98,17 @@ function wellDraw() {
   const ago = (t: number) => { const m = Math.max(0, game.time - t); return m < 60 ? 'just now' : m < 1440 ? Math.floor(m / 60) + ' h ago' : Math.floor(m / 1440) + ' d ago'; };
   const log = (w.log || []).slice(0, 8).map((e: any) => { const n = byId(e.id); return `<li>${esc(n ? n.first + ' ' + (n.surname || '') : 'Somebody')} <span class="dim">dropped in ${e.amt} · ${ago(e.t)}</span></li>`; }).join('') || '<li class="dim">Nobody has dropped anything in yet.</li>';
   const ten = Math.min(10, w.coin);
+  const open = typeof wishOpen === 'function' ? wishOpen() : [], done = typeof wishList === 'function' ? wishList().filter((q: any) => q.state === 'granted').slice(-4).reverse() : [];
+  const who = (id: any) => { const n = byId(id); return n ? esc(n.first + ' ' + (n.surname || '')) : 'Somebody'; };
+  const wl = open.map((q: any) => { const [h, nd] = wishProgress(q), left = Math.max(0, Math.ceil((q.until - game.time) / 1440)), town1 = q.key === 'town';
+    return `<li class="wlwish${town1 ? ' wltown' : ''}"><span class="wlstar">✦</span><span><b>${who(q.who)}</b> wishes for ${esc(WISH_DEF[q.kind].label)}${town1 ? ' <em>for the town</em>' : ''}</span><span class="dim">${nd > 1 ? h + ' of ' + nd + ' · ' : ''}${left} d left</span></li>`; }).join('') || '<li class="dim">No wishes yet.</li>';
+  const gl = done.map((q: any) => `<li class="wldone"><span class="wlstar">✓</span><span>${who(q.who)}: ${esc(WISH_DEF[q.kind].label)}</span><span class="dim">${ago(q.done)}</span></li>`).join('');
   d.innerHTML = `<div class="sphead"><b>The Wishing Well</b><span>What the households drop in is kept here for the town.</span><em>${Math.floor(P.coin)} coin</em><button type="button" class="btn spx" data-spx="1" aria-label="Close">✕</button></div>`
     + `<div class="wlbig"><span class="wlcoin"></span><b>${Math.floor(w.coin)}</b> coin in the well</div>`
     + `<div class="spbtns wlbtns"><button type="button" class="btn" data-wt="${ten}" ${ten < 1 ? 'disabled' : ''}>Take ${ten || 10}</button><button type="button" class="btn primary" data-wt="${w.coin}" ${w.coin < 1 ? 'disabled' : ''}>Take all ${Math.floor(w.coin)}</button></div>`
-    + `<div class="wlstats dim">Dropped in so far: ${w.given} · taken out: ${w.taken}</div><ul class="wllog">${log}</ul>`
-    + `<div class="spnote">${esc(SHOP.note || 'People still tell you what they need when you talk to them.')}</div>`;
+    + `<div class="wlh">Wishes</div><ul class="wllog wlwishes">${wl}${gl}</ul>`
+    + `<div class="wlh">Dropped in lately <span class="dim">(${w.given} in all · ${w.taken} taken out)</span></div><ul class="wllog">${log}</ul>`
+    + `<div class="spnote">${esc(SHOP.note || '')}</div>`;
   d.querySelectorAll('[data-wt]').forEach((b: any) => b.addEventListener('click', () => { const got = wellTake(+b.dataset.wt); SHOP.note = got ? `You took ${got} coin. Nobody saw.` : 'The well is empty.'; wellDraw(); }));
   const x = d.querySelector('[data-spx]'); if (x) x.addEventListener('click', shopClose);
   shopKeyMark();

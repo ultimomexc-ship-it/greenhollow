@@ -36,6 +36,8 @@ EVK('step_reached', 'place', { needs: ['qty'], tell: 0.1 });
 EVK('came_ashore', 'home', { needs: ['qty'], tell: 0.4 });
 EVK('apart', 'home', { tell: 0.5, tags: ['misfortune'] });
 EVK('rent_paid', 'home', { needs: ['price'], tell: 0.12 });
+EVK('wished', 'home', { tell: 0.3 });
+EVK('wish_granted', 'home', { tell: 0.7 });
 EVK('well_gave', 'home', { needs: ['price'], tell: 0.2 });
 EVK('rent_unpaid', 'home', { needs: ['price'], tell: 0.6, tags: ['misfortune'] });
 EVK('no_yard', 'home', { tell: 0.55, tags: ['misfortune'] });

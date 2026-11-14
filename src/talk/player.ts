@@ -63,6 +63,9 @@ const PT_LABEL: any = {
   confront_jealous: ['Heart', 'Ask about {about}'],
   snap: ['Heart', 'Snap at them'],
   blurt: ['Tell', 'Tell what happened'],
+  tell_wish: ['Tell', 'Tell their wish'],
+  wish_hope: ['Answer', 'Hope it comes true'],
+  wish_doubt: ['Answer', 'Doubt the well'],
   // answers
   odd_glad: ['Answer', 'Be glad for them'],
   odd_sorry: ['Answer', 'Feel for them'],

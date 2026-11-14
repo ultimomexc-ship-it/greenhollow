@@ -31,6 +31,28 @@ ACTS.blurt = {
   },
   replies: ['odd_glad', 'odd_sorry', 'odd_wonder', 'odd_explain']
 };
+// a wish made at the well, told to whoever they talk to (once each), so you hear what people wish for without going to the well
+ACTS.tell_wish = {
+  kind: 'life',
+  stage: 'topic',
+  when: (c: any, sp: any, li: any) => {
+    if (sp.player || typeof wishOf !== 'function') return false;
+    const w = wishOf(sp);
+    if (!w || (w.told && w.told[li.id])) return false;
+    c.lifeItem = 'wish:' + w.id;
+    return true;
+  },
+  w: () => 12,
+  apply: (c: any, sp: any, li: any) => {
+    const w = wishOf(sp);
+    if (!w) return;
+    (w.told || (w.told = {}))[li.id] = game.time;
+    c.newsHow = w.kind;
+  },
+  replies: ['wish_hope', 'wish_doubt']
+};
+ACTS.wish_hope = { kind: 'life', stage: 'topic', reply: true, when: (c: any) => !!c.newsHow, w: () => 3, apply: (c: any, sp: any, li: any) => lfAff(li, sp, 1, 'hoped my wish comes true'), replies: [] };
+ACTS.wish_doubt = { kind: 'life', stage: 'topic', reply: true, when: (c: any) => !!c.newsHow, w: () => 1, apply: () => {}, replies: [] };
 ACTS.odd_cry = { kind: 'life', stage: 'topic', when: () => false, apply: () => {}, replies: [] };
 const oddReply = (id: string, tone: string[], w: number, fx?: (c: any, sp: any, li: any) => void) => {
   ACTS[id] = {

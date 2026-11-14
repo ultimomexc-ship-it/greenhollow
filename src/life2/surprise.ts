@@ -7,8 +7,8 @@
 
 const SURP: any = { snap: null, pending: false, days: 3, cries: 4, criesLeft: 0 };
 /** most striking first: what is said first, and what the news is about */
-const SURP_ORDER = ['woke_moved', 'chair_moved', 'moved', 'bed_gone', 'roof_gone', 'bed_new', 'roof', 'bed_moved', 'yard_gone', 'yard', 'yard_open', 'window', 'window_gone', 'fields_more', 'fields_less'];
-const SURP_GOOD = ['bed_new', 'roof', 'yard', 'window', 'fields_more'];
+const SURP_ORDER = ['wish', 'woke_moved', 'chair_moved', 'moved', 'bed_gone', 'roof_gone', 'bed_new', 'roof', 'bed_moved', 'yard_gone', 'yard', 'yard_open', 'window', 'window_gone', 'fields_more', 'fields_less'];
+const SURP_GOOD = ['wish', 'bed_new', 'roof', 'yard', 'window', 'fields_more'];
 const SURP_BAD = ['bed_gone', 'roof_gone', 'yard_gone', 'yard_open', 'window_gone', 'fields_less'];
 const surpTone = (k: string) => (SURP_GOOD.includes(k) ? 'good' : SURP_BAD.includes(k) ? 'bad' : 'odd');
 /** what the news calls a change to somebody's home (the {place} of `ev:home_changed` / `ev:home_lost`) */
@@ -73,9 +73,9 @@ function surpAdd(n: any, list: any[], o: any = {}): any[] {
   // news: nobody did it, as far as anybody knows (no actor, no suspicion), and the one it happened to knows it first-hand
   const kind = k === 'woke_moved' || k === 'chair_moved' ? 'bed_moved' : k === 'moved' ? 'turned_up' : tone === 'bad' || k === 'bed_moved' ? 'home_lost' : 'home_changed';
   const place = kind === 'turned_up' || kind === 'bed_moved' ? surpWhere(n) : String(SURP_WHAT[k] || 'something').replace('their', n.female ? 'her' : 'his');
-  const ev = lfEmit(kind, { actor: null, target: n, x: n.tx, y: n.ty, sev: tone === 'good' ? 1 : 2, tags: ['mystery'], place, witnessIds: [n.id], chron: false });
+  const ev = o.noNews ? null : lfEmit(kind, { actor: null, target: n, x: n.tx, y: n.ty, sev: tone === 'good' ? 1 : 2, tags: ['mystery'], place, witnessIds: [n.id], chron: false });
   recs[0].ev = ev ? ev.id : null;
-  if (kind === 'turned_up' || kind === 'bed_moved') chron(`${n.first} ${k === 'woke_moved' ? 'woke up' : k === 'chair_moved' ? 'got up' : 'found themselves'} ${place}${k === 'woke_moved' ? ', bed and all' : k === 'chair_moved' ? ', chair and all' : ''}. Nobody knows how.`, 'life');
+  if (!o.noNews && (kind === 'turned_up' || kind === 'bed_moved')) chron(`${n.first} ${k === 'woke_moved' ? 'woke up' : k === 'chair_moved' ? 'got up' : 'found themselves'} ${place}${k === 'woke_moved' ? ', bed and all' : k === 'chair_moved' ? ', chair and all' : ''}. Nobody knows how.`, 'life');
   n.mood = Math.max(0, Math.min(100, (n.mood == null ? 60 : n.mood) + (tone === 'good' ? 4 : tone === 'bad' ? -6 : -2)));
   n.surp = keep.concat(recs).slice(-10);
   // they say so out loud, there and then, to nobody in particular

@@ -328,3 +328,26 @@ lx('ev:home_changed', 'plain', '{t} got {place} out of nowhere, and nobody saw w
 lx('ev:home_changed', 'plain', '{t} has {place} now, and nobody saw it arrive');
 lx('ev:home_lost', 'plain', "{t}'s {place} went missing, and nobody saw a thing");
 lx('ev:home_lost', 'plain', "{t}'s {place} just vanished");
+
+/* ---- wishes (talk/surprise.ts `tell_wish`, life2/wishes.ts) ---- */
+const WISH_LINES_P: any = {
+  bed: ['I made a wish at the well. A bed of my own, that is all.', "I wished for a bed. I'm tired of the ground."],
+  yard: ['I put a wish in the well for a yard. A fence round my things.', 'I wished for a yard of my own.'],
+  roof: ['I wished for a roof over my bed. Rain is no friend of mine.', 'My wish at the well? A roof.'],
+  room: ["I made a wish at the well: more room. We're on top of each other in there.", 'I wished for a bigger house. There are a lot of us.'],
+  window: ['I wished for a window. Some light in the house.', 'My wish is a window. Is that too much to ask?'],
+  fields: ['I put a wish in for more fields. More to grow, more to sell.', 'I wished for more fields.'],
+  flowers: ['I wished for flowers by my bed. Something nice to wake up to.', 'My wish? Flowers near the house.'],
+  hen: ['I wished for a hen! In our yard! A real one!', 'I put a wish in the well for a hen of our own.'],
+  seedstall: ['I made a wish for the whole town: a seed stall.', 'I wished we had a proper seed stall.'],
+  carpenter: ["I wished for a carpenter's stall. The town could use one.", "My wish was for the town: a carpenter."]
+};
+for (const k of Object.keys(WISH_LINES_P)) for (const t of WISH_LINES_P[k]) lx('tell_wish', 'plain', t, { how: k });
+lx('wish_hope', 'plain', 'I hope it comes true.', {});
+lx('wish_hope', 'plain', 'Fingers crossed for you.', {});
+lx('wish_doubt', 'plain', "You don't really think a well grants wishes?", {});
+lx('wish_doubt', 'plain', "It's a well. It holds water.", {});
+for (const t of ['I made a wish at the well, and it came true!', 'My wish came true! I only wished it a few days ago!', 'The well granted my wish. I never thought it would.']) lx('blurt', 'plain', t, { how: 'wish' });
+lx('odd_cry', 'plain', 'My wish! It came true!', { how: 'wish' });
+LXLP('wished', ['I made a wish at the well today.', 'Put a wish in the well.']);
+LXLP('wish_granted', ['My wish came true.', 'The well granted my wish.']);
