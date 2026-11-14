@@ -17,6 +17,7 @@ function tut2BotDecide(): any {
   if (s.do !== 'wait' || !s.bot) return st;
   let h: any = s.bot(T2); if (!h) return st; if (h.x != null) h = { stand: h };
   if (h.pressOnly) return Object.assign(st, { press: h.key });   // (just tap the key)
+  if (h.click) { if (!SHOP.open) return st; return Object.assign(st, { click: h.click }); }   // (a button in a panel)
   if (h.shop) { const sh = h.shop; if (!SHOP.open) return st; if (sh.close) return Object.assign(st, { click: '[data-spx]' }); if (SHOP.tab !== sh.tab) return Object.assign(st, { click: `[data-spt="${sh.tab}"]` }); return Object.assign(st, { click: `.sptile:nth-child(${sh.i + 1}) .spbtns button:${sh.all ? 'last-child' : 'first-child'}` }); }
   const DIR = (dx: number, dy: number) => dx > 0 ? 'ArrowRight' : dx < 0 ? 'ArrowLeft' : dy > 0 ? 'ArrowDown' : 'ArrowUp';
   const cur = P.moving && P.path && P.path.length ? P.path[P.path.length - 1] : { x: P.tx, y: P.ty };

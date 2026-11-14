@@ -2851,7 +2851,7 @@ test('crops and flowers: every crop is its own plant with its own art; flowers s
   return `${r.seeds} seeds, flowers bloom for 40 days then wither and are cleared`;
 });
 
-test('tutorial: the first morning plays from the old house to the clock starting, word for word, with B and the hammer locked until it is their turn; Junia hands over the first rent at your door', async b => {
+test('tutorial: the first morning plays from the old house to the clock starting, word for word, with B and the hammer locked until it is their turn; the well appears, Junia wishes for a fence and an axe and drops her first coin in it', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const early = await page.evaluate(() => { window.GH_NOTUT = false; window.GH_OLDSHOP = false; newTown('tutorial', 'hamlet'); const P = game.player, T2 = town.tut2;
     tut2Tick(0.05); const t0 = game.time; for (let i = 0; i < 30; i++) updateSim(2); itBuildToggle(P, true); itBag(true);
@@ -2864,14 +2864,14 @@ test('tutorial: the first morning plays from the old house to the clock starting
   const said = rep.said.filter(l => l.scene === 1).map(l => l.text);
   check(said.slice(0, 7).join(' | ') === ['Morning.', "You're new. Everybody is, here.", "This was mine. It's yours now.", "Don't ask how. I'm bad at the long version.", "Before anything else you'll want to eat.", "And for that you'll want a field.", 'Here. A hoe. The pointed end goes in the ground.'].join(' | '), 'Paullus says his lines in order: ' + said.join(' | '));
   const end = await page.evaluate(() => { const P = game.player, T2 = town.tut2, J = tut2Who('junia'), y = J && yardOfN(J);
-    return { coin: P.coin, tools: (P.items || []).map(i => i.kind).sort().join(), time: fmtTime(game.time), yard: !!y && y.cells.length, gate: TUT2_DONE.gate(T2.at.gate.x, T2.at.gate.y), sown: T2.at.jfield.filter(t => { const c = tut2Crop(t.x, t.y); return c && c.st; }).length, kitFence: town.kit.fence || 0, hidden: document.body.classList.contains('tut2'), pill: progStep(progState().step).title, nook: !!T2.nookOK, jbedAt: !!J && !!J.bed && J.bed.x === T2.at.jbed.x && J.bed.y === T2.at.jbed.y, rock: (() => { const r = tut2NookRock(); return !!r && r.x === T2.at.rockAside.x && r.y === T2.at.rockAside.y; })(), trees: (T2.at.trees || []).filter(t => grid[t.y][t.x] === T.TREE).length }; });
+    return { coin: P.coin, tools: (P.items || []).map(i => i.kind).sort().join(), time: fmtTime(game.time), yard: !!y && y.cells.length, gate: TUT2_DONE.gate(T2.at.gate.x, T2.at.gate.y), sown: T2.at.jfield.filter(t => { const c = tut2Crop(t.x, t.y); return c && c.st; }).length, kitFence: town.kit.fence || 0, hidden: document.body.classList.contains('tut2'), pill: progStep(progState().step).title, well: !!town.wish && !!(ART.BYID.wishwell), axe: !!J && (J.items || []).some(i => i.kind === 'axe'), wishes: (town.wishes || []).filter(w => w.who === (J && J.id)).map(w => w.kind + ':' + w.state).sort().join(), deposit: !!town.wish && town.wish.log.filter(e => e.id === (J && J.id)).length >= 2, nook: !!T2.nookOK, jbedAt: !!J && !!J.bed && J.bed.x === T2.at.jbed.x && J.bed.y === T2.at.jbed.y, rock: (() => { const r = tut2NookRock(); return !!r && r.x === T2.at.rockAside.x && r.y === T2.at.rockAside.y; })(), trees: (T2.at.trees || []).filter(t => grid[t.y][t.x] === T.TREE).length }; });
   check(end.nook && end.jbedAt && end.rock && end.trees === 3, "the puzzle: Junia's bed pushed into the grove, the rock into its opening and aside, her bed through the gap onto its spot in her yard: " + JSON.stringify(end));
-  check(end.coin === 23 && end.tools === 'hammer,hoe' && end.time === '12:00', 'you end with 23 coin (the turnips sold at 5 for moving Junia), a hoe and a hammer, at noon: ' + JSON.stringify(end));
-  check(end.yard === 12 && end.gate && end.sown === 6 && end.kitFence === 1 && !end.hidden, "Junia's yard (12 tiles, a gate), six sown plots, the knocked-out fence back in the kit, the HUD back: " + JSON.stringify(end));
+  check(end.coin === 39 && end.tools === 'hammer,hoe' && end.time === '12:00', 'you end with 39 coin (turnips at 5, Junia\'s coin from the well, the axe given away), a hoe and a hammer, at noon: ' + JSON.stringify(end));
+  check(end.yard === 12 && end.gate && end.kitFence === 1 && !end.hidden && end.well && end.axe && /axe:granted/.test(end.wishes) && /yard:granted/.test(end.wishes) && end.deposit, "Junia's yard (12 tiles, a gate), the well shown with her wishes granted, her axe and her first deposit, the knocked-out fence back in the kit, the HUD back: " + JSON.stringify(end));
   check(end.pill === "Walls round Junia's bed", 'the first step after the tutorial: ' + end.pill);
   await simulate(page, 22 * 60);
-  const rent = await page.evaluate(() => ({ coin: game.player.coin, done: town.tut2.rent1, chron: town.chron.some(c => /Junia paid the first rent/.test(c.text || c)) }));
-  check(rent.done === 'done' && rent.coin === 25 && rent.chron, 'the next morning Junia hands over 2 coin in person: ' + JSON.stringify(rent));
+  const after = await page.evaluate(() => ({ rent: (town.rent || {}).total || 0, rent1: town.tut2.rent1 || null }));
+  check(after.rent === 0 && !after.rent1, 'no rent the next morning: the well has taken its place: ' + JSON.stringify(after));
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));
   return `played in ${rep.secs.toFixed(0)} s of real time (bubbles skipped), ${rep.said.length} lines`;
 });

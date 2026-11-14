@@ -22,6 +22,7 @@ const WISH_DEF: any = {
   fields: { label: 'more fields', ok: (n: any) => { const [h, nd] = wishFields(n); return h >= nd; }, prog: wishFields },
   flowers: { label: 'flowers near the bed', ok: (n: any) => rentHome(n).flowers },
   hen: { label: 'a hen in the yard', child: true, ok: (n: any) => { const y = wishYard(n); return !!y && henCount(y) >= 1; } },
+  axe: { label: 'an axe', ok: (n: any) => (n.items || []).some((i: any) => i.kind === 'axe') },
   seedstall: { label: 'a seed stall', town: true, unlock: 'seedstall', ok: () => wishBuilt('stallseed') },
   carpenter: { label: "a carpenter's stall", town: true, unlock: 'carpenter', ok: () => wishBuilt('stallcarp') }
 };

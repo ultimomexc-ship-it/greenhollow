@@ -67,6 +67,8 @@ function tut2Start(P: any, TR: any, st: any) {
   if (TR.first !== 'Paullus') { town.used && town.used.add && town.used.add('Paullus'); TR.first = 'Paullus'; }
   P.coin = 15;
   const at = tut2Layout(st); if (!at) throw new Error('no room for the tutorial');
+  // the wishing well is on the island from the start, unseen: its place is kept clear, and it shows itself when Junia makes the first wish (scene 6)
+  { const B = TUT2_MAP.box, o = at.o; at.well = typeof wellFind === 'function' ? wellFind(st.x, st.y, null, (x: number, y: number) => x >= o.x + B.x0 - 1 && x <= o.x + B.x1 + 1 && y >= o.y + B.y0 - 1 && y <= o.y + B.y1 + 1) : null; }
   // the old house: wall, window and door blocks, sealed into a room by the same code that seals what you build
   const spots: [number, number][] = [];
   for (const c of at.house) { const k = c.x === at.door.x && c.y === at.door.y ? 'bdoor' : c.x === at.window.x && c.y === at.window.y ? 'bwindow' : 'bwall'; lfAddProp(k, c.x, c.y); spots.push([c.x, c.y]); }

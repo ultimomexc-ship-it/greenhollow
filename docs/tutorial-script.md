@@ -224,6 +224,12 @@ The tutorial island is the Hamlet's ground with these places, found by the scena
 20. **SAY** Junia: "I don't know who to give it to, so I'm giving it to you."
 21. **GIVE** Her rent (`rentOf`: 2 coin, a yard with no roof) moves from her coin to yours. Chronicle line: "Junia paid the first rent." From then on rent is collected the normal way.
 
+## The well and the axe (scenes 6 and 8, built)
+
+- **Scene 6, after the rock is pushed aside:** Junia: "I was ironing a shirt, and then there was sand." "I've decided not to think about it." "Is there anywhere you make wishes, here?" She walks to an empty patch of the square and flips a coin over her shoulder: no clink, a plop, and the well fades in where it landed (it was there all along, unseen), glowing, with a chime. Junia: "That's new." "I'd like a place of my own. With a fence round it." (her first wish, in the well). Paullus: "I've stood here eleven years." "That's new." To you: "Coin goes in. Wishes go in." "Somebody has to take them out." Walk into the well: the panel shows her wish; take her coin (Take all); close it. Then the fences, bought with her coin and your turnip money.
+- **End of scene 7:** when the gate is in, her wish comes true. Junia: "I wished for a fence." "I got a fence."
+- **Scene 8 (replaces the field):** at the well: "I'd like something to do." "Something with an axe, maybe." (her second wish). Paullus: "An axe. I have one of those." He sells it to you ("It's for her, I suppose. Four."). Walk into Junia to give it to her: "An axe." "You've brought me an axe." "I wished for one at the well. This was quicker." Paullus: "There's her first job, then." She fells a tree near her yard ("Timber."), sells the wood to Paullus ("Two each."), and drops her first coin in the well: "For the well." "It seemed only fair." Paullus: "That's the whole of it." "Grow it. Build it. Let the well take the credit." The clock starts. No rent at the door: the well has taken its place.
+
 ## Ideas to try
 
 - **Teach Shift (turn on the spot) at the fence's bottom row.** The bottom row of Junia's ring is built from its east end facing west, and the player arrives there walking east, so they face the wrong way. Today a rock happens to lie just east of that spot (the owner's playthrough). If something that cannot be pushed stood there instead (a tree, or a post), walking east would do nothing, and the strip could say "Hold Shift and press a direction to turn without moving", which teaches Shift exactly where it is needed. The layout would place it on purpose rather than by luck.

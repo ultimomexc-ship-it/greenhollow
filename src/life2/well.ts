@@ -9,23 +9,30 @@ const wellAt = (x: number, y: number): boolean => { const w = town && town.wish;
 /** how much of what they earn somebody puts in the well: a little when miserable, half when delighted */
 function wellShare(n: any): number { const m = n.mood == null ? 60 : n.mood; return m < 30 ? WELL.minShare : WELL.share0 + (WELL.share1 - WELL.share0) * Math.min(1, (m - 30) / 60); }
 /** put the well down near (cx, cy): a clear 3 x 3 patch with a tile of open ground round it, cleared of trees, rocks and bushes; the ring round it is paved */
-function wellPlace(cx: number, cy: number, taken?: Set<number>): any {
-  const ok = (x: number, y: number) => x >= 3 && y >= 3 && x < W - 3 && y < (town.h0 || H) - 3 && [T.GRASS, T.PATH, T.SAND, T.TREE, T.ROCK].includes(grid[y][x]) && roomAt[y][x] < 0 && !lfPropAt(x, y) && !(taken && taken.has(y * W + x))
+function wellFind(cx: number, cy: number, taken?: Set<number>, avoid?: (x: number, y: number) => boolean): any {
+  const ok = (x: number, y: number) => x >= 3 && y >= 3 && x < W - 3 && y < (town.h0 || H) - 3 && [T.GRASS, T.PATH, T.SAND, T.TREE, T.ROCK].includes(grid[y][x]) && roomAt[y][x] < 0 && !lfPropAt(x, y) && !(taken && taken.has(y * W + x)) && !(avoid && avoid(x, y))
     && !(town.markets || []).some((m: any) => (m.plaza || []).some((p: any) => p.x === x && p.y === y)) && !(town.stalls || []).some((s: any) => Math.abs(s.x - x) <= 1 && Math.abs(s.y - y) <= 2) && !tileOwner.get(y * W + x);
   for (let r = 3; r < 30; r++) for (let k = 0; k < 24; k++) {
     const a = k / 24 * 6.283, x0 = Math.round(cx + Math.cos(a) * r) - 1, y0 = Math.round(cy + Math.sin(a) * r) - 1; let fine = true;
     for (let j = -1; j <= 3 && fine; j++) for (let i = -1; i <= 3; i++) if (!ok(x0 + i, y0 + j)) { fine = false; break; }
-    if (!fine) continue;
-    for (let j = -1; j <= 3; j++) for (let i = -1; i <= 3; i++) { const x = x0 + i, y = y0 + j, key = y * W + x; if (taken) taken.add(key);
-      if (town.nodeMap && town.nodeMap.has(key)) { const nd = town.nodeMap.get(key); town.nodes = town.nodes.filter((q: any) => q !== nd); town.nodeMap.delete(key); }
-      setT(x, y, i >= 0 && i < 3 && j >= 0 && j < 3 ? T.WELL : T.PATH); }
-    markDirty(x0 - 1, y0 - 1, 5, 5); town.gridV = (town.gridV || 0) + 1;
-    town.wish = { x: x0, y: y0, coin: 0, given: 0, taken: 0, log: [] };
-    if (typeof refreshReach === 'function') refreshReach();
-    return town.wish;
+    if (fine) return { x: x0, y: y0 };
   }
   return null;
 }
+/** put the well down at (x0, y0): 3 x 3 of `T.WELL` with a paved ring round it, cleared of trees, rocks and bushes; whoever stands there steps aside */
+function wellPut(x0: number, y0: number, taken?: Set<number>): any {
+  for (let j = -1; j <= 3; j++) for (let i = -1; i <= 3; i++) { const x = x0 + i, y = y0 + j, key = y * W + x; if (taken) taken.add(key);
+    if (town.nodeMap && town.nodeMap.has(key)) { const nd = town.nodeMap.get(key); town.nodes = town.nodes.filter((q: any) => q !== nd); town.nodeMap.delete(key); }
+    setT(x, y, i >= 0 && i < 3 && j >= 0 && j < 3 ? T.WELL : T.PATH); }
+  markDirty(x0 - 1, y0 - 1, 5, 5); town.gridV = (town.gridV || 0) + 1;
+  town.wish = { x: x0, y: y0, coin: 0, given: 0, taken: 0, log: [] };
+  for (const n of npcs) if (n.path && n.path.some((q: any) => wellAt(q.x, q.y))) { if (n.moving && n.path[0] && wellAt(n.path[0].x, n.path[0].y)) { n.x = n.tx; n.y = n.ty; } n.path = []; n.moving = false; }   // (nobody walks on into it)
+  for (const n of npcs) if (wellAt(n.tx, n.ty)) { const sp = wellSpot(n); if (sp) { if (tileOwner.get(n.ty * W + n.tx) === n) tileOwner.delete(n.ty * W + n.tx); n.tx = n.x = sp.x; n.ty = n.y = sp.y; n.path = []; n.moving = false; tileOwner.set(sp.y * W + sp.x, n); } }
+  if (typeof refreshReach === 'function') refreshReach();
+  return town.wish;
+}
+/** put the well down near (cx, cy): a clear 3 x 3 patch with a tile of open ground round it */
+function wellPlace(cx: number, cy: number, taken?: Set<number>): any { const f = wellFind(cx, cy, taken); return f ? wellPut(f.x, f.y, taken) : null; }
 /** where somebody stands to drop coin in: an open tile beside the well, the nearest to them */
 function wellSpot(n: any): any {
   const w = town.wish; if (!w) return null; const c: any[] = [];
@@ -121,5 +128,6 @@ const _wellShopClose = shopClose; shopClose = function () { SHOP.well = false; r
 /* ---- drawn standing up, in depth order with people: whoever is behind it goes behind its roof ---- */
 YSORT.push(function (c: any, now: number) {
   const w = town && town.wish; if (!w) return []; const v = gaView(); if (w.x + 3 < v.x0 - 1 || w.x > v.x1 + 1 || w.y + 3 < v.y0 - 2 || w.y - 2 > v.y1) return [];
-  return [{ k: w.y + 2.9, f: () => { const it = (ART.BYID as any).wishwell; if (!it) return; c.drawImage(ART.frameOf(it, gaFrame(it, now, w.x + w.y)), w.x * TS, (w.y - 1) * TS, 3 * TS, 4 * TS); } }];
+  return [{ k: w.y + 2.9, f: () => { const it = (ART.BYID as any).wishwell; if (!it) return; const a = w.fade ? Math.min(1, (now - w.fade) / 1800) : 1;   // (fading in, the first time it is seen)
+    if (a <= 0) return; c.save(); c.globalAlpha = a; c.drawImage(ART.frameOf(it, gaFrame(it, now, w.x + w.y)), w.x * TS, (w.y - 1) * TS, 3 * TS, 4 * TS); c.restore(); } }];
 });
