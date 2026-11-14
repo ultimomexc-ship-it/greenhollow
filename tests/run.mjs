@@ -1238,9 +1238,13 @@ test('talk and needs: while two people talk their hunger, bladder and tiredness 
 
 test('life slice: farming, trade and needs report real events; villagers tell their day from them, listeners sympathise with troubles, and the town panel counts what people suffered', async b => {
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
+  // (the farming village: it plants, trades and harvests every day; the ready village hardly trades in three days, and once passed here only on state left by earlier tests)
+  await page.evaluate(() => newTown('life-slice', 'farm'));
   await simulate(page, 3 * 1440);
+  const real = await page.evaluate(() => { const dg = LIFE.digest(3).kinds; return { planted: dg.planted || 0, bought: dg.bought || 0, sold: dg.sold || 0, harvested: dg.harvested || 0 }; });
+  await page.evaluate(() => newTown('greenhollow-test'));
   const r = await page.evaluate(() => {
-    const out = {}; const dg = LIFE.digest(3).kinds; out.real = { planted: dg.planted || 0, bought: dg.bought || 0, sold: dg.sold || 0, harvested: dg.harvested || 0 };
+    const out = {};
     out.count = [lxCount(1, 'cabbages'), lxCount(7, 'barley'), lxCount(1, 'strawberries'), lxCount(1, 'corn'), lxCount(12, 'turnips')];
     out.troubleKinds = Object.keys(LIFE_TROUBLE).every(k => REG.has('event', k));
     // a person with a bad night and a busy morning tells a friend
@@ -1253,6 +1257,7 @@ test('life slice: farming, trade and needs report real events; villagers tell th
     out.troubles = LIFE.troubles(2).map(t => t.kind + ':' + t.people);
     // the panel
     return out; });
+  r.real = real;
   check(r.real.planted > 5 && r.real.bought >= 1 && r.real.harvested >= 1, 'a normal three days reports planting, trade and harvest from the game itself: ' + JSON.stringify(r.real));
   check(r.count.join('|') === 'a cabbage|7 barley|a strawberry|a little corn|12 turnips', 'counts are said the way people say them: ' + r.count.join('|'));
   check(r.recent.length >= 2 && r.recent[0].startsWith('slept_rough'), 'the day is grouped (six plantings are one line) and the worst comes first: ' + JSON.stringify(r.recent));
@@ -1432,11 +1437,11 @@ test('hamlet yards: a fence ring with a gate is a yard, beds inside make the hou
     const t = targetAt0(P, cIn.x, cIn.y); out.refuse = t === null ? 'walk over' : (t && (t.msg || t.key)); const t2 = targetAt0(P, cOut.x, cOut.y); out.own = !!(t2 && t2.key);
     return out;
   });
-  check(r.start[0] === 1 && r.start[1] && /yard$/.test(r.start[2]) && r.start[3] && r.start[4], 'at the start the trader has the only yard, the family has no beds and yours is in the open: ' + JSON.stringify(r.start));
+  check(r.start[0] === 1 && !r.start[1] && /yard$/.test(r.start[2]) && r.start[3] && r.start[4], 'at the start the trader\'s yard is the only one (empty: he has no bed), the family has no beds and yours is in the open: ' + JSON.stringify(r.start));
   check(r.gateWalk && r.fenceBlocks, 'a gate is walked through and a fence is not');
   check(r.noGate === 1 && r.small === 1, 'a ring with no gate, or too small, is not a yard: ' + JSON.stringify([r.noGate, r.small]));
   check(r.yard[0] === 2 && r.yard[2] === 20 && r.yard[3] === 1 && r.yard[4] === 22, 'a ring of fences with a gate is a yard: ' + JSON.stringify(r.yard));
-  check(r.moved === 'true,true,true' && r.house === 3 && r.notHomeless && /^the \w+ yard$/.test(r.name), 'the family moves into its beds, together: ' + JSON.stringify([r.moved, r.house, r.name]));
+  check(r.moved === 'true,true,true' && r.house === 3 && r.notHomeless && /^the yard of \w+, \w+ and \w+$/.test(r.name), 'the family moves into its beds, together: ' + JSON.stringify([r.moved, r.house, r.name]));
   check(r.hh === 3 && r.pantry, 'the household is the yard, its pantry the yard store');
   check(r.rights === 'true,false,false,false,true', 'fields belong to the yard they are in; those outside every yard are yours: ' + r.rights);
   check(r.refuse === 'walk over' && r.own, 'a field in somebody else\'s yard is walked over and left alone, your own is worked: ' + r.refuse);
@@ -1472,17 +1477,17 @@ test('hamlet yards: a fence ring with a gate is a yard, beds inside make the hou
     // closed again: a yard again, and the family is its household because their beds stand in it
     lfAddProp('fence', __again.x, __again.y); yardHousing(); const Y2 = yardAtXY(ax + 2, ay + 2); out.again = [!!Y2, Y2 && yardPeople(Y2).length]; window.__Y = Y2;
     // a bed pushed into another yard moves its owner, and nobody else
-    const ty = yardOfN(TR), free = ty.cells.find(k => !town.propAt.get(k)); __move(kid.bed, free % W, (free / W) | 0); yardHousing();
+    const ty = town.yards.find(y => y !== Y2 && y.open == null), free = ty.cells.find(k => !town.propAt.get(k)); __move(kid.bed, free % W, (free / W) | 0); yardHousing();
     out.kid = [yardOfN(kid) === ty, yardPeople(ty).length, yardPeople(Y2).length];
     // save and restore
-    const json = isleCapture(); isleRestore(json); const k2 = npcs.find(n => n.id === kid.id), t2 = npcs.find(n => n.shop);
-    out.saved = [town.yards.length, town.yardAt.size > 20, yardOfN(k2) === yardOfN(t2), yardPeople(yardOfN(t2)).length, town.yards.every(y => y.cells.every(k => town.yardAt.get(k) === y))];
+    const tyId = ty.id, json = isleCapture(); isleRestore(json); const k2 = npcs.find(n => n.id === kid.id), t2y = town.yards.find(y => y.id === tyId);
+    out.saved = [town.yards.length, town.yardAt.size > 20, yardOfN(k2) === t2y, yardPeople(t2y).length, town.yards.every(y => y.cells.every(k => town.yardAt.get(k) === y))];
     return out;
   });
   check(r4.gone[0] && r4.gone[1] === 1 && r4.gone[2] && r4.warn === 3, 'after a day open the yard is gone and its people have beds but no yard: ' + JSON.stringify(r4));
   check(r4.again[0] && r4.again[1] === 3, 'closing the ring makes it a yard again with the same household: ' + JSON.stringify(r4.again));
-  check(r4.kid[0] && r4.kid[1] === 2 && r4.kid[2] === 2, 'a bed moved into another yard takes its owner with it, and nobody else: ' + JSON.stringify(r4.kid));
-  check(r4.saved[0] === 2 && r4.saved.slice(1, 3).every(Boolean) && r4.saved[3] === 2 && r4.saved[4], 'yards survive save and restore: ' + JSON.stringify(r4.saved));
+  check(r4.kid[0] && r4.kid[1] === 1 && r4.kid[2] === 2, 'a bed moved into another yard takes its owner with it, and nobody else: ' + JSON.stringify(r4.kid));
+  check(r4.saved[0] === 2 && r4.saved.slice(1, 3).every(Boolean) && r4.saved[3] === 1 && r4.saved[4], 'yards survive save and restore: ' + JSON.stringify(r4.saved));
   check(errors.length === 0, 'no page errors: ' + errors.slice(0, 2).join(' | '));
   await page.close();
   return 'yards close, open with a day of grace, house the family, keep fields to their household, warn before leaving, and save';
@@ -3032,11 +3037,11 @@ test('build town: twenty people in fenced yards, each household in a sealed hous
   const { page, errors } = await openGame(b, GAME, { rng: 41, town: 'greenhollow-test' });
   const r0 = await page.evaluate(() => { newTown('build-town-test', 'town');
     return { pop: npcs.length, scen: town.scenario, variant: town.variant, lived: town.yards.filter(y => yardPeople(y).length).length, huts: rooms.filter(r => !r.dead && r.hut).length,
-      bedless: npcs.filter(n => !n.bed || n.bed.x == null).length, roofless: npcs.filter(n => !n.homeRoom && n !== (town.markets.find(m => m.def) || {}).n && !n.shop).length, sown: town.crops.filter(c => c.st).length, tut: !!town.tut2 }; });
+      bedless: npcs.filter(n => (!n.bed || n.bed.x == null) && !isPaullus(n)).length, roofless: npcs.filter(n => !n.homeRoom && n !== (town.markets.find(m => m.def) || {}).n && !n.shop).length, sown: town.crops.filter(c => c.st).length, tut: !!town.tut2 }; });
   check(r0.pop === 20 && r0.scen === 'hamlet' && r0.variant === 'town' && !r0.tut, 'twenty people under the yard rules, no tutorial: ' + JSON.stringify(r0));
-  check(r0.lived >= 10 && r0.huts >= 9 && r0.bedless === 0 && r0.roofless === 0 && r0.sown > 10, 'every household in a yard and a house, a bed each, fields growing: ' + JSON.stringify(r0));
+  check(r0.lived >= 9 && r0.huts >= 9 && r0.bedless === 0 && r0.roofless === 0 && r0.sown > 10, 'every household in a yard and a house, a bed each, fields growing: ' + JSON.stringify(r0));
   await simulate(page, 3 * 1440);
-  const r1 = await page.evaluate(() => ({ pop: npcs.filter(n => !n.dead).length, road: town.chron.filter(c => /arrived from the road/.test(c.text)).length, bedless: npcs.filter(n => !n.bed || n.bed.x == null).length, hungry: npcs.filter(n => n.hunger > 80).length, harvested: LIFE.digest(3).kinds.harvested || 0, rent: (town.wish || {}).given || 0 }));
+  const r1 = await page.evaluate(() => ({ pop: npcs.filter(n => !n.dead).length, road: town.chron.filter(c => /arrived from the road/.test(c.text)).length, bedless: npcs.filter(n => (!n.bed || n.bed.x == null) && !isPaullus(n)).length, hungry: npcs.filter(n => n.hunger > 80).length, harvested: LIFE.digest(3).kinds.harvested || 0, rent: (town.wish || {}).given || 0 }));
   check(r1.road === 0 && r1.bedless === 0 && r1.pop >= 20, 'nobody turns up from the road to sleep rough: ' + JSON.stringify(r1));
   check(r1.hungry <= 2 && r1.harvested > 20 && r1.rent > 0, 'three days later they are fed, harvesting and putting coin in the well: ' + JSON.stringify(r1));
   check(errors.length === 0, 'no errors: ' + errors.slice(0, 2).join(' | '));

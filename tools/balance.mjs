@@ -76,14 +76,14 @@ await page.evaluate(([policy, seed, tune, price]) => {
   };
   /** what the bot would build next: { what, cost, run } */
   B.next = () => {
-    const pol = B.policy, pl = P, ppl = npcs.filter(n => !n.dead && n !== pl), bedless = ppl.filter(n => !yardHasBed(n));
+    const pol = B.policy, pl = P, ppl = npcs.filter(n => !n.dead && n !== pl), bedless = ppl.filter(n => !yardHasBed(n) && !isPaullus(n));
     const lived = B.built.filter(r => { const Y = town.yards.find(y => y.id === r.id); return Y && yardPeople(Y).length; }), empty = B.built.filter(r => { const Y = town.yards.find(y => y.id === r.id); return Y && !yardPeople(Y).length; });
     if (B.own.n < 6) return { what: 'own fields', cost: PR.field, run: () => B.ownField(Math.min(6 - B.own.n, Math.floor(P.coin / PR.field))) };
     if (pol === 'lazy') return B.own.n < 24 ? { what: 'own fields', cost: PR.field * 3, run: () => B.ownField(Math.min(6, Math.floor(P.coin / PR.field))) } : null;
     if (bedless.length && !empty.length) { const k = Math.min(5, bedless.length), y = B.yardPlan(k); return { what: `a yard for the ${k} without beds`, cost: y.shell, run: () => B.buildYard(k, false) }; }
     for (const r of lived) if (r.fields < r.pl.fields) return { what: 'fields for a household', cost: PR.field * 3, run: () => B.fieldsFor(r, Math.min(6, Math.floor(P.coin / PR.field))) };
     if (B.own.n < B.ownTarget) return { what: 'own fields', cost: PR.field * 3, run: () => B.ownField(Math.min(6, Math.floor(P.coin / PR.field))) };
-    const hh = town.yards.filter(y => y.open == null && yardPeople(y).length).length + (yardOfN(pl) ? 0 : 1);
+    const hh = progHouseholds();
     if (pol === 'steady' && hh >= 5) for (const r of lived) { if (!r.room) return { what: 'a room round the beds', cost: r.pl.room, run: () => B.roomFor(r) }; if (!r.flowers) return { what: 'poppies by the beds', cost: r.pl.flowers, run: () => B.flowersFor(r) }; }
     for (const r of empty) { const Y = town.yards.find(y => y.id === r.id); if (Y && !yardFreeBeds(Y).length) { const k = [1, 2, 4][B.cycle % 3]; return { what: `${k} bed${k > 1 ? 's' : ''} for an empty yard`, cost: PR.bed * k, run: () => { let n = 0; for (let i = 0; i < k; i++) { const sp = arrBedSpot(Y, null); if (!sp) break; const b = lfAddProp('bed', sp.x, sp.y); b.v = i; b.rot = 0; n++; } spend(PR.bed * n); yardScan(true); yardHousing(); B.cycle++; note('put ' + n + ' beds in an empty yard'); } }; } }
     for (const r of empty) if (r.fields < r.pl.fields) return { what: 'fields for the empty yard', cost: PR.field * 3, run: () => B.fieldsFor(r, Math.min(6, Math.floor(P.coin / PR.field))) };
@@ -94,7 +94,7 @@ await page.evaluate(([policy, seed, tune, price]) => {
   /** the progression steps of docs/minimum-game.md, the day each was first true */
   B.check = () => {
     const pl = P, day = +(game.time / 1440).toFixed(2), ppl = npcs.filter(n => !n.dead && n !== pl), st = B.steps, set = (k, ok) => { if (ok && st[k] == null) { st[k] = day; note('step reached: ' + k); } };
-    const fam = ppl.filter(n => !n.shop).slice(0, 3), hh = town.yards.filter(y => y.open == null && yardPeople(y).length).length + (yardOfN(pl) ? 0 : 1);
+    const fam = ppl.filter(n => !n.shop).slice(0, 3), hh = progHouseholds();
     const roofed = ppl.every(n => rentTrader(n) || (yardHasBed(n) && rentHome(n).roof)), hungry = ppl.filter(n => n.hunger > 70).length, mood = ppl.reduce((s, n) => s + n.mood, 0) / Math.max(1, ppl.length);
     progTick(); const names = ['1 shelter the family', '2 first harvest sold', '3 five households', '4 everyone under a roof', '5 the island thrives'], done = (town.prog && town.prog.done) || {};   // (the game's own steps: life2/progress.ts)
     for (let k = 1; k <= 5; k++) set(names[k - 1], done[k] != null);
@@ -121,7 +121,7 @@ for (let d = 0; d < days; d++) {
   const s = await page.evaluate(() => BOT.snap()); s.maxHungry = maxHungry; maxHungry = 0; daysOut.push(s);
   process.stdout.write(`day ${String(s.day).padStart(2)}  pop ${String(s.pop).padStart(2)}  hh ${String(s.hh).padStart(2)}  coin ${String(s.coin).padStart(4)}  rent ${s.rent}/${s.due}  farm ${s.farm}  spent ${s.spent}  hungry ${s.maxHungry}  mood ${s.mood}  next: ${s.want || '-'} (${s.wantCost})\n`);
 }
-if (opt('why', '')) console.log(await page.evaluate(() => JSON.stringify({ blocked: arrBlocked(), arrYard: !!arrYard(), arr: town.arr, bedless: npcs.filter(n => !n.dead && n !== game.player && n.age >= 3 && !yardHasBed(n)).map(n => [n.first, n.age, n.homeless, !!n.moveBed]), hungry: npcs.filter(n => n.hunger > 70).map(n => [n.first, Math.round(n.hunger), n.status]), empty: town.yards.filter(y => !yardPeople(y).length).map(y => [y.id, yardFreeBeds(y).length, y.open]) })));
+if (opt('why', '')) console.log(await page.evaluate(() => JSON.stringify({ blocked: arrBlocked(), arrYard: !!arrYard(), arr: town.arr, bedless: npcs.filter(n => !n.dead && n !== game.player && n.age >= 3 && !yardHasBed(n) && !isPaullus(n)).map(n => [n.first, n.age, n.homeless, !!n.moveBed]), hungry: npcs.filter(n => n.hunger > 70).map(n => [n.first, Math.round(n.hunger), n.status]), empty: town.yards.filter(y => !yardPeople(y).length).map(y => [y.id, yardFreeBeds(y).length, y.open]) })));
 if (opt('debug', '')) console.log(await page.evaluate(() => JSON.stringify({ own: BOT.own, built: BOT.built.map(r => [r.x0, r.y0, r.pl.w, r.pl.h, r.id]), yards: town.yards.map(y => { const xs = y.cells.map(k => k % W), ys = y.cells.map(k => (k / W) | 0); return [y.id, y.cells.length, Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys), y.gates.length, y.open]; }) })));
 const fin = await page.evaluate(() => ({ strayFields: town.crops.filter(c => typeof c.f === 'number').length, steps: BOT.steps, log: BOT.log, spent: BOT.spent, farm: BOT.farm, rent: (town.rent || {}).total || 0, prices: HAMLET_PRICES, tune: HAMLET_TUNE, rentRule: [HAMLET_TUNE.rentBase, HAMLET_TUNE.rentRoof, HAMLET_TUNE.rentWindow, HAMLET_TUNE.rentFlowers], weddings: town.weddings, digest: LIFE.digest(60).kinds }));
 await browser.close();

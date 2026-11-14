@@ -32882,7 +32882,7 @@ const progFamily = () => {
 };
 function progHouseholds() {
   const pl = yardPlayer();
-  return (town.yards || []).filter((y) => y.open == null && yardPeople(y).length).length + (pl && !yardOfN(pl) ? 1 : 0);
+  return (town.yards || []).filter((y) => y.open == null && yardPeople(y).length).length + (pl && !yardOfN(pl) ? 1 : 0) + (npcs.some((n) => isPaullus(n) && !yardOfN(n)) ? 1 : 0);
 }
 function progRoofed() {
   const ppl = npcs.filter((n) => !n.dead && !rentTrader(n));

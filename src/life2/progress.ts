@@ -7,7 +7,7 @@ const progState = (): any => town.prog || (town.prog = { step: 1, done: {}, sold
 /** the family that was there before you: the first three who are not you or the trader */
 const progFamily = (): any[] => { const pl = yardPlayer(); return (town.hamletFamily || []).map((id: number) => byId(id)).filter((n: any) => n && !n.dead && n !== pl); };
 /** households: lived-in yards (the trader's and yours count), plus you when you have no yard */
-function progHouseholds(): number { const pl = yardPlayer(); return (town.yards || []).filter((y: any) => y.open == null && yardPeople(y).length).length + (pl && !yardOfN(pl) ? 1 : 0); }
+function progHouseholds(): number { const pl = yardPlayer(); return (town.yards || []).filter((y: any) => y.open == null && yardPeople(y).length).length + (pl && !yardOfN(pl) ? 1 : 0) + (npcs.some((n: any) => isPaullus(n) && !yardOfN(n)) ? 1 : 0); }   // (Paullus, who has no bed, is a household of his own)
 /** everybody but the trader: is their bed inside a sealed room? */
 function progRoofed(): [number, number] { const ppl = npcs.filter((n: any) => !n.dead && !rentTrader(n)); return [ppl.filter((n: any) => yardHasBed(n) && rentHome(n).roof).length, ppl.length]; }
 /** where the island stands on a step: { n, title, say, how, rows: [label, have, need][], who, met } */
