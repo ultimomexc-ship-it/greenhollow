@@ -21021,7 +21021,7 @@ function visNeeds() {
   const pl = game.player;
   if (!pl || !town || town.scenario !== "blank" && town.scenario !== "hamlet") return;
   for (const n of npcs) {
-    if (n.player || n.dead || n.infant || n.pose === "sleep" || Math.hypot(n.tx - pl.tx, n.ty - pl.ty) > 16) continue;
+    if (n.player || n.dead || n.infant || n.pose === "sleep" || isPaullus(n) || Math.hypot(n.tx - pl.tx, n.ty - pl.ty) > 16) continue;
     const said = n.said = n.said || {}, once = (k, t) => {
       if (game.time - (said[k] || -1e9) < 360) return false;
       said[k] = game.time;
@@ -21487,7 +21487,7 @@ function drawStallSigns(c, now) {
     const t = st.tiles[0];
     if (t.x < v.x0 - 1 || t.x >= v.x1 || t.y < v.y0 || t.y >= v.y1) continue;
     if (typeof canSee === "function" && !canSee(t.x, t.y)) continue;
-    const open = m.serving || typeof isOpen === "function" && isOpen(m) || typeof HAMLET_TRADER_DEF !== "undefined" && m.def === HAMLET_TRADER_DEF, px = t.x * TS, py = t.y * TS;
+    const open = m.serving || typeof isOpen === "function" && isOpen(m) || typeof HAMLET_TRADER_DEF !== "undefined" && m.def === HAMLET_TRADER_DEF && !(typeof paullusOut === "function" && paullusOut(m.n) && !tut2Active()), px = t.x * TS, py = t.y * TS;
     c.fillStyle = "#2a2332";
     c.fillRect(px + 14.6 * u, py + 15.2 * u, 9.2 * u, 4.6 * u);
     c.fillStyle = open ? "#4f9a4a" : "#b8453c";
@@ -26950,6 +26950,7 @@ function farmShopDialog(m) {
 }
 const HAMLET_TUNE = { pay: 1, carter: 0.5, carterKeep: 0.4, rentBase: 2, rentRoof: 1, rentWindow: 1, rentFlowers: 1, startCoin: 60, famCoin: 20 };
 const HAMLET_SEEDS = ["barley", "turnip", "cabbage", "poppy"];
+const isPaullus = (n) => !!n && !!n.shop && n.shop.def === HAMLET_TRADER_DEF && !n.dead;
 const HAMLET_TRADER_DEF = { buys: {}, sells: {}, open: [6, 19], tool: "wipe", noun: "trading stall", get pay() {
   return HAMLET_TUNE.pay;
 } };
@@ -27107,8 +27108,9 @@ function hamletStart(big) {
         f.rot = 0;
         taken.add((at.y + j) * W + at.x + i);
       }
-      bedFor(TR, at.x + 2, at.y + 2);
-    } else bedFor(TR, cx + 6, cy + 4);
+    }
+    TR.bed = { owner: null };
+    TR.homeless = true;
   }
   put(TR, st.front.x, st.front.y);
   put(a, cx, cy + 1);
@@ -31655,7 +31657,7 @@ function yardHousing() {
   };
   const done = /* @__PURE__ */ new Set();
   for (const n of npcs) {
-    if (n.dead || done.has(n) || !n.homeless || n.infant) continue;
+    if (n.dead || done.has(n) || !n.homeless || n.infant || isPaullus(n)) continue;
     const grp = yardGroup(n);
     grp.forEach((o) => done.add(o));
     const need = grp.filter((o) => o.homeless).sort((a, b) => a.age - b.age);
@@ -31906,7 +31908,7 @@ function rentContent() {
   if (!yardOn()) return;
   const pl = yardPlayer();
   for (const n of npcs) {
-    if (n.dead || n.infant || n === pl || n.mods === void 0) continue;
+    if (n.dead || n.infant || n === pl || n.mods === void 0 || isPaullus(n)) continue;
     const h = rentHome(n), set = (id, on, text, v) => {
       if (on) lfMod(n, id, text, v, 1500);
       else if ((n.mods || []).some((m) => m.id === id)) n.mods = n.mods.filter((m) => m.id !== id);
@@ -32446,6 +32448,60 @@ function wishTick() {
 }
 LF2.hourly.push(() => wishTick());
 const wishOf = (n) => wishOpen().find((w) => w.who === n.id) || null;
+const PAULLUS = { replacedBy: ["stallseed", "stallcarp", "stallgrocer"], wanderR: 22 };
+const paullusOut = (n) => {
+  if (!isPaullus(n)) return false;
+  const h = game.time % 1440 / 60, o = HAMLET_TRADER_DEF.open;
+  return h < o[0] || h >= o[1];
+};
+LF2.tickers.push(() => {
+  for (const n of npcs) if (isPaullus(n)) {
+    n.energy = Math.max(n.energy || 0, 90);
+    n.bladder = 0;
+  }
+});
+function paullusSpot(n) {
+  for (let i = 0; i < 30; i++) {
+    const x = n.tx + Math.round((Math.random() * 2 - 1) * PAULLUS.wanderR), y = n.ty + Math.round((Math.random() * 2 - 1) * PAULLUS.wanderR);
+    if (!grid[y] || !walkable(x, y) || lfPropAt(x, y) || roomAt[y][x] >= 0 || town.yardAt && town.yardAt.has(y * W + x) || tileOwner.get(y * W + x)) continue;
+    if (![T.GRASS, T.PATH, T.SAND].includes(grid[y][x])) continue;
+    return { x, y, face: null };
+  }
+  return null;
+}
+function paullusPlan(n) {
+  if (!paullusOut(n) || n.tutHold) return null;
+  const sp = paullusSpot(n);
+  if (!sp) return [waitS(20, "stand", "Standing about in the dark")];
+  return [goS(sp, "Wandering about while the stall is shut"), waitS(10 + Math.random() * 30, "stand", Math.random() < 0.5 ? "Looking at the sea" : "Looking at nothing in particular")];
+}
+const _pDecide = decide;
+decide = function(n) {
+  if (isPaullus(n)) {
+    const p = paullusPlan(n);
+    if (p) return p;
+  }
+  return _pDecide(n);
+};
+function paullusMayLeave() {
+  if (town.tut2 && !town.tut2.done) return false;
+  return PAULLUS.replacedBy.every((k) => (town.stalls || []).some((s) => s.built === k));
+}
+function paullusLeave(n) {
+  if (!n || n.dead) return;
+  if (game.player && lfDist(n, game.player) <= 16 && typeof tut2Say === "function") tut2Say(n, "That's me done here. You'll manage.", game.player);
+  chron(`${n.first} shut the trading stall for the last time and left the island. Nobody saw the boat.`, "note");
+  n.dead = true;
+  n.gone = true;
+  n.plan = null;
+  tileOwner.delete(n.ty * W + n.tx);
+  town.paullusGone = game.time;
+}
+LF2.hourly.push(() => {
+  if (town.paullusGone) return;
+  const n = npcs.find((q) => isPaullus(q));
+  if (n && paullusMayLeave()) paullusLeave(n);
+});
 const ARR_FIRST = 0.5, ARR_GAP = [1.5, 2.5], ARR_KIDS = 3;
 function arrYard() {
   if (!yardOn()) return null;
@@ -32454,7 +32510,7 @@ function arrYard() {
 }
 function arrBlocked() {
   const pl = yardPlayer();
-  if (npcs.some((n) => !n.dead && n !== pl && n.age >= 3 && !yardHasBed(n))) return "bedless";
+  if (npcs.some((n) => !n.dead && n !== pl && n.age >= 3 && !yardHasBed(n) && !isPaullus(n))) return "bedless";
   if (npcs.some((n) => !n.dead && n !== pl && n.hunger > 70 && yardOfN(n))) return "hungry";
   return null;
 }
@@ -35651,7 +35707,7 @@ function talkState(n) {
   if (n.ill) return "ill";
   if (n.hunger > 70) return "hungry";
   if (typeof yardOn === "function" && yardOn() && !n.player) {
-    if (!yardHasBed(n)) return "bedless";
+    if (!yardHasBed(n) && !isPaullus(n)) return "bedless";
     if (n.rentLast && !n.rentLast.ok && game.time - n.rentLast.t < 1440) return "behind";
   }
   if (n.energy != null && n.energy < 30) return "tired";
@@ -36660,7 +36716,7 @@ function reqWant(n) {
     const k = REQ_FOOD.filter((k2) => GOODS[k2]).sort((a, b) => (GOODS[b].sat || 0) - (GOODS[a].sat || 0))[0];
     return { kind: "item", item: k };
   }
-  if (n.homeless && !n.player) return { kind: "bed" };
+  if (n.homeless && !n.player && !isPaullus(n)) return { kind: "bed" };
   return null;
 }
 const reqOpen = (n, to, kind) => (n.reqs || []).find((r) => r.state !== "done" && r.state !== "failed" && r.to === to.id && r.kind === kind);
@@ -36900,7 +36956,7 @@ const wishWant = (n) => {
     const w = wishOf(n);
     if (w) return { kind: w.kind, w };
   }
-  if (typeof wishPick !== "function" || n.player) return null;
+  if (typeof wishPick !== "function" || n.player || isPaullus(n)) return null;
   const p = wishPick([n], "ask:" + n.id);
   return p && p.n === n ? { kind: p.kind, w: null } : null;
 };

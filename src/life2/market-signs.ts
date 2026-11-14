@@ -10,7 +10,7 @@ function drawStallSigns(c: any, now: number) {
   for (const m of merchants) {
     const st = m.post; if (!st || st.gone || !st.tiles || !st.tiles[0]) continue; const t = st.tiles[0]; if (t.x < v.x0 - 1 || t.x >= v.x1 || t.y < v.y0 || t.y >= v.y1) continue;
     if (typeof canSee === 'function' && !canSee(t.x, t.y)) continue;
-    const open = m.serving || (typeof isOpen === 'function' && isOpen(m)) || (typeof HAMLET_TRADER_DEF !== 'undefined' && m.def === HAMLET_TRADER_DEF), px = t.x * TS, py = t.y * TS;   // (the Hamlet's trader never shuts)
+    const open = m.serving || (typeof isOpen === 'function' && isOpen(m)) || (typeof HAMLET_TRADER_DEF !== 'undefined' && m.def === HAMLET_TRADER_DEF && !(typeof paullusOut === 'function' && paullusOut(m.n) && !tut2Active())), px = t.x * TS, py = t.y * TS;   // (the Hamlet's trader shuts only while he is out walking at night)
     c.fillStyle = '#2a2332'; c.fillRect(px + 14.6 * u, py + 15.2 * u, 9.2 * u, 4.6 * u);
     c.fillStyle = open ? '#4f9a4a' : '#b8453c'; c.fillRect(px + 15 * u, py + 15.6 * u, 8.4 * u, 3.8 * u);
     c.fillStyle = '#fff6dc'; c.font = 'bold ' + ((open ? 2.3 : 1.85) * u) + 'px system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(open ? 'OPEN' : 'CLOSED', px + 19.2 * u, py + 17.5 * u);

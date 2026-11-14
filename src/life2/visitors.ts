@@ -107,7 +107,7 @@ LF2.hourly.push(() => visitorMutter());
 function visNeeds() {
   const pl = game.player; if (!pl || !town || (town.scenario !== 'blank' && town.scenario !== 'hamlet')) return;
   for (const n of npcs) {
-    if (n.player || n.dead || n.infant || n.pose === 'sleep' || Math.hypot(n.tx - pl.tx, n.ty - pl.ty) > 16) continue;
+    if (n.player || n.dead || n.infant || n.pose === 'sleep' || isPaullus(n) || Math.hypot(n.tx - pl.tx, n.ty - pl.ty) > 16) continue;
     const said = n.said = n.said || {}, once = (k, t) => { if (game.time - (said[k] || -1e9) < 360) return false; said[k] = game.time; lfShout(n, t); return true; };
     const homeless = town.scenario === 'hamlet' ? !(n.bed && n.bed.x != null) : !n.homeRoom || !n.bed || n.bed.owner !== n;
     const food = FOODS.reduce((s, g) => s + (n.inv[g] || 0), 0) + (n.homeRoom && n.homeRoom.pantry ? FOODS.reduce((s, g) => s + (n.homeRoom.pantry[g] || 0), 0) : 0);

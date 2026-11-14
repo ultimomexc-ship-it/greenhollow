@@ -12,7 +12,7 @@ function arrYard(): any {
 /** why nobody comes yet (null when somebody may) */
 function arrBlocked(): string | null {
   const pl = yardPlayer();
-  if (npcs.some((n: any) => !n.dead && n !== pl && n.age >= 3 && !yardHasBed(n))) return 'bedless';
+  if (npcs.some((n: any) => !n.dead && n !== pl && n.age >= 3 && !yardHasBed(n) && !isPaullus(n))) return 'bedless';
   if (npcs.some((n: any) => !n.dead && n !== pl && n.hunger > 70 && yardOfN(n))) return 'hungry';
   return null;
 }

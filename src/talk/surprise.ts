@@ -57,7 +57,7 @@ const wishWant = (n: any): any => {
     const w = wishOf(n);
     if (w) return { kind: w.kind, w };
   }
-  if (typeof wishPick !== 'function' || n.player) return null;
+  if (typeof wishPick !== 'function' || n.player || isPaullus(n)) return null;
   const p = wishPick([n], 'ask:' + n.id);
   return p && p.n === n ? { kind: p.kind, w: null } : null;
 };

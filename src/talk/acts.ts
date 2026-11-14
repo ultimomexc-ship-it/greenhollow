@@ -236,7 +236,7 @@ function talkState(n: any): string | undefined {
   if (n.ill) return 'ill';
   if (n.hunger > 70) return 'hungry';
   if (typeof yardOn === 'function' && yardOn() && !n.player) {
-    if (!yardHasBed(n)) return 'bedless';
+    if (!yardHasBed(n) && !isPaullus(n)) return 'bedless';
     if (n.rentLast && !n.rentLast.ok && game.time - n.rentLast.t < 1440) return 'behind';
   }
   if (n.energy != null && n.energy < 30) return 'tired';

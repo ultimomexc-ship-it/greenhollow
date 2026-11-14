@@ -12,7 +12,7 @@ function reqWant(n: any): any {
     const k = REQ_FOOD.filter(k => GOODS[k]).sort((a, b) => (GOODS[b].sat || 0) - (GOODS[a].sat || 0))[0];
     return { kind: 'item', item: k };
   }
-  if (n.homeless && !n.player) return { kind: 'bed' };
+  if (n.homeless && !n.player && !isPaullus(n)) return { kind: 'bed' };
   return null;
 }
 const reqOpen = (n: any, to: any, kind: string) =>

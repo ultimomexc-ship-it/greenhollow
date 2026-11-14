@@ -40,7 +40,7 @@ function rentCollect() {
 function rentContent() {
   if (!yardOn()) return; const pl = yardPlayer();
   for (const n of npcs) {
-    if (n.dead || n.infant || n === pl || n.mods === undefined) continue;
+    if (n.dead || n.infant || n === pl || n.mods === undefined || isPaullus(n)) continue;
     const h = rentHome(n), set = (id: string, on: boolean, text: string, v: number) => { if (on) lfMod(n, id, text, v, 1500); else if ((n.mods || []).some((m: any) => m.id === id)) n.mods = n.mods.filter((m: any) => m.id !== id); };
     set('yard', !h.yard, yardHasBed(n) ? 'has a bed but no yard' : 'has no bed and no yard', -12);
     set('roof', h.roof, 'sleeps under a roof', 6); set('window', h.roof && h.window, 'has a window', 3); set('flowers', h.flowers, 'flowers by the bed', 3);

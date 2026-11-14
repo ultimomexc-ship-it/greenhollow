@@ -5,6 +5,8 @@
 const HAMLET_TUNE: any = { pay: 1, carter: 0.5, carterKeep: 0.4, rentBase: 2, rentRoof: 1, rentWindow: 1, rentFlowers: 1, startCoin: 60, famCoin: 20 };
 const HAMLET_SEEDS = ['barley', 'turnip', 'cabbage', 'poppy'];
 /** the one trader: sells four seeds (the building items come in the next step) and buys every crop */
+/** Paullus, the trader: the one person on the island who is not like the others (life2/paullus.ts) */
+const isPaullus = (n: any): boolean => !!n && !!n.shop && n.shop.def === HAMLET_TRADER_DEF && !n.dead;
 const HAMLET_TRADER_DEF: any = { buys: {} as any, sells: {} as any, open: [6, 19], tool: 'wipe', noun: 'trading stall', get pay() { return HAMLET_TUNE.pay; } };
 for (const k of HAMLET_SEEDS) HAMLET_TRADER_DEF.sells['seed_' + k] = IT_SEEDS[k] && IT_SEEDS[k].flower ? 14 : 30;
 for (const g of Object.keys(GROCER_DEF.buys)) { HAMLET_TRADER_DEF.buys[g] = GROCER_DEF.buys[g] * 3; if (g !== 'flowers') HAMLET_TRADER_DEF.sells[g] = GROCER_DEF.buys[g] * 3; }   // (one stall for the whole island: three times the greengrocer's room)   // (he sells food too: a household whose fields fall short buys it back)
@@ -49,13 +51,13 @@ function hamletStart(big?: boolean) {   // (big: the build town, life2/buildtown
   const put = (n: any, x0: number, y0: number) => { const p = spot(x0, y0); abortPlan(n); n.tx = n.x = p.x; n.ty = n.y = p.y; n.path = []; n.moving = false; n.pose = 'stand'; n.face = { dx: 0, dy: 1 }; };
   const cx = town.cx, cy = town.cy; if (!town.props) lfInitProps();
   bedFor(P, cx - 5, cy + 3); put(P, cx - 4, cy + 3);
-  // the trader's own yard: a ring of fence with a gate, his bed inside (he pays no rent; it shows what a yard is)
+  // the trader's own yard: a ring of fence with a gate, empty (he does not sleep and has no bed: life2/paullus.ts; it shows what a yard is)
   { const okT = (x: number, y: number) => x > 4 && y > 4 && x < W - 5 && y < (town.h0 || H) - 5 && (grid[y][x] === T.GRASS || grid[y][x] === T.PATH) && walkable(x, y) && !lfPropAt(x, y) && !taken.has(y * W + x) && !(town.nodeMap && town.nodeMap.has(y * W + x));
     let at: any = null;
     for (let r = 7; r < 22 && !at; r++) for (let k = 0; k < 40 && !at; k++) { const an = k / 40 * 6.283, x0 = Math.round(cx + Math.cos(an) * r * 1.2), y0 = Math.round(cy + Math.sin(an) * r); let ok = true; for (let j = -1; j <= 5 && ok; j++) for (let i = -1; i <= 6 && ok; i++) if (!okT(x0 + i, y0 + j)) ok = false; if (ok) at = { x: x0, y: y0 }; }
     if (at) { const gx = at.x + (at.x > cx ? 0 : 5), gy = at.y + 2;
       for (let j = 0; j < 5; j++) for (let i = 0; i < 6; i++) if (i === 0 || j === 0 || i === 5 || j === 4) { const f: any = lfAddProp(at.x + i === gx && at.y + j === gy ? 'gate' : 'fence', at.x + i, at.y + j); f.rot = 0; taken.add((at.y + j) * W + at.x + i); }
-      bedFor(TR, at.x + 2, at.y + 2); } else bedFor(TR, cx + 6, cy + 4); }
+    } TR.bed = { owner: null }; TR.homeless = true; }
   put(TR, st.front.x, st.front.y);
   put(a, cx, cy + 1); put(b, cx + 1, cy + 1); put(c, cx, cy + 2);
   town.lfPV = (town.lfPV || 0) + 1; rebuildOcc(); refreshReach(); yardScan(true); yardHousing();

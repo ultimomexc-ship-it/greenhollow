@@ -129,7 +129,7 @@ function yardHousing() {
   const give = (n: any, b: any) => { b.owner = n; n.bed = b; sync(n); if (typeof abortPlan === 'function' && !n.player) abortPlan(n); };
   const done = new Set<any>();
   for (const n of npcs) {
-    if (n.dead || done.has(n) || !n.homeless || n.infant) continue;
+    if (n.dead || done.has(n) || !n.homeless || n.infant || isPaullus(n)) continue;
     const grp = yardGroup(n); grp.forEach(o => done.add(o));
     const need = grp.filter(o => o.homeless).sort((a, b) => a.age - b.age); if (!need.length) continue;
     if (grp.includes(pl)) { if (pl.homeless) { const b = (town.props || []).filter((p: any) => p.kind === 'bed' && !p.owner && !(yardAtXY(p.x, p.y) && yardPeople(yardAtXY(p.x, p.y)).length)).sort((a: any, c: any) => Math.hypot(a.x - pl.tx, a.y - pl.ty) - Math.hypot(c.x - pl.tx, c.y - pl.ty))[0]; if (b) give(pl, b); } }
